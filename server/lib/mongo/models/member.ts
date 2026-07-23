@@ -30,6 +30,15 @@ const memberSchema = new mongoose.Schema({
   displayName: {type: String, required: true},
   contactId: {type: String},
   salesforceId: {type: String, index: true, sparse: true},
+  salesforceMemberRef: {type: String, index: true, sparse: true},
+  salesforceTeamStatus: {type: String},
+  salesforceTeamRelationshipFrom: {type: Number},
+  wellbeingWalker: {type: Boolean},
+  walkLeader: {type: Boolean},
+  canEmailVolunteers: {type: Boolean},
+  canEmailMembers: {type: Boolean},
+  canEmailWellbeingWalkers: {type: Boolean},
+  canViewMemberData: {type: Boolean},
   firstName: {type: String, required: true},
   lastName: {type: String, required: true},
   memberAdmin: {type: Boolean},
@@ -94,7 +103,12 @@ const memberSchema = new mongoose.Schema({
     senderEmail: {type: String},
     blockedAt: {type: Number},
     syncedAt: {type: Number},
-    source: {type: String}
+    source: {type: String},
+    salesforceBounceEventKey: {type: String},
+    salesforceBounceStatus: {type: String},
+    salesforceBounceAttempts: {type: Number},
+    salesforceBounceLastAttemptAt: {type: Number},
+    salesforceBounceError: {type: String}
   },
 }, {collection: "members"});
 

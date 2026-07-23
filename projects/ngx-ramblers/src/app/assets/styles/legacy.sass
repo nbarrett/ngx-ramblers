@@ -393,6 +393,32 @@ h3 small
   align-items: center
   justify-content: center
 
+.input-group > .btn.btn-text
+  min-width: auto
+  min-height: 38px
+  width: auto
+  padding: 0 0.75rem
+  gap: 0.35rem
+  white-space: nowrap
+  line-height: 1
+
+  fa-icon, svg
+    display: block
+    line-height: 1
+    width: 1em
+    height: 1em
+
+.input-group > app-secret-input
+  flex: 1 1 auto
+  min-width: 0
+
+.input-group > app-secret-input .form-control
+  height: 38px
+
+.input-group > app-secret-input:not(:last-child) .form-control
+  border-top-right-radius: 0 !important
+  border-bottom-right-radius: 0 !important
+
 .input-group > .form-control
   height: 38px
 

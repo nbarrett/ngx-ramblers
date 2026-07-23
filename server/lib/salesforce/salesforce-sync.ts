@@ -1,44 +1,34 @@
 import debug from "debug";
 import {
   MemberBulkLoadAudit,
-  RamblersMember
+  RamblersMember,
 } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import {
-  SALESFORCE_BULK_LOAD_SOURCE,
-  SalesforceChangeType,
+  MemberBulkLoadSource,
   SalesforceConfig,
-  SalesforceMember
 } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig as loadSystemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
-import { dateTimeFromIso, dateTimeNow, dateTimeNowAsValue, formatDateTime } from "../shared/dates";
-import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { dateTimeNowAsValue } from "../shared/dates";
 import { fetchSalesforceMembers } from "./salesforce-client";
 import { configuredSalesforce, parseGroupCodes, persistSalesforceConfig } from "./salesforce-config";
 import { mapSalesforceMemberToRamblersMember } from "./salesforce-member-mapper";
+import {
+  SalesforceMember,
+  SalesforceSyncOptions,
+  SalesforceSyncOutcome,
+  SnapshotReconciliation,
+} from "./salesforce.model";
 import { memberBulkLoadAudit } from "../mongo/models/member-bulk-load-audit";
 
 const debugLog = debug(envConfig.logNamespace("salesforce-sync"));
 debugLog.enabled = true;
 
-export interface SalesforceSyncOptions {
-  fullSync?: boolean;
-  createdBy?: string;
-}
-
-export interface SalesforceSyncOutcome {
-  audit: MemberBulkLoadAudit;
-  config: SalesforceConfig;
-  status: number;
-  errorCode?: string;
-  errorMessage?: string;
-}
-
 function emptyAudit(createdBy: string | undefined): MemberBulkLoadAudit {
   return {
     files: { archive: null, data: null },
-    source: SALESFORCE_BULK_LOAD_SOURCE,
+    source: MemberBulkLoadSource.RAMBLERS_TEAM_EMAILS,
     auditLog: [],
     members: [],
     createdDate: dateTimeNowAsValue(),
@@ -66,32 +56,61 @@ function ensureGroupCodes(systemConfig: SystemConfig): string[] {
   return parseGroupCodes(systemConfig?.group?.groupCode);
 }
 
-function mapMembers(salesforceMembers: SalesforceMember[], enableGranularConsent: boolean): RamblersMember[] {
-  return salesforceMembers.map(member => mapSalesforceMemberToRamblersMember(member, { enableGranularConsent }));
+function identityKeysOf(member: Partial<RamblersMember>): string[] {
+  return [
+    member.salesforceMemberRef,
+    member.salesforceId,
+    member.membershipNumber,
+    member.email,
+  ].filter((key): key is string => !!key);
 }
 
-function appendMembers(audit: MemberBulkLoadAudit, salesforceMembers: SalesforceMember[], enableGranularConsent: boolean): RamblersMember[] {
-  const mapped = mapMembers(salesforceMembers, enableGranularConsent);
-  audit.members.push(...mapped);
-  return mapped;
+function findMatchingMember(members: RamblersMember[], candidate: RamblersMember): RamblersMember | null {
+  const candidateKeys = new Set(identityKeysOf(candidate));
+  return members.find(member => identityKeysOf(member).some(key => candidateKeys.has(key))) ?? null;
+}
+
+export function reconcileSupporterSnapshot(
+  previousMembers: RamblersMember[],
+  supporters: SalesforceMember[],
+): SnapshotReconciliation {
+  const mapped = supporters.map(mapSalesforceMemberToRamblersMember);
+  const currentMembers = mapped.reduce((result, candidate) => {
+    const existing = findMatchingMember(result, candidate);
+    return existing
+      ? result.map(member => member === existing ? {...member, ...candidate} : member)
+      : [...result, candidate];
+  }, [] as RamblersMember[]);
+
+  const counts = {newCount: 0, changedCount: 0, unchangedCount: 0};
+  const reconciled = currentMembers.map(current => {
+    const previous = findMatchingMember(previousMembers, current);
+    if (!previous) {
+      counts.newCount += 1;
+      return current;
+    }
+    const merged = {...previous, ...current};
+    if (JSON.stringify(previous) === JSON.stringify(merged)) {
+      counts.unchangedCount += 1;
+    } else {
+      counts.changedCount += 1;
+    }
+    return merged;
+  });
+
+  const disappeared = previousMembers.filter(previous => !findMatchingMember(currentMembers, previous));
+  return {
+    members: reconciled,
+    newCount: counts.newCount,
+    changedCount: counts.changedCount,
+    unchangedCount: counts.unchangedCount,
+    disappearedCount: disappeared.length,
+  };
 }
 
 async function previousBulkLoadMembers(): Promise<RamblersMember[]> {
   const latestAudit = await memberBulkLoadAudit.findOne().sort({ createdDate: -1 }).lean().exec();
   return latestAudit?.members ?? [];
-}
-
-function identityKeysOf(member: { salesforceId?: string; membershipNumber?: string }): string[] {
-  return [member.salesforceId, member.membershipNumber].filter(key => !!key);
-}
-
-export function rebuildFullMemberList(previousMembers: RamblersMember[], additions: RamblersMember[], removals: SalesforceMember[]): RamblersMember[] {
-  const supersededKeys = new Set([...removals, ...additions].flatMap(identityKeysOf));
-  const retainedMembers = previousMembers.filter(member => {
-    const keys = identityKeysOf(member);
-    return keys.length === 0 || !keys.some(key => supersededKeys.has(key));
-  });
-  return [...retainedMembers, ...additions];
 }
 
 export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Promise<SalesforceSyncOutcome> {
@@ -100,15 +119,14 @@ export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Pr
   if (!salesforceConfig) {
     logError(audit, "Salesforce integration is not configured.");
     return { audit, config: null, status: 0, errorCode: "NOT_CONFIGURED", errorMessage: "Salesforce integration is not configured." };
-  }
-  if (!salesforceConfig.enabled) {
+  } else if (!salesforceConfig.enabled) {
     logError(audit, "Salesforce integration is disabled in System Settings.");
     return { audit, config: salesforceConfig, status: 0, errorCode: "DISABLED", errorMessage: "Salesforce integration is disabled." };
-  }
-  if (!salesforceConfig.endpointBaseUrl) {
+  } else if (!salesforceConfig.endpointBaseUrl) {
     logError(audit, "Salesforce endpoint base URL is not configured.");
     return { audit, config: salesforceConfig, status: 0, errorCode: "NOT_CONFIGURED", errorMessage: "Salesforce endpoint base URL is not configured." };
   }
+
   const systemConfig = await loadSystemConfig();
   const groupCodes = ensureGroupCodes(systemConfig);
   if (groupCodes.length === 0) {
@@ -116,71 +134,42 @@ export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Pr
     return { audit, config: salesforceConfig, status: 0, errorCode: "GROUP_CODE_MISSING", errorMessage: "Group code is not configured." };
   }
 
-  const requestedFullSync = !!options.fullSync;
-  const since = requestedFullSync ? undefined : salesforceConfig.lastSyncCursor;
-  const syncMode = since ? `incremental since ${formatDateTime(dateTimeFromIso(since), UIDateFormat.DISPLAY_DATE_AND_TIME)}` : "full";
-  const enableGranularConsent = !!salesforceConfig.enableGranularConsent;
-  logInfo(audit, `Starting Salesforce sync (${syncMode}) for groups ${groupCodes.join(", ")} via ${salesforceConfig.endpointBaseUrl}. Granular consent: ${enableGranularConsent ? "respected" : "ignored (Insight Hub parity mode)"}.`);
-
+  logInfo(audit, `Starting Ramblers Team Emails supporter snapshot for ${groupCodes.join(", ")} via ${salesforceConfig.endpointBaseUrl}.`);
   const startedAt = dateTimeNowAsValue();
-  const tenantStatuses: number[] = [];
-  const incrementalAdded: SalesforceMember[] = [];
-  const incrementalUpdated: SalesforceMember[] = [];
-  const incrementalRemovals: SalesforceMember[] = [];
+  const statuses: number[] = [];
+  const supporters: SalesforceMember[] = [];
 
   for (const groupCode of groupCodes) {
-    const result = await fetchSalesforceMembers(salesforceConfig, {
-      groupCode,
-      ...(since ? { since } : {}),
-    });
+    const result = await fetchSalesforceMembers(salesforceConfig, { groupCode });
     if (!result.data) {
-      const message = `Salesforce sync failed for group ${groupCode}: ${result.errorCode || "UNKNOWN"} - ${result.errorMessage || "no response body"} (status ${result.status}, ${result.latencyMs}ms).`;
+      const message = `Supporter snapshot failed for ${groupCode}: ${result.errorCode || "UNKNOWN"} - ${result.errorMessage || "no response body"} (status ${result.status}, ${result.latencyMs}ms).`;
       logError(audit, message);
-      return {
-        audit,
-        config: salesforceConfig,
-        status: result.status,
-        errorCode: result.errorCode,
-        errorMessage: result.errorMessage,
-      };
+      return { audit, config: salesforceConfig, status: result.status, errorCode: result.errorCode, errorMessage: result.errorMessage };
     }
-    tenantStatuses.push(result.status);
-    const response = result.data;
-    logInfo(audit, `Salesforce returned ${response.totalCount ?? response.members?.length ?? 0} members for ${response.groupCode} (${response.groupName}) in ${result.latencyMs}ms.`);
-    if (since) {
-      const changes = response.changes ?? [];
-      const added = changes.filter(change => change.changeType === SalesforceChangeType.Added).map(change => change.member);
-      const updated = changes.filter(change => change.changeType === SalesforceChangeType.Updated).map(change => change.member);
-      const removals = changes.filter(change => change.changeType === SalesforceChangeType.Removed).map(change => change.member);
-      incrementalAdded.push(...added);
-      incrementalUpdated.push(...updated);
-      incrementalRemovals.push(...removals);
-      logInfo(audit, `Incremental sync for ${groupCode}: ${added.length} added, ${updated.length} updated, ${removals.length} removed.`);
-    } else if (response.members && response.members.length > 0) {
-      appendMembers(audit, response.members, enableGranularConsent);
-    }
+    statuses.push(result.status);
+    supporters.push(...result.data);
+    logInfo(audit, `Ramblers Team Emails returned ${result.data.length} supporters for ${groupCode} in ${result.latencyMs}ms.`);
   }
 
-  if (since) {
-    const previousMembers = await previousBulkLoadMembers();
-    const mappedAdditions = mapMembers([...incrementalAdded, ...incrementalUpdated], enableGranularConsent);
-    audit.members = rebuildFullMemberList(previousMembers, mappedAdditions, incrementalRemovals);
-    logInfo(audit, `Incremental sync rebuilt full member list from ${previousMembers.length} previously loaded: ${incrementalAdded.length} added, ${incrementalUpdated.length} updated, ${incrementalRemovals.length} removed, ${audit.members.length} members now.`);
-  }
+  const previousMembers = await previousBulkLoadMembers();
+  const reconciliation = reconcileSupporterSnapshot(previousMembers, supporters);
+  audit.members = reconciliation.members;
+  logInfo(
+    audit,
+    `Snapshot reconciliation: ${reconciliation.newCount} new, ${reconciliation.changedCount} changed, ${reconciliation.unchangedCount} unchanged and ${reconciliation.disappearedCount} no longer present in this snapshot (not prepared for apply).`,
+  );
 
-  const cursor = dateTimeNow().toISO();
   const updatedConfig: SalesforceConfig = {
     ...salesforceConfig,
     lastSyncedAt: dateTimeNowAsValue(),
-    lastSyncCursor: cursor,
+    lastSyncCursor: null,
   };
   await persistSalesforceConfig(updatedConfig);
-
-  logComplete(audit, `Salesforce sync complete: mapped ${audit.members.length} members in ${dateTimeNowAsValue() - startedAt}ms.`);
+  logComplete(audit, `Supporter snapshot complete: ${audit.members.length} records prepared in ${dateTimeNowAsValue() - startedAt}ms.`);
 
   return {
     audit,
     config: updatedConfig,
-    status: tenantStatuses[tenantStatuses.length - 1] ?? 0,
+    status: statuses[statuses.length - 1] ?? 0,
   };
 }

@@ -24,8 +24,8 @@ interface PolicyModeOption {
       <div class="thumbnail-heading">Member sync policy</div>
       <div class="col-sm-12">
         <p class="form-text text-muted mb-3">
-          Controls, field by field, how inbound member data from Head Office (Insight Hub xlsx upload or the Salesforce
-          member API) is applied to the local member record. Changes here are saved with the rest of the System Settings
+          Controls, field by field, how inbound member data from Head Office (Insight Hub xlsx upload or Ramblers Team
+          Emails) is applied to the local member record. Changes here are saved with the rest of the System Settings
           when you click <em>Save</em>.
         </p>
         <ul class="form-text text-muted mb-3">

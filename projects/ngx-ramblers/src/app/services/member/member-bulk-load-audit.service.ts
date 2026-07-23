@@ -50,6 +50,31 @@ export class MemberBulkLoadAuditService {
     return apiResponse.response as MemberBulkLoadAudit;
   }
 
+  async clearAll(): Promise<{ deletedCount: number; message: string; memberUpdateAuditsDeleted?: number }> {
+    this.logger.info("clearAll: clearing all member bulk load audit sessions");
+    const apiResponse = await firstValueFrom(this.http.post<{ response: { deletedCount: number; message: string; memberUpdateAuditsDeleted?: number } }>(`${this.BASE_URL}/clear-all`, {}));
+    this.logger.info("clearAll: response", apiResponse?.response);
+    return apiResponse?.response ?? {deletedCount: 0, message: "No sessions cleared"};
+  }
+
+  async deleteByDateRange(from: number, to: number): Promise<{ deletedCount: number; message: string; memberUpdateAuditsDeleted?: number }> {
+    this.logger.info("deleteByDateRange: from", from, "to", to);
+    const apiResponse = await firstValueFrom(this.http.post<{
+      response: { deletedCount: number; message: string; memberUpdateAuditsDeleted?: number }
+    }>(`${this.BASE_URL}/delete-by-date-range`, {from, to}));
+    this.logger.info("deleteByDateRange: response", apiResponse?.response);
+    return apiResponse?.response ?? {deletedCount: 0, message: "No sessions deleted"};
+  }
+
+  async deleteByIds(ids: string[]): Promise<{ deletedCount: number; message: string; memberUpdateAuditsDeleted?: number }> {
+    this.logger.info("deleteByIds:", ids?.length);
+    const apiResponse = await firstValueFrom(this.http.post<{
+      response: { deletedCount: number; message: string; memberUpdateAuditsDeleted?: number }
+    }>(`${this.BASE_URL}/delete-by-ids`, {ids}));
+    this.logger.info("deleteByIds: response", apiResponse?.response);
+    return apiResponse?.response ?? {deletedCount: 0, message: "No sessions deleted"};
+  }
+
   public async findLatestBulkLoadAudit() {
     const audits: MemberBulkLoadAudit[] = await this.all({limit: 1, sort: {createdDate: -1}});
     const latestMemberBulkLoadAudit = first(audits);

@@ -12,6 +12,8 @@ export interface ProgressResponse {
   message: string;
   percent?: number;
   queued?: boolean;
+  completed?: number;
+  total?: number;
 }
 
 export interface RamblersUploadAuditProgressResponse {
@@ -19,43 +21,45 @@ export interface RamblersUploadAuditProgressResponse {
 }
 
 export enum EventType {
-  RAMBLERS_WALKS_UPLOAD = "ramblers-walks-upload",
-  RAMBLERS_WALKS_UPLOAD_CANCEL = "ramblers-walks-upload-cancel",
-  SITE_MIGRATION = "site-migration",
-  RESIZE_SAVED_IMAGES = "resize-saved-images",
-  RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
-  BACKUP_RESTORE = "backup-restore",
   BACKUP_EVENTS = "backup-events",
-  ESRI_ROUTE_IMPORT = "esri-route-import",
-  WALKS_MANAGER_SYNC = "walks-manager-sync",
-  CONTENT_MIGRATION_SCAN_HOSTS = "content-migration-scan-hosts",
-  CONTENT_MIGRATION_SCAN = "content-migration-scan",
-  CONTENT_MIGRATION_EXECUTE = "content-migration-execute",
+  BACKUP_RESTORE = "backup-restore",
   CONTENT_MIGRATION_CANCEL = "content-migration-cancel",
-  ENVIRONMENT_SETUP = "environment-setup",
+  CONTENT_MIGRATION_EXECUTE = "content-migration-execute",
+  CONTENT_MIGRATION_SCAN = "content-migration-scan",
+  CONTENT_MIGRATION_SCAN_HOSTS = "content-migration-scan-hosts",
   ENVIRONMENT_CREATE = "environment-create",
+  ENVIRONMENT_SETUP = "environment-setup",
+  ESRI_ROUTE_IMPORT = "esri-route-import",
   EXTERNAL_ALBUM_FETCH = "external-album-fetch",
   EXTERNAL_ALBUM_IMPORT = "external-album-import",
   EXTERNAL_ALBUM_SPLIT_PREVIEW = "external-album-split-preview",
-  EXTERNAL_USER_ALBUMS_FETCH = "external-user-albums-fetch",
   EXTERNAL_BULK_ALBUM_IMPORT = "external-bulk-album-import",
+  EXTERNAL_USER_ALBUMS_FETCH = "external-user-albums-fetch",
   LEGACY_URL_SCRAPE = "legacy-url-scrape",
-  SCHEDULED_TASK_EVENTS = "scheduled-task-events",
   PING = "ping",
+  RAMBLERS_WALKS_UPLOAD = "ramblers-walks-upload",
+  RAMBLERS_WALKS_UPLOAD_CANCEL = "ramblers-walks-upload-cancel",
+  RESIZE_SAVED_IMAGES = "resize-saved-images",
+  RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
+  SCHEDULED_TASK_EVENTS = "scheduled-task-events",
+  SITE_MIGRATION = "site-migration",
+  WALKS_MANAGER_SYNC = "walks-manager-sync",
 }
 
 export enum MessageType {
-  COMPLETE = "complete",
-  PROGRESS = "progress",
-  ERROR = "error",
-  CANCELLED = "cancelled",
   BACKUP_MANIFEST_CREATED = "backup-manifest-created",
   BACKUP_MANIFEST_DELETED = "backup-manifest-deleted",
   BACKUP_SESSION_UPDATED = "backup-session-updated",
+  CANCELLED = "cancelled",
+  COMPLETE = "complete",
+  CONFIG_UPDATED = "config-updated",
+  ERROR = "error",
   INBOX_NEW_MESSAGE = "inbox-new-message",
   INBOX_THREAD_UPDATED = "inbox-thread-updated",
+  MEMBER_BULK_DELETE_PROGRESS = "member-bulk-delete-progress",
+  MEMBER_SYNC_PROGRESS = "member-sync-progress",
+  PROGRESS = "progress",
   SCHEDULED_TASK_UPDATED = "scheduled-task-updated",
-  CONFIG_UPDATED = "config-updated",
 }
 
 export const allowableStatusCodes: number[] = [1000, 1005];

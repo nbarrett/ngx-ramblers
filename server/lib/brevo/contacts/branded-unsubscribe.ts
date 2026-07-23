@@ -161,11 +161,11 @@ async function maybeWriteSalesforceConsent(matched: MatchedMemberSubscriptions, 
   if (!consentWritebackShouldFire(beforeSubscribedCount, afterSubscribedCount)) {
     return;
   }
-  const membershipNumber: string | undefined = memberDoc?.membershipNumber || matched.membershipNumber;
-  if (!membershipNumber) {
+  const memberRef: string | undefined = memberDoc?.salesforceMemberRef;
+  if (!memberRef) {
     return;
   }
-  const outcome = await notifySalesforceFullyOptedOut({ membershipNumber, reason });
+  const outcome = await notifySalesforceFullyOptedOut({ memberRef, email, reason });
   if (!outcome.attempted) {
     return;
   }

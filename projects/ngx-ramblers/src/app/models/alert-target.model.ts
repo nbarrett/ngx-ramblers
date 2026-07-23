@@ -11,6 +11,10 @@ export interface AlertTarget {
   showContactUs?: boolean;
   busy?: boolean;
   ready?: boolean;
+  showProgress?: boolean;
+  progressPercent?: number | null;
+  progressCompleted?: number | null;
+  progressTotal?: number | null;
 }
 
 export interface AlertType extends FontAwesomeIcon {
@@ -27,6 +31,9 @@ export interface AlertMessage {
   title: string;
   message: any;
   continue?: boolean;
+  completed?: number;
+  total?: number;
+  percent?: number;
 }
 
 export const ALERT_ERROR: AlertType = {type: "danger", class: "alert-danger", icon: faCircleExclamation, failure: true};

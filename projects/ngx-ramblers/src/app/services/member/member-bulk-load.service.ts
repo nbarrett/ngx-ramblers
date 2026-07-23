@@ -144,7 +144,8 @@ export class MemberBulkLoadService {
   };
 
   public existingMemberMatchFor(ramblersMemberAndContact: RamblersMemberAndContact, existingMembers: Member[]): MemberMatchResult {
-    const matchedMember = existingMembers.find(member => !!this.memberMatchTypeFor(ramblersMemberAndContact, member));
+    const matchedMember = existingMembers.find(member =>
+      !!member?.id && !!this.memberMatchTypeFor(ramblersMemberAndContact, member));
     return {
       member: matchedMember,
       memberMatchType: matchedMember ? this.memberMatchTypeFor(ramblersMemberAndContact, matchedMember) : null
@@ -158,10 +159,10 @@ export class MemberBulkLoadService {
     const importedSalesforceId = ramblersMember?.salesforceId;
     if (!isEmpty(importedSalesforceId)) {
       if (!isEmpty(member?.salesforceId) && this.sameText(member.salesforceId, importedSalesforceId)) {
-        return "salesforce id";
+        return "Ramblers Team Emails contact id";
       }
       if (isEmpty(member?.salesforceId) && !isEmpty(member?.membershipNumber) && this.sameText(member.membershipNumber, importedSalesforceId)) {
-        return "salesforce id";
+        return "Ramblers Team Emails contact id";
       }
     }
     if (!isEmpty(ramblersMember?.membershipNumber) && member?.membershipNumber === ramblersMember?.membershipNumber) {
@@ -228,7 +229,18 @@ export class MemberBulkLoadService {
     return value ? value.trim().toLowerCase() : "";
   }
 
-  private saveAndAuditMemberUpdate(promises: Promise<any>[], uploadSessionId: string, rowNumber: number, memberMatch: MemberAction, memberAction: MemberAction, changes: number, fieldChanges: MemberAuditFieldChange[], member: Member, notify: AlertInstance): Promise<Promise<any>[]> {
+  private saveAndAuditMemberUpdate(
+    promises: Promise<any>[],
+    uploadSessionId: string,
+    rowNumber: number,
+    memberMatch: MemberAction,
+    memberAction: MemberAction,
+    changes: number,
+    fieldChanges: MemberAuditFieldChange[],
+    member: Member,
+    notify: AlertInstance,
+    progress?: { completed: number; total: number },
+  ): Promise<Promise<any>[]> {
 
     const audit: MemberUpdateAudit = {
       uploadSessionId,
@@ -241,14 +253,24 @@ export class MemberBulkLoadService {
     };
 
     const summary = this.summariseFieldChanges(fieldChanges);
-    const qualifier = `for membership ${member.membershipNumber}`;
+    const qualifier = this.memberProgressQualifier(member);
 
     return this.memberService.createOrUpdate(member, uploadSessionId)
       .then((savedMember: Member) => {
         audit.memberId = savedMember.id;
         member.id = savedMember.id;
-        notify.success({title: `Bulk member load ${qualifier} was successful`, message: summary});
-        this.logger.info("saveAndAuditMemberUpdate:", audit);
+        if (progress) {
+          progress.completed += 1;
+          notify.progress({
+            title: "Bulk member load",
+            message: `Processed ${progress.completed} of ${this.stringUtils.pluraliseWithCount(progress.total, "member")}`,
+            completed: progress.completed,
+            total: progress.total
+          }, true);
+        } else {
+          notify.success({title: `Bulk member load ${qualifier} was successful`, message: summary});
+        }
+        this.logger.info("saveAndAuditMemberUpdate:", audit, summary);
         promises.push(this.memberUpdateAuditService.create(audit));
         return promises;
       }).catch(response => {
@@ -256,12 +278,38 @@ export class MemberBulkLoadService {
         audit.member = member;
         audit.memberAction = MemberAction.error;
         this.logger.warn("member was not saved, so saving it to audit:", audit);
+        if (progress) {
+          progress.completed += 1;
+          notify.progress({
+            title: "Bulk member load",
+            message: `Processed ${progress.completed} of ${this.stringUtils.pluraliseWithCount(progress.total, "member")}`,
+            completed: progress.completed,
+            total: progress.total
+          }, true);
+        }
         notify.warning({title: `Bulk member load ${qualifier} failed`, message: summary});
         audit.auditErrorMessage = omit(response.error, "request");
         promises.push(this.memberUpdateAuditService.create(audit));
         return promises;
       });
   };
+
+  private memberProgressQualifier(member: Member): string {
+    if (!this.stringUtils.noValueFor(member?.membershipNumber)) {
+      return `for membership ${member.membershipNumber}`;
+    }
+    if (!this.stringUtils.noValueFor(member?.salesforceId)) {
+      return `for contact ${member.salesforceId}`;
+    }
+    if (!this.stringUtils.noValueFor(member?.email)) {
+      return `for ${member.email}`;
+    }
+    const name = [member?.firstName, member?.lastName].filter(value => !this.stringUtils.noValueFor(value)).join(" ");
+    if (name) {
+      return `for ${name}`;
+    }
+    return "for member";
+  }
 
   private newDataValueForField(field: AuditField, ramblersMember: RamblersMember, member: Member): any {
     const dataValue = this.readActualOrDerivedValue(field, member, ramblersMember);
@@ -282,20 +330,22 @@ export class MemberBulkLoadService {
   };
 
   private readActualOrDerivedValue(field: AuditField, member: Member, ramblersMember: RamblersMember) {
-    let dataValue: any = ramblersMember[field.fieldName];
-    if (this.stringUtils.noValueFor(dataValue)) {
-      if (field.memberDerivedValue) {
-        dataValue = field.memberDerivedValue(member, this.dateUtils);
-        this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "memberDerivedValue:", dataValue, "member:", member);
-      } else if (field.ramblersDerivedValue) {
-        dataValue = field.ramblersDerivedValue(ramblersMember, this.dateUtils);
-        this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "memberDerivedValue:", dataValue, "ramblersMember:", ramblersMember);
-      } else {
-        dataValue = null;
-        this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "no actual or derived value available:", dataValue, "member:", member, "ramblersMember:", ramblersMember);
-      }
+    const actualValue = ramblersMember[field.fieldName];
+    if (!this.stringUtils.noValueFor(actualValue)) {
+      return actualValue;
     }
-    return dataValue;
+    if (field.memberDerivedValue) {
+      const memberDerivedValue = field.memberDerivedValue(member, this.dateUtils);
+      this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "memberDerivedValue:", memberDerivedValue, "member:", member);
+      return memberDerivedValue;
+    }
+    if (field.ramblersDerivedValue) {
+      const ramblersDerivedValue = field.ramblersDerivedValue(ramblersMember, this.dateUtils);
+      this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "memberDerivedValue:", ramblersDerivedValue, "ramblersMember:", ramblersMember);
+      return ramblersDerivedValue;
+    }
+    this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "no actual or derived value available:", null, "member:", member, "ramblersMember:", ramblersMember);
+    return null;
   }
 
 
@@ -312,43 +362,39 @@ export class MemberBulkLoadService {
 
   private changeAndAuditMemberField(updateAudit: UpdateAudit, member: Member, ramblersMember: RamblersMember, auditField: AuditField, notificationContext: MemberSyncNotificationContext) {
     const fieldName: string = auditField.fieldName;
-    let performMemberUpdate = false;
     const effectiveMode: MemberSyncPolicyMode = this.memberSyncPolicyService.effectiveMode(fieldName);
     const oldDataValue = this.oldDataValueForField(auditField, member);
     const oldFormattedValue = this.formatValue(oldDataValue, auditField);
-    let newDataValue = this.newDataValueForField(auditField, ramblersMember, member);
     const shouldClearExpiry = fieldName === "membershipExpiryDate" && this.shouldClearExpiryDate(ramblersMember);
     const recentlyLoaded = fieldName === "membershipExpiryDate" && this.recentlyLoaded(member);
-    if (fieldName === "membershipExpiryDate" && !newDataValue && (shouldClearExpiry || recentlyLoaded)) {
-      newDataValue = null;
-    }
+    const rawNewDataValue = this.newDataValueForField(auditField, ramblersMember, member);
+    const newDataValue = fieldName === "membershipExpiryDate" && !rawNewDataValue && (shouldClearExpiry || recentlyLoaded)
+      ? null
+      : rawNewDataValue;
     const newFormattedValue = this.formatValue(newDataValue, auditField);
     const dataDifferent: boolean = oldFormattedValue.toString() !== newFormattedValue.toString();
-    switch (auditField.writeDataIf) {
-      case WriteDataRule.CHANGED:
-        performMemberUpdate = !!(dataDifferent && ramblersMember[fieldName]);
-        break;
-      case WriteDataRule.NO_OLD_VALUE:
-        performMemberUpdate = !!(newDataValue && !member[fieldName]);
-        break;
-      case WriteDataRule.TRANSITION_TO_TRUE_NEW_VALUE:
-        performMemberUpdate = this.stringUtils.asBoolean(newDataValue) && !this.stringUtils.asBoolean(oldDataValue);
-        break;
-      case WriteDataRule.NOT_REVOKED:
-        performMemberUpdate = !!(newFormattedValue && dataDifferent && !member.revoked);
-        break;
-      default:
-        performMemberUpdate = !this.stringUtils.noValueFor(newDataValue);
-        break;
-    }
-    if (fieldName === "membershipExpiryDate" && !newDataValue && (shouldClearExpiry || recentlyLoaded)) {
-      performMemberUpdate = !!member.membershipExpiryDate;
-    }
-    if (effectiveMode === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE) {
-      performMemberUpdate = dataDifferent;
-    } else if (effectiveMode === MemberSyncPolicyMode.SKIP) {
-      performMemberUpdate = false;
-    }
+    const ruleBasedUpdate = (() => {
+      switch (auditField.writeDataIf) {
+        case WriteDataRule.CHANGED:
+          return !!(dataDifferent && ramblersMember[fieldName]);
+        case WriteDataRule.NO_OLD_VALUE:
+          return !!(newDataValue && !member[fieldName]);
+        case WriteDataRule.TRANSITION_TO_TRUE_NEW_VALUE:
+          return this.stringUtils.asBoolean(newDataValue) && !this.stringUtils.asBoolean(oldDataValue);
+        case WriteDataRule.NOT_REVOKED:
+          return !!(newFormattedValue && dataDifferent && !member.revoked);
+        default:
+          return !this.stringUtils.noValueFor(newDataValue);
+      }
+    })();
+    const expiryClearUpdate = fieldName === "membershipExpiryDate" && !newDataValue && (shouldClearExpiry || recentlyLoaded)
+      ? !!member.membershipExpiryDate
+      : ruleBasedUpdate;
+    const performMemberUpdate = effectiveMode === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE
+      ? dataDifferent
+      : effectiveMode === MemberSyncPolicyMode.SKIP
+        ? false
+        : expiryClearUpdate;
     if (performMemberUpdate) {
       member[fieldName] = newDataValue;
       updateAudit.fieldsChanged++;
@@ -417,7 +463,18 @@ export class MemberBulkLoadService {
     }
   }
 
-  private createOrUpdateMember(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, uploadSessionId: string, recordIndex: number, ramblersMember: RamblersMember, promises: any[], existingMembers: Member[], notify: AlertInstance, notificationContext: MemberSyncNotificationContext): Promise<any> {
+  private createOrUpdateMember(
+    mailMessagingConfig: MailMessagingConfig,
+    systemConfig: SystemConfig,
+    uploadSessionId: string,
+    recordIndex: number,
+    ramblersMember: RamblersMember,
+    promises: any[],
+    existingMembers: Member[],
+    notify: AlertInstance,
+    notificationContext: MemberSyncNotificationContext,
+    progress: { completed: number; total: number },
+  ): Promise<any> {
     const ramblersMemberAndContactNotUsingContactMatching: RamblersMemberAndContact = {
       ramblersMember,
       contact: null
@@ -439,27 +496,53 @@ export class MemberBulkLoadService {
     this.logger.info("saveAndAuditMemberUpdate -> member:", bulkLoadMemberAndMatch.member, "updateAudit:", updateAudit);
     const memberMatch: MemberAction = bulkLoadMemberAndMatch.memberMatch;
     const memberAction: MemberAction = this.deriveMemberAction(updateAudit, memberMatch);
-    return this.saveAndAuditMemberUpdate(promises, uploadSessionId, recordIndex + 1, memberMatch, memberAction, updateAudit.fieldsChanged, updateAudit.fieldChanges, bulkLoadMemberAndMatch.member, notify);
+    return this.saveAndAuditMemberUpdate(
+      promises,
+      uploadSessionId,
+      recordIndex + 1,
+      memberMatch,
+      memberAction,
+      updateAudit.fieldsChanged,
+      updateAudit.fieldChanges,
+      bulkLoadMemberAndMatch.member,
+      notify,
+      progress,
+    );
   };
 
   private deriveMemberAction(updateAudit: UpdateAudit, memberMatch: MemberAction) {
-    let memberAction: MemberAction = MemberAction.skipped;
     if (memberMatch === MemberAction.created) {
-      memberAction = MemberAction.created;
-    } else if (updateAudit.fieldsChanged > 0) {
-      memberAction = MemberAction.updated;
-    } else if (updateAudit.fieldsSkipped > 0) {
-      memberAction = MemberAction.skipped;
+      return MemberAction.created;
     }
-    return memberAction;
+    if (updateAudit.fieldsChanged > 0) {
+      return MemberAction.updated;
+    }
+    if (updateAudit.fieldsSkipped > 0) {
+      return MemberAction.skipped;
+    }
+    return MemberAction.skipped;
   }
 
   private async processBulkLoadResponses(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, uploadSessionId: string, ramblersMembers: RamblersMember[], existingMembers: Member[], notify: AlertInstance, notificationContext: MemberSyncNotificationContext) {
     const auditPromises = [];
+    const progress = { completed: 0, total: ramblersMembers.length };
+    notify.progress({
+      title: "Bulk member load",
+      message: `Processed 0 of ${this.stringUtils.pluraliseWithCount(progress.total, "member")}`,
+      completed: 0,
+      total: progress.total
+    }, true);
     const memberUpdatePromises = ramblersMembers.map((ramblersMember, recordIndex) =>
-      this.createOrUpdateMember(mailMessagingConfig, systemConfig, uploadSessionId, recordIndex, ramblersMember, auditPromises, existingMembers, notify, notificationContext));
+      this.createOrUpdateMember(mailMessagingConfig, systemConfig, uploadSessionId, recordIndex, ramblersMember, auditPromises, existingMembers, notify, notificationContext, progress));
     await Promise.all(memberUpdatePromises);
     await Promise.all(auditPromises);
+    notify.progress({
+      title: "Bulk member load",
+      message: `Finished processing ${this.stringUtils.pluraliseWithCount(progress.total, "member")}`,
+      completed: progress.total,
+      total: progress.total,
+      percent: 100
+    }, true);
     this.logger.info("performed", memberUpdatePromises.length, "member updates and", auditPromises.length, "audit writes");
     return auditPromises;
   };

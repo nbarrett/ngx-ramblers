@@ -37,11 +37,21 @@ export enum ExternalSystemsSubTab {
   MAIL = "mail",
   SOCIAL = "social",
   MAPS = "maps",
-  SALESFORCE = "salesforce",
+  RAMBLERS_TEAM_EMAILS = "ramblers-team-emails",
   MEMBER_SYNC_POLICY = "member-sync-policy",
   CLOUDFLARE = "cloudflare",
   SECURITY = "security"
 }
+
+export enum LegacyExternalSystemsSubTab {
+  SALESFORCE = "salesforce",
+  HEAD_OFFICE_SUPPORTER_IMPORT = "head-office-supporter-import",
+}
+
+export const RAMBLERS_TEAM_EMAILS_SUB_TAB_ALIASES: string[] = [
+  LegacyExternalSystemsSubTab.SALESFORCE,
+  LegacyExternalSystemsSubTab.HEAD_OFFICE_SUPPORTER_IMPORT,
+];
 
 export enum EnvironmentSettingsSubTab {
   ALL = "all",

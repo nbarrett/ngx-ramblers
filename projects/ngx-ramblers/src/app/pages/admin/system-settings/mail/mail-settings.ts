@@ -51,6 +51,8 @@ import { SystemConfig } from "../../../../models/system.model";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { MailProviderSettingsComponent } from "../mail-provider/mail-provider-settings";
 import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbox-settings";
+import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../../models/form-save-actions.model";
 
 @Component({
     selector: "app-mail-settings",
@@ -120,6 +122,33 @@ import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbo
                             </div>
                           }
                         </div>
+                        @if (notifyTarget.showAlert) {
+                          <div class="row mt-3">
+                            <div class="col-sm-12">
+                              <div class="alert {{ notifyTarget.alertClass }} mb-0">
+                                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                                @if (notifyTarget.alertTitle) {
+                                  <strong class="ms-2">{{ notifyTarget.alertTitle }}: </strong>
+                                }
+                                {{ notifyTarget.alertMessage }}
+                              </div>
+                              @if (notifyTarget.showProgress) {
+                                <div class="progress mt-2" style="height: 24px;">
+                                  <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                       role="progressbar"
+                                       [style.width.%]="notifyTarget.progressPercent || 0"
+                                       [attr.aria-valuenow]="notifyTarget.progressPercent || 0"
+                                       aria-valuemin="0"
+                                       aria-valuemax="100">
+                                    @if (notifyTarget.progressPercent) {
+                                      {{ notifyTarget.progressPercent }}%
+                                    }
+                                  </div>
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        }
                         @if (listCreateRequest) {
                           <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
                           <div class="row">
@@ -419,21 +448,26 @@ import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbo
             </tabset>
           </div>
           <div class="col-sm-12">
-            <input type="submit" value="Save settings and exit" (click)="saveAndExit()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
-            <input type="submit" value="Save" (click)="save()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
-            <input type="submit" value="Undo Changes" (click)="undoChanges()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
-            <input type="submit" value="Exit Without Saving" (click)="cancel()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
+            <app-form-save-actions
+              [disabled]="notReady()"
+              [actions]="formSaveActions"/>
           </div>
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
   private acceptNextConfigEmission = false;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
+  public formSaveActions: FormSaveActions = {
+    save: () => this.save(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoChanges(),
+    cancel: () => this.cancel()
+  };
   public mailMessagingConfig: MailMessagingConfig;
   public pendingApiKeyValidation = false;
   private notifierService: NotifierService = inject(NotifierService);
@@ -510,6 +544,14 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
         this.mailMessagingConfig = mailMessagingConfig;
         this.acceptNextConfigEmission = false;
         this.pendingApiKeyValidation = false;
+      } else if (mailMessagingConfig?.brevo?.lists && this.mailMessagingConfig.brevo) {
+        this.mailMessagingConfig = {
+          ...this.mailMessagingConfig,
+          brevo: {
+            ...this.mailMessagingConfig.brevo,
+            lists: mailMessagingConfig.brevo.lists
+          }
+        };
       }
     }));
     this.broadcastService.on(NamedEventType.MAIL_LISTS_CHANGED, () => {
@@ -554,10 +596,9 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.members = await this.memberService.all();
   }
 
-  private refreshMailListData(): void {
-    this.acceptNextConfigEmission = true;
-    this.refreshMembers();
-    this.mailMessagingService.initialise();
+  private async refreshMailListData(): Promise<void> {
+    await this.refreshMembers();
+    await this.mailMessagingService.refreshBrevoLists();
   }
 
   confirmCreateList() {
@@ -591,6 +632,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.syncingLists = true;
     try {
       await this.memberDefaultsService.updateLists(this.systemConfig, this.notify, this.members);
+      await this.refreshMailListData();
     } finally {
       this.syncingLists = false;
     }

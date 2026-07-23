@@ -16,12 +16,9 @@ const ngxConventions = {
         const sourceCode = context.sourceCode ?? context.getSourceCode();
         const reportNativeDateInputs = () => {
           const text: string = sourceCode.getText();
-          const matcher = /type\s*=\s*["']date["']/g;
-          let match: RegExpExecArray | null = matcher.exec(text);
-          while (match !== null) {
+          Array.from(text.matchAll(/type\s*=\s*["']date["']/g)).forEach(match => {
             context.report({loc: sourceCode.getLocFromIndex(match.index), messageId: "banned"});
-            match = matcher.exec(text);
-          }
+          });
         };
         return {Program: reportNativeDateInputs};
       },

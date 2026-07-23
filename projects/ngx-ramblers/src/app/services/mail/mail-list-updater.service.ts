@@ -60,6 +60,9 @@ import { MailMessagingService } from "./mail-messaging.service";
 import { SalesforceConfigService } from "../salesforce/salesforce-config.service";
 import { BroadcastService } from "../broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
+import { MessageType, ProgressResponse } from "../../models/websocket.model";
+import { WebSocketClientService } from "../websockets/websocket-client.service";
+import { Subscription } from "rxjs";
 
 
 const AFFIRMATIVE_VALUES = ["yes", "y", "true", "1", "subscribed"];
@@ -84,6 +87,7 @@ export class MailListUpdaterService {
   private broadcastService: BroadcastService<any> = inject(BroadcastService);
   private mailListAuditService: MailListAuditService = inject(MailListAuditService);
   private stringUtils: StringUtilsService = inject(StringUtilsService);
+  private webSocketClientService = inject(WebSocketClientService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailListUpdaterService", NgxLoggerLevel.ERROR);
 
@@ -101,9 +105,9 @@ export class MailListUpdaterService {
     if (this.mailMessagingConfig?.mailConfig?.allowSendCampaign) {
       const membersRequiringSync: Member[] = members.filter(member => this.memberRequiresBrevoSync(member));
       this.logger.info("updateMailLists:", this.stringUtils.pluraliseWithCount(membersRequiringSync.length, "member"), "with changed local data; reconciling Brevo against the NGX database");
-      notify.success({
+      notify.progress({
         title: "Brevo updates",
-        message: "Synchronising Brevo contacts and lists"
+        message: `Querying Brevo contacts (${this.stringUtils.pluraliseWithCount(members.length, "local member")} to reconcile)`
       }, true);
       const contactsListResponse: ContactsListResponse = await this.mailService.queryContacts();
       const contactsToMembers: ContactToMember[] = contactsListResponse.contacts.map((contact) => {
@@ -115,12 +119,21 @@ export class MailListUpdaterService {
           listIdsToRemoveFromContact: this.listIdsToRemoveFromContact({contact, member})
         };
       });
-      notify.success({title: "Brevo updates", message: "Updating Members with Brevo contact details"});
+      notify.progress({
+        title: "Brevo updates",
+        message: `Matched ${this.stringUtils.pluraliseWithCount(contactsListResponse.contacts?.length || 0, "Brevo contact")} to local members`
+      }, true);
       this.logger.info("contactsListResponse", contactsListResponse, "contactsToMembers:", contactsToMembers);
       const createAllRequests: Member[] = contactsToMembers.filter(item => item.memberUpdateRequired).map((contactToMember) => {
         this.prepareUpdateOfMemberWithContactIdentifiers(contactToMember);
         return contactToMember.member;
       });
+      if (createAllRequests.length > 0) {
+        notify.progress({
+          title: "Brevo updates",
+          message: `Saving Brevo ids on ${this.stringUtils.pluraliseWithCount(createAllRequests.length, "local member")}`
+        }, true);
+      }
       const updatedMemberResponse = createAllRequests.length > 0 ? await this.memberService.createOrUpdateAll(createAllRequests) : [];
       this.logger.info("updatedMemberResponse fields from contact details", this.stringUtils.pluraliseWithCount(updatedMemberResponse.length, "member"), updatedMemberResponse);
       const existingMemberIds = contactsToMembers.filter(item => item.member).map(item => item.member.id);
@@ -163,6 +176,10 @@ export class MailListUpdaterService {
         notify.clearBusy();
         return;
       }
+      notify.progress({
+        title: "Brevo updates",
+        message: this.brevoPendingChangesSummary(createContactRequests.length, updateContactRequests.length, deleteContactIds.length, contactRemoveRequests.length)
+      }, true);
       if (this.performUpdates) {
         await this.processCreateContactRequests(createContactRequests, members, notify);
         await this.processDeleteContactsRequests(deleteContactIds, members, notify);
@@ -175,12 +192,39 @@ export class MailListUpdaterService {
       }
       notify.success({
         title: "Brevo updates",
-        message: "Brevo contact and list synchronisation complete" + (this.performUpdates ? "" : " (updates skipped as performUpdates is false)")
+        message: this.brevoSyncCompleteSummary(createContactRequests.length, updateContactRequests.length, deleteContactIds.length, contactRemoveRequests.length, this.performUpdates)
       });
       notify.clearBusy();
     } else {
       return Promise.resolve(this.notifyIntegrationNotEnabled(notify));
     }
+  }
+
+  private brevoPendingChangesSummary(createCount: number, updateCount: number, deleteCount: number, removeFromListCount: number): string {
+    const parts = [
+      createCount > 0 ? `${createCount} to create` : null,
+      updateCount > 0 ? `${updateCount} to update` : null,
+      deleteCount > 0 ? `${deleteCount} to delete` : null,
+      removeFromListCount > 0 ? `${removeFromListCount} list ${removeFromListCount === 1 ? "removal" : "removals"}` : null
+    ].filter(Boolean);
+    return parts.length > 0
+      ? `Applying changes: ${parts.join(", ")}`
+      : "Applying Brevo contact and list changes";
+  }
+
+  private brevoSyncCompleteSummary(createCount: number, updateCount: number, deleteCount: number, removeFromListCount: number, performUpdates: boolean): string {
+    if (!performUpdates) {
+      return "Brevo contact and list synchronisation complete (updates skipped as performUpdates is false)";
+    }
+    const parts = [
+      createCount > 0 ? `${createCount} created` : null,
+      updateCount > 0 ? `${updateCount} updated` : null,
+      deleteCount > 0 ? `${deleteCount} deleted` : null,
+      removeFromListCount > 0 ? `${removeFromListCount} list ${removeFromListCount === 1 ? "removal" : "removals"}` : null
+    ].filter(Boolean);
+    return parts.length > 0
+      ? `Synchronisation complete: ${parts.join(", ")}`
+      : "Brevo contact and list synchronisation complete";
   }
 
   private async processMailListAuditing() {
@@ -359,28 +403,57 @@ export class MailListUpdaterService {
     return unsubscribeDates.length > 0 ? Math.max(...unsubscribeDates) : null;
   }
 
-  private async processContactRemoveRequests(contactRemoveRequests: ContactsAddOrRemoveRequest[], notify: AlertInstance) {
-    notify.success({
-      title: "Brevo updates",
-      message: "Processing " + this.stringUtils.pluraliseWithCount(contactRemoveRequests.length, "contact remove request")
-    });
-    if (contactRemoveRequests.length > 0) {
-      const contactAddOrRemoveResponse = await this.mailService.contactsRemoveFromList(contactRemoveRequests);
-      this.logger.info("contactAddOrRemoveResponse:", contactAddOrRemoveResponse);
+  private async withBrevoProgress<T>(notify: AlertInstance, action: () => Promise<T>): Promise<T> {
+    await this.webSocketClientService.connect();
+    const progressSubscription: Subscription = this.webSocketClientService
+      .receiveMessages<ProgressResponse>(MessageType.MEMBER_SYNC_PROGRESS)
+      .subscribe(progress => {
+        if (progress) {
+          notify.progress({
+            title: "Brevo updates",
+            message: progress.message,
+            percent: progress.percent,
+            completed: progress.completed,
+            total: progress.total
+          }, true);
+        }
+      });
+    try {
+      return await action();
+    } finally {
+      progressSubscription.unsubscribe();
     }
   }
 
-  private async processUpdateContactRequests(updateContactRequests: CreateContactRequestWithObjectAttributes[], notify: AlertInstance) {
-    notify.success({
+  private async processContactRemoveRequests(contactRemoveRequests: ContactsAddOrRemoveRequest[], notify: AlertInstance) {
+    if (contactRemoveRequests.length === 0) {
+      return;
+    }
+    notify.progress({
       title: "Brevo updates",
-      message: "Processing " + this.stringUtils.pluraliseWithCount(updateContactRequests.length, "contact update request")
-    });
-    if (updateContactRequests.length > 0) {
+      message: "Processing " + this.stringUtils.pluraliseWithCount(contactRemoveRequests.length, "contact remove request")
+    }, true);
+    const contactAddOrRemoveResponse = await this.mailService.contactsRemoveFromList(contactRemoveRequests);
+    this.logger.info("contactAddOrRemoveResponse:", contactAddOrRemoveResponse);
+  }
+
+  private async processUpdateContactRequests(updateContactRequests: CreateContactRequestWithObjectAttributes[], notify: AlertInstance) {
+    if (updateContactRequests.length === 0) {
+      return;
+    }
+    notify.progress({
+      title: "Brevo updates",
+      message: `Updating 0 of ${this.stringUtils.pluraliseWithCount(updateContactRequests.length, "contact")}`,
+      completed: 0,
+      total: updateContactRequests.length
+    }, true);
+    await this.withBrevoProgress(notify, async () => {
       const updateContactResponse = await this.mailService.contactsBatchUpdate(updateContactRequests);
       this.logger.info("updateContactResponse:", updateContactResponse);
       const mailListAudits = updateContactRequests.map((contactRequest) => this.mailListAuditService.createMailListAudit(`Contact Updated in Brevo: ${this.contactDetails(contactRequest)}`, AuditStatus.info, contactRequest.extId, first(contactRequest.listIds)));
       this.pendingMailListAudits.push(...mailListAudits);
-    }
+      return updateContactResponse;
+    });
   }
 
   private contactDetails(contactRequest: CreateContactRequest) {
@@ -388,11 +461,16 @@ export class MailListUpdaterService {
   }
 
   private async processDeleteContactsRequests(deleteContactIds: NumberOrString[], members: Member[], notify: AlertInstance) {
-    notify.success({
+    if (deleteContactIds.length === 0) {
+      return;
+    }
+    notify.progress({
       title: "Brevo updates",
-      message: "Processing " + this.stringUtils.pluraliseWithCount(deleteContactIds.length, "contact deletion request")
-    });
-    if (deleteContactIds.length > 0) {
+      message: `Deleting 0 of ${this.stringUtils.pluraliseWithCount(deleteContactIds.length, "contact")}`,
+      completed: 0,
+      total: deleteContactIds.length
+    }, true);
+    await this.withBrevoProgress(notify, async () => {
       const deleteContactResponse: StatusMappedResponseSingleInput[] = await this.mailService.deleteContacts({ids: deleteContactIds});
       this.logger.info("deleteContactResponse:", deleteContactResponse);
       if (deleteContactResponse?.length > 0) {
@@ -407,19 +485,22 @@ export class MailListUpdaterService {
         const updatedMembersResponse = updatedMembers.length > 0 ? await this.memberService.createOrUpdateAll(updatedMembers) : [];
         this.logger.info("updatedMembers from delete contact requests:", updatedMembersResponse);
       }
-    }
+      return deleteContactResponse;
+    });
   }
 
   private async processCreateContactRequests(createContactRequests: CreateContactRequest[], members: Member[], notify: AlertInstance) {
-    notify.success({
-      title: "Brevo updates",
-      message: "Processing " + this.stringUtils.pluraliseWithCount(createContactRequests.length, "contact creation request")
-    });
     if (createContactRequests.length === 0) {
       return;
     }
+    notify.progress({
+      title: "Brevo updates",
+      message: `Creating 0 of ${this.stringUtils.pluraliseWithCount(createContactRequests.length, "contact")}`,
+      completed: 0,
+      total: createContactRequests.length
+    }, true);
     try {
-      const createContactResponse = await this.mailService.createContacts(createContactRequests);
+      const createContactResponse = await this.withBrevoProgress(notify, () => this.mailService.createContacts(createContactRequests));
       this.logger.info("createContactResponse:", createContactResponse);
       const failedCreates = (createContactResponse || []).filter(contactCreatedResponse => contactCreatedResponse && contactCreatedResponse.success === false);
       if (failedCreates.length > 0) {

@@ -5,114 +5,14 @@ export interface SalesforceConfig {
   apiKeysByGroupCode: Record<string, string>;
   enabled: boolean;
   enableGranularConsent?: boolean;
+  unsubscribeWritebackEnabled?: boolean;
   lastSyncedAt?: number;
-  lastSyncCursor?: string;
+  lastSyncCursor?: string | null;
 }
 
 export interface GroupCodeToken {
   groupCode: string;
   token: string;
-}
-
-export enum SalesforceMemberTerm {
-  Life = "life",
-  Annual = "annual",
-}
-
-export enum SalesforceChangeType {
-  Added = "added",
-  Updated = "updated",
-  Removed = "removed",
-}
-
-export enum SalesforceRemovalReason {
-  Expired = "expired",
-  Transferred = "transferred",
-  Deceased = "deceased",
-  Other = "other",
-}
-
-export interface SalesforceGroupRoles {
-  walkLeader?: boolean;
-  emailSender?: boolean;
-  viewMembershipData?: boolean;
-}
-
-export interface SalesforceAreaRoles {
-  emailSender?: boolean;
-}
-
-export interface SalesforceGroupMembership {
-  groupCode: string;
-  primary: boolean;
-  roles?: SalesforceGroupRoles;
-}
-
-export interface SalesforceAreaMembership {
-  areaCode: string;
-  roles?: SalesforceAreaRoles;
-}
-
-export interface SalesforceMember {
-  salesforceId: string;
-  membershipNumber?: string;
-  firstName?: string;
-  preferredName?: string;
-  initials?: string;
-  lastName: string;
-  title?: string;
-  email?: string;
-  mobileNumber?: string;
-  landlineTelephone?: string;
-  address1?: string;
-  address2?: string;
-  address3?: string;
-  town?: string;
-  county?: string;
-  country?: string;
-  postcode?: string;
-  groupName?: string;
-  groupCode?: string;
-  groupJoinedDate?: string;
-  memberType?: string;
-  memberTerm?: SalesforceMemberTerm;
-  memberStatus?: string;
-  membershipType?: string;
-  jointWith?: string;
-  membershipExpiryDate?: string;
-  ramblersJoinDate?: string;
-  areaName?: string;
-  areaJoinedDate?: string;
-  groupMemberships?: SalesforceGroupMembership[];
-  areaMemberships?: SalesforceAreaMembership[];
-  volunteer?: boolean;
-  affiliateMemberPrimaryGroup?: string;
-  emailMarketingConsent: boolean;
-  emailPermissionLastUpdated?: string;
-  postDirectMarketing?: boolean;
-  postPermissionLastUpdated?: string;
-  telephoneDirectMarketing?: boolean;
-  telephonePermissionLastUpdated?: string;
-  walkProgrammeOptOut?: boolean;
-  groupMarketingConsent?: boolean;
-  areaMarketingConsent?: boolean;
-  otherMarketingConsent?: boolean;
-}
-
-export interface SalesforceMemberChange {
-  member: SalesforceMember;
-  changeType: SalesforceChangeType;
-  changedAt: string;
-  removalReason?: SalesforceRemovalReason;
-}
-
-export interface SalesforceMemberListResponse {
-  groupCode: string;
-  groupName: string;
-  totalCount: number;
-  since?: string;
-  members: SalesforceMember[];
-  changes?: SalesforceMemberChange[];
 }
 
 export interface SalesforceTestConnectionResult {
@@ -123,31 +23,6 @@ export interface SalesforceTestConnectionResult {
   errorCode?: string;
 }
 
-export enum SalesforceConsentSource {
-  NgxRamblers = "ngx-ramblers",
-  Mailman = "mailman",
-}
-
-export interface SalesforceConsentUpdateRequest {
-  emailMarketingConsent?: boolean;
-  groupMarketingConsent?: boolean;
-  areaMarketingConsent?: boolean;
-  otherMarketingConsent?: boolean;
-  source: SalesforceConsentSource;
-  timestamp: string;
-  reason?: string;
-}
-
-export interface SalesforceConsentUpdateResponse {
-  membershipNumber: string;
-  emailMarketingConsent?: boolean;
-  groupMarketingConsent?: boolean;
-  areaMarketingConsent?: boolean;
-  otherMarketingConsent?: boolean;
-  updatedAt: string;
-  success: boolean;
-}
-
 export interface SalesforceSyncRequest {
   fullSync?: boolean;
 }
@@ -156,15 +31,48 @@ export interface SalesforceSyncApiResponse {
   action?: string;
   request?: SalesforceSyncRequest;
   response?: MemberBulkLoadAudit;
-  error?: any;
+  error?: unknown;
 }
 
-export const SALESFORCE_BULK_LOAD_SOURCE = "salesforce-api";
-export const INSIGHT_HUB_BULK_LOAD_SOURCE = "insight-hub-xlsx";
+export enum MemberBulkLoadSource {
+  RAMBLERS_TEAM_EMAILS = "ramblers-team-emails",
+  INSIGHT_HUB_XLSX = "insight-hub-xlsx",
+}
 
-export type MemberBulkLoadSource = typeof SALESFORCE_BULK_LOAD_SOURCE | typeof INSIGHT_HUB_BULK_LOAD_SOURCE;
+export enum LegacyMemberBulkLoadSource {
+  SALESFORCE_API = "salesforce-api",
+  HEAD_OFFICE_SUPPORTER_IMPORT = "head-office-supporter-import",
+}
+
+export const SALESFORCE_BULK_LOAD_SOURCE = MemberBulkLoadSource.RAMBLERS_TEAM_EMAILS;
+export const INSIGHT_HUB_BULK_LOAD_SOURCE = MemberBulkLoadSource.INSIGHT_HUB_XLSX;
+
+export const RAMBLERS_TEAM_EMAILS_BULK_LOAD_SOURCES: string[] = [
+  MemberBulkLoadSource.RAMBLERS_TEAM_EMAILS,
+  LegacyMemberBulkLoadSource.SALESFORCE_API,
+  LegacyMemberBulkLoadSource.HEAD_OFFICE_SUPPORTER_IMPORT,
+];
+
+export function isRamblersTeamEmailsBulkLoadSource(source: string | null | undefined): boolean {
+  return !!source && RAMBLERS_TEAM_EMAILS_BULK_LOAD_SOURCES.includes(source);
+}
+
+export function memberBulkLoadSourceLabel(source: string | null | undefined): string {
+  if (!source) {
+    return "—";
+  }
+  if (isRamblersTeamEmailsBulkLoadSource(source)) {
+    return "Ramblers Team Emails";
+  }
+  if (source === MemberBulkLoadSource.INSIGHT_HUB_XLSX) {
+    return "Insight Hub import";
+  }
+  return source;
+}
 
 export interface ConsentWritebackContext {
+  memberRef?: string;
+  email?: string;
   membershipNumber?: string;
   reason?: string;
 }
@@ -173,6 +81,7 @@ export enum ConsentWritebackSkipReason {
   Disabled = "DISABLED",
   NotConfigured = "NOT_CONFIGURED",
   NoMembershipNumber = "NO_MEMBERSHIP_NUMBER",
+  MissingScope = "MISSING_SCOPE",
 }
 
 export interface ConsentWritebackOutcome {

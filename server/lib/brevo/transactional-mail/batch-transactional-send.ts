@@ -50,6 +50,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
 import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-message-import";
+import { protectedEmailSendError } from "../../salesforce/salesforce-permissions";
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };
@@ -690,6 +691,11 @@ export async function startBatchTransactionalSend(req: Request, res: Response): 
     }
     const isUnbranded = request.brandingMode === BrandingMode.UNBRANDED;
     const currentMemberIdForValidation = (req as AuthenticatedRequest).user?.memberId ?? null;
+    const permissionError = await protectedEmailSendError(currentMemberIdForValidation, request.memberIds);
+    if (permissionError) {
+      res.status(403).json({ request: { messageType }, error: { message: permissionError } });
+      return;
+    }
     if (isUnbranded) {
       const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
       const committeeRoles: CommitteeMember[] = committeeConfigDoc?.value?.roles ?? [];

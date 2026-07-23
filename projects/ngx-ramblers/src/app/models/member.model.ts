@@ -109,6 +109,15 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   displayName?: string;
   contactId?: string;
   salesforceId?: string;
+  salesforceMemberRef?: string;
+  salesforceTeamStatus?: string;
+  salesforceTeamRelationshipFrom?: number;
+  wellbeingWalker?: boolean;
+  walkLeader?: boolean;
+  canEmailVolunteers?: boolean;
+  canEmailMembers?: boolean;
+  canEmailWellbeingWalkers?: boolean;
+  canViewMemberData?: boolean;
   membershipExpiryDate?: number;
   membershipNumber?: string;
   postcode?: string;
@@ -145,6 +154,11 @@ export interface MemberEmailBlock {
   blockedAt: number;
   syncedAt: number;
   source?: string;
+  salesforceBounceEventKey?: string;
+  salesforceBounceStatus?: string;
+  salesforceBounceAttempts?: number;
+  salesforceBounceLastAttemptAt?: number;
+  salesforceBounceError?: string;
 }
 
 export interface MemberWithLabel extends Member, HasNgSelectAttributes {
@@ -214,6 +228,22 @@ export interface RamblersMemberAndContact {
 export interface RamblersMember extends HasEmailFirstAndLastName {
   membershipExpiryDate?: string;
   salesforceId?: string;
+  salesforceMemberRef?: string;
+  salesforceTeamStatus?: string;
+  salesforceTeamRelationshipFrom?: string;
+  wellbeingWalker?: boolean;
+  walkLeader?: boolean;
+  canEmailVolunteers?: boolean;
+  canEmailMembers?: boolean;
+  canEmailWellbeingWalkers?: boolean;
+  canViewMemberData?: boolean;
+  doNotEmail?: boolean;
+  noWalkProgram?: boolean;
+  noCampaigning?: boolean;
+  noSurveys?: boolean;
+  postConsent?: boolean;
+  phoneConsent?: boolean;
+  emailConsentWellbeingWalks?: boolean;
   membershipNumber: string;
   mobileNumber: string;
   postcode: string;

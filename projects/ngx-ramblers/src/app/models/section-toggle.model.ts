@@ -4,4 +4,5 @@ export interface SectionToggleTab {
   value: string;
   label: string;
   icon?: IconDefinition;
+  aliases?: string[];
 }

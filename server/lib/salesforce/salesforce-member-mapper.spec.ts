@@ -1,133 +1,76 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { SalesforceMember, SalesforceMemberTerm } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { mapSalesforceMemberToRamblersMember } from "./salesforce-member-mapper";
+import { SalesforceMember } from "./salesforce.model";
 
-function baseSalesforceMember(overrides: Partial<SalesforceMember> = {}): SalesforceMember {
+function supporter(overrides: Partial<SalesforceMember> = {}): SalesforceMember {
   return {
-    salesforceId: "003Dn00000A1b2cDEF",
-    membershipNumber: "3300001",
+    membershipNo: "3300001",
+    memberRef: "SUP-3300001",
+    contactId: "003Dn00000A1b2cDEF",
+    title: "Mrs",
     firstName: "Jane",
     lastName: "Smith",
-    title: "Mrs",
     email: "jane.smith@example.com",
-    mobileNumber: "07700 900001",
-    landlineTelephone: "01303 555111",
-    postcode: "CT1 2AA",
-    membershipType: "Individual",
-    memberType: "Member",
-    memberTerm: SalesforceMemberTerm.Annual,
-    memberStatus: "Active",
-    jointWith: "",
-    membershipExpiryDate: "2026-07-15T00:00:00Z",
-    emailMarketingConsent: true,
-    emailPermissionLastUpdated: "2023-07-15T00:00:00Z",
+    doNotEmail: false,
+    landline: "01303 555111",
+    mobile: "07700 900001",
+    friendlyName: "Jane",
+    membershipStatus: "Active",
+    memberType: "Individual Membership",
+    membershipJoinDate: "2023-07-15",
+    membershipExpiry: "2026-07-15",
+    membershipEndDate: null,
+    teamStatus: "Member",
+    teamRelationshipFrom: "2023-07-15",
+    wellbeingWalker: false,
+    walkLeader: true,
+    volunteerRoles: [],
+    noWalkProgram: false,
+    noCampaigning: false,
+    noSurveys: false,
+    canEmailVolunteers: false,
+    canEmailMembers: true,
+    canEmailWellbeingWalkers: false,
+    canViewMemberData: true,
+    canViewMemberDate: true,
+    emailConsent: true,
+    emailConsentLastUpdated: "2023-07-15",
+    postConsent: true,
+    postConsentLastUpdated: "2023-07-15",
+    phoneConsent: false,
+    phoneConsentLastUpdated: null,
+    emailConsentWellbeingWalks: false,
     ...overrides,
   };
 }
 
 describe("salesforce-member-mapper", () => {
+  it("maps published supporter identity, contact and permissions", () => {
+    const result = mapSalesforceMemberToRamblersMember(supporter());
 
-  describe("mapSalesforceMemberToRamblersMember", () => {
+    expect(result.salesforceId).toEqual("003Dn00000A1b2cDEF");
+    expect(result.salesforceMemberRef).toEqual("SUP-3300001");
+    expect(result.membershipNumber).toEqual("3300001");
+    expect(result.membershipExpiryDate).toEqual("15/07/26");
+    expect(result.emailPermissionLastUpdated).toEqual("15/07/2023");
+    expect(result.canEmailMembers).toEqual(true);
+    expect(result.canViewMemberData).toEqual(true);
+  });
 
-    it("should map identity, contact and membership fields onto RamblersMember", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember());
-      expect(result.salesforceId).toEqual("003Dn00000A1b2cDEF");
-      expect(result.membershipNumber).toEqual("3300001");
-      expect(result.firstName).toEqual("Jane");
-      expect(result.lastName).toEqual("Smith");
-      expect(result.title).toEqual("Mrs");
-      expect(result.email).toEqual("jane.smith@example.com");
-      expect(result.mobileNumber).toEqual("07700 900001");
-      expect(result.landlineTelephone).toEqual("01303 555111");
-      expect(result.postcode).toEqual("CT1 2AA");
-      expect(result.type).toEqual("Individual");
-      expect(result.memberStatus).toEqual("Active");
-      expect(result.memberTerm).toEqual("annual");
-    });
+  it("keeps a non-member supporter stable without a membership number", () => {
+    const result = mapSalesforceMemberToRamblersMember(supporter({
+      membershipNo: null,
+      teamStatus: "Volunteer",
+    }));
 
-    it("should map salesforceId onto its own field, leaving membershipNumber null when Salesforce omits it", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({ membershipNumber: undefined }));
-      expect(result.salesforceId).toEqual("003Dn00000A1b2cDEF");
-      expect(result.membershipNumber).toBeNull();
-    });
+    expect(result.membershipNumber).toBeNull();
+    expect(result.salesforceMemberRef).toEqual("SUP-3300001");
+    expect(result.salesforceTeamStatus).toEqual("Volunteer");
+  });
 
-    it("should convert membershipExpiryDate from ISO to dd/MM/yy", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({
-        membershipExpiryDate: "2026-07-15T00:00:00Z"
-      }));
-      expect(result.membershipExpiryDate).toEqual("15/07/26");
-    });
-
-    it("should convert emailPermissionLastUpdated from ISO to dd/MM/yyyy", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({
-        emailPermissionLastUpdated: "2023-07-15T00:00:00Z"
-      }));
-      expect(result.emailPermissionLastUpdated).toEqual("15/07/2023");
-    });
-
-    it("should leave membership-expiry undefined when Salesforce returns no value", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({ membershipExpiryDate: undefined }));
-      expect(result.membershipExpiryDate).toBeUndefined();
-    });
-
-    it("should coerce emailMarketingConsent boolean to string \"true\"", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({ emailMarketingConsent: true }));
-      expect(result.emailMarketingConsent).toEqual("true");
-    });
-
-    it("should coerce emailMarketingConsent boolean to string \"false\"", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({ emailMarketingConsent: false }));
-      expect(result.emailMarketingConsent).toEqual("false");
-    });
-
-    it("should drop memberTerm when Salesforce returns an unrecognised value", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({ memberTerm: "lifetime" as any }));
-      expect(result.memberTerm).toBeUndefined();
-    });
-
-    it("should null-out optional contact fields that Salesforce omits", () => {
-      const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({
-        email: undefined, mobileNumber: undefined, landlineTelephone: undefined, postcode: undefined
-      }));
-      expect(result.email).toBeNull();
-      expect(result.mobileNumber).toBeNull();
-      expect(result.landlineTelephone).toBeNull();
-      expect(result.postcode).toBeNull();
-    });
-
-    describe("granular consent toggle", () => {
-
-      it("should omit granular consent fields when toggle is off, even if Salesforce returns them", () => {
-        const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({
-          groupMarketingConsent: true,
-          areaMarketingConsent: false,
-          otherMarketingConsent: true,
-        }));
-        expect(result.groupMarketingConsent).toBeUndefined();
-        expect(result.areaMarketingConsent).toBeUndefined();
-        expect(result.otherMarketingConsent).toBeUndefined();
-      });
-
-      it("should pass granular consent through as strings when toggle is on", () => {
-        const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({
-          groupMarketingConsent: true,
-          areaMarketingConsent: false,
-          otherMarketingConsent: true,
-        }), { enableGranularConsent: true });
-        expect(result.groupMarketingConsent).toEqual("true");
-        expect(result.areaMarketingConsent).toEqual("false");
-        expect(result.otherMarketingConsent).toEqual("true");
-      });
-
-      it("should preserve absence (three-state) when Salesforce omits a granular flag with toggle on", () => {
-        const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({
-          groupMarketingConsent: true,
-        }), { enableGranularConsent: true });
-        expect(result.groupMarketingConsent).toEqual("true");
-        expect(result.areaMarketingConsent).toBeUndefined();
-        expect(result.otherMarketingConsent).toBeUndefined();
-      });
-    });
+  it("combines email consent and do-not-email into the existing NGX consent field", () => {
+    expect(mapSalesforceMemberToRamblersMember(supporter()).emailMarketingConsent).toEqual("true");
+    expect(mapSalesforceMemberToRamblersMember(supporter({ doNotEmail: true })).emailMarketingConsent).toEqual("false");
   });
 });

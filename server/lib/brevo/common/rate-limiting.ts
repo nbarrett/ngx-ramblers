@@ -9,14 +9,14 @@ debugLog.enabled = true;
 const MAX_RETRIES = 8;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 30000;
-const MIN_RETRY_DELAY_MS = 250;
+const MIN_RETRY_DELAY_MS = 500;
 const RESERVOIR_REFRESH_INTERVAL_MS = 1000;
-const MIN_RATE_PER_SECOND = 1;
-const RATE_RECOVERY_QUIET_PERIOD_MS = 5000;
+const MIN_RATE_PER_SECOND = 5;
+const RATE_RECOVERY_QUIET_PERIOD_MS = 3000;
+const THROTTLE_COOLDOWN_MS = 2000;
 
 const BREVO_CONTACTS_DOCUMENTED_RPS = 10;
-const BREVO_RATE_SAFETY_FACTOR = 0.8;
-const BREVO_RATE_PER_SECOND = Math.max(1, Math.floor(BREVO_CONTACTS_DOCUMENTED_RPS * BREVO_RATE_SAFETY_FACTOR));
+const BREVO_RATE_PER_SECOND = BREVO_CONTACTS_DOCUMENTED_RPS;
 
 function statusCodeOf(error: any): number {
   return error?.statusCode ?? error?.rawResponse?.status;
@@ -58,8 +58,13 @@ export function createBottleneckWithRatePerSecond(ratePerSecond: number): Bottle
   }
 
   function throttleBack(): void {
-    rateState.lastThrottledAt = dateTimeNowAsValue();
-    const reduced = Math.max(MIN_RATE_PER_SECOND, Math.floor(rateState.current / 2));
+    const now = dateTimeNowAsValue();
+    if (now - rateState.lastThrottledAt < THROTTLE_COOLDOWN_MS) {
+      rateState.lastThrottledAt = now;
+      return;
+    }
+    rateState.lastThrottledAt = now;
+    const reduced = Math.max(MIN_RATE_PER_SECOND, rateState.current - 1);
     if (reduced < rateState.current) {
       applyRate(reduced, "(backing off after 429)");
     }

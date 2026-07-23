@@ -1,15 +1,103 @@
+@import "../../../assets/styles/colours"
+
 .inline-label
   margin-right: 8px
 
-.quick-search
-  padding: 8px
+.drop-zone.flex-grow-1
+  margin-top: 0
+  min-width: 12rem
   display: flex
-  width: 100%
-  .form-group
-    display: flex
-    //flex-direction: column
-    flex-grow: 1
-    margin-right: 8px
+  align-items: center
+  justify-content: center
+
+:host ::ng-deep .upload-history-subtabs
+  display: block
+  background: transparent
+  border: none
+  padding: 0
+  margin: 0
+  box-shadow: none
+
+  > .tab-content
+    background: transparent
+    border: none
+    padding: 0
+    box-shadow: none
+
+.bulk-load-viewport-panel
+  max-height: calc(100dvh - 11rem - 2.5rem)
+  display: flex
+  flex-direction: column
+  overflow: auto
+  min-height: 0
+  margin-bottom: 0.5rem
+  -webkit-overflow-scrolling: touch
+  scroll-padding-bottom: 1rem
+
+:host ::ng-deep .bulk-load-viewport-panel > .upload-history-subtabs
+  flex: 1 1 auto
+  min-height: 0
+  display: flex
+  flex-direction: column
+  overflow: hidden
+
+:host ::ng-deep .bulk-load-viewport-panel > .upload-history-subtabs > .nav
+  flex: 0 0 auto
+
+:host ::ng-deep .bulk-load-viewport-panel > .upload-history-subtabs > .tab-content
+  flex: 1 1 auto
+  min-height: 0
+  overflow: hidden
+  display: flex
+  flex-direction: column
+  background: transparent
+  border: none
+  padding: 0
+  box-shadow: none
+
+:host ::ng-deep .bulk-load-viewport-panel > .upload-history-subtabs > .tab-content > .tab-pane.active
+  flex: 1 1 auto
+  min-height: 0
+  overflow: hidden
+  display: flex
+  flex-direction: column
+  height: 100%
+
+.bulk-load-viewport-panel > .rsm-toolbar
+  flex: 0 0 auto
+
+.bulk-load-panel-scroll
+  flex: 1 1 auto
+  min-height: 0
+  overflow: auto
+  -webkit-overflow-scrolling: touch
+  scroll-padding-bottom: 1rem
+  padding-bottom: 0.75rem
+
+:host ::ng-deep .bulk-load-viewport-panel .ngx-data-table thead th,
+:host ::ng-deep .bulk-load-panel-scroll .ngx-data-table thead th
+  position: sticky
+  top: 0
+  z-index: 2
+  background: linear-gradient(to bottom, rgba($ramblers-colour-mintcake, 0.3), rgba($ramblers-colour-mintcake, 0.15))
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06)
+
+:host ::ng-deep .bulk-load-viewport-panel .ngx-data-table tbody tr:last-child td,
+:host ::ng-deep .bulk-load-panel-scroll .ngx-data-table tbody tr:last-child td
+  border-bottom: 1px solid #e9ecef
+  padding-bottom: 1rem
 
 .admin-session-loading
-  min-height: 40px
+  min-height: 120px
+  display: flex
+  align-items: center
+  justify-content: center
+
+:host ::ng-deep .ngx-data-table td.text-nowrap
+  white-space: nowrap
+  word-break: normal
+
+:host ::ng-deep .ngx-data-table td.audit-message
+  word-break: normal
+  overflow-wrap: break-word
+  white-space: normal

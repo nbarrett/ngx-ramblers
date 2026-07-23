@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
+import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ALERT_ERROR,
@@ -31,6 +32,7 @@ export class AlertInstance {
   clearBusy() {
     this.logger.debug("clearing busy");
     this.alertTarget.busy = false;
+    this.clearProgress();
   }
 
   setBusy() {
@@ -73,28 +75,61 @@ export class AlertInstance {
   }
 
   hide() {
+    this.clearProgress();
     this.notifyAlertMessage(ALERT_SUCCESS);
     this.clearBusy();
   }
 
   progress(message: AlertMessage | string, busy?: boolean) {
-    return this.notifyAlertMessage(ALERT_INFO, message, false, busy);
+    this.notifyAlertMessage(ALERT_INFO, message, false, busy);
+    if (this.stringUtils.isAlertMessage(message) && this.messageHasProgress(message)) {
+      this.applyProgress(message);
+    }
   }
 
   success(message: AlertMessage | string, busy?: boolean) {
+    this.clearProgress();
     return this.notifyAlertMessage(ALERT_SUCCESS, message, false, busy);
   }
 
   successWithAppend(message: AlertMessage | string, busy?: boolean) {
+    this.clearProgress();
     return this.notifyAlertMessage(ALERT_SUCCESS, message, true, busy);
   }
 
   error(message: AlertMessage | string, append?: boolean, busy?: boolean) {
+    this.clearProgress();
     return this.notifyAlertMessage(ALERT_ERROR, message, append, busy);
   }
 
   warning(message: AlertMessage | string, append?: boolean, busy?: boolean) {
     return this.notifyAlertMessage(ALERT_WARNING, message, append, busy);
+  }
+
+  private messageHasProgress(message: AlertMessage): boolean {
+    return isNumber(message.percent) || isNumber(message.completed) || isNumber(message.total);
+  }
+
+  private applyProgress(message: AlertMessage): void {
+    if (isNumber(message.percent)) {
+      this.alertTarget.progressPercent = message.percent;
+    } else if (isNumber(message.completed) && isNumber(message.total) && message.total > 0) {
+      this.alertTarget.progressPercent = Math.round((message.completed / message.total) * 100);
+    }
+    if (message.completed !== undefined) {
+      this.alertTarget.progressCompleted = message.completed;
+    }
+    if (message.total !== undefined) {
+      this.alertTarget.progressTotal = message.total;
+    }
+    this.alertTarget.showProgress = true;
+  }
+
+  private clearProgress(): void {
+    this.alertTarget.showProgress = false;
+    this.alertTarget.progressPercent = null;
+    this.alertTarget.progressCompleted = null;
+    this.alertTarget.progressTotal = null;
   }
 
 }
