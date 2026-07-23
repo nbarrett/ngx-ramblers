@@ -145,7 +145,7 @@ export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outbo
     return null;
   }
   const counterparty = internalEmails
-    ? recipients.find(recipient => !internalEmails.has(normaliseEmail(recipient.email)))
+    ? recipients.find(recipient => !internalEmails.has(normaliseEmail(recipient.email))) ?? recipients[0]
     : recipients[0];
   const existingThread = await findExistingThread(aliasConfig, outboundMessage, InboxThreadFolder.INBOX, counterparty);
   const now = dateTimeNow().toMillis();
@@ -156,14 +156,17 @@ export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outbo
 
 export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMessage: InboxMessage, originalThreadId: string): Promise<InboxMessage> {
   const now = dateTimeNow().toMillis();
+  const messageAt = replyMessage.sentAt ?? now;
   const persistedMessage = await inboxMessageModel.create({...replyMessage, threadId: originalThreadId, mailboxConnectionId: replyMessage.mailboxConnectionId ?? aliasConfig.mailboxConnectionId});
   await inboxThreadModel.updateOne({_id: originalThreadId}, {
+    $addToSet: {messageIds: replyMessage.messageId}
+  });
+  await inboxThreadModel.updateOne({_id: originalThreadId, lastSeenAt: {$lte: messageAt}}, {
     $set: {
-      lastSeenAt: now,
+      lastSeenAt: messageAt,
       lastDirection: InboxMessageDirection.OUTBOUND,
       unread: false
-    },
-    $addToSet: {messageIds: replyMessage.messageId}
+    }
   });
   const unreadCountForRole = await unreadConversationCountForRole(aliasConfig.roleType, null);
   broadcast(MessageType.INBOX_THREAD_UPDATED, {

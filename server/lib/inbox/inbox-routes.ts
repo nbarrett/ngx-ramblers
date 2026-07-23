@@ -700,13 +700,14 @@ router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res
 router.get("/threads", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
     const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
+    const offset = req.query.offset ? Math.max(parseInt(req.query.offset as string, 10) || 0, 0) : 0;
     if (req.query.folder === InboxThreadFolder.JUNK) {
       if (!(await permittedToReadJunk(req))) {
         res.status(403).json({request: {messageType}, error: "You do not have access to junk mail"});
         return;
       }
       const junkFilter = {tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK};
-      const junkThreads = await inboxThreadModel.find(junkFilter).sort({lastSeenAt: -1}).limit(limit).lean();
+      const junkThreads = await inboxThreadModel.find(junkFilter).sort({lastSeenAt: -1}).skip(offset).limit(limit).lean();
       const junkResponse: InboxThreadListResponse = {
         threads: junkThreads as InboxThread[],
         unreadCount: 0,
@@ -737,7 +738,7 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
       ? {...scopeFilter, ...unreadConditionForMember(memberId)}
       : scopeFilter;
     const [threads, unreadCount, totalCount] = await Promise.all([
-      inboxThreadModel.find(filter).sort({lastSeenAt: -1}).limit(limit).lean(),
+      inboxThreadModel.find(filter).sort({lastSeenAt: -1}).skip(offset).limit(limit).lean(),
       conversationCount({...scopeFilter, ...unreadConditionForMember(memberId)}),
       conversationCount(scopeFilter)
     ]);

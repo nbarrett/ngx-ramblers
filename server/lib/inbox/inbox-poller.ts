@@ -9,6 +9,7 @@ import {
   InboxAliasConnectionStatus,
   InboxConnectionHealthResult,
   InboxMailboxConnection,
+  InboxMessageDirection,
   InboxPollResult,
   InboxReaderProvider,
   InboxSyncMode,
@@ -24,11 +25,17 @@ import {
   mailboxHistoryId,
   registerGmailWatch
 } from "./gmail-inbox-reader";
-import { storeInboundMessage } from "./inbox-message-import";
+import { recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
+import { emailComposition as emailCompositionModel } from "../mongo/models/email-composition";
+import { member as memberModel } from "../mongo/models/member";
+import { ComposerFragmentKind, EmailCompositionDocument, EmailCompositionStatus } from "../../../projects/ngx-ramblers/src/app/models/email-composer.model";
+import { renderEmailComposerMarkdown } from "../../../projects/ngx-ramblers/src/app/functions/email-composer-markdown";
 
 const debugLog = debug(envConfig.logNamespace("inbox-poller"));
 debugLog.enabled = true;
@@ -60,6 +67,7 @@ export async function pollConnection(connection: InboxMailboxConnection): Promis
     const importedIds = connection.lastHistoryId
       ? await pollViaHistoryDelta(connection, aliases)
       : await pollViaListing(connection, aliases);
+    const recoveredSentCount = await reconcileRecentSentCompositions(connection, aliases);
     await pollSpamForConnection(connection, aliases)
       .catch(spamError => errorDebugLog(`spam scan failed for Gmail inbox ${connection.gmailAccountEmail}: ${(spamError as Error).message}`));
     await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
@@ -69,10 +77,10 @@ export async function pollConnection(connection: InboxMailboxConnection): Promis
         lastErrorMessage: null
       }
     });
-    if (importedIds.length > 0) {
-      debugLog(`polled Gmail inbox ${connection.gmailAccountEmail}: imported ${pluraliseWithCount(importedIds.length, "new message")}`);
+    if (importedIds.length > 0 || recoveredSentCount > 0) {
+      debugLog(`polled Gmail inbox ${connection.gmailAccountEmail}: imported ${pluraliseWithCount(importedIds.length, "new message")}, recovered ${pluraliseWithCount(recoveredSentCount, "sent message")}`);
     }
-    return {mailboxConnectionId, importedCount: importedIds.length, error: null};
+    return {mailboxConnectionId, importedCount: importedIds.length + recoveredSentCount, error: null};
   } catch (error) {
     const message = (error as Error).message;
     const status = looksLikeAuthFailure(message) ? InboxAliasConnectionStatus.TOKEN_REVOKED : InboxAliasConnectionStatus.ERROR;
@@ -100,6 +108,139 @@ export function syncConnectionCoalesced(connection: InboxMailboxConnection): voi
     return;
   }
   void runConnectionSync(connection, mailboxConnectionId);
+}
+
+async function reconcileRecentSentCompositions(connection: InboxMailboxConnection, aliases: InboxAliasConfig[]): Promise<number> {
+  const earliestSentAt = dateTimeNow().minus({days: 14}).toMillis();
+  const roleTypes = aliases.map(alias => alias.roleType);
+  const ownerMemberIds = aliases.map(alias => alias.memberId).filter((memberId): memberId is string => Boolean(memberId));
+  if (roleTypes.length === 0 && ownerMemberIds.length === 0) {
+    return 0;
+  }
+  const compositions = await emailCompositionModel.find({
+    status: EmailCompositionStatus.Sent,
+    sentAt: {$gte: earliestSentAt},
+    $or: [
+      {"state.unbrandedSenderRoleType": {$in: roleTypes}},
+      {ownerMemberId: {$in: ownerMemberIds}}
+    ]
+  }).sort({sentAt: 1}).lean() as EmailCompositionDocument[];
+  const compositionIds = compositions.map(compositionId);
+  const existingMessages = await inboxMessageModel.find({
+    direction: InboxMessageDirection.OUTBOUND,
+    $or: [
+      {externalSource: InboxReaderProvider.EMAIL_COMPOSER, externalId: {$in: compositionIds}},
+      {mailboxConnectionId: identifier(connection), sentAt: {$gte: earliestSentAt}}
+    ]
+  }).select("externalSource externalId subject sentAt from.email bodyHtml").lean();
+  const repairedMessagesByCompositionId = new Map(existingMessages
+    .filter(message => message.externalSource === InboxReaderProvider.EMAIL_COMPOSER && message.externalId)
+    .map(message => [message.externalId as string, message]));
+  const styleUpgradeOperations = compositions.flatMap(composition => {
+    const existingMessage = repairedMessagesByCompositionId.get(compositionId(composition));
+    const bodyHtml = renderedCompositionBodyHtml(composition);
+    return existingMessage && bodyHtml !== null && existingMessage.bodyHtml !== bodyHtml
+      ? [{updateOne: {filter: {_id: (existingMessage as unknown as {_id: unknown})._id}, update: {$set: {bodyHtml, bodyText: composition.state?.introMarkdown ?? ""}}}}]
+      : [];
+  });
+  if (styleUpgradeOperations.length > 0) {
+    await inboxMessageModel.bulkWrite(styleUpgradeOperations);
+  }
+  const repairedCompositionIds = new Set(existingMessages
+    .filter(message => message.externalSource === InboxReaderProvider.EMAIL_COMPOSER && message.externalId)
+    .map(message => message.externalId as string));
+  const storedMessageTimes = existingMessages.reduce((timesByIdentity, message) => {
+    const key = messageIdentity(message.subject, message.from?.email ?? "");
+    const times = timesByIdentity.get(key) ?? [];
+    if (message.sentAt) {
+      times.push(message.sentAt);
+      timesByIdentity.set(key, times);
+    }
+    return timesByIdentity;
+  }, new Map<string, number[]>());
+  const candidates = compositions
+    .map(composition => {
+      const alias = aliases.find(candidate => candidate.roleType === composition.state?.unbrandedSenderRoleType)
+        ?? aliases.find(candidate => candidate.memberId === composition.ownerMemberId);
+      return {composition, alias, compositionId: compositionId(composition)};
+    })
+    .filter(candidate => {
+      const sentAt = candidate.composition.sentAt;
+      const matchingTimes = candidate.alias
+        ? storedMessageTimes.get(messageIdentity(candidate.composition.state?.subject ?? "", candidate.alias.roleEmail)) ?? []
+        : [];
+      return candidate.alias
+        && sentAt
+        && !repairedCompositionIds.has(candidate.compositionId)
+        && !matchingTimes.some(storedAt => Math.abs(storedAt - sentAt) <= 60_000);
+    });
+  const selectedMemberIds = candidates.flatMap(candidate => candidate.composition.state?.selectedMemberIds ?? []);
+  const selectedMembers = selectedMemberIds.length > 0
+    ? await memberModel.find({_id: {$in: selectedMemberIds}}).select("firstName lastName email").lean()
+    : [];
+  const memberById = new Map(selectedMembers.map(selectedMember => [selectedMember._id.toString(), selectedMember]));
+  const internalEmails = await internalEmailsForConnection(connection);
+  return candidates.reduce<Promise<number>>(async (acc, candidate) => {
+    const recoveredCount = await acc;
+    try {
+      const {composition, alias, compositionId} = candidate;
+      const state = composition.state;
+      const sentAt = composition.sentAt ?? null;
+      const messageId = `<composition-${compositionId}@ngx-ramblers.org.uk>`;
+      const externalRecipients = state?.externalRecipients ?? [];
+      const memberRecipients = (state?.selectedMemberIds ?? []).map((memberId: string) => memberById.get(memberId))
+        .filter(Boolean)
+        .map(selectedMember => ({
+          name: [selectedMember.firstName, selectedMember.lastName].filter(Boolean).join(" "),
+          email: selectedMember.email ?? ""
+        }))
+        .filter(recipient => recipient.email);
+      const to = externalRecipients.concat(memberRecipients);
+      const bodyHtml = renderedCompositionBodyHtml(composition);
+      if (!alias || !sentAt || to.length === 0 || bodyHtml === null) {
+        return recoveredCount;
+      }
+      const outboundMessage = {
+        threadId: "",
+        mailboxConnectionId: identifier(connection),
+        direction: InboxMessageDirection.OUTBOUND,
+        messageId,
+        inReplyTo: null,
+        references: [],
+        from: {name: "", email: alias.roleEmail},
+        to,
+        cc: state.ccRecipients ?? [],
+        subject: state.subject ?? "",
+        bodyHtml,
+        bodyText: state.introMarkdown ?? "",
+        receivedAt: null,
+        sentAt,
+        externalSource: InboxReaderProvider.EMAIL_COMPOSER,
+        externalId: compositionId,
+        attachments: state.attachments ?? []
+      };
+      const stored = await recordOutboundMessage(alias, outboundMessage, internalEmails);
+      return stored ? recoveredCount + 1 : recoveredCount;
+    } catch (error) {
+      errorDebugLog(`sent composition repair failed for ${candidate.composition.title}: ${(error as Error).message}`);
+      return recoveredCount;
+    }
+  }, Promise.resolve(0));
+}
+
+function compositionId(composition: EmailCompositionDocument): string {
+  return (composition as unknown as {_id: {toString(): string}})._id.toString();
+}
+
+function renderedCompositionBodyHtml(composition: EmailCompositionDocument): string | null {
+  const state = composition.state;
+  const supportedFragments = (state?.fragmentOrder ?? [])
+    .every((fragment: {kind: ComposerFragmentKind}) => fragment.kind === ComposerFragmentKind.INTRO);
+  return supportedFragments ? renderEmailComposerMarkdown(state?.introMarkdown ?? "") : null;
+}
+
+function messageIdentity(subject: string, senderEmail: string): string {
+  return `${subject.trim().toLowerCase()}|${normaliseEmail(senderEmail)}`;
 }
 
 async function runConnectionSync(connection: InboxMailboxConnection, mailboxConnectionId: string): Promise<void> {

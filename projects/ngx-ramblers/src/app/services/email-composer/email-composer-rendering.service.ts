@@ -1,5 +1,4 @@
 import { inject, Injectable } from "@angular/core";
-import { Marked } from "marked";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -11,19 +10,7 @@ import {
   SideImagePlacement
 } from "../../models/email-composer.model";
 import { UrlService } from "../url.service";
-
-const localMarked = new Marked({
-  extensions: [
-    {
-      name: "underline",
-      level: "inline",
-      renderer(token: any) {
-        const inner = token.tokens ? (this as any).parser.parseInline(token.tokens) : (token.text ?? "");
-        return `<u>${inner}</u>`;
-      }
-    }
-  ]
-});
+import { renderEmailComposerMarkdown } from "../../functions/email-composer-markdown";
 
 @Injectable({ providedIn: "root" })
 export class EmailComposerRenderingService {
@@ -32,32 +19,9 @@ export class EmailComposerRenderingService {
   private urlService = inject(UrlService);
 
   markdownToHtml(markdown: string): string {
-    if (!markdown) return "";
-    try {
-      const rendered = localMarked.parse(markdown, { async: false }) as string;
-      this.logger.off("markdownToHtml input length:", markdown.length, "output length:", rendered.length);
-      return this.constrainInlineImages(rendered);
-    } catch (error) {
-      this.logger.error("markdownToHtml failed:", error, "input:", markdown);
-      const escaped = markdown
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-      return `<pre>${escaped}</pre>`;
-    }
-  }
-
-  private constrainInlineImages(html: string): string {
-    return html.replace(/<img\b([^>]*)>/gi, (match, attrs) => {
-      if (/style\s*=/.test(attrs)) {
-        return match.replace(/style\s*=\s*"([^"]*)"/i, (_styleMatch, existing) => {
-          const trimmed = (existing as string).trim();
-          const sep = trimmed.endsWith(";") || trimmed === "" ? "" : ";";
-          return `style="${trimmed}${sep}max-width:100%;height:auto;"`;
-        });
-      }
-      return `<img${attrs} style="max-width:100%;height:auto;">`;
-    });
+    const rendered = renderEmailComposerMarkdown(markdown);
+    this.logger.off("markdownToHtml input length:", markdown.length, "output length:", rendered.length);
+    return rendered;
   }
 
   renderArticleBlock(block: ArticleBlock): string {
