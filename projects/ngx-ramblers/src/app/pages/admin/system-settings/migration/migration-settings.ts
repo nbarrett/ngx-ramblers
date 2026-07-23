@@ -22,6 +22,8 @@ import { Subscription } from "rxjs";
 import { PageComponent } from "../../../../page/page.component";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
+import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../../models/form-save-actions.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -511,18 +513,9 @@ type SitePasteState = { active: boolean; value: string; error?: string };
               }
               <div class="row">
                 <div class="col-sm-12">
-                  <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                         [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
-                         [disabled]="notReady()">
-                  <input type="submit" value="Save" (click)="save()"
-                         [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
-                         [disabled]="notReady()">
-                  <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                         [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
-                         [disabled]="notReady()">
-                  <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                         [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
-                         [disabled]="notReady()">
+                  <app-form-save-actions
+                    [disabled]="notReady()"
+                    [actions]="formSaveActions"/>
                 </div>
               </div>
             </div>
@@ -743,11 +736,17 @@ type SitePasteState = { active: boolean; value: string; error?: string };
     .thumbnail-heading-frame-compact:has(details[open])
       overflow: visible
   `],
-  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective]
+  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent]
 })
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MigrationSettingsComponent", NgxLoggerLevel.ERROR);
+  public formSaveActions: FormSaveActions = {
+    save: () => this.save(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoChanges(),
+    cancel: () => this.cancel()
+  };
   protected readonly ParentPageMode = ParentPageMode;
   stringUtils = inject(StringUtilsService);
   private urlService = inject(UrlService);

@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCheckCircle, faPlug, faTimesCircle } from "@fortawesome/free-solid-svg-icons";
+import { faCheckCircle, faExternalLinkAlt, faPlug, faTimesCircle } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { SalesforceConfig, SalesforceTestConnectionResult } from "../../../../models/salesforce.model";
@@ -18,57 +18,48 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
   imports: [FormsModule, FontAwesomeModule, SecretInputComponent],
   template: `
     <div class="row thumbnail-heading-frame">
-      <div class="thumbnail-heading">Salesforce Member API</div>
+      <div class="thumbnail-heading">Ramblers Team Emails</div>
       <div class="col-sm-12">
         <p class="form-text text-muted mb-3">
-          NGX-side integration with the Ramblers Salesforce member API. While the toggle is off, the system behaves
-          exactly as it does today and no outbound calls are made. Turning it on enables the manual
-          <em>Sync members from Salesforce</em> action on the Member Bulk Load page; the existing Insight Hub xlsx
-          bulk-load route stays available either way.
+          Connection to the Ramblers Team Emails member and volunteer API. While the toggle is off, no outbound
+          calls are made. Turning it on enables <em>Sync supporters now</em> on Member Bulk Load → Ramblers Team
+          Emails; the existing Insight Hub xlsx bulk-load route stays available either way.
         </p>
         <div class="form-check mb-3">
-          <input id="salesforce-enabled"
+          <input id="ramblers-team-emails-enabled"
                  type="checkbox"
                  class="form-check-input"
                  [(ngModel)]="config.enabled"
                  (ngModelChange)="pushLocal()">
-          <label class="form-check-label" for="salesforce-enabled">Enable Salesforce member API</label>
-        </div>
-        <div class="form-check mb-3 ms-4">
-          <input id="salesforce-granular-consent"
-                 type="checkbox"
-                 class="form-check-input"
-                 [(ngModel)]="config.enableGranularConsent"
-                 (ngModelChange)="pushLocal()"
-                 [disabled]="!config.enabled">
-          <label class="form-check-label" for="salesforce-granular-consent">
-            Respect granular consent (group / area / other)
-          </label>
-          <small class="form-text text-muted d-block">
-            Off (default): Insight Hub parity. Only <code>emailMarketingConsent</code> is read from Salesforce; the
-            three group/area/other consent flags are ignored even if Salesforce returns them. The system behaves as
-            it does today.<br>
-            On: <code>groupMarketingConsent</code>, <code>areaMarketingConsent</code> and
-            <code>otherMarketingConsent</code> are read from each member record and written to the local profile.
-            Use this once HQ has committed the new consent fields, or when demonstrating the granular-consent mode.
-          </small>
+          <label class="form-check-label" for="ramblers-team-emails-enabled">Enable Ramblers Team Emails</label>
         </div>
         <div class="row">
           <div class="col-md-12">
             <div class="form-group">
-              <label for="salesforce-endpoint">Endpoint base URL</label>
-              <input id="salesforce-endpoint"
-                     type="text"
-                     class="form-control input-sm"
-                     [(ngModel)]="config.endpointBaseUrl"
-                     (ngModelChange)="pushLocal()"
-                     placeholder="https://salesforce-api.example.org">
-              <small class="form-text text-muted">No trailing slash. The client appends <code>/api/groups/&#123;groupCode&#125;/members</code>.</small>
+              <label for="ramblers-team-emails-endpoint">Endpoint base URL</label>
+              <div class="input-group">
+                <input id="ramblers-team-emails-endpoint"
+                       type="text"
+                       class="form-control input-sm"
+                       [(ngModel)]="config.endpointBaseUrl"
+                       (ngModelChange)="pushLocal()"
+                       placeholder="https://api.example.org">
+                @if (configuredEndpointUrl()) {
+                  <button type="button"
+                          class="btn btn-quiet btn-text"
+                          title="Open endpoint"
+                          (click)="openEndpoint()">
+                    <fa-icon [icon]="faExternalLinkAlt"/>
+                    Open
+                  </button>
+                }
+              </div>
+              <small class="form-text text-muted">No trailing slash. The client calls <code>/get_supporters</code>.</small>
             </div>
           </div>
         </div>
         <div class="form-group mb-3">
-          <label>Auth tokens per group code</label>
+          <label>API keys per team code</label>
           @if (availableGroupCodes.length === 0) {
             <div class="alert alert-warning">
               No group codes are configured under Area &amp; Group settings. Configure <code>group.groupCode</code> first
@@ -76,28 +67,26 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
             </div>
           } @else {
             <small class="form-text text-muted d-block mb-2">
-              Tokens are scoped per group code on the Salesforce side. Enter the token issued by HQ for each group, then Test that group on its own row.
-              Full sync iterates across every group code automatically.
+              API keys are scoped to one team. Enter the key issued by Head Office for each team, then test that team on its own row.
+              A supporter snapshot iterates across every configured team code automatically.
             </small>
             @for (code of availableGroupCodes; track code) {
-              <div class="row mb-2 align-items-start">
-                <div class="col-md-2 pt-1"><strong>{{ code }}</strong></div>
-                <div class="col-md-8">
+              <div class="d-flex gap-2 align-items-center mb-2">
+                <strong class="flex-shrink-0" style="min-width: 4rem">{{ code }}</strong>
+                <div class="input-group flex-grow-1">
                   <app-secret-input
-                    [id]="'salesforce-api-key-' + code"
-                    [name]="'salesforce-api-key-' + code"
+                    [id]="'ramblers-team-emails-api-key-' + code"
+                    [name]="'ramblers-team-emails-api-key-' + code"
                     [ngModel]="config.apiKeysByGroupCode?.[code] ?? ''"
                     (ngModelChange)="setTokenFor(code, $event)"
                     [size]="InputSize.SM"
-                    placeholder="Bearer token for {{ code }}">
+                    placeholder="API key for {{ code }}">
                   </app-secret-input>
-                </div>
-                <div class="col-md-2">
                   <button type="button"
-                          class="btn btn-primary btn-sm"
+                          class="btn btn-quiet btn-text"
                           [disabled]="testingByCode[code] || !config.endpointBaseUrl || !(config.apiKeysByGroupCode?.[code])"
                           (click)="testConnectionFor(code)">
-                    <fa-icon [icon]="faPlug" class="me-2"/>
+                    <fa-icon [icon]="faPlug"/>
                     {{ testingByCode[code] ? "Testing..." : "Test" }}
                   </button>
                 </div>
@@ -109,9 +98,6 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
           <div class="mb-3">
             <strong>Last synced:</strong> {{ dateUtils.displayDateAndTime(config.lastSyncedAt) }}
             ({{ dateUtils.asDateTime(config.lastSyncedAt).toRelative() }})
-            @if (config.lastSyncCursor) {
-              <span class="text-muted ms-2">cursor: {{ dateUtils.displayDateAndTime(config.lastSyncCursor) }}</span>
-            }
           </div>
         }
         @if (lastTestResult; as result) {
@@ -152,6 +138,7 @@ export class SalesforceSettings implements OnInit, OnDestroy {
   protected readonly faPlug = faPlug;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faTimesCircle = faTimesCircle;
+  protected readonly faExternalLinkAlt = faExternalLinkAlt;
 
   config: SalesforceConfig = { endpointBaseUrl: null, apiKeysByGroupCode: {}, enabled: false };
   availableGroupCodes: string[] = [];
@@ -160,11 +147,23 @@ export class SalesforceSettings implements OnInit, OnDestroy {
 
   private subscriptions: Subscription[] = [];
 
+  configuredEndpointUrl(): string | null {
+    const value = this.config.endpointBaseUrl?.trim();
+    return value ? value.replace(/\/+$/, "") : null;
+  }
+
+  openEndpoint(): void {
+    const endpointUrl = this.configuredEndpointUrl();
+    if (endpointUrl) {
+      window.open(endpointUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
   async ngOnInit() {
     await this.salesforceConfigService.refresh();
     this.subscriptions.push(this.salesforceConfigService.events().subscribe(value => {
       this.config = { ...value, apiKeysByGroupCode: { ...(value?.apiKeysByGroupCode ?? {}) } };
-      this.logger.info("config received", this.config);
+      this.logger.info("config received", { enabled: this.config.enabled, endpointBaseUrl: this.config.endpointBaseUrl });
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
       this.availableGroupCodes = (item?.group?.groupCode ?? "")

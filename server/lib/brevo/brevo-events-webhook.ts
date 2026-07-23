@@ -16,6 +16,7 @@ import {
   MailListAuditSource
 } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { AuditStatus } from "../../../projects/ngx-ramblers/src/app/models/audit";
+import { bounceTypeForBrevoEvent, reportSalesforceBounce } from "../salesforce/salesforce-bounce";
 
 const messageType = "brevo:events-webhook";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -73,7 +74,7 @@ async function fetchListIdsForEmail(email: string): Promise<number[]> {
   }
 }
 
-async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason?: string }> {
+async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason?: string; memberId?: string; memberRef?: string; email?: string; eventKey?: string }> {
   const email = String(payload?.email || "").toLowerCase().trim();
   if (!email) return { applied: false, reason: "missing email" };
   const event = String(payload?.event || "");
@@ -84,13 +85,15 @@ async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason
 
   const matchedMember = await member.findOne(
     { email },
-    { _id: 1, displayName: 1 }
+    { _id: 1, displayName: 1, salesforceMemberRef: 1 }
   ).lean().exec() as any;
   if (!matchedMember) {
     debugLog("applyBlockEvent:no-member-match", email, event);
     return { applied: false, reason: "no matching member" };
   }
   const memberId = matchedMember.id || matchedMember._id?.toString();
+  const eventIdentifier = String(payload?.["message-id"] || payload?.messageId || payload?.id || payload?.ts_event || payload?.ts || blockedAt);
+  const eventKey = `${event}:${eventIdentifier}:${email}`;
 
   const listIds = await fetchListIdsForEmail(email);
   const memberDoc = await member.findById(memberId).lean().exec() as any;
@@ -141,7 +144,22 @@ async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason
       debugLog("applyBlockEvent:audit-write-failed", memberId, listId, error?.message || error);
     }
   }
-  return { applied: true };
+  return { applied: true, memberId, memberRef: matchedMember.salesforceMemberRef, email, eventKey };
+}
+
+async function resolveSoftBounce(payload: any): Promise<{ applied: boolean; reason?: string; memberId?: string; memberRef?: string; email?: string; eventKey?: string }> {
+  const email = String(payload?.email || "").toLowerCase().trim();
+  if (!email) return { applied: false, reason: "missing email" };
+  const matchedMember = await member.findOne({ email }, { _id: 1, salesforceMemberRef: 1 }).lean().exec() as any;
+  if (!matchedMember) return { applied: false, reason: "no matching member" };
+  const eventIdentifier = String(payload?.["message-id"] || payload?.messageId || payload?.id || payload?.ts_event || payload?.ts || payload?.date || "unknown");
+  return {
+    applied: true,
+    memberId: matchedMember.id || matchedMember._id?.toString(),
+    memberRef: matchedMember.salesforceMemberRef,
+    email,
+    eventKey: `soft_bounce:${eventIdentifier}:${email}`,
+  };
 }
 
 async function applyClearEvent(payload: any): Promise<{ applied: boolean; reason?: string }> {
@@ -178,9 +196,33 @@ export async function brevoEventsWebhook(req: Request, res: Response): Promise<v
     }
     const payload = req.body || {};
     const event = String(payload?.event || "");
+    if (event === "soft_bounce") {
+      const result = await resolveSoftBounce(payload);
+      if (result.memberId && result.email && result.eventKey) {
+        await reportSalesforceBounce({
+          memberId: result.memberId,
+          email: result.email,
+          memberRef: result.memberRef,
+          eventKey: result.eventKey,
+          bounceType: "Soft",
+        });
+      }
+      successfulResponse({ req, res, response: { event, applied: result.applied, reason: result.reason }, messageType, debugLog });
+      return;
+    }
     if (BLOCK_EVENTS.has(event)) {
       const result = await applyBlockEvent(payload);
-      successfulResponse({ req, res, response: { event, ...result }, messageType, debugLog });
+      const bounceType = bounceTypeForBrevoEvent(event);
+      if (bounceType && result.memberId && result.email && result.eventKey) {
+        await reportSalesforceBounce({
+          memberId: result.memberId,
+          email: result.email,
+          memberRef: result.memberRef,
+          eventKey: result.eventKey,
+          bounceType,
+        });
+      }
+      successfulResponse({ req, res, response: { event, applied: result.applied, reason: result.reason }, messageType, debugLog });
       return;
     }
     if (CLEAR_EVENTS.has(event)) {

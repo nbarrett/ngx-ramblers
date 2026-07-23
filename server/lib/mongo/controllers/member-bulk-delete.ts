@@ -5,14 +5,25 @@ import { dateTimeNow } from "../../shared/dates";
 import { DeletedMember, Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { DeletionResponse } from "../../../../projects/ngx-ramblers/src/app/models/mongo-models";
 import { NumberOrString, PostSendActionsResult, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { MessageType, ProgressResponse } from "../../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { member as memberModel } from "../models/member";
 import { deletedMember as deletedMemberModel } from "../models/deleted-member";
 import { mailListAudit as mailListAuditModel } from "../models/mail-list-audit";
 import { memberSyncNotification as memberSyncNotificationModel } from "../models/member-sync-notification";
 import { deleteBrevoContacts } from "../../brevo/contacts/contact-delete";
 import { writeBackOptOutsForRemovedMembers } from "../../salesforce/member-consent-writeback";
+import { pluraliseWithCount } from "../../shared/string-utils";
+import { broadcast } from "../../websockets/websocket-broadcaster";
 
 const debugLog = debug(envConfig.logNamespace("member-bulk-delete"));
+
+function reportBulkDeleteProgress(message: string, completed?: number, total?: number): void {
+  const percent = isNumber(completed) && isNumber(total) && total > 0
+    ? Math.round((completed / total) * 100)
+    : undefined;
+  const progress: ProgressResponse = { message, percent, completed, total };
+  broadcast(MessageType.MEMBER_BULK_DELETE_PROGRESS, progress);
+}
 
 export async function applyPostSendActionsToMembers(memberIds: string[], postSendActions: WorkflowAction[], performedBy: string): Promise<PostSendActionsResult> {
   const result: PostSendActionsResult = { disabled: 0, deleted: 0 };
@@ -50,12 +61,17 @@ async function removeFromBrevoAndWriteBackConsent(memberDocs: Member[], performe
   const brevoContactIds: NumberOrString[] = members.map(member => member.mail?.id).filter(isNumber);
   if (brevoContactIds.length > 0) {
     try {
-      await deleteBrevoContacts(brevoContactIds, performedBy);
+      reportBulkDeleteProgress(`Removing ${pluraliseWithCount(brevoContactIds.length, "contact")} from email lists`, 0, brevoContactIds.length);
+      await deleteBrevoContacts(brevoContactIds, performedBy, ({ completed, total }) => {
+        reportBulkDeleteProgress(`Removed ${completed} of ${pluraliseWithCount(total, "email list contact")}`, completed, total);
+      });
       debugLog("removeFromBrevoAndWriteBackConsent: deleted", brevoContactIds.length, "Brevo contacts", brevoContactIds);
     } catch (error: any) {
       debugLog("removeFromBrevoAndWriteBackConsent: Brevo contact deletion failed for", brevoContactIds, error?.message ?? error);
+      reportBulkDeleteProgress("Email list contact removal failed; continuing with member deletion");
     }
   }
+  reportBulkDeleteProgress("Recording consent writeback for removed members");
   await writeBackOptOutsForRemovedMembers(members, performedBy);
 }
 
@@ -63,9 +79,11 @@ export async function bulkDeleteMembersCascade(memberIds: string[], deletedBy: s
   if (!memberIds?.length) {
     return {deletionResponses: [], deletedMemberRows: 0, auditRowsDeleted: 0, orphanRowsDeleted: 0, syncNotificationRowsDeleted: 0};
   }
+  reportBulkDeleteProgress(`Starting deletion of ${pluraliseWithCount(memberIds.length, "member")}`, 0, memberIds.length);
   const existing = await memberModel.find({_id: {$in: memberIds}}).lean();
   const existingById = new Map(existing.map((doc: any) => [doc._id.toString(), doc]));
   await removeFromBrevoAndWriteBackConsent(existing as unknown as Member[], deletedBy);
+  reportBulkDeleteProgress(`Deleting ${pluraliseWithCount(memberIds.length, "member")} from the database`);
   await memberModel.deleteMany({_id: {$in: memberIds}});
   const deletionResponses: DeletionResponse[] = memberIds.map(id => ({id, deleted: existingById.has(id)}));
   const deletedIds = deletionResponses.filter(response => response.deleted).map(response => response.id);
@@ -79,6 +97,7 @@ export async function bulkDeleteMembersCascade(memberIds: string[], deletedBy: s
   if (deletedMemberRows.length > 0) {
     await deletedMemberModel.insertMany(deletedMemberRows);
   }
+  reportBulkDeleteProgress("Cleaning related audit and notification records");
   const auditDeleteResult = await mailListAuditModel.deleteMany({memberId: {$in: deletedIds}});
   const validIds: string[] = (await memberModel.distinct("_id")).map((id: any) => id?.toString()).filter(Boolean);
   const orphanResult = await mailListAuditModel.deleteMany({memberId: {$exists: true, $ne: null, $nin: validIds}});
@@ -86,6 +105,7 @@ export async function bulkDeleteMembersCascade(memberIds: string[], deletedBy: s
   const syncOrphanResult = await memberSyncNotificationModel.deleteMany({memberId: {$exists: true, $ne: null, $nin: validIds}});
   const syncNotificationRowsDeleted = (syncDeleteResult.deletedCount || 0) + (syncOrphanResult.deletedCount || 0);
   debugLog("bulkDeleteMembersCascade: deleted", deletedIds.length, "of", memberIds.length, "members,", deletedMemberRows.length, "deletedMember rows,", auditDeleteResult.deletedCount, "mailListAudit rows,", orphanResult.deletedCount, "orphan rows,", syncNotificationRowsDeleted, "member sync notification rows");
+  reportBulkDeleteProgress(`Deleted ${pluraliseWithCount(deletedIds.length, "member")} from the database`, deletedIds.length, memberIds.length);
   return {
     deletionResponses,
     deletedMemberRows: deletedMemberRows.length,

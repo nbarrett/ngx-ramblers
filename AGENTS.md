@@ -42,6 +42,7 @@ These cause build failures - use the listed replacements:
 | `typeof x === "string"` (etc.) | `isString/isNumber/isBoolean/isObject/isUndefined()` from `es-toolkit/compat` |
 | `Array.isArray()` | `isArray()` from `es-toolkit/compat` |
 | `for` / `while` / `for...in` loops | `map()`, `reduce()`, `filter()`, `forEach()`. `for...of` is allowed |
+| `let` | `const` only. For a changing counter or accumulator, use a `const` object (e.g. `const progress = {completed: 0}`) or return a new value from `map`/`reduce`/`filter` |
 | Inline comments (`//`) | Self-documenting code |
 
 ## Git Workflow

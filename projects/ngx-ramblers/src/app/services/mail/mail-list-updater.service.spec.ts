@@ -15,6 +15,7 @@ import { MailListUpdaterService } from "./mail-list-updater.service";
 import { MailMessagingService } from "./mail-messaging.service";
 import { MailListAuditService } from "./mail-list-audit.service";
 import { MailService } from "./mail.service";
+import { WebSocketClientService } from "../websockets/websocket-client.service";
 import { ListSubscriptionOutcome, ListSubscriptionRow } from "../../models/mail-list-subscription.model";
 import { ListInfo, ListSetting, MailSubscription } from "../../models/mail.model";
 import { MailSettings, Member } from "../../models/member.model";
@@ -23,7 +24,7 @@ describe("MailListUpdaterService", () => {
     let service: MailListUpdaterService;
     let mailMessagingServiceSpy: { events: ReturnType<typeof vi.fn>, subscribed: ReturnType<typeof vi.fn>, toMemberMergeVariables: ReturnType<typeof vi.fn> };
     let memberServiceSpy: { createOrUpdateAll: ReturnType<typeof vi.fn> };
-    let broadcastServiceSpy: { broadcast: ReturnType<typeof vi.fn> };
+    let broadcastServiceSpy: { broadcast: ReturnType<typeof vi.fn>; on: ReturnType<typeof vi.fn> };
 
     const UNSUBSCRIBED_NOW = 1700000000000;
     const UNSUBSCRIBED_EARLIER = 1600000000000;
@@ -75,7 +76,10 @@ describe("MailListUpdaterService", () => {
             toMemberMergeVariables: vi.fn().mockName("MailMessagingService.toMemberMergeVariables").mockReturnValue({})
         };
         memberServiceSpy = {createOrUpdateAll: vi.fn().mockName("MemberService.createOrUpdateAll").mockResolvedValue([])};
-        broadcastServiceSpy = {broadcast: vi.fn().mockName("BroadcastService.broadcast")};
+        broadcastServiceSpy = {
+            broadcast: vi.fn().mockName("BroadcastService.broadcast"),
+            on: vi.fn().mockName("BroadcastService.on")
+        };
 
         TestBed.configureTestingModule({
             providers: [
@@ -91,6 +95,14 @@ describe("MailListUpdaterService", () => {
                 {provide: MemberService, useValue: memberServiceSpy},
                 {provide: SalesforceConfigService, useValue: {cached: vi.fn().mockReturnValue({})}},
                 {provide: BroadcastService, useValue: broadcastServiceSpy},
+                {
+                    provide: WebSocketClientService,
+                    useValue: {
+                        connect: vi.fn().mockResolvedValue(undefined),
+                        receiveMessages: vi.fn().mockReturnValue(of(null)),
+                        sendMessage: vi.fn()
+                    }
+                },
                 {provide: FullNamePipe, useValue: {transform: vi.fn().mockReturnValue("Joanne Wilson")}}
             ]
         });

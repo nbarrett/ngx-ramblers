@@ -82,12 +82,12 @@ export class MailMessagingService {
   constructor() {
     this.committeeConfig.committeeReferenceDataEvents().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
-      this.broadcastSuccess("Committee Config");
+      this.emitConfigWhenReadyGiven("Committee Config");
     });
     this.systemConfigService.events().subscribe(item => {
       this.mailMessagingConfig.group = item.group;
       this.mailMessagingConfig.externalSystems = item.externalSystems;
-      this.broadcastSuccess("Group Information");
+      this.emitConfigWhenReadyGiven("Group Information");
     });
     this.initialise();
   }
@@ -97,12 +97,6 @@ export class MailMessagingService {
   }
 
   async initialise(): Promise<void> {
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-      message: {
-        title: "Mail Settings",
-        message: "Getting Mail Settings"
-      }, type: AlertLevel.ALERT_SUCCESS
-    }));
     this.logger.info("initialising data:");
     await this.refreshMailConfig();
     if (!this.mailMessagingConfig.mailConfig?.apiKey) {
@@ -240,6 +234,11 @@ export class MailMessagingService {
 
   }
 
+  async refreshBrevoLists(): Promise<void> {
+    await this.configureBrevoLists();
+    this.subject.next(this.mailMessagingConfig);
+  }
+
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
     const mailConfig = configListing.mailMessagingConfig?.mailConfig;
     const workflowIds: string[] = this.workflowIdsFor(mailConfig);
@@ -339,12 +338,14 @@ export class MailMessagingService {
   }
 
   private broadcastSuccess(configType: string, message?: string) {
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-      message: {
-        title: configType,
-        message: message || "retrieved config successfully"
-      }, type: AlertLevel.ALERT_SUCCESS
-    }));
+    if (message) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+        message: {
+          title: configType,
+          message
+        }, type: AlertLevel.ALERT_SUCCESS
+      }));
+    }
     this.emitConfigWhenReadyGiven(configType);
   }
 

@@ -7,6 +7,7 @@ import {
   colourSelectors,
   colourSelectorsDarkLight,
   ExternalSystemsSubTab,
+  RAMBLERS_TEAM_EMAILS_SUB_TAB_ALIASES,
   MediaSubTab,
   NavBarJustification,
   NavBarLocation,
@@ -60,6 +61,9 @@ import { MemberSyncPolicySettings } from "./member-sync-policy/member-sync-polic
 import { MemberSyncPolicyService } from "../../../services/member/member-sync-policy.service";
 import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
 import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-settings";
+import { MemberBulkLoadAuditSettingsComponent } from "./diagnostics/member-bulk-load-audit-settings";
+import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 
 @Component({
@@ -355,7 +359,7 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                         <app-system-os-maps-settings [config]="config"/>
                         <app-system-google-maps-settings [config]="config"/>
                     }
-                    @if (showSubTab(ExternalSystemsSubTab.SALESFORCE)) {
+                    @if (showSubTab(ExternalSystemsSubTab.RAMBLERS_TEAM_EMAILS)) {
                         <app-salesforce-settings/>
                     }
                     @if (showSubTab(ExternalSystemsSubTab.MEMBER_SYNC_POLICY)) {
@@ -385,6 +389,7 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                      (selectTab)="selectTab(SystemSettingsTab.DIAGNOSTICS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <app-system-memory-settings/>
+                    <app-member-bulk-load-audit-settings class="d-block mt-3"/>
                   </div>
                 </tab>
               </tabset>
@@ -404,29 +409,24 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
             }
           </div>
           <div class="col-sm-12">
-            <div class="col-sm-12">
-              <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
-              <input type="submit" value="Save" (click)="save()"
-                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
-              <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
-              <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
-            </div>
+            <app-form-save-actions
+              [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy"
+              [actions]="formSaveActions"/>
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
+  public formSaveActions: FormSaveActions = {
+    save: () => this.save(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoChanges(),
+    cancel: () => this.cancel()
+  };
   public config: SystemConfig;
   public icons: RootFolder = RootFolder.icons;
   public logos: RootFolder = RootFolder.logos;
@@ -480,7 +480,11 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     {value: ExternalSystemsSubTab.RAMBLERS, label: "Ramblers"},
     {value: ExternalSystemsSubTab.SOCIAL, label: "Social Media"},
     {value: ExternalSystemsSubTab.MAPS, label: "Maps"},
-    {value: ExternalSystemsSubTab.SALESFORCE, label: "Salesforce"},
+    {
+      value: ExternalSystemsSubTab.RAMBLERS_TEAM_EMAILS,
+      label: "Ramblers Team Emails",
+      aliases: RAMBLERS_TEAM_EMAILS_SUB_TAB_ALIASES
+    },
     {value: ExternalSystemsSubTab.MEMBER_SYNC_POLICY, label: "Member Sync Policy"},
     {value: ExternalSystemsSubTab.CLOUDFLARE, label: "Cloudflare"},
     {value: ExternalSystemsSubTab.SECURITY, label: "Security"}
@@ -510,6 +514,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
       if (this.tabActive(SystemSettingsTab.MAPS)) {
         this.mapsTabActivated = true;
       }
+      this.rewriteLegacyExternalSystemSubTab(params[StoredValue.SUB_TAB]);
     }));
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
@@ -573,7 +578,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
       .catch((error) => this.notify.error({title: "Error saving system config", message: error}));
     if (this.salesforceConfigService.hasLoaded()) {
       await this.salesforceConfigService.save(this.salesforceConfigService.cached())
-        .catch((error) => this.notify.error({title: "Error saving Salesforce config", message: error}));
+        .catch((error) => this.notify.error({title: "Error saving Ramblers Team Emails config", message: error}));
     }
     if (this.memberSyncPolicyService.hasLoaded()) {
       await this.memberSyncPolicyService.save(this.memberSyncPolicyService.cached())
@@ -612,6 +617,22 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   showSubTab(tab: ExternalSystemsSubTab): boolean {
     return [ExternalSystemsSubTab.ALL, tab].includes(this.externalSystemSubTab as ExternalSystemsSubTab);
+  }
+
+  private rewriteLegacyExternalSystemSubTab(subTab: string | null | undefined): void {
+    if (!subTab || !this.tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)) {
+      return;
+    }
+    const canonical = kebabCase(ExternalSystemsSubTab.RAMBLERS_TEAM_EMAILS);
+    if (!RAMBLERS_TEAM_EMAILS_SUB_TAB_ALIASES.includes(subTab)) {
+      return;
+    }
+    this.externalSystemSubTab = ExternalSystemsSubTab.RAMBLERS_TEAM_EMAILS;
+    this.router.navigate([], {
+      queryParams: {[StoredValue.SUB_TAB]: canonical},
+      queryParamsHandling: "merge",
+      replaceUrl: true
+    });
   }
 
   private legacyMediaSubTab(tab: string): MediaSubTab | null {

@@ -276,8 +276,10 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           });
         } else {
           const explicitLimit = isNumber(parameters.limit) ? parameters.limit : null;
-          const effectiveLimit = explicitLimit ?? UNPAGINATED_RESULT_CAP;
-          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort).limit(effectiveLimit).lean();
+          const unlimited = explicitLimit === 0;
+          const effectiveLimit = unlimited ? null : (explicitLimit ?? UNPAGINATED_RESULT_CAP);
+          const baseQuery = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
+          const query = (effectiveLimit === null ? baseQuery : baseQuery.limit(effectiveLimit)).lean();
           const allowDisk = (query as any).allowDiskUse;
           if (isFunction(allowDisk)) {
             allowDisk.call(query, true);
@@ -286,7 +288,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           if (explicitLimit === null && results.length === UNPAGINATED_RESULT_CAP) {
             errorDebugLog("all:query for", model.modelName, "capped at", UNPAGINATED_RESULT_CAP, "documents - criteria:", JSON.stringify(parameters.criteria), "- caller should paginate or pass an explicit limit");
           }
-          debugLog(req.query, "find - criteria:found", results.length, "documents");
+          debugLog(req.query, "find - criteria:found", results.length, "documents", unlimited ? "(unlimited)" : "");
           res.status(200).json({
             action: ApiAction.QUERY,
             response: results.map(result => transforms.toObjectWithId(result))

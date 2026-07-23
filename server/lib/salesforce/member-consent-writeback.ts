@@ -22,18 +22,18 @@ export function becameFullyUnsubscribed(prior: MailSubscription[] | undefined, n
 
 export async function writeBackFullOptOuts(savedMembers: Member[], priorSubscriptionsById: Map<string, MailSubscription[]>, createdBy: string): Promise<void> {
   const fullOptOuts = savedMembers.filter(member =>
-    !!member.membershipNumber && becameFullyUnsubscribed(priorSubscriptionsById.get(member.id ?? ""), member.mail?.subscriptions));
+    !!member.salesforceMemberRef && !!member.email && becameFullyUnsubscribed(priorSubscriptionsById.get(member.id ?? ""), member.mail?.subscriptions));
   await Promise.all(fullOptOuts.map(member => writeBackOne(member, createdBy)));
 }
 
 export async function writeBackOptOutsForRemovedMembers(removedMembers: Member[], createdBy: string): Promise<void> {
-  const optOuts = removedMembers.filter(member => !!member.membershipNumber && activeSubscribedCount(member.mail?.subscriptions) > 0);
+  const optOuts = removedMembers.filter(member => !!member.salesforceMemberRef && !!member.email && activeSubscribedCount(member.mail?.subscriptions) > 0);
   await Promise.all(optOuts.map(member => writeBackOne(member, createdBy)));
 }
 
 async function writeBackOne(member: Member, createdBy: string): Promise<void> {
   try {
-    const outcome = await notifySalesforceFullyOptedOut({membershipNumber: member.membershipNumber, reason: FULL_OPT_OUT_REASON});
+    const outcome = await notifySalesforceFullyOptedOut({memberRef: member.salesforceMemberRef, email: member.email, reason: FULL_OPT_OUT_REASON});
     if (!outcome.attempted) {
       return;
     }

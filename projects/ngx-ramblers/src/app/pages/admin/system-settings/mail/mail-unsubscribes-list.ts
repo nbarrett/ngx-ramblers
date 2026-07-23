@@ -935,7 +935,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
         ? "Matched member has no membership number - writeback not applicable"
         : "No matching NGX member - writeback not applicable";
     case SalesforceWritebackStatus.PENDING:
-      return "Awaiting Salesforce consent writeback";
+      return "Awaiting Ramblers Team Emails consent writeback";
     case SalesforceWritebackStatus.SYNCED:
       return writeback.updatedAt ? `Synced at ${writeback.updatedAt}` : "Synced";
     case SalesforceWritebackStatus.FAILED:

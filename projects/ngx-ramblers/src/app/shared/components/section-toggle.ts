@@ -106,16 +106,32 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
     if (!this.queryParamKey) {
       return;
     }
-    const tabParam = this.latestQueryParams[this.queryParamKey];
-    if (tabParam) {
-      const matchedTab = this.normalizedTabs.find(tab => kebabCase(tab.value) === tabParam);
-      if (matchedTab && this.selectedTab !== matchedTab.value) {
-        Promise.resolve().then(() => {
-          this.selectedTab = matchedTab.value as T;
-          this.selectedTabChange.emit(matchedTab.value as T);
+    const queryKey = String(this.queryParamKey);
+    const tabParam = this.latestQueryParams[queryKey];
+    if (!tabParam) {
+      return;
+    }
+    const matchedTab = this.normalizedTabs.find(tab => {
+      const aliases = (tab.aliases ?? []).map(alias => kebabCase(alias));
+      return kebabCase(tab.value) === tabParam || aliases.includes(tabParam);
+    });
+    if (!matchedTab) {
+      return;
+    }
+    const canonical = kebabCase(matchedTab.value);
+    Promise.resolve().then(() => {
+      if (this.selectedTab !== matchedTab.value) {
+        this.selectedTab = matchedTab.value as T;
+        this.selectedTabChange.emit(matchedTab.value as T);
+      }
+      if (canonical !== tabParam) {
+        this.router.navigate([], {
+          queryParams: {[queryKey]: canonical},
+          queryParamsHandling: "merge",
+          replaceUrl: true
         });
       }
-    }
+    });
   }
 
   ngOnDestroy() {
@@ -127,8 +143,9 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
     this.selectedTabChange.emit(tabValue as T);
     if (this.queryParamKey) {
       this.router.navigate([], {
-        queryParams: { [this.queryParamKey]: kebabCase(tabValue) },
-        queryParamsHandling: "merge"
+        queryParams: {[String(this.queryParamKey)]: kebabCase(tabValue)},
+        queryParamsHandling: "merge",
+        replaceUrl: true
       });
     }
   }

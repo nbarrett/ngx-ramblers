@@ -1,75 +1,48 @@
 import {
   RamblersMember,
-  MemberTerm
 } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { SalesforceMember } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { RamblersInsightHubDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeFromIso } from "../shared/dates";
+import { SalesforceMember } from "./salesforce.model";
 
-function formatIsoDateAs(value: string | undefined, format: string): string | undefined {
+function formatIsoDateAs(value: string | null, format: string): string | undefined {
   if (!value) {
     return undefined;
   }
   const parsed = dateTimeFromIso(value);
-  if (!parsed.isValid) {
-    return undefined;
-  }
-  return parsed.toFormat(format);
+  return parsed.isValid ? parsed.toFormat(format) : undefined;
 }
 
-function memberTermFor(value?: string): MemberTerm | undefined {
-  if (value === MemberTerm.LIFE || value === MemberTerm.ANNUAL) {
-    return value;
-  }
-  return undefined;
-}
-
-export interface SalesforceMapperOptions {
-  enableGranularConsent?: boolean;
-}
-
-function tristateBoolean(value: boolean | undefined): string | undefined {
-  if (value === true) {
-    return "true";
-  }
-  if (value === false) {
-    return "false";
-  }
-  return undefined;
-}
-
-export function mapSalesforceMemberToRamblersMember(salesforceMember: SalesforceMember, options: SalesforceMapperOptions = {}): RamblersMember {
-  const ramblersMember: RamblersMember = {
-    salesforceId: salesforceMember.salesforceId || null,
-    membershipNumber: salesforceMember.membershipNumber || null,
-    membershipExpiryDate: formatIsoDateAs(salesforceMember.membershipExpiryDate, RamblersInsightHubDateFormat.TWO_DIGIT_YEAR),
-    email: salesforceMember.email || null,
-    firstName: salesforceMember.firstName || null,
-    lastName: salesforceMember.lastName || null,
-    title: salesforceMember.title || null,
-    type: salesforceMember.membershipType || null,
-    jointWith: salesforceMember.jointWith || null,
-    postcode: salesforceMember.postcode || null,
-    mobileNumber: salesforceMember.mobileNumber || null,
-    landlineTelephone: salesforceMember.landlineTelephone || null,
-    memberStatus: salesforceMember.memberStatus || null,
-    memberTerm: memberTermFor(salesforceMember.memberTerm),
-    emailMarketingConsent: salesforceMember.emailMarketingConsent ? "true" : "false",
-    emailPermissionLastUpdated: formatIsoDateAs(salesforceMember.emailPermissionLastUpdated, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
+export function mapSalesforceMemberToRamblersMember(supporter: SalesforceMember): RamblersMember {
+  return {
+    salesforceId: supporter.contactId || null,
+    salesforceMemberRef: supporter.memberRef || null,
+    membershipNumber: supporter.membershipNo || null,
+    membershipExpiryDate: formatIsoDateAs(supporter.membershipExpiry, RamblersInsightHubDateFormat.TWO_DIGIT_YEAR),
+    email: supporter.email || null,
+    firstName: supporter.firstName || supporter.friendlyName || null,
+    lastName: supporter.lastName || null,
+    title: supporter.title || null,
+    type: supporter.memberType || null,
+    mobileNumber: supporter.mobile || null,
+    landlineTelephone: supporter.landline || null,
+    memberStatus: supporter.membershipStatus || null,
+    emailMarketingConsent: supporter.emailConsent && !supporter.doNotEmail ? "true" : "false",
+    emailPermissionLastUpdated: formatIsoDateAs(supporter.emailConsentLastUpdated, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
+    salesforceTeamStatus: supporter.teamStatus,
+    salesforceTeamRelationshipFrom: formatIsoDateAs(supporter.teamRelationshipFrom, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
+    wellbeingWalker: supporter.wellbeingWalker,
+    walkLeader: supporter.walkLeader,
+    canEmailVolunteers: supporter.canEmailVolunteers,
+    canEmailMembers: supporter.canEmailMembers,
+    canEmailWellbeingWalkers: supporter.canEmailWellbeingWalkers,
+    canViewMemberData: supporter.canViewMemberData,
+    doNotEmail: supporter.doNotEmail,
+    noWalkProgram: supporter.noWalkProgram,
+    noCampaigning: supporter.noCampaigning,
+    noSurveys: supporter.noSurveys,
+    postConsent: supporter.postConsent,
+    phoneConsent: supporter.phoneConsent,
+    emailConsentWellbeingWalks: supporter.emailConsentWellbeingWalks,
   } as RamblersMember;
-  if (options.enableGranularConsent) {
-    const groupConsent = tristateBoolean(salesforceMember.groupMarketingConsent);
-    if (groupConsent !== undefined) {
-      ramblersMember.groupMarketingConsent = groupConsent;
-    }
-    const areaConsent = tristateBoolean(salesforceMember.areaMarketingConsent);
-    if (areaConsent !== undefined) {
-      ramblersMember.areaMarketingConsent = areaConsent;
-    }
-    const otherConsent = tristateBoolean(salesforceMember.otherMarketingConsent);
-    if (otherConsent !== undefined) {
-      ramblersMember.otherMarketingConsent = otherConsent;
-    }
-  }
-  return ramblersMember;
 }

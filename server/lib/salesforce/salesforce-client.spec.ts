@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { SalesforceConfig } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
-import { activeGroupCodeWithToken } from "./salesforce-client";
+import { activeGroupCodeWithToken, pushSalesforceBounce, pushSalesforceConsent } from "./salesforce-client";
 
 function configWith(apiKeysByGroupCode: Record<string, string>): SalesforceConfig {
   return {
@@ -36,5 +36,26 @@ describe("activeGroupCodeWithToken", () => {
   it("ignores an active group whose token is an empty string", () => {
     const config = configWith({ KT51: "" });
     expect(activeGroupCodeWithToken(config, "KT51")).toBeNull();
+  });
+});
+
+describe("Ramblers Team Emails request validation", () => {
+  it("rejects an invalid bounce email before making a request", async () => {
+    const result = await pushSalesforceBounce(configWith({ KT51: "token" }), {
+      emailAddress: "invalid",
+      memberRef: "member-1",
+      bounceType: "Hard",
+    }, "KT51");
+
+    expect(result).toMatchObject({ status: 0, errorCode: "INVALID_REQUEST" });
+  });
+
+  it("rejects an unsubscribe without a member reference before making a request", async () => {
+    const result = await pushSalesforceConsent(configWith({ KT51: "token" }), {
+      emailAddress: "member@example.org",
+      memberRef: "",
+    }, "KT51");
+
+    expect(result).toMatchObject({ status: 0, errorCode: "INVALID_REQUEST" });
   });
 });

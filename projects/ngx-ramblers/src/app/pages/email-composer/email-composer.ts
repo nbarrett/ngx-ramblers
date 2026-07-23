@@ -114,6 +114,7 @@ import { MailListUpdaterService } from "../../services/mail/mail-list-updater.se
 import { MemberService } from "../../services/member/member.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
+import { SalesforceConfigService } from "../../services/salesforce/salesforce-config.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { ListSubscriberService } from "../../services/mail/list-subscriber.service";
 import { ListSubscriberCountComponent } from "../../modules/common/mail/list-subscriber-count";
@@ -1732,6 +1733,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private changeDetector = inject(ChangeDetectorRef);
   private systemConfigService = inject(SystemConfigService);
+  private salesforceConfigService = inject(SalesforceConfigService);
   protected stringUtils = inject(StringUtilsService);
   protected dateUtils = inject(DateUtilsService);
   private rendering = inject(EmailComposerRenderingService);
@@ -1786,6 +1788,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected sentEmails: EmailCompositionSummary[] = [];
   protected savedExternalRecipients: ExternalRecipient[] = [];
   protected loggedInMemberRecord: Member | null = null;
+  private salesforceEnabled = false;
   protected newExternalSaveForReuse = true;
   protected replyCcSuggestion: ComposerExternalRecipient[] = [];
   protected draftsPanelOpen = false;
@@ -1853,7 +1856,12 @@ export class EmailComposer implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     void this.loadSavedExternalRecipients();
-    void this.loadLoggedInMemberRecord();
+    const identityAndSalesforceConfig = Promise.all([
+      this.loadLoggedInMemberRecord(),
+      this.salesforceConfigService.refresh().then(config => {
+        this.salesforceEnabled = config.enabled;
+      }),
+    ]);
     void this.loadCampaignReleaseTaskState();
     this.subscriptions.push(this.route.queryParamMap.subscribe((paramMap: ParamMap) => {
       void this.applyContextFromRoute(paramMap, this.route.snapshot.paramMap);
@@ -1877,6 +1885,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
     }));
+    await identityAndSalesforceConfig;
     this.allMembers = await this.memberService.privilegedFields();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     try {
@@ -3583,7 +3592,11 @@ export class EmailComposer implements OnInit, OnDestroy {
       return "the selected member";
     }
     const name = this.memberFullName(member);
-    return member.email ? `${name} (${member.email})` : name;
+    return member.email && this.mayViewMemberAddresses() ? `${name} (${member.email})` : name;
+  }
+
+  protected mayViewMemberAddresses(): boolean {
+    return !this.salesforceEnabled || this.loggedInMemberRecord?.canViewMemberData === true;
   }
 
   private memberFullName(member: Member): string {

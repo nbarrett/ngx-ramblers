@@ -82,6 +82,20 @@
                       {{ notifyTarget.alertTitle }}: </strong>
                   } {{ notifyTarget.alertMessage }}
                 </div>
+                @if (notifyTarget.showProgress) {
+                  <div class="progress mt-2" style="height: 24px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar"
+                         [style.width.%]="notifyTarget.progressPercent || 0"
+                         [attr.aria-valuenow]="notifyTarget.progressPercent || 0"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      @if (notifyTarget.progressPercent) {
+                        {{ notifyTarget.progressPercent }}%
+                      }
+                    </div>
+                  </div>
+                }
               </div>
             </div>
           }

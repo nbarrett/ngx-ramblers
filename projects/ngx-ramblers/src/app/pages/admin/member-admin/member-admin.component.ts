@@ -57,6 +57,8 @@ import { UrlService } from "../../../services/url.service";
 import { PathSegment } from "../../../models/content-text.model";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { MemberTerm } from "../../../models/member.model";
+import { MessageType, ProgressResponse } from "../../../models/websocket.model";
+import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 
 
 @Component({
@@ -87,6 +89,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private memberDefaultsService = inject(MemberDefaultsService);
   private profileService = inject(ProfileService);
   private memberLoginService = inject(MemberLoginService);
+  private webSocketClientService = inject(WebSocketClientService);
   private searchChangeObservable: Subject<string> = new Subject<string>();
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -526,14 +529,51 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     const memberCount: string = this.stringUtilsService.pluraliseWithCount(this.bulkDeleteMarkedMemberIds.length, "member");
     this.notify.progress({
       title: "Member Bulk Delete",
-      message: `Deleting ${memberCount} and synchronising email lists - this can take a few minutes for large selections, please wait`
+      message: `Deleting ${memberCount} and synchronising email lists - this can take a few minutes for large selections, please wait`,
+      percent: 0,
+      completed: 0,
+      total: this.bulkDeleteMarkedMemberIds.length
     }, true);
+    await this.webSocketClientService.connect();
+    const progressSubscription = this.webSocketClientService
+      .receiveMessages<ProgressResponse>(MessageType.MEMBER_BULK_DELETE_PROGRESS)
+      .subscribe(progress => {
+        if (progress) {
+          this.notify.progress({
+            title: "Member Bulk Delete",
+            message: progress.message,
+            percent: progress.percent,
+            completed: progress.completed,
+            total: progress.total
+          }, true);
+        }
+      });
     try {
       const deletedMembers = await this.memberService.bulkDelete(this.bulkDeleteMarkedMemberIds);
       this.logger.info("deletedMembers:", deletedMembers);
+      this.notify.progress({
+        title: "Member Bulk Delete",
+        message: "Refreshing member list"
+      }, true);
       await this.refreshMembers();
+      this.notify.progress({
+        title: "Member Bulk Delete",
+        message: "Synchronising remaining email lists"
+      }, true);
       await this.updateLists();
+      this.notify.success({
+        title: "Member Bulk Delete",
+        message: `Finished deleting ${memberCount}`
+      });
+    } catch (error) {
+      this.logger.error("confirmBulkDelete failed:", error);
+      this.notify.error({
+        title: "Member Bulk Delete",
+        message: this.stringUtilsService.stringify(error),
+        continue: true
+      });
     } finally {
+      progressSubscription.unsubscribe();
       this.confirm.clear();
       this.bulkDeleteMarkedMemberIds = [];
       this.notify.clearBusy();

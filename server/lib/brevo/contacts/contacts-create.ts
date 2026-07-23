@@ -6,6 +6,8 @@ import { CreateContactRequestWithObjectAttributes } from "../../../../projects/n
 import { Brevo } from "@getbrevo/brevo";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { reportBrevoProgress } from "../common/progress";
+import { pluraliseWithCount } from "../../shared/string-utils";
 import { ensureMemberContactAttributes, stripUnavailableMemberAttributes } from "./member-contact-attributes";
 import { fetchExistingListIds, filterToExistingListIds } from "../lists/existing-list-ids";
 
@@ -19,7 +21,10 @@ export async function contactsCreate(req: Request, res: Response): Promise<any> 
     const createContactRequests: CreateContactRequestWithObjectAttributes[] = req.body;
     const availableMemberAttributes = await ensureMemberContactAttributes();
     const existingListIds = await fetchExistingListIds(client);
-    debugLog("received", createContactRequests.length, "createContactRequests:", createContactRequests);
+    const total = createContactRequests.length;
+    const progress = {completed: 0};
+    debugLog("received", total, "createContactRequests:", createContactRequests);
+    reportBrevoProgress(`Creating 0 of ${pluraliseWithCount(total, "contact")}`, 0, total);
     const responses = await Promise.all(createContactRequests.map(async (createContactRequest: CreateContactRequestWithObjectAttributes) => {
       const {valid: listIds, missing: missingListIds} = filterToExistingListIds(createContactRequest.listIds, existingListIds);
       if (missingListIds.length > 0) {
@@ -31,11 +36,13 @@ export async function contactsCreate(req: Request, res: Response): Promise<any> 
         attributes: stripUnavailableMemberAttributes(createContactRequest.attributes, availableMemberAttributes) as unknown as Brevo.CreateContactRequest["attributes"],
         ext_id: createContactRequest.extId
       };
-      debugLog("making createContactRequest:", createContactRequests.indexOf(createContactRequest) + 1, "of", createContactRequests.length);
+      debugLog("making createContactRequest:", createContactRequests.indexOf(createContactRequest) + 1, "of", total);
       const response = await scheduleBrevo(() => {
         debugLog("creating contact:", createContact);
         return client.contacts.createContact(createContact).withRawResponse();
       });
+      progress.completed += 1;
+      reportBrevoProgress(`Creating ${progress.completed} of ${pluraliseWithCount(total, "contact")}`, progress.completed, total);
       return mapStatusMappedResponseSingleInput(createContactRequest.email, response, 201, 204);
     }));
     debugLog("createContactRequests:", createContactRequests, "responses:", responses);

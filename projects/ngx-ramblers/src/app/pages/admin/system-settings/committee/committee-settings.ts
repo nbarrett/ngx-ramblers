@@ -68,6 +68,8 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
 import { CommitteeMemberEditor } from "./committee-member";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
+import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../../models/form-save-actions.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -756,21 +758,22 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
           }
         </div>
         <div class="col-sm-12">
-          <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
-          <input type="submit" value="Save" (click)="save()"
-                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
-          <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
-          <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
+          <app-form-save-actions
+            [disabled]="notReady()"
+            [actions]="formSaveActions"/>
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton]
+    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
+  public formSaveActions: FormSaveActions = {
+    save: () => this.save(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoChanges(),
+    cancel: () => this.cancel()
+  };
 
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeSettingsComponent", NgxLoggerLevel.ERROR);
   stringUtils = inject(StringUtilsService);

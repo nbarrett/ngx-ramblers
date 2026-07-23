@@ -74,6 +74,15 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+export function requireFileOrMemberAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = req.user as Partial<Member>;
+  if (!user?.fileAdmin && !user?.memberAdmin) {
+    res.status(403).json({error: "File or member admin access required"});
+    return;
+  }
+  next();
+}
+
 export function optionalAuthenticate() {
   initialisePassport();
   return (req, res, next) => {

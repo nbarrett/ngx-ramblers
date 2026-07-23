@@ -13,6 +13,8 @@ import {
   successfulResponse
 } from "../common/messages";
 import { chunk, isNumber } from "es-toolkit/compat";
+import { reportBrevoProgress } from "../common/progress";
+import { pluraliseWithCount } from "../../shared/string-utils";
 import { fetchExistingListIds, filterToExistingListIds } from "../lists/existing-list-ids";
 
 const messageType = "brevo:contacts:batch-update";
@@ -55,8 +57,17 @@ export async function contactsBatchUpdate(req: Request, res: Response): Promise<
       };
     });
     debugLog("updateBatchContacts request for", contacts.length, "contacts - update-only, contacts are never created here");
-    const batchResponses: BrevoResponse[] = await Promise.all(chunk(contacts, UPDATE_BATCH_CONTACT_LIMIT).map(batch =>
-      scheduleBrevo(() => client.contacts.updateBatchContacts({contacts: batch}).withRawResponse())));
+    const batches = chunk(contacts, UPDATE_BATCH_CONTACT_LIMIT);
+    const total = contacts.length;
+    const progress = {completed: 0};
+    reportBrevoProgress(`Updating 0 of ${pluraliseWithCount(total, "contact")}`, 0, total);
+    const batchResponses: BrevoResponse[] = await Promise.all(batches.map(async batch => {
+      const response = await scheduleBrevo(() => client.contacts.updateBatchContacts({contacts: batch}).withRawResponse());
+      progress.completed += batch.length;
+      const done = Math.min(progress.completed, total);
+      reportBrevoProgress(`Updating ${done} of ${pluraliseWithCount(total, "contact")}`, done, total);
+      return response;
+    }));
     const failedResponse = batchResponses.find(response => !IMPORT_ACCEPTED_HTTP_RESPONSE_CODES.includes(response.rawResponse.status));
     const selectedResponse: BrevoResponse = failedResponse ?? batchResponses[0];
     debugLog("updateBatchContacts response statuses:", batchResponses.map(response => response.rawResponse.status));

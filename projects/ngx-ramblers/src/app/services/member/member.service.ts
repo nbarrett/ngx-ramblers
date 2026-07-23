@@ -102,7 +102,11 @@ export class MemberService {
   }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<Member[]> {
-    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    const options: DataQueryOptions = {
+      ...(dataQueryOptions || {}),
+      limit: dataQueryOptions?.limit ?? 0
+    };
+    const params = this.commonDataService.toHttpParams(options);
     this.logger.debug("all:params", params.toString());
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/all`, {params}), this.memberChanges);
     const responses = response.response as Member[];
