@@ -21,12 +21,14 @@ describe("serve-index-html", () => {
   it("places public CMS content in ordinary semantic HTML", () => {
     const html = withServerContent("<html><head></head><body><app-root></app-root></body></html>", descriptor);
     expect(html).toContain("<main id=\"server-rendered-content\"><h1>Release Notes</h1><p>Public CMS content</p></main>");
-    expect(html).not.toContain("<noscript>");
+    expect(html).toContain("#server-rendered-content{display:none}");
   });
 
-  it("hides the server content after Angular populates the app root", () => {
+  it("hides the server content from the first paint for JavaScript browsers", () => {
     const html = withServerContent("<html><head></head><body><app-root></app-root></body></html>", descriptor);
-    expect(html).toContain("app-root:not(:empty) + #server-rendered-content{display:none}");
+    expect(html).toContain("#server-rendered-content{display:none}");
+    expect(html).toContain("<noscript><style>#server-rendered-content{display:revert}</style></noscript>");
+    expect(html).not.toContain("app-root:not(:empty) + #server-rendered-content{display:none}");
   });
 
   it("does not duplicate a heading already supplied by the CMS", () => {
