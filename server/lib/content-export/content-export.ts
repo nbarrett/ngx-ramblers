@@ -49,12 +49,34 @@ function contentExportFrom(page: PageContent, baseUrl: string): ContentExport {
 
 function sendInFormat(contentExport: ContentExport, format: string, res: Response): void {
   res.setHeader("Cache-Control", CACHE_CONTROL);
+  res.vary("Accept");
   if (format === ContentExportFormat.HTML) {
     res.type("html").send(contentExport.contentHtml);
   } else if (format === ContentExportFormat.MARKDOWN) {
     res.type("text/markdown").send(contentExport.contentMarkdown);
   } else {
     res.json(contentExport);
+  }
+}
+
+export function contentExportFormatFromAccept(acceptHeader: string): ContentExportFormat {
+  const acceptedTypes = (acceptHeader || "")
+    .split(",")
+    .map(value => {
+      const parts = value.split(";").map(part => part.trim().toLowerCase());
+      const qualityPart = parts.find(part => part.startsWith("q="));
+      const quality = qualityPart ? Number(qualityPart.slice(2)) : 1;
+      return [parts[0], Number.isNaN(quality) ? 0 : quality] as [string, number];
+    })
+    .filter(([, quality]) => quality > 0)
+    .sort((left, right) => right[1] - left[1]);
+  const selectedType = acceptedTypes.find(([mediaType]) => ["text/markdown", "application/json"].includes(mediaType))?.[0];
+  if (selectedType === "text/markdown") {
+    return ContentExportFormat.MARKDOWN;
+  } else if (selectedType === "application/json") {
+    return ContentExportFormat.JSON;
+  } else {
+    return null;
   }
 }
 
@@ -77,7 +99,8 @@ async function respondWith(page: PageContent, req: Request, res: Response): Prom
 }
 
 export async function contentExportForPageUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const format = (req.query[StoredValue.FORMAT] as string) || "";
+  const queryFormat = (req.query[StoredValue.FORMAT] as string) || "";
+  const format = queryFormat || contentExportFormatFromAccept(req.get("Accept"));
   if (req.method !== "GET" || req.path.startsWith("/api/") || !values(ContentExportFormat).includes(format as ContentExportFormat)) {
     next();
     return;

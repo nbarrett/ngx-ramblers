@@ -7,7 +7,6 @@ import { dateTimeNowAsValue } from "./dates";
 import { extractGoogleSiteVerificationId } from "../../../projects/ngx-ramblers/src/app/functions/google-search-console";
 import { pageSeoDescriptorForPath } from "../content-export/content-export";
 import { PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
-import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
 const debugLog = debug(envConfig.logNamespace("serve-index-html"));
 debugLog.enabled = false;
@@ -16,7 +15,6 @@ interface HeadConfig {
   verificationId: string;
   baseHref: string;
   siteName: string;
-  faviconUrl: string;
 }
 
 interface CachedSeoDescriptor {
@@ -29,7 +27,6 @@ const headConfigCache: { value: HeadConfig; expiry: number } = {value: null, exp
 const seoCacheTtlMs = 5 * 60 * 1000;
 const seoCacheMaxEntries = 200;
 const seoCache = new Map<string, CachedSeoDescriptor>();
-const noscriptContentMaxLength = 20000;
 
 async function cachedHeadConfig(): Promise<HeadConfig> {
   if (dateTimeNowAsValue() < headConfigCache.expiry) {
@@ -37,16 +34,14 @@ async function cachedHeadConfig(): Promise<HeadConfig> {
   }
   try {
     const config = await systemConfig();
-    const selectedLogo = config?.logos?.images?.find(image => image.originalFileName === config?.header?.selectedLogo);
     headConfigCache.value = {
       verificationId: config?.googleSearchConsole?.verificationId || null,
       baseHref: (config?.group?.href || "").replace(/\/+$/, "") || null,
-      siteName: config?.group?.shortName || config?.group?.longName || null,
-      faviconUrl: selectedLogo?.awsFileName ? `/${S3_BASE_URL}/${selectedLogo.awsFileName}` : null
+      siteName: config?.group?.shortName || config?.group?.longName || null
     };
   } catch (error) {
     debugLog("Failed to read system config for head tags:", error);
-    headConfigCache.value = {verificationId: null, baseHref: null, siteName: null, faviconUrl: null};
+    headConfigCache.value = {verificationId: null, baseHref: null, siteName: null};
   }
   headConfigCache.expiry = dateTimeNowAsValue() + headConfigCacheTtlMs;
   return headConfigCache.value;
@@ -111,32 +106,33 @@ function withMetaDescription(html: string, description: string): string {
   return html.replace("</head>", `  <meta name="description" content="${escapeHtml(description)}">\n</head>`);
 }
 
-function withMarkdownAlternate(html: string, descriptor: PageSeoDescriptor): string {
+function representationUrl(baseHref: string, exportablePath: string, format: string): string {
+  return `${canonicalUrlFor(baseHref, `/${exportablePath}`)}?format=${format}`;
+}
+
+export function withRepresentationAlternates(html: string, baseHref: string, descriptor: PageSeoDescriptor): string {
   if (!descriptor?.exportablePath) {
     return html;
   }
-  const markdownUrl = escapeHtml(`/api/public/content/path/${descriptor.exportablePath}?format=markdown`);
-  return html.replace("</head>", `  <link rel="alternate" type="text/markdown" href="${markdownUrl}">\n</head>`);
+  const alternates = [
+    {format: "markdown", type: "text/markdown"},
+    {format: "html", type: "text/html"},
+    {format: "json", type: "application/json"}
+  ].map(alternate => `  <link rel="alternate" type="${alternate.type}" href="${escapeHtml(representationUrl(baseHref, descriptor.exportablePath, alternate.format))}">`).join("\n");
+  return html.replace("</head>", `${alternates}\n</head>`);
 }
 
-function withNoscriptContent(html: string, descriptor: PageSeoDescriptor): string {
+export function withServerContent(html: string, descriptor: PageSeoDescriptor): string {
   if (!descriptor?.contentHtml) {
     return html;
   }
   const contentStartsWithHeading = descriptor.contentHtml.trimStart().startsWith("<h1");
   const heading = descriptor.title && !contentStartsWithHeading ? `<h1>${escapeHtml(descriptor.title)}</h1>` : "";
-  const content = descriptor.contentHtml.length > noscriptContentMaxLength
-    ? descriptor.contentHtml.slice(0, noscriptContentMaxLength)
-    : descriptor.contentHtml;
-  return html.replace("<app-root></app-root>", `<app-root></app-root>\n<noscript>${heading}${content}</noscript>`);
-}
-
-function withFavicon(html: string, faviconUrl: string): string {
-  if (!faviconUrl) {
-    return html;
-  }
-  const withoutStaticIcons = html.replace(/[ \t]*<link[^>]*rel="icon"[^>]*>\n?/g, "");
-  return withoutStaticIcons.replace("</head>", `  <link rel="icon" href="${escapeHtml(faviconUrl)}">\n</head>`);
+  const serverContent = `<main id="server-rendered-content">${heading}${descriptor.contentHtml}</main>`;
+  const visibilityStyle = "<style>app-root:not(:empty) + #server-rendered-content{display:none}</style>";
+  return html
+    .replace("</head>", `  ${visibilityStyle}\n</head>`)
+    .replace("<app-root></app-root>", `<app-root></app-root>\n${serverContent}`);
 }
 
 export async function serveIndexHtml(indexPath: string, res: Response, requestPath?: string): Promise<void> {
@@ -148,11 +144,18 @@ export async function serveIndexHtml(indexPath: string, res: Response, requestPa
     input => headConfig?.baseHref ? withCanonicalLink(input, headConfig.baseHref, requestPath) : input,
     input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
     input => withMetaDescription(input, seoDescriptor?.description),
-    input => withMarkdownAlternate(input, seoDescriptor),
-    input => withNoscriptContent(input, seoDescriptor),
-    input => withFavicon(input, headConfig?.faviconUrl)
+    input => headConfig?.baseHref ? withRepresentationAlternates(input, headConfig.baseHref, seoDescriptor) : input,
+    input => withServerContent(input, seoDescriptor)
   ];
   const transformed = transformations.reduce((current, transformation) => transformation(current), html);
+  if (headConfig?.baseHref && seoDescriptor?.exportablePath) {
+    const links = [
+      `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "markdown")}>; rel="alternate"; type="text/markdown"`,
+      `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "html")}>; rel="alternate"; type="text/html"`,
+      `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "json")}>; rel="alternate"; type="application/json"`
+    ];
+    res.setHeader("Link", links.join(", "));
+  }
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.type("html").send(transformed);
 }

@@ -102,6 +102,7 @@ import { llmsTxt, robotsTxt, sitemapXml } from "./sitemap/sitemap-controllers";
 import { contentExportRoutes } from "./content-export/content-export-routes";
 import { contentExportForPageUrl } from "./content-export/content-export";
 import { reconcileOrphanedScrapeRuns } from "./legacy-redirect/legacy-redirect-ws-handler";
+import { ramblersFavicon } from "./shared/favicon-controller";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -163,6 +164,7 @@ app.use(bodyParser.json({
 }));
 app.use(bodyParser.urlencoded({limit: "50mb", extended: true}));
 app.use(passport.initialize());
+app.get("/ramblers-favicon.svg", ramblersFavicon);
 app.get("/api/files/download", download);
 app.get("/api/health", health);
 app.get("/api/version", buildVersion);
