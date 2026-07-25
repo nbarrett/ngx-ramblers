@@ -10,7 +10,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { WalksConfig } from "../../../models/walks-config.model";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
@@ -21,7 +20,6 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
-import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 import { GpxParserService } from "../../../services/maps/gpx-parser.service";
 import { UrlService } from "../../../services/url.service";
@@ -95,7 +93,6 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private resizeObserver: ResizeObserver | null = null;
   private resizeFitTimer: ReturnType<typeof setTimeout> | null = null;
   private walksConfigService = inject(WalksConfigService);
-  private mailMessagingService = inject(MailMessagingService);
   private addressQueryService = inject(AddressQueryService);
   protected dateUtils = inject(DateUtilsService);
   public display = inject(WalkDisplayService);
@@ -103,7 +100,6 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   protected notifierService = inject(NotifierService);
   private logger: Logger = inject(LoggerFactory).createLogger("MapEditComponent", NgxLoggerLevel.ERROR);
   private zone = inject(NgZone);
-  private systemConfigService = inject(SystemConfigService);
   private mapTiles = inject(MapTilesService);
   private markerStyle = inject(MapMarkerStyleService);
   private gpxParser = inject(GpxParserService);
@@ -148,9 +144,6 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
   private initializeSubscriptions() {
     this.subscriptions.push(
-      this.mailMessagingService.events().subscribe(config => {
-        this.logger.debug("MailMessagingConfig updated:", config);
-      }),
       this.walksConfigService.events().subscribe(config => {
         this.logger.info("WalksConfig updated:", config);
         this.walksConfig = config;

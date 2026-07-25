@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import debug from "debug";
 import { sendTransactionalMail } from "../brevo/transactional-mail/send-transactional-mail";
+import { accountMergeFieldsFor } from "../brevo/account/account";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
@@ -139,6 +140,9 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
     const roles: CommitteeMember[] = committeeCfg?.roles || [];
     const connectedEmails = new Set(await connectedInboxEmails(defaultTenantSlug()));
     emailRequest.to = await resolveContactRecipients(emailRequest.to || [], roles, connectedEmails);
+    if (emailRequest.params) {
+      emailRequest.params.accountMergeFields = await accountMergeFieldsFor();
+    }
     debugLog("sendContactUsTransactionalMail:resolved to:", emailRequest.to);
     return sendTransactionalMail(req, res, next);
   } catch (error) {
