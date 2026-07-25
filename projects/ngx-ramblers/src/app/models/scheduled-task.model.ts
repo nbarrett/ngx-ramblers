@@ -101,4 +101,5 @@ export interface ScheduledTasksConfiguration {
   enabled: Record<string, boolean>;
   cronExpressions: Record<string, string>;
   settings?: Record<string, unknown>;
+  alertEmails?: string[];
 }

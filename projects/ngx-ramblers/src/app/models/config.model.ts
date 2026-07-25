@@ -1,6 +1,7 @@
 import { Identifiable } from "./api-response.model";
 
 export enum ConfigKey {
+  ADMIN_ALERTS = "admin-alerts",
   BOOKING = "booking",
   BREVO = "brevo",
   SCHEDULED_TASKS = "scheduled-tasks",
