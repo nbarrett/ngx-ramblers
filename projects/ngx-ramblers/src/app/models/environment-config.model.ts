@@ -1,3 +1,5 @@
+import { Ai, AiProviderType } from "./system.model";
+
 export interface AwsConfig {
   bucket?: string;
   region?: string;
@@ -55,6 +57,7 @@ export interface EnvironmentConfig {
   cloudflare?: PerEnvironmentCloudflareConfig;
   customDomains?: CustomDomainEntry[];
   secrets?: Record<string, string>;
+  ai?: Ai;
   ngxLite?: boolean;
 }
 
@@ -71,6 +74,7 @@ export interface EnvironmentsConfig {
   environments?: EnvironmentConfig[];
   aws?: AwsConfig;
   cloudflare?: CloudflareConfig;
+  ai?: Ai;
   secrets?: Record<string, string>;
   uploadWorker?: UploadWorkerConfig;
   autoDeployTarget?: string;
@@ -136,6 +140,16 @@ export function createDefaultFlyioConfig(): FlyioConfig {
     memory: FLYIO_DEFAULTS.MEMORY,
     scaleCount: FLYIO_DEFAULTS.SCALE_COUNT,
     organisation: ""
+  };
+}
+
+export function createEmptyAiConfig(): Ai {
+  return {
+    enabled: false,
+    provider: AiProviderType.OPENAI_COMPATIBLE,
+    baseUrl: "",
+    model: "",
+    apiKey: ""
   };
 }
 

@@ -35,7 +35,7 @@ import { NotificationConfigToProcessMappingComponent } from "./notification-conf
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
-import { NgClass, NgStyle } from "@angular/common";
+import { NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { ListSubscriptionImportExportComponent } from "./list-subscription-import-export";
@@ -455,7 +455,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];

@@ -99,6 +99,16 @@ export function buildSecretsFromDatabaseConfig(
     }
   }
 
+  const envAiOverrides = envConfig.ai?.enabled && envConfig.ai.baseUrl && envConfig.ai.model;
+  const ai = envAiOverrides ? envConfig.ai : globalConfig?.ai;
+  if (ai?.enabled && ai.baseUrl && ai.model) {
+    secrets.AI_ENABLED = "true";
+    secrets.AI_PROVIDER = ai.provider || "";
+    secrets.AI_BASE_URL = ai.baseUrl;
+    secrets.AI_MODEL = ai.model;
+    if (ai.apiKey) secrets.AI_API_KEY = ai.apiKey;
+  }
+
   secrets.NGX_LITE = envConfig.ngxLite === true ? "true" : "false";
 
   if (envConfig.secrets) {

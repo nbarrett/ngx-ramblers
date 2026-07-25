@@ -167,17 +167,6 @@ import { RouterLink } from "@angular/router";
           </div>
           <div class="col-md-6">
             <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="config.enableMigration.events"
-                       type="checkbox" class="form-check-input" id="enable-event-migration">
-                <label class="form-check-label"
-                       for="enable-event-migration">Enable Migration of Events</label>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6"></div>
-          <div class="col-md-6">
-            <div class="form-group">
               <label for="default-walk-list-view">Default Walk List View</label>
               <select class="form-control input-sm"
                       [(ngModel)]="config.group.defaultWalkListView"
@@ -192,11 +181,9 @@ import { RouterLink } from "@angular/router";
         </div>
       </div>
     </div>
-    <div class="img-thumbnail thumbnail-admin-edit mt-3">
-      <app-tag-manager [tags]="config.group.eventTags"
-                       heading="Event Tags"
-                       description="Define a vocabulary of tags that can be assigned to group events (e.g. <em>Holiday</em>, <em>Coach Trip</em>, <em>Working Party</em>). Tags can be referenced from the <strong>Events</strong> row on any page to filter the events list - for example a Holidays page can include only events tagged <em>Holiday</em>."/>
-    </div>
+    <app-tag-manager [tags]="config.group.eventTags"
+                     heading="Event Tags"
+                     description="Define a vocabulary of tags that can be assigned to group events (e.g. <em>Holiday</em>, <em>Coach Trip</em>, <em>Working Party</em>). Tags can be referenced from the <strong>Events</strong> row on any page to filter the events list - for example a Holidays page can include only events tagged <em>Holiday</em>."/>
     </div>`,
   imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule, EventTypeSettingsComponent, TagManagerComponent, RouterLink]
 })
@@ -238,9 +225,6 @@ export class AreaAndGroupSettingsComponent implements OnInit {
 
   async ngOnInit() {
     this.logger.info("constructed with:config:", this.config);
-    if (!this.config.enableMigration) {
-      this.config.enableMigration = { events: false };
-    }
     if (!this.config.group.eventTags) {
       this.config.group.eventTags = [];
     }

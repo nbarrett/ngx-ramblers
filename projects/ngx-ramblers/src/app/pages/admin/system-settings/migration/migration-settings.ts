@@ -27,7 +27,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
-import { NgClass, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import {
   NgLabelTemplateDirective,
   NgOptionComponent,
@@ -736,7 +736,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
     .thumbnail-heading-frame-compact:has(details[open])
       overflow: visible
   `],
-  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent]
+  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent]
 })
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 

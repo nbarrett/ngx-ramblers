@@ -86,6 +86,18 @@ export class PageContentService {
     return apiResponse.response;
   }
 
+  async findByCarouselEventIds(eventIds: string[]): Promise<PageContent[]> {
+    const ids = (eventIds || []).filter(Boolean).map(id => String(id));
+    if (ids.length === 0) {
+      return [];
+    }
+    const dataQueryOptions: DataQueryOptions = {criteria: {"rows.carousel.eventId": {$in: ids}}};
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
+    this.logger.debug("findByCarouselEventIds:", ids, "- received", apiResponse?.response?.length);
+    return apiResponse?.response || [];
+  }
+
   async findById(id: string): Promise<PageContent> {
     this.logger.debug("findById:", id);
     const apiResponse = await this.http.get<PageContentApiResponse>(`${this.BASE_URL}/${id}`).toPromise();

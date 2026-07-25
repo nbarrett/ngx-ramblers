@@ -170,9 +170,6 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
     googleMaps: {
       apiKey: googleMapsApiKey || ""
     },
-    enableMigration: {
-      events: false
-    },
     images: {
       imageLists: {
         defaultMaxImageSize: 256000,

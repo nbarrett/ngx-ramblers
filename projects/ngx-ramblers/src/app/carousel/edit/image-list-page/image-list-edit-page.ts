@@ -57,6 +57,9 @@ export class ImageListEditPageComponent implements OnInit, OnDestroy {
   }
 
   backToEditorHome() {
-    this.urlService.navigateUnconditionallyTo(AdminContentPath.CAROUSEL_EDITOR.split("/"), {[StoredValue.CAROUSEL]: null});
+    this.urlService.navigateUnconditionallyTo(AdminContentPath.CAROUSEL_EDITOR.split("/"), {
+      [StoredValue.CAROUSEL]: null,
+      [StoredValue.ADD_PHOTOS]: null
+    }, "");
   }
 }

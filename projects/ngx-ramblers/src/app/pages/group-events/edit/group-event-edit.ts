@@ -39,7 +39,6 @@ import { EditGroupEventImagesComponent } from "../../../common/walks-and-events/
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { TimePicker } from "../../../date-and-time/time-picker";
-import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { Tag } from "../../../models/tag.model";
 import { addTag } from "../../../functions/tags";
@@ -469,7 +468,6 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   private router = inject(Router);
   googleMapsService = inject(GoogleMapsService);
   private walksAndEventsService = inject(WalksAndEventsService);
-  protected eventsMigrationService = inject(EventsMigrationService);
   private urlService = inject(UrlService);
   protected dateUtils = inject(DateUtilsService);
   private eventDefaultsService = inject(EventDefaultsService);
@@ -516,20 +514,6 @@ export class GroupEventEdit implements OnInit, OnDestroy {
       this.logger.info("finding groupEvent from groupEventId:", groupEventId);
       this.walksAndEventsService.queryById(groupEventId).then(async data => {
         this.groupEvent = data;
-        if (this.config?.enableMigration?.events) {
-          const migratedFromId = data?.fields?.migratedFromId || groupEventId;
-          if (migratedFromId) {
-            const migrated = await this.eventsMigrationService.migrateOneSocialEvent(migratedFromId);
-            this.logger.info("migrated event:", migrated, "from migratedFromId:", migratedFromId);
-            if(!data && migrated) {
-              this.groupEvent = migrated;
-              this.logger.info("ngOnInit:created migrated groupEvent:", this.groupEvent);
-              this.notify.success({title: "Migrated event", message: `event did not exist, but was migrated from id: ${migratedFromId}. Click Save to save the migrated data.`});
-            }
-          } else {
-            this.logger.info("Could not migrate event, no migratedFromId found in groupEvent:", data, "given groupEventId:", groupEventId);
-          }
-        }
         if (this.groupEvent) {
           if (!this?.groupEvent?.fields?.attendees) {
             this.groupEvent.fields.attendees = [];

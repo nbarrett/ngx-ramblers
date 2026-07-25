@@ -93,13 +93,13 @@ export function isMongoIdString(value: unknown): value is string {
   return isString(value) && /^[a-fA-F0-9]{24}$/.test(value);
 }
 
-export function convertIdStringsToObjectId(criteria: any): any {
+export function convertIdStringsToObjectId(criteria: any, parentKey?: string): any {
   if (!criteria || !isObject(criteria)) {
     return criteria;
   }
 
   if (isArray(criteria)) {
-    return criteria.map(item => convertIdStringsToObjectId(item));
+    return criteria.map(item => convertIdStringsToObjectId(item, parentKey));
   }
 
   const result: any = {};
@@ -107,12 +107,12 @@ export function convertIdStringsToObjectId(criteria: any): any {
     const value = criteria[key];
     if (key === "_id" && isMongoIdString(value)) {
       result[key] = new mongoose.Types.ObjectId(value);
-    } else if (key === "$in" && isArray(value)) {
+    } else if (key === "$in" && isArray(value) && parentKey === "_id") {
       result[key] = value.map(item => isMongoIdString(item) ? new mongoose.Types.ObjectId(item) : item);
     } else if (isObject(value) && !isArray(value)) {
-      result[key] = convertIdStringsToObjectId(value);
+      result[key] = convertIdStringsToObjectId(value, key);
     } else if (isArray(value)) {
-      result[key] = value.map(item => convertIdStringsToObjectId(item));
+      result[key] = value.map(item => convertIdStringsToObjectId(item, key));
     } else {
       result[key] = value;
     }

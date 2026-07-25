@@ -18,61 +18,110 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           @if (heading) {
             <div class="thumbnail-heading">{{ heading }}</div>
           }
-          @if (description) {
-            <div class="col-sm-12">
+          <div class="col-sm-12">
+            @if (description) {
               <p class="mb-3" [innerHTML]="description"></p>
+            }
+            @if (tags?.length) {
+              <table class="styled-table table-responsive-sm">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    @if (usageCount) {<th>Usages</th>}
+                    @if (imageMode) {<th>Exclude From Recent</th>}
+                    <th>Sort Index</th>
+                    <th>Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (tag of tags; track tag.key) {
+                    <tr>
+                      <td><input [(ngModel)]="tag.subject" type="text" class="form-control" placeholder="Tag name"></td>
+                      @if (usageCount) {
+                        <td>{{ usageCount(tag) }}</td>
+                      }
+                      @if (imageMode) {
+                        <td>
+                          <div class="form-check">
+                            <input [ngModel]="asImageTag(tag).excludeFromRecent"
+                                   type="checkbox" class="form-check-input" id="exclude-{{tag.key}}">
+                            <label class="form-check-label" (click)="toggleExcludeFromRecent(tag)" for="exclude-{{tag.key}}"></label>
+                          </div>
+                        </td>
+                      }
+                      <td><input [(ngModel)]="tag.sortIndex" type="number" class="form-control"></td>
+                      <td>
+                        @if (canDelete(tag)) {
+                          <div class="badge-button" (click)="removeTag(tag)"
+                               delay="500" [tooltip]="'Remove ' + tag.subject + ' tag'">
+                            <fa-icon [icon]="faRemove"/>
+                            <span>remove</span>
+                          </div>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <p class="fst-italic mb-3">No tags defined yet.</p>
+            }
+            <div class="badge-button" (click)="addTag()">
+              <fa-icon [icon]="faAdd"/>
+              <span>add tag</span>
             </div>
-          }
+          </div>
+        </div>
+      } @else {
+        @if (tags?.length) {
+          <table class="styled-table table-responsive-sm">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                @if (usageCount) {<th>Usages</th>}
+                @if (imageMode) {<th>Exclude From Recent</th>}
+                <th>Sort Index</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tag of tags; track tag.key) {
+                <tr>
+                  <td><input [(ngModel)]="tag.subject" type="text" class="form-control" placeholder="Tag name"></td>
+                  @if (usageCount) {
+                    <td>{{ usageCount(tag) }}</td>
+                  }
+                  @if (imageMode) {
+                    <td>
+                      <div class="form-check">
+                        <input [ngModel]="asImageTag(tag).excludeFromRecent"
+                               type="checkbox" class="form-check-input" id="exclude-{{tag.key}}">
+                        <label class="form-check-label" (click)="toggleExcludeFromRecent(tag)" for="exclude-{{tag.key}}"></label>
+                      </div>
+                    </td>
+                  }
+                  <td><input [(ngModel)]="tag.sortIndex" type="number" class="form-control"></td>
+                  <td>
+                    @if (canDelete(tag)) {
+                      <div class="badge-button" (click)="removeTag(tag)"
+                           delay="500" [tooltip]="'Remove ' + tag.subject + ' tag'">
+                        <fa-icon [icon]="faRemove"/>
+                        <span>remove</span>
+                      </div>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="fst-italic mb-3">No tags defined yet.</p>
+        }
+        <div class="badge-button" (click)="addTag()">
+          <fa-icon [icon]="faAdd"/>
+          <span>add tag</span>
         </div>
       }
-      @if (tags?.length) {
-        <table class="styled-table table-responsive-sm">
-          <thead>
-            <tr>
-              <th>Subject</th>
-              @if (usageCount) {<th>Usages</th>}
-              @if (imageMode) {<th>Exclude From Recent</th>}
-              <th>Sort Index</th>
-              <th>Delete</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (tag of tags; track tag.key) {
-              <tr>
-                <td><input [(ngModel)]="tag.subject" type="text" class="form-control" placeholder="Tag name"></td>
-                @if (usageCount) {
-                  <td>{{ usageCount(tag) }}</td>
-                }
-                @if (imageMode) {
-                  <td>
-                    <div class="form-check">
-                      <input [ngModel]="asImageTag(tag).excludeFromRecent"
-                             type="checkbox" class="form-check-input" id="exclude-{{tag.key}}">
-                      <label class="form-check-label" (click)="toggleExcludeFromRecent(tag)" for="exclude-{{tag.key}}"></label>
-                    </div>
-                  </td>
-                }
-                <td><input [(ngModel)]="tag.sortIndex" type="number" class="form-control"></td>
-                <td>
-                  @if (canDelete(tag)) {
-                    <div class="badge-button" (click)="removeTag(tag)"
-                         delay="500" [tooltip]="'Remove ' + tag.subject + ' tag'">
-                      <fa-icon [icon]="faRemove"/>
-                      <span>remove</span>
-                    </div>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="fst-italic mb-3">No tags defined yet.</p>
-      }
-      <div class="badge-button" (click)="addTag()">
-        <fa-icon [icon]="faAdd"/>
-        <span>add tag</span>
-      </div>
     `,
     imports: [FormsModule, TooltipDirective, FontAwesomeModule]
 })

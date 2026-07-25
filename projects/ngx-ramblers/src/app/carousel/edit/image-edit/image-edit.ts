@@ -118,49 +118,45 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                   </div>
                 }
               </div>
-              <div class="row g-0">
-                <div class="col pe-1">
-                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faRemove" caption="Delete"
+              <div class="row g-2 mb-2 image-edit-actions">
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faRemove" caption="Delete"
                                     (click)="callDelete()"/>
                 </div>
-                <div class="col pe-1">
-                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faAdd" caption="Insert"
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faAdd" caption="Insert"
                                     (click)="callInsert()"/>
                 </div>
-                <div class="col">
-                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faPencil" caption="Edit image"
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faPencil" caption="Edit image"
                                     (click)="editImage()"/>
                 </div>
-              </div>
-              <div class="row g-0">
-                <div class="col pe-1">
-                  <app-badge-button fullWidth [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
                                     (click)="callMoveUp()"/>
                 </div>
-                <div class="col pe-1">
-                  <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown"
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown"
                                     caption="Move down"
                                     (click)="callMoveDown()"/>
                 </div>
-                <div class="col">
-                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faBook"
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faBook"
                                     [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
                                     [active]="item.image && item.image===contentMetadata.coverImage"
                                     (click)="coverImageSet()"/>
                 </div>
-              </div>
-              <div class="row g-0 mb-2">
-                <div class="col pe-1">
-                  <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
+                <div class="col-12 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
                                     (click)="imageDataAsPrevious()"/>
                 </div>
-                <div class="col pe-1">
-                  <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faLink"
+                <div class="col-12 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive|| !canMoveDown" [icon]="faLink"
                                     caption="Image Data As Next"
                                     (click)="imageDataAsNext()"/>
                 </div>
-                <div class="col">
-                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faLinkSlash"
+                <div class="col-12 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faLinkSlash"
                                     caption="Clear Image Data"
                                     (click)="clearImageData()"/>
                 </div>
@@ -250,9 +246,21 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
         </div>
       </div>`,
     styles: [`
+      :host ::ng-deep .image-edit-actions
+        .badge-button, .badge-button-active
+          display: inline-flex
+          align-items: center
+          justify-content: center
+          width: 100%
+          height: 100%
+          margin: 0
+          white-space: nowrap
+          line-height: 1.2
+          text-align: center
+
       .youtube-preview-container
         margin-bottom: 1rem
-      
+
       .youtube-embed-preview
         position: relative
         width: 100%
@@ -261,7 +269,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
         overflow: hidden
         border: 1px solid #dee2e6
         border-radius: 4px
-        
+
         app-youtube-embed
           pointer-events: none
     `],

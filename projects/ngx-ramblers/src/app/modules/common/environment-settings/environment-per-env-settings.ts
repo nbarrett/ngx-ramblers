@@ -12,6 +12,7 @@ import {
   faExternalLinkAlt,
   faForward,
   faPlus,
+  faRobot,
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { SecretInputComponent } from "../secret-input/secret-input.component";
@@ -21,13 +22,14 @@ import { EnvironmentWebAnalyticsSites } from "./environment-web-analytics-sites"
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import {
+  createEmptyAiConfig,
   createEmptyEnvironmentConfig,
   EnvironmentConfig,
   EnvironmentsConfig
 } from "../../../models/environment-config.model";
 import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
 import { CrossEnvironmentHealthService } from "../../../services/cross-environment-health.service";
-import { EnvironmentSettingsSubTab, Image, SystemConfig, SystemSettingsTab } from "../../../models/system.model";
+import { AiProviderType, EnvironmentSettingsSubTab, Image, SystemConfig, SystemSettingsTab } from "../../../models/system.model";
 import { EnvironmentSetupTab } from "../../../models/environment-setup.model";
 import { InputSize } from "../../../models/ui-size.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -396,6 +398,61 @@ import { toKebabCase } from "../../../functions/strings";
             namePrefix="env">
           </app-secrets-editor>
         </div>
+        <div class="row thumbnail-heading-frame">
+          <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+            <fa-icon [icon]="faRobot"></fa-icon>
+            <span>AI Text Generation (Override)</span>
+          </div>
+          <small class="form-text text-muted mb-2">
+            Leave off to use the <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">global AI configuration</a>. Turn on only to point this environment at a different model.
+          </small>
+          <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="envAiOverride"
+                   [ngModel]="aiOverrideEnabled" (ngModelChange)="aiOverrideEnabled = $event" name="envAiOverride">
+            <label class="form-check-label" for="envAiOverride">Override AI for this environment</label>
+          </div>
+          @if (currentEnvironment.ai) {
+            <div class="row">
+              <div class="col-md-4 mb-2">
+                <label class="form-label">Provider</label>
+                <select class="form-control" [(ngModel)]="currentEnvironment.ai.provider" name="envAiProvider">
+                  <option [ngValue]="AiProviderType.OPENAI_COMPATIBLE">OpenAI-compatible</option>
+                </select>
+              </div>
+              <div class="col-md-8 mb-2">
+                <label class="form-label">Base URL</label>
+                <input type="text"
+                       class="form-control"
+                       [(ngModel)]="currentEnvironment.ai.baseUrl"
+                       name="envAiBaseUrl"
+                       placeholder="e.g. https://api.openai.com/v1 or http://localhost:11434/v1">
+              </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Model</label>
+                <input type="text"
+                       class="form-control"
+                       [(ngModel)]="currentEnvironment.ai.model"
+                       name="envAiModel"
+                       placeholder="e.g. gpt-4o-mini, llama3.1">
+              </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">API Key</label>
+                <app-secret-input
+                  [(ngModel)]="currentEnvironment.ai.apiKey"
+                  name="envAiApiKey"
+                  [size]="InputSize.SM">
+                </app-secret-input>
+              </div>
+              <div class="col-md-12 mb-2">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="envAiEnabled"
+                         [(ngModel)]="currentEnvironment.ai.enabled" name="envAiEnabled">
+                  <label class="form-check-label" for="envAiEnabled">Enable AI text generation for this environment</label>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
         <app-environment-web-analytics-sites [host]="environmentHost" [existingSiteTag]="environmentSiteTag"/>
       </div>
     } @else {
@@ -440,6 +497,8 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   protected readonly faPlus = faPlus;
   protected readonly faTrash = faTrash;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
+  protected readonly faRobot = faRobot;
+  protected readonly AiProviderType = AiProviderType;
 
   private _currentEnvironmentIndex = 0;
 
@@ -457,6 +516,16 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
 
   get currentEnvironment(): EnvironmentConfig | null {
     return this.config.environments[this.currentEnvironmentIndex] ?? null;
+  }
+
+  get aiOverrideEnabled(): boolean {
+    return !!this.currentEnvironment?.ai;
+  }
+
+  set aiOverrideEnabled(value: boolean) {
+    if (this.currentEnvironment) {
+      this.currentEnvironment.ai = value ? {...createEmptyAiConfig(), enabled: true} : undefined;
+    }
   }
 
   get perEnvEmailRoutingUrl(): string | null {

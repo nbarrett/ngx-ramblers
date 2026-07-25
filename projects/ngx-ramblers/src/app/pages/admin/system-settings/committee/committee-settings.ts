@@ -73,7 +73,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
-import { AsyncPipe, NgClass } from "@angular/common";
+import { AsyncPipe } from "@angular/common";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { EnvironmentSetupService } from "../../../../services/environment-setup/environment-setup.service";
 
@@ -764,7 +764,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;

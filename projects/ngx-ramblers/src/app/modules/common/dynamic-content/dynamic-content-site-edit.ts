@@ -4,6 +4,7 @@ import {
   faArrowsUpDown,
   faCheck,
   faCircleCheck,
+  faCircleExclamation,
   faCopy,
   faExternalLinkAlt,
   faEye,
@@ -54,9 +55,11 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentRowService } from "../../../services/page-content-row.service";
 import { PageContentService } from "../../../services/page-content.service";
+import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
+import { RootFolder } from "../../../models/system.model";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { DataPopulationService } from "../../../pages/admin/data-population.service";
 import { fieldStartsWithValue } from "../../../functions/mongo";
@@ -122,6 +125,10 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       @if (pageContent) {
         <div class="card mb-2">
           <div class="card-body">
+            @if (albumWorkflow) {
+              <h4 class="card-title mb-1">Walk photo album</h4>
+              <p class="text-muted small mb-3 d-none d-md-block">{{ pageContent.path }}</p>
+            } @else {
             <h4 class="card-title">Page content for {{ pageContent.path }} (<small
               class="text-muted">{{ stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row') }}</small>)</h4>
             <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
@@ -211,7 +218,15 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                 </div>
               </div>
             }
+            }
             @for (row of pageContent?.rows; track row; let rowIndex = $index) {
+              @if (albumWorkflow) {
+                @if (actions.isCarouselOrAlbum(row)) {
+                  <app-dynamic-content-site-edit-album [row]="row"
+                                                       [rowIndex]="rowIndex"
+                                                       [pageContent]="pageContent"/>
+                }
+              } @else {
               @if (pageContentRowService.rowsSelected() && rowIndex === firstSelectedRowIndex()) {
                 <div class="row thumbnail-heading-frame">
                   <div class="thumbnail-heading">Row Actions</div>
@@ -602,8 +617,11 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                   <app-dynamic-content-site-edit-location [row]="row" [rowIndex]="rowIndex"/>
                 }
               </div>
+              }
             }
-            <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+            @if (!albumWorkflow) {
+              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+            }
           </div>
         </div>
       }
@@ -653,15 +671,32 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                 (click)="copyDebugLogs()"/>
             }
             @if (deleteConfirm.deleteConfirmOutstanding()) {
-              <app-badge-button (click)="confirmDeletePageContent()"
-                                [icon]="faRemove"
-                                caption="Confirm delete of &quot;{{ pageContent?.path }}&quot;"
-                                [tooltip]="'Click to permanently delete this page'"
-                                [disabled]="deletePageContentDisabled()"/>
-              <app-badge-button (click)="deleteConfirm.clear()"
-                                [icon]="faUndo"
-                                caption="Cancel delete"
-                                [tooltip]="'Cancel page deletion'"/>
+              @if (deleteAlbumsConfirmOutstanding) {
+                <app-badge-button (click)="confirmDeletePageOnly()"
+                                  [icon]="faRemove"
+                                  caption="Delete page only"
+                                  [tooltip]="'Delete the page but keep the albums and image lists'"
+                                  [disabled]="deletePageContentDisabled()"/>
+                <app-badge-button (click)="confirmDeletePageAndAlbums()"
+                                  [icon]="faRemove"
+                                  [caption]="confirmDeletePageAndAlbumsCaption()"
+                                  [tooltip]="'Permanently delete the page and its albums / image lists'"
+                                  [disabled]="deletePageContentDisabled()"/>
+                <app-badge-button (click)="cancelDeletePageContent()"
+                                  [icon]="faUndo"
+                                  caption="Cancel delete"
+                                  [tooltip]="'Cancel page deletion'"/>
+              } @else {
+                <app-badge-button (click)="confirmDeletePageContent()"
+                                  [icon]="faRemove"
+                                  [caption]="confirmDeletePageContentCaption()"
+                                  [tooltip]="confirmDeletePageContentTooltip()"
+                                  [disabled]="deletePageContentDisabled()"/>
+                <app-badge-button (click)="cancelDeletePageContent()"
+                                  [icon]="faUndo"
+                                  caption="Cancel delete"
+                                  [tooltip]="'Cancel page deletion'"/>
+              }
             } @else {
               <app-badge-button (click)="deletePageContent()"
                                 [icon]="faRemove"
@@ -670,6 +705,29 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                                 [disabled]="deletePageContentDisabled()"/>
             }
           </div>
+          @if (deleteConfirm.deleteConfirmOutstanding() && albumIndexParents.length > 0 && !deleteAlbumsConfirmOutstanding) {
+            <div class="alert alert-warning w-100 mt-2 mb-0 d-flex align-items-start">
+              <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+              <div class="ms-2 min-w-0">
+                <strong class="d-block">Listed in photo indexes</strong>
+                <span>This page is listed under {{ stringUtils.pluraliseWithCount(albumIndexParents.length, "photo index") }}
+                  ({{ albumIndexParentPaths() }}). Deleting it will remove it from those indexes automatically.</span>
+              </div>
+            </div>
+          }
+          @if (deleteConfirm.deleteConfirmOutstanding() && deleteAlbumsConfirmOutstanding) {
+            <div class="alert alert-warning w-100 mt-2 mb-0 d-flex align-items-start">
+              <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+              <div class="ms-2 min-w-0">
+                <strong class="d-block">Delete linked albums?</strong>
+                <span>Also permanently delete
+                  {{ stringUtils.pluraliseWithCount(pageAlbumNames().length, "album") }}
+                  ({{ pageAlbumNames().join(", ") }})?
+                  Choose <strong>Delete page only</strong> to keep the image lists, or
+                  <strong>Delete page and albums</strong> to remove them too.</span>
+              </div>
+            </div>
+          }
           @if (pastePageContentVisible) {
             <div class="w-100">
               <label class="form-label-sm" for="paste-page-content">Paste PageContent JSON</label>
@@ -780,10 +838,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private indexService = inject(IndexService);
   protected memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   protected urlService = inject(UrlService);
+  public albumWorkflow = false;
   protected pageService = inject(PageService);
   protected uiActionsService = inject(UiActionsService);
   protected stringUtils = inject(StringUtilsService);
   protected pageContentService = inject(PageContentService);
+  private contentMetadataService = inject(ContentMetadataService);
   protected fragmentService = inject(FragmentService);
   protected actions = inject(PageContentActionsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
@@ -906,9 +966,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faCopy = faCopy;
   faPaste = faPaste;
   faCircleCheck = faCircleCheck;
+  faCircleExclamation = faCircleExclamation;
   TextMatchPattern = TextMatchPattern;
   public savingPage = false;
   public deleteConfirm = new Confirm();
+  public deleteAlbumsConfirmOutstanding = false;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   public destinationPath: string;
   public destinationPathLookup: Subject<string> = new Subject<string>();
@@ -944,6 +1006,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
+    this.albumWorkflow = new URLSearchParams(window.location.search).get(StoredValue.ALBUM_WORKFLOW) === "1";
     this.systemConfigService.events().subscribe(item => {
       const pageHrefs: string[] = item.group.pages.map(link => link.href).filter(item => item);
       this.logger.debug("pageHrefs received as:", pageHrefs);
@@ -2064,21 +2127,106 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public deletePageContent() {
     if (!this.deletePageContentDisabled()) {
+      this.deleteAlbumsConfirmOutstanding = false;
       this.deleteConfirm.toggleOnDeleteConfirm();
     }
   }
 
-  public confirmDeletePageContent() {
+  public cancelDeletePageContent() {
+    this.deleteAlbumsConfirmOutstanding = false;
     this.deleteConfirm.clear();
+  }
+
+  public confirmDeletePageContent() {
+    if (this.pageAlbumNames().length > 0) {
+      this.deleteAlbumsConfirmOutstanding = true;
+      return;
+    }
+    void this.performDeletePageContent(false);
+  }
+
+  public confirmDeletePageOnly() {
+    void this.performDeletePageContent(false);
+  }
+
+  public confirmDeletePageAndAlbums() {
+    void this.performDeletePageContent(true);
+  }
+
+  public confirmDeletePageAndAlbumsCaption(): string {
+    return `Delete page and ${this.stringUtils.pluraliseWithCount(this.pageAlbumNames().length, "album")}`;
+  }
+
+  private async performDeletePageContent(deleteAlbums: boolean) {
+    this.deleteConfirm.clear();
+    this.deleteAlbumsConfirmOutstanding = false;
     const currentPath = this.pageContent?.path || "";
     const parentPath = currentPath.includes("/") ? currentPath.substring(0, currentPath.lastIndexOf("/")) : "";
-    this.pageContentService.delete(this.pageContent.id)
-      .then(() => this.urlService.navigateUnconditionallyTo([parentPath || this.urlService.area()]));
+    const albumNames = deleteAlbums ? this.pageAlbumNames() : [];
+    if (deleteAlbums && albumNames.length > 0) {
+      await this.deleteLinkedAlbums(albumNames);
+    }
+    await this.pageContentService.delete(this.pageContent.id);
+    await this.urlService.navigateUnconditionallyTo([parentPath || this.urlService.area()]);
+  }
+
+  public pageAlbumNames(): string[] {
+    return this.collectAlbumNamesFromRows(this.pageContent?.rows);
+  }
+
+  private collectAlbumNamesFromRows(rows: PageContentRow[] | undefined): string[] {
+    if (!rows?.length) {
+      return [];
+    }
+    return uniq(rows.reduce((names: string[], row) => {
+      const fromRow = this.actions.isCarouselOrAlbum(row) && row.carousel?.name
+        ? [row.carousel.name]
+        : [];
+      const fromNested = (row.columns || []).reduce((nestedNames: string[], column) => {
+        return nestedNames.concat(this.collectAlbumNamesFromRows(column.rows));
+      }, []);
+      return names.concat(fromRow, fromNested);
+    }, []));
+  }
+
+  private async deleteLinkedAlbums(albumNames: string[]): Promise<void> {
+    await Promise.all(albumNames.map(async name => {
+      try {
+        const metadata = await this.contentMetadataService.items(RootFolder.carousels, name);
+        if (metadata?.id) {
+          await this.contentMetadataService.delete(metadata);
+          this.logger.info("deleted linked album metadata:", name, metadata.id);
+        }
+      } catch (error) {
+        this.logger.warn("failed to delete linked album metadata:", name, error);
+      }
+    }));
+  }
+
+  public confirmDeletePageContentCaption(): string {
+    return `Confirm delete of "${this.pageContent?.path || ""}"`;
+  }
+
+  public albumIndexParentPaths(): string {
+    return this.albumIndexParents.map(parent => parent.path).filter(Boolean).join(", ");
+  }
+
+  public confirmDeletePageContentTooltip(): string {
+    if (this.pageAlbumNames().length > 0) {
+      return "Confirm page delete, then choose whether to delete linked albums as well";
+    }
+    if (this.albumIndexParents.length === 0) {
+      return "Click to permanently delete this page";
+    }
+    return "Confirm page delete (this page is listed in photo indexes and will be removed from them)";
   }
 
   public deletePageContentTooltip() {
-    const totalRefs = this.totalReferenceCount();
-    if (totalRefs === 0) {
+    const hardRefs = this.hardReferenceCount();
+    if (hardRefs === 0) {
+      if (this.albumIndexParents.length > 0) {
+        return "Delete this page — you will be warned that it appears in photo indexes";
+      }
       return "Delete this page";
     }
     const parts: string[] = [];
@@ -2087,9 +2235,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     }
     if (this.fragmentUsages.length > 0) {
       parts.push(this.stringUtils.pluraliseWithCount(this.fragmentUsages.length, "page") + " embeds this fragment");
-    }
-    if (this.albumIndexParents.length > 0) {
-      parts.push(this.stringUtils.pluraliseWithCount(this.albumIndexParents.length, "index") + " includes this page");
     }
     return "Can't delete: " + parts.join(", ");
   }
@@ -2102,8 +2247,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return this.allReferringPageCount() + this.fragmentUsages.length + this.albumIndexParents.length;
   }
 
+  public hardReferenceCount(): number {
+    return this.allReferringPageCount() + this.fragmentUsages.length;
+  }
+
   public deletePageContentDisabled(): boolean {
-    return this.savingPage || this.totalReferenceCount() > 0;
+    return this.savingPage || this.hardReferenceCount() > 0;
   }
 
   public allReferences(): { path: string }[] {

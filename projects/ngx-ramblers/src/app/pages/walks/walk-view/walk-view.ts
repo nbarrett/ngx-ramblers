@@ -1,11 +1,13 @@
-import { Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit, ViewChild, ViewChildren, QueryList } from "@angular/core";
+import { Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
-import { DisplayedWalk, EventType, MapDisplay } from "../../../models/walk.model";
+import { StoredValue } from "../../../models/ui-actions";
+import { DisplayedWalk, EventType, MapDisplay, WalkExportTab } from "../../../models/walk.model";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -13,6 +15,7 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { UiActionsService } from "../../../services/ui-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
@@ -26,8 +29,19 @@ import { MarkdownComponent } from "ngx-markdown";
 import { EventLeaderComponent } from "./event-leader";
 import { WalkFeaturesComponent } from "./walk-features";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCompress, faExpand, faEye, faMaximize, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
-import { RouterLink } from "@angular/router";
+import {
+  faCloudArrowUp,
+  faCompress,
+  faExpand,
+  faEye,
+  faImages,
+  faMaximize,
+  faPencil,
+  faPersonWalking
+} from "@fortawesome/free-solid-svg-icons";
+import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
+import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
@@ -40,10 +54,10 @@ import { RelatedLinksPanelComponent } from "../../../modules/common/related-link
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
-import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { PageService } from "../../../services/page.service";
 import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
 import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
+import { WalkAlbumPanelComponent } from "./walk-album-panel";
 
 @Component({
   selector: "app-walk-view",
@@ -91,22 +105,6 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                 Estimated Finish Time: {{ displayedWalk?.walk?.groupEvent?.end_date_time | displayTime }}</h2>
             }
             <div class="event-description">
-              @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                <button type="button"
-                        (click)="display.edit(displayedWalk)"
-                        [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                        class="btn pager-btn btn-sm float-end ms-2 walk-view-action d-inline-flex align-items-center text-nowrap">
-                  <fa-icon [icon]="walkActionIcon()"/>
-                  <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>
-                </button>
-              } @else if (allowWalkAdminEdits) {
-                <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
-                   tooltip="View this walk"
-                   class="btn pager-btn btn-sm float-end ms-2 walk-view-action d-inline-flex align-items-center text-nowrap">
-                  <fa-icon [icon]="faEye"/>
-                  <span class="ms-2">view</span>
-                </a>
-              }
               @if (displayedWalk?.walk?.groupEvent?.description) {
                 <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description | normaliseMarkdown"></p>
               }
@@ -120,12 +118,49 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
             @if (displayLinks && display.showWalkRelatedLinks()) {
               <app-related-links-panel [displayedWalk]="displayedWalk"/>
             }
+            @if (showWalkViewActions()) {
+              <div class="walk-view-actions" role="toolbar" aria-label="Walk admin actions">
+                @if (showAlbumAction()) {
+                  <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
+                          [tooltip]="albumActionTooltip()"
+                          class="btn btn-quiet btn-sm walk-view-action">
+                    <fa-icon [icon]="faImages"/>
+                    <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
+                  </button>
+                }
+                @if (showPublishToRamblers) {
+                  <a [routerLink]="publishExportLink"
+                     [queryParams]="publishExportQueryParams"
+                     [tooltip]="publishTooltip"
+                     class="btn btn-primary btn-sm walk-view-action">
+                    <fa-icon [icon]="faCloudArrowUp"/>
+                    <span>Publish</span>
+                  </a>
+                }
+                @if (displayedWalk?.walkAccessMode?.walkWritable) {
+                  <button type="button"
+                          (click)="display.edit(displayedWalk)"
+                          [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                          class="btn btn-primary btn-sm walk-view-action">
+                    <fa-icon [icon]="walkActionIcon()"/>
+                    <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
+                  </button>
+                } @else if (allowWalkAdminEdits) {
+                  <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+                     tooltip="View this walk"
+                     class="btn btn-quiet btn-sm walk-view-action">
+                    <fa-icon [icon]="faEye"/>
+                    <span>View</span>
+                  </a>
+                }
+              </div>
+            }
             <div class="walk-booking-form">
               <app-booking-form [extendedGroupEvent]="displayedWalk?.walk" [eventLink]="displayedWalk?.walkLink"></app-booking-form>
             </div>
             @if (urlService.pathContainsEventIdOrSlug()) {
               @if (notifyTarget.showAlert) {
-                <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
+                <div class="col-12 alert {{notifyTarget.alertClass}} walk-view-status-alert">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
                   @if (notifyTarget.alertTitle) {
                     <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
@@ -138,7 +173,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
             }
             @if (display.walkLeaderOrAdmin(displayedWalk?.walk) && (display.walkPopulationLocal() && !extendedGroupEventQueryService.approvedWalk(displayedWalk?.walk))) {
               @if (notifyTarget.showAlert) {
-                <div class="col-12 alert {{ALERT_WARNING.class}} mt-3">
+                <div class="col-12 alert {{ALERT_WARNING.class}} walk-view-status-alert">
                   <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
                   <strong class="ms-2">Walk Status</strong>
                   <div class="ms-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
@@ -157,12 +192,28 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
             @if (display.displayMap(displayedWalk?.walk)) {
               <div class="row">
                 <div class="col-sm-12" [class.position-relative]="!mapFullScreen" [class.map-full-screen-container]="mapFullScreen">
-                  <button type="button" class="btn btn-sm btn-light map-expand-btn"
-                          (click)="cycleMapSize()"
-                          [tooltip]="mapFullScreen ? 'Exit full screen' : (mapExpanded ? 'Full screen' : 'Expand map')"
-                          placement="left">
-                    <fa-icon [icon]="mapFullScreen ? faCompress : (mapExpanded ? faMaximize : faExpand)"></fa-icon>
-                  </button>
+                  @if (mapFullScreen) {
+                    <div class="map-full-screen-bar">
+                      <div class="map-full-screen-bar-text">
+                        <div class="map-full-screen-bar-title">{{ displayedWalk?.walk?.groupEvent?.title || "Walk" }} map</div>
+                        <div class="map-full-screen-bar-hint">Press Escape to leave full screen</div>
+                      </div>
+                      <button type="button" class="btn btn-primary btn-sm map-full-screen-exit"
+                              (click)="exitMapFullScreen()"
+                              aria-label="Exit full screen map">
+                        <fa-icon [icon]="faCompress" class="me-1"/>
+                        Exit full screen
+                      </button>
+                    </div>
+                  } @else {
+                    <button type="button" class="btn btn-sm btn-light map-expand-btn"
+                            (click)="cycleMapSize()"
+                            [tooltip]="mapExpanded ? 'Full screen' : 'Expand map'"
+                            placement="left"
+                            [attr.aria-label]="mapExpanded ? 'Full screen map' : 'Expand map'">
+                      <fa-icon [icon]="mapExpanded ? faMaximize : faExpand"></fa-icon>
+                    </button>
+                  }
                   @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
                     <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
                             class="map-walk-view map-walk-view-google"
@@ -245,7 +296,12 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                   </div>
                 }
               </form>
-              <app-walk-details [displayedWalk]="displayedWalk"/>
+            }
+            <app-walk-details [displayedWalk]="displayedWalk"/>
+            @if (walkAlbumPath && !mapExpanded) {
+              <app-walk-album-panel [albumPath]="walkAlbumPath"
+                                   [albumName]="walkAlbumName"
+                                   [coverImageUrl]="walkAlbumCoverUrl"/>
             }
           </div>
         </div>
@@ -261,7 +317,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -292,8 +348,15 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private walksConfigService = inject(WalksConfigService);
   private notifierService = inject(NotifierService);
+  private createWalkAlbumService = inject(CreateWalkAlbumService);
+  private siteEditService = inject(SiteEditService);
+  protected creatingAlbum = false;
+  protected walkAlbumPath: string | null = null;
+  protected walkAlbumName: string | null = null;
+  protected walkAlbumCoverUrl: string | null = null;
   private mapTiles = inject(MapTilesService);
-  protected eventsMigrationService = inject(EventsMigrationService);
+  private uiActions = inject(UiActionsService);
+  private route = inject(ActivatedRoute);
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public area = this.urlService.area();
   public showGoogleMapsView = false;
@@ -314,11 +377,102 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly faExpand = faExpand;
   protected readonly faMaximize = faMaximize;
   protected readonly faEye = faEye;
+  protected readonly faImages = faImages;
+  protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faPencil = faPencil;
   protected readonly faPersonWalking = faPersonWalking;
+  public showPublishToRamblers = false;
+  public publishTooltip = "Open Walks export to publish changes to Ramblers";
+  public publishExportLink: string[] = [];
+  public publishExportQueryParams = {tab: WalkExportTab.WALK_UPLOAD_SELECTION};
+  private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
 
   walkActionIcon() {
     return this.displayedWalk?.walkAccessMode?.caption === "lead" ? this.faPersonWalking : this.faPencil;
+  }
+
+  showWalkViewActions(): boolean {
+    return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers);
+  }
+
+  private refreshPublishAction(walk: ExtendedGroupEvent) {
+    this.publishExportLink = ["/" + this.display.walksArea(), "admin", "export"];
+    this.showPublishToRamblers = !!this.allowWalkAdminEdits
+      && !!walk
+      && this.ramblersWalksAndEventsService.needsRamblersPublish(walk);
+    this.publishTooltip = this.showPublishToRamblers
+      ? this.ramblersWalksAndEventsService.ramblersPublishTooltip(walk)
+      : "Open Walks export to publish changes to Ramblers";
+  }
+
+  showAlbumAction(): boolean {
+    return this.allowWalkAdminEdits && this.memberLoginService.allowContentEdits();
+  }
+
+  albumActionTooltip(): string {
+    if (this.walkAlbumPath) {
+      return "Open the walk report and photo upload for this album";
+    }
+    return "Create a photo album for this walk, then edit the walk report and upload photos";
+  }
+
+  async createPhotoAlbum() {
+    if (!this.showAlbumAction()) {
+      return;
+    }
+    if (this.walkAlbumPath) {
+      await this.openAlbumPageInSiteEdit(this.walkAlbumPath);
+      return;
+    }
+    this.creatingAlbum = true;
+    this.notify.progress({title: "Photo album", message: "Creating the album page and writing the walk report"});
+    try {
+      const albumPath = await this.createWalkAlbumService.createFromWalk(this.displayedWalk.walk);
+      this.walkAlbumPath = albumPath;
+      this.resolveWalkAlbumPath(this.displayedWalk.walk);
+      await this.openAlbumPageInSiteEdit(albumPath, true);
+      this.creatingAlbum = false;
+    } catch (error) {
+      this.notify.error({title: "Could not create the photo album", message: error});
+      this.creatingAlbum = false;
+    }
+  }
+
+  private async openAlbumPageInSiteEdit(albumPath: string, _openPreAlbumText = false): Promise<void> {
+    if (!albumPath) {
+      return;
+    }
+    const currentSegments = this.urlService.pathSegments().filter(Boolean);
+    if (currentSegments.length > 0) {
+      this.createWalkAlbumService.rememberReturnToWalk(currentSegments);
+    }
+    this.createWalkAlbumService.markAlbumForAutoCover(this.walkAlbumName || albumPath);
+    if (!this.siteEditService.active()) {
+      this.siteEditService.toggle(true);
+    }
+    await this.urlService.navigateUnconditionallyTo(
+      albumPath.split("/").filter(Boolean),
+      {[StoredValue.ALBUM_WORKFLOW]: "1"},
+      ""
+    );
+  }
+
+  private resolveWalkAlbumPath(walk: ExtendedGroupEvent) {
+    this.walkAlbumPath = null;
+    this.walkAlbumName = null;
+    this.walkAlbumCoverUrl = null;
+    if (!walk) {
+      return;
+    }
+    this.createWalkAlbumService.existingAlbumLinkFor(walk)
+      .then(link => {
+        if (this.displayedWalk?.walk?.id === walk.id || this.displayedWalk?.walk === walk) {
+          this.walkAlbumPath = link?.path || null;
+          this.walkAlbumName = link?.albumName || link?.path || null;
+          this.walkAlbumCoverUrl = link?.coverImageUrl || null;
+        }
+      })
+      .catch(error => this.logger.warn("resolveWalkAlbumPath failed", error));
   }
   public mapExpanded = false;
   @Input() showPanelExpander = true;
@@ -353,7 +507,11 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
       this.logger.info("systemConfigService returned systemConfig:", systemConfig);
       this.queryIfRequired();
+      this.refreshPublishAction(this.displayedWalk?.walk);
     });
+    this.subscriptions.push(this.route.queryParamMap.subscribe((paramMap: ParamMap) => {
+      this.applyMapSizeFromQuery(paramMap);
+    }));
     this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
       this.walkDetailsMapHeight = walksConfig?.walkDetailsMapHeight || 380;
       if (!this.mapProviderTouched) {
@@ -369,6 +527,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.display.refreshCachedData();
       this.loggedIn = loginResponse?.memberLoggedIn;
       this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
+      this.refreshPublishAction(this.displayedWalk?.walk);
       this.refreshHomePostcode();
       this.updateGoogleMapIfApplicable();
     }));
@@ -449,13 +608,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.displayedWalk = displayedWalk;
       this.pageService.setTitle();
       this.displayLinks = displayedWalk?.walk?.fields?.links?.length > 0;
+      this.resolveWalkAlbumPath(displayedWalk.walk);
+      this.refreshPublishAction(displayedWalk.walk);
       this.queryFullWalkIfRequired(displayedWalk);
-      if (this.systemConfigService.systemConfig()?.enableMigration?.events) {
-        this.logger.info("remigrateForComparison", displayedWalk?.walk?.fields?.migratedFromId);
-        this.eventsMigrationService.migrateOneWalk(displayedWalk?.walk?.fields?.migratedFromId);
-      } else {
-        this.logger.info("remigrateForComparison:false");
-      }
       this.configureMapDisplay();
     }
     this.notify.success({
@@ -561,9 +716,30 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   cycleMapSize() {
     const currentIndex = this.mapSizeCycle.findIndex(state => state.expanded === this.mapExpanded && state.fullScreen === this.mapFullScreen);
     const next = this.mapSizeCycle[(currentIndex + 1) % this.mapSizeCycle.length];
-    this.mapExpanded = next.expanded;
-    this.mapFullScreen = next.fullScreen;
+    this.applyMapSize(next.expanded, next.fullScreen);
+    this.syncMapSizeToUrl();
+  }
+
+  private applyMapSizeFromQuery(paramMap: ParamMap) {
+    const maximised = paramMap.get(StoredValue.MAXIMISE) === "true";
+    const expanded = !maximised && paramMap.get(StoredValue.EXPANDED) === "true";
+    this.applyMapSize(expanded, maximised);
+  }
+
+  private applyMapSize(expanded: boolean, fullScreen: boolean) {
+    if (this.mapExpanded === expanded && this.mapFullScreen === fullScreen) {
+      return;
+    }
+    this.mapExpanded = expanded;
+    this.mapFullScreen = fullScreen;
     this.refreshMapSize();
+  }
+
+  private syncMapSizeToUrl() {
+    this.uiActions.updateQueryParameters({
+      [StoredValue.EXPANDED]: this.mapExpanded ? "true" : null,
+      [StoredValue.MAXIMISE]: this.mapFullScreen ? "true" : null
+    });
   }
 
   private refreshMapSize() {
@@ -582,8 +758,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   @HostListener("document:keydown.escape")
   exitMapFullScreen() {
     if (this.mapFullScreen) {
-      this.mapFullScreen = false;
-      this.refreshMapSize();
+      this.applyMapSize(false, false);
+      this.syncMapSizeToUrl();
     }
   }
 

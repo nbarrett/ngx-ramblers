@@ -313,7 +313,6 @@ export class SystemConfigService {
   default(): SystemConfig {
     return {
       globalStyles: this.defaultHasStyles(),
-      enableMigration: {events: false},
       googleAnalytics: this.googleAnalyticsDefaults(),
       cloudflareWebAnalytics: this.cloudflareWebAnalyticsDefaults(),
       googleSearchConsole: this.googleSearchConsoleDefaults(),
