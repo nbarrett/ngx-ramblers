@@ -2,10 +2,11 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowUpRightFromSquare, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUpRightFromSquare, faCheckCircle, faCircleNotch, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { DateUtilsService } from "../../../../services/date-utils.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import {
@@ -40,36 +41,71 @@ import {
                 {{mailboxConnection.gmailAccountEmail}}
               }
             </div>
-            @if (mailboxConnection.hasRefreshToken && mailboxConnection.connectionStatus === InboxAliasConnectionStatus.TOKEN_REVOKED) {
-              <div class="alert alert-warning mt-2 mb-3">
-                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-                <strong>Authorisation expired — mail is not importing</strong>
-                <p class="mb-2 mt-1">Google has revoked this mailbox's access{{mailboxConnection.lastErrorMessage ? " (" + mailboxConnection.lastErrorMessage + ")" : ""}}, so new emails stop appearing in the inbox. This happens 7 days after connecting while the Google Cloud OAuth consent screen is still in "Testing".</p>
-                <p class="mb-2">Fix it in two steps:</p>
-                <ol class="mb-2">
-                  <li>
-                    <a [href]="audienceUrl()" target="_blank" rel="noopener">
-                      <fa-icon [icon]="faArrowUpRightFromSquare" class="me-1"/>Open the OAuth publishing screen
-                    </a>
-                    and set <strong>Publishing status</strong> to <strong>In production</strong> (this stops the 7-day expiry recurring).
-                  </li>
-                  <li>Click <strong>Reconnect</strong> below to issue a fresh token and pull in the backlog.</li>
-                </ol>
+            @if (mailboxConnection.hasRefreshToken) {
+              <div class="alert mb-3"
+                   [class.alert-success]="mailboxConnection.connectionStatus === InboxAliasConnectionStatus.CONNECTED"
+                   [class.alert-warning]="mailboxConnection.connectionStatus !== InboxAliasConnectionStatus.CONNECTED">
+                <div class="d-flex align-items-start gap-2">
+                  @if (busy) {
+                    <fa-icon [icon]="faCircleNotch" animation="spin" class="mt-1"/>
+                  } @else if (mailboxConnection.connectionStatus === InboxAliasConnectionStatus.CONNECTED) {
+                    <fa-icon [icon]="faCheckCircle" class="mt-1"/>
+                  } @else {
+                    <fa-icon [icon]="faTriangleExclamation" class="mt-1"/>
+                  }
+                  <div class="flex-grow-1">
+                    <strong>{{ connectionStatusTitle(mailboxConnection) }}</strong>
+                    <ul class="mb-0 mt-2 ps-3">
+                      <li>{{ deliverySummary(mailboxConnection) }}</li>
+                      <li>{{ lastPollSummary(mailboxConnection) }}</li>
+                      <li>{{ mappedRolesSummary(mailboxConnection.id) }}</li>
+                      @if (mailboxConnection.importAllMessages) {
+                        <li>Importing all messages in this Gmail inbox (role mailboxes plus a general mailbox for member admins).</li>
+                      } @else {
+                        <li>Importing only messages addressed to committee role mailboxes.</li>
+                      }
+                      @if (mailboxConnection.lastErrorMessage) {
+                        <li>{{ friendlyErrorMessage(mailboxConnection.lastErrorMessage) }}</li>
+                      }
+                    </ul>
+                    @if (mailboxConnection.connectionStatus === InboxAliasConnectionStatus.TOKEN_REVOKED) {
+                      <p class="mb-2 mt-2">Google has revoked this mailbox's access. This happens 7 days after connecting while the Google Cloud OAuth consent screen is still in "Testing".</p>
+                      <p class="mb-2">Fix it in two steps:</p>
+                      <ol class="mb-0">
+                        <li>
+                          <a [href]="audienceUrl()" target="_blank" rel="noopener">
+                            <fa-icon [icon]="faArrowUpRightFromSquare" class="me-1"/>Open the OAuth publishing screen
+                          </a>
+                          and set <strong>Publishing status</strong> to <strong>In production</strong> (this stops the 7-day expiry recurring).
+                        </li>
+                        <li>Click <strong>Reconnect</strong> below to issue a fresh token and pull in the backlog.</li>
+                      </ol>
+                    } @else if (mailboxConnection.connectionStatus === InboxAliasConnectionStatus.ERROR) {
+                      <p class="mb-0 mt-2">
+                        @if (mailboxConnection.importAllMessages) {
+                          If it does not clear on the next automatic sync, click <strong>Re-scan general mailbox from scratch</strong> below.
+                        } @else {
+                          Wait for the next automatic sync, or switch Delivery briefly and back, to retry.
+                        }
+                      </p>
+                    }
+                  </div>
+                </div>
               </div>
-            }
-            @if (mailboxConnection.hasRefreshToken && mailboxConnection.connectionStatus === InboxAliasConnectionStatus.ERROR) {
+            } @else {
               <div class="alert alert-warning mt-2 mb-3">
                 <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-                <strong>Mail is not importing</strong>
-                <p class="mb-0 mt-1">The last sync failed{{mailboxConnection.lastErrorMessage ? " (" + mailboxConnection.lastErrorMessage + ")" : ""}}. If it does not clear on its own shortly, click <strong>Re-scan general mailbox from scratch</strong> below to re-import recent messages.</p>
+                <strong>Not connected yet</strong>
+                <p class="mb-0 mt-1">Complete Google authorisation to attach this mailbox.</p>
               </div>
             }
             <div class="d-flex align-items-end gap-3 flex-wrap">
               <div class="me-auto">
-                @if (!mailboxConnection.hasRefreshToken) {
-                  <span class="text-muted">Complete Google authorisation to attach this mailbox.</span>
-                } @else {
-                  <span class="text-muted">{{stringUtils.pluraliseWithCount(mappedRolesCount(mailboxConnection.id), "mapped role mailbox", "mapped role mailboxes")}}.</span>
+                @if (busy) {
+                  <span class="text-muted">
+                    <fa-icon [icon]="faCircleNotch" animation="spin" class="me-1"/>
+                    Working…
+                  </span>
                 }
               </div>
               <div>
@@ -109,8 +145,8 @@ import {
                 </div>
                 @if (mailboxConnection.importAllMessages) {
                   <button class="btn btn-sm btn-quiet mt-2" type="button" (click)="rescanGeneralMailbox(mailboxConnection)" [disabled]="busy"
-                          tooltip="Delete every 'general' thread for this Gmail inbox and re-import from Gmail. Use this if existing-thread matches are stopping new messages from appearing.">
-                    {{ rescanPendingConfirm.has(mailboxConnection.id) ? "Click again to confirm" : "Re-scan general mailbox from scratch" }}
+                          tooltip="Re-poll this Gmail inbox for messages that are not yet in NGX. Existing conversations and each member's read or unread state are left as they are.">
+                    Re-scan for missing messages
                   </button>
                 }
               }
@@ -158,6 +194,7 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
   private inboxService = inject(InboxService);
   private notifierService = inject(NotifierService);
   private route = inject(ActivatedRoute);
+  private dateUtils = inject(DateUtilsService);
   protected stringUtils = inject(StringUtilsService);
 
   protected readonly InboxAccessMode = InboxAccessMode;
@@ -165,6 +202,8 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
   protected readonly InboxAliasConnectionStatus = InboxAliasConnectionStatus;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
+  protected readonly faCheckCircle = faCheckCircle;
+  protected readonly faCircleNotch = faCircleNotch;
 
   @Input() projectNumber: string | null = null;
 
@@ -225,6 +264,59 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     return this.aliases.filter(alias => alias.mailboxConnectionId === mailboxConnectionId).length;
   }
 
+  connectionStatusTitle(mailboxConnection: InboxMailboxConnectionView): string {
+    if (this.busy) {
+      return "Working on this mailbox…";
+    }
+    switch (mailboxConnection.connectionStatus) {
+      case InboxAliasConnectionStatus.CONNECTED:
+        return "Mail is importing";
+      case InboxAliasConnectionStatus.TOKEN_REVOKED:
+        return "Authorisation expired — mail is not importing";
+      case InboxAliasConnectionStatus.ERROR:
+        return "Mail is not importing";
+      default:
+        return "Mailbox status unknown";
+    }
+  }
+
+  deliverySummary(mailboxConnection: InboxMailboxConnectionView): string {
+    if (mailboxConnection.syncMode === InboxSyncMode.WATCH) {
+      return mailboxConnection.pubsubTopicName
+        ? `Delivery: push (Pub/Sub topic ${mailboxConnection.pubsubTopicName})`
+        : "Delivery: push (Pub/Sub) — topic not set; run Google Cloud setup on step 1";
+    }
+    return "Delivery: pull (polls Gmail about every 30 seconds)";
+  }
+
+  lastPollSummary(mailboxConnection: InboxMailboxConnectionView): string {
+    if (!mailboxConnection.lastPolledAt) {
+      return "Last successful sync: not yet (no successful poll recorded)";
+    }
+    return `Last successful sync: ${this.dateUtils.displayDateAndTime(mailboxConnection.lastPolledAt)}`;
+  }
+
+  mappedRolesSummary(mailboxConnectionId: string): string {
+    const count = this.mappedRolesCount(mailboxConnectionId);
+    if (count === 0) {
+      return "Mapped role mailboxes: none yet — point each role's Inbound Forwarding at this Gmail account in Committee Settings";
+    }
+    return `Mapped role mailboxes: ${this.stringUtils.pluraliseWithCount(count, "role")}`;
+  }
+
+  friendlyErrorMessage(raw: string): string {
+    if (!raw) {
+      return "Last error: unknown";
+    }
+    if (raw.includes("externalAddress") && raw.includes("required")) {
+      return "Last error: a message could not be filed because the conversation's external address was missing (fixed in a recent update — re-scan or wait for the next sync after deploy)";
+    }
+    if (raw.length > 220) {
+      return `Last error: ${raw.slice(0, 220)}…`;
+    }
+    return `Last error: ${raw}`;
+  }
+
   private connectErrorMessage(error: any): string {
     return error?.error?.error || error?.error?.message || error?.message || "Failed to connect Gmail";
   }
@@ -278,24 +370,19 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     }
   }
 
-  protected rescanPendingConfirm = new Set<string>();
-
   async rescanGeneralMailbox(mailboxConnection: InboxMailboxConnectionView): Promise<void> {
-    if (!this.rescanPendingConfirm.has(mailboxConnection.id)) {
-      this.rescanPendingConfirm.add(mailboxConnection.id);
-      setTimeout(() => this.rescanPendingConfirm.delete(mailboxConnection.id), 5000);
-      return;
-    }
-    this.rescanPendingConfirm.delete(mailboxConnection.id);
     this.busy = true;
     try {
       const result = await this.inboxService.rescanGeneralMailbox(mailboxConnection.id);
       this.mailboxConnections = this.mailboxConnections.map(connection =>
         connection.id === result.connection.id ? result.connection : connection);
       const countLabel = result.importedCount === 0
-        ? "No new messages were imported."
-        : `${this.stringUtils.pluraliseWithCount(result.importedCount, "message")} re-imported.`;
-      this.notify.success({title: "Re-scan general mailbox", message: `Removed ${this.stringUtils.pluraliseWithCount(result.deletedThreads, "thread")} and ${this.stringUtils.pluraliseWithCount(result.deletedMessages, "message")}. ${countLabel}${result.pollError ? ` Sync warning: ${result.pollError}` : ""}`});
+        ? "No missing messages were found."
+        : `${this.stringUtils.pluraliseWithCount(result.importedCount, "missing message")} imported.`;
+      this.notify.success({
+        title: "Re-scan general mailbox",
+        message: `${countLabel} Existing conversations and read state were left unchanged.${result.pollError ? ` Sync warning: ${result.pollError}` : ""}`
+      });
     } catch (error) {
       this.notify.error({title: "Re-scan general mailbox", message: (error as Error).message});
     } finally {

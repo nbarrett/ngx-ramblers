@@ -316,11 +316,11 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
         roleType: alias.roleType,
         messageIds: parsed.messageId
       }).lean();
-      if (!existingThread) {
-        await storeInboundMessage(alias, parsed, undefined, internalEmails);
-        return true;
+      if (existingThread) {
+        return existingStored;
       }
-      return existingStored;
+      await storeInboundMessage(alias, parsed, undefined, internalEmails);
+      return true;
     }, Promise.resolve(false));
     return storedForAliases ? accumulator.concat(parsed.messageId) : accumulator;
   }, Promise.resolve([]));

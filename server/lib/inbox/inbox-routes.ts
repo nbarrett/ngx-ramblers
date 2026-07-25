@@ -34,7 +34,6 @@ import {
   InboxUnreadCountsResponse,
   InboxThreadMessagesResponse,
   InboxViewScope,
-  inboxGeneralRoleTypeFor,
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
@@ -338,13 +337,6 @@ router.post("/mailbox-connections/:id/rescan-general", authConfig.authenticate()
       res.json({request: {messageType}, response: {deletedThreads: 0, deletedMessages: 0, importedCount: 0, pollError: health.error, connection: sanitiseConnection(connection)}});
       return;
     }
-    const generalRoleType = inboxGeneralRoleTypeFor(connectionId(connection));
-    const threadsToDelete = await inboxThreadModel.find({tenantSlug: defaultTenantSlug(), roleType: generalRoleType}).lean();
-    const threadIds = threadsToDelete.map(thread => (thread as unknown as {_id: {toString(): string}})._id.toString());
-    const deletedMessages = threadIds.length > 0
-      ? (await inboxMessageModel.deleteMany({threadId: {$in: threadIds}})).deletedCount ?? 0
-      : 0;
-    const deletedThreads = (await inboxThreadModel.deleteMany({tenantSlug: defaultTenantSlug(), roleType: generalRoleType})).deletedCount ?? 0;
     await inboxMailboxConnectionModel.updateOne(
       {_id: req.params.id, tenantSlug: defaultTenantSlug()},
       {$set: {lastHistoryId: null, importAllMessages: true, updatedAt: dateTimeNow().toMillis(), updatedBy: (req.user as Partial<MemberCookie>).memberId ?? "api"}}
@@ -360,8 +352,8 @@ router.post("/mailbox-connections/:id/rescan-general", authConfig.authenticate()
       pollError = (pollFailure as Error).message;
       errorDebugLog("rescan-general: immediate poll failed:", pollError);
     }
-    debugLog(`rescan-general: ${connection.gmailAccountEmail} deleted ${pluraliseWithCount(deletedThreads, "thread")} / ${pluraliseWithCount(deletedMessages, "message")}, imported ${importedCount}`);
-    res.json({request: {messageType}, response: {deletedThreads, deletedMessages, importedCount, pollError, connection: sanitiseConnection(refreshed)}});
+    debugLog(`rescan-general: ${connection.gmailAccountEmail} imported ${pluraliseWithCount(importedCount, "missing message")} without clearing existing threads`);
+    res.json({request: {messageType}, response: {deletedThreads: 0, deletedMessages: 0, importedCount, pollError, connection: sanitiseConnection(refreshed)}});
   } catch (error) {
     errorDebugLog("Error rescanning general mailbox:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
