@@ -15,6 +15,7 @@ import { integrationWorkerRoutes } from "./integration-worker-routes";
 import { integrationWorkerBrowserRoutes } from "./integration-worker-browser-routes";
 import { integrationWorkerMigrationRoutes } from "./integration-worker-migration-routes";
 import { integrationWorkerResizeRoutes } from "./integration-worker-resize-routes";
+import { integrationWorkerAiRoutes } from "./integration-worker-ai-routes";
 import { documentConversionWorkerRoutes } from "../document-conversion/document-conversion-worker-routes";
 
 install();
@@ -67,6 +68,7 @@ app.use("/api/integration-worker", integrationWorkerRoutes);
 app.use("/api/integration-worker/browser", integrationWorkerBrowserRoutes);
 app.use("/api/integration-worker/migration", integrationWorkerMigrationRoutes);
 app.use("/api/integration-worker/resize", integrationWorkerResizeRoutes);
+app.use("/api/integration-worker/ai", integrationWorkerAiRoutes);
 app.use("/api/integration-worker/document-conversion", documentConversionWorkerRoutes);
 
 if (app.get("env") === "dev") {

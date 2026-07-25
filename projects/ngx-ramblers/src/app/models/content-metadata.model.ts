@@ -143,6 +143,12 @@ export interface ContentMetadata extends Identifiable {
   maxImageSize?: number;
 }
 
+export interface WalkAlbumLink {
+  path: string;
+  albumName: string;
+  coverImageUrl: string | null;
+}
+
 export interface ContentMetadataResizeRequest {
   maxFileSize: number;
   id?: string;

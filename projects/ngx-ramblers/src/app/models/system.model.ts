@@ -194,10 +194,12 @@ export interface Organisation extends Group {
   showWalkOnRamblersLink: boolean;
   showWalkRelatedLinks?: boolean;
   showWalkShareInHeader?: boolean;
+  walkPhotoAlbumBasePath?: string;
   allowSwitchWalkView: boolean;
   socialDetailsPublic: boolean;
   showSocialOnRamblersLink: boolean;
   showSocialRelatedLinks?: boolean;
+  socialPhotoAlbumBasePath?: string;
   walkLeaderContactMethod?: EventLeaderContactMethod;
   walkLeaderContactDirect?: boolean;
   walkLeaderContactRole?: string;
@@ -281,6 +283,18 @@ export interface Facebook extends ExternalSystem {
 export interface Flickr extends ExternalSystem {
   apiKey: string;
   userId?: string;
+}
+
+export enum AiProviderType {
+  OPENAI_COMPATIBLE = "openai-compatible"
+}
+
+export interface Ai {
+  enabled?: boolean;
+  provider?: AiProviderType;
+  baseUrl?: string;
+  model?: string;
+  apiKey?: string;
 }
 
 export interface ExternalSystems {
@@ -383,7 +397,6 @@ export interface SystemConfig {
   externalSystems: ExternalSystems
   recaptcha: ReCaptchaConfig
   googleMaps: GoogleMapsConfig
-  enableMigration: { events: boolean }
   images: ImageConfig
   googleAnalytics: GoogleAnalyticsConfig
   cloudflareWebAnalytics: CloudflareWebAnalyticsConfig

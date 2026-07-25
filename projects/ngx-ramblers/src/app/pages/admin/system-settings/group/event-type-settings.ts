@@ -1,5 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { isString } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventLeaderContactMethod, EventPopulation, Organisation, SystemConfig } from "../../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -15,6 +16,7 @@ interface EventTypeFieldMapping {
   detailsPublic: keyof Organisation;
   showOnRamblersLink: keyof Organisation;
   showRelatedLinks: keyof Organisation;
+  photoAlbumBasePath: keyof Organisation;
   contactMethod: keyof Organisation;
   contactDirect: keyof Organisation;
   contactRole: keyof Organisation;
@@ -29,6 +31,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     detailsPublic: "walkContactDetailsPublic",
     showOnRamblersLink: "showWalkOnRamblersLink",
     showRelatedLinks: "showWalkRelatedLinks",
+    photoAlbumBasePath: "walkPhotoAlbumBasePath",
     contactMethod: "groupWalkContactMethod",
     contactDirect: "groupWalkContactDirect",
     contactRole: "groupWalkContactRole",
@@ -41,6 +44,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     detailsPublic: "socialDetailsPublic",
     showOnRamblersLink: "showSocialOnRamblersLink",
     showRelatedLinks: "showSocialRelatedLinks",
+    photoAlbumBasePath: "socialPhotoAlbumBasePath",
     contactMethod: "groupEventContactMethod",
     contactDirect: "groupEventContactDirect",
     contactRole: "groupEventContactRole",
@@ -136,7 +140,23 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
           }
         </select>
       </div>
-    }`,
+    }
+    <div class="form-group">
+      <label [for]="idFor('photo-album-base-path')">{{ eventTypeTitle }} Photo Album Base Path</label>
+      <input [(ngModel)]="group[fields.photoAlbumBasePath]"
+             type="text"
+             class="form-control input-sm"
+             [name]="idFor('photo-album-base-path')"
+             [id]="idFor('photo-album-base-path')"
+             [placeholder]="photoAlbumBasePathPlaceholder"
+             autocomplete="off">
+      <small class="form-text text-muted d-block">
+        Albums created from a {{ eventTypeTitle.toLowerCase() }} use
+        <code>&lt;base&gt;/&lt;year&gt;/&lt;slug&gt;</code>.
+        Leave blank for <code>{{ photoAlbumBasePathPlaceholder }}</code> (from the site nav).
+        Ashford-style sites that use <code>/photos/2026/…</code> should set <code>photos</code>.
+      </small>
+    </div>`,
   imports: [FormsModule]
 })
 export class EventTypeSettingsComponent implements OnInit {
@@ -156,11 +176,13 @@ export class EventTypeSettingsComponent implements OnInit {
   fields: EventTypeFieldMapping;
   group: Organisation;
   eventTypeTitle: string;
+  photoAlbumBasePathPlaceholder = "walks/photos";
 
   ngOnInit() {
     this.fields = FIELD_MAPPINGS[this.eventType];
     this.group = this.config.group;
     this.eventTypeTitle = this.stringUtils.asTitle(this.eventType);
+    this.photoAlbumBasePathPlaceholder = this.eventType === RamblersEventType.GROUP_EVENT ? "social/photos" : "walks/photos";
     this.applyDefaults();
     this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
       this.committeeRoles = data.committeeMembers();
@@ -186,6 +208,11 @@ export class EventTypeSettingsComponent implements OnInit {
     }
     if (this.group[this.fields.showRelatedLinks] === null || this.group[this.fields.showRelatedLinks] === undefined) {
       (this.group as any)[this.fields.showRelatedLinks] = true;
+    }
+    const currentBasePath = this.group[this.fields.photoAlbumBasePath];
+    if (isString(currentBasePath)) {
+      const normalised = currentBasePath.trim().replace(/^\/+|\/+$/g, "");
+      (this.group as any)[this.fields.photoAlbumBasePath] = normalised || null;
     }
   }
 }

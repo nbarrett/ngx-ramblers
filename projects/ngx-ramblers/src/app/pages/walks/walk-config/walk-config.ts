@@ -13,7 +13,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalksConfig, WalkConfigTab, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost } from "../../../models/walks-config.model";
+import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost } from "../../../models/walks-config.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -32,8 +32,12 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 import { RelatedLinksPanelComponent } from "../../../modules/common/related-links/related-links-panel";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
+import { ContentMetadataService } from "../../../services/content-metadata.service";
+import { WalkDisplayService } from "../walk-display.service";
 import { DisplayedWalk, EventStartDateDescending, EventType, FALLBACK_MEDIA, GroupEventField, LinkSource } from "../../../models/walk.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { RootFolder } from "../../../models/system.model";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -209,7 +213,9 @@ import {
                     <div markdown class="list-arrow mb-3">
                       <ul>
                         <li>Everything that affects how individual walk pages look is configured here, with a live preview alongside.</li>
-                        <li>Drag the bars below the preview image and preview map to set their heights, or choose natural height to show whole images uncropped.</li>
+                        <li>The preview uses a real walk from this site that has photos, a start location and preferably a photo album, so the image, album and map look representative.</li>
+                        <li>Drag the bars below the preview image, album and map to set their heights, or choose natural height to show whole walk images uncropped.</li>
+                        <li>Photo album style (card or match walk images) is independent of the walk image settings above.</li>
                         <li>Zoom the preview map in or out to set how much area walk maps show around the start pin.</li>
                         <li>The Related Links box itself can be hidden per event type in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="areaGroupQueryParams"><strong>Admin &gt; Settings &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
                       </ul>
@@ -232,6 +238,23 @@ import {
                                [value]="WalkDetailsImageStyle.NATURAL"
                                id="walk-details-image-style-natural">
                         <label class="form-check-label" for="walk-details-image-style-natural">Natural height (show the whole image)</label>
+                      </div>
+                      <div class="fw-bold mb-2 mt-3">Photo album on walk page</div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.walkAlbumPanelStyle"
+                               type="radio" class="form-check-input"
+                               name="walk-album-panel-style"
+                               [value]="WalkAlbumPanelStyle.CARD"
+                               id="walk-album-panel-style-card">
+                        <label class="form-check-label" for="walk-album-panel-style-card">Card panel — wide cover image, swipe in place, link to full album — drag the bar under the album preview to set the height</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.walkAlbumPanelStyle"
+                               type="radio" class="form-check-input"
+                               name="walk-album-panel-style"
+                               [value]="WalkAlbumPanelStyle.MATCH_WALK_IMAGES"
+                               id="walk-album-panel-style-match-walk-images">
+                        <label class="form-check-label" for="walk-album-panel-style-match-walk-images">Match walk images — same strip style as photos attached to the walk — drag the bar under the album preview to set the height</label>
                       </div>
                       <div class="fw-bold mb-2 mt-3">Map</div>
                       <div class="form-group mb-3">
@@ -334,6 +357,9 @@ import {
                                             [height]="naturalImagePreview() ? null : (walksConfig.walkDetailsImageHeight || 200)"
                                             [imageSource]="previewImageSource()"/>
                           </div>
+                          @if (previewWalkTitle()) {
+                            <div class="preview-example-caption">Walk image — {{ previewWalkTitle() }}</div>
+                          }
                           @if (!naturalImagePreview()) {
                             <app-resizer class="preview-resizer" orientation="vertical" variant="tab" compact
                                          [size]="walksConfig.walkDetailsImageHeight || 200"
@@ -360,6 +386,41 @@ import {
                           @for (ghost of rightGhosts; track ghost.label) {
                             <div class="ghost-panel mt-3" [style.min-height.px]="ghost.height">{{ ghost.label }}</div>
                           }
+                          <div class="mt-3 clearfix">
+                            @if (walksConfig.walkAlbumPanelStyle === WalkAlbumPanelStyle.CARD) {
+                              <div class="preview-album-card">
+                                <div class="preview-album-card-cover"
+                                     [style.height.px]="albumPanelHeight()">
+                                  <app-card-image [height]="albumPanelHeight()"
+                                                  [imageSource]="previewAlbumImageSource()"/>
+                                </div>
+                                <div class="preview-album-card-body">
+                                  <p class="preview-album-card-title mb-0">Photo album</p>
+                                  <p class="preview-album-card-meta mb-0">
+                                    @if (previewAlbumImageCount() > 1) {
+                                      {{ previewAlbumImageCount() }} photos · swipe to browse
+                                    } @else {
+                                      View photos from this walk
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+                            } @else {
+                              <div class="preview-image-frame"
+                                   [style.height.px]="albumPanelHeight()">
+                                <app-card-image [height]="albumPanelHeight()"
+                                                [imageSource]="previewAlbumImageSource()"/>
+                              </div>
+                            }
+                            @if (previewWalkTitle()) {
+                              <div class="preview-example-caption">Album — {{ previewWalkTitle() }}</div>
+                            }
+                            <app-resizer class="preview-resizer" orientation="vertical" variant="tab" compact
+                                         [size]="albumPanelHeight()"
+                                         [minSize]="120"
+                                         [maxSize]="800"
+                                         (sizeChange)="onAlbumHeightChange($event)"/>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -442,6 +503,40 @@ import {
       line-height: 0
       border-radius: 6px
 
+    .preview-album-card
+      background: #fff
+      border: 1px solid rgba(29, 53, 87, 0.1)
+      border-radius: 6px
+      overflow: hidden
+      box-shadow: 0 1px 2px rgba(29, 53, 87, 0.04)
+
+    .preview-album-card-cover
+      width: 100%
+      overflow: hidden
+      line-height: 0
+      background: #f7f8f9
+
+    .preview-album-card-body
+      padding: 12px 16px 14px
+
+    .preview-album-card-title
+      font-size: 16px
+      font-weight: bold
+      line-height: 1.25
+
+    .preview-album-card-meta
+      margin-top: 4px
+      font-size: 0.9rem
+      color: rgba(29, 53, 87, 0.65)
+      line-height: 1.35
+
+    .preview-example-caption
+      margin-top: 4px
+      margin-bottom: 2px
+      font-size: 0.8rem
+      color: #6c757d
+      line-height: 1.3
+
     .preview-column app-related-links-panel
       display: block
       margin-bottom: -21px
@@ -471,7 +566,12 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private mediaQueryService = inject(MediaQueryService);
+  private createWalkAlbumService = inject(CreateWalkAlbumService);
+  private contentMetadataService = inject(ContentMetadataService);
+  private walkDisplayService = inject(WalkDisplayService);
   protected previewImageUrl: string;
+  protected previewAlbumImageUrl: string;
+  protected previewAlbumImageUrls: string[] = [];
   protected readonly leadingLeftGhosts: WalkViewPreviewGhost[] = [
     {label: "Walk title & date", height: 70},
     {label: "Description", height: 150},
@@ -484,31 +584,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   protected readonly rightGhosts: WalkViewPreviewGhost[] = [
     {label: "Walk details", height: 130}
   ];
-  protected readonly previewWalk: DisplayedWalk = {
-    walk: {
-      id: "sample-walk",
-      groupEvent: {
-        id: "sample-walk",
-        title: "Sample walk",
-        start_location: {w3w: "sample.walk.preview"}
-      },
-      fields: {
-        venue: {venuePublish: true, name: "Sample Venue", type: "Pub", url: "https://example.com/sample-venue"},
-        links: [
-          {source: LinkSource.MEETUP, href: "https://www.meetup.com/sample-walk"},
-          {source: LinkSource.OS_MAPS, href: "https://explore.osmaps.com/route/sample-walk"}
-        ],
-        gpxFile: {awsFileName: "sample-route.gpx", originalFileName: "sample-route.gpx"}
-      },
-      events: []
-    } as ExtendedGroupEvent,
-    walkAccessMode: {caption: "view", title: "View"},
-    status: EventType.APPROVED,
-    walkLink: "https://example.com/walks/sample-walk",
-    ramblersLink: "https://www.ramblers.org.uk",
-    showEndpoint: false,
-    hasFeatures: false
-  };
+  protected previewWalk: DisplayedWalk = this.defaultPreviewWalk();
   private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
@@ -522,16 +598,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   public walksConfig: WalksConfig;
   protected mapPreviewVisible = true;
   private mapPreviewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  protected readonly exampleLocation: LocationDetails = {
-    latitude: 51.48158,
-    longitude: -1.10079,
-    description: "Example start point",
-    postcode: "RG8 7AR",
-    grid_reference_6: null,
-    grid_reference_8: null,
-    grid_reference_10: null,
-    w3w: null
-  };
+  protected exampleLocation: LocationDetails = this.defaultExampleLocation();
   public weekdayOptions: { label: string; value: number }[] = [];
   public accessLevels: AccessLevel[] = enumValues(AccessLevel);
   public accessLevelDescriptions: Record<AccessLevel, string> = {
@@ -548,13 +615,14 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   protected readonly areaGroupQueryParams = {[StoredValue.TAB]: "area-group"};
   protected readonly View = View;
   protected readonly WalkConfigTab = WalkConfigTab;
+  protected readonly WalkAlbumPanelStyle = WalkAlbumPanelStyle;
   protected readonly WalkDetailsImageStyle = WalkDetailsImageStyle;
   protected readonly WalkDetailsMapProvider = WalkDetailsMapProvider;
   protected walkRelatedLinksShown = true;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
-    this.loadPreviewImage();
+    this.loadPreviewWalk();
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.weekdayOptions = this.dateUtils.daysOfWeek().map((label, index) => ({label, value: index + 1}));
     this.meetupService.queryConfig().then(config => this.meetupConfig = config);
@@ -566,6 +634,12 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
       this.walksConfig = config;
       if (!this.walksConfig.walkCreationAccessLevel) {
         this.walksConfig.walkCreationAccessLevel = AccessLevel.HIDDEN;
+      }
+      if (!this.walksConfig.walkAlbumPanelStyle) {
+        this.walksConfig.walkAlbumPanelStyle = WalkAlbumPanelStyle.CARD;
+      }
+      if (!this.walksConfig.walkAlbumPanelHeight) {
+        this.walksConfig.walkAlbumPanelHeight = 240;
       }
     }));
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
@@ -610,6 +684,14 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     this.walksConfig.walkDetailsImageHeight = Math.round(height);
   }
 
+  albumPanelHeight(): number {
+    return this.walksConfig?.walkAlbumPanelHeight || 240;
+  }
+
+  onAlbumHeightChange(height: number): void {
+    this.walksConfig.walkAlbumPanelHeight = Math.round(height);
+  }
+
   onMapHeightChange(height: number): void {
     this.walksConfig.walkDetailsMapHeight = Math.round(height);
   }
@@ -622,22 +704,165 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     return this.previewImageUrl || FALLBACK_MEDIA.url;
   }
 
-  private async loadPreviewImage(): Promise<void> {
+  previewAlbumImageSource(): string {
+    return this.previewAlbumImageUrl || this.previewImageUrl || FALLBACK_MEDIA.url;
+  }
+
+  previewAlbumImageCount(): number {
+    return this.previewAlbumImageUrls.length;
+  }
+
+  previewWalkTitle(): string {
+    const title = this.previewWalk?.walk?.groupEvent?.title || "";
+    return title === "Sample walk" ? "" : title;
+  }
+
+  private defaultPreviewWalk(): DisplayedWalk {
+    return {
+      walk: {
+        id: "sample-walk",
+        groupEvent: {
+          id: "sample-walk",
+          title: "Sample walk",
+          start_location: {w3w: "sample.walk.preview"}
+        },
+        fields: {
+          venue: {venuePublish: true, name: "Sample Venue", type: "Pub", url: "https://example.com/sample-venue"},
+          links: [
+            {source: LinkSource.MEETUP, href: "https://www.meetup.com/sample-walk"},
+            {source: LinkSource.OS_MAPS, href: "https://explore.osmaps.com/route/sample-walk"}
+          ],
+          gpxFile: {awsFileName: "sample-route.gpx", originalFileName: "sample-route.gpx"}
+        },
+        events: []
+      } as ExtendedGroupEvent,
+      walkAccessMode: {caption: "view", title: "View"},
+      status: EventType.APPROVED,
+      walkLink: "https://example.com/walks/sample-walk",
+      ramblersLink: "https://www.ramblers.org.uk",
+      showEndpoint: false,
+      hasFeatures: false
+    };
+  }
+
+  private defaultExampleLocation(): LocationDetails {
+    return {
+      latitude: 51.48158,
+      longitude: -1.10079,
+      description: "Example start point",
+      postcode: "RG8 7AR",
+      grid_reference_6: null,
+      grid_reference_8: null,
+      grid_reference_10: null,
+      w3w: null
+    };
+  }
+
+  private applyDefaultPreview(): void {
+    this.previewWalk = this.defaultPreviewWalk();
+    this.exampleLocation = this.defaultExampleLocation();
+    this.previewImageUrl = null;
+    this.previewAlbumImageUrl = null;
+    this.previewAlbumImageUrls = [];
+    this.refreshMapPreview();
+  }
+
+  private async loadPreviewWalk(): Promise<void> {
     try {
       const events = await this.walksAndEventsService.all({
         inputSource: null,
         suppressEventLinking: false,
         dataQueryOptions: {
           criteria: {[`${GroupEventField.MEDIA}.0`]: {$exists: true}},
-          select: {[GroupEventField.MEDIA]: 1},
           sort: EventStartDateDescending,
-          limit: 1
+          limit: 40
         }
       });
-      this.previewImageUrl = this.mediaQueryService.basicMediaFrom(events?.[0]?.groupEvent)?.[0]?.url;
-      this.logger.info("loadPreviewImage: previewImageUrl:", this.previewImageUrl);
+      const ranked = (events || []).slice().sort((left, right) => this.previewWalkScore(right) - this.previewWalkScore(left));
+      const withAlbum = await this.firstWalkWithAlbum(ranked.slice(0, 15));
+      const chosen = withAlbum || ranked[0] || null;
+      if (!chosen) {
+        this.logger.info("loadPreviewWalk: no walks with media found - using defaults");
+        this.applyDefaultPreview();
+        return;
+      }
+      this.applyPreviewWalk(chosen);
+      const albumLink = await this.createWalkAlbumService.existingAlbumLinkFor(chosen).catch(() => null);
+      if (albumLink?.path) {
+        await this.loadPreviewAlbumImages(albumLink.albumName || albumLink.path, albumLink.coverImageUrl);
+      } else {
+        this.previewAlbumImageUrl = this.previewImageUrl || null;
+        this.previewAlbumImageUrls = this.previewImageUrl ? [this.previewImageUrl] : [];
+      }
+      if (!this.previewImageUrl && this.previewAlbumImageUrls.length === 0) {
+        this.logger.info("loadPreviewWalk: chosen walk had no usable images - using defaults");
+        this.applyDefaultPreview();
+        return;
+      }
+      this.logger.info("loadPreviewWalk: using", chosen.groupEvent?.title, "album images:", this.previewAlbumImageUrls.length);
     } catch (error) {
-      this.logger.warn("loadPreviewImage failed - falling back to placeholder:", error);
+      this.logger.warn("loadPreviewWalk failed - falling back to defaults:", error);
+      this.applyDefaultPreview();
+    }
+  }
+
+  private previewWalkScore(walk: ExtendedGroupEvent): number {
+    const mediaCount = walk?.groupEvent?.media?.length || 0;
+    const start = walk?.groupEvent?.start_location;
+    const fields = walk?.fields;
+    const descriptionLength = (walk?.groupEvent?.description || "").length;
+    return (mediaCount * 3)
+      + (start?.latitude ? 4 : 0)
+      + (start?.postcode ? 1 : 0)
+      + (fields?.links?.length || 0)
+      + (fields?.gpxFile ? 2 : 0)
+      + (fields?.venue?.venuePublish ? 1 : 0)
+      + Math.min(descriptionLength / 400, 3);
+  }
+
+  private async firstWalkWithAlbum(candidates: ExtendedGroupEvent[]): Promise<ExtendedGroupEvent | null> {
+    const matches = await Promise.all(candidates.map(async walk => {
+      const link = await this.createWalkAlbumService.existingAlbumLinkFor(walk).catch(() => null);
+      return link?.path ? walk : null;
+    }));
+    return matches.find(Boolean) || null;
+  }
+
+  private applyPreviewWalk(walk: ExtendedGroupEvent): void {
+    this.previewWalk = this.walkDisplayService.toDisplayedWalk(walk);
+    const media = this.mediaQueryService.basicMediaFrom(walk.groupEvent) || [];
+    this.previewImageUrl = media[0]?.url || null;
+    const start = walk.groupEvent?.start_location;
+    if (start?.latitude && start?.longitude) {
+      this.exampleLocation = {
+        latitude: start.latitude,
+        longitude: start.longitude,
+        description: start.description || walk.groupEvent?.title || "Start",
+        postcode: start.postcode || null,
+        grid_reference_6: start.grid_reference_6 || null,
+        grid_reference_8: start.grid_reference_8 || null,
+        grid_reference_10: start.grid_reference_10 || null,
+        w3w: start.w3w || null
+      };
+      this.refreshMapPreview();
+    }
+  }
+
+  private async loadPreviewAlbumImages(albumName: string, coverImageUrl: string | null): Promise<void> {
+    const album = await this.contentMetadataService.items(RootFolder.carousels, albumName).catch(() => null);
+    const files = (album?.files || []).filter(file => !!file?.image);
+    const urls = files
+      .map(file => this.urlService.imageSourceFor(file, album))
+      .filter(Boolean);
+    if (urls.length > 0) {
+      this.previewAlbumImageUrls = urls;
+      this.previewAlbumImageUrl = urls[0];
+    } else if (coverImageUrl) {
+      this.previewAlbumImageUrls = [coverImageUrl];
+      this.previewAlbumImageUrl = coverImageUrl;
+    } else {
+      this.previewAlbumImageUrls = this.previewImageUrl ? [this.previewImageUrl] : [];
+      this.previewAlbumImageUrl = this.previewImageUrl;
     }
   }
 

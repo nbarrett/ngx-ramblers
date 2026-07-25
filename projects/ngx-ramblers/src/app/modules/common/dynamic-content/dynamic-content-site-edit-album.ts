@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { isEqual, kebabCase } from "es-toolkit/compat";
-import { faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronUp, faImages, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   AlbumData,
@@ -46,6 +47,8 @@ import { ActionButtons } from "../action-buttons/action-buttons";
 import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
 import { RangeSliderComponent } from "../../../components/range-slider";
+import { PageContentService } from "../../../services/page-content.service";
+import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 
 function scaleOptions(...entries: [number, string][]): { value: number; label: string }[] {
   return entries.map(([value, name]) => ({value, label: `${name} (${value}x)`}));
@@ -54,7 +57,43 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
 @Component({
     selector: "app-dynamic-content-site-edit-album",
     template: `
-      @if (!actions.editActive(rowIndex)) {
+      @if (albumWorkflow) {
+        <div class="walk-album-workflow">
+          <div class="alert alert-warning walk-album-workflow-intro mb-3">
+            <fa-icon [icon]="faImages" class="flex-shrink-0 mt-1"/>
+            <div class="ms-2 min-w-0">
+              <strong class="d-block">Walk photo album</strong>
+              <span class="d-none d-md-inline">Check the walk report, then add photos. Save when you finish and you will return to the walk.</span>
+              <span class="d-md-none">Review the report, add photos, then save to return to the walk.</span>
+            </div>
+          </div>
+          <section class="walk-album-workflow-report mb-3">
+            <button type="button"
+                    class="walk-album-workflow-report-toggle"
+                    [attr.aria-expanded]="workflowReportExpanded"
+                    (click)="toggleWorkflowReport()">
+              <span class="min-w-0">
+                <span class="d-block fw-semibold">Walk report</span>
+                <span class="small text-muted">{{ workflowReportToggleHint() }}</span>
+              </span>
+              <fa-icon [icon]="workflowReportExpanded ? faChevronUp : faChevronDown"/>
+            </button>
+            @if (workflowReportExpanded) {
+              <div class="walk-album-workflow-report-body">
+                <app-markdown-editor [data]="{text: row.carousel.preAlbumText, name: 'walk report'}"
+                                     [initialView]="initialViewFor(row.carousel.preAlbumText)"
+                                     (changed)="onWorkflowPreAlbumTextChanged($event)"/>
+              </div>
+            }
+          </section>
+          <section class="walk-album-workflow-photos">
+            <h5 class="walk-album-workflow-photos-title">Photos</h5>
+            <app-image-list-edit [name]="row?.carousel?.name"
+                                 [workflowMode]="true"
+                                 (exit)="onWorkflowImageExit()"/>
+          </section>
+        </div>
+      } @else if (!actions.editActive(rowIndex)) {
         @if (actions.isAlbum(row)) {
           <tabset class="custom-tabset">
             <tab heading="{{enumValueForKey(AlbumEditTab, AlbumEditTab.ALBUM_SETTINGS)}}"
@@ -415,7 +454,9 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                             [imageSrc]="coverImageSource()"
                             [height]="row.carousel.coverImageHeight"
                             [borderRadius]="row.carousel.coverImageBorderRadius"
-                            [focalPoint]="row.carousel.coverImageFocalPoint || {x: 50, y: 50}"
+                            [focalPoint]="row.carousel.coverImageFocalPoint || {x: 50, y: 50, zoom: 1}"
+                            [minZoom]="coverImageMinZoom"
+                            [maxZoom]="coverImageMaxZoom"
                             [showZoomSlider]="false"
                             (focalPointChange)="coverImageFocalPointChange($event)"/>
                         </div>
@@ -434,12 +475,12 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                             <span class="zoom-value">{{ focalPointZoom() | number:'1.1-1' }}x</span>
                           </div>
                           <div class="range-slider-row">
-                            <span class="range-edge text-start">1x</span>
+                            <span class="range-edge text-start">{{ coverImageMinZoom }}x</span>
                             <div class="slider-wrapper">
                               <input type="range"
                                      class="range-slider range-high"
-                                     min="1"
-                                     max="10"
+                                     [min]="coverImageMinZoom"
+                                     [max]="coverImageMaxZoom"
                                      step="0.1"
                                      [ngModel]="focalPointZoom()"
                                      (ngModelChange)="onZoomChange($event)"/>
@@ -447,7 +488,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                                 <div class="slider-fill" [style.left.%]="0" [style.width.%]="zoomFillWidth()"></div>
                               </div>
                             </div>
-                            <span class="range-edge text-end">10x</span>
+                            <span class="range-edge text-end">{{ coverImageMaxZoom }}x</span>
                           </div>
                           <div class="small text-muted mt-1">Use mouse wheel over image above or drag slider</div>
                         </div>
@@ -571,9 +612,51 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
       font-size: 0.85rem
       color: #6c757d
 
+    .walk-album-workflow
+      padding-bottom: 0
+
+    .walk-album-workflow-intro
+      display: flex
+      align-items: flex-start
+      margin-bottom: 0.75rem
+      padding: 0.75rem 0.85rem
+
+    .walk-album-workflow-report
+      border: 1px solid #dee2e6
+      border-radius: 12px
+      background: #fff
+      overflow: hidden
+
+    .walk-album-workflow-report-toggle
+      width: 100%
+      min-height: 52px
+      display: flex
+      align-items: center
+      justify-content: space-between
+      gap: 0.75rem
+      border: 0
+      background: #f8f9fa
+      text-align: left
+      padding: 0.75rem 0.9rem
+      touch-action: manipulation
+      -webkit-tap-highlight-color: transparent
+
+    .walk-album-workflow-report-body
+      padding: 0.75rem 0.85rem 0.9rem
+      border-top: 1px solid #dee2e6
+
+    .walk-album-workflow-photos-title
+      font-size: 1.05rem
+      font-weight: 700
+      margin: 0 0 0.65rem
+
+    @media (min-width: 768px)
+      .walk-album-workflow
+        padding-bottom: 0
+
     ${rangeSliderStyles}
   `],
-  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, MarkdownEditorComponent, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent]
+  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, MarkdownEditorComponent, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
@@ -584,7 +667,11 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   actions = inject(PageContentActionsService);
   urlService = inject(UrlService);
+  private pageContentService = inject(PageContentService);
+  private createWalkAlbumService = inject(CreateWalkAlbumService);
   public row: PageContentRow;
+  public albumWorkflow = false;
+  public workflowReportExpanded = true;
 
   @Input("row") set rowValue(row: PageContentRow) {
     this.logger.info("row changed:", row);
@@ -603,6 +690,9 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   faRemove = faRemove;
   groupEventType: GroupEventType;
   protected readonly faPencil = faPencil;
+  protected readonly faImages = faImages;
+  protected readonly faChevronUp = faChevronUp;
+  protected readonly faChevronDown = faChevronDown;
 
   protected readonly View = View;
   protected readonly AlbumEditTab = AlbumEditTab;
@@ -626,8 +716,13 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     const defaultValue = kebabCase(AlbumEditTab.ALBUM_SETTINGS);
     const urlParams = new URLSearchParams(window.location.search);
     const tabParameter = urlParams.get(StoredValue.ALBUM_TAB);
+    this.albumWorkflow = urlParams.get(StoredValue.ALBUM_WORKFLOW) === "1";
     this.tab = (tabParameter || defaultValue) as AlbumEditTab;
-    this.logger.info("initialised with tab:", this.tab, "from URL param:", tabParameter);
+    this.logger.info("initialised with tab:", this.tab, "from URL param:", tabParameter, "albumWorkflow:", this.albumWorkflow);
+    if (this.albumWorkflow && this.row?.carousel) {
+      this.row.carousel.showPreAlbumText = true;
+      this.workflowReportExpanded = true;
+    }
 
     if (!this.row?.carousel?.galleryViewOptions) {
       this.row.carousel.galleryViewOptions = DEFAULT_GALLERY_OPTIONS;
@@ -709,6 +804,50 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     return text ? View.VIEW : View.EDIT;
   }
 
+  toggleWorkflowReport(): void {
+    this.workflowReportExpanded = !this.workflowReportExpanded;
+  }
+
+  workflowReportToggleHint(): string {
+    if (this.workflowReportExpanded) {
+      return "Tap to hide while you add photos";
+    }
+    const text = this.row?.carousel?.preAlbumText || "";
+    if (!text.trim()) {
+      return "No report yet - tap to write one";
+    }
+    return "Tap to review or edit the walk report";
+  }
+
+  onWorkflowPreAlbumTextChanged(event: ContentText) {
+    if (!this.row?.carousel) {
+      return;
+    }
+    this.row.carousel.preAlbumText = event?.text || "";
+    this.row.carousel.showPreAlbumText = true;
+    this.saveWorkflowPageContent();
+  }
+
+  async onWorkflowImageExit(): Promise<void> {
+    await this.saveWorkflowPageContent();
+    const albumName = this.row?.carousel?.name;
+    if (await this.createWalkAlbumService.navigateBackToWalkIfNeeded(albumName)) {
+      return;
+    }
+  }
+
+  private async saveWorkflowPageContent(): Promise<void> {
+    if (!this.pageContent?.path) {
+      return;
+    }
+    try {
+      await this.pageContentService.createOrUpdate(this.pageContent);
+      this.logger.info("saved walk report page content for", this.pageContent.path);
+    } catch (error) {
+      this.logger.warn("failed to save walk report page content", error);
+    }
+  }
+
   lazyLoadingMetadataUpdated(metadata: LazyLoadingMetadata) {
     this.lazyLoadingMetadata = metadata;
     this.updateActionButtonPreview();
@@ -727,18 +866,26 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     return this.urlService.imageSourceFor({image: this.lazyLoadingMetadata.contentMetadata.coverImage}, this.lazyLoadingMetadata.contentMetadata);
   }
 
+  protected readonly coverImageMinZoom = 0.2;
+  protected readonly coverImageMaxZoom = 10;
+
   focalPointZoom(): number {
     return this.row?.carousel?.coverImageFocalPoint?.zoom ?? 1;
   }
 
   zoomFillWidth(): number {
-    return ((this.focalPointZoom() - 1) / (10 - 1)) * 100;
+    const range = this.coverImageMaxZoom - this.coverImageMinZoom;
+    if (range <= 0) {
+      return 0;
+    }
+    return ((this.focalPointZoom() - this.coverImageMinZoom) / range) * 100;
   }
 
   onZoomChange(zoom: number) {
     if (this.row?.carousel) {
-      const currentFocalPoint = this.row.carousel.coverImageFocalPoint || {x: 50, y: 50};
-      this.row.carousel.coverImageFocalPoint = {...currentFocalPoint, zoom};
+      const clampedZoom = Math.max(this.coverImageMinZoom, Math.min(this.coverImageMaxZoom, +zoom));
+      const currentFocalPoint = this.row.carousel.coverImageFocalPoint || {x: 50, y: 50, zoom: 1};
+      this.row.carousel.coverImageFocalPoint = {...currentFocalPoint, zoom: clampedZoom};
       this.updateActionButtonPreview();
     }
   }

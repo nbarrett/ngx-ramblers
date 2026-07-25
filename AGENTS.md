@@ -125,6 +125,7 @@ When fixing a problem discovered after committing:
 - Button min height >= 40px, touch targets >= 40-44px
 - Bootstrap 5 patterns (migrating from BS4 - don't expand `bootstrap4-compat.sass`)
 - Alert types: `alert-danger` (errors), `alert-warning` (missing config/action needed), `alert-success` (confirmations). Never use `alert-info`
+- **Inline alerts always have an icon and a title**: use `d-flex align-items-start` with a Font Awesome icon (`faCircleExclamation` for warning/danger, `faCircleCheck` for success) and a bold title on its own line (or `strong` before the message). Do not ship bare text-only alert boxes. Prefer the same pattern as NotifierService alerts: icon + **title** + body
 - Template-driven forms with custom validators
 
 ## Testing

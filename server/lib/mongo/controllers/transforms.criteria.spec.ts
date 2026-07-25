@@ -40,6 +40,15 @@ describe("transforms.convertIdStringsToObjectId", () => {
     done();
   });
 
+  it("leaves ObjectId-shaped strings in non-_id $in clauses as strings", done => {
+    const eventId = "69c3ce47368286515ab91105";
+    const criteria = {"rows.carousel.eventId": {$in: [eventId, "100445681"]}};
+    const result = transforms.convertIdStringsToObjectId(criteria);
+    expect(result["rows.carousel.eventId"].$in[0]).toEqual(eventId);
+    expect(result["rows.carousel.eventId"].$in[1]).toEqual("100445681");
+    done();
+  });
+
   it("leaves non-ObjectId strings unchanged", done => {
     const criteria = {
       $or: [

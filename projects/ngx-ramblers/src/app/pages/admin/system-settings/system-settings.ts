@@ -37,7 +37,6 @@ import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-
 import { SystemGoogleSearchConsoleSettings } from "./google-search-console/system-google-search-console-settings";
 import { SystemOsMapsSettings } from "./os-maps/system-os-maps-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgClass } from "@angular/common";
 import { faFacebook, faInstagram, faLinkedin, faMeetup, faTwitter, faYoutube } from "@fortawesome/free-brands-svg-icons";
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { ImageCollectionSettingsComponent } from "./images/image-collection-settings";
@@ -415,7 +414,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

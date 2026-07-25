@@ -17,7 +17,8 @@ import { WalksConfig } from "../../../models/walks-config.model";
     <div class="event-panel rounded event-panel-inner">
       <h1>Related Links</h1>
       <div class="row">
-        <app-related-links [displayedWalk]="displayedWalk" [walksConfigOverride]="walksConfigOverride"/>
+        <app-related-links [displayedWalk]="displayedWalk"
+                           [walksConfigOverride]="walksConfigOverride"/>
       </div>
     </div>`,
   imports: [RelatedLinksComponent]

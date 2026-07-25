@@ -10,6 +10,11 @@ export enum WalkDetailsMapProvider {
   GOOGLE_MAPS = "google-maps"
 }
 
+export enum WalkAlbumPanelStyle {
+  CARD = "card",
+  MATCH_WALK_IMAGES = "match-walk-images"
+}
+
 export interface WalkViewPreviewGhost {
   label: string;
   height: number;
@@ -39,6 +44,8 @@ export interface WalksConfig {
   walkDetailsImageHeight?: number;
   walkDetailsMapHeight?: number;
   walkDetailsMapProvider?: WalkDetailsMapProvider;
+  walkAlbumPanelStyle?: WalkAlbumPanelStyle;
+  walkAlbumPanelHeight?: number;
 }
 
 export enum WalkConfigTab {

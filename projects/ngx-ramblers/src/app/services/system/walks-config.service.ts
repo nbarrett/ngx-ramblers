@@ -7,7 +7,7 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalkDetailsImageStyle, WalkDetailsMapProvider, WalksConfig } from "../../models/walks-config.model";
+import { WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalksConfig } from "../../models/walks-config.model";
 import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
@@ -90,7 +90,9 @@ export class WalksConfigService {
       walkDetailsImageStyle: WalkDetailsImageStyle.CROPPED,
       walkDetailsImageHeight: 200,
       walkDetailsMapHeight: 380,
-      walkDetailsMapProvider: WalkDetailsMapProvider.OS_MAPS
+      walkDetailsMapProvider: WalkDetailsMapProvider.OS_MAPS,
+      walkAlbumPanelStyle: WalkAlbumPanelStyle.CARD,
+      walkAlbumPanelHeight: 240
     };
   };
 
