@@ -26,11 +26,13 @@ import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../../models/section-toggle.model";
 import { MailCampaignQueueComponent } from "../mail/mail-campaign-queue";
 import { BackupsTaskSettingsComponent } from "./backups-task-settings";
+import { AdminAlertEmailsComponent } from "./admin-alert-emails";
 import { StoredValue } from "../../../../models/ui-actions";
+import { MemberResourcesReferenceDataService } from "../../../../services/member/member-resources-reference-data.service";
 
 @Component({
   selector: "app-scheduled-tasks",
-  imports: [FontAwesomeModule, FormsModule, TimePicker, SectionToggle, NgComponentOutlet],
+  imports: [FontAwesomeModule, FormsModule, TimePicker, SectionToggle, NgComponentOutlet, AdminAlertEmailsComponent],
   template: `
     <app-section-toggle
       [tabs]="scheduledTaskSubTabs"
@@ -45,6 +47,9 @@ import { StoredValue } from "../../../../models/ui-actions";
         </button>
       </div>
     </div>
+    @if (platformAdminEnabled) {
+      <app-admin-alert-emails/>
+    }
     <div>
       @if (error) {
         <div class="alert alert-danger">{{ error }}</div>
@@ -202,10 +207,12 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
   private service = inject(ScheduledTaskService);
   private dateUtils = inject(DateUtilsService);
   private websocketService = inject(WebSocketClientService);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private subscriptions: Subscription[] = [];
   protected tasks: ScheduledTaskSummary[] = [];
   protected scheduleEdits: Record<string, ScheduledTaskScheduleEdit> = {};
   protected busy = false;
+  protected platformAdminEnabled = false;
   protected error: string | null = null;
   protected editingTaskId: string | null = null;
   protected readonly StoredValue = StoredValue;
@@ -247,6 +254,11 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
   protected readonly monthDays = [...new Array(31)].map((_value, index) => index + 1);
 
   ngOnInit(): void {
+    this.subscriptions.push(
+      this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(enabled => {
+        this.platformAdminEnabled = enabled;
+      })
+    );
     void this.refresh();
     void this.subscribeToTaskUpdates();
   }

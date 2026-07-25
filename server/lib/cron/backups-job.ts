@@ -152,7 +152,7 @@ export async function scheduleBackups(): Promise<void> {
     name: BACKUPS_TASK_NAME,
     description: "Backs up every configured environment's MongoDB database and S3 objects to the shared backup bucket. Only runs on platform-admin environments.",
     cronExpression,
-    enabled: false,
+    enabled: true,
     previousIds: ["all-environments-backup"],
     runtimeEnabled: platformBackupSchedulerEnabled,
     settings: DEFAULT_BACKUPS_TASK_SETTINGS,
@@ -165,5 +165,5 @@ export async function scheduleBackups(): Promise<void> {
       await backupAllEnvironments();
     }
   });
-  debugLog(`All-environments backup cron job registered: ${cronExpression} (daily at 3am, disabled by default; ${platformBackupSchedulerEnabled() ? "platform backup scheduler enabled" : "platform backup scheduler not enabled - registered for UI visibility only"})`);
+  debugLog(`All-environments backup cron job registered: ${cronExpression} (daily at 3am; ${platformBackupSchedulerEnabled() ? "platform backup scheduler enabled" : "platform backup scheduler not enabled - registered for UI visibility only"})`);
 }

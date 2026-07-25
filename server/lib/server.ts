@@ -53,6 +53,7 @@ import { health, systemStatus } from "./health/health";
 import { buildVersion } from "./config/build-version";
 import { flyMachineState, flyMemoryHistory, flyStats, heapSnapshot, memoryUsage, restartMachine } from "./health/memory";
 import { startMemoryWatchdog } from "./health/memory-watchdog";
+import { startScheduledTaskWatchdog } from "./cron/scheduled-task-registry";
 import * as authConfig from "./auth/auth-config";
 import { crossEnvironmentHealthRoutes } from "./health/cross-environment-health-routes";
 import { download } from "./files/files";
@@ -85,6 +86,7 @@ import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job"
 import { scheduleInboxTokenHealthCheck } from "./cron/inbox-token-health-check-job";
 import { scheduleBackups } from "./cron/backups-job";
 import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
+import { adminAlertsRoutes } from "./alerts/admin-alerts-routes";
 import bodyParser from "body-parser";
 import compression from "compression";
 import errorHandler from "errorhandler";
@@ -203,6 +205,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/mailchimp", mailchimpRoutes);
 app.use("/api/mail", brevoRoutes);
 app.use("/api/scheduled-tasks", scheduledTaskRoutes);
+app.use("/api/admin-alerts", adminAlertsRoutes);
 app.use("/api/addresses", addresses);
 app.use("/api/os-maps", osMapsRoutes);
 app.use("/api/meetup", meetupRoutes);
@@ -377,6 +380,8 @@ async function startServer() {
       scheduleBackups().catch(error => {
         debugLog("❌ Failed to schedule all-environments backup:", error);
       });
+
+      startScheduledTaskWatchdog();
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);
       debugLog("⚠️ Server will continue but database operations will fail");

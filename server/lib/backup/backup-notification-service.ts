@@ -1,8 +1,6 @@
 import debug from "debug";
-import { Brevo } from "@getbrevo/brevo";
 import { envConfig } from "../env-config/env-config";
-import { brevoClient } from "../brevo/brevo-config";
-import { scheduleBrevo } from "../brevo/common/rate-limiting";
+import { sendAdminAlertEmail } from "../alerts/admin-alerts";
 import { BackupSession } from "../mongo/models/backup-session";
 import { dateTimeFromJsDate } from "../shared/dates";
 import { DateTime } from "luxon";
@@ -15,86 +13,80 @@ import {
 const debugLog = debug(envConfig.logNamespace("backup-notification"));
 debugLog.enabled = false;
 
-export interface NotificationRecipient {
-  email: string;
-  name?: string;
-}
-
 export interface BackupNotificationOptions {
-  notificationConfigId?: string;
-  recipients: NotificationRecipient[];
-  sender?: NotificationRecipient;
   notifyOnStart?: boolean;
   notifyOnComplete?: boolean;
   notifyOnError?: boolean;
 }
 
 export class BackupNotificationService {
-  private options: BackupNotificationOptions;
+  private options: Required<BackupNotificationOptions>;
 
-  constructor(options: BackupNotificationOptions) {
+  constructor(options: BackupNotificationOptions = {}) {
     this.options = {
-      notifyOnStart: true,
-      notifyOnComplete: true,
+      notifyOnStart: false,
+      notifyOnComplete: false,
       notifyOnError: true,
       ...options
     };
   }
 
   async notifyBackupStarted(session: BackupSession): Promise<void> {
-    if (!this.options.notifyOnStart) return;
-
-    const subject = `[${session.environment}] Database Backup Started`;
-    const htmlContent = this.buildStartedEmailHtml(session);
-
-    await this.sendEmail(subject, htmlContent);
+    if (!this.options.notifyOnStart) {
+      return;
+    }
+    await this.sendEmail(
+      `[${session.environment}] Database Backup Started`,
+      this.buildStartedEmailHtml(session),
+      "backup:started"
+    );
   }
 
   async notifyBackupCompleted(session: BackupSession): Promise<void> {
-    if (!this.options.notifyOnComplete) return;
-
+    if (session.status === BackupSessionStatus.FAILED) {
+      if (!this.options.notifyOnError) {
+        return;
+      }
+    } else if (!this.options.notifyOnComplete) {
+      return;
+    }
     const subject = `[${session.environment}] Database Backup ${session.status === BackupSessionStatus.COMPLETED ? "Completed" : "Failed"}`;
     const htmlContent = session.status === BackupSessionStatus.COMPLETED
       ? this.buildCompletedEmailHtml(session)
       : this.buildFailedEmailHtml(session);
-
-    await this.sendEmail(subject, htmlContent);
+    await this.sendEmail(subject, htmlContent, `backup:${session.status}`);
   }
 
   async notifyRestoreStarted(session: BackupSession): Promise<void> {
-    if (!this.options.notifyOnStart) return;
-
-    const subject = `[${session.environment}] Database Restore Started`;
-    const htmlContent = this.buildRestoreStartedEmailHtml(session);
-
-    await this.sendEmail(subject, htmlContent);
+    if (!this.options.notifyOnStart) {
+      return;
+    }
+    await this.sendEmail(
+      `[${session.environment}] Database Restore Started`,
+      this.buildRestoreStartedEmailHtml(session),
+      "restore:started"
+    );
   }
 
   async notifyRestoreCompleted(session: BackupSession): Promise<void> {
-    if (!this.options.notifyOnComplete) return;
-
+    if (session.status === BackupSessionStatus.FAILED) {
+      if (!this.options.notifyOnError) {
+        return;
+      }
+    } else if (!this.options.notifyOnComplete) {
+      return;
+    }
     const subject = `[${session.environment}] Database Restore ${session.status === BackupSessionStatus.COMPLETED ? "Completed" : "Failed"}`;
     const htmlContent = session.status === BackupSessionStatus.COMPLETED
       ? this.buildRestoreCompletedEmailHtml(session)
       : this.buildFailedEmailHtml(session);
-
-    await this.sendEmail(subject, htmlContent);
+    await this.sendEmail(subject, htmlContent, `restore:${session.status}`);
   }
 
-  private async sendEmail(subject: string, htmlContent: string): Promise<void> {
-    try {
-      const client = await brevoClient();
-      const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
-        subject,
-        sender: this.options.sender || { email: "backup@ngx-ramblers.org.uk", name: "NGX-Ramblers Backup System" },
-        to: this.options.recipients,
-        htmlContent
-      };
-
-      const response = await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
-      debugLog("Email sent successfully:", response);
-    } catch (error) {
-      debugLog("Error sending email:", error);
+  private async sendEmail(subject: string, htmlContent: string, category: string): Promise<void> {
+    const sent = await sendAdminAlertEmail({subject, htmlContent, category});
+    if (!sent) {
+      debugLog(`Backup notification not sent (${category}): ${subject}`);
     }
   }
 

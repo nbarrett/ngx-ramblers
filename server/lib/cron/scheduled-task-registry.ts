@@ -17,6 +17,8 @@ import { isString, isUndefined } from "es-toolkit/compat";
 import { RegisteredScheduledTask, ScheduledTaskDefinition } from "./scheduled-task-registry.model";
 import { scheduledTaskEvents } from "./scheduled-task-events";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
+import { notifyPlatformAdminsOfScheduledTaskProblem, ScheduledTaskProblem } from "./scheduled-task-alerts";
+import { expectedIntervalMs, isScheduledTaskOverdue } from "./scheduled-task-overdue";
 
 const debugLog = debug(envConfig.logNamespace("cron:scheduled-tasks"));
 debugLog.enabled = true;
@@ -24,6 +26,10 @@ debugLog.enabled = true;
 const taskRegistry = new Map<string, RegisteredScheduledTask>();
 const scheduleTimezone = "Europe/London";
 const maximumHistoryEntries = 20;
+const missedAlertWindows = new Map<string, string>();
+const watchdogIntervalMs = 10 * 60 * 1000;
+const watchdogInitialDelayMs = 60 * 1000;
+const watchdogState: { timer: NodeJS.Timeout | null } = {timer: null};
 const dayNames: Record<string, string> = {
   "0": "Sunday",
   "1": "Monday",
@@ -208,13 +214,61 @@ async function persistTaskSettings(id: string, settings: unknown): Promise<void>
   });
 }
 
-async function persistRun(taskId: string, run: ScheduledTaskRun): Promise<void> {
+async function trimRunHistory(taskId: string): Promise<void> {
+  const kept = await scheduledTaskRun.find({taskId}).sort({startedAt: -1}).limit(maximumHistoryEntries).select("_id").lean();
+  await scheduledTaskRun.deleteMany({taskId, _id: {$nin: kept.map(entry => entry._id)}});
+}
+
+async function persistRunStart(taskId: string, run: ScheduledTaskRun): Promise<void> {
   try {
     await scheduledTaskRun.create({taskId, ...run});
-    const kept = await scheduledTaskRun.find({taskId}).sort({startedAt: -1}).limit(maximumHistoryEntries).select("_id").lean();
-    await scheduledTaskRun.deleteMany({taskId, _id: {$nin: kept.map(entry => entry._id)}});
+    await trimRunHistory(taskId);
   } catch (error) {
-    debugLog(`Failed to persist run for scheduled task "${taskId}":`, error);
+    debugLog(`Failed to persist run start for scheduled task "${taskId}":`, error);
+  }
+}
+
+async function persistRunCompletion(taskId: string, run: ScheduledTaskRun): Promise<void> {
+  try {
+    const updated = await scheduledTaskRun.findOneAndUpdate(
+      {taskId, startedAt: run.startedAt},
+      {$set: {completedAt: run.completedAt, status: run.status, message: run.message}},
+      {new: true}
+    );
+    if (!updated) {
+      await scheduledTaskRun.create({taskId, ...run});
+    }
+    await trimRunHistory(taskId);
+  } catch (error) {
+    debugLog(`Failed to persist run completion for scheduled task "${taskId}":`, error);
+  }
+}
+
+async function reconcileIncompleteRuns(taskId: string, taskName: string): Promise<void> {
+  try {
+    const completedAt = dateTimeNow().toISO()!;
+    const result = await scheduledTaskRun.updateMany(
+      {taskId, status: ScheduledTaskRunStatus.RUNNING},
+      {
+        $set: {
+          status: ScheduledTaskRunStatus.FAILED,
+          completedAt,
+          message: "Interrupted before completion (process restarted)"
+        }
+      }
+    );
+    if (result.modifiedCount > 0) {
+      debugLog(`Reconciled ${pluraliseWithCount(result.modifiedCount, "incomplete run")} for scheduled task "${taskId}"`);
+      await notifyPlatformAdminsOfScheduledTaskProblem({
+        taskId,
+        taskName,
+        problem: ScheduledTaskProblem.INCOMPLETE,
+        message: `${pluraliseWithCount(result.modifiedCount, "in-progress run")} for "${taskName}" ${result.modifiedCount === 1 ? "was" : "were"} interrupted by a process restart.`,
+        details: "The run was still marked running when the server started again."
+      });
+    }
+  } catch (error) {
+    debugLog(`Failed to reconcile incomplete runs for scheduled task "${taskId}":`, error);
   }
 }
 
@@ -231,6 +285,16 @@ async function loadHistory(taskId: string): Promise<ScheduledTaskRun[]> {
     debugLog(`Failed to load run history for scheduled task "${taskId}":`, error);
     return [];
   }
+}
+
+function lastCompletedAt(registered: RegisteredScheduledTask): string | null {
+  const completed = registered.history.find(run =>
+    run.status === ScheduledTaskRunStatus.SUCCEEDED || run.status === ScheduledTaskRunStatus.FAILED);
+  return completed?.startedAt ?? null;
+}
+
+function taskIsRunning(registered: RegisteredScheduledTask): boolean {
+  return registered.history.some(run => run.status === ScheduledTaskRunStatus.RUNNING && !run.completedAt);
 }
 
 function detailedErrorMessage(error: any): string {
@@ -253,6 +317,10 @@ function rssDeltaMessage(rssBefore: number, rssAfter: number): string {
 }
 
 async function executeTask(registered: RegisteredScheduledTask): Promise<ScheduledTaskRun> {
+  if (taskIsRunning(registered)) {
+    debugLog(`Scheduled task "${registered.definition.name}" (${registered.definition.id}) is already running - skipping overlapping trigger`);
+    return registered.history.find(run => run.status === ScheduledTaskRunStatus.RUNNING)!;
+  }
   const run: ScheduledTaskRun = {
     startedAt: dateTimeNow().toISO()!,
     completedAt: null,
@@ -261,6 +329,7 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
   };
   registered.history = [run, ...registered.history].slice(0, maximumHistoryEntries);
   scheduledTaskEvents.emit("task-updated", { task: summary(registered) });
+  await persistRunStart(registered.definition.id, run);
   const rssBefore = process.memoryUsage().rss;
   try {
     await registered.definition.run();
@@ -277,8 +346,17 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
   run.completedAt = dateTimeNow().toISO()!;
   const memoryNote = rssDeltaMessage(rssBefore, process.memoryUsage().rss);
   run.message = run.message ? `${run.message} | ${memoryNote}` : memoryNote;
-  await persistRun(registered.definition.id, run);
+  await persistRunCompletion(registered.definition.id, run);
   scheduledTaskEvents.emit("task-updated", { task: summary(registered) });
+  if (run.status === ScheduledTaskRunStatus.FAILED) {
+    await notifyPlatformAdminsOfScheduledTaskProblem({
+      taskId: registered.definition.id,
+      taskName: registered.definition.name,
+      problem: ScheduledTaskProblem.FAILED,
+      message: `The scheduled task "${registered.definition.name}" failed.`,
+      details: run.message
+    });
+  }
   return run;
 }
 
@@ -286,6 +364,7 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
   const previous = taskRegistry.get(definition.id);
   previous?.task.destroy();
   await migratePreviousTaskIds(definition);
+  await reconcileIncompleteRuns(definition.id, definition.name);
   const enabled = await configuredEnabledState(definition.id, definition.enabled) && runtimeEnabled(definition);
   const effectiveCronExpression = await configuredCronExpression(definition.id, definition.cronExpression);
   const effectiveSettings = await configuredSettings(definition.id, definition.settings);
@@ -307,6 +386,7 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
     registered.task.start();
   }
   taskRegistry.set(definition.id, registered);
+  debugLog(`Registered scheduled task "${definition.name}" (${definition.id}): enabled=${enabled}, cron="${effectiveCronExpression}", status=${registered.task.getStatus()}`);
 }
 
 function summary(registered: RegisteredScheduledTask): ScheduledTaskSummary {
@@ -389,4 +469,91 @@ export async function triggerScheduledTask(id: string): Promise<ScheduledTaskSum
   }
   executeTask(registered).catch(error => debugLog(`Manually triggered task ${id} failed:`, error?.message || error));
   return summary(registered);
+}
+
+function ensureCronStarted(registered: RegisteredScheduledTask): boolean {
+  if (!registered.enabled) {
+    return false;
+  }
+  const status = registered.task.getStatus();
+  if (status === "stopped") {
+    registered.task.start();
+    debugLog(`Restarted stopped cron for "${registered.definition.name}" (${registered.definition.id})`);
+    return true;
+  }
+  return false;
+}
+
+const minimumOverdueRecoveryIntervalMs = 60 * 60 * 1000;
+
+async function recoverOverdueTask(registered: RegisteredScheduledTask): Promise<void> {
+  if (!registered.enabled || taskIsRunning(registered)) {
+    return;
+  }
+  const intervalMs = expectedIntervalMs(registered.definition.cronExpression);
+  if (!intervalMs || intervalMs < minimumOverdueRecoveryIntervalMs) {
+    return;
+  }
+  const nextRunAt = registered.task.getNextRun();
+  const overdue = isScheduledTaskOverdue({
+    cronExpression: registered.definition.cronExpression,
+    nextRunAt,
+    lastCompletedAt: lastCompletedAt(registered),
+    nowMs: dateTimeNow().toMillis()
+  });
+  if (!overdue || !nextRunAt) {
+    return;
+  }
+  const intervalMarker = String(nextRunAt.getTime());
+  const alreadyAlerted = missedAlertWindows.get(registered.definition.id) === intervalMarker;
+  if (!alreadyAlerted) {
+    missedAlertWindows.set(registered.definition.id, intervalMarker);
+    const lastCompleted = lastCompletedAt(registered);
+    await notifyPlatformAdminsOfScheduledTaskProblem({
+      taskId: registered.definition.id,
+      taskName: registered.definition.name,
+      problem: ScheduledTaskProblem.MISSED,
+      message: `The scheduled task "${registered.definition.name}" did not run when expected and is being started now.`,
+      details: [
+        `Cron: ${registered.definition.cronExpression}`,
+        `Schedule: ${cronScheduleDescription(registered.definition.cronExpression)}`,
+        `Last completed start: ${lastCompleted || "never"}`,
+        `Next scheduled run: ${nextRunAt.toISOString()}`
+      ].join("\n")
+    });
+  }
+  debugLog(`Recovering overdue scheduled task "${registered.definition.name}" (${registered.definition.id})`);
+  await executeTask(registered);
+}
+
+export async function runScheduledTaskWatchdog(): Promise<void> {
+  const registeredTasks = [...taskRegistry.values()];
+  await Promise.all(registeredTasks.map(async registered => {
+    const restarted = ensureCronStarted(registered);
+    if (restarted) {
+      await notifyPlatformAdminsOfScheduledTaskProblem({
+        taskId: registered.definition.id,
+        taskName: registered.definition.name,
+        problem: ScheduledTaskProblem.STOPPED_RESTARTED,
+        message: `The cron trigger for "${registered.definition.name}" was stopped while the task was still marked enabled. It has been restarted.`,
+        details: `Cron: ${registered.definition.cronExpression}`
+      });
+    }
+    await recoverOverdueTask(registered);
+  }));
+}
+
+export function startScheduledTaskWatchdog(): void {
+  if (watchdogState.timer) {
+    return;
+  }
+  const initial = setTimeout(() => {
+    void runScheduledTaskWatchdog().catch(error => debugLog("Scheduled task watchdog initial run failed:", error?.message || error));
+  }, watchdogInitialDelayMs);
+  initial.unref();
+  watchdogState.timer = setInterval(() => {
+    void runScheduledTaskWatchdog().catch(error => debugLog("Scheduled task watchdog failed:", error?.message || error));
+  }, watchdogIntervalMs);
+  watchdogState.timer.unref();
+  debugLog(`Scheduled task watchdog started (first check in ${watchdogInitialDelayMs}ms, then every ${watchdogIntervalMs}ms)`);
 }
