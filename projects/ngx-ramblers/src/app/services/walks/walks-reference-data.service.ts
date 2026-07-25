@@ -82,6 +82,10 @@ export class WalksReferenceService {
       notifyLeader: true,
       notifyCoordinator: true
     } as WalkEventType,
+    publishedToRamblers: {
+      eventType: EventType.PUBLISHED_TO_RAMBLERS,
+      description: "Published to Ramblers"
+    } as WalkEventType,
     deleted: {
       eventType: EventType.DELETED,
       statusChange: true,
@@ -107,6 +111,7 @@ export class WalksReferenceService {
     this.walkEventTypeMappings.walkDetailsCopied,
     this.walkEventTypeMappings.awaitingApproval,
     this.walkEventTypeMappings.approved,
+    this.walkEventTypeMappings.publishedToRamblers,
     this.walkEventTypeMappings.deleted,
     this.walkEventTypeMappings.locationGeocoded,
     this.walkEventTypeMappings.finishTimeFixed

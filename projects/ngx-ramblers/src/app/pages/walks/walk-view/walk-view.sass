@@ -34,14 +34,24 @@
   display: flex
   flex-direction: column
 
+.event-thumbnail
+  app-related-links-panel:has(+ .walk-view-actions) .event-panel-inner,
+  app-related-links-panel:has(+ .walk-booking-form) .event-panel-inner,
+  app-walk-features:has(+ .walk-view-actions) .event-panel-inner,
+  app-walk-features:has(+ .walk-booking-form) .event-panel-inner,
+  app-event-leader:has(+ .walk-view-actions) .event-panel-inner,
+  app-event-leader:has(+ .walk-booking-form) .event-panel-inner
+    margin-bottom: 0
+
 .walk-view-actions
   display: flex
   flex-wrap: wrap
   align-items: center
   justify-content: flex-start
   gap: 0.4rem
-  margin-top: auto
-  padding-top: 0.75rem
+  margin-top: 1.25rem
+  margin-bottom: 1.25rem
+  padding-top: 1.25rem
   border-top: 1px solid rgba(29, 53, 87, 0.08)
 
 .walk-view-action
@@ -52,7 +62,6 @@
   text-decoration: none
 
 .event-panel-inner
-  flex: 1
   display: flex
   flex-direction: column
   justify-content: flex-start
@@ -60,22 +69,14 @@
 .walk-booking-form
   width: 100%
   min-width: 0
-  margin-top: 2px
-  margin-bottom: 6px
+  margin-top: 0
+  margin-bottom: 0
   display: flex
   flex-direction: column
 
-.walk-booking-form:has(app-booking-form:not(:empty))
-  flex-grow: 1
-
-app-related-links-panel:has(~ .walk-booking-form app-booking-form:empty)
-  flex-grow: 1
-
-app-walk-features:not(:has(~ app-related-links-panel)):has(~ .walk-booking-form app-booking-form:empty)
-  flex-grow: 1
-
-app-event-leader:not(:has(~ app-related-links-panel)):not(:has(~ app-walk-features)):has(~ .walk-booking-form app-booking-form:empty)
-  flex-grow: 1
+.walk-view-status-alert
+  margin-top: 0
+  margin-bottom: 0
 
 .col-lg-6
   padding-left: 12px

@@ -152,6 +152,9 @@ export class WalksPageElements {
   public static walkStartTimeField = PageElement.located(By.id("edit-field-date-0-value-time"))
     .describedAs("walk start time");
 
+  public static walkLeadersTable = PageElement.located(By.css("table#ramled-group-nominated, table[data-table-id='ramled-group-nominated']"))
+    .describedAs("walk leaders table");
+
   public static walkDescriptionEditor = PageElement.located(By.css(".field--name-field-basic-description-2 .ck-editor__editable"))
     .describedAs("walk description");
 

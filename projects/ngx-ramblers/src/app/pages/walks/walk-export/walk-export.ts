@@ -2,7 +2,7 @@ import { Location } from "@angular/common";
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
-import { isString, map, values } from "es-toolkit/compat";
+import { cloneDeep, isArray, isString, map, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -17,6 +17,7 @@ import {
 import { RamblersEventType, RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
 import {
   DownloadConflictResponse,
+  EventType as WalkHistoryEventType,
   GroupEventField,
   RamblersWalksReconciliation,
   ServerDownloadStatus,
@@ -25,6 +26,7 @@ import {
   WalkExportData,
   WalkExportTab,
 } from "../../../models/walk.model";
+import { publishedToRamblersEvent } from "../../../functions/walks/walk-event-snapshot";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -34,6 +36,7 @@ import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upl
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -525,6 +528,7 @@ export class WalkExport implements OnInit, OnDestroy {
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
+  private memberLoginService = inject(MemberLoginService);
   private ramblersUploadAuditService: RamblersUploadAuditService = inject(RamblersUploadAuditService);
   private notifierService: NotifierService = inject(NotifierService);
   private displayDate: DisplayDatePipe = inject(DisplayDatePipe);
@@ -624,6 +628,7 @@ export class WalkExport implements OnInit, OnDestroy {
             if (!this.deletionsCleared) {
               await this.clearLocalRamblersFieldsForDeletions();
             }
+            await this.recordPublishedToRamblersHistory();
             await this.showAvailableWalkExports();
             await this.populateWalksDownloadFileContents();
             this.updateExportStatusMessage();
@@ -669,9 +674,15 @@ export class WalkExport implements OnInit, OnDestroy {
       ).length > 0;
       this.fileName.status = hasCompletionErrors ? Status.ERROR : Status.SUCCESS;
         this.logger.info(`Task completed:`, message, "set file status:", this.fileName);
-        if (!hasCompletionErrors && !this.deletionsCleared) {
+        if (!hasCompletionErrors) {
           try {
-            await this.clearLocalRamblersFieldsForDeletions();
+            if (!this.deletionsCleared) {
+              await this.clearLocalRamblersFieldsForDeletions();
+            }
+            if (!this.postActionRefreshed) {
+              await this.recordPublishedToRamblersHistory();
+              this.postActionRefreshed = true;
+            }
           } catch {}
         }
         await this.renderInitialView();
@@ -679,6 +690,47 @@ export class WalkExport implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
       })
     );
+  }
+
+  private walksForPublishHistory(): ExtendedGroupEvent[] {
+    return this.ramblersWalksAndEventsService.selectedExportableWalks(this.walksForExport || [])
+      .map(walkExport => walkExport.displayedWalk?.walk)
+      .filter(walk => !!walk?.id && !!walk?.fields?.publishing?.ramblers?.publish)
+      .map(walk => cloneDeep(walk));
+  }
+
+  private async recordPublishedToRamblersHistory(): Promise<void> {
+    const walksAtUpload = this.walksPendingPublishHistory || [];
+    if (walksAtUpload.length === 0) {
+      return;
+    }
+    const memberId = this.memberLoginService.loggedInMember()?.memberId || "system";
+    const publishedAt = this.dateUtils.nowAsValue();
+    const updates = walksAtUpload.map(async (walkAtUpload: ExtendedGroupEvent) => {
+      try {
+        const latestWalk = await this.walksAndEventsService.queryById(walkAtUpload.id);
+        if (!latestWalk) {
+          this.logger.warn("recordPublishedToRamblersHistory: walk not found:", walkAtUpload.id);
+          return;
+        }
+        if (!isArray(latestWalk.events)) {
+          latestWalk.events = [];
+        }
+        const alreadyRecorded = latestWalk.events.some(event =>
+          event.eventType === WalkHistoryEventType.PUBLISHED_TO_RAMBLERS && event.date === publishedAt);
+        if (alreadyRecorded) {
+          return;
+        }
+        const historyEvent = publishedToRamblersEvent(walkAtUpload, publishedAt, memberId, "Published to Ramblers");
+        latestWalk.events = (latestWalk.events || []).concat(historyEvent);
+        await this.walksAndEventsService.createOrUpdate(latestWalk);
+        this.logger.info("recordPublishedToRamblersHistory: recorded for", latestWalk.groupEvent?.title, latestWalk.id);
+      } catch (error) {
+        this.logger.error("recordPublishedToRamblersHistory failed for", walkAtUpload.id, error);
+      }
+    });
+    await Promise.all(updates);
+    this.walksPendingPublishHistory = [];
   }
 
   private async renderInitialView() {
@@ -695,6 +747,7 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   private postActionRefreshed = false;
+  private walksPendingPublishHistory: ExtendedGroupEvent[] = [];
 
   async uploadToRamblers() {
     const downloadCheck = await this.downloadStatusService.canStartNewDownload();
@@ -714,6 +767,7 @@ export class WalkExport implements OnInit, OnDestroy {
     this.deletionsCleared = false;
     this.postActionRefreshed = false;
     this.downloadConflict = { allowed: true };
+    this.walksPendingPublishHistory = this.walksForPublishHistory();
 
     const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
     this.webSocketClientService.connect().then(() => {

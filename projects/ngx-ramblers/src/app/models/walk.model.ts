@@ -228,6 +228,7 @@ export enum EventType {
   WALK_DETAILS_COPIED = "walkDetailsCopied",
   AWAITING_APPROVAL = "awaitingApproval",
   APPROVED = "approved",
+  PUBLISHED_TO_RAMBLERS = "publishedToRamblers",
   DELETED = "deleted",
   LOCATION_GEOCODED = "locationGeocoded",
   FINISH_TIME_FIXED = "finishTimeFixed",

@@ -131,7 +131,7 @@ export async function queryWalkLeaders(req: Request, res: Response) {
       try {
         return dateTimeFromIso(value).toISO();
       } catch (error) {
-        debugLog("queryWalkLeaders: failed to parse date:", value, error);
+        controller.errorDebugLog("queryWalkLeaders: failed to parse date:", value, error);
         return undefined;
       }
     };

@@ -4,7 +4,9 @@ import {
   isJointWalkLeaderName,
   jointWalkLeaderDisplayName,
   jointWalkLeaderNames,
-  normalisedWalkLeaderName
+  normalisedWalkLeaderName,
+  walkLeaderNameMatches,
+  walkLeaderNamesMatch
 } from "./joint-walk-leaders";
 import { defaultDisplayName } from "./ramblers-event.mapper";
 
@@ -81,5 +83,45 @@ describe("defaultDisplayName with joint leaders", () => {
   it("returns empty string for empty input", () => {
     expect(defaultDisplayName("")).toBe("");
     expect(defaultDisplayName(null)).toBe("");
+  });
+});
+
+describe("walkLeaderNameMatches", () => {
+  it("matches full names ignoring case and punctuation", () => {
+    expect(walkLeaderNameMatches("Jenny Brown", "jenny brown")).toBe(true);
+    expect(walkLeaderNameMatches("Jenny Brown", "Jenny Brown.")).toBe(true);
+  });
+
+  it("matches a full Walks Manager contact name against an abbreviated Walks Manager form", () => {
+    expect(walkLeaderNameMatches("Jenny Brown", "Jenny B.")).toBe(true);
+    expect(walkLeaderNameMatches("Jenny Brown", "Jenny B")).toBe(true);
+    expect(walkLeaderNameMatches("Martin Daniels", "Martin D")).toBe(true);
+    expect(walkLeaderNameMatches("Kerry O'Grady", "Kerry O")).toBe(true);
+    expect(walkLeaderNameMatches("Kerry O'Grady", "Kerry O.")).toBe(true);
+  });
+
+  it("does not match different leaders", () => {
+    expect(walkLeaderNameMatches("Nick Barrett", "Deborah W.")).toBe(false);
+    expect(walkLeaderNameMatches("Jenny Brown", "Deborah Wood")).toBe(false);
+  });
+
+  it("treats both empty as a match", () => {
+    expect(walkLeaderNameMatches("", "")).toBe(true);
+    expect(walkLeaderNameMatches(null, null)).toBe(true);
+  });
+});
+
+describe("walkLeaderNamesMatch", () => {
+  it("matches joint leaders regardless of order when each pairs with an abbreviated form", () => {
+    expect(walkLeaderNamesMatch("Tom Gamble; Sarah Mitchell", "Sarah M.; Tom G.")).toBe(true);
+  });
+
+  it("does not match when a leader has been replaced", () => {
+    expect(walkLeaderNamesMatch("Nick Barrett", "Deborah W.")).toBe(false);
+    expect(walkLeaderNamesMatch("Tom Gamble; Sarah Mitchell", "Tom G.; Nick B.")).toBe(false);
+  });
+
+  it("does not match different joint-leader counts", () => {
+    expect(walkLeaderNamesMatch("Tom Gamble; Sarah Mitchell", "Tom G.")).toBe(false);
   });
 });
