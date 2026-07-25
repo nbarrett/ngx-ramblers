@@ -88,11 +88,49 @@
   z-index: 1050
   background: white
   padding: 12px
+  display: flex
+  flex-direction: column
+  gap: 10px
 
-  .map-expand-btn
-    top: 40px
-    right: 37px
+  .map-full-screen-bar
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 0.75rem
+    flex-shrink: 0
+    min-height: 48px
+    padding: 0.5rem 0.75rem
+    border-radius: 8px
+    background: #f4f6f8
+    border: 1px solid rgba(29, 53, 87, 0.1)
+
+  .map-full-screen-bar-text
+    min-width: 0
+    flex: 1 1 auto
+
+  .map-full-screen-bar-title
+    font-weight: 600
+    font-size: 0.95rem
+    line-height: 1.25
+    color: #1d3557
+    white-space: nowrap
+    overflow: hidden
+    text-overflow: ellipsis
+
+  .map-full-screen-bar-hint
+    font-size: 0.8rem
+    line-height: 1.2
+    color: #5c6b7a
+    margin-top: 0.15rem
+
+  .map-full-screen-exit
+    flex-shrink: 0
+    min-height: 40px
+    white-space: nowrap
 
   .map-walk-view
-    height: calc(100vh - 24px) !important
+    flex: 1 1 auto
+    height: auto !important
+    min-height: 0
     margin-top: 0
