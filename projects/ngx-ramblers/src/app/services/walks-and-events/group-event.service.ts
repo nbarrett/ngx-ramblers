@@ -4,7 +4,7 @@ import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-
 import { ChangedItem, DescribedChangedItem, NotificationChangedItem } from "../../models/changed-item.model";
 import { CurrentPreviousData } from "../../models/walk-notification.model";
 import { DateUtilsService } from "../date-utils.service";
-import { EventType } from "../../models/walk.model";
+import { EventField, EventType, GroupEventField } from "../../models/walk.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
@@ -17,6 +17,7 @@ import { normaliseWalkEventSnapshot, walkEventDataSnapshot } from "../../functio
 import { WALK_NOTIFICATION_FIELDS } from "../../models/walk-notification-fields";
 import { WalkNotificationValueService } from "./walk-notification-value.service";
 import { changedFieldValues, mapFieldChangeValues } from "../../functions/field-change";
+import { normalisedWalkLeaderName, walkLeaderNamesMatch } from "../../functions/walks/joint-walk-leaders";
 
 @Injectable({
   providedIn: "root"
@@ -125,6 +126,39 @@ export class GroupEventService {
 
   public latestEvent(extendedGroupEvent: ExtendedGroupEvent): WalkEvent {
     return this.eventsLatestFirst(extendedGroupEvent)?.[0];
+  }
+
+  public latestEventOfType(extendedGroupEvent: ExtendedGroupEvent, eventType: EventType): WalkEvent {
+    return this.eventsLatestFirst(extendedGroupEvent).find(event => event.eventType === eventType) || null;
+  }
+
+  public latestPublishedToRamblersData(extendedGroupEvent: ExtendedGroupEvent): object {
+    const publishedEvent = this.latestEventOfType(extendedGroupEvent, EventType.PUBLISHED_TO_RAMBLERS);
+    return normaliseWalkEventSnapshot(publishedEvent?.data) || null;
+  }
+
+  public walkLeaderContactNameFromData(data: object): string {
+    if (!data) {
+      return "";
+    }
+    const contactName = get(data, EventField.PUBLISHING_RAMBLERS_CONTACT_NAME)
+      || get(data, GroupEventField.WALK_LEADER_NAME)
+      || "";
+    return normalisedWalkLeaderName(contactName || "");
+  }
+
+  public priorWalkLeaderContactName(extendedGroupEvent: ExtendedGroupEvent, currentWalkLeaderName: string): string {
+    const publishedData = this.latestPublishedToRamblersData(extendedGroupEvent);
+    const fromPublished = this.walkLeaderContactNameFromData(publishedData);
+    if (fromPublished) {
+      return fromPublished;
+    }
+    const current = normalisedWalkLeaderName(currentWalkLeaderName || "");
+    const priorEvent = this.eventsLatestFirst(extendedGroupEvent).find(event => {
+      const priorName = this.walkLeaderContactNameFromData(event?.data as object);
+      return !!priorName && !walkLeaderNamesMatch(current, priorName);
+    });
+    return priorEvent ? this.walkLeaderContactNameFromData(priorEvent.data as object) : "";
   }
 
   public changedItemsBetween(currentData: object, previousData: object): ChangedItem[] {

@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, isEmpty, isEqual, isNaN, isNumber, isString, isUndefined, keys, without } from "es-toolkit/compat";
+import { cloneDeep, isArray, isEmpty, isEqual, isNaN, isNumber, isString, isUndefined, keys, without } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -41,6 +41,7 @@ import { Ramblers } from "../../models/system.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { SortDirection } from "../../models/sort.model";
 import {
+  EventField,
   EventStartDateDescending,
   EventStartDateGreaterThanOrEqualTo,
   EventStartDateLessThan,
@@ -92,7 +93,13 @@ import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/
 import { marked } from "marked";
 import { ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { mapRamblersEventToExtendedGroupEvent } from "../../functions/walks/ramblers-event.mapper";
-import { jointWalkLeaderNames, normalisedWalkLeaderName } from "../../functions/walks/joint-walk-leaders";
+import { walkEventDataSnapshot } from "../../functions/walks/walk-event-snapshot";
+import { jointWalkLeaderNames, walkLeaderNamesMatch } from "../../functions/walks/joint-walk-leaders";
+import {
+  remoteWalksManagerContactNameForCompare,
+  walksManagerContactNamesForCsv as contactNamesForCsvFromWalk,
+  walksManagerWalkLeaderNameFromGroupEvent
+} from "../../functions/walks/walk-leader-fields";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
 import { FeaturesService } from "../features.service";
@@ -481,6 +488,8 @@ export class RamblersWalksAndEventsService {
     const ramblersDistance: WalkDistance = this.distanceValidationService.parse(ramblersEvent);
     const localAscent: WalkAscent = this.ascentValidationService.parse(walk);
     const ramblersAscent: WalkAscent = this.ascentValidationService.parse(ramblersEvent);
+    const localWalksManagerContactNames = contactNamesForCsvFromWalk(walk);
+    const remoteWalksManagerContactNames = this.remoteWalksManagerContactNameForCompare(walk, ramblersWalk.groupEvent);
     const candidates: FieldChange<WalkEditField, string>[] = [
       {field: WalkEditField.TITLE, from: this.walkTitle(ramblersEvent), to: this.walkTitle(walk)},
       {
@@ -489,6 +498,11 @@ export class RamblersWalksAndEventsService {
         to: this.walkDate(walk, DateFormat.WALKS_MANAGER_API)
       },
       {field: WalkEditField.START_TIME, from: this.walkStartTime(ramblersEvent), to: this.walkStartTime(walk)},
+      ...(remoteWalksManagerContactNames ? [{
+        field: WalkEditField.WALK_LEADERS,
+        from: remoteWalksManagerContactNames,
+        to: localWalksManagerContactNames
+      }] : []),
       {field: WalkEditField.MEETING_TIME, from: this.meetingTime(ramblersEvent), to: this.meetingTime(walk)},
       {
         field: WalkEditField.FINISH_TIME,
@@ -542,12 +556,20 @@ export class RamblersWalksAndEventsService {
     return changes;
   }
 
+  private remoteWalksManagerContactNameForCompare(walk: ExtendedGroupEvent, ramblersGroupEvent?: GroupEvent): string {
+    const listedFromWalksManager = walksManagerWalkLeaderNameFromGroupEvent(ramblersGroupEvent);
+    const priorFromHistory = this.walkEventService.priorWalkLeaderContactName(walk, contactNamesForCsvFromWalk(walk));
+    return remoteWalksManagerContactNameForCompare(listedFromWalksManager, priorFromHistory);
+  }
+
   private fieldValuesEqual(change: FieldChange<WalkEditField, string>): boolean {
     const numericFields: WalkEditField[] = [WalkEditField.DISTANCE_KM, WalkEditField.DISTANCE_MILES, WalkEditField.ASCENT_METRES, WalkEditField.ASCENT_FEET];
     if (numericFields.includes(change.field)) {
       return !this.numericValueChanged(change.to, change.from);
     } else if (change.field === WalkEditField.WEBSITE_LINK) {
       return this.websiteLinkPath(change.to) === this.websiteLinkPath(change.from);
+    } else if (change.field === WalkEditField.WALK_LEADERS) {
+      return walkLeaderNamesMatch(change.to, change.from);
     } else {
       return this.normalisedFieldValue(change.to) === this.normalisedFieldValue(change.from);
     }
@@ -574,15 +596,226 @@ export class RamblersWalksAndEventsService {
   }
 
   public locationChangeRequired(walk: ExtendedGroupEvent, ramblersWalk: RamblersEventSummaryResponse): boolean {
+    return this.csvReplacementReasons(walk, ramblersWalk).length > 0;
+  }
+
+  public needsRamblersPublish(walk: ExtendedGroupEvent): boolean {
+    return this.ramblersPublishReasons(walk).length > 0;
+  }
+
+  public ramblersPublishTooltip(walk: ExtendedGroupEvent): string {
+    const reasons = this.ramblersPublishReasons(walk);
+    if (reasons.length === 0) {
+      return "Open Walks export to publish changes to Ramblers";
+    }
+    if (reasons.length === 1 && reasons[0] === "Walk is not yet published") {
+      return reasons[0];
+    }
+    const replaceReasons = reasons.filter(reason => this.isCsvReplacePublishReason(reason));
+    const editReasons = reasons.filter(reason => !this.isCsvReplacePublishReason(reason));
+    const messages: string[] = [];
+    if (replaceReasons.length > 0) {
+      messages.push(`Walk will be replaced on Ramblers rather than edited: ${replaceReasons.join(", ")}`);
+    }
+    if (editReasons.length > 0) {
+      messages.push(`Walk will be edited on Ramblers: ${editReasons.join(", ")} ${this.stringUtilsService.pluralise(editReasons.length, "differs", "differ")}`);
+    }
+    return messages.join(" ");
+  }
+
+  public ramblersPublishReasons(walk: ExtendedGroupEvent): string[] {
+    if (!this.walkDisplayService.walkPopulationLocal()) {
+      return [];
+    }
+    if (!walk?.fields?.publishing?.ramblers?.publish) {
+      return [];
+    }
+    const publishedOnRamblers = !isEmpty(walk?.groupEvent?.id) || !isEmpty(this.ramblersUrlFor(walk));
+    if (!publishedOnRamblers) {
+      return ["Walk is not yet published"];
+    }
+    const reasons: string[] = [];
+    const localWalksManagerContactNames = contactNamesForCsvFromWalk(walk);
+    const remoteWalksManagerContactNames = this.remoteWalksManagerContactNameForCompare(walk);
+    if (remoteWalksManagerContactNames && !walkLeaderNamesMatch(localWalksManagerContactNames, remoteWalksManagerContactNames)) {
+      reasons.push(`walk leaders (${this.describeValueChange(remoteWalksManagerContactNames, localWalksManagerContactNames)})`);
+    }
+    const publishedData = this.walkEventService.latestPublishedToRamblersData(walk);
+    if (!publishedData) {
+      return reasons;
+    }
+    const currentData = walkEventDataSnapshot(walk);
+    const materialFields = [
+      EventField.PUBLISHING,
+      GroupEventField.WALK_LEADER,
+      GroupEventField.TITLE,
+      GroupEventField.DESCRIPTION,
+      GroupEventField.ADDITIONAL_DETAILS,
+      GroupEventField.START_DATE,
+      GroupEventField.END_DATE_TIME,
+      GroupEventField.MEETING_DATE_TIME,
+      GroupEventField.START_LOCATION,
+      GroupEventField.END_LOCATION,
+      GroupEventField.MEETING_LOCATION,
+      GroupEventField.SHAPE,
+      GroupEventField.DIFFICULTY,
+      GroupEventField.DISTANCE_KM,
+      GroupEventField.DISTANCE_MILES,
+      GroupEventField.ASCENT_FEET,
+      GroupEventField.ASCENT_METRES,
+      GroupEventField.FACILITIES,
+      GroupEventField.TRANSPORT,
+      GroupEventField.ACCESSIBILITY,
+      GroupEventField.MEDIA,
+      GroupEventField.STATUS,
+      GroupEventField.CANCELLATION_REASON,
+      GroupEventField.EXTERNAL_URL
+    ];
+    const fieldLabels: Partial<Record<string, string>> = {
+      [EventField.PUBLISHING]: "publishing",
+      [GroupEventField.WALK_LEADER]: "walk leaders",
+      [GroupEventField.TITLE]: "title",
+      [GroupEventField.DESCRIPTION]: "description",
+      [GroupEventField.ADDITIONAL_DETAILS]: "additional details",
+      [GroupEventField.START_DATE]: "date",
+      [GroupEventField.END_DATE_TIME]: "estimated finish time",
+      [GroupEventField.MEETING_DATE_TIME]: "meeting time",
+      [GroupEventField.START_LOCATION]: "starting location",
+      [GroupEventField.END_LOCATION]: "finishing location",
+      [GroupEventField.MEETING_LOCATION]: "meeting location",
+      [GroupEventField.SHAPE]: "linear or circular",
+      [GroupEventField.DIFFICULTY]: "difficulty",
+      [GroupEventField.DISTANCE_KM]: "distance km",
+      [GroupEventField.DISTANCE_MILES]: "distance miles",
+      [GroupEventField.ASCENT_FEET]: "ascent feet",
+      [GroupEventField.ASCENT_METRES]: "ascent metres",
+      [GroupEventField.FACILITIES]: "walk features",
+      [GroupEventField.TRANSPORT]: "walk features",
+      [GroupEventField.ACCESSIBILITY]: "walk features",
+      [GroupEventField.MEDIA]: "images",
+      [GroupEventField.STATUS]: "status",
+      [GroupEventField.CANCELLATION_REASON]: "cancellation reason",
+      [GroupEventField.EXTERNAL_URL]: "website link"
+    };
+    const baselineChanges = this.walkEventService.changedItemsBetween(currentData, publishedData)
+      .filter(change => materialFields.includes(change.field as EventField | GroupEventField))
+      .map(change => fieldLabels[change.field] || change.field)
+      .filter(label => !!label);
+    baselineChanges.forEach(label => {
+      if (label === "walk leaders" && reasons.some(reason => reason.startsWith("walk leaders ("))) {
+        return;
+      }
+      if (!reasons.includes(label)) {
+        reasons.push(label);
+      }
+    });
+    return reasons;
+  }
+
+  private isCsvReplacePublishReason(reason: string): boolean {
+    return reason.includes("postcode")
+      || reason.includes("location details")
+      || reason === "walk features"
+      || reason === "starting location"
+      || reason === "finishing location"
+      || reason === "meeting location";
+  }
+
+  public csvReplacementReasons(walk: ExtendedGroupEvent, ramblersWalk: RamblersEventSummaryResponse): string[] {
     if (!ramblersWalk?.groupEvent) {
+      return [];
+    }
+    const ramblersEvent = this.asExtendedGroupEvent(ramblersWalk);
+    const reasons: string[] = [];
+    if (!!walk?.groupEvent?.start_location?.postcode
+      && this.materialTextChanged(walk.groupEvent.start_location.postcode, ramblersWalk.groupEvent?.start_location?.postcode)) {
+      reasons.push(`starting postcode (${this.describeValueChange(ramblersWalk.groupEvent?.start_location?.postcode, walk.groupEvent.start_location.postcode)})`);
+    }
+    if (!!walk?.groupEvent?.end_location?.postcode
+      && !!ramblersWalk.groupEvent?.end_location
+      && this.materialTextChanged(walk.groupEvent.end_location.postcode, ramblersWalk.groupEvent.end_location.postcode)) {
+      reasons.push(`finishing postcode (${this.describeValueChange(ramblersWalk.groupEvent.end_location.postcode, walk.groupEvent.end_location.postcode)})`);
+    }
+    if (this.comparableTextChanged(this.startingLocationDetails(walk), this.startingLocationDetails(ramblersEvent))) {
+      reasons.push("starting location details");
+    }
+    if (this.comparableTextChanged(this.finishingLocationDetails(walk), this.finishingLocationDetails(ramblersEvent))) {
+      reasons.push("finishing location details");
+    }
+    if (this.comparableTextChanged(walk?.groupEvent?.meeting_location?.postcode, ramblersWalk.groupEvent?.meeting_location?.postcode)) {
+      reasons.push("meeting postcode");
+    }
+    if (this.comparableTextChanged(walk?.groupEvent?.meeting_location?.description, ramblersWalk.groupEvent?.meeting_location?.description)) {
+      reasons.push("meeting location details");
+    }
+    if (this.csvFeaturesChanged(walk, ramblersEvent)) {
+      reasons.push("walk features");
+    }
+    return reasons;
+  }
+
+  private materialTextChanged(localValue: string, ramblersValue: string): boolean {
+    return this.normalisedFieldValue(localValue) !== this.normalisedFieldValue(ramblersValue);
+  }
+
+  private comparableTextChanged(localValue: string, ramblersValue: string): boolean {
+    const local = this.normalisedFieldValue(localValue);
+    const ramblers = this.normalisedFieldValue(ramblersValue);
+    return !!local && !!ramblers && local !== ramblers;
+  }
+
+  private describeFieldChange(change: WalkFieldChange): string {
+    if (change.field === WalkEditField.WALK_LEADERS
+      || change.field === WalkEditField.TITLE
+      || change.field === WalkEditField.DATE
+      || change.field === WalkEditField.START_TIME
+      || change.field === WalkEditField.MEETING_TIME
+      || change.field === WalkEditField.FINISH_TIME
+      || change.field === WalkEditField.DIFFICULTY
+      || change.field === WalkEditField.WALK_TYPE
+      || change.field === WalkEditField.DISTANCE_KM
+      || change.field === WalkEditField.DISTANCE_MILES
+      || change.field === WalkEditField.ASCENT_METRES
+      || change.field === WalkEditField.ASCENT_FEET) {
+      return `${change.field} (${this.describeValueChange(change.existingValue, change.value)})`;
+    } else {
+      return change.field;
+    }
+  }
+
+  private describeValueChange(fromValue: string, toValue: string): string {
+    const from = this.normalisedFieldValue(fromValue) || "none";
+    const to = this.normalisedFieldValue(toValue) || "none";
+    return `${from} → ${to}`;
+  }
+
+  private csvFeatureCodes(): Feature[] {
+    return [
+      Feature.DOG_FRIENDLY,
+      Feature.INTRODUCTORY_WALK,
+      Feature.NO_STILES,
+      Feature.FAMILY_FRIENDLY,
+      Feature.WHEELCHAIR_ACCESSIBLE,
+      Feature.PUBLIC_TRANSPORT,
+      Feature.CAR_PARKING,
+      Feature.CAR_SHARING,
+      Feature.COACH_TRIP,
+      Feature.REFRESHMENTS,
+      Feature.TOILETS
+    ];
+  }
+
+  private csvFeaturesChanged(localWalk: ExtendedGroupEvent, ramblersWalk: ExtendedGroupEvent): boolean {
+    const localFeatures = this.csvFeatureCodes()
+      .filter(feature => this.featureSelected(feature, localWalk))
+      .sort();
+    const ramblersFeatures = this.csvFeatureCodes()
+      .filter(feature => this.featureSelected(feature, ramblersWalk))
+      .sort();
+    if (ramblersFeatures.length === 0) {
       return false;
     }
-    const startPostcodeChanged = !!walk?.groupEvent?.start_location?.postcode
-      && this.normalisedFieldValue(walk.groupEvent.start_location.postcode) !== this.normalisedFieldValue(ramblersWalk.groupEvent?.start_location?.postcode);
-    const finishPostcodeChanged = !!walk?.groupEvent?.end_location?.postcode
-      && !!ramblersWalk.groupEvent?.end_location
-      && this.normalisedFieldValue(walk.groupEvent.end_location.postcode) !== this.normalisedFieldValue(ramblersWalk.groupEvent.end_location.postcode);
-    return startPostcodeChanged || finishPostcodeChanged;
+    return !isEqual(localFeatures, ramblersFeatures);
   }
 
   private asExtendedGroupEvent(ramblersWalk: RamblersEventSummaryResponse): ExtendedGroupEvent {
@@ -800,16 +1033,19 @@ export class RamblersWalksAndEventsService {
     }
     const publishToRamblers = !!walk?.fields?.publishing?.ramblers?.publish;
     const fieldChanges: WalkFieldChange[] = publishToRamblers ? this.walkFieldChanges(walk, localAndRamblersWalk.ramblersWalk) : [];
-    const locationChanged = publishToRamblers && this.locationChangeRequired(walk, localAndRamblersWalk.ramblersWalk);
+    const csvReplacementReasons = publishToRamblers ? this.csvReplacementReasons(walk, localAndRamblersWalk.ramblersWalk) : [];
+    const locationChanged = csvReplacementReasons.length > 0;
     const editInPlace = publishToRamblers && !!localAndRamblersWalk.ramblersWalk && !locationChanged && (fieldChanges.length > 0 || imageMismatch);
     if (editInPlace && fieldChanges.length > 0 && validationMessages.length === 0) {
       publishStatus.messages = publishStatus.messages.filter(message => message !== WALK_PUBLISHED_AND_MATCHING);
-      publishStatus.messages.push(`Walk will be edited on Ramblers: ${fieldChanges.map(change => change.field).join(", ")} ${this.stringUtilsService.pluralise(fieldChanges.length, "differs", "differ")}`);
+      publishStatus.messages.push(`Walk will be edited on Ramblers: ${fieldChanges.map(change => this.describeFieldChange(change)).join(", ")} ${this.stringUtilsService.pluralise(fieldChanges.length, "differs", "differ")}`);
       publishStatus.publish = true;
       publishStatus.actionRequired = true;
     }
     if (locationChanged) {
-      publishStatus.messages.push("Walk start or finish postcode has changed, so the Ramblers walk must be replaced rather than edited");
+      publishStatus.messages = publishStatus.messages.filter(message => message !== WALK_PUBLISHED_AND_MATCHING);
+      publishStatus.messages.push(`Walk will be replaced on Ramblers rather than edited: ${csvReplacementReasons.join(", ")}`);
+      publishStatus.publish = true;
       publishStatus.actionRequired = true;
     }
     const isCancelledLocally = walk?.groupEvent?.status === WalkStatus.CANCELLED;
@@ -930,8 +1166,12 @@ export class RamblersWalksAndEventsService {
     return value ? value : "";
   }
 
+  walksManagerContactNamesForCsv(walk: ExtendedGroupEvent): string {
+    return contactNamesForCsvFromWalk(walk);
+  }
+
   walkLeader(walk: ExtendedGroupEvent): string {
-    return normalisedWalkLeaderName(walk?.fields?.publishing?.ramblers?.contactName) || "";
+    return contactNamesForCsvFromWalk(walk);
   }
 
   abbreviatedWalkLeaderNames(walk: ExtendedGroupEvent): string[] {
@@ -1024,7 +1264,7 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.DESCRIPTION] = walkDescription;
     csvRecord[WalkUploadColumnHeading.ADDITIONAL_DETAILS] = "";
     csvRecord[WalkUploadColumnHeading.WEBSITE_LINK] = this.walkDisplayService.walkPublicLink(extendedGroupEvent);
-    csvRecord[WalkUploadColumnHeading.WALK_LEADERS] = this.walkLeader(extendedGroupEvent);
+    csvRecord[WalkUploadColumnHeading.WALK_LEADERS] = this.walksManagerContactNamesForCsv(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.LINEAR_OR_CIRCULAR] = this.walkType(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.START_TIME] = this.walkStartTime(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.STARTING_LOCATION] = "";

@@ -190,6 +190,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           response
         });
       } catch (error) {
+        errorDebugLog("create: " + model.modelName + " failed:", error);
         res.status(500).json({
           message: "Creation of " + model.modelName + " failed",
           error: transforms.parseError(error)
@@ -319,6 +320,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           });
         }
       } catch (error) {
+        errorDebugLog("findById: " + model.modelName + " id:", req.params.id, "error:", error);
         res.status(500).json({
           message: model.modelName + " query failed",
           request: req.params.id,

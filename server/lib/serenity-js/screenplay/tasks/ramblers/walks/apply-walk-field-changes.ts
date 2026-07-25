@@ -6,6 +6,7 @@ import { envConfig } from "../../../../../env-config/env-config";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
 import { ClickWhenReady } from "../../common/click-when-ready";
 import { EnterRichText } from "./enter-rich-text";
+import { SelectWalkLeaders } from "./select-walk-leaders";
 
 const debugLog = debug(envConfig.logNamespace("ApplyWalkFieldChanges"));
 debugLog.enabled = true;
@@ -31,7 +32,11 @@ export class ApplyWalkFieldChanges extends Task {
       debugLog("changing", change.field, "from", change.existingValue, "to", change.value);
       const richTextField = RICH_TEXT_FIELDS[change.field];
       const option: Answerable<PageElement> = selectableOptionFor(change);
-      if (richTextField) {
+      if (change.field === WalkEditField.WALK_LEADERS) {
+        await actor.attemptsTo(
+          Scroll.to(WalksPageElements.walkLeadersTable),
+          SelectWalkLeaders.named(change.value));
+      } else if (richTextField) {
         await actor.attemptsTo(EnterRichText.into(richTextField.selector, richTextField.label).value(change.value));
       } else if (option) {
         await actor.attemptsTo(Scroll.to(option), ClickWhenReady.on(option));

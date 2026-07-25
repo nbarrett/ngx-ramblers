@@ -47,6 +47,10 @@ export function systemWalkDetailsUpdatedEvent(event: ExtendedGroupEvent, date: n
   return walkEventSnapshotEvent(event, EventType.WALK_DETAILS_UPDATED, date, "system", reason);
 }
 
+export function publishedToRamblersEvent(event: ExtendedGroupEvent, date: number, memberId: string, reason = "Published to Ramblers"): WalkEvent {
+  return walkEventSnapshotEvent(event, EventType.PUBLISHED_TO_RAMBLERS, date, memberId, reason);
+}
+
 export function walkWithUserChanges(persistedWalk: ExtendedGroupEvent, initialisedWalk: ExtendedGroupEvent, currentWalk: ExtendedGroupEvent): ExtendedGroupEvent {
   const walk = cloneDeep(persistedWalk);
   AUDITED_FIELDS.forEach(fieldName => {

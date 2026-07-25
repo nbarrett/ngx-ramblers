@@ -1,5 +1,11 @@
 import { EventType } from "../../models/walk.model";
-import { systemWalkDetailsUpdatedEvent, walkEventDataSnapshot, walkEventSnapshotEvent, walkWithUserChanges } from "./walk-event-snapshot";
+import {
+  publishedToRamblersEvent,
+  systemWalkDetailsUpdatedEvent,
+  walkEventDataSnapshot,
+  walkEventSnapshotEvent,
+  walkWithUserChanges
+} from "./walk-event-snapshot";
 
 describe("walk event snapshots", () => {
   const walk = {
@@ -36,6 +42,16 @@ describe("walk event snapshots", () => {
       date: 123,
       memberId: "system",
       reason: "Automatic match"
+    });
+  });
+
+  it("creates a published-to-Ramblers history event from the shared snapshot", () => {
+    expect(publishedToRamblersEvent(walk, 456, "member-1")).toEqual({
+      data: walkEventDataSnapshot(walk),
+      eventType: EventType.PUBLISHED_TO_RAMBLERS,
+      date: 456,
+      memberId: "member-1",
+      reason: "Published to Ramblers"
     });
   });
 

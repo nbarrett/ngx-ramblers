@@ -56,7 +56,7 @@ StringUtilsService {
     let returnValue;
     const extractedMessage = this.isAlertMessage(message) ? message.message : message;
     if (extractedMessage instanceof TypeError || extractedMessage instanceof Error) {
-      returnValue = extractedMessage.toString();
+      returnValue = extractedMessage.message || extractedMessage.toString();
     } else if (extractedMessage instanceof HttpErrorResponse) {
       const nestedMessage = extractedMessage.error?.error?.message;
       if (nestedMessage) {

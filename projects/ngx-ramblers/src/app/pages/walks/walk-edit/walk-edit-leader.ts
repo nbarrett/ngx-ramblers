@@ -131,25 +131,25 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
       <div class="row">
         <div [ngClass]="display.allowAdminEdits() ? 'col-sm-5' : 'col-sm-12'">
           <div class="form-group">
-            <label for="display-name">Display Name (how it will be published on this walk)</label>
+            <label for="display-name">Website display name</label>
             <input [(ngModel)]="displayedWalk.walk.fields.contactDetails.displayName"
                    (blur)="rematchPreviewRequest.emit()"
                    type="text"
                    [disabled]="inputDisabled"
                    class="form-control input-sm" id="display-name"
-                   placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
+                   placeholder="Shown on this website only (for example Kerry O)">
           </div>
         </div>
         @if (display.allowAdminEdits()) {
           <div class="col-sm-5">
             <div class="form-group">
-              <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
+              <label for="walk-leader-contact-id">Walks Manager contact name</label>
               <input [disabled]="inputDisabled"
                      [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.contactName"
                      (blur)="rematchPreviewRequest.emit()"
                      type="text"
                      class="form-control input-sm flex-grow-1 me-2" id="walk-leader-contact-id"
-                     placeholder="Name that matches the User Details in Walks Manager. This will be sent in Ramblers in CSV export file">
+                     placeholder="Full name as in Walks Manager; used for CSV Walk leaders and volunteer matching">
             </div>
           </div>
           <div class="col-sm-2 pe-sm-0">

@@ -558,10 +558,27 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   @Output() toggleAdvancedSearch = new EventEmitter<void>();
   @Input()
   set filterSelectType(value: FilterCriteria) {
+    const previous = this.selectedFilterCriteria;
     this.selectedFilterCriteria = value || null;
     this.updateDateScale();
     this.updatePresetRanges();
-    this.applyFilterRangePreset(false);
+    if (previous !== this.selectedFilterCriteria) {
+      if (!this.dateRange && isNumber(this.criteriaValue?.dateFrom) && isNumber(this.criteriaValue?.dateTo)) {
+        this.dateRange = {from: this.criteriaValue.dateFrom, to: this.criteriaValue.dateTo};
+        this.updateSliderRange();
+      }
+      if (this.dateRange) {
+        this.clampDateRange();
+        if (!this.updatePresetSelectionForRange(this.dateRange)) {
+          this.markCustomPresetActive();
+          this.syncCustomInputsWithRange(this.dateRange);
+        }
+      } else {
+        this.ensurePresetSelection();
+      }
+    } else {
+      this.ensurePresetSelection();
+    }
   }
   @Input() expanded = false;
   @Input()
@@ -726,16 +743,31 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
 
   private resolvedDateRange(range?: SearchDateRange | null): SearchDateRange | undefined {
     const candidate = range ?? this.dateRange;
+    const activePreset = this.selectedPresetLabel && this.selectedPresetLabel !== CUSTOM_PRESET_LABEL
+      ? this.presetRanges.find(item => item.label === this.selectedPresetLabel)
+      : null;
     if (isNumber(candidate?.from) && isNumber(candidate?.to)) {
+      if (activePreset && !this.selectedPresetLabel.startsWith("All ")) {
+        const presetRange = activePreset.range();
+        if (this.dateRangeIsMuchWider(candidate as SearchDateRange, presetRange)) {
+          return presetRange;
+        }
+      }
       return candidate as SearchDateRange;
-    } else if (this.minDate && this.maxDate) {
-      return {
-        from: this.minDate.toMillis(),
-        to: this.maxDate.toMillis()
-      };
-    } else {
-      return undefined;
     }
+    if (activePreset) {
+      return activePreset.range();
+    }
+    return undefined;
+  }
+
+  private dateRangeIsMuchWider(candidate: SearchDateRange, expected: SearchDateRange): boolean {
+    if (this.rangesAreClose(candidate, expected)) {
+      return false;
+    }
+    const candidateSpan = Math.max(0, candidate.to - candidate.from);
+    const expectedSpan = Math.max(1, expected.to - expected.from);
+    return candidateSpan > expectedSpan * 1.25;
   }
 
   private async loadLeaderContacts() {

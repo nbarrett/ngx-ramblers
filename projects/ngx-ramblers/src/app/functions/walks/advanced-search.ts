@@ -1,8 +1,16 @@
 import { ParamMap } from "@angular/router";
 import { isArray, isBoolean, isNull, isNumber, isUndefined, keys, values } from "es-toolkit/compat";
 import { DateTime } from "luxon";
-import { AdvancedSearchCriteria, AdvancedSearchFieldType, ADVANCED_SEARCH_CRITERIA_FIELDS, WalkLeaderOption } from "../../models/search.model";
-import { DateDirection, SavedSearchCriteria } from "../../models/search.model";
+import {
+  AdvancedSearchCriteria,
+  AdvancedSearchFieldType,
+  ADVANCED_SEARCH_CRITERIA_FIELDS,
+  DateDirection,
+  PRESET_MATCH_THRESHOLD_MS,
+  resolvePresetByLabel,
+  SavedSearchCriteria,
+  WalkLeaderOption
+} from "../../models/search.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { StoredValue } from "../../models/ui-actions";
 import { StringUtilsService } from "../../services/string-utils.service";
@@ -152,6 +160,26 @@ export function hasAdvancedCriteria(criteria: AdvancedSearchCriteria | null | un
   });
 }
 
+function dateRangeSummary(criteria: AdvancedSearchCriteria, dateUtils: DateUtilsService): string {
+  const from = criteria.dateFrom ? dateUtils.asString(criteria.dateFrom, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "start";
+  const to = criteria.dateTo ? dateUtils.asString(criteria.dateTo, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "end";
+  return `${from} to ${to}`;
+}
+
+function presetLabelMatchesCriteria(presetLabel: string, criteria: AdvancedSearchCriteria, stringUtils: StringUtilsService): boolean {
+  if (!criteria.dateFrom || !criteria.dateTo) {
+    return false;
+  }
+  const resolved = resolvePresetByLabel(stringUtils.kebabCase(presetLabel), stringUtils);
+  if (!resolved) {
+    return false;
+  }
+  const range = resolved.range();
+  const fromDiff = Math.abs(range.from - criteria.dateFrom);
+  const toDiff = Math.abs(range.to - criteria.dateTo);
+  return fromDiff <= PRESET_MATCH_THRESHOLD_MS && toDiff <= PRESET_MATCH_THRESHOLD_MS;
+}
+
 export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | undefined, stringUtils: StringUtilsService, dateUtils: DateUtilsService, presetLabel?: string, ascending?: boolean): string {
   if (!criteria || !hasAdvancedCriteria(criteria)) {
     if (ascending === false) {
@@ -161,12 +189,10 @@ export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | 
   }
   const parts: string[] = [];
   if (criteria.dateFrom || criteria.dateTo) {
-    if (presetLabel && !presetLabel.startsWith("All ")) {
+    if (presetLabel && !presetLabel.startsWith("All ") && presetLabelMatchesCriteria(presetLabel, criteria, stringUtils)) {
       parts.push(presetLabel);
-    } else if (!presetLabel) {
-      const from = criteria.dateFrom ? dateUtils.asString(criteria.dateFrom, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "start";
-      const to = criteria.dateTo ? dateUtils.asString(criteria.dateTo, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "end";
-      parts.push(`${from} to ${to}`);
+    } else if (!presetLabel?.startsWith("All ")) {
+      parts.push(dateRangeSummary(criteria, dateUtils));
     }
   }
   if (criteria.groupCodes?.length > 0) {

@@ -99,6 +99,69 @@ describe("RamblersWalksAndEventsService", () => {
     expect(service).toBeTruthy();
   });
 
+  describe("needsRamblersPublish from walk history", () => {
+    const walkWithLeaderHistory = {
+      groupEvent: {
+        id: "100473667",
+        title: "Dover to St Margarets Bay on the White Cliffs",
+        start_date_time: "2026-08-02T10:00:00+01:00",
+        walk_leader: {name: "Deborah K1", id: "deborah-member"}
+      },
+      fields: {
+        contactDetails: {displayName: "Nick B", memberId: "nick-member"},
+        publishing: {ramblers: {publish: true, contactName: "Nick Barrett"}}
+      },
+      events: [
+        {
+          eventType: "approved",
+          date: 1,
+          data: {
+            fields: {
+              publishing: {ramblers: {publish: true, contactName: "Deborah Kellond"}},
+              contactDetails: {displayName: "Deborah K1"}
+            },
+            groupEvent: {walk_leader: {name: "Deborah K1"}}
+          }
+        },
+        {
+          eventType: "walkDetailsUpdated",
+          date: 2,
+          data: {
+            fields: {
+              publishing: {ramblers: {publish: true, contactName: "Nick Barrett"}},
+              contactDetails: {displayName: "Nick B"}
+            },
+            groupEvent: {walk_leader: {name: "Deborah K1"}}
+          }
+        }
+      ]
+    };
+
+    it("shows Publish on the walk page when history has a different Walks Manager contact name", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+
+      expect(service.needsRamblersPublish(walkWithLeaderHistory as any)).toBe(true);
+      expect(service.ramblersPublishTooltip(walkWithLeaderHistory as any)).toContain("Deborah Kellond → Nick Barrett");
+    });
+
+    it("does not show Publish when history contact name matches the current contact name", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const unchanged = {
+        ...walkWithLeaderHistory,
+        fields: {
+          ...walkWithLeaderHistory.fields,
+          publishing: {ramblers: {publish: true, contactName: "Deborah Kellond"}},
+          contactDetails: {displayName: "Deborah K1", memberId: "deborah-member"}
+        },
+        events: [walkWithLeaderHistory.events[0]]
+      };
+
+      expect(service.needsRamblersPublish(unchanged as any)).toBe(false);
+    });
+  });
+
   describe("walkImageUploads", () => {
     const selectedWalk = {
       selected: true,
@@ -435,6 +498,7 @@ describe("RamblersWalksAndEventsService", () => {
           distance_miles: 5,
           start_location: {postcode: "CT1 1AA"},
           shape: "Circular",
+          walk_leader: {name: "Jenny B."},
           ...ramblersWalkOverrides
         }
       }
@@ -535,14 +599,179 @@ describe("RamblersWalksAndEventsService", () => {
       expect(service.walkUploadList([walkExport])).toEqual([]);
     });
 
-    it("ignores the walk leader, which Ramblers abbreviates to an initial and cannot be compared", () => {
+    it("tolerates a walk leader that Ramblers abbreviates to a surname initial", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walkExport = service.toWalkExport(publishedWalk({}, {walk_leader: {name: "Jenny B."}}) as any);
 
       expect(walkExport.locationChanged).toBe(false);
       expect(walkExport.editInPlace).toBe(false);
+      expect(walkExport.selected).toBe(false);
       expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_AND_MATCHING]);
     });
+
+    it("compares the Walks Manager contact name, not the website display name", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const withContact = publishedWalk({}, {walk_leader: {name: "Kerry O'Grady"}}) as any;
+      withContact.localWalk.fields.publishing.ramblers.contactName = "Kerry O'Grady";
+      withContact.localWalk.fields.contactDetails = {displayName: "Kerry O", memberId: "m1"};
+      const result = service.toWalkExport(withContact);
+
+      expect(result.fieldChanges.map(change => change.field)).not.toContain(WalkEditField.WALK_LEADERS);
+      expect(result.selected).toBe(false);
+    });
+
+    it("does not flag a walk leader when Walks Manager returns no name because contact details are not shared", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({}, {walk_leader: {name: "", id: "volunteer-1"}}) as any);
+
+      expect(walkExport.fieldChanges.map(change => change.field)).not.toContain(WalkEditField.WALK_LEADERS);
+      expect(walkExport.selected).toBe(false);
+      expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_AND_MATCHING]);
+    });
+
+    it("export still detects a leader change from walk history when Walks Manager redacts the listed name", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const withHistory = publishedWalk({}, {walk_leader: {name: "", has_email: true}}) as any;
+      withHistory.localWalk.fields.publishing.ramblers.contactName = "Nick Barrett";
+      withHistory.localWalk.events = [
+        {
+          eventType: "approved",
+          date: 1,
+          data: {
+            fields: {publishing: {ramblers: {publish: true, contactName: "Deborah Kellond"}}},
+            groupEvent: {walk_leader: {name: "Deborah K1"}}
+          }
+        },
+        {
+          eventType: "walkDetailsUpdated",
+          date: 2,
+          data: {
+            fields: {publishing: {ramblers: {publish: true, contactName: "Nick Barrett"}}},
+            groupEvent: {walk_leader: {name: "Deborah K1"}}
+          }
+        }
+      ];
+      const walkExport = service.toWalkExport(withHistory);
+
+      expect(walkExport.fieldChanges.map(change => change.field)).toContain(WalkEditField.WALK_LEADERS);
+      expect(walkExport.fieldChanges[0]).toEqual(expect.objectContaining({
+        field: WalkEditField.WALK_LEADERS,
+        existingValue: "Deborah Kellond",
+        value: "Nick Barrett"
+      }));
+      expect(walkExport.publishStatus.messages.some(message =>
+        message.includes("walk leaders (Deborah Kellond → Nick Barrett)")
+      )).toBe(true);
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.editInPlace).toBe(true);
+    });
+
+    it("edits the walk in place when Walks Manager returns a different disclosed walk leader name", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const walkExport = service.toWalkExport(publishedWalk(
+        {},
+        {walk_leader: {name: "Deborah Kellond"}}
+      ) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.editInPlace).toBe(true);
+      expect(walkExport.fieldChanges.map(change => change.field)).toEqual([WalkEditField.WALK_LEADERS]);
+      expect(walkExport.fieldChanges[0]).toEqual(expect.objectContaining({
+        field: WalkEditField.WALK_LEADERS,
+        existingValue: "Deborah Kellond",
+        value: "Jenny Brown"
+      }));
+      expect(await service.walkUploadRows([walkExport])).toEqual([]);
+    });
+
+    it("does not flag starting grid reference differences", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const display = TestBed.inject(WalkDisplayService);
+      vi.spyOn(display, "gridReferenceFrom").mockImplementation((location: any) => location?.grid_reference_10 || "");
+      const walkExport = service.toWalkExport(publishedWalk(
+        {start_location: {postcode: "CT1 1AA", grid_reference_10: "TR12345678"}},
+        {start_location: {postcode: "CT1 1AA", grid_reference_10: "TR87654321"}}
+      ) as any);
+
+      expect(walkExport.locationChanged).toBe(false);
+      expect(walkExport.selected).toBe(false);
+    });
+
+    it("normalises a walk leader array from the Ramblers API before comparing", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({}, {walk_leader: [{name: "Jenny B."}]}) as any);
+
+      expect(walkExport.locationChanged).toBe(false);
+      expect(walkExport.selected).toBe(false);
+    });
+
+    it("edits the walk in place when the walk leader has changed", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const walkExport = service.toWalkExport(publishedWalk(
+        {},
+        {walk_leader: {name: "Deborah W."}}
+      ) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.locationChanged).toBe(false);
+      expect(walkExport.editInPlace).toBe(true);
+      expect(walkExport.fieldChanges.map(change => change.field)).toEqual([WalkEditField.WALK_LEADERS]);
+      expect(walkExport.fieldChanges[0]).toEqual(expect.objectContaining({
+        field: WalkEditField.WALK_LEADERS,
+        existingValue: "Deborah W.",
+        value: "Jenny Brown"
+      }));
+      expect(walkExport.publishStatus.messages.some(message =>
+        message.includes("Walk will be edited on Ramblers")
+        && message.includes("walk leaders (Deborah W. → Jenny Brown)")
+      )).toBe(true);
+      expect(await service.walkUploadRows([walkExport])).toEqual([]);
+    });
+
+    it("replaces the walk through CSV when walk features on Ramblers differ from local", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const walkExport = service.toWalkExport(publishedWalk(
+        {facilities: [{code: "dog-friendly", description: "Dog friendly"}]},
+        {facilities: [{code: "toilets", description: "Toilets available"}]}
+      ) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.locationChanged).toBe(true);
+      expect(walkExport.editInPlace).toBe(false);
+      expect(walkExport.publishStatus.messages.some(message => message.includes("walk features"))).toBe(true);
+      expect((await service.walkUploadRows([walkExport])).length).toBe(1);
+    });
+
+    it("does not treat empty Ramblers features as a change when local has features", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk(
+        {facilities: [{code: "dog-friendly", description: "Dog friendly"}]},
+        {facilities: []}
+      ) as any);
+
+      expect(walkExport.locationChanged).toBe(false);
+      expect(walkExport.selected).toBe(false);
+    });
+
+    it("replaces the walk through CSV when starting location details have changed on both sides", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const walkExport = service.toWalkExport(publishedWalk(
+        {start_location: {postcode: "CT1 1AA", description: "Meet by the castle gate"}},
+        {start_location: {postcode: "CT1 1AA", description: "Town centre car park"}}
+      ) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.locationChanged).toBe(true);
+      expect(walkExport.editInPlace).toBe(false);
+      expect(walkExport.publishStatus.messages.some(message => message.includes("starting location details"))).toBe(true);
+    });
+
+
 
     it("ignores a website link that differs only by the site it was generated from", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
@@ -593,6 +822,7 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.selected).toBe(true);
       expect(walkExport.locationChanged).toBe(true);
       expect(walkExport.editInPlace).toBe(false);
+      expect(walkExport.publishStatus.messages.some(message => message.includes("starting postcode"))).toBe(true);
       expect((await service.walkUploadRows([walkExport])).length).toBe(1);
     });
 

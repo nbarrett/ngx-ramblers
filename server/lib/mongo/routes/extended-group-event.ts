@@ -6,9 +6,11 @@ import { count, dateRange, nextWalkStartDate, queryVenues, queryWalkLeaders, url
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { keys } from "es-toolkit/compat";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
 
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 const router = express.Router();
+const errorDebugLog = createErrorDebugLog("database:group-event-routes");
 const LOCAL_ACTIVE_FILTER = {
   $or: [
     { [DocumentField.SOURCE]: { $ne: EventSource.LOCAL } },
@@ -32,6 +34,7 @@ function ensureLocalDeletedFilter(req: express.Request, _res: express.Response, 
     const parsed = rawCriteria ? JSON.parse(rawCriteria) : {};
     req.query.criteria = JSON.stringify(mergeLocalFilter(parsed));
   } catch (error) {
+    errorDebugLog("ensureLocalDeletedFilter: invalid criteria JSON, applying local filter only. raw:", req.query.criteria, "error:", error);
     req.query.criteria = JSON.stringify(mergeLocalFilter());
   }
   next();

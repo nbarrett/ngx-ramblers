@@ -77,6 +77,22 @@ interface DateRangePreset {
         &.rotated
           transform: rotate(90deg)
 
+      .search-alert
+        min-width: 0
+        max-width: 100%
+        white-space: normal
+
+      .search-alert-body
+        min-width: 0
+        flex: 1 1 auto
+
+      .search-alert-message
+        white-space: pre-wrap
+        overflow-wrap: anywhere
+        word-break: break-word
+        line-height: 1.45
+        font-size: 0.95rem
+
       ::ng-deep .ng-select
         .ng-select-container
           font-size: 1rem
@@ -159,26 +175,38 @@ interface DateRangePreset {
           </div>
         }
         @if (alertInline() && showAlerts && notifyTarget.showAlert) {
-          <div class="mb-2 mb-lg-0 flex-lg-fill d-flex justify-content-end">
-            <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center flex-shrink-0 text-nowrap">
-              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-              <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-              <span class="ms-1 text-nowrap">{{ notifyTarget.alertMessage }}</span>
+          <div class="mb-2 mb-lg-0 flex-lg-fill d-flex justify-content-end min-w-0">
+            <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-start gap-2">
+              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0 mt-1"></fa-icon>
+              <div class="search-alert-body">
+                @if (notifyTarget.alertTitle) {
+                  <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
+                }
+                @if (notifyTarget.alertMessage) {
+                  <div class="search-alert-message mt-1">{{ notifyTarget.alertMessage }}</div>
+                }
+              </div>
             </div>
           </div>
         }
       </div>
       @if (showPagination || !alertInline()) {
-        <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
+        <div class="d-flex full-width-pagination align-items-start gap-2 flex-wrap mt-1">
           @if (showPagination) {
             <ng-content/>
           }
           @if (showAlerts && notifyTarget.showAlert) {
-            <div class="alert-wrapper flex-grow-1">
-              <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
-                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-                <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-                <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
+            <div class="alert-wrapper flex-grow-1 min-w-0">
+              <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-start gap-2">
+                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0 mt-1"></fa-icon>
+                <div class="search-alert-body">
+                  @if (notifyTarget.alertTitle) {
+                    <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
+                  }
+                  @if (notifyTarget.alertMessage) {
+                    <div class="search-alert-message mt-1">{{ notifyTarget.alertMessage }}</div>
+                  }
+                </div>
               </div>
             </div>
           }
@@ -358,18 +386,49 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
   onAdvancedSearchChange(event: { criteria: AdvancedSearchCriteria; leaderOptions: WalkLeaderOption[] }) {
     this.logger.info("onAdvancedSearchChange: queryParamsActive:", this.queryParamsActive, "criteria:", event.criteria);
-    this.advancedCriteria = hasAdvancedCriteria(event.criteria) ? event.criteria : null;
+    const criteria = this.constrainCriteriaToSelectedPreset(event.criteria);
+    this.advancedCriteria = hasAdvancedCriteria(criteria) ? criteria : null;
     if (this.advancedCriteria) {
-      this.syncDateRangePresetWithCriteria(event.criteria);
+      this.syncDateRangePresetWithCriteria(this.advancedCriteria);
     } else {
       this.resetToDefaultPreset();
     }
     this.queryParamsActive = true;
     const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
+    queryParams[this.stringUtils.kebabCase(StoredValue.DATE_RANGE_PRESET)] = this.selectedDateRangePreset?.label
+      ? this.stringUtils.kebabCase(this.selectedDateRangePreset.label)
+      : null;
+    if (this.selectedDateRangePreset?.filterType) {
+      this.filterParameters.selectType = this.selectedDateRangePreset.filterType;
+      queryParams[this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)] = this.stringUtils.kebabCase(this.filterParameters.selectType);
+    }
     this.logger.info("onAdvancedSearchChange: writing query params:", queryParams);
     this.replaceQueryParams(queryParams);
-    this.advancedSearchChange.emit(event.criteria);
+    this.advancedSearchChange.emit(criteria);
     this.emitFilterState();
+  }
+
+  private constrainCriteriaToSelectedPreset(criteria: AdvancedSearchCriteria | null): AdvancedSearchCriteria | null {
+    if (!criteria || !this.selectedDateRangePreset?.preset?.relativeDateRange) {
+      return criteria;
+    }
+    if (!isNumber(criteria.dateFrom) || !isNumber(criteria.dateTo)) {
+      return criteria;
+    }
+    const expected = this.selectedDateRangePreset.preset.range();
+    if (this.rangesAreClose(criteria, expected)) {
+      return criteria;
+    }
+    const criteriaSpan = Math.max(0, criteria.dateTo - criteria.dateFrom);
+    const expectedSpan = Math.max(1, expected.to - expected.from);
+    if (criteriaSpan > expectedSpan * 1.25) {
+      return {
+        ...criteria,
+        dateFrom: expected.from,
+        dateTo: expected.to
+      };
+    }
+    return criteria;
   }
 
   private syncDateRangePresetWithCriteria(criteria: AdvancedSearchCriteria) {
@@ -536,8 +595,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       };
       this.advancedCriteria = criteria;
       this.advancedSearchChange.emit(criteria);
-      const nonDateParams = advancedCriteriaQueryParams({...criteria, dateFrom: undefined, dateTo: undefined}, this.stringUtils, this.dateUtils, []);
-      Object.assign(allParams, nonDateParams);
+      Object.assign(allParams, advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils, []));
     }
 
     if (preset.filterType) {
