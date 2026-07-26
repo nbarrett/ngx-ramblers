@@ -1362,10 +1362,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
         this.logger.info("postSaveContentMetadata:saved content:", savedContent);
         this.contentMetadata = savedContent;
         await this.createWalkAlbumService.ensureAlbumPageAfterSave(this.contentMetadata?.name);
-        this.contentMetadata = await this.createWalkAlbumService.applyAutoCoverIfNeeded(this.contentMetadata);
+        this.contentMetadata = await this.createWalkAlbumService.applyAutoCoverIfNeeded(this.contentMetadata, {
+          force: this.workflowMode
+        });
         await this.refreshS3Metadata();
         this.postMetadataRetrieveMapping();
-        return savedContent;
+        return this.contentMetadata;
       })
       .catch(response => {
         this.notify.error({title: "Failed to save changes", message: response});
