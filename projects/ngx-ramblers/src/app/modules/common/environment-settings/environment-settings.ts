@@ -26,6 +26,8 @@ import { EnvironmentPerEnvSettings } from "./environment-per-env-settings";
 import { EnvironmentConfigTools } from "./environment-config-tools";
 import { Environment } from "../../../models/environment.model";
 import { StoredValue } from "../../../models/ui-actions";
+import { FormSaveActionsComponent } from "../form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 @Component({
   selector: "app-environment-settings",
@@ -35,7 +37,8 @@ import { StoredValue } from "../../../models/ui-actions";
     SectionToggle,
     EnvironmentGlobalSettings,
     EnvironmentPerEnvSettings,
-    EnvironmentConfigTools
+    EnvironmentConfigTools,
+    FormSaveActionsComponent
   ],
   template: `
     <div class="row thumbnail-heading-frame">
@@ -68,12 +71,9 @@ import { StoredValue } from "../../../models/ui-actions";
       </form>
     </div>
     <div class="col-sm-12">
-      <input type="submit" value="Save Configuration" (click)="saveConfigFromForm()"
-             class="btn btn-success me-2">
-      <input type="button" value="Undo Changes" (click)="loadConfig()"
-             class="btn btn-primary me-2">
-      <input type="button" value="Back to Admin" (click)="backToAdmin()"
-             class="btn btn-primary me-2">
+      <app-form-save-actions
+        [disabled]="saving"
+        [actions]="formSaveActions"/>
     </div>
   `
 })
@@ -86,6 +86,14 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
 
   protected readonly EnvironmentSettingsSubTab = EnvironmentSettingsSubTab;
   protected readonly StoredValue = StoredValue;
+
+  public formSaveActions: FormSaveActions = {
+    save: () => this.saveConfigFromForm(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoChanges(),
+    cancel: () => this.cancel()
+  };
+  public saving = false;
 
   notifyTarget: AlertTarget = {};
   notify: AlertInstance;
@@ -155,14 +163,15 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
       .sort(sortBy("environment"));
   }
 
-  saveConfigFromForm() {
+  saveConfigFromForm(): Promise<void> {
     this.configError = "";
+    this.saving = true;
     const config: EnvironmentsConfig = {
       ...this.editableConfig,
       environments: this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker)
     };
 
-    this.environmentConfigService.saveConfig(config).then(async () => {
+    return this.environmentConfigService.saveConfig(config).then(async () => {
       this.editableConfig.environments = config.environments;
       this.configJson = JSON.stringify(config, null, 2);
       const sync = await this.environmentConfigService.syncNgxLite().catch(error => {
@@ -180,7 +189,24 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
         title: "Error saving configuration",
         message: err.message
       });
+      throw err;
+    }).finally(() => {
+      this.saving = false;
     });
+  }
+
+  saveAndExit(): Promise<void> {
+    return this.saveConfigFromForm().then(() => {
+      this.urlService.navigateTo(["admin"]);
+    }).catch(() => null);
+  }
+
+  undoChanges() {
+    void this.environmentConfigService.refresh();
+  }
+
+  cancel() {
+    this.urlService.navigateTo(["admin"]);
   }
 
   private propagateWorkerSecrets(environments: EnvironmentConfig[], uploadWorker: UploadWorkerConfig): EnvironmentConfig[] {
@@ -202,9 +228,5 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
         }
       };
     });
-  }
-
-  backToAdmin() {
-    this.urlService.navigateTo(["admin"]);
   }
 }

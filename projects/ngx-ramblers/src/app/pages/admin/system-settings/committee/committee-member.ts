@@ -480,20 +480,29 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly StoredValue = StoredValue;
   selectedTab: CommitteeMemberTab = CommitteeMemberTab.ROLE_DETAILS;
   private emailRoutingRules: EmailRoutingRule[] = [];
+  tabs: CommitteeMemberTab[] = [
+    CommitteeMemberTab.ROLE_DETAILS,
+    CommitteeMemberTab.OUTBOUND_EMAIL,
+    CommitteeMemberTab.INBOUND_FORWARDING
+  ];
 
-  get tabs(): CommitteeMemberTab[] {
-    const baseTabs: CommitteeMemberTab[] = [
+  private refreshTabs(): void {
+    const nextTabs: CommitteeMemberTab[] = [
       CommitteeMemberTab.ROLE_DETAILS,
       CommitteeMemberTab.OUTBOUND_EMAIL,
       CommitteeMemberTab.INBOUND_FORWARDING
     ];
     if (!this.isContactUsSystemRole()) {
-      baseTabs.push(CommitteeMemberTab.CONTACT_US);
+      nextTabs.push(CommitteeMemberTab.CONTACT_US);
     }
     if (this.cloudflareEmailRoutingService.emailForwardingAvailable()) {
-      return [...baseTabs, CommitteeMemberTab.EMAIL_LOGS];
+      nextTabs.push(CommitteeMemberTab.EMAIL_LOGS);
     }
-    return baseTabs;
+    const previous = this.tabs.join("|");
+    const next = nextTabs.join("|");
+    if (previous !== next) {
+      this.tabs = nextTabs;
+    }
   }
 
   isContactUsSystemRole(): boolean {
@@ -507,6 +516,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       this.committeeMember.emailDerivation = EmailDerivation.ROLE;
     }
     this.syncEmailDerivationFromEmail();
+    this.refreshTabs();
   }
   @Input() roles!: CommitteeMember[];
   @Input() index!: number;
@@ -554,10 +564,12 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     if (this.isContactUsSystemRole() && this.committeeMember.forwardEmailTarget === ForwardEmailTarget.MEMBER_EMAIL) {
       this.committeeMember.forwardEmailTarget = ForwardEmailTarget.NONE;
     }
+    this.refreshTabs();
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
         this.baseDomain = config?.baseDomain || "";
         this.syncEmailDerivationFromEmail();
+        this.refreshTabs();
       })
     );
     this.subscriptions.push(

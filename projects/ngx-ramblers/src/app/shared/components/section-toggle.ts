@@ -66,9 +66,23 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   private latestQueryParams: Record<string, string> = {};
   private _tabs: (T | SectionToggleTab)[] = [];
+  private _normalizedTabs: SectionToggleTab[] = [];
+  private tabsSignature = "";
 
   @Input() set tabs(value: (T | SectionToggleTab)[]) {
-    this._tabs = value;
+    const next = value || [];
+    const nextSignature = next.map(tab => isString(tab) ? tab : tab.value).join("|");
+    if (nextSignature === this.tabsSignature) {
+      return;
+    }
+    this.tabsSignature = nextSignature;
+    this._tabs = next;
+    this._normalizedTabs = next.map(tab => {
+      if (isString(tab)) {
+        return {value: tab, label: tab};
+      }
+      return tab;
+    });
     this.syncTabFromQueryParams();
   }
 
@@ -83,12 +97,7 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   @Output() selectedTabChange = new EventEmitter<T>();
 
   get normalizedTabs(): SectionToggleTab[] {
-    return this._tabs.map(tab => {
-      if (isString(tab)) {
-        return { value: tab, label: tab };
-      }
-      return tab;
-    });
+    return this._normalizedTabs;
   }
 
   ngOnInit() {
@@ -119,19 +128,20 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
       return;
     }
     const canonical = kebabCase(matchedTab.value);
-    Promise.resolve().then(() => {
-      if (this.selectedTab !== matchedTab.value) {
-        this.selectedTab = matchedTab.value as T;
-        this.selectedTabChange.emit(matchedTab.value as T);
-      }
-      if (canonical !== tabParam) {
-        this.router.navigate([], {
-          queryParams: {[queryKey]: canonical},
-          queryParamsHandling: "merge",
-          replaceUrl: true
-        });
-      }
-    });
+    if (this.selectedTab === matchedTab.value && canonical === tabParam) {
+      return;
+    }
+    if (this.selectedTab !== matchedTab.value) {
+      this.selectedTab = matchedTab.value as T;
+      this.selectedTabChange.emit(matchedTab.value as T);
+    }
+    if (canonical !== tabParam) {
+      this.router.navigate([], {
+        queryParams: {[queryKey]: canonical},
+        queryParamsHandling: "merge",
+        replaceUrl: true
+      });
+    }
   }
 
   ngOnDestroy() {
