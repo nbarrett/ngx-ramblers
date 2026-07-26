@@ -240,10 +240,17 @@ jobs:
           PREV_SHA: ${{ github.event.before }}
         run: |
           cd server
+          RELEASE_NOTES_ARGS="--build-number ${{ github.run_number }} --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --include-unassigned"
           if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "0000000000000000000000000000000000000000" ]; then
             echo "No previous push SHA available - falling back to --latest"
-            npm run release-notes -- --latest --build-number ${{ github.run_number }} --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --include-unassigned
+            npm run release-notes -- --latest $RELEASE_NOTES_ARGS
+          elif ! git cat-file -e "${PREV_SHA}^{commit}" 2>/dev/null; then
+            echo "Previous SHA $PREV_SHA is not in this clone - falling back to --latest"
+            npm run release-notes -- --latest $RELEASE_NOTES_ARGS
+          elif ! git merge-base --is-ancestor "$PREV_SHA" HEAD 2>/dev/null; then
+            echo "Previous SHA $PREV_SHA is not an ancestor of HEAD (history rewrite) - falling back to --latest"
+            npm run release-notes -- --latest $RELEASE_NOTES_ARGS
           else
             echo "Generating release notes for commits since $PREV_SHA"
-            npm run release-notes -- --since "$PREV_SHA" --build-number ${{ github.run_number }} --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --include-unassigned
+            npm run release-notes -- --since "$PREV_SHA" $RELEASE_NOTES_ARGS
           fi

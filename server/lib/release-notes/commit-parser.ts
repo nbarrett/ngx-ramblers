@@ -90,17 +90,48 @@ function extractIssueReferences(text: string): IssueReference[] {
   return references;
 }
 
+function isGitRevision(rev: string): boolean {
+  try {
+    execSync(`git cat-file -e ${rev}^{commit}`, {encoding: "utf-8", stdio: "pipe"});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isAncestor(ancestor: string, descendant: string): boolean {
+  try {
+    execSync(`git merge-base --is-ancestor ${ancestor} ${descendant}`, {encoding: "utf-8", stdio: "pipe"});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveGitLogRange(since?: string, until: string = "HEAD"): {since?: string; until: string; fellBack: boolean} {
+  if (!since) {
+    return {until, fellBack: false};
+  }
+  if (!isGitRevision(since) || !isAncestor(since, until)) {
+    return {until, fellBack: true};
+  }
+  return {since, until, fellBack: false};
+}
+
 export function gitLog(since?: string, until: string = "HEAD"): ConventionalCommit[] {
   const COMMIT_SEPARATOR = "---COMMIT-SEPARATOR---";
   const format = `${COMMIT_SEPARATOR}%n%H%n%h%n%cd%n%B`;
   const dateFormat = "--date=format:%Y-%m-%d";
+  const range = resolveGitLogRange(since, until);
 
   let command = `git log ${dateFormat} --format="${format}" --no-merges`;
 
-  if (since) {
-    command += ` ${since}..${until}`;
+  if (range.since) {
+    command += ` ${range.since}..${range.until}`;
+  } else if (range.fellBack) {
+    command += ` -n 50 ${range.until}`;
   } else {
-    command += ` ${until}`;
+    command += ` ${range.until}`;
   }
 
   try {
@@ -203,4 +234,8 @@ export function latestTag(): string | null {
 
 export function commitsBetween(from: string, to: string = "HEAD"): ConventionalCommit[] {
   return gitLog(from, to);
+}
+
+export function gitLogRangeIsValid(from: string, to: string = "HEAD"): boolean {
+  return !resolveGitLogRange(from, to).fellBack;
 }
