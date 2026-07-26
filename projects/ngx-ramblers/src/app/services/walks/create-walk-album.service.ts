@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
+import { isObject, isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { ContentMetadata, ContentMetadataItem, WalkAlbumLink } from "../../models/content-metadata.model";
@@ -228,6 +229,7 @@ export class CreateWalkAlbumService {
 
   private autoCoverAlbumNames: Record<string, boolean> = {};
   private returnToWalkPathSegments: string[] | null = null;
+  private readonly AUTO_COVER_STORAGE_KEY = "ngx-ramblers.auto-cover-albums";
 
   private eventTypeFor(walk: ExtendedGroupEvent): RamblersEventType {
     if (walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
@@ -282,9 +284,7 @@ export class CreateWalkAlbumService {
   }
 
   clearPendingAlbum(albumName: string): void {
-    if (albumName) {
-      delete this.autoCoverAlbumNames[albumName];
-    }
+    this.clearAutoCoverMark(albumName);
   }
 
   rememberReturnToWalk(pathSegments: string[]): void {
@@ -297,8 +297,67 @@ export class CreateWalkAlbumService {
   }
 
   markAlbumForAutoCover(albumName: string): void {
-    if (albumName) {
+    if (!albumName) {
+      return;
+    }
+    this.autoCoverAlbumNames[albumName] = true;
+    const stored = this.readStoredAutoCoverMarks();
+    stored[albumName] = true;
+    this.writeStoredAutoCoverMarks(stored);
+  }
+
+  private isMarkedForAutoCover(albumName: string): boolean {
+    if (!albumName) {
+      return false;
+    }
+    if (this.autoCoverAlbumNames[albumName]) {
+      return true;
+    }
+    const stored = this.readStoredAutoCoverMarks();
+    if (stored[albumName]) {
       this.autoCoverAlbumNames[albumName] = true;
+      return true;
+    }
+    return false;
+  }
+
+  private clearAutoCoverMark(albumName: string): void {
+    if (!albumName) {
+      return;
+    }
+    delete this.autoCoverAlbumNames[albumName];
+    const stored = this.readStoredAutoCoverMarks();
+    if (stored[albumName]) {
+      delete stored[albumName];
+      this.writeStoredAutoCoverMarks(stored);
+    }
+  }
+
+  private readStoredAutoCoverMarks(): Record<string, boolean> {
+    if (isUndefined(window)) {
+      return {};
+    }
+    try {
+      const raw = window.sessionStorage.getItem(this.AUTO_COVER_STORAGE_KEY);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw);
+      return isObject(parsed) ? parsed as Record<string, boolean> : {};
+    } catch (error) {
+      this.logger.warn("failed to read auto-cover marks", error);
+      return {};
+    }
+  }
+
+  private writeStoredAutoCoverMarks(marks: Record<string, boolean>): void {
+    if (isUndefined(window)) {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(this.AUTO_COVER_STORAGE_KEY, JSON.stringify(marks));
+    } catch (error) {
+      this.logger.warn("failed to persist auto-cover marks", error);
     }
   }
 
@@ -317,7 +376,7 @@ export class CreateWalkAlbumService {
     return true;
   }
 
-  async applyAutoCoverIfNeeded(album: ContentMetadata): Promise<ContentMetadata> {
+  async applyAutoCoverIfNeeded(album: ContentMetadata, options?: { force?: boolean }): Promise<ContentMetadata> {
     if (!album?.name || album.coverImage) {
       return album;
     }
@@ -325,13 +384,14 @@ export class CreateWalkAlbumService {
     if (files.length === 0) {
       return album;
     }
-    if (!this.autoCoverAlbumNames[album.name]) {
+    const shouldAutoCover = !!options?.force || this.isMarkedForAutoCover(album.name);
+    if (!shouldAutoCover) {
       this.logger.info("applyAutoCoverIfNeeded: skipping", album.name, "not marked for auto cover");
       return album;
     }
     if (files.length === 1) {
       album.coverImage = files[0].image;
-      delete this.autoCoverAlbumNames[album.name];
+      this.clearAutoCoverMark(album.name);
       return this.contentMetadataService.createOrUpdate(album);
     }
     const rootFolder = album.rootFolder || RootFolder.carousels;
@@ -355,7 +415,7 @@ export class CreateWalkAlbumService {
       this.logger.warn("applyAutoCoverIfNeeded failed, using first image", error);
       album.coverImage = files[0].image;
     }
-    delete this.autoCoverAlbumNames[album.name];
+    this.clearAutoCoverMark(album.name);
     return this.contentMetadataService.createOrUpdate(album);
   }
 }
