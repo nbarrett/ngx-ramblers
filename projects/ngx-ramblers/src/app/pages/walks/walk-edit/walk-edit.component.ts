@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@a
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faArrowLeft, faCheck, faCopy, faEnvelope, faEraser, faFloppyDisk, faPaperPlane, faPencil, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, isEmpty, isEqual, isString, isUndefined, values } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isString, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
@@ -41,7 +41,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { StoredVenueService } from "../../../services/venue/stored-venue.service";
+import { VenueLocationSource, VenueService } from "../../../services/venue/venue.service";
 import { UrlService } from "../../../services/url.service";
 import { LinksService } from "../../../services/links.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
@@ -392,7 +392,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private configService = inject(ConfigService);
   private eventDefaultsService = inject(EventDefaultsService);
   private linksService = inject(LinksService);
-  private storedVenueService = inject(StoredVenueService);
+  private venueService = inject(VenueService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent>>(BroadcastService);
   public config: SystemConfig;
   protected renderMapEdit: boolean;
@@ -751,21 +751,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   showWalk(displayedWalk: DisplayedWalk) {
     if (displayedWalk?.walk?.fields) {
       this.logger.info("showWalk", displayedWalk.walk, "mailConfig:", this?.mailMessagingConfig?.mailConfig);
-      if (!displayedWalk.walk.fields.venue) {
-        this.logger.debug("initialising walk venue");
-        displayedWalk.walk.fields.venue = {
-          type: this.walksReferenceService.venueTypes()[0].type,
-          postcode: displayedWalk.walk?.groupEvent?.start_location?.postcode,
-          isMeetingPlace: false,
-          venuePublish: false
-        };
-      } else {
-        if (isUndefined(displayedWalk.walk.fields.venue.isMeetingPlace)) {
-          displayedWalk.walk.fields.venue.isMeetingPlace = false;
-        }
-        if (isUndefined(displayedWalk.walk.fields.venue.venuePublish)) {
-          displayedWalk.walk.fields.venue.venuePublish = false;
-        }
+      this.venueService.ensureVenue(displayedWalk.walk, {source: VenueLocationSource.START_LOCATION, defaultVenuePublish: false});
+      if (!displayedWalk.walk.fields.venue.type) {
+        displayedWalk.walk.fields.venue.type = this.walksReferenceService.venueTypes()[0].type;
       }
       this.confirmAction = ConfirmType.NONE;
       this.normaliseWalkFieldsForEdit();
@@ -1009,26 +997,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private async persistVenueToCollection(): Promise<void> {
-    const venue = this.displayedWalk?.walk?.fields?.venue;
-    if (venue?.name) {
-      try {
-        const storedVenue = await this.storedVenueService.findOrCreate({
-          id: venue.storedVenueId,
-          name: venue.name,
-          postcode: venue.postcode,
-          type: venue.type,
-          url: venue.url,
-          lat: venue.lat,
-          lon: venue.lon,
-          address1: venue.address1,
-          address2: venue.address2
-        });
-        venue.storedVenueId = storedVenue.id;
-        this.logger.debug("persistVenueToCollection:venue persisted:", storedVenue);
-      } catch (error) {
-        this.logger.warn("persistVenueToCollection:failed to persist venue:", error);
-      }
-    }
+    await this.venueService.persistToCollection(this.displayedWalk?.walk?.fields?.venue);
   }
 
   afterSaveWith(notificationSent: boolean): void {

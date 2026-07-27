@@ -248,7 +248,7 @@ import { StoredValue } from "../../../models/ui-actions";
           </div>
         }
         @if ((selectedTab === DetailsTab.VENUE || selectedTab === DetailsTab.ROUTE_AND_VENUE) && displayedWalk?.walk?.fields?.venue) {
-          <app-venue [displayedWalk]="displayedWalk" [inputDisabled]="inputDisabled"
+          <app-venue [event]="displayedWalk.walk" [inputDisabled]="inputDisabled"
                      [hasSeparateMeetingPoint]="hasSeparateMeetingPoint"
                      (venuePostcodeChange)="onVenuePostcodeChange($event)"
                      (useVenueAsMeetingPoint)="onUseVenueAsMeetingPoint($event)"/>

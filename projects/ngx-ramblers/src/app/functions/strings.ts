@@ -37,6 +37,15 @@ export function toSlug(input: string): string {
   }
 }
 
+export function convertTitleToSlug(title: string): string {
+  if (title) {
+    const stopwords = new Set(["a", "an", "the", "to", "by", "via", "in", "of", "from"]);
+    return toKebabCase(title).split("-").filter(item => !stopwords.has(item)).join("-");
+  } else {
+    return title;
+  }
+}
+
 export function validEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }

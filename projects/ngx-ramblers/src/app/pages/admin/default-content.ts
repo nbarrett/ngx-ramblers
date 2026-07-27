@@ -21,6 +21,24 @@ export const RAMBLERS_PUBLISHING_HELP: ContentText = {
     "* More detail is available in the [Walks export guide](https://www.ngx-ramblers.org.uk/how-to/committee/walks/export) and the [11 November 2025 release notes](https://www.ngx-ramblers.org.uk/how-to/committee/release-notes/2025-11-11)."
 };
 
+export const MEETUP_VENUE_HELP: ContentText = {
+  name: "meetup-venue-help",
+  category: "walks-admin",
+  text:
+    "Enter details of the walk starting point here.\n\n" +
+    "Default is Pub, but Meeting place can also be provided.\n\n" +
+    "If you choose to publish this walk to Meetup, these details will be used to create a venue, so the name and address fields need to be as accurate as possible, so the venue can be created in the Meetup system. The best way to do this is to copy/paste the venue details from the pub or venue website into the correct fields below."
+};
+
+export const GROUP_EVENT_VENUE_HELP: ContentText = {
+  name: "group-event-venue-help",
+  category: "admin",
+  text:
+    "Enter details of where this social event is held.\n\n" +
+    "Use **Find or add venue** to pick a venue already used by the group, or type the name, address lines and postcode below. Prefer the official name and address from the venue website or booking confirmation so members can find the place easily.\n\n" +
+    "On the published event page, members see the location description, the postcode (with a Google Maps link) and, if you provide one, a link to the venue website. Accurate details also help when this venue is reused on later events."
+};
+
 export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   {
     category: "template-type",
@@ -293,7 +311,9 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
       "* Download a CSV of attendees for the selected event\n" +
       "* Delete individual bookings if needed",
     category: "admin"
-  }
+  },
+  MEETUP_VENUE_HELP,
+  GROUP_EVENT_VENUE_HELP
 ];
 
 export function findContentEntry(name: string, category: string): ContentText | undefined {

@@ -1,6 +1,11 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { identifierCanBeConvertedToSlug, identifierMatchesSlugFormat, slugRegexFor } from "./extended-group-event";
+import {
+  convertTitleToSlug,
+  identifierCanBeConvertedToSlug,
+  identifierMatchesSlugFormat,
+  slugRegexFor
+} from "./extended-group-event";
 import { escapeSlugForRegex } from "../../shared/slug-matching";
 
 const slugFormatCases: { value: string; isSlug: boolean; convertible: boolean; description: string }[] = [
@@ -72,6 +77,25 @@ describe("escapeSlugForRegex", () => {
     it(`escapes ${testCase.description}`, () => {
       expect(escapeSlugForRegex(testCase.value)).toBe(testCase.escaped);
     });
+  });
+});
+
+describe("convertTitleToSlug", () => {
+  it("converts a full Christmas Party title to christmas-party", () => {
+    expect(convertTitleToSlug("Christmas Party")).toBe("christmas-party");
+  });
+
+  it("converts a mid-type partial title to a truncated slug (why blur-based URL updates matter)", () => {
+    expect(convertTitleToSlug("Christmas Part")).toBe("christmas-part");
+  });
+
+  it("drops stopwords from titles", () => {
+    expect(convertTitleToSlug("Walk to the Castle via the River")).toBe("walk-castle-river");
+  });
+
+  it("returns falsy titles unchanged", () => {
+    expect(convertTitleToSlug("")).toBe("");
+    expect(convertTitleToSlug(null as unknown as string)).toBe(null);
   });
 });
 
