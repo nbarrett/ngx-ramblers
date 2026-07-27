@@ -41,7 +41,6 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
               [pageContent]="viewablePageContent"
               [rowIndex]="rowIndex"
               [contentPath]="contentPath"
-              [hideEditToggle]="hideEditToggle"
               [contentDescription]="contentDescription"/>
           }
           @if (actions.isCarousel(row)) {
@@ -76,7 +75,6 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
             <div [class]="actions.rowClasses(row)">
               <div class="col-12">
                 <app-dynamic-content-view [pageContent]="fragmentContentFor(row)" [contentPath]="fragmentPathFor(row)"
-                                          [hideEditToggle]="hideEditToggle"
                                           [contentDescription]="contentDescription || fragmentPathFor(row)"/>
               </div>
             </div>
@@ -117,8 +115,6 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   public forceView: boolean;
   @Input()
   public contentDescription: string;
-  @Input()
-  public hideEditToggle: boolean;
   @Input()
   public notify: AlertInstance;
   public area: string;

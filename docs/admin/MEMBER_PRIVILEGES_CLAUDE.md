@@ -1,5 +1,7 @@
 # Member Privileges Guide
 
+> **Superseded note (July 2026):** Site content is edited with a **visual (WYSIWYG) editor**, not by typing markdown. Markdown remains under the hood for storage, export and AI. See the technical article *Visual editing replaces markdown authoring* (ref #303).
+
 Use this guide to assign the right privileges to members and understand what each checkbox changes in NGX‑Ramblers.
 
 ## Core Membership
@@ -17,7 +19,7 @@ Use this guide to assign the right privileges to members and understand what eac
 
 ## Administrator Roles
 - Content Admin
-  - Can edit website content (Markdown pages, fragments, site edit modes).
+  - Can edit website content (pages, fragments, site edit with the visual editor).
 - Walk Admin
   - Can create and manage Walks (group walks, updates).
 - Walk Change Notifications

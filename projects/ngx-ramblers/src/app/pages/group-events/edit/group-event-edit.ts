@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, first, isNull, isString, values } from "es-toolkit/compat";
 import { PathSegment } from "../../../models/content-text.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -24,7 +24,6 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { MarkdownComponent } from "ngx-markdown";
 import { NgClass, NgStyle } from "@angular/common";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
@@ -46,6 +45,9 @@ import { VenueLocationSource, VenueService } from "../../../services/venue/venue
 import { GroupEventDetailsSection, GroupEventEditTab } from "../../../models/group-events.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { enumValueForKey } from "../../../functions/enums";
+import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
+import { ContentTextUnsavedChangesService } from "../../../services/content-text-unsaved-changes.service";
+import { ConfirmType } from "../../../models/ui-actions";
 
 @Component({
     selector: "app-group-event-edit",
@@ -211,37 +213,13 @@ import { enumValueForKey } from "../../../functions/enums";
                       <div class="col-sm-12">
                         <div class="event-description">
                           <div class="form-group">
-                            <label for="longer-description">Description
-                              @if (!longerDescriptionPreview) {
-                                <a (click)="previewLongerDescription()" [href]="">
-                                  <fa-icon [icon]="faEye" class="markdown-preview-icon"/>
-                                  preview</a>
-                              }
-                              @if (longerDescriptionPreview) {
-                                <a (click)="editLongerDescription()" [href]="">
-                                  <fa-icon [icon]="faPencil" class="markdown-preview-icon"/>
-                                  edit</a>
-                              }
-                            </label>
-                            <div>
-                              @if (longerDescriptionPreview) {
-                                <p class="list-arrow"
-                                   (click)="editLongerDescription()"
-                                   markdown [data]="groupEvent?.groupEvent?.description"
-                                   id="longer-description-preview"></p>
-                              }
-                            </div>
-                            @if (!longerDescriptionPreview) {
-                              <textarea
-                                [disabled]="!display.allow.edits"
-                                (blur)="previewLongerDescription()"
-                                [(ngModel)]="groupEvent.groupEvent.description"
-                                type="text"
-                                class="form-control input-sm"
-                                rows="{{groupEvent?.groupEvent?.media?.length>0 ? 20 : 5}}"
-                                id="longer-description"
-                                placeholder="Enter event description"></textarea>
-                            }
+                            <label for="longer-description">Description</label>
+                            <app-tiptap-markdown-editor
+                              id="longer-description"
+                              [value]="groupEvent.groupEvent.description || ''"
+                              [editable]="display.allow.edits"
+                              placeholder="Enter event description"
+                              (valueChange)="descriptionChanged($event)"/>
                           </div>
                         </div>
                         @if (config?.group) {
@@ -425,10 +403,24 @@ import { enumValueForKey } from "../../../functions/enums";
                        (click)="cancelDeleteGroupEvent()"
                        class="btn btn-primary ms-2"/>
               }
-              @if (display.allow.edits) {
+              @if (display.allow.edits && display.confirm.noneOutstanding()) {
                 <input type="submit" value="Cancel" (click)="cancelGroupEventDetails()"
                        [disabled]="inputDisabled()"
                        title="Cancel and don't save" class="btn btn-primary ms-2"/>
+              }
+              @if (display.confirm.confirmType() === ConfirmType.CANCEL) {
+                <input type="submit" value="Discard content and close"
+                       [disabled]="inputDisabled()"
+                       (click)="confirmDiscardUnsavedContentAndClose()"
+                       title="Discard unsaved content and close"
+                       class="btn btn-primary ms-2"/>
+              }
+              @if (display.confirm.confirmType() === ConfirmType.CANCEL) {
+                <input type="submit" value="Keep editing"
+                       [disabled]="notifyTarget.busy"
+                       (click)="cancelDiscardUnsavedContent()"
+                       title="Stay on this form and keep editing"
+                       class="btn btn-primary ms-2"/>
               }
               @if (display.allow.copy) {
                 <input type="submit" value="Copy" (click)="copyDetailsToNewGroupEvent()"
@@ -446,7 +438,7 @@ import { enumValueForKey } from "../../../functions/enums";
       </app-page>
     `,
     styleUrls: ["group-event-edit.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, MarkdownComponent, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGroupEventImagesComponent, TimePicker, TagEditorComponent, Venue, SectionToggle]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGroupEventImagesComponent, TimePicker, TagEditorComponent, Venue, SectionToggle, TiptapMarkdownEditor]
 })
 export class GroupEventEdit implements OnInit, OnDestroy {
 
@@ -465,17 +457,16 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
   private venueService = inject(VenueService);
+  private contentTextUnsavedChanges = inject(ContentTextUnsavedChangesService);
   public groupEvent: ExtendedGroupEvent;
+  protected readonly ConfirmType = ConfirmType;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
   public hasFileOver = false;
   private existingTitle: string;
   public uploader: FileUploader;
-  public longerDescriptionPreview = true;
   faCopy = faCopy;
-  faEye = faEye;
-  faPencil = faPencil;
   editActive: boolean;
   private subscriptions: Subscription[] = [];
   protected readonly RootFolder = RootFolder;
@@ -678,14 +669,8 @@ export class GroupEventEdit implements OnInit, OnDestroy {
     }
   }
 
-  editLongerDescription() {
-    this.logger.debug("editLongerDescription");
-    this.longerDescriptionPreview = false;
-  }
-
-  previewLongerDescription() {
-    this.logger.debug("previewLongerDescription");
-    this.longerDescriptionPreview = true;
+  descriptionChanged(markdown: string) {
+    this.groupEvent.groupEvent.description = markdown;
   }
 
   saveGroupEventDetails() {
@@ -799,7 +784,26 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   }
 
   cancelGroupEventDetails() {
+    if (this.contentTextUnsavedChanges.hasUnsaved()) {
+      this.display.confirm.as(ConfirmType.CANCEL);
+      this.notify.warning({
+        title: "Unsaved content",
+        message: this.contentTextUnsavedChanges.saveOrDiscardMessage()
+      });
+      return;
+    }
     this.close();
+  }
+
+  confirmDiscardUnsavedContentAndClose() {
+    this.contentTextUnsavedChanges.discardAll();
+    this.display.confirm.clear();
+    this.close();
+  }
+
+  cancelDiscardUnsavedContent() {
+    this.display.confirm.clear();
+    this.notify.hide();
   }
 
   sendGroupEventNotification() {

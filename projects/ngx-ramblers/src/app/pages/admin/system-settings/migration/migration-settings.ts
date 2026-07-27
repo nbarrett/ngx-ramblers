@@ -20,7 +20,7 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { MigrationConfigService } from "../../../../services/migration/migration-config.service";
 import { Subscription } from "rxjs";
 import { PageComponent } from "../../../../page/page.component";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../../models/form-save-actions.model";
@@ -73,9 +73,9 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                                       caption="Run {{site.name}} Migration"/>
                   </ng-template>
                   <div class="col-sm-12 mt-2 mb-2">
-                    <app-markdown-editor category="admin" name="migration-settings-help"
+                    <app-content-text-editor category="admin" name="migration-settings-help"
                                          standalone
-                                         description="Migration settings help"></app-markdown-editor>
+                                         description="Migration settings help"></app-content-text-editor>
                   </div>
                   <div class="col-sm-12">
                     <app-badge-button [icon]="faAdd" (click)="addSite()" caption="Add new site"/>
@@ -217,10 +217,10 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                             <div class="col-sm-6">
                               <div class="form-group">
                                 <label [for]="stringUtils.kebabCase('exclude-markdown-blocks', siteIndex)">
-                                  Exclude Markdown Blocks</label>
+                                  Exclude text blocks</label>
                                 <textarea rows="6" class="form-control"
                                           [id]="stringUtils.kebabCase('exclude-markdown-blocks', siteIndex)"
-                                          placeholder="Paste exact markdown blocks from output to remove. Separate multiple blocks with a line containing three dashes (---)."
+                                          placeholder="Paste exact text blocks from the output to remove. Separate multiple blocks with a line containing three dashes (---)."
                                           [(ngModel)]="site.excludeMarkdownBlocks"></textarea>
                               </div>
                             </div>
@@ -461,7 +461,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                                          [id]="stringUtils.kebabCase('use-nested-rows', siteIndex)">
                                   <label class="form-check-label"
                                          [for]="stringUtils.kebabCase('use-nested-rows', siteIndex)" delay=500
-                                         tooltip="When checked: keeps all content in one row with nested sub-rows. When unchecked: splits markdown into separate rows">
+                                         tooltip="When checked: keeps all content in one row with nested sub-rows. When unchecked: splits content into separate rows">
                                     Keep Content Together (Nested Rows)</label>
                                 </div>
                               </div>
@@ -736,7 +736,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
     .thumbnail-heading-frame-compact:has(details[open])
       overflow: visible
   `],
-  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent]
+  imports: [PageComponent, ContentTextEditor, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent]
 })
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 
@@ -791,7 +791,7 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   private pendingSessionParam: string | null = null;
   private activeHistorySessionId: string | null = null;
   @ViewChildren("transformationDetails") transformationDetailsElements: QueryList<ElementRef<HTMLDetailsElement>>;
-  @ViewChildren(MarkdownEditorComponent) editors: QueryList<MarkdownEditorComponent>;
+  @ViewChildren(ContentTextEditor) editors: QueryList<ContentTextEditor>;
   private sitePasteState: Map<SiteMigrationConfig, SitePasteState> = new Map();
   public migrationTemplates: PageContent[] = [];
   public migrationTemplatesLoading = false;

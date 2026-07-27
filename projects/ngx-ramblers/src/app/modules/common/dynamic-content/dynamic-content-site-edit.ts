@@ -62,7 +62,7 @@ import { UrlService } from "../../../services/url.service";
 import { RootFolder } from "../../../models/system.model";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { DataPopulationService } from "../../../pages/admin/data-population.service";
-import { fieldStartsWithValue } from "../../../functions/mongo";
+import { fieldStartsWithPath } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
 import { assignDeep } from "../../../functions/object-utils";
 import { UiActionsService } from "../../../services/ui-actions.service";
@@ -95,7 +95,7 @@ import { FragmentService } from "../../../services/fragment.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
 import { TemplateSelectEvent, TemplateSelectorComponent } from "./template-selector";
 import { IndexService } from "../../../services/index.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
 
 @Component({
@@ -206,7 +206,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                     </div>
                     @if (templateType()) {
                       <div class="small text-muted mt-2">
-                        <app-markdown-editor [text]="templateTypeDescription()" [presentationMode]="true"/>
+                        <app-content-text-editor [text]="templateTypeDescription()" [presentationMode]="true"/>
                       </div>
                     }
                   </div>
@@ -565,7 +565,6 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                           (click)="openFragmentInNewTab(row)"/>
                       </div>
                       <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
-                                                [hideEditToggle]="true"
                                                 [forceView]="true"/>
                     </div>
                     @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
@@ -806,7 +805,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -2475,7 +2474,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   private async collectPagesBelowPath(pageContent: PageContent) {
     const path = pageContent.path;
-    const dataQueryOptions = {criteria: {path: fieldStartsWithValue(path)}};
+    const dataQueryOptions = {criteria: {path: fieldStartsWithPath(path)}};
     this.pagesBelow = await this.pageContentService.all(dataQueryOptions);
     this.logger.debug("initialisePageContent:path:", path, "dataQueryOptions:", dataQueryOptions, "pagesBelowPath:", this.pagesBelow);
   }

@@ -40,7 +40,7 @@ import {
   faTriangleExclamation
 } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { SenderRepliesAndSignoff } from "../../send-emails/sender-replies-and-signoff";
@@ -151,7 +151,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
             </div>
           </div>
           <div class="col-sm-12 mt-2 mb-2">
-            <app-markdown-editor standalone category="admin" name="mail-settings-email-configurations-help"
+            <app-content-text-editor standalone category="admin" name="mail-settings-email-configurations-help"
                                  description="Mail Settings Email Configuration Help"/>
           </div>
           <div class="col-sm-12">
@@ -491,7 +491,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
         </div>
       }
     `,
-    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent, RouterLink]
+    imports: [FormsModule, ContentTextEditor, BadgeButtonComponent, SenderRepliesAndSignoff, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent, RouterLink]
 })
 
 export class MailNotificationTemplateEditor implements OnInit, OnDestroy {

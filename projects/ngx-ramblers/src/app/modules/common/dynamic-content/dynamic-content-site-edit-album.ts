@@ -16,8 +16,7 @@ import {
   PageContent,
   PageContentRow,
   PageContentType,
-  ThumbPosition,
-  View
+  ThumbPosition
 } from "../../../models/content-text.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -36,7 +35,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/group-event-type-selector";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 import { DecimalPipe, Location, NgClass } from "@angular/common";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { ImageListEditComponent } from "../../../carousel/edit/image-list-edit/image-list-edit";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Image } from "../../../models/system.model";
@@ -80,8 +79,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
             </button>
             @if (workflowReportExpanded) {
               <div class="walk-album-workflow-report-body">
-                <app-markdown-editor [data]="{text: row.carousel.preAlbumText, name: 'walk report'}"
-                                     [initialView]="initialViewFor(row.carousel.preAlbumText)"
+                <app-content-text-editor [data]="{text: row.carousel.preAlbumText, name: 'walk report'}"
                                      (changed)="onWorkflowPreAlbumTextChanged($event)"/>
               </div>
             }
@@ -409,10 +407,9 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                         <label
                           [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-pre-cover-text')">
                           Introductory Text</label>
-                        <app-markdown-editor [data]="{text: row.carousel.introductoryText}"
+                        <app-content-text-editor [data]="{text: row.carousel.introductoryText}"
                                              [styles]="row.carousel.introductoryTextStyles"
                                              [name]="'pre cover text'"
-                                             [initialView]="initialViewFor(row.carousel.introductoryText)"
                                              (changed)="introductoryTextChanged($event)"/>
                       </div>
                     </div>
@@ -578,8 +575,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                     <label
                       [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-pre-album-text')">
                       Pre Album Text</label>
-                    <app-markdown-editor [data]="{text: row.carousel.preAlbumText, name:'cover image text'}"
-                                         [initialView]="initialViewFor(row.carousel.preAlbumText)"
+                    <app-content-text-editor [data]="{text: row.carousel.preAlbumText, name:'cover image text'}"
                                          (changed)="row.carousel.preAlbumText=$event.text"/>
                   </div>
                 </div>
@@ -663,7 +659,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
 
     ${rangeSliderStyles}
   `],
-  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, MarkdownEditorComponent, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule]
+  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
@@ -701,7 +697,6 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   protected readonly faChevronUp = faChevronUp;
   protected readonly faChevronDown = faChevronDown;
 
-  protected readonly View = View;
   protected readonly AlbumEditTab = AlbumEditTab;
   protected readonly enumValueForKey = enumValueForKey;
   public lazyLoadingMetadata: LazyLoadingMetadata;
@@ -805,10 +800,6 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   introductoryTextChanged(event: ContentText) {
     this.row.carousel.introductoryText = event.text;
     this.row.carousel.introductoryTextStyles = event.styles;
-  }
-
-  initialViewFor(text: string): View {
-    return text ? View.VIEW : View.EDIT;
   }
 
   toggleWorkflowReport(): void {

@@ -44,7 +44,7 @@ import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { CollapseDirective } from "ngx-bootstrap/collapse";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { NgClass } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -58,7 +58,7 @@ const SELECTED_EXPENSE = "Expense from last email link";
     selector: "app-expenses",
     templateUrl: "./expenses.component.html",
     styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"],
-    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, MarkdownEditorComponent, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe]
+    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, ContentTextEditor, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe]
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
 

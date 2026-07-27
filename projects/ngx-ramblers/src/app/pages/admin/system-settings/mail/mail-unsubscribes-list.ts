@@ -49,7 +49,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
 import { BrevoDropdownItem } from "../../../../models/brevo-dropdown.model";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../../models/section-toggle.model";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import { DateTime } from "luxon";
@@ -240,7 +240,7 @@ const ALL_SENDERS = "all";
       </div>
       <div class="row">
         <div class="col-sm-12 mb-3 mx-2">
-          <app-markdown-editor standalone category="admin" name="mail-settings-unsubscribes-help"
+          <app-content-text-editor standalone category="admin" name="mail-settings-unsubscribes-help"
                                description="Mail settings unsubscribes help"/>
         </div>
       </div>
@@ -460,7 +460,7 @@ const ALL_SENDERS = "all";
         </div>
       }
     </div>`,
-  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, MarkdownEditorComponent, NgClass, DateRangeSlider, RouterLink, SectionToggle]
+  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, ContentTextEditor, NgClass, DateRangeSlider, RouterLink, SectionToggle]
 })
 export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   adminMembersMemberAdminPath = AdminMembersPath.MEMBER_ADMIN;

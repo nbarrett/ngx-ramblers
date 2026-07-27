@@ -64,7 +64,7 @@ import { WebSocketClientService } from "../../../../services/websockets/websocke
 import { cloneDeep, isBoolean, isEqual, isString } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { CommitteeMemberEditor } from "./committee-member";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
@@ -141,7 +141,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
               <tab heading="Committee Members" [active]="tabActive('committee-members')" (selectTab)="selectTab('committee-members')">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="col-sm-12 mt-2 mb-2">
-                    <app-markdown-editor standalone category="admin" name="committee-roles-help"
+                    <app-content-text-editor standalone category="admin" name="committee-roles-help"
                                          description="Committee roles help"/>
                   </div>
                   @if (cloudflareEmailRoutingService.hasConfigError()) {
@@ -680,7 +680,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
-                      <app-markdown-editor standalone category="admin" name="committee-file-types-help"
+                      <app-content-text-editor standalone category="admin" name="committee-file-types-help"
                                            description="Committee file types help"/>
                     </div>
                   </div>
@@ -724,7 +724,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
-                      <app-markdown-editor standalone category="admin" name="committee-expenses-help"
+                      <app-content-text-editor standalone category="admin" name="committee-expenses-help"
                                            description="Committee file expenses help"/>
                     </div>
                   </div>
@@ -764,7 +764,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;

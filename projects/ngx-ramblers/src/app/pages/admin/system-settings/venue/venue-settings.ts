@@ -13,7 +13,7 @@ import { WalksReferenceService } from "../../../../services/walks/walks-referenc
 import { VenueIconPipe } from "../../../../pipes/venue-icon.pipe";
 import { AddressQueryService } from "../../../../services/walks/address-query.service";
 import { PageComponent } from "../../../../page/page.component";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
@@ -25,7 +25,7 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
 @Component({
   selector: "app-venue-settings",
   standalone: true,
-  imports: [FormsModule, FontAwesomeModule, VenueIconPipe, PageComponent, VenueTypeSelect, TooltipDirective, MarkdownEditorComponent, TabsetComponent, TabDirective, VenueEditorComponent],
+  imports: [FormsModule, FontAwesomeModule, VenueIconPipe, PageComponent, VenueTypeSelect, TooltipDirective, ContentTextEditor, TabsetComponent, TabDirective, VenueEditorComponent],
   styles: [`
     .table-container
       max-height: calc(100vh - 520px)
@@ -65,7 +65,7 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
           <tabset class="custom-tabset">
             <tab heading="Venue Management" [active]="true">
               <div class="img-thumbnail thumbnail-admin-edit">
-                <app-markdown-editor standalone allowHide category="admin" name="venue-settings-help"/>
+                <app-content-text-editor standalone allowHide category="admin" name="venue-settings-help"/>
                 <div class="d-flex justify-content-between align-items-center mb-3">
                   <div class="text-muted small">{{ statusMessage }}</div>
                   <div class="d-flex gap-2">

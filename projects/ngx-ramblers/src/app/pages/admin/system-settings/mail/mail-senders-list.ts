@@ -28,7 +28,7 @@ import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 
 @Component({
   selector: "app-mail-senders-list",
@@ -64,7 +64,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
       }
       <div class="row">
         <div class="col-sm-12 mb-3 mx-2">
-          <app-markdown-editor standalone category="admin" name="mail-settings-senders-help"
+          <app-content-text-editor standalone category="admin" name="mail-settings-senders-help"
                                description="Mail settings senders help"/>
         </div>
       </div>
@@ -227,7 +227,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
         </table>
       </div>
     </div>`,
-  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, MarkdownEditorComponent]
+  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, ContentTextEditor]
 })
 export class MailSendersListComponent implements OnInit, OnDestroy {
 

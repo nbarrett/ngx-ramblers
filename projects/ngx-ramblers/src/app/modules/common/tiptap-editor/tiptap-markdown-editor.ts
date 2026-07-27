@@ -1,6 +1,23 @@
-import { booleanAttribute, Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewEncapsulation } from "@angular/core";
-import { Editor } from "@tiptap/core";
+import {
+  booleanAttribute,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  inject,
+  Input,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  Output,
+  ViewEncapsulation
+} from "@angular/core";
+import { NgClass } from "@angular/common";
+import { Editor, JSONContent } from "@tiptap/core";
+import { EditorState } from "@tiptap/pm/state";
+import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import StarterKit from "@tiptap/starter-kit";
+import { ListItem } from "@tiptap/extension-list";
 import { HtmlBold, HtmlItalic, markdownMarksForClipboard } from "./html-marks.extension";
 import Link from "@tiptap/extension-link";
 import { ImageAlign, ImageSpacing, SpacedImage } from "./spaced-image.extension";
@@ -14,8 +31,6 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faBold,
   faBolt,
-  faChevronDown,
-  faChevronUp,
   faHeading,
   faImage,
   faItalic,
@@ -25,7 +40,6 @@ import {
   faQuoteRight,
   faRedo,
   faRemoveFormat,
-  faSliders,
   faToggleOn,
   faToggleOff,
   faUndo
@@ -51,21 +65,23 @@ import { UrlService } from "../../../services/url.service";
 import { FileUtilsService } from "../../../file-utils.service";
 import { hasSoftWrappedParagraph, unwrapSoftLineBreaks } from "../../../functions/unwrap-line-breaks";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { PasteDetectionService } from "../../../services/paste-detection.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
+import { isString } from "es-toolkit/compat";
 
 @Component({
   selector: "app-tiptap-markdown-editor",
   encapsulation: ViewEncapsulation.None,
-  imports: [TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
+  imports: [NgClass, TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
   styles: [`
     .tiptap-editor-shell
-      border: 1px solid #ced4da
+      border: 1px solid transparent
       border-radius: 4px
-      background-color: #ffffff
+      background-color: transparent
       display: flex
       flex-direction: column
       max-width: 100%
@@ -73,14 +89,21 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       overflow-x: clip
       position: relative
 
+    .tiptap-editor-shell.tiptap-editor-shell-detail
+      border-color: #ced4da
+      background-color: #ffffff
+
+    .tiptap-editor-shell:not(.tiptap-editor-shell-detail) .tiptap-content
+      padding: 0
+
     .tiptap-editor-shell-disabled
-      border-color: #adb5bd
-      background-color: #f8f9fa
-      box-shadow: inset 0 0 0 1px rgba(173, 181, 189, 0.35)
+      border-color: transparent
+      background-color: transparent
+      box-shadow: none
 
     .tiptap-editor-shell-disabled .tiptap-content
-      background-color: #f8f9fa
-      color: #6c757d
+      background-color: transparent
+      color: inherit
 
     .tiptap-editor-shell-disabled .tiptap-content .ProseMirror
       cursor: not-allowed
@@ -151,22 +174,6 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       display: flex
       gap: 6px
 
-    .tiptap-toolbar-toggle
-      display: none
-      align-items: center
-      width: 100%
-      padding: 8px 10px
-      border: none
-      border-bottom: 1px solid #e9ecef
-      background-color: #f8f9fa
-      color: #495057
-      font-size: 0.85rem
-      font-weight: 600
-
-    .tiptap-toolbar-toggle span
-      flex: 1 1 auto
-      text-align: left
-
     .tiptap-toolbar
       display: flex
       flex-wrap: wrap
@@ -174,13 +181,6 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       padding: 6px
       border-bottom: 1px solid #e9ecef
       background-color: #f8f9fa
-
-    @media (max-width: 767px)
-      .tiptap-toolbar-toggle
-        display: flex
-
-      .tiptap-toolbar.tiptap-toolbar-collapsed
-        display: none
 
     .tiptap-toolbar button
       background: transparent
@@ -199,6 +199,15 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       background-color: #ffffff
       border-color: #6c757d
       color: #c05711
+
+    .tiptap-toolbar button:disabled
+      opacity: 0.4
+      cursor: not-allowed
+      color: #adb5bd
+
+    .tiptap-toolbar button:disabled:hover
+      border-color: transparent
+      background: transparent
 
     .tiptap-toolbar button.toolbar-text-toggle
       font-size: 0.8rem
@@ -229,16 +238,68 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       background-color: #ced4da
       margin: 4px 4px
 
+    .tiptap-toolbar .toolbar-extras
+      display: contents
+
+    .table-picker-wrap
+      position: relative
+      display: inline-flex
+
+    .table-picker-popup
+      position: absolute
+      top: calc(100% + 4px)
+      left: 0
+      z-index: 40
+      background: #ffffff
+      border: 1px solid #ced4da
+      border-radius: 8px
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18)
+      padding: 10px
+      min-width: 168px
+      user-select: none
+
+    .table-picker-label
+      font-size: 0.78rem
+      font-weight: 600
+      color: #495057
+      margin-bottom: 8px
+      text-align: center
+
+    .table-picker-grid
+      display: grid
+      grid-template-columns: repeat(10, 14px)
+      gap: 3px
+      justify-content: center
+
+    .table-picker-cell
+      width: 14px
+      height: 14px
+      border: 1px solid #ced4da
+      border-radius: 2px
+      background: #ffffff
+      box-sizing: border-box
+
+    .table-picker-cell.is-selected
+      background: rgba(192, 87, 17, 0.18)
+      border-color: #c05711
+
+    .table-picker-hint
+      margin-top: 8px
+      font-size: 0.72rem
+      color: #6c757d
+      text-align: center
+
     .tiptap-content
-      padding: 12px
-      min-height: 180px
-      overflow-x: hidden
+      padding: 8px 12px
+      min-height: 0
+      overflow-x: clip
 
     .tiptap-content.email-width
       max-width: 600px
       margin: 0 auto
       padding: 30px
       box-sizing: border-box
+      min-height: 180px
 
     .tiptap-content img,
     .tiptap-content table,
@@ -308,9 +369,47 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       word-break: break-word
       max-width: 100%
 
+    .tiptap-content blockquote
+      border-left: 4px solid #a8d08d
+      margin: 0.75rem 0
+      padding: 0.6rem 1rem
+      background-color: rgba(168, 208, 141, 0.12)
+      color: #444
+      font-style: italic
+
+    .tiptap-content blockquote p
+      margin-bottom: 0
+
+    .tiptap-content blockquote p + p
+      margin-top: 0.5rem
+
     .tiptap-content .ProseMirror
-      min-height: 160px
+      min-height: 2.5rem
       outline: none
+
+    .tiptap-content.email-width .ProseMirror
+      min-height: 160px
+
+    .tiptap-content .ProseMirror ul
+      list-style: revert
+      padding-left: revert
+      margin: revert
+
+    .tiptap-content.list-arrow .ProseMirror ul,
+    .tiptap-content.list-tick-large .ProseMirror ul,
+    .tiptap-content.list-tick-medium .ProseMirror ul,
+    .tiptap-content.list-default .ProseMirror ul
+      list-style: none
+      padding: 0
+      margin: 0
+
+    .tiptap-content.list-arrow .ProseMirror ul li,
+    .tiptap-content.list-tick-large .ProseMirror ul li,
+    .tiptap-content.list-tick-medium .ProseMirror ul li
+      list-style: none
+
+    .tiptap-content.background-panel
+      border-radius: 6px
 
     .tiptap-content merge-field,
     .tiptap-content .merge-field-chip
@@ -428,16 +527,13 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       min-width: 160px
   `],
   template: `
-    <div class="tiptap-editor-shell" [class.tiptap-editor-shell-disabled]="!editable" [attr.aria-disabled]="!editable">
-      @if (editable) {
-      <button type="button" class="tiptap-toolbar-toggle" (click)="toolbarExpanded = !toolbarExpanded"
-              [attr.aria-expanded]="toolbarExpanded">
-        <fa-icon [icon]="faSliders" class="me-1"/>
-        <span>Formatting tools</span>
-        <fa-icon [icon]="toolbarExpanded ? faChevronUp : faChevronDown" class="ms-1"/>
-      </button>
+    <div class="tiptap-editor-shell"
+         [class.tiptap-editor-shell-disabled]="!editable"
+         [class.tiptap-editor-shell-detail]="editable && toolbarExpanded"
+         [attr.aria-disabled]="!editable">
+      @if (editable && toolbarExpanded) {
       <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
-           [class.tiptap-toolbar-collapsed]="!toolbarExpanded" role="toolbar" (mousedown)="onToolbarMousedown($event)">
+           role="toolbar" (mousedown)="onToolbarMousedown($event)">
         <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
           <fa-icon [icon]="faBold"/>
         </button>
@@ -477,9 +573,32 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
         <button type="button" tooltip="Insert image" container="body" delay=500 (click)="insertImage()">
           <fa-icon [icon]="faImage"/>
         </button>
-        <button type="button" class="toolbar-text-toggle" tooltip="Insert a table at the cursor" container="body" delay=500 (click)="insertTable()">
-          Table
-        </button>
+        <div class="table-picker-wrap">
+          <button type="button" class="toolbar-text-toggle" [class.is-active]="tablePickerOpen"
+                  tooltip="Insert a table — press and drag across the grid to choose size" container="body" delay=500
+                  (pointerdown)="onTableButtonPointerDown($event)"
+                  (click)="$event.preventDefault(); $event.stopPropagation()">
+            Table
+          </button>
+          @if (tablePickerOpen) {
+            <div class="table-picker-popup">
+              <div class="table-picker-label">{{ tablePickerLabel() }}</div>
+              <div class="table-picker-grid">
+                @for (row of tablePickerRows; track row) {
+                  @for (col of tablePickerCols; track col) {
+                    <div class="table-picker-cell"
+                         [class.is-selected]="tablePickerHasSelection && row <= tablePickerHoverRows && col <= tablePickerHoverCols"
+                         [attr.data-table-row]="row"
+                         [attr.data-table-col]="col"
+                         [attr.aria-label]="col + ' by ' + row + ' table'">
+                    </div>
+                  }
+                }
+              </div>
+              <div class="table-picker-hint">Hold and drag, then release</div>
+            </div>
+          }
+        </div>
         @if (showPageBreak) {
           <button type="button" class="toolbar-text-toggle" tooltip="Insert a page break at the cursor" container="body" delay=500
                   (click)="insertPageBreak()">
@@ -528,11 +647,14 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
           <fa-icon [icon]="unwrapLineBreaksOnPaste ? faToggleOn : faToggleOff" [class.text-success]="unwrapLineBreaksOnPaste" class="me-1"/>
           Unwrap on paste
         </button>
+        <ng-content select="[toolbarExtras]"/>
         <span class="toolbar-divider"></span>
-        <button type="button" tooltip="Undo" container="body" delay=500 (click)="undo()">
+        <button type="button" [tooltip]="undoTooltip" container="body" delay=500
+                [disabled]="!canUndo" (click)="undo()">
           <fa-icon [icon]="faUndo"/>
         </button>
-        <button type="button" tooltip="Redo" container="body" delay=500 (click)="redo()">
+        <button type="button" [tooltip]="redoTooltip" container="body" delay=500
+                [disabled]="!canRedo" (click)="redo()">
           <fa-icon [icon]="faRedo"/>
         </button>
       </div>
@@ -567,7 +689,10 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
           <span class="token-editor-title">Uploading pasted image…</span>
         </div>
       }
-      <div class="tiptap-content" [class.show-examples]="showExampleValues" [class.email-width]="constrainToEmailWidth && !editable">
+      <div class="tiptap-content"
+           [class.show-examples]="showExampleValues"
+           [class.email-width]="constrainToEmailWidth && !editable"
+           [ngClass]="contentClass">
         @if (editor) {
           <tiptap-editor [editor]="editor"></tiptap-editor>
         }
@@ -660,6 +785,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const current = this.currentMarkdown();
       if (incoming !== current) {
         this.editor.commands.setContent(incoming, { contentType: "markdown", emitUpdate: false });
+        this.clearEditorHistory();
       }
     } else {
       this.pendingValue = incoming;
@@ -696,11 +822,21 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   @Input() placeholder: string = "Start writing…";
+  @Input() undoTooltip: string = "Undo";
+  @Input() redoTooltip: string = "Redo";
+  @Input() contentClass: string | string[] | Set<string> | {[klass: string]: unknown} = "";
   @Input() showMergeFields: boolean = false;
   @Input({transform: booleanAttribute}) showPageBreak = false;
   @Input() constrainToEmailWidth: boolean = false;
   @Input({transform: booleanAttribute}) stickyToolbar = false;
-  @Input() editable: boolean = true;
+  private _editable = true;
+  @Input() set editable(value: boolean) {
+    this._editable = value !== false;
+    this.editor?.setEditable(this._editable);
+  }
+  get editable(): boolean {
+    return this._editable;
+  }
   private _extraLinkDestinations: MemberMergeFieldHint[] = [];
   @Input() set extraLinkDestinations(value: MemberMergeFieldHint[]) {
     this._extraLinkDestinations = value || [];
@@ -733,7 +869,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   protected addExternalUrl = (term: string): MemberMergeFieldHint => ({token: (term || "").trim(), label: (term || "").trim()});
   @Output() valueChange = new EventEmitter<string>();
-  @Output() rawPaste = new EventEmitter<{ text: string; consume: () => void }>();
+  @Output() rawPaste = new EventEmitter<{ text: string; html?: string; consume: () => void }>();
 
   protected editor: Editor | null = null;
   private pendingValue: string = "";
@@ -757,6 +893,18 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
   protected mergeFieldSelected: boolean = false;
   protected tableSelected = false;
+  protected canUndo = false;
+  protected canRedo = false;
+  protected tablePickerOpen = false;
+  protected tablePickerHasSelection = false;
+  protected tablePickerHoverRows = 1;
+  protected tablePickerHoverCols = 1;
+  protected readonly tablePickerMax = 10;
+  protected readonly tablePickerRows: number[] = Array.from({length: 10}, (_, index) => index + 1);
+  protected readonly tablePickerCols: number[] = Array.from({length: 10}, (_, index) => index + 1);
+  private tablePickerDragging = false;
+  private readonly onTablePickerPointerMove = (event: PointerEvent) => this.updateTablePickerFromPointer(event);
+  private readonly onTablePickerPointerUp = (event: PointerEvent) => this.finishTablePickerDrag(event);
   protected linkBarOpen: boolean = false;
   protected imageCropperOpen: boolean = false;
   protected imageSelected: boolean = false;
@@ -788,6 +936,11 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private fileUtilsService = inject(FileUtilsService);
 
   private logger: Logger = inject(LoggerFactory).createLogger("TiptapMarkdownEditor", NgxLoggerLevel.ERROR);
+  private changeDetector = inject(ChangeDetectorRef);
+  private pasteDetectionService = inject(PasteDetectionService);
+  private host = inject(ElementRef<HTMLElement>);
+  private zone = inject(NgZone);
+  private readonly onDocumentPointerDown = (event: PointerEvent) => this.handleDocumentPointerDown(event);
 
   protected readonly TiptapMark = TiptapMark;
   protected readonly TiptapTableCommand = TiptapTableCommand;
@@ -805,14 +958,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faRemoveFormat = faRemoveFormat;
   protected readonly faToggleOn = faToggleOn;
   protected readonly faToggleOff = faToggleOff;
-  protected readonly faSliders = faSliders;
-  protected readonly faChevronDown = faChevronDown;
-  protected readonly faChevronUp = faChevronUp;
   protected toolbarExpanded = false;
 
   ngOnInit(): void {
     const extensions: any[] = [
-      StarterKit.configure({ bold: false, italic: false }),
+      StarterKit.configure({ bold: false, italic: false, listItem: false }),
+      ListItem.extend({
+        content: "block+"
+      }),
       HtmlBold,
       HtmlItalic,
       Link.configure({ openOnClick: false, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
@@ -837,51 +990,57 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           type: "doc",
           content: content.content.toJSON()
         }) ?? ""),
+        handleKeyDown: (_view, event) => this.handleEditorKeyDown(event),
         handlePaste: (_view, event) => {
           const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
-          if (pastedImage) {
-            event.preventDefault();
-            void this.uploadAndInsertPastedImage(pastedImage);
-            return true;
-          }
           const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
           const internalPaste = this.isInternalPaste(pastedHtml);
           const text = event.clipboardData?.getData("text/plain") ?? "";
-          if (text) {
-            let consumed = false;
-            this.rawPaste.emit({ text, consume: () => { consumed = true; } });
-            if (consumed) {
+          const consumed = {value: false};
+          let handled = false;
+          if (pastedImage) {
+            event.preventDefault();
+            void this.uploadAndInsertPastedImage(pastedImage);
+            handled = true;
+          } else if (text || pastedHtml) {
+            this.rawPaste.emit({
+              text,
+              html: pastedHtml || undefined,
+              consume: () => {
+                consumed.value = true;
+              }
+            });
+            if (consumed.value) {
               event.preventDefault();
-              return true;
+              handled = true;
+            } else if (!internalPaste && text && this.looksLikeMarkdown(text)) {
+              event.preventDefault();
+              const sanitised = this.unwrapIfEnabled(this.sanitiseMarkdownForPaste(text));
+              try {
+                this.editor?.commands.insertContent(sanitised, {contentType: "markdown"});
+              } catch (error) {
+                this.logger.error("markdown paste failed, falling back to plain text:", error);
+                this.editor?.commands.insertContent(sanitised);
+              }
+              handled = true;
+            } else if (!internalPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
+              event.preventDefault();
+              const html = unwrapSoftLineBreaks(text)
+                .split(/\n{2,}/)
+                .map(block => `<p>${block.replace(/\n/g, "<br>")}</p>`)
+                .join("");
+              this.editor?.commands.insertContent(html);
+              handled = true;
             }
           }
-          if (!internalPaste && text && this.looksLikeMarkdown(text)) {
-            event.preventDefault();
-            const sanitised = this.unwrapIfEnabled(this.sanitiseMarkdownForPaste(text));
-            try {
-              this.editor?.commands.insertContent(sanitised, {contentType: "markdown"});
-            } catch (error) {
-              this.logger.error("markdown paste failed, falling back to plain text:", error);
-              this.editor?.commands.insertContent(sanitised);
-            }
-            return true;
-          }
-          if (!internalPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
-            event.preventDefault();
-            const html = unwrapSoftLineBreaks(text)
-              .split(/\n{2,}/)
-              .map(block => `<p>${block.replace(/\n/g, "<br>")}</p>`)
-              .join("");
-            this.editor?.commands.insertContent(html);
-            return true;
-          }
-          return false;
+          return handled;
         },
         transformPastedHTML: (html: string) => this.isInternalPaste(html) ? html : this.sanitiseHtmlForPaste(html)
       },
       content: this.pendingValue,
       contentType: "markdown",
       onCreate: () => {
+        this.clearEditorHistory();
         if (this.pendingFocusPosition) {
           const position = this.pendingFocusPosition;
           this.pendingFocusPosition = null;
@@ -889,11 +1048,32 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         }
       }
     });
+    this.clearEditorHistory();
+    this.editor.on("focus", () => {
+      this.zone.run(() => this.enterDetailMode());
+    });
+    this.editor.on("blur", () => {
+      this.zone.run(() => {
+        requestAnimationFrame(() => {
+          if (!this.editor?.isFocused && !this.hostContainsActiveElement()) {
+            this.exitDetailMode();
+          }
+        });
+      });
+    });
+    this.zone.runOutsideAngular(() => {
+      document.addEventListener("pointerdown", this.onDocumentPointerDown, true);
+    });
+    this.editor.on("transaction", () => {
+      this.refreshHistoryState();
+    });
     this.editor.on("update", () => {
       const markdown = this.currentMarkdown();
       this.valueChange.emit(markdown);
+      this.refreshHistoryState();
     });
     this.editor.on("selectionUpdate", () => {
+      this.refreshHistoryState();
       this.imageSelected = this.editor?.isActive("image") ?? false;
       this.mergeFieldSelected = this.editor?.isActive(MERGE_FIELD_NODE_NAME) ?? false;
       this.tableSelected = this.editor?.isActive("table") ?? false;
@@ -980,32 +1160,96 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private looksLikeMarkdown(text: string): boolean {
-    if (!text || text.length < 4) return false;
-    let score = 0;
-    if (/^#{1,6} \S/m.test(text)) score += 2;
-    if (/^[-*+] \S/m.test(text)) score += 2;
-    if (/^\d+\. \S/m.test(text)) score += 2;
-    if (/^> /m.test(text)) score += 2;
-    if (/^```/m.test(text)) score += 2;
-    if (/!\[[^\]]*\]\([^)]+\)/.test(text)) score += 2;
-    if (/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m.test(text)) score += 2;
-    if (/\{\{\s*[^}]+?\s*\}\}/.test(text)) score += 2;
-    if (/\*\*\S[^*]*\S\*\*/.test(text)) score += 1;
-    if (/`[^`\n]+`/.test(text)) score += 1;
-    if (/\[[^\]]+\]\([^)]+\)/.test(text)) score += 1;
-    return score >= 2;
+    return this.pasteDetectionService.looksLikeMarkdown(text);
   }
 
   ngOnDestroy(): void {
+    document.removeEventListener("pointerdown", this.onDocumentPointerDown, true);
     document.removeEventListener("mousemove", this.onImageResizeMove);
     document.removeEventListener("mouseup", this.onImageResizeEnd);
+    this.detachTablePickerDragListeners();
     this.editor?.destroy();
     this.editor = null;
+  }
+
+  private enterDetailMode(): void {
+    this.toolbarExpanded = true;
+    this.changeDetector.markForCheck();
+  }
+
+  private exitDetailMode(): void {
+    this.toolbarExpanded = false;
+    this.linkBarOpen = false;
+    this.tablePickerOpen = false;
+    this.insertLinkMode = false;
+    this.mergeFieldSelected = false;
+    this.linkTokenSelected = false;
+    this.imageSelected = false;
+    this.changeDetector.markForCheck();
+  }
+
+  private hostContainsActiveElement(): boolean {
+    const active = document.activeElement;
+    return !!(active && this.host.nativeElement.contains(active));
+  }
+
+  private handleDocumentPointerDown(event: PointerEvent): void {
+    const target = event.target as Node | null;
+    const shouldExit = this.toolbarExpanded
+      && this.editable
+      && !!target
+      && !this.host.nativeElement.contains(target)
+      && !this.isExternalOverlayTarget(target);
+    if (shouldExit) {
+      this.zone.run(() => this.exitDetailMode());
+    }
+  }
+
+  private isExternalOverlayTarget(target: Node): boolean {
+    const element = target instanceof Element ? target : target.parentElement;
+    const overlay = element?.closest(
+      ".dropdown-menu, .bs-dropdown-menu, .tooltip, .popover, .modal, .modal-backdrop, ng-dropdown-panel, .cdk-overlay-container"
+    );
+    return !!overlay;
   }
 
   private currentMarkdown(): string {
     const markdown = this.editor?.getMarkdown?.() ?? this.editor?.getHTML() ?? "";
     return this.stripOrphanInlineMarks(markdown);
+  }
+
+  public markdown(): string {
+    return this.currentMarkdown();
+  }
+
+  public splitMarkdownAtSelection(): { before: string; selected: string; after: string } {
+    if (!this.editor) {
+      return {before: this.pendingValue, selected: "", after: ""};
+    }
+    const {from, to} = this.editor.state.selection;
+    const docSize = this.editor.state.doc.content.size;
+    return {
+      before: this.serializeMarkdownRange(0, from),
+      selected: this.serializeMarkdownRange(from, to),
+      after: this.serializeMarkdownRange(to, docSize)
+    };
+  }
+
+  private serializeMarkdownRange(start: number, end: number): string {
+    if (!this.editor || end <= start) {
+      return "";
+    }
+    const node = this.editor.state.doc.cut(start, end);
+    try {
+      const content = node.toJSON() as JSONContent;
+      const serialised = this.editor.markdown?.serialize(content);
+      if (isString(serialised)) {
+        return this.stripOrphanInlineMarks(serialised);
+      }
+    } catch (error) {
+      this.logger.debug("serializeMarkdownRange failed, using text content:", error);
+    }
+    return node.textContent || "";
   }
 
   private stripOrphanInlineMarks(markdown: string): string {
@@ -1036,10 +1280,36 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       this.toggleInlineMark("italic");
       return;
     }
-    const chain = this.editor.chain().focus();
-    if (name === TiptapMark.BulletList) chain.toggleBulletList().run();
-    else if (name === TiptapMark.OrderedList) chain.toggleOrderedList().run();
-    else if (name === TiptapMark.Blockquote) chain.toggleBlockquote().run();
+    if (name === TiptapMark.BulletList) {
+      this.editor.chain().focus().toggleBulletList().run();
+      return;
+    }
+    if (name === TiptapMark.OrderedList) {
+      this.editor.chain().focus().toggleOrderedList().run();
+      return;
+    }
+    if (name === TiptapMark.Blockquote) {
+      this.toggleBlockquote();
+    }
+  }
+
+  private toggleBlockquote(): void {
+    if (!this.editor) {
+      return;
+    }
+    if (this.editor.isActive("blockquote")) {
+      this.editor.chain().focus().lift("blockquote").run();
+      return;
+    }
+    if (this.editor.can().toggleBlockquote()) {
+      this.editor.chain().focus().toggleBlockquote().run();
+      return;
+    }
+    if (this.editor.isActive("listItem")) {
+      this.editor.chain().focus().liftListItem("listItem").toggleBlockquote().run();
+      return;
+    }
+    this.editor.chain().focus().setBlockquote().run();
   }
 
   private toggleInlineMark(markName: string): void {
@@ -1065,8 +1335,110 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor?.chain().focus().toggleHeading({ level }).run();
   }
 
+  private handleEditorKeyDown(event: KeyboardEvent): boolean {
+    if (event.key !== "Tab" || !this.editor || !this.editable) {
+      return false;
+    }
+    const inListItem = this.editor.isActive("listItem");
+    if (!inListItem) {
+      return false;
+    }
+    if (event.shiftKey) {
+      this.editor.commands.liftListItem("listItem");
+      return true;
+    }
+    this.editor.commands.sinkListItem("listItem");
+    return true;
+  }
+
   insertTable(): void {
-    this.editor?.chain().focus().insertTable({rows: 3, cols: 3, withHeaderRow: true}).run();
+    this.insertTableAtSize(3, 3);
+  }
+
+  onTableButtonPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.tablePickerHasSelection = false;
+    this.tablePickerHoverRows = 1;
+    this.tablePickerHoverCols = 1;
+    this.tablePickerOpen = true;
+    this.tablePickerDragging = true;
+    this.attachTablePickerDragListeners();
+    this.updateTablePickerFromPointer(event);
+  }
+
+  tablePickerLabel(): string {
+    if (!this.tablePickerHasSelection) {
+      return "Choose size";
+    }
+    return `${this.tablePickerHoverCols} × ${this.tablePickerHoverRows}`;
+  }
+
+  insertTableAtSize(rows: number, cols: number): void {
+    const safeRows = Math.min(Math.max(rows, 1), this.tablePickerMax);
+    const safeCols = Math.min(Math.max(cols, 1), this.tablePickerMax);
+    this.editor?.chain().focus().insertTable({
+      rows: safeRows,
+      cols: safeCols,
+      withHeaderRow: true
+    }).run();
+    this.closeTablePicker();
+  }
+
+  closeTablePicker(): void {
+    this.tablePickerOpen = false;
+    this.tablePickerDragging = false;
+    this.tablePickerHasSelection = false;
+    this.detachTablePickerDragListeners();
+  }
+
+  private updateTablePickerFromPointer(event: PointerEvent): void {
+    if (!this.tablePickerOpen) {
+      return;
+    }
+    const hit = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+    const cell = hit?.closest?.("[data-table-row][data-table-col]") as HTMLElement | null;
+    if (!cell) {
+      return;
+    }
+    const rows = Number(cell.getAttribute("data-table-row"));
+    const cols = Number(cell.getAttribute("data-table-col"));
+    if (!rows || !cols) {
+      return;
+    }
+    this.tablePickerHoverRows = rows;
+    this.tablePickerHoverCols = cols;
+    this.tablePickerHasSelection = true;
+  }
+
+  private finishTablePickerDrag(event: PointerEvent): void {
+    if (!this.tablePickerDragging) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.updateTablePickerFromPointer(event);
+    if (this.tablePickerHasSelection) {
+      this.insertTableAtSize(this.tablePickerHoverRows, this.tablePickerHoverCols);
+      return;
+    }
+    this.closeTablePicker();
+  }
+
+  private attachTablePickerDragListeners(): void {
+    this.detachTablePickerDragListeners();
+    document.addEventListener("pointermove", this.onTablePickerPointerMove);
+    document.addEventListener("pointerup", this.onTablePickerPointerUp);
+    document.addEventListener("pointercancel", this.onTablePickerPointerUp);
+  }
+
+  private detachTablePickerDragListeners(): void {
+    document.removeEventListener("pointermove", this.onTablePickerPointerMove);
+    document.removeEventListener("pointerup", this.onTablePickerPointerUp);
+    document.removeEventListener("pointercancel", this.onTablePickerPointerUp);
   }
 
   tableCommand(command: TiptapTableCommand): void {
@@ -1429,11 +1801,40 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   undo(): void {
+    if (!this.canUndo) {
+      return;
+    }
     this.editor?.chain().focus().undo().run();
   }
 
   redo(): void {
+    if (!this.canRedo) {
+      return;
+    }
     this.editor?.chain().focus().redo().run();
+  }
+
+  private refreshHistoryState(): void {
+    if (!this.editor) {
+      this.canUndo = false;
+      this.canRedo = false;
+      return;
+    }
+    this.canUndo = undoDepth(this.editor.state) > 0;
+    this.canRedo = redoDepth(this.editor.state) > 0;
+  }
+
+  private clearEditorHistory(): void {
+    if (!this.editor) {
+      return;
+    }
+    const {state, view} = this.editor;
+    view.updateState(EditorState.create({
+      doc: state.doc,
+      plugins: state.plugins,
+      selection: state.selection
+    }));
+    this.refreshHistoryState();
   }
 
   onMergeFieldInsert(event: Event): void {

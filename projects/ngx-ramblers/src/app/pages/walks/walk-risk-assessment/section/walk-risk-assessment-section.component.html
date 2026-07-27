@@ -4,9 +4,8 @@
       <div class="thumbnail-heading">{{riskAssessmentSection}}</div>
       <div class="row">
         <div class="col-sm-12">
-          <app-markdown-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-' +riskAssessmentKey"
+          <app-content-text-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-' +riskAssessmentKey"
                                [presentationMode]="inputDisabled"
-                               [hideEditToggle]="inputDisabled"
                                [description]="riskAssessmentSection"/>
         </div>
       </div>

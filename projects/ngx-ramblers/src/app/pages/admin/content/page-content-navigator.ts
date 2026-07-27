@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, OnInit, signal } from "@angular/core";
 import { PageContentManagementService } from "./page-content-management.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { PageComponent } from "../../../page/page.component";
 import { PageContentGroup, EM_DASH_WITH_SPACES, PageContent } from "../../../models/content-text.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -29,7 +29,7 @@ import { PageContentViewMode } from "../../../models/page-content-navigator.mode
   selector: "app-page-content-navigator",
   template: `
     <app-page autoTitle>
-      <app-markdown-editor standalone category="admin" name="page-content-navigator"/>
+      <app-content-text-editor standalone category="admin" name="page-content-navigator"/>
       <div class="mb-3 d-flex align-items-center flex-nowrap">
         <label class="me-2 text-nowrap">View Mode: </label>
         <button class="btn btn-sm btn-primary me-2 text-nowrap"
@@ -135,7 +135,7 @@ import { PageContentViewMode } from "../../../models/page-content-navigator.mode
     </app-page>
   `,
   imports: [
-    MarkdownEditorComponent,
+    ContentTextEditor,
     PageComponent,
     DynamicContentViewComponent,
     FontAwesomeModule,

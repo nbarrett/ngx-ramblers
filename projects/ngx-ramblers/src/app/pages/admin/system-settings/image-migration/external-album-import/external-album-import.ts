@@ -33,7 +33,7 @@ import { SectionToggle } from "../../../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../../../models/section-toggle.model";
 import { TemplateSelectEvent, TemplateSelectorComponent } from "../../../../../modules/common/dynamic-content/template-selector";
 import { PageContent } from "../../../../../models/content-text.model";
-import { MarkdownEditorComponent } from "../../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../../modules/common/tiptap-editor/content-text-editor";
 import { ExternalAlbumGroupComponent } from "./external-album-group";
 import { UrlService } from "../../../../../services/url.service";
 import { groupBy } from "es-toolkit/compat";
@@ -70,9 +70,9 @@ import { StoredValue } from "../../../../../models/ui-actions";
       <div class="row px-3 pb-3">
         <div class="col-sm-12">
           @if (importMode === ExternalAlbumImportMode.SINGLE) {
-            <app-markdown-editor standalone name="external-album-import-single-help" category="admin" description="Single album import help"/>
+            <app-content-text-editor standalone name="external-album-import-single-help" category="admin" description="Single album import help"/>
           } @else {
-            <app-markdown-editor standalone name="external-album-import-bulk-help" category="admin" description="Bulk album import help"/>
+            <app-content-text-editor standalone name="external-album-import-bulk-help" category="admin" description="Bulk album import help"/>
           }
         </div>
       </div>
@@ -449,7 +449,7 @@ import { StoredValue } from "../../../../../models/ui-actions";
     NgSelectComponent,
     SectionToggle,
     TemplateSelectorComponent,
-    MarkdownEditorComponent,
+    ContentTextEditor,
     ExternalAlbumGroupComponent
   ]
 })

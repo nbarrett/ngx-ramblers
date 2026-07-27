@@ -5,7 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
 import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
 
 @Component({
@@ -15,7 +15,7 @@ import { FormsModule } from "@angular/forms";
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Process Mappings</div>
         <div class="col-sm-12 mb-3">
-          <app-markdown-editor standalone category="admin" name="mail-settings-process-mappings"/>
+          <app-content-text-editor standalone category="admin" name="mail-settings-process-mappings"/>
         </div>
         <div class="col-sm-12">
           <div class="form-group">
@@ -104,7 +104,7 @@ import { FormsModule } from "@angular/forms";
       </div>
     }
     `,
-    imports: [MarkdownEditorComponent, FormsModule]
+    imports: [ContentTextEditor, FormsModule]
 })
 
 export class NotificationConfigToProcessMappingComponent implements OnInit, OnDestroy {

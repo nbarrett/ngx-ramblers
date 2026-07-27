@@ -1,6 +1,5 @@
 import {
   Component,
-  ElementRef,
   EventEmitter,
   inject,
   Injector,
@@ -10,39 +9,25 @@ import {
   Output,
   ViewChild
 } from "@angular/core";
-import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import {
   faAngleDown,
   faAngleUp,
-  faBold,
   faCircleCheck,
-  faCode,
   faEraser,
   faHashtag,
-  faHeading,
   faImage,
-  faItalic,
-  faLink,
-  faListOl,
-  faListUl,
-  faMagnifyingGlass,
   faPaintBrush,
-  faPencil,
-  faQuoteRight,
   faRefresh,
-  faRemove,
-  faRotateLeft,
   faScissors,
   faSpinner
 } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, isEmpty, isEqual, isUndefined, pick } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { NamedEvent, NamedEventType } from "../models/broadcast.model";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   ContentText,
   ContentTextStyles,
   DataAction,
-  EditorInstanceState,
   EditorState,
   HasStyles,
   InsertableField,
@@ -50,67 +35,48 @@ import {
   ListStyleMappings,
   SplitEvent,
   View
-} from "../models/content-text.model";
-import { MarkdownLineType, MarkdownListType } from "../models/markdown.model";
-import { BroadcastService } from "../services/broadcast-service";
-import { ContentTextService } from "../services/content-text.service";
-import { ContentConversionService } from "../services/content-conversion.service";
-import { Logger, LoggerFactory } from "../services/logger-factory.service";
-import { MigrationConfigService } from "../services/migration/migration-config.service";
-import { ConfigService } from "../services/config.service";
-import { ConfigKey } from "../models/config.model";
-import { SiteEditService } from "../site-edit/site-edit.service";
-import { UiActionsService } from "../services/ui-actions.service";
-import { StoredValue } from "../models/ui-actions";
-import { StringUtilsService } from "../services/string-utils.service";
-import { PasteDetectionService } from "../services/paste-detection.service";
+} from "../../../models/content-text.model";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { ContentTextService } from "../../../services/content-text.service";
+import { ContentConversionService } from "../../../services/content-conversion.service";
+import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { MigrationConfigService } from "../../../services/migration/migration-config.service";
+import { ConfigService } from "../../../services/config.service";
+import { ConfigKey } from "../../../models/config.model";
+import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { StoredValue } from "../../../models/ui-actions";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import { PasteDetectionService } from "../../../services/paste-detection.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { BadgeButtonComponent } from "../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FormsModule } from "@angular/forms";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { KebabCasePipe } from "../pipes/kebabcase.pipe";
+import { KebabCasePipe } from "../../../pipes/kebabcase.pipe";
 import {
   ContentFormattingSelectorComponent
-} from "../modules/common/content-formatting-selector/content-formatting-selector";
-import { UrlService } from "../services/url.service";
-import { SystemConfig, TextStyle } from "../models/system.model";
+} from "../content-formatting-selector/content-formatting-selector";
+import { UrlService } from "../../../services/url.service";
+import { SystemConfig, TextStyle } from "../../../models/system.model";
 import { Subscription } from "rxjs";
-import { DataPopulationService } from "../pages/admin/data-population.service";
-import { SystemConfigService } from "../services/system/system-config.service";
-import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
+import { DataPopulationService } from "../../../pages/admin/data-population.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { HtmlPastePreview, HtmlPasteResult } from "../../../models/html-paste.model";
+import { TiptapMarkdownEditor } from "./tiptap-markdown-editor";
+import { ContentTextUnsavedChangesService } from "../../../services/content-text-unsaved-changes.service";
 
 @Component({
-  selector: "app-markdown-editor",
+  selector: "app-content-text-editor",
   styles: [`
-    .markdown-textarea
-      margin-top: 6px
-      margin-bottom: 12px
-      min-width: 100%
-
     .background-panel
       border-radius: 6px
       padding: 16px
 
-    .markdown-context-menu
-      position: fixed
-      background: white
-      border: 1px solid #ccc
-      border-radius: 4px
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15)
-      z-index: 10000
-      min-width: 200px
-
-    .context-menu-item
-      padding: 8px 12px
-      cursor: pointer
-      display: flex
-      align-items: center
-
-      &:hover
-        background-color: #f0f0f0
+    .content-text-editor-tiptap
+      margin-top: 0
+      margin-bottom: 0
 
     .paste-prompt-overlay
       position: fixed
@@ -179,71 +145,12 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
         transform: rotate(0deg)
       to
         transform: rotate(360deg)
-
-    .editor-toolbar
-      display: flex
-      align-items: center
-      flex-wrap: wrap
-      gap: 6px
-      padding: 4px 8px
-      background-color: #e9ecef
-      border: 1px solid #dee2e6
-      border-radius: .5rem
-      width: fit-content
-      max-width: 100%
-
-    .toolbar-item
-      display: flex
-      margin: 0
-      padding: 0
-
-    .toolbar-item .btn
-      background: transparent !important
-      border: none !important
-      width: auto
-      padding: .25rem .5rem
-      line-height: 1
-      box-shadow: none !important
-      border-radius: 0 !important
-
-    .toolbar-item .btn:hover,
-    .toolbar-item .btn:focus
-      background-color: rgba(0,0,0,.06) !important
   `],
   template: `
-    @if (siteEditActive()) {
-      <div class="row">
-        <div class="col-12">
-          <ng-content select="[prepend]"/>
-          @if (editorState.view && !hideEditToggle) {
-            <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
-                              [icon]="icon()"
-                              [caption]="nextActionCaption()"/>
-          }
-          @if (dirty() && canSave()) {
-            <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
-                              delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
-                              [caption]="'save'"/>
-          }
-          @if (hasDefaultContent()) {
-            <app-badge-button (click)="loadDefault()"
-                              delay=500 [tooltip]="'Load default content for ' + description"
-                              [icon]="faRefresh" caption="default"/>
-          }
-          @if (dirty() && !saving() && editorState.view !== 'edit') {
-            <app-badge-button (click)="revert()"
-                              delay=500 [tooltip]="'Revert content for ' + description"
-                              [icon]="reverting() ? faSpinner: faRemove" caption="revert"/>
-          }
-          @if (canDelete() && !saving()) {
-            <app-badge-button (click)="delete()" delay=500
-                              [tooltip]="'Delete content for ' + description"
-                              [icon]="reverting() ? faSpinner: faEraser"
-                              caption="delete"/>
-          }
-          <ng-content select=":not([prepend])"/>
-        </div>
-        @if (editNameEnabled) {
+    @if (editingContent()) {
+      <ng-content select="[prepend]"/>
+      @if (editNameEnabled) {
+        <div class="row">
           <div class="col-12">
             <label class="mt-2 mt-3" [for]="'input-'+ content.name | kebabCase">Content name</label>
             <input [(ngModel)]="content.name"
@@ -252,156 +159,87 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
                    placeholder="Enter name of content">
             <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
           </div>
-        }
-      </div>
-    }
-    @if (showing() && editorState.view === 'view') {
-      @if (renderInline()) {
-        <span markdown mermaid ngPreserveWhitespaces [data]="content.text" [class]="content?.styles?.class"
-              (click)="toggleEdit()">
-              </span>
-      }
-      @if (!renderInline()) {
-        <div [class]="contentStyleClasses()"
-             (click)="toggleEdit()" markdown mermaid ngPreserveWhitespaces [data]="content.text">
         </div>
       }
-    }
-    @if (allowHide && editorState.view === 'view') {
-      <div class="badge-button"
-           (click)="toggleShowHide()" [tooltip]="showHideCaption()">
-        <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"/>
-        <span>{{ showHideCaption() }}</span>
-      </div>
-    }
-    @if (editorState.view === 'edit') {
-      <div class="editor-toolbar mt-2">
-        @if (dirty() && !saving()) {
-          <div class="toolbar-item">
-            <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="revert()"
-                    [tooltip]="'Revert content for ' + description" container="body">
-              <fa-icon [icon]="reverting() ? faSpinner : faRotateLeft" [animation]="reverting() ? 'spin' : undefined"/>
-            </button>
-          </div>
-        }
-        <div class="toolbar-item" dropdown [container]="'body'">
-          <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle" dropdownToggle type="button"
-                  tooltip="Make selection a Heading" container="body">
-            <fa-icon [icon]="faHeading"/>
-          </button>
-          <ul *dropdownMenu class="dropdown-menu">
-            <li><a class="dropdown-item" (click)="formatHeadingLevel(1)">Heading 1</a></li>
-            <li><a class="dropdown-item" (click)="formatHeadingLevel(2)">Heading 2</a></li>
-            <li><a class="dropdown-item" (click)="formatHeadingLevel(3)">Heading 3</a></li>
-            <li><a class="dropdown-item" (click)="formatHeadingLevel(4)">Heading 4</a></li>
-            <li><a class="dropdown-item" (click)="formatHeadingLevel(5)">Heading 5</a></li>
-            <li><a class="dropdown-item" (click)="formatHeadingLevel(6)">Heading 6</a></li>
-          </ul>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatBold()"
-                  tooltip="Make selection Bold" container="body">
-            <fa-icon [icon]="faBold"/>
-          </button>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatItalic()"
-                  tooltip="Make selection Italic" container="body">
-            <fa-icon [icon]="faItalic"/>
-          </button>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatCode()"
-                  tooltip="Make selection Code" container="body">
-            <fa-icon [icon]="faCode"/>
-          </button>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatQuote()"
-                  tooltip="Make selection a Quotation" container="body">
-            <fa-icon [icon]="faQuoteRight"/>
-          </button>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList(MarkdownListType.UNORDERED)"
-                  tooltip="Make selection a Bulleted List" container="body">
-            <fa-icon [icon]="faListUl"/>
-          </button>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList(MarkdownListType.ORDERED)"
-                  tooltip="Make selection a Numbered List" container="body">
-            <fa-icon [icon]="faListOl"/>
-          </button>
-        </div>
-        <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatLink()"
-                  tooltip="Make selection a Link" container="body">
-            <fa-icon [icon]="faLink"/>
-          </button>
-        </div>
-        @if (!standalone) {
-          <div class="toolbar-item">
-            <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatSplit()"
-                    tooltip="Split text into new row below" container="body">
-              <fa-icon [icon]="faScissors"/>
-            </button>
-          </div>
-        }
-        @if (!standalone && hasImagesInCurrentContent()) {
-          <div class="toolbar-item">
-            <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="showConvertToRowsPreview()"
-                    [tooltip]="convertToRowsTooltip()" container="body">
-              <fa-icon [icon]="faImage"/>
-            </button>
-          </div>
-        }
-        <div class="toolbar-item" dropdown [container]="'body'">
-          <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle" dropdownToggle type="button"
-                  tooltip="Formatting styles" container="body">
-            <fa-icon [icon]="faPaintBrush"/>
-          </button>
-          <app-content-formatting-selector
-            [styles]="content?.styles"
-            (listStyleChange)="assignListStyleTo($event)"
-            (textStyleChange)="assignTextStyleTo($event)">
-          </app-content-formatting-selector>
-        </div>
-        @if (insertableFields.length > 0) {
-          <div class="toolbar-item" dropdown [container]="'body'">
-            <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle" dropdownToggle type="button"
-                    tooltip="Insert placeholder field" container="body">
-              <fa-icon [icon]="faHashtag"/>
-            </button>
-            <ul *dropdownMenu class="dropdown-menu">
-              @for (field of insertableFields; track field.value) {
-                <li><a class="dropdown-item" (click)="insertField(field)">{{ field.label }}</a></li>
+      <div class="content-text-editor-tiptap">
+        <app-tiptap-markdown-editor
+          [value]="content.text || ''"
+          [editable]="canEditContent()"
+          [contentClass]="contentStyleClasses()"
+          [placeholder]="'Enter ' + (description || 'content') + ' text here'"
+          [undoTooltip]="undoTooltip()"
+          [redoTooltip]="redoTooltip()"
+          (valueChange)="onTiptapValueChange($event)"
+          (rawPaste)="onTiptapRawPaste($event)">
+          @if (canEditContent()) {
+            <span toolbarExtras class="toolbar-extras">
+              <span class="toolbar-divider"></span>
+              @if (!standalone) {
+                <button type="button" tooltip="Split text into new row below" container="body" delay=500
+                        (click)="formatSplit()">
+                  <fa-icon [icon]="faScissors"/>
+                </button>
               }
-            </ul>
-          </div>
-        }
+              @if (!standalone && hasImagesInCurrentContent()) {
+                <button type="button" [tooltip]="convertToRowsTooltip()" container="body" delay=500
+                        (click)="showConvertToRowsPreview()">
+                  <fa-icon [icon]="faImage"/>
+                </button>
+              }
+              <div dropdown [container]="'body'" class="toolbar-dropdown">
+                <button type="button" class="dropdown-toggle" dropdownToggle
+                        tooltip="Formatting styles" container="body" delay=500>
+                  <fa-icon [icon]="faPaintBrush"/>
+                </button>
+                <app-content-formatting-selector
+                  [styles]="content?.styles"
+                  (listStyleChange)="assignListStyleTo($event)"
+                  (textStyleChange)="assignTextStyleTo($event)">
+                </app-content-formatting-selector>
+              </div>
+              @if (insertableFields.length > 0) {
+                <div dropdown [container]="'body'" class="toolbar-dropdown">
+                  <button type="button" class="dropdown-toggle" dropdownToggle
+                          tooltip="Insert placeholder field" container="body" delay=500>
+                    <fa-icon [icon]="faHashtag"/>
+                  </button>
+                  <ul *dropdownMenu class="dropdown-menu">
+                    @for (field of insertableFields; track field.value) {
+                      <li><a class="dropdown-item" (click)="insertField(field)">{{ field.label }}</a></li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (dirty() && canSave()) {
+                <button type="button" class="toolbar-text-toggle"
+                        [tooltip]="'Save content for ' + description" container="body" delay=500
+                        (click)="save()">
+                  <fa-icon [icon]="saving() ? faSpinner : faCircleCheck" class="me-1"
+                           [animation]="saving() ? 'spin' : undefined"/>
+                  save
+                </button>
+              }
+              @if (hasDefaultContent()) {
+                <button type="button" class="toolbar-text-toggle"
+                        [tooltip]="'Load default content for ' + description" container="body" delay=500
+                        (click)="loadDefault()">
+                  <fa-icon [icon]="faRefresh" class="me-1"/>
+                  default
+                </button>
+              }
+              @if (canDelete() && !saving()) {
+                <button type="button" class="toolbar-text-toggle"
+                        [tooltip]="'Delete content for ' + description" container="body" delay=500
+                        (click)="delete()">
+                  <fa-icon [icon]="faEraser" class="me-1"/>
+                  delete
+                </button>
+              }
+            </span>
+          }
+        </app-tiptap-markdown-editor>
       </div>
-      <textarea #textArea [wrap]="'hard'"
-                [rows]="rows"
-                [(ngModel)]="content.text"
-                (ngModelChange)="changeText($event)"
-                (contextmenu)="onContextMenu($event)"
-                (paste)="onPaste($event)"
-                class="form-control markdown-textarea"
-                placeholder="Enter {{description}} text here">
-          </textarea>
-      @if (contextMenuVisible) {
-        <div class="markdown-context-menu"
-             [style.left.px]="contextMenuX"
-             [style.top.px]="contextMenuY"
-             (click)="$event.stopPropagation()"
-             (mouseleave)="hideContextMenu()">
-          <div class="context-menu-item" (click)="formatSplitFromContextMenu()">
-            <fa-icon [icon]="faScissors"/>
-            <span class="ms-2">Split text into new row below</span>
-          </div>
-        </div>
-      }
+      <ng-content select=":not([prepend])"/>
       @if (pasteProcessing && !pastePromptVisible) {
         <div class="paste-processing-backdrop"></div>
         <div class="paste-processing-indicator">
@@ -417,7 +255,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
                 <strong>HTML content detected</strong>
               }
               @if (!pastePromptHtmlDetected) {
-                <strong>Markdown with images detected</strong>
+                <strong>Pasted text with images detected</strong>
               }
             </div>
             <div class="paste-prompt-body">
@@ -547,14 +385,35 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
           </div>
         </div>
       }
+    } @else {
+      @if (showing()) {
+        @if (renderInline()) {
+          <span markdown mermaid ngPreserveWhitespaces [data]="content.text" [class]="content?.styles?.class">
+          </span>
+        } @else {
+          <div [class]="contentStyleClasses()"
+               markdown mermaid ngPreserveWhitespaces [data]="content.text">
+          </div>
+        }
+      }
+      @if (allowHide) {
+        <div class="badge-button"
+             (click)="toggleShowHide()" [tooltip]="showHideCaption()">
+          <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"/>
+          <span>{{ showHideCaption() }}</span>
+        </div>
+      }
     }
   `,
-  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ContentFormattingSelectorComponent]
+  imports: [TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ContentFormattingSelectorComponent, TiptapMarkdownEditor]
 })
-export class MarkdownEditorComponent implements OnInit, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
+export class ContentTextEditor implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("ContentTextEditor", NgxLoggerLevel.ERROR);
   private config = inject(ConfigService);
-  @ViewChild("textArea") textArea?: ElementRef<HTMLTextAreaElement>;
+  private contentTextUnsavedChanges = inject(ContentTextUnsavedChangesService);
+  private static nextUnsavedTrackerId = 0;
+  private readonly unsavedTrackerId = `content-text-editor-${ContentTextEditor.nextUnsavedTrackerId += 1}`;
+  @ViewChild(TiptapMarkdownEditor) tiptapEditor?: TiptapMarkdownEditor;
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
@@ -572,7 +431,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }
     if (!this.content) { this.content = {}; }
     this.content.text = text;
-    this.calculateRows();
     this.updateMarkdownPreviewForTooltip();
   }
 
@@ -599,16 +457,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.setDataAttributes();
   }
 
-  @Input("allowMaximise") set allowMaximiseValue(allowMaximise: boolean) {
-    this.allowMaximise = coerceBooleanProperty(allowMaximise);
-  }
-
   @Input("allowHide") set allowHideValue(allowHide: boolean) {
     this.allowHide = coerceBooleanProperty(allowHide);
-  }
-
-  @Input("hideEditToggle") set hideEditToggleValue(hideEditToggle: boolean) {
-    this.hideEditToggle = coerceBooleanProperty(hideEditToggle);
   }
 
   @Input("deleteEnabled") set deleteEnabledValue(deleteEnabled: boolean) {
@@ -631,48 +481,30 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private pasteDetectionService = inject(PasteDetectionService);
   private injector = inject(Injector);
   private systemConfig: SystemConfig;
-  @Input() rows: number;
-  @Input() actionCaptionSuffix: string;
   @Input() initialView: View;
   @Input() description: string;
   @Input() parentRowColumnCount: number;
   @Input() insertableFields: InsertableField[] = [];
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
-  @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
   @Output() split: EventEmitter<SplitEvent> = new EventEmitter();
   @Output() htmlPaste: EventEmitter<HtmlPasteResult> = new EventEmitter();
-  faBold = faBold;
-  faItalic = faItalic;
-  faLink = faLink;
-  faListUl = faListUl;
-  faListOl = faListOl;
-  faCode = faCode;
-  faQuoteRight = faQuoteRight;
-  faHeading = faHeading;
   faScissors = faScissors;
   faImage = faImage;
   faPaintBrush = faPaintBrush;
   faHashtag = faHashtag;
   private presentationMode: boolean;
-  public minimumRows = 10;
   public data: ContentText;
-  public allowMaximise: boolean;
   public allowHide: boolean;
-  public hideEditToggle: boolean;
   public deleteEnabled: boolean;
   private show = true;
   public editNameEnabled: boolean;
   faSpinner = faSpinner;
-  faPencil = faPencil;
   faCircleCheck = faCircleCheck;
-  faRemove = faRemove;
   faEraser = faEraser;
   faAngleUp = faAngleUp;
   faAngleDown = faAngleDown;
   protected readonly faRefresh = faRefresh;
-  protected readonly faRotateLeft = faRotateLeft;
-  protected readonly MarkdownListType = MarkdownListType;
   private originalContent: ContentText;
   public editorState: EditorState;
   public content: ContentText = {};
@@ -680,10 +512,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   public standalone = false;
   private hideParameterName: StoredValue;
   private subscriptions: Subscription[] = [];
-  public contextMenuVisible = false;
-  public contextMenuX = 0;
-  public contextMenuY = 0;
-  private savedSelection: { start: number; end: number; value: string } | null = null;
   public pastePromptVisible = false;
   public pasteProcessing = false;
   private pastePromptMarkdown = "";
@@ -709,7 +537,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.logger.info("ngOnInit:name", this.content?.name, "data:", this.data, "description:", this.description);
     this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.content?.name) as StoredValue;
     this.editorState = {
-      view: this.initialView || View.VIEW,
+      view: this.siteEditService.active() ? View.EDIT : (this.initialView || View.VIEW),
       dataAction: DataAction.NONE
     };
     if (this.data) {
@@ -725,7 +553,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }
     this.subscriptions.push(this.siteEditService.events.subscribe((item: NamedEvent<boolean>) => {
       this.logger.info("siteEditService.events.subscribe:", this.content?.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
-      this.editorState.view = item.data ? View.EDIT : View.VIEW;
+      this.editorState.view = item.data ? View.EDIT : (this.initialView || View.VIEW);
       if (item.data) {
         this.subscribeToMigrationConfigIfNeeded();
       }
@@ -738,16 +566,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       this.show = !currentlyHidden;
     }
     this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig));
-    const clickListener = () => {
-      if (this.contextMenuVisible) {
-        this.hideContextMenu();
-      }
-    };
-    document.addEventListener("click", clickListener);
-    this.subscriptions.push({
-      unsubscribe: () => document.removeEventListener("click", clickListener)
-    } as Subscription);
-
     const keyListener = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.pastePromptVisible) {
         this.hidePastePrompt();
@@ -760,6 +578,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.contentTextUnsavedChanges.clear(this.unsavedTrackerId);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -787,17 +606,15 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.logger.info("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
     this.initialiseStyles();
     this.content.styles.list = listStyle;
-    if (!this.content.styles) { this.content.styles = {list: null, class: null}; }
     this.broadcastChange();
-    this.toggleToView();
+    this.syncUnsavedTracker();
   }
 
   assignTextStyleTo(className: string) {
     this.initialiseStyles();
-    this.content.styles.class = className;
-    if (!this.content.styles) { this.content.styles = {list: null, class: null}; }
+    this.content.styles.class = className || null;
     this.broadcastChange();
-    this.toggleToView();
+    this.syncUnsavedTracker();
   }
 
   private initialiseStyles() {
@@ -813,10 +630,9 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const existingData: boolean = !!this.data.id;
     this.content = this.data;
     this.saveEnabled = true;
-    this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
+    this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState);
     this.originalContent = cloneDeep(this.content);
     this.setDescription();
-    this.calculateRows();
     this.updateMarkdownPreviewForTooltip();
   }
 
@@ -845,7 +661,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       }
       if (!this.content) { this.content = {}; }
       this.autoLoadDefaultContentIfAvailable();
-      this.calculateRows();
     } else {
       this.content = content;
       this.initialiseStyles();
@@ -853,8 +668,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.saveEnabled = true;
     this.originalContent = cloneDeep(this.content);
     this.editorState.dataAction = DataAction.NONE;
-    this.calculateRows();
-    this.deferAutoResize();
     this.updateMarkdownPreviewForTooltip();
     this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
@@ -868,18 +681,13 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  private calculateRows() {
-    this.rows = this.calculateRowsFrom(this.content);
-  }
-
-
-
   revert(): void {
     this.logger.info("reverting ", this.content?.name, "content");
     this.content = cloneDeep(this.originalContent);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this.content));
     this.changed.emit(this.content);
     this.updateMarkdownPreviewForTooltip();
+    this.syncUnsavedTracker();
   }
 
   dirty(): boolean {
@@ -901,70 +709,35 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
           this.logger.info("saved", this.content, "content", "this.editorState", this.editorState);
           this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this.content));
           this.saved.emit(data);
+          this.syncUnsavedTracker();
           return this.content;
         }
       );
     }
   }
 
-  calculateRowsFrom(data: ContentText): number {
-    const text = data?.text;
-    const rows = text ? text?.split(/\r*\n/).length + 1 : 1;
-    const effectiveMinimum = Math.max(this.rows || this.minimumRows, this.minimumRows);
-    const calculatedRows = Math.max(rows, effectiveMinimum);
-    this.logger.info("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
-    return calculatedRows;
+  private tracksIndependentSaves(): boolean {
+    return this.canSave() && !this.presentationMode;
   }
 
-  preview(): void {
-    this.editorState.view = View.VIEW;
+  private unsavedDescription(): string {
+    return this.description || this.content?.name || "content";
   }
 
-  toggleEdit(): void {
-    this.logger.info("toggleEdit called");
-    if (this.siteEditService.active() && this.editorState.dataAction !== DataAction.QUERY) {
-      const priorState: View = this.editorState.view;
-      if (priorState === View.VIEW) {
-        this.toggleToEdit();
-      } else if (this.editorState.view === View.EDIT) {
-        this.toggleToView();
-      }
-      this.logger.info("toggleEdit: changing state from ", priorState, "to", this.editorState.view);
-    }
-  }
-
-  toggleToView() {
-    this.editorState.view = View.VIEW;
-    this.focusChange.emit({view: this.editorState.view, instance: this});
-  }
-
-  toggleToEdit() {
-    this.editorState.view = View.EDIT;
-    this.focusChange.emit({view: this.editorState.view, instance: this});
-    this.deferAutoResize();
-  }
-
-  autoResize(elOrRef?: any) {
-    const el: HTMLTextAreaElement | undefined = elOrRef?.nativeElement ? elOrRef.nativeElement : elOrRef;
-    if (!el) {
+  private syncUnsavedTracker(): void {
+    if (!this.tracksIndependentSaves()) {
+      this.contentTextUnsavedChanges.clear(this.unsavedTrackerId);
       return;
     }
-    const scrollPos = el.scrollTop;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-    el.scrollTop = scrollPos;
-  }
-
-  private deferAutoResize() {
-    setTimeout(() => this.autoResize(this.textArea), 0);
-  }
-
-  nextActionCaption(): string {
-    return this.editorState.dataAction === DataAction.QUERY ? "Querying" : this.editorState.view === View.VIEW ? this.captionFor(View.EDIT) : this.captionFor(View.VIEW);
-  }
-
-  private captionFor(view: View) {
-    return view + (this.actionCaptionSuffix ? (" " + this.actionCaptionSuffix) : "");
+    if (this.dirty()) {
+      this.contentTextUnsavedChanges.setUnsaved({
+        id: this.unsavedTrackerId,
+        description: this.unsavedDescription(),
+        discard: () => this.revert()
+      });
+    } else {
+      this.contentTextUnsavedChanges.clear(this.unsavedTrackerId);
+    }
   }
 
   saving(): boolean {
@@ -988,23 +761,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     return this.editorState.dataAction === DataAction.QUERY;
   }
 
-  icon(): IconDefinition {
-    return this.editorState.dataAction === DataAction.QUERY ? faSpinner : this.editorState.view === View.VIEW ? faPencil : faMagnifyingGlass;
-  }
-
-  tooltip(): string {
-    const prefix = this.editorState.dataAction === DataAction.QUERY ? "Querying" : this.editorState.view === View.VIEW ? "Edit" : "Preview";
-    return prefix + " content for " + this.description;
-  }
-
-  reverting(): boolean {
-    return this.editorState.dataAction === DataAction.REVERT;
-  }
-
-  unlink() {
-    delete this.content.id;
-  }
-
   delete() {
     this.contentTextService.delete(this.content).then((removed) => {
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_DELETED, removed));
@@ -1019,178 +775,40 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     return this.saveEnabled;
   }
 
-  changeText($event: any) {
+  onTiptapValueChange(markdown: string) {
+    this.content.text = markdown;
+    this.changeText();
+  }
+
+  changeText() {
     this.logger.debug("changeText for:", this.content?.name);
-    this.renameIfRequired();
     this.broadcastChange();
     this.updateMarkdownPreviewForTooltip();
-  }
-
-  private selection(): { start: number; end: number; value: string } {
-    const el = this.textArea?.nativeElement;
-    const start = el?.selectionStart || 0;
-    const end = el?.selectionEnd || 0;
-    const value = el?.value || "";
-    return {start, end, value};
-  }
-
-  private replaceSelection(before: string, after: string, transform?: (s: string) => string) {
-    const el = this.textArea?.nativeElement;
-    const {start, end, value} = this.selection();
-    const sel = value.substring(start, end) || "";
-    const body = transform ? transform(sel) : sel;
-    const updated = value.substring(0, start) + before + body + after + value.substring(end);
-    this.content.text = updated;
-    this.changeText(updated);
-    this.deferAutoResize();
-    setTimeout(() => {
-      const pos = start + before.length + body.length + after.length;
-      el?.setSelectionRange(pos, pos);
-      el?.focus();
-    }, 0);
-  }
-
-  formatHeadingLevel(level: number) {
-    const lvl = Math.min(Math.max(level, 1), 6);
-    this.transformSelectionLines((line) => {
-      const info = this.stripKnownPrefix(line);
-      if (info.type === MarkdownLineType.HEADING && info.level === lvl) {
-        return info.stripped;
-      }
-      return "#".repeat(lvl) + " " + info.stripped;
-    });
-  }
-
-  formatBold() {
-    this.replaceSelection("**", "**", s => s || "bold");
-  }
-
-  formatItalic() {
-    this.replaceSelection("_", "_", s => s || "italic");
-  }
-
-  formatCode() {
-    this.replaceSelection("`", "`", s => s || "code");
+    this.syncUnsavedTracker();
   }
 
   insertField(field: InsertableField) {
-    this.replaceSelection("", "", () => field.value);
-  }
-
-  formatQuote() {
-    this.transformSelectionLines((line) => {
-      const info = this.stripKnownPrefix(line);
-      if (info.type === MarkdownLineType.QUOTE) {
-        return info.stripped;
-      }
-      return "> " + info.stripped;
-    });
-  }
-
-  formatList(type: MarkdownListType) {
-    this.transformSelectionLines((line, idx) => {
-      const info = this.stripKnownPrefix(line);
-      if (type === MarkdownListType.UNORDERED) {
-        if (info.type === MarkdownLineType.UNORDERED_LIST) {
-          return info.stripped;
-        }
-        return "- " + info.stripped;
-      } else {
-        if (info.type === MarkdownLineType.ORDERED_LIST) {
-          return info.stripped;
-        }
-        return `${idx + 1}. ` + info.stripped;
-      }
-    });
-  }
-
-  async formatLink() {
-    let url = "url";
-    try {
-      const clip = await (navigator as any)?.clipboard?.readText?.();
-      const text = (clip || "").trim();
-      if (/^https?:\/\/\S+$/i.test(text)) {
-        url = text;
-      }
-    } catch (error) {
-      this.logger.debug("formatLink:clipboard-read-failed", error);
-    }
-    this.replaceSelection("[", `](${url})`, s => s || "title");
+    const current = this.content.text || "";
+    const spacer = current && !current.endsWith("\n") && !current.endsWith(" ") ? " " : "";
+    this.content.text = `${current}${spacer}${field.value}`;
+    this.changeText();
   }
 
   formatSplit() {
-    const {start, end, value} = this.selection();
-    const hasSelection = end > start;
-
-    if (hasSelection) {
-      this.splitSelectedTextIntoNewRow(start, end, value);
-    } else {
-      this.splitAtCursorPosition(start, value);
+    const parts = this.tiptapEditor?.splitMarkdownAtSelection() || {
+      before: this.content.text || "",
+      selected: "",
+      after: ""
+    };
+    if (parts.selected) {
+      this.content.text = `${parts.before}${parts.after}`.trim();
+      this.changeText();
+      this.split.emit({textBefore: "", textAfter: parts.selected});
+      return;
     }
-
-    this.deferAutoResize();
-  }
-
-  private splitSelectedTextIntoNewRow(start: number, end: number, value: string) {
-    const textBefore = value.substring(0, start);
-    const textAfter = value.substring(end);
-
-    this.content.text = textBefore + textAfter;
-    this.changeText(this.content.text);
-
-    const selectedText = value.substring(start, end);
-    this.split.emit({textBefore: "", textAfter: selectedText});
-  }
-
-  private splitAtCursorPosition(start: number, value: string) {
-    const textBefore = value.substring(0, start);
-    const textAfter = value.substring(start);
-
-    this.content.text = textBefore;
-    this.changeText(this.content.text);
-
-    this.split.emit({textBefore: "", textAfter});
-  }
-
-  private transformSelectionLines(mapper: (line: string, index: number) => string) {
-    const el = this.textArea?.nativeElement;
-    const {start, end, value} = this.selection();
-    const hasSelection = end > start;
-    const blockStart = value.lastIndexOf("\n", start - 1) + 1;
-    const blockEnd = (value.indexOf("\n", hasSelection ? end : start) === -1 ? value.length : value.indexOf("\n", hasSelection ? end : start));
-    const target = value.substring(blockStart, blockEnd);
-    const lines = target.split(/\r?\n/);
-    const newText = lines.map((line, i) => mapper(line, i)).join("\n");
-    const updated = value.substring(0, blockStart) + newText + value.substring(blockEnd);
-    this.content.text = updated;
-    this.changeText(updated);
-    this.deferAutoResize();
-    setTimeout(() => {
-      const pos = blockStart + newText.length;
-      el?.setSelectionRange(pos, pos);
-      el?.focus();
-    }, 0);
-  }
-
-  private stripKnownPrefix(line: string): {
-    stripped: string;
-    type: MarkdownLineType | null;
-    level?: number
-  } {
-    const heading = line.match(/^\s{0,3}(#{1,6})\s+/);
-    if (heading) {
-      return {stripped: line.replace(/^\s{0,3}#{1,6}\s+/, ""), type: MarkdownLineType.HEADING, level: heading[1].length};
-    }
-    if (/^\s{0,3}>\s+/.test(line)) {
-      return {stripped: line.replace(/^\s{0,3}>\s+/, ""), type: MarkdownLineType.QUOTE};
-    }
-    if (/^\s{0,3}[-*+]\s+/.test(line)) {
-      return {stripped: line.replace(/^\s{0,3}[-*+]\s+/, ""), type: MarkdownLineType.UNORDERED_LIST};
-    }
-    if (/^\s{0,3}\d+\.\s+/.test(line)) {
-      return {stripped: line.replace(/^\s{0,3}\d+\.\s+/, ""), type: MarkdownLineType.ORDERED_LIST};
-    }
-    return {stripped: line, type: null};
+    this.content.text = parts.before;
+    this.changeText();
+    this.split.emit({textBefore: "", textAfter: parts.after});
   }
 
   private broadcastChange() {
@@ -1201,14 +819,27 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.changed.emit(this.content);
   }
 
-  private renameIfRequired() {}
-
   siteEditActive(): boolean {
+    return this.siteEditService.active();
+  }
+
+  canEditContent(): boolean {
     if (this.presentationMode) {
       return false;
-    } else {
-      return this.siteEditService.active();
     }
+    return this.siteEditService.active() || this.editorState?.view === View.EDIT;
+  }
+
+  editingContent(): boolean {
+    return this.siteEditService.active() || this.editorState?.view === View.EDIT;
+  }
+
+  undoTooltip(): string {
+    return this.description ? `Undo changes to ${this.description}` : "Undo";
+  }
+
+  redoTooltip(): string {
+    return this.description ? `Redo changes to ${this.description}` : "Redo";
   }
 
   renderInline(): boolean {
@@ -1221,7 +852,9 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const effectiveStyles: ContentTextStyles = (this.content?.styles ?? {}) as ContentTextStyles;
     const listKey = effectiveStyles?.list || this.systemConfig?.globalStyles?.list || defaultStyles.list;
     const listStyle = ListStyleMappings[listKey];
-    const contentStyle = effectiveStyles?.class ? `${effectiveStyles.class} background-panel` : null;
+    const styleClass = effectiveStyles?.class || null;
+    const panelClass = styleClass && !this.renderInline() ? "background-panel" : null;
+    const contentStyle = [styleClass, panelClass].filter(Boolean).join(" ") || null;
     const linkStyle = this.systemConfig?.globalStyles?.link || defaultStyles.link;
     const classes = [listStyle, contentStyle, linkStyle].filter(Boolean).join(" ");
     this.logger.off("contentStyleClasses:listStyle:", listStyle, "contentStyle:", contentStyle, "linkStyle:", linkStyle, "classes:", classes);
@@ -1240,137 +873,104 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const defaultText = this.dataPopulationService.defaultContent(this.content?.category, this.content?.name);
     if (defaultText) {
       this.content.text = defaultText;
-      this.changeText(defaultText);
+      this.changeText();
     }
   }
 
-  onContextMenu(event: MouseEvent): void {
-    event.preventDefault();
-    this.saveCurrentSelectionAndShowContextMenu(event.clientX, event.clientY);
+  private pasteCursorPosition(): { start: number; end: number } {
+    const parts = this.tiptapEditor?.splitMarkdownAtSelection();
+    if (parts) {
+      return {
+        start: parts.before.length,
+        end: parts.before.length + parts.selected.length
+      };
+    }
+    const length = (this.content.text || "").length;
+    return {start: length, end: length};
   }
 
-  private saveCurrentSelectionAndShowContextMenu(x: number, y: number): void {
-    this.savedSelection = this.selection();
-    this.contextMenuX = x;
-    this.contextMenuY = y;
-    this.contextMenuVisible = true;
-  }
+  async onTiptapRawPaste(event: { text: string; html?: string; consume: () => void }): Promise<void> {
+    const pastedHtml = event.html || "";
+    const pastedText = event.text || "";
+    if (pastedHtml || pastedText) {
+      const rawText = pastedText.trim();
+      const plain = rawText.replace(/\\([#\-*_[\](){}])/g, "$1");
+      const looksLikeMarkdown = this.pasteDetectionService.looksLikeMarkdown(plain);
+      const hasImages = this.pasteDetectionService.hasMarkdownImages(plain);
+      const isLocalPath = this.pasteDetectionService.isLocalPath(plain);
+      const isViewSource = this.pasteDetectionService.isViewSourceUrl(plain) && !pastedHtml;
+      const leaveForMarkdownInsert = looksLikeMarkdown && !hasImages;
 
-  hideContextMenu(): void {
-    this.contextMenuVisible = false;
-    this.savedSelection = null;
-  }
+      if (!isLocalPath && !leaveForMarkdownInsert) {
+        if (isViewSource) {
+          event.consume();
+          this.pasteProcessing = true;
+          const cleanedUrl = plain.replace(/^view-source:/i, "");
+          try {
+            const response = await this.contentConversionService.htmlFromUrl(cleanedUrl);
+            const resolvedBase = response?.baseUrl ? this.ensureTrailingSlash(response.baseUrl) : this.ensureTrailingSlash(cleanedUrl);
+            this.pastePromptPosition = this.pasteCursorPosition();
+            this.pastePromptHtmlDetected = true;
+            this.pastePromptHtml = response.html;
+            this.pastePromptMarkdown = "";
+            const baseUrls = new Set([resolvedBase, ...this.pastePromptBaseUrls]);
+            this.pastePromptBaseUrls = Array.from(baseUrls);
+            this.pastePromptBaseUrl = resolvedBase;
+            this.pastePromptErrorMessage = "";
+            this.pastePromptHtmlPreview = null;
+            this.pastePromptPreviewBaseUrl = this.pastePromptBaseUrl;
+            this.pasteProcessing = false;
+            this.pastePromptVisible = true;
+          } catch (e) {
+            this.logger.error("Failed to fetch HTML for pasted URL", cleanedUrl, e);
+            this.pasteProcessing = false;
+          }
+        } else {
+          const hasSignificantHtml = this.pasteDetectionService.isSignificantHtml(pastedHtml || "", plain);
+          this.logger.info("onTiptapRawPaste: hasSignificantHtml =", hasSignificantHtml, "looksLikeMarkdown =", looksLikeMarkdown);
 
-  formatSplitFromContextMenu(): void {
-    this.restoreSavedSelection();
-    this.hideContextMenu();
-    setTimeout(() => this.formatSplit(), 0);
-  }
+          if (hasSignificantHtml && !looksLikeMarkdown) {
+            this.logger.info("Significant HTML paste detected, showing prompt for base URL");
+            event.consume();
+            this.pasteProcessing = true;
+            this.pastePromptPosition = this.pasteCursorPosition();
+            this.pastePromptHtmlDetected = true;
+            this.pastePromptHtml = pastedHtml;
+            this.pastePromptMarkdown = "";
+            this.pastePromptErrorMessage = "";
+            this.pastePromptHtmlPreview = null;
+            this.preparePastePromptBaseUrl();
+            this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
+            this.pasteProcessing = false;
+            this.pastePromptVisible = true;
+          } else if (hasImages) {
+            this.logger.info("Markdown images detected, showing split prompt");
+            event.consume();
+            this.pasteProcessing = true;
+            this.pastePromptPosition = this.pasteCursorPosition();
+            this.pastePromptHtmlDetected = false;
+            this.pastePromptHtml = null;
+            this.pastePromptMarkdown = plain;
+            this.pastePromptErrorMessage = "";
+            this.pastePromptHtmlPreview = null;
+            this.pastePromptMarkdownPreview = null;
 
-  private restoreSavedSelection(): void {
-    if (this.savedSelection) {
-      const el = this.textArea?.nativeElement;
-      if (el) {
-        el.focus();
-        el.setSelectionRange(this.savedSelection.start, this.savedSelection.end);
+            try {
+              const preview = await this.contentConversionService.markdownPastePreview(plain);
+              this.pastePromptMarkdownPreview = preview;
+              this.logger.info("Markdown paste preview:", this.stringUtilsService.pluraliseWithCount(preview.rows?.length, "row"));
+            } catch (error) {
+              this.logger.error("Failed to build markdown paste preview", error);
+            }
+
+            this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
+            this.pasteProcessing = false;
+            this.pastePromptVisible = true;
+          }
+        }
+      } else if (leaveForMarkdownInsert) {
+        this.logger.info("onTiptapRawPaste: plain text looks like markdown — leave paste for TipTap markdown insert");
       }
-    }
-  }
-
-  async onPaste(event: ClipboardEvent): Promise<void> {
-    const pastedHtml = event.clipboardData?.getData("text/html");
-    const pastedText = event.clipboardData?.getData("text/plain");
-
-    if (!pastedHtml && !pastedText) {
-      return;
-    }
-    const rawText = (pastedText || "").trim();
-    const plain = rawText.replace(/\\([#\-*_[\](){}])/g, "$1");
-
-    if (this.pasteDetectionService.isLocalPath(plain)) {
-      return;
-    }
-
-    if (this.pasteDetectionService.isViewSourceUrl(plain) && !pastedHtml) {
-      event.preventDefault();
-      this.pasteProcessing = true;
-      const cleanedUrl = plain.replace(/^view-source:/i, "");
-      try {
-        const response = await this.contentConversionService.htmlFromUrl(cleanedUrl);
-        const resolvedBase = response?.baseUrl ? this.ensureTrailingSlash(response.baseUrl) : this.ensureTrailingSlash(cleanedUrl);
-        const {start, end} = this.selection();
-        this.pastePromptPosition = {start, end};
-        this.pastePromptHtmlDetected = true;
-        this.pastePromptHtml = response.html;
-        this.pastePromptMarkdown = "";
-        const baseUrls = new Set([resolvedBase, ...this.pastePromptBaseUrls]);
-        this.pastePromptBaseUrls = Array.from(baseUrls);
-        this.pastePromptBaseUrl = resolvedBase;
-        this.pastePromptErrorMessage = "";
-        this.pastePromptHtmlPreview = null;
-        this.pastePromptPreviewBaseUrl = this.pastePromptBaseUrl;
-        this.pasteProcessing = false;
-        this.pastePromptVisible = true;
-        return;
-      } catch (e) {
-        this.logger.error("Failed to fetch HTML for pasted URL", cleanedUrl, e);
-        this.pasteProcessing = false;
-      }
-    }
-
-    const hasSignificantHtml = this.pasteDetectionService.isSignificantHtml(pastedHtml || "", plain);
-    this.logger.info("onPaste: hasSignificantHtml =", hasSignificantHtml);
-
-    if (hasSignificantHtml) {
-      this.logger.info("Significant HTML paste detected, showing prompt for base URL");
-      this.logger.info("pastedHtml (first 500 chars):", pastedHtml?.substring(0, 500));
-      this.logger.info("pastedText (first 500 chars):", plain.substring(0, 500));
-      event.preventDefault();
-      this.pasteProcessing = true;
-
-      const {start, end} = this.selection();
-      this.pastePromptPosition = {start, end};
-      this.pastePromptHtmlDetected = true;
-      this.pastePromptHtml = pastedHtml;
-      this.pastePromptMarkdown = "";
-      this.pastePromptErrorMessage = "";
-      this.pastePromptHtmlPreview = null;
-      this.preparePastePromptBaseUrl();
-      this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
-      this.pasteProcessing = false;
-      this.pastePromptVisible = true;
-      return;
-    }
-
-    const hasImages = this.pasteDetectionService.hasMarkdownImages(plain);
-    this.logger.info("onPaste: hasMarkdownImages =", hasImages);
-
-    if (hasImages) {
-      this.logger.info("Markdown images detected, showing split prompt");
-      event.preventDefault();
-      this.pasteProcessing = true;
-
-      const {start, end} = this.selection();
-      this.pastePromptPosition = {start, end};
-      this.pastePromptHtmlDetected = false;
-      this.pastePromptHtml = null;
-      this.pastePromptMarkdown = plain;
-      this.pastePromptErrorMessage = "";
-      this.pastePromptHtmlPreview = null;
-      this.pastePromptMarkdownPreview = null;
-
-      try {
-        const preview = await this.contentConversionService.markdownPastePreview(plain);
-        this.pastePromptMarkdownPreview = preview;
-        this.logger.info("Markdown paste preview:", this.stringUtilsService.pluraliseWithCount(preview.rows?.length, "row"));
-      } catch (error) {
-        this.logger.error("Failed to build markdown paste preview", error);
-      }
-
-      this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
-      this.pasteProcessing = false;
-      this.pastePromptVisible = true;
-      return;
     }
   }
 
@@ -1446,7 +1046,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       return preview;
     } catch (error) {
       this.logger.error("Failed to build HTML paste preview", error);
-      this.pastePromptErrorMessage = "Unable to convert HTML to markdown. Please check the base URL or try again.";
+      this.pastePromptErrorMessage = "Unable to convert the HTML. Please check the base URL or try again.";
       return null;
     }
   }
@@ -1468,7 +1068,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       return preview;
     } catch (error) {
       this.logger.error("Failed to build markdown paste preview", error);
-      this.pastePromptErrorMessage = "Unable to process markdown. Please try again.";
+      this.pastePromptErrorMessage = "Unable to process the paste. Please try again.";
       return null;
     }
   }
@@ -1497,18 +1097,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const firstText = firstRow?.text || "";
 
     this.content.text = beforeCursor + firstText + afterCursor;
-    this.changeText(this.content.text);
-
-    this.deferAutoResize();
-
-    setTimeout(() => {
-      const el = this.textArea?.nativeElement;
-      if (el) {
-        const newPos = beforeCursor.length + firstText.length;
-        el.setSelectionRange(newPos, newPos);
-        el.focus();
-      }
-    }, 0);
+    this.changeText();
 
     this.htmlPaste.emit({
       firstRow: firstRow || null,
@@ -1545,18 +1134,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const textToPaste = preview.markdown;
 
     this.content.text = beforeCursor + textToPaste + afterCursor;
-    this.changeText(this.content.text);
-
-    this.deferAutoResize();
-
-    setTimeout(() => {
-      const el = this.textArea?.nativeElement;
-      if (el) {
-        const newPos = beforeCursor.length + textToPaste.length;
-        el.setSelectionRange(newPos, newPos);
-        el.focus();
-      }
-    }, 0);
+    this.changeText();
 
     await this.saveCustomUrlToConfigIfNeeded();
     this.hidePastePrompt();
@@ -1631,7 +1209,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     if (this.pastePromptMarkdownPreview?.rows && this.pastePromptMarkdownPreview.rows.length > 0) {
       return `Convert this content into ${this.stringUtilsService.pluraliseWithCount(this.pastePromptMarkdownPreview.rows.length, "row")}`;
     } else {
-      return "Convert markdown with images into rows";
+      return "Convert text with images into rows";
     }
   }
 

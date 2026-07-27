@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, OnInit, signal } from "@angular/core";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { PageComponent } from "../../../page/page.component";
 import { ContentTemplateType, PageContent, PageContentRow, USER_TEMPLATES_PATH_PREFIX } from "../../../models/content-text.model";
 import { DynamicContentViewComponent } from "../../../modules/common/dynamic-content/dynamic-content-view";
@@ -19,7 +19,7 @@ import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
   selector: "app-content-templates",
   template: `
     <app-page autoTitle>
-      <app-markdown-editor standalone category="admin" name="content-templates"/>
+      <app-content-text-editor standalone category="admin" name="content-templates"/>
       <div class="mb-3 d-flex align-items-center flex-wrap gap-2">
         <label class="me-2 mb-0 text-nowrap">View:</label>
         @for (category of categories; track category.id) {
@@ -92,7 +92,7 @@ import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
       }
     </app-page>
   `,
-  imports: [MarkdownEditorComponent, PageComponent, DynamicContentViewComponent, FormsModule]
+  imports: [ContentTextEditor, PageComponent, DynamicContentViewComponent, FormsModule]
 })
 export class ContentTemplatesComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("ContentTemplatesComponent", NgxLoggerLevel.ERROR);

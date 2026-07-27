@@ -18,7 +18,7 @@ import { WalkGroupAdminService } from "../walk-import/walk-group-admin-service";
 import { EditableEventStats, ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { Location, TitleCasePipe } from "@angular/common";
@@ -46,7 +46,7 @@ import { EventField, GroupEventField, WALK_IMAGE_CSV_COLUMN_HEADINGS, WalkImageR
     <app-page pageTitle="Event Data Management">
       <div class="row">
         <div class="col-sm-12 mb-3 mx-2">
-          <app-markdown-editor standalone name="event-data-management-help-page" description="Event Data Management help page"/>
+          <app-content-text-editor standalone name="event-data-management-help-page" description="Event Data Management help page"/>
         </div>
       </div>
       <div class="row mb-2 align-items-center">
@@ -244,7 +244,7 @@ import { EventField, GroupEventField, WALK_IMAGE_CSV_COLUMN_HEADINGS, WalkImageR
       </div>
     </app-page>
   `,
-  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective, HumanisePipe, TitleCasePipe]
+  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, ContentTextEditor, TooltipDirective, HumanisePipe, TitleCasePipe]
 })
 
 export class EventDataManagement implements OnInit, OnDestroy {
