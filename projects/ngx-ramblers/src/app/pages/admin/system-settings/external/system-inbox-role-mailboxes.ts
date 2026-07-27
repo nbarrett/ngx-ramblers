@@ -129,7 +129,7 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
 
   private async reload(): Promise<void> {
     try {
-      this.aliases = await this.inboxService.listAliases();
+      this.aliases = await this.inboxService.listAliasesForConfiguration();
     } catch (error) {
       this.logger.error("Failed to load role mailboxes:", error);
       this.aliases = [];

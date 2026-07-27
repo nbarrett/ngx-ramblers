@@ -1,127 +1,122 @@
 <app-page autoTitle>
-  <div class="row">
-    <div class="col-sm-3">
-      <div class="item-panel-heading">
-        <fa-icon [icon]="faIdCard" class="fa-5x ramblers"/>
+  @if (member) {
+    <div class="row thumbnail-heading-frame">
+      <div class="thumbnail-heading">Contact details</div>
+      <div class="col-12">
+        <div class="row align-items-start">
+          <div class="col-sm-3 text-center">
+            <fa-icon [icon]="faIdCard" class="fa-5x admin-icon"/>
+          </div>
+          <div class="col-sm-9">
+            <div class="row">
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="membershipNumber">Ramblers Membership Number</label>
+                  <input disabled [ngModel]="member.membershipNumber" type="text"
+                         class="form-control input-sm"
+                         name="membershipNumber"
+                         id="membershipNumber"
+                         placeholder="No Membership Number held">
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="membershipExpiryDate">Ramblers Membership Expiry Date</label>
+                  <input disabled [ngModel]="member.membershipExpiryDate | displayDate" type="text"
+                         class="form-control input-sm"
+                         name="membershipExpiryDate"
+                         id="membershipExpiryDate"
+                         placeholder="No Membership Expiry Date held">
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="prof-first-name">First Name</label>
+                  <input [(ngModel)]="member.firstName" type="text" class="form-control input-sm"
+                         name="firstName"
+                         id="prof-first-name"
+                         [disabled]="isFieldReadonly('firstName')"
+                         placeholder="Enter First Name here">
+                  @if (isFieldReadonly('firstName')) {
+                    <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+                  }
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="prof-last-name">Last Name</label>
+                  <input [(ngModel)]="member.lastName" type="text" required class="form-control input-sm"
+                         id="prof-last-name"
+                         name="lastName"
+                         [disabled]="isFieldReadonly('lastName')"
+                         placeholder="Enter Last Name here">
+                  @if (isFieldReadonly('lastName')) {
+                    <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+                  }
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="prof-mobile-number">Mobile Number</label>
+                  <input [(ngModel)]="member.mobileNumber" type="text" required class="form-control input-sm"
+                         id="prof-mobile-number"
+                         name="mobileNumber"
+                         [disabled]="isFieldReadonly('mobileNumber')"
+                         placeholder="Enter mobile number here">
+                  @if (isFieldReadonly('mobileNumber')) {
+                    <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+                  }
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="prof-contact-email">Contact Email</label>
+                  <input [(ngModel)]="member.email" type="text" required class="form-control input-sm"
+                         id="prof-contact-email"
+                         name="email"
+                         [disabled]="isFieldReadonly('email')"
+                         placeholder="Enter contact email here">
+                  @if (isFieldReadonly('email')) {
+                    <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+                  }
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="prof-postcode">Home postcode</label>
+                  <input [(ngModel)]="member.postcode" type="text" required class="form-control input-sm"
+                         id="prof-postcode"
+                         name="postcode"
+                         [disabled]="isFieldReadonly('postcode')"
+                         placeholder="Enter home postcode here">
+                  @if (isFieldReadonly('postcode')) {
+                    <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="col-sm-9">
-      @if (member) {
-        <div class="row">
-          <div class="col-sm-6">
-            <div class="form-group">
-              <label for="membershipNumber">Ramblers Membership Number</label>
-              <input disabled [ngModel]="member.membershipNumber" type="text"
-                     class="form-control input-sm"
-                     name="firstName"
-                     id="membershipNumber"
-                     placeholder="No Membership Number held">
-            </div>
-          </div>
-          <div class="col-sm-6">
-            <div class="form-group">
-              <label for="membershipExpiryDate">Ramblers Membership Expiry Date</label>
-              <input disabled [ngModel]="member.membershipExpiryDate | displayDate" type="text"
-                     class="form-control input-sm"
-                     name="firstName"
-                     id="membershipExpiryDate"
-                     placeholder="No Membership Expiry Date held">
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="prof-first-name">First Name</label>
-              <input [(ngModel)]="member.firstName" type="text" class="form-control input-sm"
-                     name="firstName"
-                     id="prof-first-name"
-                     [disabled]="isFieldReadonly('firstName')"
-                     placeholder="Enter First Name here">
-              @if (isFieldReadonly('firstName')) {
-                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
-              }
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="prof-last-name">Last Name</label>
-              <input [(ngModel)]="member.lastName" type="text" required class="form-control input-sm"
-                     id="prof-last-name"
-                     name="lastName"
-                     [disabled]="isFieldReadonly('lastName')"
-                     placeholder="Enter Last Name here">
-              @if (isFieldReadonly('lastName')) {
-                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
-              }
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="prof-mobile-number">Mobile Number</label>
-              <input [(ngModel)]="member.mobileNumber" type="text" required class="form-control input-sm"
-                     id="prof-mobile-number"
-                     name="mobileNumber"
-                     [disabled]="isFieldReadonly('mobileNumber')"
-                     placeholder="Enter mobile number here">
-              @if (isFieldReadonly('mobileNumber')) {
-                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
-              }
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="prof-contact-email">Contact Email</label>
-              <input [(ngModel)]="member.email" type="text" required class="form-control input-sm"
-                     id="prof-contact-email"
-                     name="email"
-                     [disabled]="isFieldReadonly('email')"
-                     placeholder="Enter contact email here">
-              @if (isFieldReadonly('email')) {
-                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
-              }
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="prof-postcode">Home postcode</label>
-              <input [(ngModel)]="member.postcode" type="text" required class="form-control input-sm"
-                     id="prof-postcode"
-                     name="postcode"
-                     [disabled]="isFieldReadonly('postcode')"
-                     placeholder="Enter home postcode here">
-              @if (isFieldReadonly('postcode')) {
-                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
-              }
-            </div>
-          </div>
-        </div>
-        <div class="col-sm-12 d-flex align-items-center gap-2 flex-wrap mt-2">
-          <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
-                 class="btn btn-secondary">
-          <input type="submit" [disabled]="notifyTarget.busy" value="Save Changes" (click)="savePersonalDetails()"
-                 class="btn btn-primary">
-          <input type="submit" [disabled]="notifyTarget.busy" value="Undo Changes" (click)="undoPersonalDetails()"
-                 class="btn btn-secondary">
+    <div class="mt-3">
+      <app-form-save-actions
+        [disabled]="!member || notifyTarget.busy"
+        [actions]="formSaveActions"/>
+    </div>
+  }
+  @if (notifyTarget.showAlert) {
+    <div class="alert {{notifyTarget.alertClass}} mt-3">
+      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+      @if (notifyTarget.alertTitle) {
+        <strong>
+          {{ notifyTarget.alertTitle }}: </strong>
+      } {{ notifyTarget.alertMessage }}
+      @if (notifyTarget.showContactUs) {
+        <div> contact our
+          <app-contact-us class="alert-link"></app-contact-us>.
         </div>
       }
     </div>
-  </div>
-  <div class="row">
-    <div class="col-sm-12">
-      @if (notifyTarget.showAlert) {
-        <div class="alert {{notifyTarget.alertClass}} mt-3">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          @if (notifyTarget.alertTitle) {
-            <strong>
-              {{ notifyTarget.alertTitle }}: </strong>
-          } {{ notifyTarget.alertMessage }}
-          @if (notifyTarget.showContactUs) {
-            <div> contact our
-              <app-contact-us class="alert-link" roles="membership"
-                              text="Membership Administrator"></app-contact-us>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  </div>
+  }
 </app-page>

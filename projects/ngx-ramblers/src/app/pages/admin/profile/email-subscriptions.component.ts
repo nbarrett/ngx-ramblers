@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, viewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -18,21 +18,23 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { EmailSubscriptionsMailchimpComponent } from "./email-subscriptions-mailchimp.component";
 import { MailSubscriptionSettingComponent } from "../member-admin-modal/mail-subscription-setting";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { ProfileInboxNotificationsComponent } from "./profile-inbox-notifications";
+import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 @Component({
     selector: "app-email-subscriptions",
     template: `
     <app-page autoTitle>
       @if (member) {
-        <div class="row">
-          <div class="col-sm-3">
-            <div class="item-panel-heading">
-              <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x ramblers"></fa-icon>
-            </div>
-          </div>
-          <div class="col-sm-9">
-            <div class="row">
-              <div class="col-sm-12 mt-2">
+        <div class="row thumbnail-heading-frame">
+          <div class="thumbnail-heading">Email subscriptions</div>
+          <div class="col-12">
+            <div class="row align-items-start">
+              <div class="col-sm-3 text-center">
+                <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x admin-icon"></fa-icon>
+              </div>
+              <div class="col-sm-9">
                 <p>You can change your emailing preferences at any time using the subscription checkboxes
                 below:</p>
                 @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
@@ -40,60 +42,42 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
                 }
                 @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
                   @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription.id) {
-                    <div class="col-sm-12">
+                    <div>
                       <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
                     </div>
                   }
                 }
-                <p>If you have any other queries about your mailing preferences, please email our
-                  <app-contact-us roles="membership"
-                                  text="Membership Secretary"></app-contact-us>
+                <p class="mt-3 mb-0">If you have any other queries about your mailing preferences, please contact our
+                  <app-contact-us [subject]="'Mailing preferences enquiry'"></app-contact-us>.
                 </p>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-sm-12 d-flex align-items-center gap-2 flex-wrap mt-2">
-                <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
-                       class="btn btn-secondary">
-                <input type="submit" [disabled]="!member || notifyTarget.busy" value="Save Changes"
-                       (click)="saveContactPreferences()"
-                       class="btn"
-                       [class.btn-primary]="member && !notifyTarget.busy"
-                       [class.btn-secondary]="!(member && !notifyTarget.busy)">
-                <input type="submit" [disabled]="!member || notifyTarget.busy" value="Undo Changes"
-                       (click)="undoContactPreferences()"
-                       class="btn"
-                       [class.btn-primary]="member && !notifyTarget.busy"
-                       [class.btn-secondary]="!(member && !notifyTarget.busy)"
-                >
               </div>
             </div>
           </div>
         </div>
+        <app-profile-inbox-notifications/>
+        <div class="mt-3">
+          <app-form-save-actions
+            [disabled]="!member || notifyTarget.busy"
+            [actions]="formSaveActions"/>
+        </div>
       }
-      <div class="row">
-        <div class="col-sm-12">
-          @if (notifyTarget.showAlert) {
-            <div class="alert {{notifyTarget.alertClass}} mt-3">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-              @if (notifyTarget.alertTitle) {
-                <strong>
-                  {{ notifyTarget.alertTitle }}: </strong>
-              } {{ notifyTarget.alertMessage }}
-              @if (notifyTarget.showContactUs) {
-                <div> contact our
-                  <app-contact-us class="alert-link" roles="membership"
-                                  text="Membership Administrator"></app-contact-us>
-                  .
-                </div>
-              }
+      @if (notifyTarget.showAlert) {
+        <div class="alert {{notifyTarget.alertClass}} mt-3">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          @if (notifyTarget.alertTitle) {
+            <strong>
+              {{ notifyTarget.alertTitle }}: </strong>
+          } {{ notifyTarget.alertMessage }}
+          @if (notifyTarget.showContactUs) {
+            <div> contact our
+              <app-contact-us class="alert-link"></app-contact-us>.
             </div>
           }
         </div>
-      </div>
+      }
     </app-page>`,
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, ContactUsComponent]
+    imports: [PageComponent, FontAwesomeModule, EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, ContactUsComponent, ProfileInboxNotificationsComponent, FormSaveActionsComponent]
 })
 export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 
@@ -104,6 +88,7 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
   private mailListUpdaterService = inject(MailListUpdaterService);
   protected mailMessagingService = inject(MailMessagingService);
   profileService = inject(ProfileService);
+  private inboxNotifications = viewChild(ProfileInboxNotificationsComponent);
   public member: Member;
   private subscriptions: Subscription[] = [];
   faEnvelopeOpenText = faEnvelopeOpenText;
@@ -111,6 +96,12 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public mailchimpConfig: MailchimpConfig;
+  public formSaveActions: FormSaveActions = {
+    save: () => this.saveContactPreferences(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoContactPreferences(),
+    cancel: () => this.profileService.backToAdmin()
+  };
 
   protected readonly MailProvider = MailProvider;
 
@@ -132,15 +123,24 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
   undoContactPreferences() {
     this.profileService.undoChangesTo(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(member => {
       this.member = member;
+      this.inboxNotifications()?.undo();
     });
   }
 
-  saveContactPreferences() {
+  saveContactPreferences(): Promise<void> {
     this.profileConfirmationService.confirmProfile(this.member);
-    this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(() => {
-      this.mailListUpdaterService.syncChangedMembersToBrevo(this.notify, [this.member])
-        .catch(error => this.logger.warn("Brevo sync after subscription save failed; will reconcile on next send", error));
-    });
+    return this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member)
+      .then(() => this.inboxNotifications()?.save() ?? Promise.resolve())
+      .then(() => {
+        this.mailListUpdaterService.syncChangedMembersToBrevo(this.notify, [this.member])
+          .catch(error => this.logger.warn("Brevo sync after subscription save failed; will reconcile on next send", error));
+      });
+  }
+
+  saveAndExit(): Promise<void> {
+    return this.saveContactPreferences().then(() => {
+      this.profileService.backToAdmin();
+    }).catch(() => null);
   }
 
   ngOnDestroy(): void {

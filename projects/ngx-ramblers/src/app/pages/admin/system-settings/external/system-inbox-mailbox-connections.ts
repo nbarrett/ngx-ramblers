@@ -240,7 +240,7 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     this.busy = true;
     try {
       this.mailboxConnections = await this.inboxService.mailboxConnections();
-      this.aliases = await this.inboxService.listAliases();
+      this.aliases = await this.inboxService.listAliasesForConfiguration();
       await this.loadPushConfig();
     } catch (error) {
       this.notify.error({title: "Gmail inboxes", message: (error as Error).message});

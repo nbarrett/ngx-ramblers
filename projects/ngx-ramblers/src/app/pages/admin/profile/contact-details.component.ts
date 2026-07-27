@@ -14,12 +14,14 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { MemberSyncPolicyService } from "../../../services/member/member-sync-policy.service";
 import { MemberSyncPolicyMode } from "../../../models/member-sync-policy.model";
+import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 @Component({
     selector: "app-contact-details",
     templateUrl: "./contact-details.component.html",
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, DisplayDatePipe]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, DisplayDatePipe, FormSaveActionsComponent]
 })
 export class ContactDetailsComponent implements OnInit, OnDestroy {
 
@@ -33,6 +35,12 @@ export class ContactDetailsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
+  public formSaveActions: FormSaveActions = {
+    save: () => this.savePersonalDetails(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoPersonalDetails(),
+    cancel: () => this.profileService.backToAdmin()
+  };
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -50,8 +58,14 @@ export class ContactDetailsComponent implements OnInit, OnDestroy {
     return this.memberSyncPolicyService.effectiveMode(fieldName) === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE;
   }
 
-  savePersonalDetails() {
-    this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.PERSONAL_DETAILS, this.member);
+  savePersonalDetails(): Promise<void> {
+    return this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.PERSONAL_DETAILS, this.member);
+  }
+
+  saveAndExit(): Promise<void> {
+    return this.savePersonalDetails().then(() => {
+      this.profileService.backToAdmin();
+    }).catch(() => null);
   }
 
   undoPersonalDetails() {
