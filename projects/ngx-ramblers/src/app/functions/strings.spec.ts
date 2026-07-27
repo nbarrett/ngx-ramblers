@@ -1,4 +1,4 @@
-import { booleanOf, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote } from "./strings";
+import { booleanOf, convertTitleToSlug, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote } from "./strings";
 
 describe("strings", () => {
 
@@ -78,6 +78,29 @@ describe("strings", () => {
 
     it("should transliterate accented characters rather than deleting them", () => {
       expect(toSlug("Community Café Walk")).toBe("community-cafe-walk");
+    });
+  });
+
+  describe("convertTitleToSlug", () => {
+    it("converts a full Christmas Party title to christmas-party", () => {
+      expect(convertTitleToSlug("Christmas Party")).toBe("christmas-party");
+    });
+
+    it("converts Christmas Party time to christmas-party-time", () => {
+      expect(convertTitleToSlug("Christmas Party time")).toBe("christmas-party-time");
+    });
+
+    it("converts a mid-type partial title to a truncated slug", () => {
+      expect(convertTitleToSlug("Christmas Part")).toBe("christmas-part");
+    });
+
+    it("drops stopwords from titles", () => {
+      expect(convertTitleToSlug("Walk to the Castle via the River")).toBe("walk-castle-river");
+    });
+
+    it("returns falsy titles unchanged", () => {
+      expect(convertTitleToSlug("")).toBe("");
+      expect(convertTitleToSlug(null as unknown as string)).toBe(null);
     });
   });
 

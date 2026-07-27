@@ -1,12 +1,19 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BehaviorSubject, Observable } from "rxjs";
-import { inferVenueTypeFromName, StoredVenue, VenueWithUsageStats } from "../../models/event-venue.model";
+import { inferVenueTypeFromName, StoredVenue, Venue, VenueWithUsageStats } from "../../models/event-venue.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { AddressQueryService } from "../walks/address-query.service";
 import { DateUtilsService } from "../date-utils.service";
-import { isEmpty, isString } from "es-toolkit/compat";
+import { isEmpty, isString, isUndefined } from "es-toolkit/compat";
 import { StoredVenueService } from "./stored-venue.service";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { LocationDetails } from "../../models/ramblers-walks-manager";
+
+export enum VenueLocationSource {
+  START_LOCATION = "start_location",
+  LOCATION = "location"
+}
 
 @Injectable({
   providedIn: "root"
@@ -145,5 +152,113 @@ export class VenueService {
 
   venueLabel(isMeetingPlace: boolean): string {
     return isMeetingPlace ? "Meeting place" : "Venue";
+  }
+
+  ensureVenue(event: ExtendedGroupEvent, options: {
+    source?: VenueLocationSource;
+    defaultVenuePublish?: boolean;
+  } = {}): void {
+    if (!event?.fields) {
+      return;
+    }
+    const source = options.source || VenueLocationSource.START_LOCATION;
+    const locationSource = source === VenueLocationSource.LOCATION
+      ? event.groupEvent?.location
+      : event.groupEvent?.start_location;
+    if (!event.fields.venue) {
+      event.fields.venue = {
+        postcode: locationSource?.postcode || null,
+        isMeetingPlace: false,
+        venuePublish: options.defaultVenuePublish ?? false
+      };
+    } else {
+      if (isUndefined(event.fields.venue.isMeetingPlace)) {
+        event.fields.venue.isMeetingPlace = false;
+      }
+      if (isUndefined(event.fields.venue.venuePublish)) {
+        event.fields.venue.venuePublish = options.defaultVenuePublish ?? false;
+      }
+    }
+    if (source === VenueLocationSource.LOCATION && locationSource) {
+      this.seedVenueFromLocation(event.fields.venue, locationSource);
+    }
+  }
+
+  seedVenueFromLocation(venue: Venue, location: LocationDetails): void {
+    if (!venue || !location) {
+      return;
+    }
+    if (!venue.name && location.description) {
+      venue.name = location.description;
+    }
+    if (!venue.postcode && location.postcode) {
+      venue.postcode = location.postcode;
+    }
+    if (!venue.lat && location.latitude) {
+      venue.lat = location.latitude;
+    }
+    if (!venue.lon && location.longitude) {
+      venue.lon = location.longitude;
+    }
+  }
+
+  syncGroupEventLocationFromVenue(event: ExtendedGroupEvent): void {
+    if (!event?.groupEvent || !event?.fields?.venue) {
+      return;
+    }
+    if (!event.groupEvent.location) {
+      event.groupEvent.location = this.emptyLocation();
+    }
+    const venue = event.fields.venue;
+    const location = event.groupEvent.location;
+    location.description = this.locationDescriptionFromVenue(venue);
+    location.postcode = venue.postcode || null;
+    if (venue.lat) {
+      location.latitude = venue.lat;
+    }
+    if (venue.lon) {
+      location.longitude = venue.lon;
+    }
+  }
+
+  locationDescriptionFromVenue(venue: Venue): string {
+    const parts = [venue?.name, venue?.address1, venue?.address2].filter(part => !!part);
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+
+  emptyLocation(): LocationDetails {
+    return {
+      latitude: 0,
+      longitude: 0,
+      grid_reference_6: null,
+      grid_reference_8: null,
+      grid_reference_10: null,
+      postcode: null,
+      description: null,
+      w3w: null
+    };
+  }
+
+  async persistToCollection(venue: Venue): Promise<void> {
+    if (!venue?.name) {
+      return;
+    }
+    try {
+      const storedVenue = await this.storedVenueService.findOrCreate({
+        id: venue.storedVenueId,
+        name: venue.name,
+        postcode: venue.postcode,
+        type: venue.type,
+        url: venue.url,
+        lat: venue.lat,
+        lon: venue.lon,
+        address1: venue.address1,
+        address2: venue.address2
+      });
+      venue.storedVenueId = storedVenue.id;
+      this.logger.debug("persistToCollection:venue persisted:", storedVenue);
+    } catch (error) {
+      this.logger.warn("persistToCollection:failed to persist venue:", error);
+    }
   }
 }

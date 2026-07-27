@@ -2,7 +2,6 @@ import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } fro
 import { NgxLoggerLevel } from "ngx-logger";
 import { faCopy, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { Venue as VenueModel, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
-import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
@@ -17,10 +16,11 @@ import { VenueLookupComponent } from "./venue-lookup";
 import { VenueTypeSelect } from "./venue-type-select";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
-import { isEmpty } from "es-toolkit/compat";
+import { isBoolean, isEmpty } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEventType } from "../../../models/broadcast.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-venue",
@@ -28,7 +28,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Venue</div>
         <div class="col-sm-12">
-          <app-markdown-editor standalone name="meetup-venue-help" description="Walk venue or pub"/>
+          <app-markdown-editor standalone [name]="helpName" [category]="helpCategory" [description]="helpDescription"/>
         </div>
         @if (allowEdits()) {
           <div class="col-sm-12 mb-3">
@@ -38,7 +38,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
                 <app-venue-lookup
                   [disabled]="disabledInput"
                   [startingPoint]="startingPointCoordinates"
-                  [initialVenue]="displayedWalk?.walk?.fields?.venue"
+                  [initialVenue]="event?.fields?.venue"
                   [selectedVenueType]="selectedVenueType"
                   [showManageVenuesButton]="isAdmin()"
                   (venueLookup)="onVenueLookup($event)"
@@ -47,12 +47,12 @@ import { NamedEventType } from "../../../models/broadcast.model";
             </div>
           </div>
         }
-        @if (showStartingPointPrompt) {
+        @if (showWalkLocationPrompts && showStartingPointPrompt) {
           <div class="col-sm-12 mb-3">
             <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
               <div class="d-flex align-items-center ms-2">
                 <fa-icon [icon]="faMapMarkerAlt" class="me-2"></fa-icon>
-                <span><strong class="me-2">Starting Point:</strong>Change walk start postcode from <strong>{{ currentStartingPointPostcode || 'not set' }}</strong> to venue postcode <strong>{{ displayedWalk.walk.fields.venue.postcode }}</strong>?</span>
+                <span><strong class="me-2">Starting Point:</strong>Change walk start postcode from <strong>{{ currentStartingPointPostcode || 'not set' }}</strong> to venue postcode <strong>{{ event.fields.venue.postcode }}</strong>?</span>
               </div>
               <div class="btn-group btn-group-sm ms-2">
                 <button type="button" class="btn btn-primary" (click)="applyVenuePostcodeToStartingPoint()">Apply</button>
@@ -61,13 +61,13 @@ import { NamedEventType } from "../../../models/broadcast.model";
             </div>
           </div>
         }
-        @if (hasSeparateMeetingPoint && displayedWalk?.walk?.fields?.venue?.postcode && showMeetingPointButton()) {
+        @if (showWalkLocationPrompts && hasSeparateMeetingPoint && event?.fields?.venue?.postcode && showMeetingPointButton()) {
           <div class="col-sm-12 mb-3">
             <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
               <div class="d-flex align-items-center ms-2">
                 <fa-icon [icon]="faMapMarkerAlt" class="me-2"></fa-icon>
                 <span><strong
-                  class="me-2">Meeting Point:</strong>Use venue postcode <strong>{{ displayedWalk.walk.fields.venue.postcode }}</strong> as meeting point?</span>
+                  class="me-2">Meeting Point:</strong>Use venue postcode <strong>{{ event.fields.venue.postcode }}</strong> as meeting point?</span>
               </div>
               <div class="btn-group btn-group-sm ms-2">
                 <button type="button" class="btn btn-primary" (click)="applyVenueAsMeetingPoint()">Use as Meeting
@@ -79,7 +79,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
             </div>
           </div>
         }
-        @if (showVenueFromStartingPointPrompt) {
+        @if (showWalkLocationPrompts && showVenueFromStartingPointPrompt) {
           <div class="col-sm-12 mb-3">
             <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
               <div class="d-flex align-items-center ms-2">
@@ -110,7 +110,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
               <div class="form-group">
                 <label for="name">Name</label>
                 <input [disabled]="disabledInput"
-                       [(ngModel)]="displayedWalk.walk.fields.venue.name"
+                       [(ngModel)]="event.fields.venue.name"
                        type="text" class="form-control input-sm"
                        id="name"
                        placeholder="Enter name of venue or pub">
@@ -120,7 +120,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
               <div class="form-group">
                 <label for="address1">Address 1</label>
                 <input [disabled]="disabledInput"
-                       [(ngModel)]="displayedWalk.walk.fields.venue.address1"
+                       [(ngModel)]="event.fields.venue.address1"
                        type="text" class="form-control input-sm"
                        id="address1"
                        placeholder="Enter first line of the address">
@@ -130,7 +130,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
               <div class="form-group">
                 <label for="address2">Address 2</label>
                 <input [disabled]="disabledInput"
-                       [(ngModel)]="displayedWalk.walk.fields.venue.address2"
+                       [(ngModel)]="event.fields.venue.address2"
                        type="text" class="form-control input-sm"
                        id="address2"
                        placeholder="Enter second line of the address">
@@ -140,7 +140,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
               <div class="form-group">
                 <label for="postcode">Postcode</label>
                 <input [disabled]="disabledInput"
-                       [(ngModel)]="displayedWalk.walk.fields.venue.postcode"
+                       [(ngModel)]="event.fields.venue.postcode"
                        (ngModelChange)="onPostcodeChange($event)"
                        type="text" class="form-control input-sm"
                        id="postcode"
@@ -151,7 +151,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
               <div class="form-group">
                 <label for="url">Web address</label>
                 <input [disabled]="disabledInput"
-                       [(ngModel)]="displayedWalk.walk.fields.venue.url"
+                       [(ngModel)]="event.fields.venue.url"
                        type="text" class="form-control input-sm"
                        id="url"
                        placeholder="Enter web address">
@@ -160,7 +160,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
             @if (allowEdits()) {
               <div class="col-sm-6 mb-3">
                 <div class="form-check">
-                  <input [(ngModel)]="displayedWalk.walk.fields.venue.venuePublish"
+                  <input [(ngModel)]="event.fields.venue.venuePublish"
                          [disabled]="!allowEdits() || inputDisabled"
                          name="showDetail" class="form-check-input" type="checkbox"
                          id="walk-publish-venue">
@@ -169,28 +169,30 @@ import { NamedEventType } from "../../../models/broadcast.model";
                   </label>
                 </div>
               </div>
-              <div class="col-sm-6 mb-3">
-                <div class="form-check">
-                  <input [(ngModel)]="displayedWalk.walk.fields.venue.isMeetingPlace"
-                         [disabled]="!allowEdits() || inputDisabled" (ngModelChange)="isMeetingPlaceChanged($event)"
-                         name="isMeetingPlace" class="form-check-input" type="checkbox"
-                         id="walk-is-meeting-place">
-                  <label class="form-check-label"
-                         for="walk-is-meeting-place">This is a meeting place
-                  </label>
+              @if (showWalkLocationPrompts) {
+                <div class="col-sm-6 mb-3">
+                  <div class="form-check">
+                    <input [(ngModel)]="event.fields.venue.isMeetingPlace"
+                           [disabled]="!allowEdits() || inputDisabled" (ngModelChange)="isMeetingPlaceChanged($event)"
+                           name="isMeetingPlace" class="form-check-input" type="checkbox"
+                           id="walk-is-meeting-place">
+                    <label class="form-check-label"
+                           for="walk-is-meeting-place">This is a meeting place
+                    </label>
+                  </div>
                 </div>
-              </div>
+              }
             }
-            @if (allowEdits() && (displayedWalk?.walk?.fields.venue.url || displayedWalk?.walk?.fields.venue.postcode)) {
+            @if (allowEdits() && (event?.fields.venue.url || event?.fields.venue.postcode)) {
               <div class="col-sm-6 mb-3">
                 <div class="form-group">
                   <span class="me-2">Link preview:</span>
-                  <fa-icon [icon]="displayedWalk?.walk?.fields.venue?.type | toVenueIcon"
+                  <fa-icon [icon]="event?.fields.venue?.type | toVenueIcon"
                            class="colour-mintcake me-2"></fa-icon>
                   <a [href]="venueLink()"
                      [tooltip]="venueLinkTooltip()"
                      class="related-links-title" target="_blank">
-                    {{ venueLabel() }}: {{ displayedWalk.walk.fields.venue?.name }}
+                    {{ venueLabel() }}: {{ event.fields.venue?.name }}
                   </a>
                 </div>
               </div>
@@ -218,8 +220,12 @@ export class Venue implements OnInit, OnDestroy {
   private walksReferenceService = inject(WalksReferenceService);
   private broadcastService = inject<BroadcastService<string>>(BroadcastService);
 
-  @Input()
-  public displayedWalk: DisplayedWalk;
+  @Input() event: ExtendedGroupEvent;
+  @Input() canEdit: boolean | null = null;
+  @Input() showWalkLocationPrompts = true;
+  @Input() helpName = "meetup-venue-help";
+  @Input() helpCategory = "walks-admin";
+  @Input() helpDescription = "Walk venue or pub";
   public inputDisabled = false;
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
@@ -242,13 +248,13 @@ export class Venue implements OnInit, OnDestroy {
   protected faCopy = faCopy;
 
   get venueJson(): string {
-    return this.displayedWalk?.walk?.fields?.venue
-      ? JSON.stringify(this.displayedWalk.walk.fields.venue, null, 2)
+    return this.event?.fields?.venue
+      ? JSON.stringify(this.event.fields.venue, null, 2)
       : "";
   }
 
   get startingPointCoordinates(): { latitude: number; longitude: number } | null {
-    const startLocation = this.displayedWalk?.walk?.groupEvent?.start_location;
+    const startLocation = this.event?.groupEvent?.start_location;
     if (startLocation?.latitude && startLocation?.longitude) {
       return {
         latitude: startLocation.latitude,
@@ -259,13 +265,13 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   get currentStartingPointPostcode(): string {
-    return this.displayedWalk?.walk?.groupEvent?.start_location?.postcode || "";
+    return this.event?.groupEvent?.start_location?.postcode || "";
   }
 
   ngOnInit() {
     this.venueTypes = this.walksReferenceService.venueTypes();
-    this.selectedVenueType = this.venueTypes.find(vt => vt.type === this.displayedWalk.walk.fields.venue?.type) || this.venueTypes[0];
-    this.logger.info("venue is", this.displayedWalk.walk.fields.venue, "venueTypes", this.venueTypes, "selectedVenueType", this.selectedVenueType);
+    this.selectedVenueType = this.venueTypes.find(vt => vt.type === this.event.fields.venue?.type) || this.venueTypes[0];
+    this.logger.info("venue is", this.event.fields.venue, "venueTypes", this.venueTypes, "selectedVenueType", this.selectedVenueType);
     this.updateDisabledInput();
     this.checkVenueFromStartingPointPrompt();
     this.subscriptions.push(
@@ -284,13 +290,16 @@ export class Venue implements OnInit, OnDestroy {
   onVenueTypeChange(venueType: VenueType) {
     if (venueType) {
       this.selectedVenueType = venueType;
-      this.displayedWalk.walk.fields.venue.type = venueType.type;
+      this.event.fields.venue.type = venueType.type;
       this.logger.debug("onVenueTypeChange:", venueType.type);
     }
   }
 
   allowEdits() {
-    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.memberLoginService.allowWalkAdminEdits();
+    if (isBoolean(this.canEdit)) {
+      return this.canEdit;
+    }
+    return this.display.loggedInMemberIsLeadingWalk(this.event) || this.memberLoginService.allowWalkAdminEdits();
   }
 
   isAdmin() {
@@ -298,7 +307,7 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private updateDisabledInput() {
-    this.disabledInput = this.inputDisabled || (!this.allowEdits() && !this.displayedWalk?.walk?.fields?.venue?.venuePublish);
+    this.disabledInput = this.inputDisabled || (!this.allowEdits() && !this.event?.fields?.venue?.venuePublish);
   }
 
   onVenueLookup(venue: Partial<VenueModel>) {
@@ -307,7 +316,7 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   onVenueRepositioned(location: Partial<VenueModel>) {
-    const currentVenue = this.displayedWalk.walk.fields.venue;
+    const currentVenue = this.event.fields.venue;
     currentVenue.lat = location.lat;
     currentVenue.lon = location.lon;
     if (location.postcode) {
@@ -317,7 +326,7 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private applyVenueToForm(venue: Partial<VenueModel> | VenueWithUsageStats) {
-    const currentVenue = this.displayedWalk.walk.fields.venue;
+    const currentVenue = this.event.fields.venue;
     const venuePublish = currentVenue.venuePublish;
     const isMeetingPlace = currentVenue.isMeetingPlace;
     currentVenue.storedVenueId = (venue as VenueWithUsageStats).storedVenueId || venue.storedVenueId;
@@ -345,12 +354,12 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private checkStartingPointPrompt(venuePostcode: string) {
-    if (!this.allowEdits() || this.display.walkPopulationWalksManager()) {
+    if (!this.showWalkLocationPrompts || !this.allowEdits() || this.display.walkPopulationWalksManager()) {
       return;
     }
 
     const normalizedVenuePostcode = this.venueService.normalizePostcode(venuePostcode);
-    const startPostcode = this.displayedWalk.walk.groupEvent?.start_location?.postcode;
+    const startPostcode = this.event.groupEvent?.start_location?.postcode;
     const normalizedStartPostcode = this.venueService.normalizePostcode(startPostcode);
 
     const hasVenuePostcode = !isEmpty(normalizedVenuePostcode);
@@ -362,44 +371,44 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   applyVenuePostcodeToStartingPoint() {
-    const postcode = this.displayedWalk.walk.fields.venue.postcode;
+    const postcode = this.event.fields.venue.postcode;
     this.logger.info("applyVenuePostcodeToStartingPoint:", postcode);
     this.venuePostcodeChange.emit(postcode);
     this.showStartingPointPrompt = false;
   }
 
   dismissStartingPointPrompt() {
-    this.dismissedForPostcode = this.venueService.normalizePostcode(this.displayedWalk.walk.fields.venue.postcode);
+    this.dismissedForPostcode = this.venueService.normalizePostcode(this.event.fields.venue.postcode);
     this.showStartingPointPrompt = false;
   }
 
   private dismissedMeetingPointForPostcode: string | null = null;
 
   showMeetingPointButton(): boolean {
-    if (!this.allowEdits() || this.display.walkPopulationWalksManager()) {
+    if (!this.showWalkLocationPrompts || !this.allowEdits() || this.display.walkPopulationWalksManager()) {
       return false;
     }
-    const normalizedVenuePostcode = this.venueService.normalizePostcode(this.displayedWalk?.walk?.fields?.venue?.postcode);
+    const normalizedVenuePostcode = this.venueService.normalizePostcode(this.event?.fields?.venue?.postcode);
     return this.dismissedMeetingPointForPostcode !== normalizedVenuePostcode;
   }
 
   applyVenueAsMeetingPoint() {
-    const postcode = this.displayedWalk.walk.fields.venue.postcode;
+    const postcode = this.event.fields.venue.postcode;
     this.logger.info("applyVenueAsMeetingPoint:", postcode);
     this.useVenueAsMeetingPoint.emit(postcode);
     this.dismissedMeetingPointForPostcode = this.venueService.normalizePostcode(postcode);
   }
 
   dismissMeetingPointPrompt() {
-    this.dismissedMeetingPointForPostcode = this.venueService.normalizePostcode(this.displayedWalk.walk.fields.venue.postcode);
+    this.dismissedMeetingPointForPostcode = this.venueService.normalizePostcode(this.event.fields.venue.postcode);
   }
 
   private checkVenueFromStartingPointPrompt() {
-    if (!this.allowEdits() || this.display.walkPopulationWalksManager()) {
+    if (!this.showWalkLocationPrompts || !this.allowEdits() || this.display.walkPopulationWalksManager()) {
       return;
     }
 
-    const venuePostcode = this.venueService.normalizePostcode(this.displayedWalk?.walk?.fields?.venue?.postcode);
+    const venuePostcode = this.venueService.normalizePostcode(this.event?.fields?.venue?.postcode);
     const startingPostcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
     const normalizedStartingPostcode = this.venueService.normalizePostcode(startingPostcode);
 
@@ -415,7 +424,7 @@ export class Venue implements OnInit, OnDestroy {
     const postcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
     this.logger.info("applyStartingPostcodeToVenue:", postcode);
     if (postcode) {
-      this.displayedWalk.walk.fields.venue.postcode = postcode.toUpperCase().trim();
+      this.event.fields.venue.postcode = postcode.toUpperCase().trim();
       this.showVenueFromStartingPointPrompt = false;
     }
   }
@@ -427,11 +436,11 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   isMeetingPlaceChanged($event: any) {
-    this.logger.info("isMeetingPlaceChanged:", $event, "venue:", this.displayedWalk?.walk?.fields.venue);
+    this.logger.info("isMeetingPlaceChanged:", $event, "venue:", this.event?.fields.venue);
   }
 
   venueLink(): string {
-    const venue = this.displayedWalk?.walk?.fields?.venue;
+    const venue = this.event?.fields?.venue;
     if (venue?.url) {
       return venue.url;
     } else if (venue?.postcode) {
@@ -441,7 +450,7 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   venueLinkTooltip(): string {
-    const venue = this.displayedWalk?.walk?.fields?.venue;
+    const venue = this.event?.fields?.venue;
     if (venue?.url) {
       return `Click to visit ${venue.name}`;
     } else if (venue?.postcode) {
@@ -451,6 +460,6 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   venueLabel(): string {
-    return this.venueService.venueLabel(this.displayedWalk?.walk?.fields?.venue?.isMeetingPlace);
+    return this.venueService.venueLabel(this.event?.fields?.venue?.isMeetingPlace);
   }
 }

@@ -8,6 +8,20 @@ export enum DateRangeMode {
   SLIDER = "SLIDER",
 }
 
+export enum GroupEventEditTab {
+  EVENT_DETAILS = "Event Details",
+  ORGANISER = "Organiser",
+  IMAGES = "Images",
+  ATTACHMENT = "Attachment",
+}
+
+export enum GroupEventDetailsSection {
+  ALL = "All",
+  EVENT = "Event",
+  VENUE = "Venue",
+  DESCRIPTION = "Description",
+}
+
 export interface HasMedia {
   media?: Media[];
 }

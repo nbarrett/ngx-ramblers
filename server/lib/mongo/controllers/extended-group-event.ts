@@ -13,10 +13,12 @@ import {
   GroupEventField
 } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { isMongoIdString, parseError } from "./transforms";
-import { toKebabCase } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { convertTitleToSlug, toKebabCase } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { slugPatternFor } from "../../shared/slug-matching";
 import { dateTimeFromIso, dateTimeNow } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
+
+export { convertTitleToSlug };
 
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
@@ -27,15 +29,6 @@ const LOCAL_ACTIVE_FILTER = {
     {[DocumentField.SOURCE]: EventSource.LOCAL, [GroupEventField.STATUS]: {$ne: "deleted"}}
   ]
 };
-
-export function convertTitleToSlug(title: string) {
-  if (title) {
-    const stopwords = new Set(["a", "an", "the", "to", "by", "via", "in", "of", "from"]);
-    return toKebabCase(title).split("-").filter(item => !stopwords.has(item)).join("-");
-  } else {
-    return title;
-  }
-}
 
 export async function urlFromTitle(req: Request, res: Response) {
   try {
