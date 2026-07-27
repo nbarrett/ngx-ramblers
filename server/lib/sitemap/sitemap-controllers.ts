@@ -2,11 +2,10 @@ import { Request, Response } from "express";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { createErrorDebugLog } from "../shared/error-debug-log";
-import { systemConfig } from "../config/system-config";
 import { siteBaseUrl } from "../config/site-base-url";
 import { escapeXml } from "../shared/string-utils";
 import { publicSitePaths } from "../mongo/controllers/site-search";
-import { titleFromPath } from "../content-export/content-export-renderer";
+import { FOR_AI_PATH } from "../content-export/ai-discovery";
 
 const debugLog = debug(envConfig.logNamespace("sitemap"));
 debugLog.enabled = false;
@@ -29,7 +28,8 @@ export async function sitemapXml(req: Request, res: Response): Promise<void> {
       res.type("text/plain").send("Sitemap is being generated - please retry shortly");
       return;
     }
-    const locations = [baseUrl].concat(paths.map(path => `${baseUrl}/${path.replace(/^\/+/, "")}`));
+    const locations = [baseUrl, `${baseUrl}/${FOR_AI_PATH}`]
+      .concat(paths.map(path => `${baseUrl}/${path.replace(/^\/+/, "")}`));
     const xml = [
       `<?xml version="1.0" encoding="UTF-8"?>`,
       `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
@@ -42,39 +42,6 @@ export async function sitemapXml(req: Request, res: Response): Promise<void> {
   } catch (error) {
     errorDebugLog("sitemapXml failed:", error);
     res.status(500).type("text/plain").send("Sitemap generation failed");
-  }
-}
-
-export async function llmsTxt(req: Request, res: Response): Promise<void> {
-  try {
-    const config = await systemConfig();
-    const baseUrl = (config?.group?.href || "").replace(/\/+$/, "");
-    const siteName = config?.group?.longName || config?.group?.shortName;
-    if (!baseUrl || !siteName) {
-      res.status(404).type("text/plain").send("llms.txt unavailable: site not configured");
-      return;
-    }
-    const paths = await publicSitePaths();
-    const keyPages = (paths || []).filter(path => !path.includes("/")).sort().slice(0, 30);
-    const lines = [
-      `# ${siteName}`,
-      "",
-      `> ${siteName} - a walking group website. All public page content is available in machine-readable formats.`,
-      "",
-      "## Content access",
-      "",
-      `- Fetch any page as markdown: ${baseUrl}/api/public/content/path/{page-path}?format=markdown (formats: json, html, markdown)`,
-      `- Sitemap of all public page addresses: ${baseUrl}/sitemap.xml`,
-      "",
-      "## Key pages",
-      "",
-      ...keyPages.map(path => `- [${titleFromPath(path)}](${baseUrl}/${path})`)
-    ];
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.type("text/plain").send(lines.join("\n"));
-  } catch (error) {
-    errorDebugLog("llmsTxt failed:", error);
-    res.status(500).type("text/plain").send("llms.txt generation failed");
   }
 }
 
