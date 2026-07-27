@@ -55,9 +55,7 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
                     {{ notifyTarget.alertTitle }}: </strong>
                     } {{ notifyTarget.alertMessage }}
                     @if (notifyTarget.showContactUs) {
-                      <span> contact our <app-contact-us class="alert-link"
-                        roles="membership"
-                      text="Membership Administrator"></app-contact-us>.
+                      <span> contact our <app-contact-us class="alert-link"></app-contact-us>.
                     </span>
                   }
                 </div>

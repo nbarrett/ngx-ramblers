@@ -86,4 +86,18 @@ describe("CommitteeReferenceData", () => {
     expect(service.contactUsField("support", "memberId")).toEqual("52ab5d94e4b0f92ce9a5caee");
     expect(service.contactUsField("membership", "fullName")).toEqual("Jenny Brown");
   });
+
+  it("committeeMemberForPreferredRoles prefers the first matching role with an email", () => {
+    const service: CommitteeReferenceData = CommitteeReferenceData.create(mockData, null);
+    expect(service.committeeMemberForPreferredRoles("membership,secretary,contact-us").type).toEqual("membership");
+    expect(service.committeeMemberForPreferredRoles("unknown,secretary,contact-us").type).toEqual("secretary");
+  });
+
+  it("committeeMemberForPreferredRoles falls back to any contactable role when none of the preferred match", () => {
+    const service: CommitteeReferenceData = CommitteeReferenceData.create({
+      ...mockData,
+      roles: mockData.roles.filter(role => role.type === "support")
+    }, null);
+    expect(service.committeeMemberForPreferredRoles("membership,secretary").type).toEqual("support");
+  });
 });

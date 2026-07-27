@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { specialVisibilityGrants } from "./inbox-visibility-rules";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as config from "../mongo/controllers/config";
@@ -22,6 +22,26 @@ export function requireInboxConfigurationAdministrator(req: Request, res: Respon
     return true;
   }
   res.status(403).json({error: "Member administrator access is required to configure inbox aliases"});
+  return false;
+}
+
+export function canUpdateInboxRoleNotifications(req: Request, role: CommitteeMember): boolean {
+  if (inboxConfigurationAdministrator(req)) {
+    return true;
+  }
+  const memberId = member(req).memberId;
+  return Boolean(memberId && role.memberId === memberId);
+}
+
+export function requireCanUpdateInboxRoleNotifications(req: Request, res: Response, role: CommitteeMember | undefined, roleType: string): boolean {
+  if (!role) {
+    res.status(404).json({error: `No committee role found for ${roleType}`});
+    return false;
+  }
+  if (canUpdateInboxRoleNotifications(req, role)) {
+    return true;
+  }
+  res.status(403).json({error: "You can only change notification settings for roles assigned to you"});
   return false;
 }
 

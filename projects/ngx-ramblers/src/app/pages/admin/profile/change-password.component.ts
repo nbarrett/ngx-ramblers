@@ -16,6 +16,8 @@ import { FormsModule } from "@angular/forms";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
 import { InputSize } from "../../../models/ui-size.model";
+import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 const pleaseTryAgain = " - please try again";
 
@@ -23,7 +25,7 @@ const pleaseTryAgain = " - please try again";
     selector: "app-change-password",
     templateUrl: "./change-password.component.html",
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, SecretInputComponent]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, SecretInputComponent, FormSaveActionsComponent]
 })
 export class ChangePasswordComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ChangePasswordComponent", NgxLoggerLevel.ERROR);
@@ -39,6 +41,12 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
   protected readonly InputSize = InputSize;
   faUnlockAlt = faUnlockAlt;
   private subscriptions: Subscription[] = [];
+  public formSaveActions: FormSaveActions = {
+    save: () => this.saveLoginDetails(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoLoginDetails(),
+    cancel: () => this.profileService.backToAdmin()
+  };
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -56,7 +64,7 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private processResetPasswordResponse(loginResponse: LoginResponse) {
+  private processResetPasswordResponse(loginResponse: LoginResponse): LoginResponse {
     this.logger.debug("processResetPasswordResponse:", loginResponse);
     this.notify.clearBusy();
     delete this.enteredMemberCredentials.newPassword;
@@ -69,13 +77,14 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
         title: "Reset password failed",
         message: loginResponse.alertMessage
       });
-    } else {
-      this.logger.debug("reset password success", loginResponse);
-      this.notify.success({
-        title: "Reset password success",
-        message: loginResponse.alertMessage
-      });
+      throw new Error(loginResponse.alertMessage || "Reset password failed");
     }
+    this.logger.debug("reset password success", loginResponse);
+    this.notify.success({
+      title: "Reset password success",
+      message: loginResponse.alertMessage
+    });
+    return loginResponse;
   }
 
   undoLoginDetails() {
@@ -139,13 +148,23 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
     });
   }
 
-  saveLoginDetails() {
+  saveLoginDetails(): Promise<void> {
     this.logger.debug("saveLoginDetails");
     this.notify.hide();
-    this.validateUserNameExistence()
+    return this.validateUserNameExistence()
       .then(() => this.resetPassword())
+      .then(() => undefined)
       .catch(response => {
-        this.notify.error({title: "Profile", message: response});
+        if (!(response instanceof Error)) {
+          this.notify.error({title: "Profile", message: response});
+        }
+        throw response;
       });
+  }
+
+  saveAndExit(): Promise<void> {
+    return this.saveLoginDetails().then(() => {
+      this.profileService.backToAdmin();
+    }).catch(() => null);
   }
 }

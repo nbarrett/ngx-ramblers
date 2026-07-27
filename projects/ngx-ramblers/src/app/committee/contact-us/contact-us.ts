@@ -6,15 +6,17 @@ import { CommitteeConfigService } from "../../services/committee/commitee-config
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
-import { first } from "es-toolkit/compat";
 import { NgStyle } from "@angular/common";
+import { ContactUsModalService } from "../../pages/contact-us/contact-us-modal.service";
+
+export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-us";
 
 @Component({
     selector: "app-contact-us",
     template: `
     @if (format==='list') {
       <ul>
-        @for (committeeMember of committeeMembers(); track committeeMember) {
+        @for (committeeMember of committeeMembers(); track committeeMember.type) {
           <li
           [ngStyle]="{
           'font-weight': 'normal',
@@ -33,8 +35,8 @@ import { NgStyle } from "@angular/common";
         }
       </ul>
     }
-    @if (format!=='list') {
-      <a [href]="'mailto:' + email()">{{ text || email() }}</a>
+    @if (format!=='list' && resolvedMember()) {
+      <a href="#" class="contact-us-link" (click)="openContact($event)">{{ displayText() }}</a>
     }
     `,
     styleUrls: ["./contact-us.sass"],
@@ -45,11 +47,13 @@ export class ContactUsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ContactUsComponent", NgxLoggerLevel.ERROR);
   urlService = inject(UrlService);
   private committeeConfig = inject(CommitteeConfigService);
+  private contactUsModalService = inject(ContactUsModalService);
 
   @Input() format: string;
   @Input() emailStyle: boolean;
   @Input() text: string;
-  @Input() roles: string[] | string;
+  @Input() roles: string[] | string = MEMBERSHIP_CONTACT_ROLE_PREFERENCE;
+  @Input() subject: string;
   @Input() committeeReferenceDataOverride: CommitteeReferenceData;
   private dataSub: Subscription;
   private committeeReferenceData: CommitteeReferenceData;
@@ -76,13 +80,36 @@ export class ContactUsComponent implements OnInit, OnDestroy {
   }
 
   committeeMembers(): CommitteeMember[] {
-    const committeeMembers = this.roles ? this.committeeReferenceDataSource()?.committeeMembersForRole(this.roles) : this.committeeReferenceDataSource()?.committeeMembers();
-    this.logger.info("committeeMembers:roles:", this.roles,"committeeMembers:", committeeMembers);
+    const committeeMembers = this.roles
+      ? this.committeeReferenceDataSource()?.committeeMembersForRole(this.roles)
+      : this.committeeReferenceDataSource()?.committeeMembers();
+    this.logger.info("committeeMembers:roles:", this.roles, "committeeMembers:", committeeMembers);
     return committeeMembers;
   }
 
-  email() {
-    return this.committeeReferenceDataSource()?.contactUsField(first(this.committeeReferenceData.toRoles(this.roles)), "email");
+  resolvedMember(): CommitteeMember | undefined {
+    return this.committeeReferenceDataSource()?.committeeMemberForPreferredRoles(this.roles);
+  }
+
+  displayText(): string {
+    const member = this.resolvedMember();
+    if (!member) {
+      return this.text || "the committee";
+    }
+    return this.committeeReferenceDataSource()?.contactDisplayName(member) || this.text || "the committee";
+  }
+
+  email(): string {
+    return this.resolvedMember()?.email;
+  }
+
+  openContact(event: Event): void {
+    event.preventDefault();
+    const member = this.resolvedMember();
+    if (!member?.type) {
+      return;
+    }
+    this.contactUsModalService.openContactModalForRole(member.type, this.subject || "", this.urlService.relativeUrl());
   }
 
 }

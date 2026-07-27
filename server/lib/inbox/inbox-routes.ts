@@ -41,7 +41,7 @@ import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessagesRead, mark
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
-import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
+import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireCanUpdateInboxRoleNotifications, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import {
@@ -544,8 +544,23 @@ function decodePushNotification(body: any): { emailAddress?: string; historyId?:
 router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
     const isConfigAdministrator = inboxConfigurationAdministrator(req);
-    const [allowedRoleTypes, aliases] = await Promise.all([permittedInboxRoleTypes(req), derivedAliases()]);
-    const visibleAliases = aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
+    const forConfiguration = req.query.forConfiguration === "true";
+    const forMyAssignments = req.query.forMyAssignments === "true";
+    if (forConfiguration && !isConfigAdministrator) {
+      res.status(403).json({request: {messageType}, error: "Member administrator access is required to configure inbox aliases"});
+      return;
+    }
+    const aliases = await derivedAliases();
+    let visibleAliases: InboxAliasConfig[];
+    if (forConfiguration) {
+      visibleAliases = aliases;
+    } else if (forMyAssignments) {
+      const memberId = (req.user as Partial<MemberCookie>)?.memberId;
+      visibleAliases = aliases.filter(alias => Boolean(memberId) && alias.memberId === memberId && !isInboxGeneralRoleType(alias.roleType));
+    } else {
+      const allowedRoleTypes = await permittedInboxRoleTypes(req);
+      visibleAliases = aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
+    }
     const connections = await inboxMailboxConnectionModel.find({tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection[];
     const views = visibleAliases.map(alias => {
       const connection = connections.find(candidate => connectionId(candidate) === alias.mailboxConnectionId) ?? null;
@@ -570,9 +585,6 @@ router.get("/junk-access", authConfig.authenticate(), async (req: Request, res: 
 
 router.put("/aliases/:roleType/notifications", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    if (!requireInboxConfigurationAdministrator(req, res)) {
-      return;
-    }
     const enabled = req.body?.enabled;
     if (!isBoolean(enabled)) {
       res.status(400).json({request: {messageType}, error: "enabled must be true or false"});
@@ -582,8 +594,7 @@ router.put("/aliases/:roleType/notifications", authConfig.authenticate(), async 
     const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
     const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
     const role = roles.find(candidate => candidate.type === req.params.roleType);
-    if (!role) {
-      res.status(404).json({request: {messageType}, error: `No committee role found for ${req.params.roleType}`});
+    if (!requireCanUpdateInboxRoleNotifications(req, res, role, req.params.roleType)) {
       return;
     }
     role.inboxMessageNotifications = enabled;
@@ -604,9 +615,6 @@ router.put("/aliases/:roleType/notifications", authConfig.authenticate(), async 
 
 router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    if (!requireInboxConfigurationAdministrator(req, res)) {
-      return;
-    }
     const email = req.body?.email;
     if (email !== null && email !== undefined && !isString(email)) {
       res.status(400).json({request: {messageType}, error: "email must be a string or null"});
@@ -616,8 +624,7 @@ router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), a
     const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
     const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
     const role = roles.find(candidate => candidate.type === req.params.roleType);
-    if (!role) {
-      res.status(404).json({request: {messageType}, error: `No committee role found for ${req.params.roleType}`});
+    if (!requireCanUpdateInboxRoleNotifications(req, res, role, req.params.roleType)) {
       return;
     }
     role.inboxNotificationEmail = isString(email) && email.trim().length > 0 ? email.trim() : undefined;
@@ -638,9 +645,6 @@ router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), a
 
 router.put("/aliases/notifications", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    if (!requireInboxConfigurationAdministrator(req, res)) {
-      return;
-    }
     const changes = req.body?.changes;
     if (!isArray(changes)) {
       res.status(400).json({request: {messageType}, error: "changes must be an array"});
@@ -649,7 +653,16 @@ router.put("/aliases/notifications", authConfig.authenticate(), async (req: Requ
     const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
     const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
     const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
-    (changes as InboxRoleNotificationSetting[]).forEach(change => {
+    const typedChanges = changes as InboxRoleNotificationSetting[];
+    const disallowed = typedChanges.find(change => {
+      const role = roles.find(candidate => candidate.type === change.roleType);
+      return !role || !canUpdateInboxRoleNotifications(req, role);
+    });
+    if (disallowed) {
+      res.status(403).json({request: {messageType}, error: "You can only change notification settings for roles assigned to you"});
+      return;
+    }
+    typedChanges.forEach(change => {
       const role = roles.find(candidate => candidate.type === change.roleType);
       if (role) {
         role.inboxMessageNotifications = change.inboxMessageNotifications === true;
@@ -658,7 +671,7 @@ router.put("/aliases/notifications", authConfig.authenticate(), async (req: Requ
       }
     });
     await config.createOrUpdateKey(ConfigKey.COMMITTEE, committeeConfiguration);
-    res.json({request: {messageType}, response: {updated: changes.length}});
+    res.json({request: {messageType}, response: {updated: typedChanges.length}});
   } catch (error) {
     errorDebugLog("Error updating inbox role notifications:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});

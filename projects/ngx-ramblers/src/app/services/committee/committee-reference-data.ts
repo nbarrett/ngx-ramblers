@@ -73,6 +73,26 @@ export class CommitteeReferenceData {
     return this.committeeMembers().find(member => member.builtInRoleMapping === builtInRole);
   }
 
+  committeeMemberForPreferredRoles(role: string[] | string): CommitteeMember | undefined {
+    const preferred = this.toRoles(role) || [];
+    const contactable = (member: CommitteeMember) => Boolean(member?.email) && !member.vacant;
+    for (const preferredRole of preferred) {
+      const match = this.committeeMemberForRole(preferredRole);
+      if (contactable(match)) {
+        return match;
+      }
+    }
+    const contactUs = this.committeeMemberForBuiltInRole(BuiltInRole.CONTACT_US);
+    if (contactable(contactUs)) {
+      return contactUs;
+    }
+    return this.committeeMembers().find(contactable);
+  }
+
+  contactDisplayName(member: CommitteeMember): string {
+    return member?.contactUsLabel || member?.description || member?.fullName || "the committee";
+  }
+
   private roleMatch(member: CommitteeMember, role: string) {
     return kebabCase(member?.type)?.toLowerCase().includes(kebabCase(role));
   }

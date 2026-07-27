@@ -39,6 +39,16 @@ export class InboxService {
     return response.response as InboxAliasConfigView[];
   }
 
+  async listAliasesForConfiguration(): Promise<InboxAliasConfigView[]> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/aliases`, {params: {forConfiguration: "true"}}));
+    return response.response as InboxAliasConfigView[];
+  }
+
+  async listAliasesForMyAssignments(): Promise<InboxAliasConfigView[]> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/aliases`, {params: {forMyAssignments: "true"}}));
+    return response.response as InboxAliasConfigView[];
+  }
+
   async junkAccessible(): Promise<boolean> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/junk-access`));
     return (response.response as InboxJunkAccess).canReadJunk;

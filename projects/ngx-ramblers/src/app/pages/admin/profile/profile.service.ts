@@ -67,13 +67,18 @@ export class ProfileService  {
       .catch(error => notify.error({title: "Profile", message: error}));
   }
 
-  saveMemberDetails(notify: AlertInstance, profileUpdateType: ProfileUpdateType, member: Member) {
+  saveMemberDetails(notify: AlertInstance, profileUpdateType: ProfileUpdateType, member: Member): Promise<void> {
     this.logger.debug("saveMemberDetails:", profileUpdateType);
     const systemConfig = this.systemConfigService.systemConfig();
     this.memberDefaultsService.resetUpdateStatusForMember(member, systemConfig);
     return this.memberService.update(member)
-      .then(() => this.saveOrUpdateSuccessful(notify, profileUpdateType))
-      .catch((error) => this.saveOrUpdateUnsuccessful(notify, profileUpdateType, error));
+      .then(() => {
+        this.saveOrUpdateSuccessful(notify, profileUpdateType);
+      })
+      .catch((error) => {
+        this.saveOrUpdateUnsuccessful(notify, profileUpdateType, error);
+        throw error;
+      });
   }
 
   saveOrUpdateSuccessful(notify: AlertInstance, profileUpdateType: ProfileUpdateType) {
