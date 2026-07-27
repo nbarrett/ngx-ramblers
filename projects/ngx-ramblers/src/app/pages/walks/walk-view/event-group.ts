@@ -11,7 +11,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 @Component({
     selector: "app-event-group",
     template: `@if (groupDisplayName) {
-      <div [class]="compact ? 'mt-1' : 'mb-3'">
+      <div [class]="compact ? 'mt-1' : 'mb-2'">
         @if (!compact) {
           <h1>Group</h1>
         }

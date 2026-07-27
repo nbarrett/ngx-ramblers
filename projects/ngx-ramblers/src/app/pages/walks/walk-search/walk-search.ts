@@ -78,20 +78,35 @@ interface DateRangePreset {
           transform: rotate(90deg)
 
       .search-alert
+        box-sizing: border-box
         min-width: 0
         max-width: 100%
         white-space: normal
+        min-height: 0
+        padding: calc(.75rem - 1px) .85rem
+        line-height: 1
+        border-width: 1px
+        border-radius: 6px
+        align-items: center
+
+        .mt-1
+          margin-top: 0
 
       .search-alert-body
         min-width: 0
         flex: 1 1 auto
+        display: flex
+        flex-direction: column
+        justify-content: center
+        line-height: 1
 
       .search-alert-message
         white-space: pre-wrap
         overflow-wrap: anywhere
         word-break: break-word
-        line-height: 1.45
-        font-size: 0.95rem
+        line-height: 1
+        font-size: 1rem
+        margin: 0
 
       ::ng-deep .ng-select
         .ng-select-container
@@ -176,14 +191,14 @@ interface DateRangePreset {
         }
         @if (alertInline() && showAlerts && notifyTarget.showAlert) {
           <div class="mb-2 mb-lg-0 flex-lg-fill d-flex justify-content-end min-w-0">
-            <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-start gap-2">
-              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0 mt-1"></fa-icon>
+            <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2">
+              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
               <div class="search-alert-body">
                 @if (notifyTarget.alertTitle) {
                   <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
                 }
                 @if (notifyTarget.alertMessage) {
-                  <div class="search-alert-message mt-1">{{ notifyTarget.alertMessage }}</div>
+                  <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
                 }
               </div>
             </div>
@@ -191,20 +206,20 @@ interface DateRangePreset {
         }
       </div>
       @if (showPagination || !alertInline()) {
-        <div class="d-flex full-width-pagination align-items-start gap-2 flex-wrap mt-1">
+        <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
           @if (showPagination) {
             <ng-content/>
           }
           @if (showAlerts && notifyTarget.showAlert) {
             <div class="alert-wrapper flex-grow-1 min-w-0">
-              <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-start gap-2">
-                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0 mt-1"></fa-icon>
+              <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2">
+                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
                 <div class="search-alert-body">
                   @if (notifyTarget.alertTitle) {
                     <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
                   }
                   @if (notifyTarget.alertMessage) {
-                    <div class="search-alert-message mt-1">{{ notifyTarget.alertMessage }}</div>
+                    <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
                   }
                 </div>
               </div>

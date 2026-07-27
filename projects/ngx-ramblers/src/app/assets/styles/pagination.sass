@@ -7,12 +7,33 @@
   padding-top: .75rem
   padding-bottom: .75rem
   line-height: 1
-  border: none
+  border: 1px solid $ramblers-colour-grey
   border-radius: 6px
+  font-weight: 600
 
-%pager-sunrise
+%pager-quiet
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-grey
+  border-color: $ramblers-colour-grey
+
+%pager-quiet-hover
+  color: $ramblers-colour-black
   background-color: $ramblers-colour-sunrise
-  color: $ramblers-colour-granite
+  border-color: $ramblers-colour-sunrise
+
+%pager-quiet-active
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+  font-weight: 700
+
+%pager-quiet-disabled
+  color: rgba($ramblers-colour-black, .4)
+  background-color: rgb(236, 238, 240)
+  border-color: rgb(236, 238, 240)
+  cursor: not-allowed
+  pointer-events: none
+  opacity: .7
 
 .pagination
   .page-item
@@ -20,20 +41,19 @@
 
   .page-link
     @extend %pager-base
-    @extend %pager-sunrise
+    @extend %pager-quiet
+
+  .page-item:not(.disabled):not(.active) .page-link:hover,
+  .page-item:not(.disabled):not(.active) .page-link:focus
+    @extend %pager-quiet-hover
 
   .page-item.active .page-link
     @extend %pager-base
-    @extend %pager-sunrise
-    font-weight: 700
+    @extend %pager-quiet-active
 
   .page-item.disabled .page-link
     @extend %pager-base
-    @extend %pager-sunrise
-    cursor: not-allowed
-    color: rgba($ramblers-colour-granite, .45)
-    font-weight: 600
-    pointer-events: none
+    @extend %pager-quiet-disabled
 
 @media (max-width: 576px)
   .pagination
@@ -45,18 +65,19 @@
 
 .pager-btn
   @extend %pager-base
-  @extend %pager-sunrise
+  @extend %pager-quiet
 
 .pager-btn:hover, .pager-btn:focus
-  background-color: $ramblers-colour-sunrise-hover-background
-  color: $ramblers-colour-granite
+  @extend %pager-quiet-hover
 
 .pager-btn:active, .pager-btn.active, .show > .pager-btn.dropdown-toggle
+  @extend %pager-quiet-active
   background-color: $ramblers-colour-sunrise-hover-border
-  color: $ramblers-colour-cloudy
+  border-color: $ramblers-colour-sunrise-hover-border
 
 .full-width-pagination
   width: 100%
+  align-items: center
   .row
     width: 100%
     &.g-0
@@ -78,6 +99,11 @@
 .alert-wrapper
   flex-basis: 100%
   flex-shrink: 0
+  display: flex
+  align-items: center
+
+  .search-alert
+    width: 100%
 
 @media (min-width: 992px)
   .alert-wrapper

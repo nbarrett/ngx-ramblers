@@ -17,11 +17,26 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
     selector: "app-event-leader",
     styles: [`
       :host
+        display: block
+
+      :host-context(.walk-meta-top-left),
+      :host-context(.walk-meta-left)
         display: flex
         flex-direction: column
+        flex: 1 0 auto
+        align-self: stretch
+        min-height: min-content
 
-      .event-panel
-        flex: 1
+      .event-panel-inner
+        margin-bottom: 0
+
+      :host-context(.walk-meta-top-left) .event-panel,
+      :host-context(.walk-meta-left) .event-panel
+        display: flex
+        flex-direction: column
+        flex: 1 0 auto
+        box-sizing: border-box
+        min-height: 100%
     `],
     template: `
     <div class="event-panel rounded event-panel-inner">

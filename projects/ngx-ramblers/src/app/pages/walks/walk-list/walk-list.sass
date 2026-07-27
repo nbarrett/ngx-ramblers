@@ -1,18 +1,34 @@
 .search-alert
+  box-sizing: border-box
   min-width: 0
   max-width: 100%
   white-space: normal
+  min-height: 0
+  padding: calc(.75rem - 1px) .85rem
+  line-height: 1
+  border-width: 1px
+  border-radius: 6px
+  align-items: center
+
+  .mt-1
+    margin-top: 0
 
 .search-alert-body
   min-width: 0
   flex: 1 1 auto
+  display: flex
+  flex-direction: column
+  justify-content: center
+  line-height: 1
 
 .search-alert-message
   white-space: pre-wrap
   overflow-wrap: anywhere
   word-break: break-word
-  line-height: 1.45
-  font-size: 0.95rem
+  line-height: 1
+  font-size: 1rem
+  margin: 0
+
 
 .walk-admin-thumbnail
   padding: 12px 0px 6px 0px

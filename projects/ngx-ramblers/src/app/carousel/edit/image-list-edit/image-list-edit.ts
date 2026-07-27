@@ -1017,26 +1017,29 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
             const unmatchedQueue: ContentMetadataItem[] = [...this.unsavedImages()];
             const matches: ContentMetadataItem[] = responses.map(response => {
               const baseResponseName = this.fileUtils.basename(response.uploadedFile.originalname)?.toLowerCase();
-              let metadataItem: ContentMetadataItem = this.contentMetadata.files.find(item => {
+              const matchedByBaseName = this.contentMetadata.files.find(item => {
                 const baseOriginalName = this.fileUtils.basename(item.originalFileName || "")?.toLowerCase();
                 return baseOriginalName && baseOriginalName === baseResponseName;
               });
-              if (!metadataItem) {
-                metadataItem = unmatchedQueue.find(item => (item.originalFileName || "").toLowerCase() === response.uploadedFile.originalname.toLowerCase());
-              }
-              if (metadataItem) {
-                const queueIndex = unmatchedQueue.indexOf(metadataItem);
+              const matchedByOriginalName = matchedByBaseName
+                || unmatchedQueue.find(item => (item.originalFileName || "").toLowerCase() === response.uploadedFile.originalname.toLowerCase());
+              if (matchedByOriginalName) {
+                const queueIndex = unmatchedQueue.indexOf(matchedByOriginalName);
                 if (queueIndex >= 0) {
                   unmatchedQueue.splice(queueIndex, 1);
                 }
               }
-              if (!metadataItem && unmatchedQueue.length > 0) {
-                metadataItem = unmatchedQueue.shift();
-                this.logger.warn("falling back to sequential match for", response.uploadedFile.originalname, "matched:", metadataItem?.originalFileName);
-                if (metadataItem && !metadataItem.originalFileName) {
-                  metadataItem.originalFileName = response.uploadedFile.originalname;
+              const metadataItem = matchedByOriginalName || (() => {
+                if (unmatchedQueue.length === 0) {
+                  return null;
                 }
-              }
+                const fallback = unmatchedQueue.shift();
+                this.logger.warn("falling back to sequential match for", response.uploadedFile.originalname, "matched:", fallback?.originalFileName);
+                if (fallback && !fallback.originalFileName) {
+                  fallback.originalFileName = response.uploadedFile.originalname;
+                }
+                return fallback;
+              })();
               if (metadataItem) {
                 metadataItem.image = response.fileNameData.awsFileName;
                 delete metadataItem.base64Content;
@@ -1340,6 +1343,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!saved) {
           return;
         }
+        this.createWalkAlbumService.clearPendingAlbum(saved.name || this.name);
         if (this.workflowMode) {
           this.exit.next(saved);
           return;
@@ -1378,15 +1382,15 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
   public async exitBackWithoutSaving() {
     const albumName = this.contentMetadata?.name || this.name;
     if (this.workflowMode) {
-      this.createWalkAlbumService.clearPendingAlbum(albumName);
-      this.exit.emit();
+      await this.createWalkAlbumService.abandonEmptyPendingAlbum(albumName, this.contentMetadata);
+      this.exit.emit(null);
       return;
     }
     if (await this.createWalkAlbumService.navigateBackToWalkIfNeeded(albumName)) {
       return;
     }
     this.createWalkAlbumService.clearPendingAlbum(albumName);
-    this.exit.emit();
+    this.exit.emit(null);
   }
 
   public undoChanges() {

@@ -69,8 +69,8 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                                    (collapsed)="navigateToArea()"
                                    collapsable [collapseAction]="'collapse'"/>
         }
-        <div class="row">
-          <div class="col-sm-12 col-lg-6 rounded" [class.d-none]="mapExpanded">
+        <div class="walk-view-top" [class.map-expanded]="mapExpanded">
+          <div class="walk-view-copy" [class.d-none]="mapExpanded">
             @if (displayedWalk?.walk?.groupEvent?.title) {
               <h1 id="{{displayedWalk?.walk?.id}}-title">
                 {{ displayedWalk.walk?.groupEvent?.title }}</h1>
@@ -109,128 +109,51 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                 <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description | normaliseMarkdown"></p>
               }
             </div>
-            @if (display.hasWalkLeader(displayedWalk.walk)) {
-              <app-event-leader [displayedWalk]="displayedWalk"/>
-            }
-            @if (displayedWalk?.hasFeatures) {
-              <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
-            }
-            @if (displayLinks && display.showWalkRelatedLinks()) {
-              <app-related-links-panel [displayedWalk]="displayedWalk"/>
-            }
-            @if (showWalkViewActions()) {
-              <div class="walk-view-actions" role="toolbar" aria-label="Walk admin actions">
-                @if (showAlbumAction()) {
-                  <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
-                          [tooltip]="albumActionTooltip()"
-                          class="btn btn-quiet btn-sm walk-view-action">
-                    <fa-icon [icon]="faImages"/>
-                    <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
-                  </button>
-                }
-                @if (showPublishToRamblers) {
-                  <a [routerLink]="publishExportLink"
-                     [queryParams]="publishExportQueryParams"
-                     [tooltip]="publishTooltip"
-                     class="btn btn-primary btn-sm walk-view-action">
-                    <fa-icon [icon]="faCloudArrowUp"/>
-                    <span>Publish</span>
-                  </a>
-                }
-                @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                  <button type="button"
-                          (click)="display.edit(displayedWalk)"
-                          [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                          class="btn btn-primary btn-sm walk-view-action">
-                    <fa-icon [icon]="walkActionIcon()"/>
-                    <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
-                  </button>
-                } @else if (allowWalkAdminEdits) {
-                  <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
-                     tooltip="View this walk"
-                     class="btn btn-quiet btn-sm walk-view-action">
-                    <fa-icon [icon]="faEye"/>
-                    <span>View</span>
-                  </a>
-                }
-              </div>
-            }
-            <div class="walk-booking-form">
-              <app-booking-form [extendedGroupEvent]="displayedWalk?.walk" [eventLink]="displayedWalk?.walkLink"></app-booking-form>
-            </div>
-            @if (urlService.pathContainsEventIdOrSlug()) {
-              @if (notifyTarget.showAlert) {
-                <div class="col-12 alert {{notifyTarget.alertClass}} walk-view-status-alert">
-                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  @if (notifyTarget.alertTitle) {
-                    <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
-                  }
-                  {{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}
-                  <a [routerLink]="'/' + display.walksArea()" type="button"
-                     class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
-                </div>
-              }
-            }
-            @if (display.walkLeaderOrAdmin(displayedWalk?.walk) && (display.walkPopulationLocal() && !extendedGroupEventQueryService.approvedWalk(displayedWalk?.walk))) {
-              @if (notifyTarget.showAlert) {
-                <div class="col-12 alert {{ALERT_WARNING.class}} walk-view-status-alert">
-                  <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-                  <strong class="ms-2">Walk Status</strong>
-                  <div class="ms-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
-                </div>
-              }
-            }
           </div>
-          <div class="rounded" [class.col-sm-12]="true" [class.col-lg-6]="!mapExpanded" [class.col-lg-12]="mapExpanded">
+          <div class="walk-view-media">
             @if (!display.displayMap(displayedWalk?.walk) || displayedWalk?.walk?.groupEvent?.media?.length > 0) {
-              <div class="row">
-                <div class="col-sm-12">
-                  <app-group-event-images [extendedGroupEvent]="displayedWalk?.walk"/>
-                </div>
-              </div>
+              <app-group-event-images [extendedGroupEvent]="displayedWalk?.walk"/>
             }
             @if (display.displayMap(displayedWalk?.walk)) {
-              <div class="row">
-                <div class="col-sm-12" [class.position-relative]="!mapFullScreen" [class.map-full-screen-container]="mapFullScreen">
-                  @if (mapFullScreen) {
-                    <div class="map-full-screen-bar">
-                      <div class="map-full-screen-bar-text">
-                        <div class="map-full-screen-bar-title">{{ displayedWalk?.walk?.groupEvent?.title || "Walk" }} map</div>
-                        <div class="map-full-screen-bar-hint">Press Escape to leave full screen</div>
-                      </div>
-                      <button type="button" class="btn btn-primary btn-sm map-full-screen-exit"
-                              (click)="exitMapFullScreen()"
-                              aria-label="Exit full screen map">
-                        <fa-icon [icon]="faCompress" class="me-1"/>
-                        Exit full screen
-                      </button>
+              <div class="walk-view-map" [class.position-relative]="!mapFullScreen" [class.map-full-screen-container]="mapFullScreen">
+                @if (mapFullScreen) {
+                  <div class="map-full-screen-bar">
+                    <div class="map-full-screen-bar-text">
+                      <div class="map-full-screen-bar-title">{{ displayedWalk?.walk?.groupEvent?.title || "Walk" }} map</div>
+                      <div class="map-full-screen-bar-hint">Press Escape to leave full screen</div>
                     </div>
-                  } @else {
-                    <button type="button" class="btn btn-sm btn-light map-expand-btn"
-                            (click)="cycleMapSize()"
-                            [tooltip]="mapExpanded ? 'Full screen' : 'Expand map'"
-                            placement="left"
-                            [attr.aria-label]="mapExpanded ? 'Full screen map' : 'Expand map'">
-                      <fa-icon [icon]="mapExpanded ? faMaximize : faExpand"></fa-icon>
+                    <button type="button" class="btn btn-primary btn-sm map-full-screen-exit"
+                            (click)="exitMapFullScreen()"
+                            aria-label="Exit full screen map">
+                      <fa-icon [icon]="faCompress" class="me-1"/>
+                      Exit full screen
                     </button>
-                  }
-                  @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
-                    <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
-                            class="map-walk-view map-walk-view-google"
-                            [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
-                            style="border:0;border-radius: 10px;"
-                            [src]="googleMapsUrl"></iframe>
-                  }
-                  @if (!showGoogleMapsView) {
-                    <div app-map-edit [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
-                         class="map-walk-view" readonly
-                         [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
-                         [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
-                         [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
-                         [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
-                         [notify]="notify"></div>
-                  }
-                </div>
+                  </div>
+                } @else {
+                  <button type="button" class="btn btn-sm btn-light map-expand-btn"
+                          (click)="cycleMapSize()"
+                          [tooltip]="mapExpanded ? 'Full screen' : 'Expand map'"
+                          placement="left"
+                          [attr.aria-label]="mapExpanded ? 'Full screen map' : 'Expand map'">
+                    <fa-icon [icon]="mapExpanded ? faMaximize : faExpand"></fa-icon>
+                  </button>
+                }
+                @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
+                  <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
+                          class="map-walk-view map-walk-view-google"
+                          [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
+                          style="border:0;"
+                          [src]="googleMapsUrl"></iframe>
+                }
+                @if (!showGoogleMapsView) {
+                  <div app-map-edit [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
+                       class="map-walk-view" readonly
+                       [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
+                       [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
+                       [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
+                       [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                       [notify]="notify"></div>
+                }
               </div>
               <form class="rounded img-thumbnail map-radio-frame d-flex flex-wrap align-items-center justify-content-center">
                 <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
@@ -275,7 +198,7 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                   }
                 </div>
                 @if (showGoogleMapsView) {
-                  <div class="col-sm-12 ms-2 me-2 mt-2">
+                  <div class="w-100 ms-2 me-2 mt-2">
                     <div class="form-check">
                       <div class="d-flex align-items-center flex-wrap">
                         <input id="{{index}}-show-driving-directions"
@@ -297,12 +220,101 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                 }
               </form>
             }
-            <app-walk-details [displayedWalk]="displayedWalk"/>
-            @if (walkAlbumPath && !mapExpanded) {
-              <app-walk-album-panel [albumPath]="walkAlbumPath"
-                                   [albumName]="walkAlbumName"
-                                   [coverImageUrl]="walkAlbumCoverUrl"/>
+          </div>
+        </div>
+        <div class="walk-meta-grid" [class.has-album]="!!walkAlbumPath" [class.d-none]="mapExpanded">
+          @if (walkAlbumPath) {
+            <div class="walk-meta-top-left">
+              @if (display.hasWalkLeader(displayedWalk.walk)) {
+                <app-event-leader [displayedWalk]="displayedWalk"/>
+              }
+              @if (displayedWalk?.hasFeatures) {
+                <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
+              }
+            </div>
+            <app-walk-details class="walk-meta-details" [displayedWalk]="displayedWalk"/>
+            @if (displayLinks && display.showWalkRelatedLinks()) {
+              <app-related-links-panel class="walk-meta-related" [displayedWalk]="displayedWalk"/>
+            } @else {
+              <div class="walk-meta-related"></div>
             }
+            <app-walk-album-panel class="walk-meta-album"
+                                 [albumPath]="walkAlbumPath"
+                                 [albumName]="walkAlbumName"
+                                 [coverImageUrl]="walkAlbumCoverUrl"/>
+          } @else {
+            <div class="walk-meta-left">
+              @if (display.hasWalkLeader(displayedWalk.walk)) {
+                <app-event-leader [displayedWalk]="displayedWalk"/>
+              }
+              @if (displayedWalk?.hasFeatures) {
+                <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
+              }
+              @if (displayLinks && display.showWalkRelatedLinks()) {
+                <app-related-links-panel [displayedWalk]="displayedWalk"/>
+              }
+            </div>
+            <app-walk-details class="walk-meta-details" [displayedWalk]="displayedWalk"/>
+          }
+        </div>
+        <div class="walk-meta-footer" [class.d-none]="mapExpanded">
+          @if (showWalkViewActions() || showWalkViewStatusAlert() || showWalkStatusWarning()) {
+            <div class="walk-view-footer-bar" role="toolbar" aria-label="Walk actions and status">
+              @if (showAlbumAction()) {
+                <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
+                        [tooltip]="albumActionTooltip()"
+                        class="btn btn-quiet btn-sm walk-view-action">
+                  <fa-icon [icon]="faImages"/>
+                  <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
+                </button>
+              }
+              @if (showPublishToRamblers) {
+                <a [routerLink]="publishExportLink"
+                   [queryParams]="publishExportQueryParams"
+                   [tooltip]="publishTooltip"
+                   class="btn btn-primary btn-sm walk-view-action">
+                  <fa-icon [icon]="faCloudArrowUp"/>
+                  <span>Publish</span>
+                </a>
+              }
+              @if (displayedWalk?.walkAccessMode?.walkWritable) {
+                <button type="button"
+                        (click)="display.edit(displayedWalk)"
+                        [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                        class="btn btn-primary btn-sm walk-view-action">
+                  <fa-icon [icon]="walkActionIcon()"/>
+                  <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
+                </button>
+              } @else if (allowWalkAdminEdits) {
+                <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+                   tooltip="View this walk"
+                   class="btn btn-quiet btn-sm walk-view-action">
+                  <fa-icon [icon]="faEye"/>
+                  <span>View</span>
+                </a>
+              }
+              @if (showWalkViewStatusAlert()) {
+                <div class="alert {{notifyTarget.alertClass}} walk-view-status-alert">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>{{ notifyTarget.alertTitle }}</strong>
+                  }
+                  <span>{{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}</span>
+                  <a [routerLink]="'/' + display.walksArea()" type="button"
+                     class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
+                </div>
+              }
+              @if (showWalkStatusWarning()) {
+                <div class="alert {{ALERT_WARNING.class}} walk-view-status-alert">
+                  <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                  <strong>Walk Status</strong>
+                  <span>This walk is not approved by {{ display.walksCoordinatorName() }}</span>
+                </div>
+              }
+            </div>
+          }
+          <div class="walk-booking-form">
+            <app-booking-form [extendedGroupEvent]="displayedWalk?.walk" [eventLink]="displayedWalk?.walkLink"></app-booking-form>
           </div>
         </div>
       </div>
@@ -395,10 +407,22 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers);
   }
 
+  showWalkViewStatusAlert(): boolean {
+    return this.urlService.pathContainsEventIdOrSlug() && !!this.notifyTarget.showAlert;
+  }
+
+  showWalkStatusWarning(): boolean {
+    return this.display.walkLeaderOrAdmin(this.displayedWalk?.walk)
+      && this.display.walkPopulationLocal()
+      && !this.extendedGroupEventQueryService.approvedWalk(this.displayedWalk?.walk)
+      && !!this.notifyTarget.showAlert;
+  }
+
   private refreshPublishAction(walk: ExtendedGroupEvent) {
     this.publishExportLink = ["/" + this.display.walksArea(), "admin", "export"];
     this.showPublishToRamblers = !!this.allowWalkAdminEdits
       && !!walk
+      && !this.eventHasStarted(walk)
       && this.ramblersWalksAndEventsService.needsRamblersPublish(walk);
     this.publishTooltip = this.showPublishToRamblers
       ? this.ramblersWalksAndEventsService.ramblersPublishTooltip(walk)
@@ -406,7 +430,14 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   showAlbumAction(): boolean {
-    return this.allowWalkAdminEdits && this.memberLoginService.allowContentEdits();
+    return this.allowWalkAdminEdits
+      && this.memberLoginService.allowContentEdits()
+      && this.eventHasStarted();
+  }
+
+  eventHasStarted(walk: ExtendedGroupEvent = this.displayedWalk?.walk): boolean {
+    const startDate = walk?.groupEvent?.start_date_time;
+    return !!startDate && this.dateUtils.asValue(startDate) < this.dateUtils.nowAsValue();
   }
 
   albumActionTooltip(): string {
@@ -417,7 +448,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   async createPhotoAlbum() {
-    if (!this.showAlbumAction()) {
+    if (!this.showAlbumAction() || !this.eventHasStarted()) {
       return;
     }
     if (this.walkAlbumPath) {

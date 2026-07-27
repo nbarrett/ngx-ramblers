@@ -79,15 +79,15 @@ import { FileNameData } from "../../../models/aws-object.model";
           event on Meetup</a>
       </div>
     }
-    @if (links?.osMapsRoute && showLink('relatedLinkShowOsMaps')) {
+    @if (osMapsHref() && showLink('relatedLinkShowOsMaps')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
         <img title class="related-links-image"
              src="/assets/images/local/ordnance-survey.png"
              alt="View map on OS Maps"/>
-        <a content tooltip="Click to view the route for This Walk on Ordnance Survey Maps"
+        <a content tooltip="Click to view this walk start on Ordnance Survey Maps"
            target="_blank"
-           [href]="links.osMapsRoute.href">
+           [href]="osMapsHref()">
           View map on OS Maps
         </a>
       </div>
@@ -103,7 +103,7 @@ import { FileNameData } from "../../../models/aws-object.model";
         </a>
       </div>
     }
-    @if (displayedWalk?.walk?.groupEvent?.start_location?.w3w && showLink('relatedLinkShowWhat3words')) {
+    @if (what3wordsHref() && showLink('relatedLinkShowWhat3words')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
         <img title class="w3w-image"
@@ -111,7 +111,7 @@ import { FileNameData } from "../../../models/aws-object.model";
              alt="View start location in what3words"/>
         <a content tooltip="Click to view the start location in what3words"
            target="_blank"
-           [href]="'https://what3words.com/'+displayedWalk?.walk?.groupEvent.start_location.w3w">
+           [href]="what3wordsHref()">
           View start location in what3words
         </a>
       </div>
@@ -213,6 +213,42 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   showLink(key: keyof WalksConfig): boolean {
     return (this.walksConfig?.[key] as boolean | undefined) !== false;
+  }
+
+  osMapsHref(): string | null {
+    const routeHref = this.links?.osMapsRoute?.href || null;
+    const coords = this.startCoordinates();
+    let href: string | null = null;
+    if (routeHref) {
+      href = routeHref;
+    } else if (coords) {
+      href = `https://explore.osmaps.com/pin?lat=${coords.latitude}&lon=${coords.longitude}&zoom=15`;
+    }
+    return href;
+  }
+
+  what3wordsHref(): string | null {
+    const start = this.displayedWalk?.walk?.groupEvent?.start_location;
+    const words = `${start?.w3w || ""}`.trim().replace(/^\/+/, "");
+    const coords = this.startCoordinates();
+    let href: string | null = null;
+    if (words) {
+      href = `https://what3words.com/${words}`;
+    } else if (coords) {
+      href = `https://what3words.com/map/@${coords.latitude},${coords.longitude}`;
+    }
+    return href;
+  }
+
+  private startCoordinates(): { latitude: number; longitude: number } | null {
+    const start = this.displayedWalk?.walk?.groupEvent?.start_location;
+    const latitude = Number(start?.latitude);
+    const longitude = Number(start?.longitude);
+    const valid = !!start
+      && Number.isFinite(latitude)
+      && Number.isFinite(longitude)
+      && !(latitude === 0 && longitude === 0);
+    return valid ? {latitude, longitude} : null;
   }
 
   showDropdown(): void {

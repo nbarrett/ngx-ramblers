@@ -11,11 +11,10 @@ import { FeaturesService } from "../../../services/features.service";
     selector: "app-walk-features",
     styles: [`
       :host
-        display: flex
-        flex-direction: column
+        display: block
 
-      .event-panel
-        flex: 1
+      .event-panel-inner
+        margin-bottom: 0
     `],
     template: `
       <div class="event-panel rounded event-panel-inner">
