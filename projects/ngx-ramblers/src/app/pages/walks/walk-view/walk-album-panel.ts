@@ -21,10 +21,18 @@ import { NgClass } from "@angular/common";
   selector: "app-walk-album-panel",
   styles: [`
     :host
-      display: block
-      margin-bottom: 21px
+      display: flex
+      flex-direction: column
+      margin-bottom: 0
+      min-height: 0
+      height: 100%
 
     .walk-album-panel
+      display: flex
+      flex-direction: column
+      flex: 1 1 auto
+      height: 100%
+      min-height: 0
       background: #fff
       border: 1px solid rgba(29, 53, 87, 0.1)
       border-radius: 6px
@@ -33,6 +41,8 @@ import { NgClass } from "@angular/common";
 
     .walk-album-panel-cover
       width: 100%
+      flex: 1 1 auto
+      min-height: 0
       background: #f7f8f9
       display: flex
       align-items: center
@@ -82,6 +92,7 @@ import { NgClass } from "@angular/common";
         height: auto
 
     .walk-album-panel-body
+      flex: 0 0 auto
       padding: 12px 16px 14px
       display: flex
       align-items: center
@@ -123,14 +134,47 @@ import { NgClass } from "@angular/common";
     a.walk-album-panel-link:hover .walk-album-panel-title,
     a.walk-album-panel-link:focus-visible .walk-album-panel-title
       text-decoration: underline
+
+    .walk-album-match
+      display: flex
+      flex-direction: column
+      flex: 1 1 auto
+      height: 100%
+      min-height: 0
+      padding: 12px 14px 14px
+      background: #fff
+      border: 1px solid rgba(29, 53, 87, 0.1)
+      border-radius: 6px
+      box-shadow: 0 1px 2px rgba(29, 53, 87, 0.04)
+
+    .walk-album-match-header
+      display: flex
+      align-items: center
+      flex-wrap: nowrap
+      gap: 0.5rem
+      min-width: 0
+      margin-bottom: 10px
+
+    .walk-album-match-nav
+      display: flex
+      align-items: center
+      flex-shrink: 0
+
+    .walk-album-match-image
+      position: relative
+      min-width: 0
+      border-radius: 6px
+      overflow: hidden
   `],
   template: `
     @if (albumPath && (imageUrls.length > 0 || panelStyle === WalkAlbumPanelStyle.CARD)) {
       @if (panelStyle === WalkAlbumPanelStyle.MATCH_WALK_IMAGES) {
-        <div class="pointer" [tooltip]="currentImageTooltip()" [placement]="'bottom'">
-          <div class="d-flex align-items-center flex-nowrap">
+        <div class="walk-album-match pointer"
+             [tooltip]="currentImageTooltip()"
+             [placement]="'bottom'">
+          <div class="walk-album-match-header">
             @if (imageUrls.length > 1) {
-              <div class="d-flex align-items-center flex-shrink-0">
+              <div class="walk-album-match-nav">
                 <app-svg [colour]="navColour" (click)="back()"
                          [disabled]="backDisabled()"
                          height="20"
@@ -149,7 +193,7 @@ import { NgClass } from "@angular/common";
                [routerLink]="'/' + albumPath"
                tooltip="Open the full photo album">Photo album</a>
           </div>
-          <div class="position-relative" [ngClass]="imageUrls.length > 1 ? 'mt-2' : 'mt-3'">
+          <div class="walk-album-match-image">
             @if (imageUrls.length > 1) {
               <div class="swiper-viewport" appSwipeable
                    (draggingChange)="dragging = $event"

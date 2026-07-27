@@ -228,8 +228,10 @@ export class CreateWalkAlbumService {
   }
 
   private autoCoverAlbumNames: Record<string, boolean> = {};
+  private pendingAlbumNames: Record<string, boolean> = {};
   private returnToWalkPathSegments: string[] | null = null;
   private readonly AUTO_COVER_STORAGE_KEY = "ngx-ramblers.auto-cover-albums";
+  private readonly PENDING_ALBUM_STORAGE_KEY = "ngx-ramblers.pending-walk-albums";
 
   private eventTypeFor(walk: ExtendedGroupEvent): RamblersEventType {
     if (walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
@@ -247,6 +249,7 @@ export class CreateWalkAlbumService {
     const eventType = this.eventTypeFor(walk);
     const albumName = this.albumNameFor(walk, eventType);
     this.markAlbumForAutoCover(albumName);
+    this.markPendingAlbum(albumName);
     await this.ensureContentMetadata(albumName);
     await this.createAlbumPageForWalk(walk, albumName);
     return albumName;
@@ -284,7 +287,106 @@ export class CreateWalkAlbumService {
   }
 
   clearPendingAlbum(albumName: string): void {
+    this.clearPendingAlbumMark(albumName);
     this.clearAutoCoverMark(albumName);
+  }
+
+  async abandonEmptyPendingAlbum(albumName: string, contentMetadata?: ContentMetadata | null): Promise<boolean> {
+    if (!albumName) {
+      return false;
+    }
+    if (!this.isPendingAlbum(albumName)) {
+      this.clearAutoCoverMark(albumName);
+      return false;
+    }
+    const metadata = contentMetadata?.name === albumName
+      ? contentMetadata
+      : await this.contentMetadataService.items(RootFolder.carousels, albumName).catch(() => null);
+    const imageCount = (metadata?.files || []).filter(file => !!file?.image).length;
+    if (imageCount > 0) {
+      this.clearPendingAlbum(albumName);
+      return false;
+    }
+    try {
+      if (metadata?.id) {
+        await this.contentMetadataService.delete(metadata);
+        this.logger.info("abandonEmptyPendingAlbum: deleted empty content metadata", albumName);
+      }
+      const page = await this.pageContentService.findByPath(albumName).catch(() => null);
+      if (page?.id) {
+        await this.pageContentService.delete(page.id);
+        this.logger.info("abandonEmptyPendingAlbum: deleted empty album page", albumName);
+      }
+    } catch (error) {
+      this.logger.warn("abandonEmptyPendingAlbum: failed to remove empty album", albumName, error);
+    }
+    this.clearPendingAlbum(albumName);
+    return true;
+  }
+
+  private markPendingAlbum(albumName: string): void {
+    if (!albumName) {
+      return;
+    }
+    this.pendingAlbumNames[albumName] = true;
+    const stored = this.readStoredPendingAlbums();
+    stored[albumName] = true;
+    this.writeStoredPendingAlbums(stored);
+  }
+
+  private isPendingAlbum(albumName: string): boolean {
+    if (!albumName) {
+      return false;
+    }
+    if (this.pendingAlbumNames[albumName]) {
+      return true;
+    }
+    const stored = this.readStoredPendingAlbums();
+    if (stored[albumName]) {
+      this.pendingAlbumNames[albumName] = true;
+      return true;
+    }
+    return false;
+  }
+
+  private clearPendingAlbumMark(albumName: string): void {
+    if (!albumName) {
+      return;
+    }
+    delete this.pendingAlbumNames[albumName];
+    const stored = this.readStoredPendingAlbums();
+    if (stored[albumName]) {
+      delete stored[albumName];
+      this.writeStoredPendingAlbums(stored);
+    }
+  }
+
+  private readStoredPendingAlbums(): Record<string, boolean> {
+    if (isUndefined(window)) {
+      return {};
+    }
+    try {
+      const raw = window.sessionStorage.getItem(this.PENDING_ALBUM_STORAGE_KEY);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw);
+      return isObject(parsed) ? parsed as Record<string, boolean> : {};
+    } catch (error) {
+      this.logger.warn("failed to read pending album marks", error);
+      return {};
+    }
+  }
+
+  private writeStoredPendingAlbums(marks: Record<string, boolean>): void {
+    if (isUndefined(window)) {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(this.PENDING_ALBUM_STORAGE_KEY, JSON.stringify(marks));
+    } catch (error) {
+      this.logger.warn("failed to persist pending album marks", error);
+    }
   }
 
   rememberReturnToWalk(pathSegments: string[]): void {

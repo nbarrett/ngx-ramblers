@@ -1,4 +1,3 @@
-import { Location } from "@angular/common";
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faGear } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
@@ -45,6 +44,8 @@ import { MarkdownComponent } from "ngx-markdown";
 import {
   WalkMeetupConfigParametersComponent
 } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
+import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
+import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 @Component({
   selector: "app-walk-config",
@@ -287,6 +288,9 @@ import {
                         <label class="form-check-label" for="walk-details-map-provider-google">Google Maps (needs a Google Maps API key in system settings)</label>
                       </div>
                       <div class="fw-bold mb-2 mt-3">Related Links box</div>
+                      <p class="text-muted small mb-2">
+                        These switches allow each link type on walk pages. A row still only appears when that walk has the matching data (Meetup link, OS Maps route, GPX file, published venue, start location for what3words, and so on). The preview fills in sample data for any missing items so you can see every option.
+                      </p>
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowOnRamblers"
                                type="checkbox" class="form-check-input"
@@ -297,7 +301,7 @@ import {
                         <input [(ngModel)]="walksConfig.relatedLinkShowThisWalk"
                                type="checkbox" class="form-check-input"
                                id="related-link-show-this-walk">
-                        <label class="form-check-label" for="related-link-show-this-walk">Share this walk</label>
+                        <label class="form-check-label" for="related-link-show-this-walk">This walk (view, share, copy link)</label>
                       </div>
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowMeetup"
@@ -315,13 +319,13 @@ import {
                         <input [(ngModel)]="walksConfig.relatedLinkShowWhat3words"
                                type="checkbox" class="form-check-input"
                                id="related-link-show-what3words">
-                        <label class="form-check-label" for="related-link-show-what3words">what3words</label>
+                        <label class="form-check-label" for="related-link-show-what3words">what3words (from start location)</label>
                       </div>
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowVenue"
                                type="checkbox" class="form-check-input"
                                id="related-link-show-venue">
-                        <label class="form-check-label" for="related-link-show-venue">Venue</label>
+                        <label class="form-check-label" for="related-link-show-venue">Venue / meeting place</label>
                       </div>
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowGpx"
@@ -467,13 +471,10 @@ import {
               </div>
             }
           </div>
-          <div class="d-flex gap-2 flex-wrap">
-            <input type="submit" value="Save" (click)="save()"
-                   title="Save"
-                   class="btn btn-success">
-            <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
-                   title="Back to walks"
-                   class="btn btn-secondary">
+          <div class="col-sm-12">
+            <app-form-save-actions
+              [disabled]="!walksConfig || !meetupConfig"
+              [actions]="formSaveActions"/>
           </div>
         </div>
       </div>
@@ -551,13 +552,12 @@ import {
       margin-top: 0
   `],
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent]
+  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkConfigComponent", NgxLoggerLevel.ERROR);
-  private location = inject(Location);
   private urlService = inject(UrlService);
   private dateUtils = inject(DateUtilsService);
   private contentTextService = inject(ContentTextService);
@@ -591,6 +591,12 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   protected notifierService = inject(NotifierService);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
+  public formSaveActions: FormSaveActions = {
+    save: () => this.save(),
+    saveAndExit: () => this.saveAndExit(),
+    undo: () => this.undoChanges(),
+    cancel: () => this.cancel()
+  };
   public contentTextItems: ContentText[] = [];
   public selectedContent: ContentText;
   addNew: boolean;
@@ -830,9 +836,10 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
 
   private applyPreviewWalk(walk: ExtendedGroupEvent): void {
     this.previewWalk = this.walkDisplayService.toDisplayedWalk(walk);
+    this.enrichPreviewWalkForRelatedLinks();
     const media = this.mediaQueryService.basicMediaFrom(walk.groupEvent) || [];
     this.previewImageUrl = media[0]?.url || null;
-    const start = walk.groupEvent?.start_location;
+    const start = this.previewWalk?.walk?.groupEvent?.start_location;
     if (start?.latitude && start?.longitude) {
       this.exampleLocation = {
         latitude: start.latitude,
@@ -845,6 +852,66 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
         w3w: start.w3w || null
       };
       this.refreshMapPreview();
+    }
+  }
+
+  private enrichPreviewWalkForRelatedLinks(): void {
+    const displayed = this.previewWalk;
+    const walk = displayed?.walk;
+    if (walk) {
+      if (!walk.groupEvent) {
+        walk.groupEvent = {} as ExtendedGroupEvent["groupEvent"];
+      }
+      if (!walk.groupEvent.id) {
+        walk.groupEvent.id = walk.id || "preview-walk";
+      }
+      if (!walk.groupEvent.start_location) {
+        walk.groupEvent.start_location = {
+          latitude: this.defaultExampleLocation().latitude,
+          longitude: this.defaultExampleLocation().longitude,
+          postcode: this.defaultExampleLocation().postcode,
+          description: this.defaultExampleLocation().description,
+          grid_reference_6: null,
+          grid_reference_8: null,
+          grid_reference_10: null,
+          w3w: null
+        };
+      }
+      if (!walk.fields) {
+        walk.fields = {} as ExtendedGroupEvent["fields"];
+      }
+      if (!walk.fields.links) {
+        walk.fields.links = [];
+      }
+      const ensureLink = (source: LinkSource, href: string) => {
+        if (!walk.fields.links.some(link => link.source === source)) {
+          walk.fields.links = [...walk.fields.links, {source, href, title: source}];
+        }
+      };
+      ensureLink(LinkSource.MEETUP, "https://www.meetup.com/example-walk");
+      ensureLink(LinkSource.OS_MAPS, "https://explore.osmaps.com/route/example-walk");
+      if (!walk.fields.gpxFile?.awsFileName) {
+        walk.fields.gpxFile = {
+          awsFileName: "example-route.gpx",
+          originalFileName: "example-route.gpx"
+        };
+      }
+      if (!walk.fields.venue?.venuePublish) {
+        walk.fields.venue = {
+          ...walk.fields.venue,
+          venuePublish: true,
+          name: walk.fields.venue?.name || "Example meeting place",
+          type: walk.fields.venue?.type || "Pub",
+          url: walk.fields.venue?.url || "https://example.com/meeting-place",
+          postcode: walk.fields.venue?.postcode || walk.groupEvent.start_location?.postcode || null
+        };
+      }
+      if (!displayed.walkLink) {
+        displayed.walkLink = "https://example.com/walks/preview";
+      }
+      if (!displayed.ramblersLink) {
+        displayed.ramblersLink = "https://www.ramblers.org.uk";
+      }
     }
   }
 
@@ -880,8 +947,8 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     }
   }
 
-  backToWalksAdmin() {
-    this.location.back();
+  private navigateToWalksAdmin(): Promise<boolean> {
+    return this.urlService.navigateTo([this.walkDisplayService.walksArea(), "admin"]);
   }
 
   private replaceContent(contentText: ContentText) {
@@ -922,10 +989,32 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     return content && selectedContent && content.name === selectedContent.name;
   }
 
-  save() {
-    this.walksConfigService.saveConfig(this.walksConfig)
+  save(): Promise<void> {
+    return this.walksConfigService.saveConfig(this.walksConfig)
       .then(() => this.meetupService.saveConfig(this.notify, this.meetupConfig))
-      .then(() => this.notify.success({title: "Walk configuration", message: "Saved successfully"}))
-      .catch((error) => this.notify.error({title: "Walk configuration", message: error}));
+      .then(() => {
+        this.notify.success({title: "Walk configuration", message: "Saved successfully"});
+      })
+      .catch((error) => {
+        this.notify.error({title: "Walk configuration", message: error});
+        throw error;
+      });
+  }
+
+  saveAndExit(): Promise<void> {
+    return this.save()
+      .then(() => this.navigateToWalksAdmin())
+      .then(() => undefined);
+  }
+
+  undoChanges(): void {
+    void this.walksConfigService.refresh();
+    void this.meetupService.queryConfig().then(config => this.meetupConfig = config);
+  }
+
+  cancel(): void {
+    void this.walksConfigService.refresh();
+    void this.meetupService.queryConfig().then(config => this.meetupConfig = config);
+    void this.navigateToWalksAdmin();
   }
 }

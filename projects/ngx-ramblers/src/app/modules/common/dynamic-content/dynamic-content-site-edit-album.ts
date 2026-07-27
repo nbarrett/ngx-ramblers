@@ -25,7 +25,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { GroupEventSummary, GroupEventType } from "../../../models/committee.model";
 import { enumKeyValues, enumValueForKey, KeyValue } from "../../../functions/enums";
-import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
+import { ContentMetadata, LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -90,7 +90,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
             <h5 class="walk-album-workflow-photos-title">Photos</h5>
             <app-image-list-edit [name]="row?.carousel?.name"
                                  [workflowMode]="true"
-                                 (exit)="onWorkflowImageExit()"/>
+                                 (exit)="onWorkflowImageExit($event)"/>
           </section>
         </div>
       } @else if (!actions.editActive(rowIndex)) {
@@ -636,10 +636,17 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
       gap: 0.75rem
       border: 0
       background: #f8f9fa
+      color: var(--ramblers-colour-granite, #404143)
       text-align: left
       padding: 0.75rem 0.9rem
       touch-action: manipulation
       -webkit-tap-highlight-color: transparent
+
+    .walk-album-workflow-report-toggle .fw-semibold
+      color: var(--ramblers-colour-granite, #404143)
+
+    .walk-album-workflow-report-toggle fa-icon
+      color: var(--ramblers-colour-granite, #404143)
 
     .walk-album-workflow-report-body
       padding: 0.75rem 0.85rem 0.9rem
@@ -828,9 +835,12 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     this.saveWorkflowPageContent();
   }
 
-  async onWorkflowImageExit(): Promise<void> {
-    await this.saveWorkflowPageContent();
+  async onWorkflowImageExit(saved?: ContentMetadata | null): Promise<void> {
     const albumName = this.row?.carousel?.name;
+    if (saved) {
+      await this.saveWorkflowPageContent();
+      this.createWalkAlbumService.clearPendingAlbum(saved.name || albumName);
+    }
     if (await this.createWalkAlbumService.navigateBackToWalkIfNeeded(albumName)) {
       return;
     }

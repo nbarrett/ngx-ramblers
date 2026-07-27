@@ -126,7 +126,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
         <div class="card mb-2">
           <div class="card-body">
             @if (albumWorkflow) {
-              <h4 class="card-title mb-1">Walk photo album</h4>
+              <h4 class="card-title mb-1 d-none d-md-block">Walk photo album</h4>
               <p class="text-muted small mb-3 d-none d-md-block">{{ pageContent.path }}</p>
             } @else {
             <h4 class="card-title">Page content for {{ pageContent.path }} (<small
@@ -710,7 +710,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
               <div class="ms-2 min-w-0">
                 <strong class="d-block">Listed in photo indexes</strong>
-                <span>This page is listed under {{ stringUtils.pluraliseWithCount(albumIndexParents.length, "photo index") }}
+                <span>This page is listed under {{ stringUtils.pluraliseWithCount(albumIndexParents.length, "photo index", "photo indexes") }}
                   ({{ albumIndexParentPaths() }}). Deleting it will remove it from those indexes automatically.</span>
               </div>
             </div>

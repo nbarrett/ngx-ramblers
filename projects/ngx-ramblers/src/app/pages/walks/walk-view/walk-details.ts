@@ -31,9 +31,20 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
       :host
         display: flex
         flex-direction: column
-        flex-grow: 1
+        flex: 1 1 auto
+        height: 100%
+        min-height: 100%
+
       .event-panel
-        flex: 1
+        display: flex
+        flex-direction: column
+        flex: 1 1 auto
+        height: 100%
+        min-height: 100%
+
+      .event-panel-inner
+        margin-bottom: 0
+        flex: 1 1 auto
     `],
     template: `
       <div class="event-panel rounded event-panel-inner">
@@ -113,25 +124,27 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
               <div title>
                 <fa-icon [icon]="faRulerHorizontal" class="fa-icon me-1"/>
                 Distance
-                <strong class="ms-1 text-nowrap">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
+              </div>
+              <div content>
+                <strong class="text-nowrap">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
               </div>
             </div>
           }
           @if (displayedWalk.walk?.groupEvent?.difficulty) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
-                <strong>
-                  <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
-                </strong>
+                <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
               </div>
             </div>
           }
           @if (displayedWalk.walk?.groupEvent?.ascent_feet) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
-                <fa-icon [icon]="faRulerVertical" class="fa-icon me-3"/>
+                <fa-icon [icon]="faRulerVertical" class="fa-icon me-1"/>
                 Ascent
-                <strong class="ms-1 text-nowrap">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
+              </div>
+              <div content>
+                <strong class="text-nowrap">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
               </div>
             </div>
           }
