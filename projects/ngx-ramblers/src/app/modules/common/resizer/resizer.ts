@@ -115,12 +115,14 @@ export enum ResizerMode {
       height: 100%
       border-radius: 2px
       background: transparent
-      transition: background 0.15s ease
+      transition: background 0.15s ease, box-shadow 0.15s ease
+      box-sizing: border-box
     :host(.resizer--handle):hover .resize-handle
       background: rgba(155, 200, 171, 0.6)
+      box-shadow: 0 0 0 1px rgba(155, 200, 171, 0.35)
     :host(.resizer--handle.resizing) .resize-handle
       background: rgba(155, 200, 171, 0.9)
-      width: 4px
+      box-shadow: 0 0 0 1px rgba(155, 200, 171, 0.55)
     .resizer-label
       position: absolute
       top: 50%
@@ -136,6 +138,7 @@ export enum ResizerMode {
       white-space: nowrap
       pointer-events: none
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2)
+      z-index: 11
   `]
 })
 export class ResizerComponent implements OnDestroy {

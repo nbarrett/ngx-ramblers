@@ -2,9 +2,6 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { FormBuilder, FormsModule, ReactiveFormsModule } from "@angular/forms";
-import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
-import { MarkdownComponent } from "ngx-markdown";
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { EventDistanceEdit } from "./event-distance-edit";
 import { DateValue } from "../../../models/date.model";
@@ -18,19 +15,17 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
-import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
+import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
 
 @Component({
   selector: "app-walk-edit-main-details",
     imports: [
     DatePicker,
     FormsModule,
-    FontAwesomeModule,
-    MarkdownComponent,
     TimePicker,
     EventDistanceEdit,
     ReactiveFormsModule,
-    NormaliseMarkdownPipe
+    TiptapMarkdownEditor
   ],
   template: `
     @if (displayedWalk?.walk?.fields) {
@@ -109,32 +104,13 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
         <div class="row">
           <div class="col-sm-12">
             <div class="form-group">
-              <label for="longer-description">Walk Description <a
-                [hidden]="longerDescriptionPreview"
-                (click)="previewLongerDescription()" [href]="">
-                <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
-                preview</a>
-                @if (longerDescriptionPreview) {
-                  <a
-                    (click)="editLongerDescription()" [href]="">
-                    <fa-icon [icon]="faPencil" class="markdown-preview-icon"/>
-                    edit</a>
-                } </label>
-              @if (longerDescriptionPreview) {
-                <p
-                  (click)="editLongerDescription()"
-                  class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent.description | normaliseMarkdown"
-                  type="text"
-                  id="longer-description-formatted"></p>
-              }
-              @if (!longerDescriptionPreview) {
-                <textarea
-                  [disabled]="syncDisabled"
-                  [(ngModel)]="displayedWalk.walk.groupEvent.description" type="text"
-                  (ngModelChange)="walkChanged($event)" name="description"
-                  class="form-control input-sm" rows="5" id="longer-description"
-                  placeholder="Enter Walk Description here"></textarea>
-              }
+              <label for="longer-description">Walk Description</label>
+              <app-tiptap-markdown-editor
+                id="longer-description"
+                [value]="displayedWalk.walk.groupEvent.description || ''"
+                [editable]="!syncDisabled"
+                placeholder="Enter walk description here"
+                (valueChange)="descriptionChanged($event)"/>
             </div>
           </div>
         </div>
@@ -194,14 +170,11 @@ export class WalkEditMainDetailsComponent implements OnInit {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
   }
   @Input() displayedWalk!: DisplayedWalk;
-  protected readonly faMagnifyingGlass = faMagnifyingGlass;
-  protected readonly faPencil = faPencil;
   protected display = inject(WalkDisplayService);
   private dateUtils = inject(DateUtilsService);
   protected ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   protected walksAndEventsService = inject(WalksAndEventsService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.ERROR);
-  protected longerDescriptionPreview = false;
 
   get syncDisabled(): boolean {
     return this.inputDisabled || this.display.walkPopulationWalksManager();
@@ -216,6 +189,11 @@ export class WalkEditMainDetailsComponent implements OnInit {
   walkChanged($event ) {
     this.logger.info("walkChanged:", $event);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_CHANGED, $event));
+  }
+
+  descriptionChanged(markdown: string) {
+    this.displayedWalk.walk.groupEvent.description = markdown;
+    this.walkChanged(markdown);
   }
 
   onDateChange(date: DateValue) {
@@ -262,14 +240,6 @@ export class WalkEditMainDetailsComponent implements OnInit {
     } else {
       this.logger.info("calculateAndSetFinishTime:walk.fields.milesPerHour not set, not calculating finish time");
     }
-  }
-
-  previewLongerDescription() {
-    this.longerDescriptionPreview = true;
-  }
-
-  editLongerDescription() {
-    this.longerDescriptionPreview = false;
   }
 
   durationCalculated() {

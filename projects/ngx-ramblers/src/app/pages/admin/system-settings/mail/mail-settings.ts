@@ -32,7 +32,7 @@ import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MailNotificationTemplateEditor } from "./mail-notification-template-editor";
 import { NotificationConfigToProcessMappingComponent } from "./notification-config-to-process-mappings";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { NgStyle } from "@angular/common";
@@ -104,7 +104,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                     <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">List Settings</div>
                       <div class="col-sm-12 mb-3">
-                        <app-markdown-editor standalone category="admin" name="mail-settings-list-settings"/>
+                        <app-content-text-editor standalone category="admin" name="mail-settings-list-settings"/>
                       </div>
                       <div class="px-3">
                         <div class="row">
@@ -217,7 +217,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                     <div class="thumbnail-heading">Global Settings</div>
                     <div class="row">
                       <div class="col-sm-12 mx-2">
-                        <app-markdown-editor standalone category="admin" name="mail-settings-global-help"
+                        <app-content-text-editor standalone category="admin" name="mail-settings-global-help"
                         description="Mail Settings Global Configuration Help"/>
                       </div>
                     </div>
@@ -354,7 +354,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                       <div class="thumbnail-heading">Account Profile</div>
                       <div class="row">
                         <div class="col-sm-12 mt-2 mb-2">
-                          <app-markdown-editor standalone category="admin" name="mail-settings-account-help"
+                          <app-content-text-editor standalone category="admin" name="mail-settings-account-help"
                           description="Mail Settings Account Help"/>
                         </div>
                       </div>
@@ -455,7 +455,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, ContentTextEditor, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];

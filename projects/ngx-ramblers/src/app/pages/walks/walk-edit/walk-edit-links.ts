@@ -1,7 +1,7 @@
 import { Component, computed, inject, Input, OnInit, Signal, signal, WritableSignal } from "@angular/core";
 import { DisplayedWalk, Links, LinkSource, RelatedLinksTab, WalkExportData } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { WalkMeetupComponent } from "../walk-meetup/walk-meetup.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { LinksService } from "../../../services/links.service";
@@ -29,7 +29,7 @@ import { StoredValue } from "../../../models/ui-actions";
   selector: "app-walk-edit-related-links",
     imports: [
     FormsModule,
-    MarkdownEditorComponent,
+    ContentTextEditor,
     WalkMeetupComponent,
     TooltipDirective,
     DisplayDatePipe,
@@ -47,7 +47,7 @@ import { StoredValue } from "../../../models/ui-actions";
               @if (selectedTab === RelatedLinksTab.RAMBLERS) {
                 <div class="thumbnail-heading">Ramblers</div>
                 <div class="form-group">
-                  <app-markdown-editor standalone category="walks-admin" name="ramblers-publishing-help"
+                  <app-content-text-editor standalone category="walks-admin" name="ramblers-publishing-help"
                                        description="Ramblers publishing help"/>
                   @if (showDiagnosticData) {
                     <div>id: {{ displayedWalk?.walk?.groupEvent.id }}</div>
@@ -158,7 +158,7 @@ import { StoredValue } from "../../../models/ui-actions";
               @if (selectedTab === RelatedLinksTab.OS_MAPS) {
                 <div class="thumbnail-heading">OS Maps</div>
                 <div class="col-sm-12">
-                  <app-markdown-editor standalone name="os-maps-help" description="Linking to OS Maps"/>
+                  <app-content-text-editor standalone name="os-maps-help" description="Linking to OS Maps"/>
                 </div>
                 <div class="col-sm-12">
                   <div class="row">

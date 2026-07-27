@@ -7,7 +7,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageComponent } from "../../../page/page.component";
 import { LoginRequiredComponent } from "../../../modules/common/login-required/login-required";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { ImageListSelectorComponent } from "../carousel-selector/image-list-selector";
 import { ImageListEditComponent } from "../image-list-edit/image-list-edit";
 import { AdminContentPath } from "../../../models/admin-route-paths.model";
@@ -17,7 +17,7 @@ import { AdminContentPath } from "../../../models/admin-route-paths.model";
     template: `
       <app-page pageTitle="Image Editor">
         <app-login-required>
-          <app-markdown-editor standalone allowHide name="image-editor-help"
+          <app-content-text-editor standalone allowHide name="image-editor-help"
                                description="Image Editor help"/>
           @if (!editing) {
             <app-image-list-selector [name]="name"/>
@@ -28,7 +28,7 @@ import { AdminContentPath } from "../../../models/admin-route-paths.model";
         </app-login-required>
       </app-page>
     `,
-  imports: [PageComponent, LoginRequiredComponent, MarkdownEditorComponent, ImageListSelectorComponent, ImageListEditComponent]
+  imports: [PageComponent, LoginRequiredComponent, ContentTextEditor, ImageListSelectorComponent, ImageListEditComponent]
 })
 export class ImageListEditPageComponent implements OnInit, OnDestroy {
 

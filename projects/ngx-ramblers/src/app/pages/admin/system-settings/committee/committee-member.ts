@@ -44,7 +44,7 @@ import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgTemplateOutlet } from "@angular/common";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { RouterLink } from "@angular/router";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
@@ -227,7 +227,7 @@ export enum CommitteeMemberTab {
           [fullWidth]="true"/>
         @switch (selectedTab) {
           @case (CommitteeMemberTab.ROLE_DETAILS) {
-            <app-markdown-editor standalone category="admin" name="committee-role-details-help" description="Role details help"/>
+            <app-content-text-editor standalone category="admin" name="committee-role-details-help" description="Role details help"/>
             <hr/>
             @if (isContactUsSystemRole()) {
               <div class="alert alert-warning">
@@ -311,7 +311,7 @@ export enum CommitteeMemberTab {
             </div>
           }
           @case (CommitteeMemberTab.OUTBOUND_EMAIL) {
-            <app-markdown-editor standalone category="admin" name="committee-outbound-email-help" description="Outbound email help"/>
+            <app-content-text-editor standalone category="admin" name="committee-outbound-email-help" description="Outbound email help"/>
             <hr/>
             <div class="row">
               <div class="col d-flex align-items-end flex-wrap gap-3">
@@ -363,7 +363,7 @@ export enum CommitteeMemberTab {
                 </div>
               </div>
             } @else {
-              <app-markdown-editor standalone category="admin" name="committee-inbound-forwarding-help" description="Inbound forwarding help"/>
+              <app-content-text-editor standalone category="admin" name="committee-inbound-forwarding-help" description="Inbound forwarding help"/>
               <hr/>
               <div class="row">
                 <ng-container *ngTemplateOutlet="forwardTargetControls; context: {label: 'Forward incoming emails to'}"></ng-container>
@@ -376,7 +376,7 @@ export enum CommitteeMemberTab {
             }
           }
           @case (CommitteeMemberTab.CONTACT_US) {
-            <app-markdown-editor standalone category="admin" name="committee-contact-us-help" description="Contact Us help"/>
+            <app-content-text-editor standalone category="admin" name="committee-contact-us-help" description="Contact Us help"/>
             <hr/>
             <div class="row">
               <div class="col-sm-12 mb-3">
@@ -432,11 +432,11 @@ export enum CommitteeMemberTab {
                 <h6 class="section-heading">Contact Link</h6>
                 <div class="row">
                   <div class="col-sm-6">
-                    <label class="control-label">Markdown</label>
+                    <label class="control-label">Link to copy</label>
                     <div class="d-flex align-items-center">
                       <code class="me-2">{{ markdownLink(committeeMember) }}</code>
                       <app-copy-icon title [value]="markdownLink(committeeMember)"
-                        elementName="markdown link"/>
+                        elementName="contact link"/>
                     </div>
                   </div>
                   <div class="col-sm-6">
@@ -450,7 +450,7 @@ export enum CommitteeMemberTab {
             </div>
           }
           @case (CommitteeMemberTab.EMAIL_LOGS) {
-            <app-markdown-editor standalone category="admin" name="committee-email-logs-help" description="Email logs help"/>
+            <app-content-text-editor standalone category="admin" name="committee-email-logs-help" description="Email logs help"/>
             <hr/>
             <app-email-routing-log
               [roleEmail]="roleEmail()"
@@ -462,7 +462,7 @@ export enum CommitteeMemberTab {
     }
     `,
     styleUrls: ["./committee-member.sass"],
-  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, MarkdownEditorComponent, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink]
+  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink]
 })
 export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberEditor", NgxLoggerLevel.ERROR);

@@ -1,5 +1,7 @@
 # Content Export API
 
+> **Note for site authors (July 2026):** This API exports content in formats including markdown for machines and AI. **People editing the website do not write markdown** — site edit is visual (WYSIWYG). See *Visual editing replaces markdown authoring* (ref #303).
+
 A public, stateless API that returns the publicly visible content of CMS pages in machine-readable formats. No authentication is required - only content already visible to anonymous site visitors is returned, and pages whose content is entirely restricted to members or committee respond with `404`.
 
 ## Endpoints

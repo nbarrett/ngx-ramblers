@@ -5,6 +5,7 @@ import { SiteEditService } from "./site-edit.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { UiSwitchModule } from "ngx-ui-switch";
+import { ContentTextUnsavedChangesService } from "../services/content-text-unsaved-changes.service";
 
 @Component({
     selector: "app-site-edit",
@@ -17,6 +18,7 @@ export class SiteEditComponent implements OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("SiteEditComponent", NgxLoggerLevel.ERROR);
   private siteEditService = inject(SiteEditService);
+  private contentTextUnsavedChanges = inject(ContentTextUnsavedChangesService);
   private subscriptions: Subscription[] = [];
 
   constructor() {
@@ -41,6 +43,10 @@ export class SiteEditComponent implements OnDestroy {
 
   onChange($event: boolean) {
     this.logger.debug("onChange", $event);
+    if (!$event && this.contentTextUnsavedChanges.hasUnsaved()) {
+      this.logger.info("blocked site-edit off while unsaved:", this.contentTextUnsavedChanges.summary());
+      return;
+    }
     this.siteEditService.toggle($event);
   }
 

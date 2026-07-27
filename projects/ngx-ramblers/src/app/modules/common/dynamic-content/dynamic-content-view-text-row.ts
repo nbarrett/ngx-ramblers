@@ -5,7 +5,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { CardImageComponent } from "../card/image/card-image";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { FragmentService } from "../../../services/fragment.service";
@@ -43,7 +43,6 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                     [parentRowIndex]="rowIndex"
                     [rowIndex]="innerRowIndex"
                     [contentPath]="contentPath"
-                    [hideEditToggle]="hideEditToggle"
                     [contentDescription]="contentDescription">
                   </app-dynamic-content-view-text-row>
                 }
@@ -82,7 +81,6 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                         [row]="fragmentRow"
                         [rowIndex]="fragmentRowIndex"
                         [contentPath]="fragmentPathFor(nestedRow)"
-                        [hideEditToggle]="hideEditToggle"
                         [contentDescription]="contentDescription">
                       </app-dynamic-content-view-text-row>
                     }
@@ -132,9 +130,8 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                   </app-card-image>
                 }
                 @if (column.contentText) {
-                  <app-markdown-editor [text]="column.contentText"
+                  <app-content-text-editor [text]="column.contentText"
                                        [styles]="column.styles"
-                                       [hideEditToggle]="hideEditToggle"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
                                        [category]="contentPath"/>
                 }
@@ -166,7 +163,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, YoutubeEmbed]
+    imports: [ContentTextEditor, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, YoutubeEmbed]
 })
 export class DynamicContentViewTextRow implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRow", NgxLoggerLevel.ERROR);
@@ -181,7 +178,6 @@ export class DynamicContentViewTextRow implements OnInit {
   @Input() public contentPath: string;
   @Input() public contentDescription: string;
   @Input() public bordered: boolean;
-  @Input() public hideEditToggle: boolean;
   @Input() pageContent!: PageContent;
 
   ngOnInit() {

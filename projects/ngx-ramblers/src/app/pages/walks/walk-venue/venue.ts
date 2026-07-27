@@ -7,7 +7,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { VenueService } from "../../../services/venue/venue.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -28,7 +28,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Venue</div>
         <div class="col-sm-12">
-          <app-markdown-editor standalone [name]="helpName" [category]="helpCategory" [description]="helpDescription"/>
+          <app-content-text-editor standalone [name]="helpName" [category]="helpCategory" [description]="helpDescription"/>
         </div>
         @if (allowEdits()) {
           <div class="col-sm-12 mb-3">
@@ -209,7 +209,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         </div>
       </div>
     `,
-    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect, CopyIconComponent]
+    imports: [ContentTextEditor, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect, CopyIconComponent]
 })
 export class Venue implements OnInit, OnDestroy {
 

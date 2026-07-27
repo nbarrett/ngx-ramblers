@@ -4,17 +4,16 @@ import {
   faArrowDown,
   faArrowsUpDown,
   faArrowUp,
+  faCheck,
   faLayerGroup,
-  faMagnifyingGlass,
-  faPencil,
-  faRemove
+  faRemove,
+  faSliders
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
   ColumnContentType,
   ColumnMappingContext,
-  EditorInstanceState,
   EM_DASH_WITH_SPACES,
   FragmentWithLabel, MigrationTemplateSourceType,
   NestedRowContentSource,
@@ -32,7 +31,7 @@ import { PageContentEditService } from "../../../services/page-content-edit.serv
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { ImageCropperPosition } from "../../../models/image-cropper.model";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { HtmlPasteResult, HtmlPasteRow } from "../../../models/html-paste.model";
 import { FormsModule } from "@angular/forms";
 import { ColumnWidthComponent } from "./column-width";
@@ -196,7 +195,8 @@ import { ClipboardService } from "../../../services/clipboard.service";
               </ng-template>
               @if (!column.rows) {
                 <ng-template #rowContentEditing>
-                  <div class="thumbnail-site-edit h-100 mt-2"
+                  <div class="thumbnail-site-edit thumbnail-site-edit-content h-100 mt-2"
+                       [class.thumbnail-site-edit-content-active]="controlsShown(column)"
                        (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
                        (drop)="onColumnDrop($event, columnIndex)">
                     <div class="thumbnail-heading" [attr.draggable]="true"
@@ -206,9 +206,9 @@ import { ClipboardService } from "../../../services/clipboard.service";
                          container="body" triggers="">
                       Col {{ columnIndex + 1 }}
                       <app-badge-button noRightMargin class="ms-2"
-                                        (click)="toggleAll(column, markdownEditorComponent)"
-                                        [icon]="controlsShown(column) ? faMagnifyingGlass : faPencil"
-                                        [caption]="controlsShown(column) ? 'view' : 'Edit'"/>
+                                        (click)="toggleControls(column)"
+                                        [icon]="controlsShown(column) ? faCheck : faSliders"
+                                        [caption]="controlsShown(column) ? 'done' : 'settings'"/>
                       <app-badge-button noRightMargin class="ms-2"
                                         (click)="actions.deleteColumn(row, columnIndex, pageContent)"
                                         [icon]="faRemove"
@@ -352,22 +352,20 @@ import { ClipboardService } from "../../../services/clipboard.service";
                         @if (showYoutubeBeforeText(column)) {
                           <ng-container [ngTemplateOutlet]="youtubePreviewBlock"></ng-container>
                         }
-                        <app-markdown-editor #markdownEditorComponent class="flex-grow-1 w-100"
-                                             (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
-                                             (focusChange)="onEditorFocusChange($event, column)"
-                                             (split)="onSplit($event, rowIndex, columnIndex)"
-                                             (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)" allowMaximise
-                                             hideEditToggle
-                                             [presentationMode]="!controlsShown(column)"
-                                             [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
-                                             [text]="column.contentText"
-                                             [styles]="column.styles"
-                                             [parentRowColumnCount]="row.columns?.length"
-                                             [initialView]="actions.view()"
-                                             [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
-                                             [category]="contentPath">
-                          <ng-container prepend/>
-                        </app-markdown-editor>
+                        @if (showContentTextEditor(column)) {
+                          <app-content-text-editor class="w-100"
+                                               (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
+                                               (split)="onSplit($event, rowIndex, columnIndex)"
+                                               (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)"
+                                               [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
+                                               [text]="column.contentText"
+                                               [styles]="column.styles"
+                                               [parentRowColumnCount]="row.columns?.length"
+                                               [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
+                                               [category]="contentPath">
+                            <ng-container prepend/>
+                          </app-content-text-editor>
+                        }
                         @if (showYoutubeAfterText(column)) {
                           <ng-container [ngTemplateOutlet]="youtubePreviewBlock"></ng-container>
                         }
@@ -398,6 +396,12 @@ import { ClipboardService } from "../../../services/clipboard.service";
                           </div>
                           @if (!column.imageSource && !isNarrow(column)) {
                             <ng-container [ngTemplateOutlet]="placeholderToggle"></ng-container>
+                          }
+                          @if (columnHasMedia(column) && !showContentTextEditor(column)) {
+                            <app-badge-button class="ms-2"
+                                              [icon]="faAdd"
+                                              caption="add text"
+                                              (click)="revealContentTextEditor(column)"/>
                           }
                         </div>
                       }
@@ -799,7 +803,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent]
+    imports: [ContentTextEditor, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -856,17 +860,18 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   public columnNestedRowMappingUpdate = new EventEmitter<ColumnMappingContext & {updates: any}>();
   @Output()
   public columnMappingPropertyUpdate = new EventEmitter<ColumnMappingContext & {key: string; value: any}>();
-  faPencil = faPencil;
   faAdd = faAdd;
   faLayerGroup = faLayerGroup;
   public pageContentEditEvents: PageContentEditEvent[] = [];
   private uniqueCheckboxId: string;
   private controlsVisible = new WeakMap<PageContentColumn, boolean>();
+  private textEditorRevealed = new WeakMap<PageContentColumn, boolean>();
   protected readonly faRemove = faRemove;
   protected readonly faArrowUp = faArrowUp;
   protected readonly faArrowDown = faArrowDown;
   protected readonly faArrowsUpDown = faArrowsUpDown;
-  protected readonly faMagnifyingGlass = faMagnifyingGlass;
+  protected readonly faCheck = faCheck;
+  protected readonly faSliders = faSliders;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   protected readonly TextMatchPattern = TextMatchPattern;
@@ -1023,38 +1028,11 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     return this.expanded ? 12 : (pageContentColumn.columns || 12);
   }
 
-  markdownEditorFocusChange(editorInstanceState: EditorInstanceState) {
-    this.logger.info("markdownEditorFocusChange:editorInstanceState:", editorInstanceState);
-  }
-
-  onEditorFocusChange(editorInstanceState: EditorInstanceState, column: PageContentColumn) {
-    this.markdownEditorFocusChange(editorInstanceState);
-    this.controlsVisible.set(column, editorInstanceState.view === "edit");
-  }
-
-  toggleAll(column: PageContentColumn, editor: MarkdownEditorComponent) {
-    if (this.controlsShown(column)) {
-      this.controlsVisible.set(column, false);
-      if (editor?.toggleToView) {
-        editor.toggleToView();
-      }
-    } else {
-      this.controlsVisible.set(column, true);
-      if (editor?.toggleToEdit) {
-        editor.toggleToEdit();
-      }
-    }
-  }
-
   showPlaceholderToggle(columnIndex: number): boolean {
-    if (!this.isMigrationTemplateSelected || !this.columnMapping || !this.templateMappingMode) {
-      return false;
-    }
-    if (!this.isMigrationTemplateSelected()) {
-      return false;
-    }
-    const mapping = this.columnMappingFor(this.rowIndex, columnIndex);
-    return mapping?.sourceType === "extract";
+    const mappingModeReady = !!(this.isMigrationTemplateSelected && this.columnMapping && this.templateMappingMode
+      && this.isMigrationTemplateSelected());
+    const mapping = mappingModeReady ? this.columnMappingFor(this.rowIndex, columnIndex) : null;
+    return mappingModeReady && mapping?.sourceType === "extract";
   }
 
   togglePlaceholder(row: PageContentRow) {
@@ -1353,6 +1331,28 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   controlsShown(column: PageContentColumn): boolean {
     return this.controlsVisible.get(column) || false;
+  }
+
+  columnHasMedia(column: PageContentColumn): boolean {
+    return !!(column.imageSource || column.showPlaceholderImage || column.youtubeId);
+  }
+
+  columnHasText(column: PageContentColumn): boolean {
+    return !!(column.contentText || "").trim();
+  }
+
+  showContentTextEditor(column: PageContentColumn): boolean {
+    const showEditor = this.textEditorRevealed.get(column)
+      || this.columnHasText(column)
+      || !this.columnHasMedia(column);
+    return showEditor;
+  }
+
+  revealContentTextEditor(column: PageContentColumn) {
+    this.textEditorRevealed.set(column, true);
+    if (isUndefined(column.contentText) || isNull(column.contentText)) {
+      column.contentText = "";
+    }
   }
 
   onNestedRowTypeChange(row: PageContentRow) {

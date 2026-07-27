@@ -6,7 +6,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AdminSettingsPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
@@ -190,12 +190,11 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                       @for (content of contentTextItems; track content.id) {
                         @if (matching(content, selectedContent)) {
                           <div>
-                            <app-markdown-editor [data]="content"
+                            <app-content-text-editor [data]="content"
                                                  [editNameEnabled]="true"
                                                  [deleteEnabled]="true"
                                                  [id]="content.name"
-                                                 [initialView]="View.EDIT"
-                                                 [rows]="8"/>
+                                                 [initialView]="View.EDIT"/>
                           </div>
                         }
                       }
@@ -552,7 +551,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
       margin-top: 0
   `],
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent]
+  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;

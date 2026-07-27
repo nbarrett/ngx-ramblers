@@ -32,7 +32,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { HowToModalComponent } from "../how-to-modal.component";
 import { PageComponent } from "../../../page/page.component";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
@@ -44,7 +44,7 @@ import { AccessFilterParameters } from "../../../models/search.model";
     templateUrl: "./subject-listing.html",
     styleUrls: ["./subject-listing.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
-    imports: [PageComponent, MarkdownEditorComponent, FormsModule, FontAwesomeModule, MarkdownComponent, DisplayDatePipe]
+    imports: [PageComponent, ContentTextEditor, FormsModule, FontAwesomeModule, MarkdownComponent, DisplayDatePipe]
 })
 export class HowToSubjectListingComponent implements OnInit, OnDestroy {
 

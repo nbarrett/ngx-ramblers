@@ -16,8 +16,7 @@ import {
   PageContent,
   PageContentColumn,
   PageContentRow,
-  PageContentType,
-  View
+  PageContentType
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
 import { AccessLevel } from "../models/member-resource.model";
@@ -86,18 +85,6 @@ export class PageContentActionsService {
       return false;
     }
     return column.rows.length > 0;
-  }
-
-  public initialView(column: PageContentColumn): View {
-    return View.EDIT;
-  }
-
-  public view(): View {
-    return View.VIEW;
-  }
-
-  public edit(): View {
-    return View.EDIT;
   }
 
   allPageHrefs(pageContent: PageContent): string[] {

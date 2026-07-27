@@ -44,7 +44,7 @@ import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../../walks/walk-display.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { BOOKING_MERGE_FIELD_CATALOGUE } from "../../../models/email-composer.model";
 import {
   contentBlockState,
@@ -93,7 +93,7 @@ export enum BookingTab {
                    [heading]="BookingTab.SUMMARY">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="col-sm-12 mb-3">
-                    <app-markdown-editor standalone category="admin" name="bookings-summary-help"
+                    <app-content-text-editor standalone category="admin" name="bookings-summary-help"
                                         description="Bookings Summary Help"/>
                   </div>
                   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -153,7 +153,7 @@ export enum BookingTab {
                    [heading]="BookingTab.PER_EVENT_DETAIL">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="col-sm-12 mb-3">
-                    <app-markdown-editor standalone category="admin" name="bookings-detail-help"
+                    <app-content-text-editor standalone category="admin" name="bookings-detail-help"
                                         description="Bookings Per-Event Detail Help"/>
                   </div>
                   <div class="mb-3">
@@ -452,7 +452,7 @@ export enum BookingTab {
                    [heading]="BookingTab.CONFIGURATION">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="col-sm-12 mb-3">
-                    <app-markdown-editor standalone category="admin" name="bookings-configuration-help"
+                    <app-content-text-editor standalone category="admin" name="bookings-configuration-help"
                                         description="Bookings Configuration Help"/>
                   </div>
                   @if (bookingConfig) {
@@ -587,7 +587,7 @@ export enum BookingTab {
         border-color: var(--ramblers-colour-sunrise)
         color: var(--ramblers-colour-black)
     `],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, ContentBlockEditorComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent, RouterLink, StickyControlsDirective]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, ContentTextEditor, ContentBlockEditorComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent, RouterLink, StickyControlsDirective]
 })
 export class BookingsComponent implements OnInit, OnDestroy {
   adminMailSettingsPath = AdminPath.MAIL_SETTINGS;

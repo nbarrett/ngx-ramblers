@@ -8,7 +8,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { WalkChangesService } from "../../../services/walks/walk-changes.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { RiskAssessmentService } from "../../../services/walks/risk-assessment.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { WalkRiskAssessmentSectionComponent } from "./section/walk-risk-assessment-section.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
@@ -18,9 +18,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
     selector: "app-walk-risk-assessment",
     template: `
       <div class="img-thumbnail thumbnail-admin-edit">
-        <app-markdown-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
+        <app-content-text-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
                              [presentationMode]="inputDisabled"
-                             [hideEditToggle]="inputDisabled"
                              [description]="'Risk Assessments Heading'"/>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
                                           [riskAssessmentSection]="'Traffic'"
@@ -58,7 +57,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       </div>
     `,
     styleUrls: ["./walk-risk-assessment.component.sass"],
-    imports: [MarkdownEditorComponent, WalkRiskAssessmentSectionComponent, FontAwesomeModule]
+    imports: [ContentTextEditor, WalkRiskAssessmentSectionComponent, FontAwesomeModule]
 })
 export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 

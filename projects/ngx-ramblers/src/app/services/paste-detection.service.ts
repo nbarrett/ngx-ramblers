@@ -149,6 +149,23 @@ export class PasteDetectionService {
     return /!\[([^\]]*)]\(([^)]+)\)/.test(markdown);
   }
 
+  looksLikeMarkdown(text: string): boolean {
+    const longEnough = !!(text && text.length >= 4);
+    const heading = longEnough && /^#{1,6} \S/m.test(text) ? 2 : 0;
+    const bullet = longEnough && /^[-*+] \S/m.test(text) ? 2 : 0;
+    const numbered = longEnough && /^\d+\. \S/m.test(text) ? 2 : 0;
+    const quote = longEnough && /^> /m.test(text) ? 2 : 0;
+    const fence = longEnough && /^```/m.test(text) ? 2 : 0;
+    const image = longEnough && /!\[[^\]]*\]\([^)]+\)/.test(text) ? 2 : 0;
+    const table = longEnough && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m.test(text) ? 2 : 0;
+    const mergeField = longEnough && /\{\{\s*[^}]+?\s*\}\}/.test(text) ? 2 : 0;
+    const bold = longEnough && /\*\*\S[^*]*\S\*\*/.test(text) ? 1 : 0;
+    const code = longEnough && /`[^`\n]+`/.test(text) ? 1 : 0;
+    const link = longEnough && /\[[^\]]+\]\([^)]+\)/.test(text) ? 1 : 0;
+    const score = heading + bullet + numbered + quote + fence + image + table + mergeField + bold + code + link;
+    return longEnough && score >= 2;
+  }
+
   isLocalPath(text: string): boolean {
     const trimmed = text.trim();
     return /^\/[A-Za-z0-9\-\/._~#?=&%]+$/.test(trimmed) && !/^\/\//.test(trimmed);

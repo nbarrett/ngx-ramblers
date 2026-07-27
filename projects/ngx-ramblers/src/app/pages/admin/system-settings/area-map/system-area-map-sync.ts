@@ -31,7 +31,7 @@ import {
   SharedDistrictStyle,
   SystemConfig
 } from "../../../../models/system.model";
-import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { NgHeaderTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { SelectAllHeaderComponent } from "../../../../modules/common/selectors/select-all-header";
 import { ColourPaletteSelectorComponent, COLOUR_PALETTE_COLOURS } from "../../../../modules/common/selectors/colour-palette-selector";
@@ -209,7 +209,7 @@ interface GroupBoundaryUploadResult {
                           </div>
                       } @else {
                           <div class="mb-3">
-                              <app-markdown-editor standalone category="admin" name="area-map-group-configuration-help"
+                              <app-content-text-editor standalone category="admin" name="area-map-group-configuration-help"
                                                    description="Area Map Group Configuration Help"/>
                           </div>
                           <div class="mb-2 d-flex align-items-center" style="gap: 0.75rem;">
@@ -724,7 +724,7 @@ interface GroupBoundaryUploadResult {
           }
       </div>
   `,
-  imports: [BadgeButtonComponent, ColourPaletteSelectorComponent, FontAwesomeModule, FormsModule, ResizerComponent, MarkdownEditorComponent, NgHeaderTemplateDirective, NgSelectComponent, AreaMap, SelectAllHeaderComponent, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
+  imports: [BadgeButtonComponent, ColourPaletteSelectorComponent, FontAwesomeModule, FormsModule, ResizerComponent, ContentTextEditor, NgHeaderTemplateDirective, NgSelectComponent, AreaMap, SelectAllHeaderComponent, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
 })
 export class SystemAreaMapSyncComponent implements OnInit {
   private uiActionsService = inject(UiActionsService);

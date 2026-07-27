@@ -6,13 +6,13 @@ import { AdminContentPath } from "../../../models/admin-route-paths.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { GroupEventDisplayService } from "../group-event-display.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 
 @Component({
     selector: "app-group-event-information",
     styleUrls: ["./group-event-information.sass"],
     templateUrl: "./group-event-information.html",
-    imports: [MarkdownEditorComponent]
+    imports: [ContentTextEditor]
 })
 export class GroupEventInformation implements OnInit {
 

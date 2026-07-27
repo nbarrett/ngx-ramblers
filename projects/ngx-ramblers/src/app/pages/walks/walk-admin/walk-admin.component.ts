@@ -9,7 +9,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { UrlService } from "../../../services/url.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
 
 @Component({
@@ -25,7 +25,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                     <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
                     <h5>Ramblers Walk Export</h5>
                   </div>
-                  <app-markdown-editor standalone class="item-text" name="ramblers-export-help"
+                  <app-content-text-editor standalone class="item-text" name="ramblers-export-help"
                                        description="Ramblers export help"/>
                 </div>
               </div>
@@ -35,7 +35,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                     <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
                     <h5>Ramblers Walk Import</h5>
                   </div>
-                  <app-markdown-editor standalone class="item-text" name="ramblers-import-help"
+                  <app-content-text-editor standalone class="item-text" name="ramblers-import-help"
                                        description="Ramblers import help"/>
                 </div>
               </div>
@@ -46,7 +46,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                   <fa-icon [icon]="faCalendarPlus" class="fa-3x calendar"/>
                   <h5>Add Walk Slots</h5>
                 </div>
-                <app-markdown-editor standalone class="item-text" name="add-walks-slots-help"
+                <app-content-text-editor standalone class="item-text" name="add-walks-slots-help"
                                      description="Add walk slots help"/>
               </div>
             </div>
@@ -57,7 +57,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                     <fa-icon [icon]="faGear" class="fa-3x ramblers"/>
                     <h5>Walk Configuration</h5>
                   </div>
-                  <app-markdown-editor standalone class="item-text" name="walk-config-help"
+                  <app-content-text-editor standalone class="item-text" name="walk-config-help"
                                        description="Walk configuration help"/>
                 </div>
               </div>
@@ -67,7 +67,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                     <fa-icon [icon]="faDatabase" class="fa-3x meetup"/>
                     <h5>Event Data Management</h5>
                   </div>
-                  <app-markdown-editor standalone class="item-text" name="event-data-management-help"
+                  <app-content-text-editor standalone class="item-text" name="event-data-management-help"
                                        description="Event data management help"/>
                 </div>
               </div>
@@ -77,7 +77,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                     <fa-icon [icon]="faBook" class="fa-3x ramblers"/>
                     <h5>How To Documentation</h5>
                   </div>
-                  <app-markdown-editor category="walks-admin" standalone class="item-text" name="how-to-documentation-help"
+                  <app-content-text-editor category="walks-admin" standalone class="item-text" name="how-to-documentation-help"
                                        description="How-to documentation help"/>
                 </div>
               </div>
@@ -88,7 +88,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
     `,
     styleUrls: ["./walk-admin.component.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
-    imports: [PageComponent, FontAwesomeModule, MarkdownEditorComponent]
+    imports: [PageComponent, FontAwesomeModule, ContentTextEditor]
 })
 export class WalkAdminComponent implements OnInit, OnDestroy {
 

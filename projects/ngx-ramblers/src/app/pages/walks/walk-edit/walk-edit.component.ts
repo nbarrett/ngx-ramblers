@@ -33,6 +33,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { MemberService } from "../../../services/member/member.service";
 import { enumValueForKey } from "../../../functions/enums";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { ContentTextUnsavedChangesService } from "../../../services/content-text-unsaved-changes.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
@@ -389,6 +390,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   private displayDate = inject(DisplayDatePipe);
   protected notifierService = inject(NotifierService);
+  private contentTextUnsavedChanges = inject(ContentTextUnsavedChangesService);
   private configService = inject(ConfigService);
   private eventDefaultsService = inject(EventDefaultsService);
   private linksService = inject(LinksService);
@@ -904,12 +906,18 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.confirmAction = ConfirmType.CANCEL;
     this.notify.warning({
       title: "Cancel changes",
-      message: `Click Confirm to lose any changes you've just made for ${this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time)}, or Cancel to carry on editing.`
+      message: this.cancelChangesMessage()
     });
   }
 
   confirmCancelWalkDetails() {
-    this.closeEditView();
+    this.contentTextUnsavedChanges.discardAll();
+    this.forceCloseEditView();
+  }
+
+  private cancelChangesMessage(): string {
+    const walkDate = this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time);
+    return `Click Confirm to lose any changes you've just made for ${walkDate}, or Cancel to carry on editing.${this.contentTextUnsavedChanges.discardAlongsideMessage()}`;
   }
 
   isWalkReadyForStatusChangeTo(eventType: WalkEventType): boolean {
@@ -1011,6 +1019,18 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
 
   closeEditView() {
+    if (this.contentTextUnsavedChanges.hasUnsaved()) {
+      this.confirmAction = ConfirmType.CANCEL;
+      this.notify.warning({
+        title: "Unsaved content",
+        message: this.contentTextUnsavedChanges.saveOrDiscardMessage()
+      });
+      return;
+    }
+    this.forceCloseEditView();
+  }
+
+  private forceCloseEditView() {
     this.saveInProgress = false;
     this.confirmAction = ConfirmType.NONE;
     this.display.closeEditView(this.displayedWalk.walk);

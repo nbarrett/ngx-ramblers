@@ -27,7 +27,7 @@
 - **`null` not `undefined`** for absence of value
 - **`T[]` not `Array<T>`**
 - **Immutable operations** - prefer `map`/`reduce`/`filter` over mutation
-- **Structured branching** - prefer `if/else if/else` over scattered early returns
+- **Structured branching** - `if` / `else if` / `else` or one expression; no early-return / guard-clause style (enforced by `ngx/no-early-return`)
 - **UK English** in commits and docs ("centralised", "colour", "behaviour")
 - **Minimal changes** - keep patches targeted and scoped
 
@@ -44,6 +44,9 @@ These cause build failures - use the listed replacements:
 | `for` / `while` / `for...in` loops | `map()`, `reduce()`, `filter()`, `forEach()`. `for...of` is allowed |
 | `let` | `const` only. For a changing counter or accumulator, use a `const` object (e.g. `const progress = {completed: 0}`) or return a new value from `map`/`reduce`/`filter` |
 | Inline comments (`//`) | Self-documenting code |
+| Early return / guard `if (x) return` without `else` | Structured `if` / `else if` / `else`, or one expression (`ngx/no-early-return`, baseline-backed) |
+
+Existing early-return sites are listed in `.eslint-baselines/no-early-return.json` so lint stays green. **New** early returns fail lint. After removing legacy ones, shrink the baseline with `npm run lint:baseline:early-return`.
 
 ## Git Workflow
 

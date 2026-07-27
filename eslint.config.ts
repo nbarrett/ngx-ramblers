@@ -1,7 +1,48 @@
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import eslint from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import angular from "angular-eslint";
+
+const earlyReturnBaselineCache = new Map<string, Set<string>>();
+
+function earlyReturnBaselineSet(baselinePath: string | null): Set<string> {
+  if (!baselinePath) {
+    return new Set();
+  }
+  const absolutePath = resolve(process.cwd(), baselinePath);
+  const cached = earlyReturnBaselineCache.get(absolutePath);
+  if (cached) {
+    return cached;
+  }
+  if (!existsSync(absolutePath)) {
+    const empty = new Set<string>();
+    earlyReturnBaselineCache.set(absolutePath, empty);
+    return empty;
+  }
+  const parsed = JSON.parse(readFileSync(absolutePath, "utf8")) as string[];
+  const set = new Set(parsed);
+  earlyReturnBaselineCache.set(absolutePath, set);
+  return set;
+}
+
+function ifWithoutElseForReturn(returnNode: any): any | null {
+  const parent = returnNode.parent;
+  const directIfWithoutElse = parent?.type === "IfStatement"
+    && parent.consequent === returnNode
+    && parent.alternate === null
+    ? parent
+    : null;
+  const blockParent = parent?.type === "BlockStatement" ? parent.parent : null;
+  const blockIfWithoutElse = blockParent?.type === "IfStatement"
+    && blockParent.consequent === parent
+    && blockParent.alternate === null
+    ? blockParent
+    : null;
+  return directIfWithoutElse || blockIfWithoutElse;
+}
 
 const ngxConventions = {
   rules: {
@@ -21,6 +62,52 @@ const ngxConventions = {
           });
         };
         return {Program: reportNativeDateInputs};
+      },
+    },
+    "no-early-return": {
+      meta: {
+        type: "problem" as const,
+        docs: {
+          description: "Disallow early returns / guard-clause if-return without else. Use if/else if/else or a single returned expression."
+        },
+        messages: {
+          banned: "Early return / guard-clause style is not allowed. Use structured if/else if/else, or one boolean expression and a single return. ({{digest}})"
+        },
+        schema: [
+          {
+            type: "object",
+            properties: {
+              baselinePath: {type: "string"},
+              ignoreBaseline: {type: "boolean"}
+            },
+            additionalProperties: false
+          }
+        ],
+      },
+      create(context: any) {
+        const options = context.options?.[0] || {};
+        const ignoreBaseline = options.ignoreBaseline === true;
+        const baselinePath = ignoreBaseline ? null : (options.baselinePath || ".eslint-baselines/no-early-return.json");
+        const baseline = earlyReturnBaselineSet(baselinePath);
+        const filename = context.filename || context.getFilename();
+        const relativePath = relative(process.cwd(), filename).split("\\").join("/");
+        const sourceCode = context.sourceCode ?? context.getSourceCode();
+        return {
+          ReturnStatement(node: any) {
+            const ifStatement = ifWithoutElseForReturn(node);
+            const statementText = ifStatement
+              ? sourceCode.getText(ifStatement).replace(/\s+/g, " ").trim()
+              : "";
+            const digest = statementText
+              ? createHash("sha1").update(statementText).digest("hex").slice(0, 12)
+              : "";
+            const key = ifStatement ? `${relativePath}:${digest}` : null;
+            const baselined = key ? baseline.has(key) : false;
+            if (ifStatement && !baselined) {
+              context.report({node, messageId: "banned", data: {digest}});
+            }
+          }
+        };
       },
     },
   },
@@ -279,9 +366,11 @@ export default defineConfig([
       tseslint.configs.recommended,
       tseslint.configs.stylistic,
     ],
+    plugins: {ngx: ngxConventions},
     rules: {
       ...sharedTypescriptRulesOff,
       "no-inline-comments": "error",
+      "ngx/no-early-return": ["error", {baselinePath: ".eslint-baselines/no-early-return.json"}],
       "no-restricted-imports": [
         "error",
         {
@@ -321,6 +410,7 @@ export default defineConfig([
       tseslint.configs.stylistic,
       angular.configs.tsRecommended,
     ],
+    plugins: {ngx: ngxConventions},
     rules: {
       "@angular-eslint/directive-selector": "off",
       "@angular-eslint/component-selector": "off",
@@ -331,6 +421,7 @@ export default defineConfig([
       "@angular-eslint/prefer-inject": "off",
       ...sharedTypescriptRulesOff,
       "no-inline-comments": "error",
+      "ngx/no-early-return": ["error", {baselinePath: ".eslint-baselines/no-early-return.json"}],
       "no-restricted-syntax": [
         "error",
         ...sharedSyntaxRestrictions,
@@ -390,6 +481,7 @@ export default defineConfig([
     plugins: {ngx: ngxConventions},
     rules: {
       "ngx/no-native-date-input": "error",
+      "ngx/no-early-return": ["error", {baselinePath: ".eslint-baselines/no-early-return.json"}],
     },
   }
 ]);

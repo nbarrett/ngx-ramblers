@@ -1,5 +1,7 @@
 # Content Migration Guide
 
+> **Superseded note (July 2026) for day-to-day site editing:** Authors no longer edit pages by typing markdown. Site edit uses a **visual (WYSIWYG) TipTap editor**. This migration guide still refers to markdown where scrapers and templates process text under the hood — that is for migration tooling, not for how members write content. See *Visual editing replaces markdown authoring* (ref #303).
+
 ## Overview
 
 The Content Migration system provides a template-based workflow for migrating pages from external websites into your NGX-Ramblers site structure. Instead of hard-coded parsing logic or abstract transformation steps, you:

@@ -12,7 +12,7 @@ import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { UrlService } from "../../../services/url.service";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { isUndefined } from "es-toolkit/compat";
 import { booleanOf } from "../../../functions/strings";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -34,19 +34,15 @@ import { ContentText } from "../../../models/content-text.model";
     template: `
       <div class="row mb-3">
         <div class="col-12">
-          <app-markdown-editor
+          <app-content-text-editor
             [data]="indexMarkdownForEditor()"
-            [rows]="6"
             [standalone]="true"
-            [allowMaximise]="false"
             [allowHide]="false"
-            [hideEditToggle]="row.albumIndex.autoTitle"
             [deleteEnabled]="false"
             [presentationMode]="row.albumIndex.autoTitle"
-            [actionCaptionSuffix]="'index markdown'"
-            [description]="row.albumIndex.autoTitle ? 'Auto title uses the page URL' : 'Markdown content shown above the index cards'"
+            [description]="row.albumIndex.autoTitle ? 'Auto title uses the page URL' : 'Text shown above the index cards'"
             (changed)="onIndexMarkdownChanged($event)">
-          </app-markdown-editor>
+          </app-content-text-editor>
         </div>
       </div>
       <div class="row mb-3">
@@ -60,7 +56,7 @@ import { ContentText } from "../../../models/content-text.model";
               class="form-check-input"
               [id]="id + '-auto-title'">
             <label class="form-check-label"
-                   [for]="id + '-auto-title'">Auto Title - uncheck to Manually enter Index and Intro text (Markdown)
+                   [for]="id + '-auto-title'">Auto Title - uncheck to enter index and intro text yourself
             </label>
           </div>
           <div class="form-check form-check-inline mb-0 ms-3">
@@ -314,7 +310,7 @@ import { ContentText } from "../../../models/content-text.model";
         </div>
       }
       <app-action-buttons [pageContent]="previewPageContent()" [rowIndex]="0" presentationMode/>`,
-    imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent, IndexEntryOverrideEditor]
+    imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, ContentTextEditor, IndexEntryOverrideEditor]
 })
 export class IndexSiteEdit implements OnInit {
   public booleanOf = booleanOf;
@@ -400,10 +396,10 @@ export class IndexSiteEdit implements OnInit {
   }
 
   indexMarkdownForEditor(): ContentText {
-    if (this.row.albumIndex.autoTitle) {
-      return {text: this.autoTitleMarkdown(), name: "index markdown"};
-    }
-    return {text: this.row.albumIndex.indexMarkdown, name: "index markdown"};
+    const text = this.row.albumIndex.autoTitle
+      ? this.autoTitleMarkdown()
+      : this.row.albumIndex.indexMarkdown;
+    return {text, name: "index text"};
   }
 
   onIndexMarkdownChanged(contentText: ContentText) {
@@ -413,11 +409,10 @@ export class IndexSiteEdit implements OnInit {
   }
 
   onAutoTitleChanged(autoTitle: boolean) {
-    if (!autoTitle) {
-      const existingMarkdown = this.row.albumIndex.indexMarkdown;
-      if (this.isBlankMarkdown(existingMarkdown)) {
-        this.row.albumIndex.indexMarkdown = this.autoTitleMarkdown();
-      }
+    const existingMarkdown = this.row.albumIndex.indexMarkdown;
+    const shouldSeedIntro = !autoTitle && this.isBlankMarkdown(existingMarkdown);
+    if (shouldSeedIntro) {
+      this.row.albumIndex.indexMarkdown = this.autoTitleMarkdown();
     }
   }
 

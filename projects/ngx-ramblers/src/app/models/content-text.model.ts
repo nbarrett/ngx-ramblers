@@ -672,11 +672,6 @@ export const ContentPathMatchConfigs: { [key in StringMatch]: ContentPathMatchCo
   [StringMatch.EQUALS]: {mongoRegex: fieldEqualsValue},
 };
 
-export interface EditorInstanceState {
-  view: View;
-  instance: object;
-}
-
 export enum DataAction {
   QUERY = "query",
   SAVE = "save",

@@ -11,7 +11,7 @@ import { WalksImportService } from "../../../services/walks/walks-import.service
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { PageComponent } from "../../../page/page.component";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FileUploadModule } from "ng2-file-upload";
 import { Subscription } from "rxjs";
@@ -83,7 +83,7 @@ import { first } from "es-toolkit/compat";
                       <div>
                           <div class="row">
                             <div class="col-sm-12 mb-3 mx-2">
-                              <app-markdown-editor standalone name="file-import-help-page" description="File import help page"/>
+                              <app-content-text-editor standalone name="file-import-help-page" description="File import help page"/>
                             </div>
                           </div>
                           <app-walk-import-from-file [importData]="importData" [notify]="notify"
@@ -335,7 +335,7 @@ import { first } from "es-toolkit/compat";
       </div>
     </app-page>`,
   styleUrls: ["./walk-import.sass"],
-  imports: [PageComponent, MarkdownEditorComponent, FontAwesomeModule, FileUploadModule, FormsModule, NgTemplateOutlet, WalkImportFromFile, DisplayDatePipe, StatusIconComponent, FullNamePipe, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, TitleCasePipe, NgClass, StepperModule, FileSizeSelectorComponent, NgStyle]
+  imports: [PageComponent, ContentTextEditor, FontAwesomeModule, FileUploadModule, FormsModule, NgTemplateOutlet, WalkImportFromFile, DisplayDatePipe, StatusIconComponent, FullNamePipe, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, TitleCasePipe, NgClass, StepperModule, FileSizeSelectorComponent, NgStyle]
 })
 
 export class WalkImport implements OnInit, OnDestroy {

@@ -1,3 +1,5 @@
+import { escapeRegExp } from "es-toolkit/compat";
+
 export interface MongoRegex {
   $regex: string;
   $options: string;
@@ -5,6 +7,10 @@ export interface MongoRegex {
 
 export function fieldStartsWithValue(fieldValue: string): MongoRegex {
   return {$regex: "^" + fieldValue, $options: "i"};
+}
+
+export function fieldStartsWithPath(fieldValue: string): MongoRegex {
+  return {$regex: "^" + escapeRegExp(fieldValue) + "(/|$)", $options: "i"};
 }
 
 export function fieldContainsValue(fieldValue: string): MongoRegex {

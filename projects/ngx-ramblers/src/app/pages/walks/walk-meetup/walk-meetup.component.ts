@@ -16,7 +16,7 @@ import { WalkNotificationService } from "../../../services/walks/walk-notificati
 import { WalkDisplayService } from "../walk-display.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
 import {
   WalkMeetupConfigParametersComponent
@@ -33,7 +33,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <ng-template app-notification-directive/>
       </div>
       <div class="col-sm-12">
-        <app-markdown-editor standalone name="meetup-help" description="Linking to Meetup"/>
+        <app-content-text-editor standalone name="meetup-help" description="Linking to Meetup"/>
       </div>
         @if (allowEdits()) {
           <div class="col-sm-12">
@@ -60,13 +60,11 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
           </div>
           <div class="col-sm-12 mb-2 mt-3">
             @if (meetupConfigExists()) {
-              <app-markdown-editor [initialView]="view"
+              <app-content-text-editor [initialView]="view"
                 [name]="'meetup-event-description'"
                 [category]="ContentTextCategory.MEETUP_DESCRIPTION_PREFIX"
                 [text]="meetupEventDescription"
                 [presentationMode]="inputDisabled"
-                [hideEditToggle]="inputDisabled"
-                [rows]="7"
                 [description]="'Meetup event description'"
                 (changed)="changeContent($event)"/>
             }
@@ -101,7 +99,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
             </div>
           }
         }`,
-    imports: [NotificationDirective, MarkdownEditorComponent, FormsModule, WalkMeetupConfigParametersComponent, TooltipDirective]
+    imports: [NotificationDirective, ContentTextEditor, FormsModule, WalkMeetupConfigParametersComponent, TooltipDirective]
 })
 export class WalkMeetupComponent implements OnInit {
 

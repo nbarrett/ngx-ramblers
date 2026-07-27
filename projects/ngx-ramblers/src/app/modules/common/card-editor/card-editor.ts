@@ -27,7 +27,7 @@ import { RouterLink } from "@angular/router";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { ContentTextEditor } from "../tiptap-editor/content-text-editor";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
@@ -274,12 +274,11 @@ import { FileUtilsService } from "../../../file-utils.service";
             </select>
           </div>
         }
-        <app-markdown-editor [presentationMode]="presentationMode"
+        <app-content-text-editor [presentationMode]="presentationMode"
                              (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
                              class="card-text"
                              [text]="column?.contentText"
                              [styles]="column?.styles"
-                             [actionCaptionSuffix]="'text'"
                              [category]="pageContent.path"
                              [description]="idFor(pageContent.path)"
                              [name]="actions.rowColFor(rowIndex, columnIndex)">
@@ -294,7 +293,7 @@ import { FileUtilsService } from "../../../file-utils.service";
           <app-actions-dropdown [columnIndex]="columnIndex"
                                 [pageContent]="pageContent"
                                 [row]="row"/>
-        </app-markdown-editor>
+        </app-content-text-editor>
       </div>
     </div>
   `,
@@ -330,7 +329,7 @@ import { FileUtilsService } from "../../../file-utils.service";
       border-bottom-left-radius: 0.375rem
       border-bottom-right-radius: 0.375rem
   `],
-  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, FocalPointPickerComponent]
+  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, ContentTextEditor, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, FocalPointPickerComponent]
 })
 export class CardEditorComponent implements OnInit {
 

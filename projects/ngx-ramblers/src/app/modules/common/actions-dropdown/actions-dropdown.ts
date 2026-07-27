@@ -1,20 +1,12 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faTableCells } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import {
-  ContentTextStyles,
-  ListStyle,
-  PageContent,
-  PageContentColumn,
-  PageContentRow
-} from "../../../models/content-text.model";
+import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
-import { ContentFormattingSelectorComponent } from "../content-formatting-selector/content-formatting-selector";
 import { isNull, isUndefined } from "es-toolkit/compat";
 
 @Component({
@@ -165,17 +157,6 @@ import { isNull, isUndefined } from "es-toolkit/compat";
               </a>
             </li>
           }
-          @if (allowColumnActions() && markdownEditorComponentInjected()) {
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <app-content-formatting-selector
-              [styles]="styles()"
-              [standaloneMenu]="false"
-              (listStyleChange)="assignListStyleTo($event)"
-              (textStyleChange)="assignTextStyleTo($event)">
-            </app-content-formatting-selector>
-          }
           @if (showRowActions && allowTextRowActions()) {
             <li role="menuitem">
               <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
@@ -206,22 +187,14 @@ import { isNull, isUndefined } from "es-toolkit/compat";
           }
         </ul>
       </div>`,
-    imports: [BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, NgClass, ContentFormattingSelectorComponent]
+  imports: [BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, NgClass]
 })
 export class ActionsDropdownComponent implements OnInit {
 
-  @Input("markdownEditorComponent") set valueForMarkdownEditorComponent(markdownEditorComponent: MarkdownEditorComponent) {
-    if (markdownEditorComponent) {
-      this.logger.off("markdownEditorComponent set to:", markdownEditorComponent);
-      this.markdownEditorComponent = markdownEditorComponent;
-    }
-  }
   public actions: PageContentActionsService = inject(PageContentActionsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("ActionsDropdownComponent", NgxLoggerLevel.ERROR);
-  private markdownEditorComponent: MarkdownEditorComponent;
   protected readonly faTableCells = faTableCells;
-  protected readonly ListStyle = ListStyle;
   @Input() public fullWidth = false;
   @Input() public pageContent: PageContent;
   @Input() public row: PageContentRow;
@@ -236,7 +209,7 @@ export class ActionsDropdownComponent implements OnInit {
     if (isUndefined(this.columnIndex) || isNull(this.columnIndex) || isNaN(this.columnIndex as any)) {
       this.showColumnActions = false;
     }
-    this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "markdownEditorComponent:", this.markdownEditorComponent, "showRowActions:", this.showRowActions, "showColumnActions:", this.showColumnActions);
+    this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "showRowActions:", this.showRowActions, "showColumnActions:", this.showColumnActions);
   }
 
   rows(): PageContentRow[] {
@@ -311,25 +284,8 @@ export class ActionsDropdownComponent implements OnInit {
     return this.row?.columns?.length > 0;
   }
 
-  assignListStyleTo(listStyle: ListStyle) {
-    this.markdownEditorComponent.assignListStyleTo(listStyle);
-  }
-
-  assignTextStyleTo(className: string) {
-    this.markdownEditorComponent.assignTextStyleTo(className);
-  }
-
   actionClicked($event: MouseEvent) {
     this.logger.info("actionClicked:", $event);
-  }
-
-  markdownEditorComponentInjected(): boolean {
-    return !!this.markdownEditorComponent;
-  }
-
-  styles(): ContentTextStyles {
-    this.logger.info("markdownEditorComponent content:", this?.markdownEditorComponent?.content, "background:", this?.markdownEditorComponent?.content?.styles?.class);
-    return this?.markdownEditorComponent?.content?.styles;
   }
 
   public actionType(): string {
