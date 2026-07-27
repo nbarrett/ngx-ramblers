@@ -101,7 +101,12 @@ import memberResource from "./mongo/routes/member-resource";
 import { legacyUrlMappingRoutes } from "./mongo/routes/legacy-url-mapping";
 import { legacyScrapeRunRoutes } from "./mongo/routes/legacy-scrape-run";
 import { redirectMiddleware, initialiseRedirectMiddleware } from "./legacy-redirect/redirect-middleware";
-import { llmsTxt, robotsTxt, sitemapXml } from "./sitemap/sitemap-controllers";
+import { robotsTxt, sitemapXml } from "./sitemap/sitemap-controllers";
+import {
+  forAi,
+  llmsTxt,
+  publicReleases
+} from "./content-export/ai-discovery-controllers";
 import { contentExportRoutes } from "./content-export/content-export-routes";
 import { contentExportForPageUrl } from "./content-export/content-export";
 import { reconcileOrphanedScrapeRuns } from "./legacy-redirect/legacy-redirect-ws-handler";
@@ -181,6 +186,9 @@ app.get("/api/system-status", systemStatus);
 app.get("/sitemap.xml", sitemapXml);
 app.get("/robots.txt", robotsTxt);
 app.get("/llms.txt", llmsTxt);
+app.get("/for-ai", forAi);
+app.get("/api/public/releases", publicReleases);
+app.get("/api/releases.json", publicReleases);
 app.use("/api/health/environments", crossEnvironmentHealthRoutes);
 app.use("/api/areas", geoJsonRoutes);
 app.get("/api/regions", regions);

@@ -122,6 +122,17 @@ export function withRepresentationAlternates(html: string, baseHref: string, des
   return html.replace("</head>", `${alternates}\n</head>`);
 }
 
+export function withAiDiscoveryLinks(html: string, baseHref: string): string {
+  if (!baseHref) {
+    return html;
+  }
+  const links = [
+    `  <link rel="alternate" type="text/plain" title="llms.txt" href="${escapeHtml(`${baseHref}/llms.txt`)}">`,
+    `  <link rel="alternate" type="text/markdown" title="For AI assistants" href="${escapeHtml(`${baseHref}/for-ai`)}">`
+  ].join("\n");
+  return html.replace("</head>", `${links}\n</head>`);
+}
+
 export function withServerContent(html: string, descriptor: PageSeoDescriptor): string {
   if (!descriptor?.contentHtml) {
     return html;
@@ -144,17 +155,22 @@ export async function serveIndexHtml(indexPath: string, res: Response, requestPa
     input => headConfig?.baseHref ? withCanonicalLink(input, headConfig.baseHref, requestPath) : input,
     input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
     input => withMetaDescription(input, seoDescriptor?.description),
+    input => headConfig?.baseHref ? withAiDiscoveryLinks(input, headConfig.baseHref) : input,
     input => headConfig?.baseHref ? withRepresentationAlternates(input, headConfig.baseHref, seoDescriptor) : input,
     input => withServerContent(input, seoDescriptor)
   ];
   const transformed = transformations.reduce((current, transformation) => transformation(current), html);
-  if (headConfig?.baseHref && seoDescriptor?.exportablePath) {
-    const links = [
+  if (headConfig?.baseHref) {
+    const discoveryLinks = [
+      `<${headConfig.baseHref}/llms.txt>; rel="alternate"; type="text/plain"; title="llms.txt"`,
+      `<${headConfig.baseHref}/for-ai>; rel="alternate"; type="text/markdown"; title="For AI assistants"`
+    ];
+    const pageLinks = seoDescriptor?.exportablePath ? [
       `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "markdown")}>; rel="alternate"; type="text/markdown"`,
       `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "html")}>; rel="alternate"; type="text/html"`,
       `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "json")}>; rel="alternate"; type="application/json"`
-    ];
-    res.setHeader("Link", links.join(", "));
+    ] : [];
+    res.setHeader("Link", discoveryLinks.concat(pageLinks).join(", "));
   }
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.type("html").send(transformed);

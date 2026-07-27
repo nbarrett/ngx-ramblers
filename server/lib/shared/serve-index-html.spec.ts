@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
-import { withRepresentationAlternates, withServerContent } from "./serve-index-html";
+import { withAiDiscoveryLinks, withRepresentationAlternates, withServerContent } from "./serve-index-html";
 
 describe("serve-index-html", () => {
   const descriptor: PageSeoDescriptor = {
@@ -16,6 +16,13 @@ describe("serve-index-html", () => {
     expect(html).toContain("rel=\"alternate\" type=\"text/markdown\" href=\"https://example.org/how-to/committee/release-notes?format=markdown\"");
     expect(html).toContain("rel=\"alternate\" type=\"text/html\" href=\"https://example.org/how-to/committee/release-notes?format=html\"");
     expect(html).toContain("rel=\"alternate\" type=\"application/json\" href=\"https://example.org/how-to/committee/release-notes?format=json\"");
+  });
+
+  it("advertises site-wide AI discovery entry points on every page", () => {
+    const html = withAiDiscoveryLinks("<html><head></head></html>", "https://example.org");
+    expect(html).toContain("title=\"llms.txt\" href=\"https://example.org/llms.txt\"");
+    expect(html).toContain("title=\"For AI assistants\" href=\"https://example.org/for-ai\"");
+    expect(html).not.toContain("api/public/releases");
   });
 
   it("places public CMS content in ordinary semantic HTML", () => {
