@@ -15,7 +15,6 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
 import { SvgComponent } from "../../../modules/common/svg/svg";
 import { CardImageComponent } from "../../../modules/common/card/image/card-image";
 import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.directive";
-import { NgClass } from "@angular/common";
 
 @Component({
   selector: "app-walk-album-panel",
@@ -288,7 +287,7 @@ import { NgClass } from "@angular/common";
       }
     }
   `,
-  imports: [RouterLink, FontAwesomeModule, TooltipDirective, SvgComponent, CardImageComponent, SwipeableDirective, NgClass]
+  imports: [RouterLink, FontAwesomeModule, TooltipDirective, SvgComponent, CardImageComponent, SwipeableDirective]
 })
 export class WalkAlbumPanelComponent implements OnInit, OnDestroy {
   private logger = inject(LoggerFactory).createLogger("WalkAlbumPanelComponent", NgxLoggerLevel.ERROR);

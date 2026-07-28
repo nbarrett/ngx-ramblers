@@ -11,6 +11,7 @@ export enum TiptapTableCommand {
 export enum TiptapMark {
   Bold = "bold",
   Italic = "italic",
+  Code = "code",
   BulletList = "bulletList",
   OrderedList = "orderedList",
   Blockquote = "blockquote"

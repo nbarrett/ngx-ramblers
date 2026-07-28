@@ -204,42 +204,40 @@ import { ClipboardService } from "../../../services/clipboard.service";
                          [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
                          [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
                          container="body" triggers="">
-                      Col {{ columnIndex + 1 }}
-                      <app-badge-button noRightMargin class="ms-2"
+                      <span class="column-heading-label">Col {{ columnIndex + 1 }}</span>
+                      <app-badge-button noRightMargin
                                         (click)="toggleControls(column)"
                                         [icon]="controlsShown(column) ? faCheck : faSliders"
                                         [caption]="controlsShown(column) ? 'done' : 'settings'"/>
-                      <app-badge-button noRightMargin class="ms-2"
+                      <app-badge-button noRightMargin
                                         (click)="actions.deleteColumn(row, columnIndex, pageContent)"
                                         [icon]="faRemove"
                                         [tooltip]="'Delete column'"/>
                       @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
-                        <app-badge-button noRightMargin class="ms-2"
+                        <app-badge-button noRightMargin
                                           (click)="joinWithPreviousRow()"
                                           [icon]="faArrowUp"
                                           [tooltip]="'Join with row above'"/>
                       }
                       @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
-                        <app-badge-button noRightMargin class="ms-2"
+                        <app-badge-button noRightMargin
                                           (click)="joinWithNextRow()"
                                           [icon]="faArrowDown"
                                           [tooltip]="'Join with row below'"/>
                       }
                       @if (controlsShown(column) && !isNarrow(column)) {
-                        <span class="ms-2 d-inline-flex align-items-center gap-2">
-                      <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
-                                                  (edit)="editImage(rowIndex, columnIndex)"
-                                                  (replace)="replaceImage(column, rowIndex, columnIndex)"
-                                                  (remove)="removeImage(column)"/>
-                      <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
-                                            [pageContent]="pageContent" [column]="column" [row]="row"
-                                            [fullWidth]="false" [showRowActions]="false"/>
-                    </span>
+                        <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
+                                                    (edit)="editImage(rowIndex, columnIndex)"
+                                                    (replace)="replaceImage(column, rowIndex, columnIndex)"
+                                                    (remove)="removeImage(column)"/>
+                        <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
+                                              [pageContent]="pageContent" [column]="column" [row]="row"
+                                              [fullWidth]="false" [showRowActions]="false"/>
                       }
-                      <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
+                      <span class="drag-handle" [attr.draggable]="true"
                             (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
-                    <fa-icon [icon]="faArrowsUpDown"/>
-                  </span>
+                        <fa-icon [icon]="faArrowsUpDown"/>
+                      </span>
                     </div>
                     <ng-container [ngTemplateOutlet]="columnMappingControls"></ng-container>
                     <div class="row-content-editing">

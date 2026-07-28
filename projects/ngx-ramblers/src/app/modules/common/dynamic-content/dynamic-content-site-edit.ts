@@ -96,10 +96,14 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
 import { TemplateSelectEvent, TemplateSelectorComponent } from "./template-selector";
 import { IndexService } from "../../../services/index.service";
 import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
+import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
 
 @Component({
   selector: "app-dynamic-content-site-edit",
+  host: {
+    "attr.data-sticky-offset-root": ""
+  },
   template: `
     @if (siteEditService.active()) {
       @if (notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)) {
@@ -125,13 +129,16 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       @if (pageContent) {
         <div class="card mb-2">
           <div class="card-body">
+            <div class="page-content-edit-sticky-scope">
             @if (albumWorkflow) {
               <h4 class="card-title mb-1 d-none d-md-block">Walk photo album</h4>
               <p class="text-muted small mb-3 d-none d-md-block">{{ pageContent.path }}</p>
             } @else {
             <h4 class="card-title">Page content for {{ pageContent.path }} (<small
               class="text-muted">{{ stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row') }}</small>)</h4>
-            <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+            <div class="page-content-actions-sticky" appStickyControls>
+              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+            </div>
             @if (unreferencedPaths?.length > 0 && showUnreferenced) {
               <div class="row mt-2 align-items-end mb-3">
                 <div class="align-middle">
@@ -618,8 +625,11 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               </div>
               }
             }
+            </div>
             @if (!albumWorkflow) {
-              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+              <div class="page-content-actions-bottom">
+                <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+              </div>
             }
           </div>
         </div>
@@ -805,7 +815,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 

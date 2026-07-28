@@ -69,15 +69,33 @@ iframe
   border-radius: 6px
 
 .thumbnail-site-edit.thumbnail-site-edit-content
-  border-color: transparent
-  background-color: transparent
-  box-shadow: none
-  padding: 4px 2px 8px 2px
-
-.thumbnail-site-edit.thumbnail-site-edit-content.thumbnail-site-edit-content-active
   border-color: var(--bs-border-color, #dee2e6)
   background-color: var(--bs-body-bg, #fff)
   padding: 13px 10px 20px 15px
+  min-width: 0
+  max-width: 100%
+
+  > .thumbnail-heading
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    column-gap: 6px
+    row-gap: 6px
+    width: 100%
+    max-width: 100%
+
+    > *
+      display: inline-flex
+      vertical-align: middle
+      margin-left: 0
+
+    > .column-heading-label
+      flex: 0 0 auto
+      white-space: nowrap
+
+    > .drag-handle
+      float: none
+      margin-left: 0
 
 .thumbnail-site-edit-top-bottom-margins
   @extend .thumbnail-site-edit

@@ -22,6 +22,7 @@ import { HtmlBold, HtmlItalic, markdownMarksForClipboard } from "./html-marks.ex
 import Link from "@tiptap/extension-link";
 import { ImageAlign, ImageSpacing, SpacedImage } from "./spaced-image.extension";
 import { Markdown } from "@tiptap/markdown";
+import { MermaidCodeBlock, refreshMermaidCodeBlockPreviews } from "./mermaid-code-block.extension";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -31,6 +32,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faBold,
   faBolt,
+  faCode,
+  faEnvelope,
   faHeading,
   faImage,
   faItalic,
@@ -44,6 +47,17 @@ import {
   faToggleOff,
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
+import { Subscription } from "rxjs";
+import { BuiltInRole, CommitteeMember, CONTACT_US_TYPE, RoleType } from "../../../models/committee.model";
+import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
+import { MemberNamingService } from "../../../services/member/member-naming.service";
+import {
+  buildContactUsHref,
+  contactUsRoleOptionLabel,
+  defaultContactUsLabel,
+  isContactUsHref,
+  parseContactUsHref
+} from "./contact-us-link";
 import {
   friendlyFieldLabel,
   friendlyText,
@@ -86,12 +100,28 @@ import { isString } from "es-toolkit/compat";
       flex-direction: column
       max-width: 100%
       min-width: 0
-      overflow-x: clip
       position: relative
+      transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease
 
     .tiptap-editor-shell.tiptap-editor-shell-detail
+      border-style: solid
       border-color: #ced4da
       background-color: #ffffff
+
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail)
+      cursor: pointer
+
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail):hover
+      border-style: dashed
+      border-color: #adb5bd
+      background-color: rgba(248, 249, 250, 0.7)
+      box-shadow: inset 0 0 0 1px rgba(173, 181, 189, 0.15)
+
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content .ProseMirror,
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content a,
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content .as-button a,
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content.as-button a
+      cursor: pointer
 
     .tiptap-editor-shell:not(.tiptap-editor-shell-detail) .tiptap-content
       padding: 0
@@ -100,6 +130,7 @@ import { isString } from "es-toolkit/compat";
       border-color: transparent
       background-color: transparent
       box-shadow: none
+      cursor: default
 
     .tiptap-editor-shell-disabled .tiptap-content
       background-color: transparent
@@ -107,6 +138,32 @@ import { isString } from "es-toolkit/compat";
 
     .tiptap-editor-shell-disabled .tiptap-content .ProseMirror
       cursor: not-allowed
+
+    .tiptap-editor-shell.tiptap-editor-shell-detail:not(.tiptap-editor-shell-disabled) .tiptap-content .ProseMirror
+      cursor: text
+
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content a
+      cursor: text
+      pointer-events: auto
+
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content .as-button a,
+    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content.as-button a
+      cursor: text
+      box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.15)
+
+    .tiptap-click-to-edit-hint
+      position: fixed
+      z-index: 1080
+      pointer-events: none
+      padding: 4px 8px
+      border-radius: 4px
+      background-color: #212529
+      color: #ffffff
+      font-size: 0.75rem
+      line-height: 1.2
+      white-space: nowrap
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22)
+      transform: translate(12px, 14px)
 
     .token-editor-popup
       position: absolute
@@ -180,6 +237,12 @@ import { isString } from "es-toolkit/compat";
       gap: 4px
       padding: 6px
       border-bottom: 1px solid #e9ecef
+      background-color: #f8f9fa
+
+    .tiptap-toolbar.tiptap-toolbar-sticky
+      position: sticky
+      top: var(--tiptap-toolbar-offset, 0)
+      z-index: 20
       background-color: #f8f9fa
 
     .tiptap-toolbar button
@@ -294,6 +357,67 @@ import { isString } from "es-toolkit/compat";
       min-height: 0
       overflow-x: clip
 
+    .tiptap-code-block
+      margin: 0.75rem 0
+
+    .tiptap-code-block-mermaid
+      border: 1px solid #e9ecef
+      border-radius: 6px
+      padding: 10px
+      background-color: #fafbfc
+
+    .tiptap-mermaid-preview
+      overflow-x: auto
+      text-align: center
+      margin-bottom: 6px
+
+    .tiptap-mermaid-preview svg
+      max-width: 100%
+      height: auto
+
+    .tiptap-mermaid-preview-error
+      color: #842029
+      background-color: #f8d7da
+      border-radius: 4px
+      padding: 8px 10px
+      text-align: left
+      font-size: 0.9rem
+
+    .tiptap-mermaid-source-toggle
+      display: inline-flex
+      align-items: center
+      margin: 0 0 6px
+      padding: 2px 8px
+      min-height: 28px
+      border: 1px solid #ced4da
+      border-radius: 4px
+      background: #ffffff
+      color: #495057
+      font-size: 0.8rem
+      cursor: pointer
+
+    .tiptap-mermaid-source-toggle:hover
+      border-color: #adb5bd
+      background: #f8f9fa
+
+    .tiptap-code-block pre
+      margin: 0
+      padding: 8px 10px
+      border-radius: 4px
+      background-color: #f1f3f5
+      overflow-x: auto
+
+    .tiptap-code-block code
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+      font-size: 0.85rem
+      white-space: pre
+
+    .tiptap-code-block-mermaid:not(.tiptap-code-block-mermaid-source-open) > pre
+      display: none
+
+    .tiptap-code-block-mermaid.tiptap-code-block-mermaid-source-open > pre
+      display: block
+
     .tiptap-content.email-width
       max-width: 600px
       margin: 0 auto
@@ -317,6 +441,14 @@ import { isString } from "es-toolkit/compat";
       background-color: #f8f9fa
       cursor: zoom-in
       transition: max-height 0.15s ease
+
+    .tiptap-content .ProseMirror code
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+      font-size: 0.9em
+      color: #c7254e
+      background-color: #f7f2f4
+      border-radius: 3px
+      padding: 0.1em 0.35em
 
     .tiptap-content .ProseMirror > img
       display: block
@@ -525,12 +657,79 @@ import { isString } from "es-toolkit/compat";
     .inline-input-bar input
       flex: 1
       min-width: 160px
+
+    .link-url-bar
+      display: flex
+      flex-direction: column
+      align-items: stretch
+      gap: 8px
+      padding: 8px 10px
+      border-bottom: 1px solid #e9ecef
+      background-color: #ffffff
+
+    .link-url-label
+      margin: 0
+      font-size: 0.75rem
+      font-weight: 600
+      color: #495057
+
+    .link-url-input
+      width: 100%
+      min-width: 0
+
+    .link-url-actions
+      display: flex
+      flex-wrap: wrap
+      gap: 6px
+
+    .link-url-hint
+      font-size: 0.78rem
+      color: #6c757d
+      margin: 0
+
+    .contact-button-bar
+      display: flex
+      flex-direction: column
+      align-items: stretch
+      gap: 8px
+      padding: 8px 10px
+      border-bottom: 1px solid #e9ecef
+      background-color: #ffffff
+
+    .contact-button-bar .link-url-label
+      margin: 0
+      font-size: 0.75rem
+      font-weight: 600
+      color: #495057
+
+    .contact-button-bar .form-select,
+    .contact-button-bar .form-control
+      width: 100%
+      min-width: 0
+
+    .contact-button-preview
+      font-size: 0.78rem
+      color: #6c757d
+      word-break: break-all
+
+    .contact-button-actions
+      display: flex
+      flex-wrap: wrap
+      gap: 6px
   `],
   template: `
     <div class="tiptap-editor-shell"
          [class.tiptap-editor-shell-disabled]="!editable"
          [class.tiptap-editor-shell-detail]="editable && toolbarExpanded"
-         [attr.aria-disabled]="!editable">
+         [attr.aria-disabled]="!editable"
+         (pointerenter)="onCalmPointerEnter($event)"
+         (pointermove)="onCalmPointerMove($event)"
+         (pointerleave)="onCalmPointerLeave()">
+      @if (clickToEditHintVisible) {
+        <div class="tiptap-click-to-edit-hint"
+             [style.left.px]="clickToEditHintX"
+             [style.top.px]="clickToEditHintY">Click to edit</div>
+      }
       @if (editable && toolbarExpanded) {
       <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
            role="toolbar" (mousedown)="onToolbarMousedown($event)">
@@ -539,6 +738,10 @@ import { isString } from "es-toolkit/compat";
         </button>
         <button type="button" tooltip="Italic" container="body" delay=500 (click)="toggle(TiptapMark.Italic)" [class.is-active]="isActive('italic')">
           <fa-icon [icon]="faItalic"/>
+        </button>
+        <button type="button" tooltip="Inline code" container="body" delay=500
+                (click)="toggle(TiptapMark.Code)" [class.is-active]="isActive('code')">
+          <fa-icon [icon]="faCode"/>
         </button>
         <span class="toolbar-divider"></span>
         <button type="button" tooltip="Heading 2" container="body" delay=500 (click)="toggleHeading(2)" [class.is-active]="isActive('heading', { level: 2 })">
@@ -566,6 +769,11 @@ import { isString } from "es-toolkit/compat";
         <span class="toolbar-divider"></span>
         <button type="button" tooltip="Insert link" container="body" delay=500 (click)="openLinkBar()">
           <fa-icon [icon]="faLink"/>
+        </button>
+        <button type="button" tooltip="Contact button — pick a committee role" container="body" delay=500
+                [class.is-active]="contactBarOpen"
+                (click)="openContactButtonBar()">
+          <fa-icon [icon]="faEnvelope"/>
         </button>
         <button type="button" tooltip="Insert a link" container="body" delay=500 (click)="openLinkTokenInsert()">
           <fa-icon [icon]="faBolt"/>
@@ -660,15 +868,63 @@ import { isString } from "es-toolkit/compat";
       </div>
       }
       @if (linkBarOpen) {
-        <div class="inline-input-bar">
-          <label class="me-1">Link URL:</label>
-          <input type="url" [(value)]="linkUrl" placeholder="https://example.com"
-                 (keyup.enter)="confirmLink()" (input)="linkUrl = inputValue($event)">
-          <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
-          <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
-          @if (isActive('link')) {
-            <button type="button" class="btn btn-sm btn-danger" (click)="removeLink()">Remove link</button>
+        <div class="link-url-bar">
+          <label class="link-url-label" for="tiptap-link-url">Link URL</label>
+          <input #linkUrlInput
+                 id="tiptap-link-url"
+                 type="text"
+                 class="form-control form-control-sm link-url-input"
+                 name="tiptap-link-url"
+                 [(ngModel)]="linkUrl"
+                 placeholder="https://…  /walks/…  or ?contact-us&role=…&redirect=…"
+                 (keyup.enter)="confirmLink()">
+          @if (linkHrefMissing) {
+            <div class="link-url-hint">This link has no URL stored. Enter a path or address, then Apply.</div>
           }
+          <div class="link-url-actions">
+            <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
+            <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
+            @if (isActive("link")) {
+              <button type="button" class="btn btn-sm btn-secondary" (click)="removeLink()">Remove link</button>
+            }
+          </div>
+        </div>
+      }
+      @if (contactBarOpen) {
+        <div class="contact-button-bar">
+          <label class="link-url-label" for="tiptap-contact-role">Committee role</label>
+          <select id="tiptap-contact-role"
+                  class="form-select form-select-sm"
+                  name="tiptap-contact-role"
+                  [(ngModel)]="contactRoleType"
+                  (ngModelChange)="onContactRoleChange($event)">
+            <option value="">Select role…</option>
+            @for (member of contactRoles; track member.type) {
+              <option [value]="member.type">{{ contactRoleLabel(member) }}</option>
+            }
+          </select>
+          <label class="link-url-label" for="tiptap-contact-label">Link name</label>
+          <input id="tiptap-contact-label"
+                 type="text"
+                 class="form-control form-control-sm"
+                 name="tiptap-contact-label"
+                 [(ngModel)]="contactLabel"
+                 placeholder="Contact Nick"
+                 (keyup.enter)="applyContactButton()">
+          <div class="contact-button-preview">
+            Redirects back to <strong>{{ contactRedirectPath || "this page" }}</strong>
+            @if (contactRoleType && contactLabel) {
+              <div class="mt-1"><code>{{ contactHrefPreview() }}</code></div>
+            }
+          </div>
+          <div class="contact-button-actions">
+            <button type="button" class="btn btn-sm btn-primary"
+                    [disabled]="!contactRoleType || !contactLabel.trim()"
+                    (click)="applyContactButton()">
+              {{ contactUpdatingExisting ? "Update button" : "Insert button" }}
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" (click)="cancelContactButtonBar()">Cancel</button>
+          </div>
         </div>
       }
       @if (imageCropperOpen) {
@@ -786,6 +1042,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       if (incoming !== current) {
         this.editor.commands.setContent(incoming, { contentType: "markdown", emitUpdate: false });
         this.clearEditorHistory();
+        this.queueMermaidPreviewRefresh();
       }
     } else {
       this.pendingValue = incoming;
@@ -828,7 +1085,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   @Input() showMergeFields: boolean = false;
   @Input({transform: booleanAttribute}) showPageBreak = false;
   @Input() constrainToEmailWidth: boolean = false;
-  @Input({transform: booleanAttribute}) stickyToolbar = false;
+  @Input({transform: booleanAttribute}) stickyToolbar = true;
   private _editable = true;
   @Input() set editable(value: boolean) {
     this._editable = value !== false;
@@ -870,10 +1127,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected addExternalUrl = (term: string): MemberMergeFieldHint => ({token: (term || "").trim(), label: (term || "").trim()});
   @Output() valueChange = new EventEmitter<string>();
   @Output() rawPaste = new EventEmitter<{ text: string; html?: string; consume: () => void }>();
+  @Output() contactButtonApplied = new EventEmitter<void>();
 
   protected editor: Editor | null = null;
   private pendingValue: string = "";
   private urlService = inject(UrlService);
+  private committeeConfigService = inject(CommitteeConfigService);
+  private memberNamingService = inject(MemberNamingService);
+  private committeeSubscription: Subscription | null = null;
   private _mergeFieldCatalogue: MergeFieldGroup[] = MERGE_FIELD_CATALOGUE;
   @Input() set mergeFieldCatalogue(value: MergeFieldGroup[] | undefined) {
     this._mergeFieldCatalogue = value ?? MERGE_FIELD_CATALOGUE;
@@ -918,6 +1179,13 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected cropperPreloadSrc: string | null = null;
   protected replaceSelectedImageOnSave: boolean = false;
   protected linkUrl: string = "";
+  protected linkHrefMissing = false;
+  protected contactBarOpen = false;
+  protected contactRoles: CommitteeMember[] = [];
+  protected contactRoleType = "";
+  protected contactLabel = "";
+  protected contactRedirectPath = "";
+  protected contactUpdatingExisting = false;
   protected linkTokenOriginalLabel: string = "";
   protected linkTokenSelected: boolean = false;
   protected insertLinkMode: boolean = false;
@@ -946,9 +1214,11 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly TiptapTableCommand = TiptapTableCommand;
   protected readonly faBold = faBold;
   protected readonly faBolt = faBolt;
+  protected readonly faCode = faCode;
   protected readonly faImage = faImage;
   protected readonly faItalic = faItalic;
   protected readonly faLink = faLink;
+  protected readonly faEnvelope = faEnvelope;
   protected readonly faListOl = faListOl;
   protected readonly faListUl = faListUl;
   protected readonly faQuoteRight = faQuoteRight;
@@ -959,16 +1229,30 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faToggleOn = faToggleOn;
   protected readonly faToggleOff = faToggleOff;
   protected toolbarExpanded = false;
+  protected clickToEditHintVisible = false;
+  protected clickToEditHintX = 0;
+  protected clickToEditHintY = 0;
+  private clickToEditHintTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
+    this.committeeSubscription = this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
+      this.contactRoles = (data?.committeeMembers() || []).filter(member => this.contactButtonRoleAllowed(member));
+      this.changeDetector.markForCheck();
+    });
     const extensions: any[] = [
-      StarterKit.configure({ bold: false, italic: false, listItem: false }),
+      StarterKit.configure({ bold: false, italic: false, listItem: false, link: false, codeBlock: false }),
+      MermaidCodeBlock,
       ListItem.extend({
         content: "block+"
       }),
       HtmlBold,
       HtmlItalic,
-      Link.configure({ openOnClick: false, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
+      Link.configure({
+        openOnClick: false,
+        enableClickSelection: true,
+        HTMLAttributes: { rel: "noopener noreferrer" },
+        isAllowedUri: (url, ctx) => this.linkHrefAllowed(url, ctx)
+      }),
       SpacedImage.configure({ inline: false, allowBase64: false }),
       MergeField,
       LinkToken,
@@ -990,6 +1274,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           type: "doc",
           content: content.content.toJSON()
         }) ?? ""),
+        handleDOMEvents: {
+          click: (view, event) => this.handleEditableLinkClick(view, event),
+          auxclick: (view, event) => this.handleEditableLinkClick(view, event)
+        },
         handleKeyDown: (_view, event) => this.handleEditorKeyDown(event),
         handlePaste: (_view, event) => {
           const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
@@ -1041,6 +1329,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       contentType: "markdown",
       onCreate: () => {
         this.clearEditorHistory();
+        this.queueMermaidPreviewRefresh();
         if (this.pendingFocusPosition) {
           const position = this.pendingFocusPosition;
           this.pendingFocusPosition = null;
@@ -1049,6 +1338,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       }
     });
     this.clearEditorHistory();
+    this.queueMermaidPreviewRefresh();
     this.editor.on("focus", () => {
       this.zone.run(() => this.enterDetailMode());
     });
@@ -1057,6 +1347,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         requestAnimationFrame(() => {
           if (!this.editor?.isFocused && !this.hostContainsActiveElement()) {
             this.exitDetailMode();
+            this.queueMermaidPreviewRefresh();
           }
         });
       });
@@ -1168,18 +1459,81 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     document.removeEventListener("mousemove", this.onImageResizeMove);
     document.removeEventListener("mouseup", this.onImageResizeEnd);
     this.detachTablePickerDragListeners();
+    this.hideClickToEditHint();
+    this.committeeSubscription?.unsubscribe();
+    this.committeeSubscription = null;
+    if (this.mermaidPreviewTimer) {
+      clearTimeout(this.mermaidPreviewTimer);
+      this.mermaidPreviewTimer = null;
+    }
     this.editor?.destroy();
     this.editor = null;
   }
 
+  protected onCalmPointerEnter(event: PointerEvent): void {
+    if (this.calmHintActive()) {
+      this.scheduleClickToEditHint(event);
+    }
+  }
+
+  protected onCalmPointerMove(event: PointerEvent): void {
+    if (!this.calmHintActive()) {
+      this.hideClickToEditHint();
+    } else {
+      this.clickToEditHintX = event.clientX;
+      this.clickToEditHintY = event.clientY;
+      if (!this.clickToEditHintVisible && !this.clickToEditHintTimer) {
+        this.scheduleClickToEditHint(event);
+      }
+    }
+  }
+
+  protected onCalmPointerLeave(): void {
+    this.hideClickToEditHint();
+  }
+
+  private calmHintActive(): boolean {
+    return this.editable && !this.toolbarExpanded;
+  }
+
+  private scheduleClickToEditHint(event: PointerEvent): void {
+    this.clearClickToEditHintTimer();
+    this.clickToEditHintX = event.clientX;
+    this.clickToEditHintY = event.clientY;
+    this.clickToEditHintTimer = setTimeout(() => {
+      this.clickToEditHintTimer = null;
+      if (this.calmHintActive()) {
+        this.clickToEditHintVisible = true;
+        this.changeDetector.markForCheck();
+      }
+    }, 650);
+  }
+
+  private hideClickToEditHint(): void {
+    this.clearClickToEditHintTimer();
+    if (this.clickToEditHintVisible) {
+      this.clickToEditHintVisible = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  private clearClickToEditHintTimer(): void {
+    if (this.clickToEditHintTimer) {
+      clearTimeout(this.clickToEditHintTimer);
+      this.clickToEditHintTimer = null;
+    }
+  }
+
   private enterDetailMode(): void {
     this.toolbarExpanded = true;
+    this.hideClickToEditHint();
     this.changeDetector.markForCheck();
   }
 
   private exitDetailMode(): void {
     this.toolbarExpanded = false;
     this.linkBarOpen = false;
+    this.contactBarOpen = false;
     this.tablePickerOpen = false;
     this.insertLinkMode = false;
     this.mergeFieldSelected = false;
@@ -1211,6 +1565,26 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       ".dropdown-menu, .bs-dropdown-menu, .tooltip, .popover, .modal, .modal-backdrop, ng-dropdown-panel, .cdk-overlay-container"
     );
     return !!overlay;
+  }
+
+  private mermaidPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private queueMermaidPreviewRefresh(): void {
+    if (this.mermaidPreviewTimer) {
+      clearTimeout(this.mermaidPreviewTimer);
+    }
+    this.mermaidPreviewTimer = setTimeout(() => {
+      const root = this.editor?.view?.dom as HTMLElement | undefined;
+      if (root?.querySelector?.(".tiptap-code-block-mermaid")) {
+        refreshMermaidCodeBlockPreviews(root);
+      }
+    }, 200);
+    setTimeout(() => {
+      const root = this.editor?.view?.dom as HTMLElement | undefined;
+      if (root?.querySelector?.(".tiptap-code-block-mermaid")) {
+        refreshMermaidCodeBlockPreviews(root);
+      }
+    }, 600);
   }
 
   private currentMarkdown(): string {
@@ -1271,25 +1645,20 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   toggle(name: TiptapMark): void {
-    if (!this.editor) return;
-    if (name === TiptapMark.Bold) {
-      this.toggleInlineMark("bold");
-      return;
-    }
-    if (name === TiptapMark.Italic) {
-      this.toggleInlineMark("italic");
-      return;
-    }
-    if (name === TiptapMark.BulletList) {
-      this.editor.chain().focus().toggleBulletList().run();
-      return;
-    }
-    if (name === TiptapMark.OrderedList) {
-      this.editor.chain().focus().toggleOrderedList().run();
-      return;
-    }
-    if (name === TiptapMark.Blockquote) {
-      this.toggleBlockquote();
+    if (this.editor) {
+      if (name === TiptapMark.Bold) {
+        this.toggleInlineMark("bold");
+      } else if (name === TiptapMark.Italic) {
+        this.toggleInlineMark("italic");
+      } else if (name === TiptapMark.Code) {
+        this.toggleInlineMark("code");
+      } else if (name === TiptapMark.BulletList) {
+        this.editor.chain().focus().toggleBulletList().run();
+      } else if (name === TiptapMark.OrderedList) {
+        this.editor.chain().focus().toggleOrderedList().run();
+      } else if (name === TiptapMark.Blockquote) {
+        this.toggleBlockquote();
+      }
     }
   }
 
@@ -1499,33 +1868,315 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   openLinkBar(): void {
-    if (!this.editor) return;
-    this.linkUrl = (this.editor.getAttributes("link")["href"] as string) ?? "";
+    if (this.editor) {
+      const href = this.editorLinkHref();
+      if (isContactUsHref(href)) {
+        this.openContactButtonBar(href);
+      } else {
+        this.contactBarOpen = false;
+        this.populateLinkBar(null);
+      }
+    }
+  }
+
+  openContactButtonBar(existingHref: string | null = null): void {
+    if (this.editor) {
+      this.enterDetailMode();
+      this.linkBarOpen = false;
+      this.imageCropperOpen = false;
+      this.insertLinkMode = false;
+      if (this.editor.isActive("link") || existingHref) {
+        this.editor.chain().focus().extendMarkRange("link").run();
+      }
+      this.contactRedirectPath = this.currentPageRedirectPath();
+      const href = existingHref || this.editorLinkHref();
+      const parsed = parseContactUsHref(href);
+      const linkText = this.selectedPlainText();
+      if (parsed) {
+        this.contactUpdatingExisting = true;
+        this.ensureContactRoleOption(parsed.role);
+        this.contactRoleType = parsed.role;
+        this.previousContactRoleType = parsed.role;
+        this.contactLabel = linkText || this.defaultLabelForRole(parsed.role);
+      } else {
+        this.contactUpdatingExisting = this.editor.isActive("link");
+        this.contactRoleType = this.contactRoles[0]?.type || "";
+        this.previousContactRoleType = this.contactRoleType;
+        this.contactLabel = linkText || this.defaultLabelForRole(this.contactRoleType);
+      }
+      this.contactBarOpen = true;
+      this.changeDetector.markForCheck();
+      this.zone.runOutsideAngular(() => {
+        requestAnimationFrame(() => {
+          const input = this.host.nativeElement.querySelector("#tiptap-contact-label") as HTMLInputElement | null;
+          if (input) {
+            input.focus();
+            if (this.contactUpdatingExisting && this.contactLabel) {
+              input.select();
+            }
+          }
+        });
+      });
+    }
+  }
+
+  contactRoleLabel(member: CommitteeMember): string {
+    return contactUsRoleOptionLabel(member);
+  }
+
+  onContactRoleChange(roleType: string): void {
+    this.contactRoleType = roleType;
+    const previousDefault = this.defaultLabelForRole(this.previousContactRoleType || "");
+    if (!this.contactLabel.trim() || this.contactLabel.trim() === previousDefault) {
+      this.contactLabel = this.defaultLabelForRole(roleType);
+    }
+    this.previousContactRoleType = roleType;
+  }
+
+  private previousContactRoleType = "";
+
+  private contactButtonRoleAllowed(member: CommitteeMember): boolean {
+    let allowed = true;
+    if (!member?.type || member.vacant) {
+      allowed = false;
+    } else if (member.type === CONTACT_US_TYPE || member.builtInRoleMapping === BuiltInRole.CONTACT_US) {
+      allowed = false;
+    }
+    return allowed;
+  }
+
+  private ensureContactRoleOption(roleType: string): void {
+    if (roleType && roleType !== CONTACT_US_TYPE && !this.contactRoles.some(member => member.type === roleType)) {
+      this.contactRoles = [
+        ...this.contactRoles,
+        {
+          type: roleType,
+          fullName: roleType,
+          description: roleType,
+          email: "",
+          roleType: RoleType.COMMITTEE_MEMBER
+        }
+      ];
+    }
+  }
+
+  contactHrefPreview(): string {
+    let preview = "";
+    if (this.contactRoleType) {
+      preview = buildContactUsHref(this.contactRoleType, this.contactRedirectPath);
+    }
+    return preview;
+  }
+
+  applyContactButton(): void {
+    if (this.editor) {
+      const label = (this.contactLabel || "").trim();
+      const roleType = (this.contactRoleType || "").trim();
+      if (label && roleType) {
+        const href = buildContactUsHref(roleType, this.currentPageRedirectPath());
+        const emptySelection = this.editor.state.selection.empty;
+        if (this.editor.isActive("link") || !emptySelection) {
+          if (this.editor.isActive("link")) {
+            this.editor.commands.extendMarkRange("link");
+          }
+          const range = {from: this.editor.state.selection.from, to: this.editor.state.selection.to};
+          this.editor.chain().focus().insertContentAt(range, {
+            type: "text",
+            text: label,
+            marks: [{type: "link", attrs: {href}}]
+          }).run();
+        } else {
+          this.editor.chain().focus().insertContent({
+            type: "text",
+            text: label,
+            marks: [{type: "link", attrs: {href}}]
+          }).run();
+        }
+        this.contactButtonApplied.emit();
+        this.cancelContactButtonBar();
+      }
+    }
+  }
+
+  cancelContactButtonBar(): void {
+    this.contactBarOpen = false;
+    this.contactRoleType = "";
+    this.contactLabel = "";
+    this.contactUpdatingExisting = false;
+    this.changeDetector.markForCheck();
+  }
+
+  private currentPageRedirectPath(): string {
+    return this.urlService.pathSegments().filter(segment => !!segment).join("/") || "home";
+  }
+
+  private defaultLabelForRole(roleType: string): string {
+    const member = this.contactRoles.find(role => role.type === roleType) || null;
+    return defaultContactUsLabel(member, fullName => {
+      const parts = this.memberNamingService.firstAndLastNameFrom(fullName);
+      let firstName: string | null = null;
+      if (parts?.firstName) {
+        firstName = parts.firstName;
+      }
+      return firstName;
+    });
+  }
+
+  private selectedPlainText(): string {
+    let text = "";
+    if (this.editor) {
+      const {from, to, empty} = this.editor.state.selection;
+      if (!empty) {
+        text = this.editor.state.doc.textBetween(from, to, " ").trim();
+      }
+    }
+    return text;
+  }
+
+  private linkHrefAllowed(
+    url: string,
+    ctx: { defaultValidate: (href: string) => boolean }
+  ): boolean {
+    const href = (url || "").trim();
+    let allowed = false;
+    if (!href) {
+      allowed = false;
+    } else if (href.startsWith("{{")) {
+      allowed = true;
+    } else if (/^(javascript:|data:)/i.test(href)) {
+      allowed = false;
+    } else if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+      allowed = true;
+    } else if (/^(https?:|mailto:|tel:)/i.test(href)) {
+      allowed = true;
+    } else {
+      allowed = ctx.defaultValidate(href);
+    }
+    return allowed;
+  }
+
+  private editorLinkHref(domLink: HTMLAnchorElement | null = null): string {
+    let href = "";
+    if (this.editor) {
+      if (this.editor.isActive("link")) {
+        this.editor.commands.extendMarkRange("link");
+      }
+      const markHref = this.linkHrefFromSelection();
+      const fromDom = (domLink?.getAttribute("href") || "").trim();
+      href = markHref || fromDom;
+    }
+    return href;
+  }
+
+  private linkHrefFromSelection(): string {
+    let href = "";
+    if (this.editor) {
+      const linkType = this.editor.state.schema.marks["link"];
+      if (!linkType) {
+        href = ((this.editor.getAttributes("link")["href"] as string) || "").trim();
+      } else {
+        const {from, to, empty, $from} = this.editor.state.selection;
+        const progress = {href: ""};
+        if (!empty) {
+          this.editor.state.doc.nodesBetween(from, to, node => {
+            let continueWalk = true;
+            if (!progress.href) {
+              const mark = linkType.isInSet(node.marks);
+              if (mark?.attrs?.["href"]) {
+                progress.href = String(mark.attrs["href"]);
+                continueWalk = false;
+              }
+            }
+            return continueWalk;
+          });
+        }
+        if (!progress.href) {
+          const mark = linkType.isInSet(this.editor.state.storedMarks || $from.marks());
+          if (mark?.attrs?.["href"]) {
+            progress.href = String(mark.attrs["href"]);
+          }
+        }
+        if (!progress.href) {
+          progress.href = ((this.editor.getAttributes("link")["href"] as string) || "").trim();
+        }
+        href = (progress.href || "").trim();
+      }
+    }
+    return href;
+  }
+
+  private populateLinkBar(domLink: HTMLAnchorElement | null): void {
+    this.linkUrl = this.editorLinkHref(domLink);
+    this.linkHrefMissing = this.editor?.isActive("link") === true && !this.linkUrl;
     this.imageCropperOpen = false;
     this.linkBarOpen = true;
+    this.zone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        const input = this.host.nativeElement.querySelector("#tiptap-link-url") as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+          if (this.linkUrl) {
+            input.select();
+          }
+        }
+      });
+    });
+  }
+
+  private handleEditableLinkClick(view: {editable: boolean; dom: HTMLElement}, event: Event): boolean {
+    let handled = false;
+    if (view.editable && this.editable) {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest?.("a") as HTMLAnchorElement | null;
+      if (link && view.dom.contains(link)) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.zone.run(() => {
+          this.enterDetailMode();
+          this.editor?.chain().focus().extendMarkRange("link").run();
+          const href = this.editorLinkHref(link);
+          if (isContactUsHref(href)) {
+            this.openContactButtonBar(href);
+          } else {
+            this.contactBarOpen = false;
+            this.populateLinkBar(link);
+          }
+        });
+        handled = true;
+      }
+    }
+    return handled;
   }
 
   cancelLinkBar(): void {
     this.linkBarOpen = false;
     this.linkUrl = "";
+    this.linkHrefMissing = false;
   }
 
   confirmLink(): void {
-    if (!this.editor) return;
-    const url = (this.linkUrl ?? "").trim();
-    if (!url) {
-      this.removeLink();
-      return;
+    if (this.editor) {
+      const url = (this.linkUrl ?? "").trim();
+      if (!url) {
+        this.removeLink();
+      } else {
+        const applied = this.editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+        if (!applied) {
+          this.logger.warn("setLink rejected href:", url);
+        } else {
+          this.linkBarOpen = false;
+          this.linkUrl = "";
+          this.linkHrefMissing = false;
+        }
+      }
     }
-    this.editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-    this.linkBarOpen = false;
-    this.linkUrl = "";
   }
 
   removeLink(): void {
     this.editor?.chain().focus().extendMarkRange("link").unsetLink().run();
     this.linkBarOpen = false;
     this.linkUrl = "";
+    this.linkHrefMissing = false;
   }
 
   openLinkTokenInsert(): void {

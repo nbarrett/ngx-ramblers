@@ -1,6 +1,6 @@
 # Content Export API
 
-> **Note for site authors (July 2026):** This API exports content in formats including markdown for machines and AI. **People editing the website do not write markdown** — site edit is visual (WYSIWYG). See *Visual editing replaces markdown authoring* (ref #303).
+> **Note (July 2026):** The Content Export API **markdown format is unchanged and still required** for machines, AI and integrations (`?format=markdown`, `Accept: text/markdown`, `contentMarkdown` in JSON). TipTap (ref #303) only changes **how people edit** pages in the browser (visual site edit). It does not remove, replace or deprecate this API’s markdown output.
 
 A public, stateless API that returns the publicly visible content of CMS pages in machine-readable formats. No authentication is required - only content already visible to anonymous site visitors is returned, and pages whose content is entirely restricted to members or committee respond with `404`.
 
