@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
-import { first, isUndefined } from "es-toolkit/compat";
+import { first } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
@@ -23,10 +23,14 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { CommitteeDisplayService } from "../committee-display.service";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
+import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
 import { CommitteeDocumentView } from "../document/committee-document-view";
 
 @Component({
   selector: "app-committee-file-editor",
+  host: {
+    "attr.data-sticky-offset-root": ""
+  },
   template: `
     <app-section-toggle
       [tabs]="kindTabs"
@@ -124,7 +128,7 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
                  placeholder="Enter a title for this document">
         </div>
       </div>
-      <div #editorActions class="committee-file-editor-actions">
+      <div appStickyControls class="committee-file-editor-actions">
         <div class="d-flex gap-2 flex-wrap">
             <input type="submit" value="Save File"
                    [disabled]="notifyTarget.busy"
@@ -190,7 +194,7 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
                class="btn btn-secondary">
       </div>
     }`,
-  imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, TiptapMarkdownEditor, CommitteeDocumentView, SectionToggle]
+  imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, TiptapMarkdownEditor, CommitteeDocumentView, SectionToggle, StickyControlsDirective]
 })
 export class CommitteeFileEditor implements OnInit, OnDestroy {
 
@@ -222,20 +226,6 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   @Input() committeeFile: CommitteeFile;
   @Output() saved = new EventEmitter<CommitteeFile>();
   @Output() cancelled = new EventEmitter<void>();
-  private hostRef = inject(ElementRef);
-  private actionsResizeObserver: ResizeObserver | null = isUndefined(ResizeObserver) ? null : new ResizeObserver(entries => {
-    const actionsBar = entries[0]?.target as HTMLElement;
-    this.hostRef.nativeElement.style.setProperty("--committee-editor-actions-offset", `${Math.ceil(actionsBar?.offsetHeight ?? 0)}px`);
-  });
-
-  @ViewChild("editorActions") set editorActions(ref: ElementRef<HTMLDivElement> | undefined) {
-    this.actionsResizeObserver?.disconnect();
-    if (ref?.nativeElement && this.actionsResizeObserver) {
-      this.actionsResizeObserver.observe(ref.nativeElement);
-    } else {
-      this.hostRef.nativeElement.style.setProperty("--committee-editor-actions-offset", "0px");
-    }
-  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -253,7 +243,6 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.actionsResizeObserver?.disconnect();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 

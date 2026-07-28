@@ -170,7 +170,8 @@ import { ContentTextUnsavedChangesService } from "../../../services/content-text
           [undoTooltip]="undoTooltip()"
           [redoTooltip]="redoTooltip()"
           (valueChange)="onTiptapValueChange($event)"
-          (rawPaste)="onTiptapRawPaste($event)">
+          (rawPaste)="onTiptapRawPaste($event)"
+          (contactButtonApplied)="onContactButtonApplied()">
           @if (canEditContent()) {
             <span toolbarExtras class="toolbar-extras">
               <span class="toolbar-divider"></span>
@@ -615,6 +616,13 @@ export class ContentTextEditor implements OnInit, OnDestroy {
     this.content.styles.class = className || null;
     this.broadcastChange();
     this.syncUnsavedTracker();
+  }
+
+  onContactButtonApplied(): void {
+    this.initialiseStyles();
+    if (this.content.styles?.class !== TextStyle.AS_BUTTON && this.content.styles?.class !== TextStyle.AS_BUTTON_WARNING) {
+      this.assignTextStyleTo(TextStyle.AS_BUTTON);
+    }
   }
 
   private initialiseStyles() {
