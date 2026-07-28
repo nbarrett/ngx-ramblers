@@ -59,14 +59,11 @@ import {
   BatchTransactionalSendRequest,
   BRANDING_MODE_OPTIONS,
   BrandingMode,
-  buildDefaultFragmentOrder,
   ComposerExternalRecipient,
   ComposerFragment,
   ComposerFragmentKind,
   DateInputMode,
   DEFAULT_COLUMN_GAP_PX,
-  defaultEmailComposerState,
-  dividerHtml,
   DragHoverPosition,
   EMAIL_COMPOSER_STEPS,
   EmailComposerState,
@@ -76,9 +73,6 @@ import {
   EmailCompositionSummary,
   EventInclusionMode,
   EXPANDABLE_FRAGMENT_KINDS,
-  findRecycledTrackingUrls,
-  newDividerFragment,
-  newMultiColumnFragment,
   EmailComposerContextSource,
   PreviewStepDirection,
   PROMOTIONAL_LANGUAGE_PATTERN,
@@ -95,6 +89,14 @@ import {
   ValidationError,
   ValidationErrorWithLink
 } from "../../models/email-composer.model";
+import {
+  buildDefaultFragmentOrder,
+  defaultEmailComposerState,
+  dividerHtml,
+  findRecycledTrackingUrls,
+  newDividerFragment,
+  newMultiColumnFragment
+} from "../../functions/email-composer";
 import {
   BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
   CreateCampaignRequest,

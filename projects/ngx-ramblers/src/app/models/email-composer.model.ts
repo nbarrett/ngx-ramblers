@@ -1,4 +1,3 @@
-import { toPairs, isObject } from "es-toolkit/compat";
 import { Member, MemberFilterSelection } from "./member.model";
 import { BrandingMode, EmailAttachment, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
@@ -152,20 +151,6 @@ export const SECTION_DIVIDER_OPTIONS: SectionDividerOption[] = [
   { key: SectionDividerStyle.DASHED_GREY, label: "Dashed grey", cssBorder: "1px dashed #9ca3af" }
 ];
 
-export function dividerHtml(style: SectionDividerStyle, marginCss: string = "6px 0"): string {
-  const option = SECTION_DIVIDER_OPTIONS.find(opt => opt.key === style);
-  if (!option || option.key === SectionDividerStyle.NONE) return "";
-  const match = option.cssBorder.match(/^(\d+)px\s+(solid|dashed|dotted)\s+(#[0-9a-fA-F]{3,8})$/);
-  const widthPx = match ? parseInt(match[1], 10) : 1;
-  const lineStyle = match ? match[2] : "solid";
-  const colour = match ? match[3] : "#222222";
-  const heightPx = lineStyle === "solid" ? widthPx : Math.max(widthPx + 1, 2);
-  const cellStyle = lineStyle === "solid"
-    ? `height:${heightPx}px;line-height:${heightPx}px;font-size:0;background-color:${colour};mso-line-height-rule:exactly;`
-    : `height:${heightPx}px;line-height:${heightPx}px;font-size:0;border-top:${widthPx}px ${lineStyle} ${colour};mso-line-height-rule:exactly;`;
-  return `<table role="presentation" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;width:100%;margin:${marginCss};"><tr><td style="${cellStyle}">&nbsp;</td></tr></table>`;
-}
-
 export interface RecipientFilterDecision {
   member: Member;
   reason?: string;
@@ -230,6 +215,16 @@ export interface EmailComposerState {
   fragmentOrder: ComposerFragment[];
 }
 
+export enum EmailComposerFragmentOrderField {
+  ARTICLE_BLOCKS = "articleBlocks",
+  INTRO_DIVIDER_AFTER = "introDividerAfter",
+  EVENTS_DIVIDER_AFTER = "eventsDividerAfter",
+  SIGNOFF_DIVIDER_AFTER = "signoffDividerAfter",
+  BETWEEN_ARTICLES_DIVIDER = "betweenArticlesDivider"
+}
+
+export type EmailComposerFragmentOrderState = Pick<EmailComposerState, EmailComposerFragmentOrderField>;
+
 export enum ComposerFragmentKind {
   INTRO = "intro",
   ARTICLE = "article",
@@ -251,28 +246,6 @@ export const EXPANDABLE_FRAGMENT_KINDS: ReadonlySet<ComposerFragmentKind> = new 
   ComposerFragmentKind.COMMITTEE_FILE
 ]);
 
-const RECYCLED_TRACKING_HOST_PATTERNS = [
-  /https?:\/\/[^\s"')<>]*\.sendibt2\.com\/[^\s"')<>]+/gi,
-  /https?:\/\/[^\s"')<>]*\.sendinblue\.com\/[^\s"')<>]+/gi,
-  /https?:\/\/[^\s"')<>]*\.brevo\.com\/tr\/[^\s"')<>]+/gi,
-  /https?:\/\/link\.mailinblue\.com\/[^\s"')<>]+/gi,
-  /https?:\/\/[^\s"')<>]*\.list-manage\.com\/[^\s"')<>]+/gi,
-  /https?:\/\/mailchi\.mp\/[^\s"')<>]+/gi,
-  /https?:\/\/[^\s"')<>]*\.campaign-archive\.com\/[^\s"')<>]+/gi
-];
-
-export function findRecycledTrackingUrls(content: string | null | undefined): string[] {
-  if (!content) return [];
-  const found = new Set<string>();
-  for (const pattern of RECYCLED_TRACKING_HOST_PATTERNS) {
-    const matches = content.match(pattern);
-    if (matches) {
-      matches.forEach(url => found.add(url));
-    }
-  }
-  return Array.from(found);
-}
-
 export interface ComposerFragment {
   kind: ComposerFragmentKind;
   id: string;
@@ -283,61 +256,6 @@ export interface ComposerFragment {
 }
 
 export const DEFAULT_COLUMN_GAP_PX = 16;
-
-export function newDividerFragment(style: SectionDividerStyle = SectionDividerStyle.THIN_ROSYCHEEKS): ComposerFragment {
-  return {
-    kind: ComposerFragmentKind.DIVIDER,
-    id: `divider-${Math.random().toString(36).slice(2, 10)}`,
-    dividerAfter: style
-  };
-}
-
-export function newMultiColumnFragment(numColumns: number, dividerAfter: SectionDividerStyle): ComposerFragment {
-  const columns: ComposerFragment[][] = Array.from({ length: numColumns }, () => []);
-  return {
-    kind: ComposerFragmentKind.MULTI_COLUMN,
-    id: `multi-column-${Math.random().toString(36).slice(2, 10)}`,
-    dividerAfter,
-    columns,
-    columnGapPx: DEFAULT_COLUMN_GAP_PX
-  };
-}
-
-export function buildDefaultFragmentOrder(state: Pick<EmailComposerState, "articleBlocks" | "introDividerAfter" | "eventsDividerAfter" | "signoffDividerAfter" | "betweenArticlesDivider">, options?: { includeTemplateContent?: boolean; unbranded?: boolean }): ComposerFragment[] {
-  const above = (state.articleBlocks ?? [])
-    .filter(b => b.position === ArticleBlockPosition.ABOVE_EVENTS)
-    .sort((a, b) => a.order - b.order);
-  const below = (state.articleBlocks ?? [])
-    .filter(b => b.position === ArticleBlockPosition.BELOW_EVENTS)
-    .sort((a, b) => a.order - b.order);
-  const order: ComposerFragment[] = [];
-  order.push({ kind: ComposerFragmentKind.INTRO, id: "intro", dividerAfter: state.introDividerAfter ?? SectionDividerStyle.NONE });
-  if (options?.unbranded) {
-    return order;
-  }
-  if (options?.includeTemplateContent) {
-    order.push({ kind: ComposerFragmentKind.TEMPLATE_CONTENT, id: "template-content", dividerAfter: SectionDividerStyle.THIN_YELLOW });
-  }
-  above.forEach((block, idx) => {
-    const isLast = idx === above.length - 1;
-    order.push({
-      kind: ComposerFragmentKind.ARTICLE,
-      id: block.id,
-      dividerAfter: isLast ? (block.dividerAfter ?? SectionDividerStyle.THIN_YELLOW) : (state.betweenArticlesDivider ?? SectionDividerStyle.THIN_YELLOW)
-    });
-  });
-  order.push({ kind: ComposerFragmentKind.EVENTS, id: "events", dividerAfter: state.eventsDividerAfter ?? SectionDividerStyle.THIN_YELLOW });
-  below.forEach((block, idx) => {
-    const isLast = idx === below.length - 1;
-    order.push({
-      kind: ComposerFragmentKind.ARTICLE,
-      id: block.id,
-      dividerAfter: isLast ? (block.dividerAfter ?? SectionDividerStyle.THIN_YELLOW) : (state.betweenArticlesDivider ?? SectionDividerStyle.THIN_YELLOW)
-    });
-  });
-  order.push({ kind: ComposerFragmentKind.SIGNOFF, id: "signoff", dividerAfter: state.signoffDividerAfter ?? SectionDividerStyle.THIN_YELLOW });
-  return order;
-}
 
 export interface ComposerExternalRecipient {
   email: string;
@@ -535,116 +453,6 @@ export const BOOKING_MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
     ]
   }
 ];
-
-const FIELD_LABEL_BY_TOKEN: Record<string, string> = {};
-MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
-BOOKING_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
-LINK_DESTINATIONS.forEach(destination => FIELD_LABEL_BY_TOKEN[destination.token] = destination.label);
-
-export function registerLinkDestinations(extras: MemberMergeFieldHint[]): void {
-  extras.forEach(extra => FIELD_LABEL_BY_TOKEN[extra.token] = extra.label);
-}
-
-function humanizeToken(inner: string): string {
-  const lastSegment = inner.split(".").pop() || inner;
-  return lastSegment.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, character => character.toUpperCase());
-}
-
-export function friendlyFieldLabel(token: string): string {
-  const normalised = (token || "").trim();
-  const withBraces = normalised.startsWith("{{") ? normalised : `{{${normalised}}}`;
-  if (FIELD_LABEL_BY_TOKEN[withBraces]) {
-    return FIELD_LABEL_BY_TOKEN[withBraces];
-  }
-  const baseMatch = withBraces.match(/^\{\{\s*([^}]+?)\s*\}\}/);
-  if (!baseMatch) {
-    return withBraces;
-  }
-  const baseLabel = FIELD_LABEL_BY_TOKEN[`{{${baseMatch[1].trim()}}}`] || humanizeToken(baseMatch[1].trim());
-  const trailing = withBraces.slice(baseMatch[0].length);
-  return trailing ? `${baseLabel}${trailing}` : baseLabel;
-}
-
-export function friendlyText(text: string): string {
-  return (text || "").replace(/\{\{[^}]+\}\}/g, match => friendlyFieldLabel(match));
-}
-
-const EXAMPLE_VALUE_BY_TOKEN: Record<string, string> = {};
-
-export function registerExampleValues(params: unknown): void {
-  const walk = (node: unknown, path: string): void => {
-    if (isObject(node)) {
-      toPairs(node as Record<string, unknown>).forEach(([key, value]) => {
-        const nextPath = path ? `${path}.${key}` : key;
-        if (isObject(value)) {
-          walk(value, nextPath);
-        } else {
-          EXAMPLE_VALUE_BY_TOKEN[`{{params.${nextPath}}}`] = value == null ? "" : String(value);
-        }
-      });
-    }
-  };
-  walk(params, "");
-}
-
-export function exampleValueForToken(token: string): string {
-  const normalised = (token || "").trim();
-  const withBraces = normalised.startsWith("{{") ? normalised : `{{${normalised}}}`;
-  if (EXAMPLE_VALUE_BY_TOKEN[withBraces] != null) {
-    return EXAMPLE_VALUE_BY_TOKEN[withBraces];
-  }
-  const baseMatch = withBraces.match(/^\{\{\s*([^}]+?)\s*\}\}/);
-  if (baseMatch) {
-    const baseValue = EXAMPLE_VALUE_BY_TOKEN[`{{${baseMatch[1].trim()}}}`];
-    if (baseValue != null) {
-      return `${baseValue}${withBraces.slice(baseMatch[0].length)}`;
-    }
-  }
-  return "";
-}
-
-export function exampleText(text: string): string {
-  return (text || "").replace(/\{\{[^}]+\}\}/g, match => exampleValueForToken(match) || friendlyFieldLabel(match));
-}
-
-export function defaultEmailComposerState(): EmailComposerState {
-  return {
-    context: { source: EmailComposerContextSource.ADMIN },
-    brandingMode: BrandingMode.BRANDED,
-    unbrandedSenderRoleType: null,
-    recipientMode: RecipientMode.ENTIRE_LIST,
-    selectedListId: null,
-    narrowListId: null,
-    selectedMemberIds: [],
-    externalRecipients: [],
-    ccRecipients: [],
-    bccRecipients: [],
-    preFilterKey: null,
-    notificationConfig: null,
-    notificationConfigListing: null,
-    bannerId: null,
-    subject: "",
-    addresseeType: AddresseeType.FIRST_NAME,
-    introMarkdown: "",
-    signoffTextMarkdown: "If you have any questions about the above, please don't hesitate to contact me.\n\nBest regards,",
-    signoffRoles: [],
-    articleBlocks: [],
-    attachmentUrl: null,
-    attachmentFilename: null,
-    attachments: [],
-    sendingChannel: SendingChannel.CAMPAIGN,
-    eventInclusion: EventInclusionMode.NONE,
-    groupEventsFilter: null,
-    groupEvents: [],
-    singleEvent: null,
-    introDividerAfter: SectionDividerStyle.THIN_YELLOW,
-    eventsDividerAfter: SectionDividerStyle.THIN_YELLOW,
-    signoffDividerAfter: SectionDividerStyle.THIN_YELLOW,
-    betweenArticlesDivider: SectionDividerStyle.THIN_YELLOW,
-    betweenEventsDivider: SectionDividerStyle.THIN_YELLOW,
-    fragmentOrder: []
-  };
-}
 
 export interface ComposerEmailRequestBuild {
   subject: string;

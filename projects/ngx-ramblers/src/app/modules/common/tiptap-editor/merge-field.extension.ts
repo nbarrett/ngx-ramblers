@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { exampleValueForToken, friendlyFieldLabel } from "../../../models/email-composer.model";
+import { exampleValueForToken, friendlyFieldLabel } from "../../../functions/merge-fields";
 
 export const MERGE_FIELD_NODE_NAME = "mergeField";
 
