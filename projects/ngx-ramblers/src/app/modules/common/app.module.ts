@@ -1,7 +1,6 @@
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { ApplicationRef, DoBootstrap, ErrorHandler, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
-import * as logos from "@iconify-json/logos";
 import mermaid from "mermaid";
 import { setTheme } from "ngx-bootstrap/utils";
 import { AppRoutingModule } from "../../app-routing.module";
@@ -185,7 +184,10 @@ export class AppModule implements DoBootstrap {
     if (mermaid.registerIconPacks) {
       mermaid.registerIconPacks([
         {name: "ngx", icons: ngxIconPack},
-        {name: "logos", icons: logos.icons}
+        {
+          name: "logos",
+          loader: () => import("@iconify-json/logos").then(module => module.icons)
+        }
       ]);
     }
     this.serialiseMermaidRendering();
