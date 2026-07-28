@@ -220,7 +220,8 @@ export class CreateWalkAlbumService {
       ...(eventDateMs != null ? {eventDate: eventDateMs} : {}),
       eventType: "walks",
       showPreAlbumText: true,
-      preAlbumText
+      preAlbumText,
+      allowSocialShare: false
     };
     if (albumIndex < 0) {
       rows.push(albumRow);

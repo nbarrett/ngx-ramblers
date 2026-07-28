@@ -27,6 +27,7 @@ import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUser
 import { registerWebSocketServer } from "./websocket-broadcaster";
 import { handleLegacyUrlScrape } from "../legacy-redirect/legacy-redirect-ws-handler";
 import { handleScheduledTaskEventsWebSocket } from "../cron/scheduled-task-events-ws-handler";
+import { handleSocialPublishAlbum } from "../social/social-publish-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -59,6 +60,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.EXTERNAL_BULK_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalBulkAlbumImport(ws, data),
   [EventType.LEGACY_URL_SCRAPE]: async (ws: WebSocket, data: any) => handleLegacyUrlScrape(ws, data),
   [EventType.SCHEDULED_TASK_EVENTS]: async (ws: WebSocket, data: any) => handleScheduledTaskEventsWebSocket(ws, data),
+  [EventType.SOCIAL_PUBLISH_ALBUM]: async (ws: WebSocket, data: any) => handleSocialPublishAlbum(ws, data),
   [EventType.PING]: (ws: WebSocket) => {
     ws.send(JSON.stringify({ type: "pong", data: {} }));
   },

@@ -21,6 +21,7 @@ export enum UIDateFormat {
   DISPLAY_DATE = "cccc, d MMMM yyyy",
   DISPLAY_DATE_NO_COMMA = "cccc d MMMM yyyy",
   DISPLAY_DATE_NO_DAY = "d MMMM yyyy",
+  WEEKDAY_DAY_MONTH = "cccc d MMMM",
   DAY_MONTH_ABBREVIATED_YEAR = "d MMM yyyy",
   DAY_MONTH_YEAR_WITH_SLASHES_COMPACT = "d/M/yyyy",
   DISPLAY_DAY = "cccc MMMM d, yyyy",

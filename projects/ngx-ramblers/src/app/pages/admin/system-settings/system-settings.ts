@@ -20,6 +20,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { enumKeyValues, enumValueForKey, KeyValue } from "../../../functions/enums";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { SystemSocialPublishingSettings } from "./external/system-social-publishing-settings";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
@@ -350,6 +351,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                         <app-ramblers-settings [config]="config" (syncingChange)="walksManagerSyncBusy=$event"/>
                     }
                     @if (showSubTab(ExternalSystemsSubTab.SOCIAL)) {
+                        <app-system-social-publishing-settings/>
                         <app-system-instagram-settings/>
                         <app-system-flickr-settings/>
                         <app-system-meetup-settings/>
@@ -414,7 +416,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -554,7 +556,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
         this.config.externalSystems.facebook = {appId: null, pagesUrl: null, ...defaultExternalSystem};
       }
       if (!this.config.externalSystems.instagram || isString(this.config.externalSystems.instagram)) {
-        this.config.externalSystems.instagram = {accessToken: null, groupName: null, ...defaultExternalSystem};
+        this.config.externalSystems.instagram = {groupName: null, ...defaultExternalSystem};
       }
       if (!this.config.externalSystems.meetup || isString(this.config.externalSystems.meetup)) {
         this.config.externalSystems.meetup = {groupName: null, ...defaultExternalSystem};

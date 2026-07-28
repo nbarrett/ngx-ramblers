@@ -198,6 +198,7 @@ export class PageContentActionsService {
       gridViewOptions: DEFAULT_GRID_OPTIONS,
       galleryViewOptions: DEFAULT_GALLERY_OPTIONS,
       allowSwitchView: false,
+      allowSocialShare: false,
       showStoryNavigator: true,
       showIndicators: true,
       slideInterval: 5000,

@@ -216,6 +216,21 @@ describe("DateUtilsService", () => {
 
     });
 
+    describe("relativePastDayPhrase", () => {
+
+        it("should describe recent past days in natural UK English", () => {
+            const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+            const today = "2026-07-28";
+            expect(dateUtils.relativePastDayPhrase("2026-07-28", today)).toBe("today");
+            expect(dateUtils.relativePastDayPhrase("2026-07-27", today)).toBe("yesterday");
+            expect(dateUtils.relativePastDayPhrase("2026-07-26", today)).toBe("last Sunday");
+            expect(dateUtils.relativePastDayPhrase("2026-07-21", today)).toBe("last Tuesday");
+            expect(dateUtils.relativePastDayPhrase("2026-07-12", today)).toBe("on Sunday 12 July");
+            expect(dateUtils.relativePastDayPhrase("2025-12-25", today)).toBe("on Thursday 25 December 2025");
+        });
+
+    });
+
     describe("displayDateAbbreviatedTimeZone", () => {
 
         it("should display UK local time with the applicable timezone", () => {

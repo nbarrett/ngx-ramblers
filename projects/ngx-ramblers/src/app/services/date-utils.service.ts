@@ -35,6 +35,8 @@ export class DateUtilsService {
     displayDateTh: UIDateFormat.DISPLAY_DATE_TH,
     displayDate: UIDateFormat.DISPLAY_DATE,
     displayDateNoDay: UIDateFormat.DISPLAY_DATE_NO_DAY,
+    weekdayDayMonth: UIDateFormat.WEEKDAY_DAY_MONTH,
+    displayDateNoComma: UIDateFormat.DISPLAY_DATE_NO_COMMA,
     displayDay: UIDateFormat.DISPLAY_DAY,
     dayName: UIDateFormat.DAY_NAME,
     dayMonthYearWithSlashes: UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES,
@@ -150,6 +152,31 @@ export class DateUtilsService {
 
   displayDay(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayDay);
+  }
+
+  relativePastDayPhrase(dateValue: DateInput, relativeTo?: DateInput): string {
+    let phrase: string = null;
+    if (dateValue) {
+      const day = this.asDateTime(dateValue).startOf("day");
+      const today = relativeTo ? this.asDateTime(relativeTo).startOf("day") : this.dateTimeNowNoTime();
+      if (day.isValid && today.isValid) {
+        const daysAgo = Math.round(today.diff(day, "days").days);
+        const absoluteWithYear = `on ${this.asString(dateValue, undefined, this.formats.displayDateNoComma)}`;
+        const absoluteSameYear = `on ${this.asString(dateValue, undefined, this.formats.weekdayDayMonth)}`;
+        if (daysAgo < 0) {
+          phrase = day.year === today.year ? absoluteSameYear : absoluteWithYear;
+        } else if (daysAgo === 0) {
+          phrase = "today";
+        } else if (daysAgo === 1) {
+          phrase = "yesterday";
+        } else if (daysAgo <= 7) {
+          phrase = `last ${this.asString(dateValue, undefined, this.formats.dayName)}`;
+        } else {
+          phrase = day.year === today.year ? absoluteSameYear : absoluteWithYear;
+        }
+      }
+    }
+    return phrase;
   }
 
   displayTime(dateValue: DateInput): string {

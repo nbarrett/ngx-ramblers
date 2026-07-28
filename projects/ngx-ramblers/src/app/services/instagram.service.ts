@@ -14,7 +14,7 @@ export class InstagramService {
   private logger: Logger = inject(LoggerFactory).createLogger("InstagramService", NgxLoggerLevel.ERROR);
   private commonDataService = inject(CommonDataService);
   private http = inject(HttpClient);
-  private BASE_URL = "/api/instagram";
+  private BASE_URL = "/api/social";
   private instagramNotifications = new Subject<InstagramMediaPostApiResponse>();
 
   notifications(): Observable<InstagramMediaPostApiResponse> {
@@ -22,7 +22,7 @@ export class InstagramService {
   }
 
   async recentMedia(): Promise<InstagramRecentMediaData> {
-    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<InstagramMediaPostApiResponse>(`${this.BASE_URL}/recent-media`), this.instagramNotifications);
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<InstagramMediaPostApiResponse>(`${this.BASE_URL}/instagram/recent-media`), this.instagramNotifications);
     return response.response as InstagramRecentMediaData;
   }
 }

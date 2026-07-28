@@ -43,6 +43,7 @@ export enum EventType {
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
   SCHEDULED_TASK_EVENTS = "scheduled-task-events",
   SITE_MIGRATION = "site-migration",
+  SOCIAL_PUBLISH_ALBUM = "social-publish-album",
   WALKS_MANAGER_SYNC = "walks-manager-sync",
 }
 

@@ -25,6 +25,8 @@ const sensitiveKeys = new Set([
   "secretAccessKey",
   "clientSecret",
   "accessToken",
+  "pageAccessToken",
+  "appSecret",
   "refreshToken",
   "password",
   "username",

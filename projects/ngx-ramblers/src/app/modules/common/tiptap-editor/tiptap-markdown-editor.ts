@@ -90,6 +90,8 @@ import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/compat";
 import { isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste } from "./tiptap-paste";
+import { EmojiShortcodeMatch } from "../../../models/emoji.model";
+import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
 
 @Component({
   selector: "app-tiptap-markdown-editor",
@@ -344,6 +346,22 @@ import { isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste } from 
     <div class="image-resize-handle" [style.top.px]="imageHandleTop" [style.left.px]="imageHandleLeft"
          tooltip="Drag to set the image width" container="body" delay=500 (mousedown)="onImageResizeStart($event)"></div>
   }
+  @if (editable && emojiSuggestions.length > 0) {
+    <ul class="emoji-shortcode-suggestions" role="listbox"
+        [style.top.px]="emojiMenuTop" [style.left.px]="emojiMenuLeft"
+        [attr.aria-activedescendant]="'tiptap-emoji-' + editorId + '-' + emojiActiveIndex">
+      @for (suggestion of emojiSuggestions; track suggestion.shortname; let index = $index) {
+        <li role="option"
+            [id]="'tiptap-emoji-' + editorId + '-' + index"
+            [class.active]="index === emojiActiveIndex"
+            [attr.aria-selected]="index === emojiActiveIndex"
+            (mousedown)="applyEmojiSuggestion(suggestion, $event)">
+          <span class="emoji-shortcode-glyph">{{ suggestion.unicode }}</span>
+          <span class="emoji-shortcode-name">{{ suggestion.shortname }}</span>
+        </li>
+      }
+    </ul>
+  }
   @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || imageSelected)) {
     <div class="token-editor-popup" [class.above]="tokenEditorAbove"
          [style.top.px]="tokenEditorTop" [style.left.px]="tokenEditorLeft"
@@ -595,9 +613,16 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("TiptapMarkdownEditor", NgxLoggerLevel.ERROR);
   private changeDetector = inject(ChangeDetectorRef);
   private pasteDetectionService = inject(PasteDetectionService);
+  private emojiShortcodeService = inject(EmojiShortcodeService);
   private host = inject(ElementRef<HTMLElement>);
   private zone = inject(NgZone);
   private readonly onDocumentPointerDown = (event: PointerEvent) => this.handleDocumentPointerDown(event);
+  protected emojiSuggestions: EmojiShortcodeMatch[] = [];
+  protected emojiActiveIndex = 0;
+  protected emojiMenuTop = 0;
+  protected emojiMenuLeft = 0;
+  private emojiShortcodeRange: {from: number; to: number} = null;
+  private readonly emojiSuggestionLimit = 36;
 
   protected readonly TiptapMark = TiptapMark;
   protected readonly TiptapTableCommand = TiptapTableCommand;
@@ -758,6 +783,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const markdown = this.currentMarkdown();
       this.valueChange.emit(markdown);
       this.refreshHistoryState();
+      this.refreshEmojiSuggestions();
     });
     this.editor.on("selectionUpdate", () => {
       this.refreshHistoryState();
@@ -786,6 +812,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         this.positionTokenEditor();
         this.positionImageHandle();
       }
+      this.refreshEmojiSuggestions();
     });
   }
 
@@ -1048,19 +1075,103 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private handleEditorKeyDown(event: KeyboardEvent): boolean {
-    if (event.key !== "Tab" || !this.editor || !this.editable) {
+    return this.handleEmojiSuggestionKey(event) || this.handleListIndentKey(event);
+  }
+
+  private handleEmojiSuggestionKey(event: KeyboardEvent): boolean {
+    if (!this.editor || !this.editable || this.emojiSuggestions.length === 0) {
+      return false;
+    } else if (event.key === "ArrowDown") {
+      return this.moveEmojiActiveIndex(1);
+    } else if (event.key === "ArrowUp") {
+      return this.moveEmojiActiveIndex(-1);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      this.applyEmojiSuggestion(this.emojiSuggestions[this.emojiActiveIndex]);
+      return true;
+    } else if (event.key === "Escape") {
+      this.clearEmojiSuggestions();
+      this.changeDetector.markForCheck();
+      return true;
+    } else {
       return false;
     }
-    const inListItem = this.editor.isActive("listItem");
-    if (!inListItem) {
+  }
+
+  private moveEmojiActiveIndex(offset: number): boolean {
+    const count = this.emojiSuggestions.length;
+    this.emojiActiveIndex = (this.emojiActiveIndex + offset + count) % count;
+    this.changeDetector.markForCheck();
+    return true;
+  }
+
+  private handleListIndentKey(event: KeyboardEvent): boolean {
+    if (event.key !== "Tab" || !this.editor || !this.editable || !this.editor.isActive("listItem")) {
       return false;
-    }
-    if (event.shiftKey) {
+    } else if (event.shiftKey) {
       this.editor.commands.liftListItem("listItem");
       return true;
+    } else {
+      this.editor.commands.sinkListItem("listItem");
+      return true;
     }
-    this.editor.commands.sinkListItem("listItem");
-    return true;
+  }
+
+  private refreshEmojiSuggestions(): void {
+    if (!this.editor || !this.editable || this.editor.isActive("codeBlock") || this.editor.isActive("code")) {
+      this.clearEmojiSuggestions();
+    } else {
+      const selection = this.editor.state.selection;
+      const $from = selection.$from;
+      const textBefore = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+      const match = textBefore.match(/:([a-z0-9_+-]+)$/i);
+      if (match) {
+        const from = $from.pos - match[0].length;
+        const to = $from.pos;
+        this.emojiShortcodeRange = {from, to};
+        this.emojiSuggestions = this.emojiShortcodeService.suggestionsFor(match[1], this.emojiSuggestionLimit);
+        this.emojiActiveIndex = 0;
+        if (this.emojiSuggestions.length > 0) {
+          this.positionEmojiMenu();
+        } else {
+          this.clearEmojiSuggestions();
+        }
+      } else {
+        this.clearEmojiSuggestions();
+      }
+    }
+    this.changeDetector.markForCheck();
+  }
+
+  private positionEmojiMenu(): void {
+    if (this.editor && this.emojiShortcodeRange) {
+      const shell = this.editor.view.dom.closest(".tiptap-editor-shell") as HTMLElement;
+      if (shell) {
+        const rect = shell.getBoundingClientRect();
+        const coords = this.editor.view.coordsAtPos(this.emojiShortcodeRange.from);
+        this.emojiMenuTop = coords.bottom - rect.top + 4;
+        this.emojiMenuLeft = Math.max(4, Math.min(coords.left - rect.left, shell.clientWidth - 280));
+      }
+    }
+  }
+
+  applyEmojiSuggestion(suggestion: EmojiShortcodeMatch, event?: Event): void {
+    if (event) {
+      event.preventDefault();
+    }
+    if (this.editor && this.emojiShortcodeRange && suggestion) {
+      const insertion = `${suggestion.unicode} `;
+      this.editor.chain().focus()
+        .deleteRange({from: this.emojiShortcodeRange.from, to: this.emojiShortcodeRange.to})
+        .insertContent(insertion)
+        .run();
+      this.clearEmojiSuggestions();
+    }
+  }
+
+  private clearEmojiSuggestions(): void {
+    this.emojiSuggestions = [];
+    this.emojiActiveIndex = 0;
+    this.emojiShortcodeRange = null;
   }
 
   insertTable(): void {
