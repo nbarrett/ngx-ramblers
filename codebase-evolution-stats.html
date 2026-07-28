@@ -15,7 +15,8 @@
             --ramblers-sunrise-hover: rgb(211, 150, 3);
             --ramblers-mintcake: rgb(155, 200, 171);
             --ramblers-mintcake-hover: rgb(133, 173, 146);
-            --ramblers-mintcake-light: rgba(175, 226, 194, 0.6);
+            --ramblers-mintcake-deep: rgb(99, 134, 110);
+            --ramblers-mintcake-light: rgba(175, 226, 194, 0.55);
             --ramblers-granite: rgb(64, 65, 65);
             --ramblers-cloudy: rgb(255, 255, 255);
             --ramblers-grey: rgb(222, 226, 230);
@@ -23,32 +24,45 @@
             --ramblers-rosycheeks: rgb(246, 176, 157);
             --ramblers-sunset: rgb(240, 128, 80);
             --ramblers-graphite: #3c3d3e;
+            --ramblers-graphite-deep: #2a2b2c;
 
-            --bg-primary: var(--ramblers-cloudy);
-            --bg-secondary: #f8f9fa;
+            --bg-primary: #f6f7f7;
+            --bg-secondary: #f0f1f1;
             --bg-card: var(--ramblers-cloudy);
+            --bg-hero: transparent;
             --text-primary: var(--ramblers-granite);
-            --text-secondary: #666;
-            --text-muted: #888;
-            --border-color: var(--ramblers-grey);
-            --shadow: rgba(0,0,0,0.06);
-            --shadow-hover: rgba(0,0,0,0.1);
+            --text-secondary: #4f5552;
+            --text-muted: #6d7470;
+            --border-color: rgba(64, 65, 65, 0.12);
+            --border-strong: rgba(64, 65, 65, 0.2);
+            --shadow: rgba(64, 65, 65, 0.08);
+            --shadow-hover: rgba(64, 65, 65, 0.16);
             --accent: var(--ramblers-sunrise);
-            --accent-secondary: var(--ramblers-mintcake);
+            --accent-secondary: var(--ramblers-mintcake-deep);
+            --accent-tertiary: var(--ramblers-sunset);
+            --card-top: var(--ramblers-sunrise);
+            --header-bg: var(--ramblers-graphite);
+            --footer-bg: var(--ramblers-graphite);
         }
 
         [data-theme="dark"] {
-            --bg-primary: #18181b;
-            --bg-secondary: #27272a;
-            --bg-card: #27272a;
-            --text-primary: #fafafa;
-            --text-secondary: #d4d4d8;
-            --text-muted: #a1a1aa;
-            --border-color: #3f3f46;
-            --shadow: rgba(0,0,0,0.5);
-            --shadow-hover: rgba(0,0,0,0.7);
-            --accent: #fbbf24;
-            --accent-secondary: #34d399;
+            --bg-primary: #1c1d1e;
+            --bg-secondary: #262728;
+            --bg-card: #2f3031;
+            --bg-hero: transparent;
+            --text-primary: #f5f6f5;
+            --text-secondary: #c5cdc8;
+            --text-muted: #9aa39e;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --border-strong: rgba(255, 255, 255, 0.18);
+            --shadow: rgba(0, 0, 0, 0.35);
+            --shadow-hover: rgba(0, 0, 0, 0.5);
+            --accent: var(--ramblers-sunrise);
+            --accent-secondary: var(--ramblers-mintcake);
+            --accent-tertiary: var(--ramblers-sunset);
+            --card-top: var(--ramblers-sunrise);
+            --header-bg: #151617;
+            --footer-bg: #151617;
         }
         * {
             margin: 0;
@@ -63,15 +77,13 @@
             transition: background 0.3s, color 0.3s;
         }
         .header {
-            background: var(--ramblers-graphite);
+            background: var(--header-bg);
             padding: 16px 30px;
             position: sticky;
             top: 0;
             z-index: 100;
-        }
-        [data-theme="dark"] .header {
-            background: #0a0a0c;
-            border-bottom: 1px solid #27272a;
+            border-bottom: 3px solid var(--ramblers-sunrise);
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
         }
         .header-inner {
             display: flex;
@@ -103,21 +115,16 @@
             font-size: 0.9rem;
             font-weight: 600;
             text-decoration: none;
-            transition: background 0.2s;
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
         }
         .header-link:hover {
             background: var(--ramblers-sunrise-hover);
-        }
-        [data-theme="dark"] .header-link {
-            background: #fbbf24;
-            color: #18181b;
-        }
-        [data-theme="dark"] .header-link:hover {
-            background: #f59e0b;
+            box-shadow: 0 2px 8px rgba(249, 177, 4, 0.35);
         }
         .theme-toggle {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.22);
             border-radius: 30px;
             padding: 8px 16px;
             cursor: pointer;
@@ -130,14 +137,17 @@
             transition: all 0.3s;
         }
         .theme-toggle:hover {
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            background: rgba(249, 177, 4, 0.18);
+            border-color: rgba(249, 177, 4, 0.55);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.28);
         }
         .theme-toggle .icon {
             font-size: 1.1rem;
         }
         .hero {
             text-align: center;
-            padding: 40px 20px 30px;
+            padding: 36px 12px 28px;
+            background: var(--bg-hero);
         }
         .hero-title {
             display: flex;
@@ -178,21 +188,20 @@
             color: var(--text-primary);
             font-weight: 700;
         }
-        [data-theme="dark"] h1 {
-            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .hero h1 {
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
         }
         .subtitle {
             color: var(--text-secondary);
-            margin-bottom: 16px;
+            margin-bottom: 8px;
             font-size: 1.05rem;
         }
         .stats-hero {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 16px;
+            margin-top: 8px;
             margin-bottom: 40px;
         }
         .stat-card {
@@ -201,12 +210,18 @@
             padding: 24px;
             text-align: center;
             border: 1px solid var(--border-color);
-            box-shadow: 0 2px 8px var(--shadow);
+            border-top: 4px solid var(--card-top);
+            box-shadow: 0 2px 10px var(--shadow);
             transition: transform 0.2s, box-shadow 0.2s, background 0.3s, border-color 0.3s;
         }
+        .stat-card:nth-child(2) { --card-top: var(--ramblers-mintcake); }
+        .stat-card:nth-child(3) { --card-top: var(--ramblers-sunset); }
+        .stat-card:nth-child(4) { --card-top: var(--ramblers-rosycheeks); }
+        .stat-card:nth-child(5) { --card-top: var(--ramblers-mintcake-deep); }
         .stat-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 20px var(--shadow-hover);
+            box-shadow: 0 8px 22px var(--shadow-hover);
+            border-color: var(--border-strong);
         }
         .stat-value {
             font-size: 2.2rem;
@@ -214,7 +229,13 @@
             color: var(--text-primary);
         }
         .stat-value.highlight {
-            color: var(--accent);
+            color: var(--text-primary);
+        }
+        .stat-card:first-child .stat-value {
+            color: var(--ramblers-sunrise-hover);
+        }
+        [data-theme="dark"] .stat-card:first-child .stat-value {
+            color: var(--ramblers-sunrise);
         }
         .stat-label {
             color: var(--text-secondary);
@@ -232,7 +253,7 @@
             border-radius: 12px;
             padding: 28px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 2px 8px var(--shadow);
+            box-shadow: 0 2px 10px var(--shadow);
             margin-bottom: 30px;
             transition: background 0.3s, border-color 0.3s;
         }
@@ -249,7 +270,7 @@
             content: '';
             width: 4px;
             height: 24px;
-            background: var(--accent);
+            background: linear-gradient(180deg, var(--ramblers-sunrise), var(--ramblers-mintcake));
             border-radius: 2px;
         }
         .charts-grid {
@@ -263,14 +284,20 @@
             border-radius: 12px;
             padding: 24px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 2px 8px var(--shadow);
-            transition: background 0.3s, border-color 0.3s;
+            box-shadow: 0 2px 10px var(--shadow);
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.2s;
+        }
+        .chart-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: 0 6px 18px var(--shadow-hover);
         }
         .chart-card h3 {
             margin-bottom: 20px;
             color: var(--text-primary);
             font-size: 1.1rem;
             font-weight: 700;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(249, 177, 4, 0.35);
         }
         .chart-container {
             position: relative;
@@ -295,10 +322,12 @@
             border: 1px solid var(--border-color);
             position: relative;
             min-width: 0;
-            transition: background 0.3s, border-color 0.3s;
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.2s;
+            overflow: hidden;
         }
-        [data-theme="dark"] .repo-card {
-            background: rgba(255,255,255,0.03);
+        .repo-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: 0 4px 14px var(--shadow);
         }
         .repo-card::before {
             content: '';
@@ -306,15 +335,12 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 5px;
             border-radius: 12px 12px 0 0;
         }
-        .repo-card.angularjs::before { background: #dd1b16; }
-        .repo-card.angular::before { background: #dd0031; }
-        .repo-card.modern::before { background: var(--ramblers-mintcake); }
-        [data-theme="dark"] .repo-card.angularjs::before { background: #f87171; }
-        [data-theme="dark"] .repo-card.angular::before { background: #fb7185; }
-        [data-theme="dark"] .repo-card.modern::before { background: #34d399; }
+        .repo-card.angularjs::before { background: var(--ramblers-sunset); }
+        .repo-card.angular::before { background: var(--ramblers-rosycheeks); }
+        .repo-card.modern::before { background: linear-gradient(90deg, var(--ramblers-mintcake), var(--ramblers-sunrise)); }
         .repo-name {
             font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
             font-size: 1rem;
@@ -352,12 +378,18 @@
             flex-wrap: wrap;
         }
         .tech-badge {
-            background: var(--border-color);
+            background: rgba(64, 65, 65, 0.06);
             padding: 3px 8px;
             border-radius: 10px;
             font-size: 0.7rem;
-            color: var(--text-secondary);
+            color: var(--text-primary);
             font-weight: 600;
+            border: 1px solid rgba(64, 65, 65, 0.12);
+        }
+        [data-theme="dark"] .tech-badge {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.12);
+            color: var(--text-secondary);
         }
         .arrow {
             color: var(--accent);
@@ -375,11 +407,8 @@
             top: 0;
             bottom: 0;
             width: 4px;
-            background: linear-gradient(180deg, var(--ramblers-mintcake), #dd0031, #dd1b16);
+            background: linear-gradient(180deg, var(--ramblers-sunrise), var(--ramblers-mintcake), var(--ramblers-sunset), var(--ramblers-rosycheeks));
             border-radius: 3px;
-        }
-        [data-theme="dark"] .timeline-items::before {
-            background: linear-gradient(180deg, #34d399, #fb7185, #f87171);
         }
         .timeline-item {
             position: relative;
@@ -400,11 +429,9 @@
             border: 3px solid var(--bg-primary);
             box-shadow: 0 0 0 2px var(--border-color);
         }
-        .timeline-item.angularjs::before { background: #dd1b16; }
-        .timeline-item.angular::before { background: #dd0031; }
-        .timeline-item.modern::before { background: var(--accent-secondary); }
-        [data-theme="dark"] .timeline-item.angularjs::before { background: #f87171; }
-        [data-theme="dark"] .timeline-item.angular::before { background: #fb7185; }
+        .timeline-item.angularjs::before { background: var(--ramblers-sunset); }
+        .timeline-item.angular::before { background: var(--ramblers-rosycheeks); }
+        .timeline-item.modern::before { background: var(--ramblers-mintcake); }
         .timeline-year {
             font-weight: 700;
             color: var(--text-primary);
@@ -422,16 +449,14 @@
         }
         .growth-badge {
             display: inline-block;
-            background: var(--accent);
+            background: var(--ramblers-sunrise);
             color: var(--ramblers-black);
             padding: 3px 10px;
             border-radius: 12px;
             font-weight: 700;
             font-size: 0.75rem;
             margin-left: 8px;
-        }
-        [data-theme="dark"] .growth-badge {
-            color: #18181b;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
         }
         .insights-grid {
             display: grid;
@@ -443,10 +468,15 @@
             border-radius: 12px;
             padding: 20px;
             border: 1px solid var(--border-color);
-            transition: background 0.3s, border-color 0.3s;
+            border-left: 4px solid var(--ramblers-mintcake);
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.2s;
         }
-        [data-theme="dark"] .insight-card {
-            background: rgba(255,255,255,0.03);
+        .insight-card:nth-child(2n) { border-left-color: var(--ramblers-sunrise); }
+        .insight-card:nth-child(3n) { border-left-color: var(--ramblers-sunset); }
+        .insight-card:nth-child(4n) { border-left-color: var(--ramblers-rosycheeks); }
+        .insight-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: 0 4px 14px var(--shadow);
         }
         .insight-card h4 {
             color: var(--text-primary);
@@ -461,8 +491,9 @@
             content: '';
             width: 8px;
             height: 8px;
-            background: var(--accent-secondary);
+            background: var(--ramblers-sunrise);
             border-radius: 50%;
+            box-shadow: 0 0 0 3px rgba(249, 177, 4, 0.2);
         }
         .insight-card p {
             color: var(--text-secondary);
@@ -470,11 +501,12 @@
             font-size: 0.9rem;
         }
         .footer {
-            background: var(--ramblers-graphite);
+            background: var(--footer-bg);
             text-align: center;
             padding: 30px;
             color: var(--ramblers-cloudy);
             font-size: 0.85rem;
+            border-top: 3px solid var(--ramblers-sunrise);
         }
         @media (max-width: 1100px) {
             .repo-journey {
@@ -588,19 +620,19 @@
 
         <div class="stats-hero">
             <div class="stat-card">
-                <div class="stat-value highlight">234,735</div>
+                <div class="stat-value highlight">255,422</div>
                 <div class="stat-label">Lines of Code</div>
                 <div class="stat-detail">July 2026</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">1,846</div>
+                <div class="stat-value">1,927</div>
                 <div class="stat-label">Total Commits</div>
                 <div class="stat-detail">Across all repos</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">1,597</div>
+                <div class="stat-value">1,738</div>
                 <div class="stat-label">TypeScript Files</div>
-                <div class="stat-detail">234,735 LOC</div>
+                <div class="stat-detail">255,422 LOC</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value highlight">13</div>
@@ -662,11 +694,11 @@
                     <div class="repo-period">Aug 2023 - Present</div>
                     <div class="repo-stats">
                         <div class="repo-stat">
-                            <div class="repo-stat-value">661</div>
+                            <div class="repo-stat-value">742</div>
                             <div class="repo-stat-label">Commits</div>
                         </div>
                         <div class="repo-stat">
-                            <div class="repo-stat-value">235K</div>
+                            <div class="repo-stat-value">255K</div>
                             <div class="repo-stat-label">Current LOC</div>
                         </div>
                     </div>
@@ -728,8 +760,8 @@
             <div class="timeline-items">
                 <div class="timeline-item modern">
                     <div class="timeline-year">July 2026</div>
-                    <div class="timeline-title">Salesforce, Bookings + Committee Work <span class="growth-badge">234,735 LOC</span></div>
-                    <div class="timeline-desc">324 commits in 2026 so far, already 1.6x the entire 2025 total. Server grew to 78K lines on the back of the Salesforce API, the unified email composer, event bookings, and committee document handling.</div>
+                    <div class="timeline-title">Salesforce, Bookings + Committee Work <span class="growth-badge">255,422 LOC</span></div>
+                    <div class="timeline-desc">405 commits in 2026 so far, already about 2x the entire 2025 total. Server grew to 84K lines on the back of the Salesforce API, the unified email composer, event bookings, committee document handling, and TipTap site editing.</div>
                 </div>
                 <div class="timeline-item modern">
                     <div class="timeline-year">March 2026</div>
@@ -778,23 +810,23 @@
                 </div>
                 <div class="insight-card">
                     <h4>13-Year Journey</h4>
-                    <p>From a humble AngularJS app in December 2013 to a modern 235K LOC TypeScript monorepo across three major repository transitions.</p>
+                    <p>From a humble AngularJS app in December 2013 to a modern 255K LOC TypeScript monorepo across three major repository transitions.</p>
                 </div>
                 <div class="insight-card">
-                    <h4>1,846 Commits</h4>
-                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 661 in ngx-ramblers. Peak years: 2014 (370) and 2026 (324 so far).</p>
+                    <h4>1,927 Commits</h4>
+                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 742 in ngx-ramblers. Peak years: 2014 (370) and 2026 (405 so far).</p>
                 </div>
                 <div class="insight-card">
                     <h4>10x Code Growth</h4>
-                    <p>From ~21K LOC to 235K LOC. Growth has accelerated since July 2024 - the codebase has more than quadrupled (+305%) in under two years.</p>
+                    <p>From ~21K LOC to 255K LOC. Growth has accelerated since July 2024 - the codebase has more than quadrupled (+341%) in under two years.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Server Transformation</h4>
-                    <p>Server grew from 6K to 78K lines (+1,167%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
+                    <p>Server grew from 6K to 84K lines (+1,266%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Clean Code Philosophy</h4>
-                    <p>Only 217 comments across 235K TypeScript lines (0.1%). Self-documenting code with meaningful names.</p>
+                    <p>Only 222 comments across 255K TypeScript lines (0.1%). Self-documenting code with meaningful names.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Technology Evolution</h4>
@@ -811,33 +843,35 @@
 
     <footer class="footer">
         NGX-Ramblers | Open-source framework for Ramblers Group and Area websites<br>
-        Snapshot generated 3 July 2026
+        Snapshot generated 28 July 2026
     </footer>
 
     <script>
         const LIGHT_PALETTE = {
             sunrise: 'rgb(249, 177, 4)',
-            sunriseLight: 'rgba(249, 177, 4, 0.2)',
-            mintcake: 'rgb(155, 200, 171)',
-            mintcakeLight: 'rgba(155, 200, 171, 0.2)',
+            sunriseLight: 'rgba(249, 177, 4, 0.14)',
+            mintcake: 'rgb(99, 134, 110)',
+            mintcakeBright: 'rgb(155, 200, 171)',
+            mintcakeLight: 'rgba(155, 200, 171, 0.32)',
             granite: 'rgb(64, 65, 65)',
             rosycheeks: 'rgb(246, 176, 157)',
             sunset: 'rgb(240, 128, 80)',
-            angularjs: '#dd1b16',
-            angular: '#dd0031',
-            grey: 'rgb(222, 226, 230)'
+            angularjs: 'rgb(240, 128, 80)',
+            angular: 'rgb(211, 120, 100)',
+            grey: 'rgb(120, 128, 124)'
         };
         const DARK_PALETTE = {
-            sunrise: '#fbbf24',
-            sunriseLight: 'rgba(251, 191, 36, 0.18)',
-            mintcake: '#34d399',
-            mintcakeLight: 'rgba(52, 211, 153, 0.18)',
-            granite: '#94a3b8',
-            rosycheeks: '#f472b6',
-            sunset: '#fb923c',
-            angularjs: '#f87171',
-            angular: '#fb7185',
-            grey: '#475569'
+            sunrise: 'rgb(249, 177, 4)',
+            sunriseLight: 'rgba(249, 177, 4, 0.12)',
+            mintcake: 'rgb(133, 173, 146)',
+            mintcakeBright: 'rgb(155, 200, 171)',
+            mintcakeLight: 'rgba(155, 200, 171, 0.24)',
+            granite: 'rgb(197, 205, 200)',
+            rosycheeks: 'rgb(246, 176, 157)',
+            sunset: 'rgb(240, 128, 80)',
+            angularjs: 'rgb(240, 128, 80)',
+            angular: 'rgb(246, 176, 157)',
+            grey: 'rgb(154, 163, 158)'
         };
 
         let chartColors = LIGHT_PALETTE;
@@ -849,8 +883,8 @@
 
         function applyChartDefaults() {
             const isDark = currentTheme() === 'dark';
-            Chart.defaults.color = isDark ? '#a1a1aa' : '#666';
-            Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+            Chart.defaults.color = isDark ? '#c5cdc8' : '#4f5552';
+            Chart.defaults.borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(64, 65, 65, 0.1)';
             Chart.defaults.font.family = "'Open Sans', sans-serif";
         }
 
@@ -868,34 +902,34 @@
                 datasets: [
                     {
                         label: 'Total LOC',
-                        data: [2000, 8000, 22572, 41223, 57974, 128584, 234735],
-                        borderColor: chartColors.sunrise,
-                        backgroundColor: chartColors.sunriseLight,
+                        data: [2000, 8000, 22572, 41223, 57974, 128584, 255422],
+                        borderColor: chartColors.mintcake,
+                        backgroundColor: chartColors.mintcakeLight,
                         fill: true,
                         tension: 0.4,
                         pointRadius: 8,
                         pointHoverRadius: 12,
-                        pointBackgroundColor: chartColors.sunrise,
+                        pointBackgroundColor: chartColors.mintcake,
                         borderWidth: 3
                     },
                     {
                         label: 'Client',
-                        data: [1800, 7000, 19546, 35641, 50477, 98033, 155183],
-                        borderColor: chartColors.mintcake,
+                        data: [1800, 7000, 19546, 35641, 50477, 98033, 168693],
+                        borderColor: chartColors.mintcakeBright || chartColors.mintcake,
                         backgroundColor: 'transparent',
                         tension: 0.4,
                         pointRadius: 6,
-                        pointBackgroundColor: chartColors.mintcake,
+                        pointBackgroundColor: chartColors.mintcakeBright || chartColors.mintcake,
                         borderWidth: 2
                     },
                     {
                         label: 'Server',
-                        data: [200, 1000, 1518, 4305, 6122, 28683, 77587],
-                        borderColor: chartColors.granite,
+                        data: [200, 1000, 1518, 4305, 6122, 28683, 83649],
+                        borderColor: chartColors.sunset,
                         backgroundColor: 'transparent',
                         tension: 0.4,
                         pointRadius: 6,
-                        pointBackgroundColor: chartColors.granite,
+                        pointBackgroundColor: chartColors.sunset,
                         borderWidth: 2
                     }
                 ]
@@ -941,8 +975,8 @@
                     },
                     {
                         label: 'ngx-ramblers (Modern)',
-                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 324],
-                        backgroundColor: chartColors.mintcake,
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 405],
+                        backgroundColor: chartColors.mintcakeBright || chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
                     }
@@ -970,10 +1004,10 @@
             charts.componentChart = new Chart(document.getElementById('componentChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Client (155K)', 'Server (78K)', 'Serenity E2E (2K)'],
+                labels: ['Client (169K)', 'Server (84K)', 'Serenity E2E (3K)'],
                 datasets: [{
-                    data: [155183, 77587, 1965],
-                    backgroundColor: [chartColors.sunrise, chartColors.granite, chartColors.mintcake],
+                    data: [168693, 83649, 3080],
+                    backgroundColor: [chartColors.mintcakeBright || chartColors.mintcake, chartColors.sunset, chartColors.sunrise],
                     borderWidth: 0,
                     hoverOffset: 10
                 }]
@@ -993,10 +1027,10 @@
             charts.languageChart = new Chart(document.getElementById('languageChart'), {
             type: 'doughnut',
             data: {
-                labels: ['TypeScript (235K)', 'Sass (7.9K)', 'HTML (4.7K)', 'Other (1.1K)'],
+                labels: ['TypeScript (255K)', 'Sass (8.4K)', 'HTML (4.6K)', 'Other (1.1K)'],
                 datasets: [{
-                    data: [234735, 7939, 4701, 1054],
-                    backgroundColor: [chartColors.sunrise, chartColors.rosycheeks, chartColors.sunset, chartColors.grey],
+                    data: [255422, 8394, 4599, 1064],
+                    backgroundColor: [chartColors.mintcakeBright || chartColors.mintcake, chartColors.sunrise, chartColors.sunset, chartColors.rosycheeks],
                     borderWidth: 0,
                     hoverOffset: 10
                 }]
@@ -1027,8 +1061,8 @@
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 15000, 35000, 234735],
-                        backgroundColor: chartColors.sunrise,
+                        data: [0, 15000, 35000, 255422],
+                        backgroundColor: chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
                     }
@@ -1070,8 +1104,8 @@
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 550, 5365, 28619, 77587],
-                        backgroundColor: chartColors.sunrise,
+                        data: [0, 550, 5365, 28619, 83649],
+                        backgroundColor: chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
                     }
