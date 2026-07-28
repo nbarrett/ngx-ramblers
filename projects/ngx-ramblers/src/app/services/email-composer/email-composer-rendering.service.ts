@@ -5,12 +5,12 @@ import {
   ArticleBlock,
   ArticleBlockImageAlignment,
   ArticleBlockPosition,
-  dividerHtml,
   SectionDividerStyle,
   SideImagePlacement
 } from "../../models/email-composer.model";
 import { UrlService } from "../url.service";
 import { renderEmailComposerMarkdown } from "../../functions/email-composer-markdown";
+import { dividerHtml } from "../../functions/email-composer";
 
 @Injectable({ providedIn: "root" })
 export class EmailComposerRenderingService {

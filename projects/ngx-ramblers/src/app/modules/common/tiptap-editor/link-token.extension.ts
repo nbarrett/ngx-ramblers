@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { exampleText, friendlyFieldLabel, friendlyText } from "../../../models/email-composer.model";
+import { exampleText, friendlyFieldLabel, friendlyText } from "../../../functions/merge-fields";
 
 export const LINK_TOKEN_NODE_NAME = "linkToken";
 

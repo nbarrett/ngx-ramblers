@@ -16,7 +16,8 @@ import { MarkdownComponent } from "ngx-markdown";
 import { CommitteeNotificationGroupEventMessageItemComponent } from "./committee-notification-group-event-message-item";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { dividerHtml, SectionDividerStyle } from "../../../models/email-composer.model";
+import { SectionDividerStyle } from "../../../models/email-composer.model";
+import { dividerHtml } from "../../../functions/email-composer";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
 @Component({

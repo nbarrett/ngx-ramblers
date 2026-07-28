@@ -1,0 +1,624 @@
+.tiptap-editor-shell
+  border: 1px solid transparent
+  border-radius: 4px
+  background-color: transparent
+  display: flex
+  flex-direction: column
+  max-width: 100%
+  min-width: 0
+  position: relative
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease
+
+.tiptap-editor-shell.tiptap-editor-shell-detail
+  border-style: solid
+  border-color: #ced4da
+  background-color: #ffffff
+
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail)
+  cursor: pointer
+
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail):hover
+  border-style: dashed
+  border-color: #adb5bd
+  background-color: rgba(248, 249, 250, 0.7)
+  box-shadow: inset 0 0 0 1px rgba(173, 181, 189, 0.15)
+
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content .ProseMirror,
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content a,
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content .as-button a,
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content.as-button a
+  cursor: pointer
+
+.tiptap-editor-shell:not(.tiptap-editor-shell-detail) .tiptap-content
+  padding: 0
+
+.tiptap-editor-shell-disabled
+  border-color: transparent
+  background-color: transparent
+  box-shadow: none
+  cursor: default
+
+.tiptap-editor-shell-disabled .tiptap-content
+  background-color: transparent
+  color: inherit
+
+.tiptap-editor-shell-disabled .tiptap-content .ProseMirror
+  cursor: not-allowed
+
+.tiptap-editor-shell.tiptap-editor-shell-detail:not(.tiptap-editor-shell-disabled) .tiptap-content .ProseMirror
+  cursor: text
+
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content a
+  cursor: text
+  pointer-events: auto
+
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content .as-button a,
+.tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content.as-button a
+  cursor: text
+  box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.15)
+
+.tiptap-click-to-edit-hint
+  position: fixed
+  z-index: 1080
+  pointer-events: none
+  padding: 4px 8px
+  border-radius: 4px
+  background-color: #212529
+  color: #ffffff
+  font-size: 0.75rem
+  line-height: 1.2
+  white-space: nowrap
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22)
+  transform: translate(12px, 14px)
+
+.token-editor-popup
+  position: absolute
+  z-index: 30
+  display: flex
+  flex-direction: column
+  gap: 8px
+  background-color: #ffffff
+  border: 1px solid #adb5bd
+  border-radius: 8px
+  padding: 12px
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25)
+
+.token-editor-popup.above
+  transform: translateY(-100%)
+
+.dest-opt-label
+  display: block
+
+.dest-opt-path
+  display: block
+  font-size: 0.78em
+  color: #6c757d
+
+.token-editor-popup select,
+.token-editor-popup input
+  width: 100%
+  padding: 4px 6px
+  border-radius: 4px
+  border: 1px solid #ced4da
+
+.token-editor-title
+  font-size: 0.72rem
+  font-weight: 700
+  color: #343a40
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  padding-bottom: 8px
+  margin-bottom: 2px
+  border-bottom: 1px solid #e9ecef
+
+.token-editor-label
+  font-size: 0.72rem
+  color: #6c757d
+  margin: 2px 0 -2px
+
+.token-type-toggle
+  display: flex
+  gap: 4px
+
+.token-type-toggle button
+  flex: 1
+  padding: 4px 8px
+  border-radius: 4px
+  border: 1px solid #ced4da
+  background-color: #ffffff
+  cursor: pointer
+
+.token-type-toggle button.is-active
+  background-color: rgb(249, 177, 4)
+  border-color: rgb(211, 150, 3)
+  font-weight: 600
+
+.token-editor-actions
+  display: flex
+  gap: 6px
+
+.tiptap-toolbar
+  display: flex
+  flex-wrap: wrap
+  gap: 4px
+  padding: 6px
+  border-bottom: 1px solid #e9ecef
+  background-color: #f8f9fa
+
+.tiptap-toolbar.tiptap-toolbar-sticky
+  position: sticky
+  top: var(--tiptap-toolbar-offset, 0)
+  z-index: 20
+  background-color: #f8f9fa
+
+.tiptap-toolbar button
+  background: transparent
+  border: 1px solid transparent
+  border-radius: 3px
+  padding: 4px 8px
+  min-height: 32px
+  cursor: pointer
+  color: #495057
+
+.tiptap-toolbar button:hover
+  border-color: #adb5bd
+  background-color: #ffffff
+
+.tiptap-toolbar button.is-active
+  background-color: #ffffff
+  border-color: #6c757d
+  color: #c05711
+
+.tiptap-toolbar button:disabled
+  opacity: 0.4
+  cursor: not-allowed
+  color: #adb5bd
+
+.tiptap-toolbar button:disabled:hover
+  border-color: transparent
+  background: transparent
+
+.tiptap-toolbar button.toolbar-text-toggle
+  font-size: 0.8rem
+  font-weight: 600
+  border-color: #ced4da
+  color: #495057
+
+.tiptap-toolbar select
+  padding: 4px 8px
+  border-radius: 3px
+  border: 1px solid #ced4da
+  background-color: #ffffff
+  color: #495057
+
+.tiptap-toolbar app-image-actions-dropdown button.dropdown-toggle
+  color: #495057
+  background: transparent
+  padding: 4px 8px
+  min-height: 32px
+  margin: 0
+
+.tiptap-toolbar app-image-actions-dropdown button.dropdown-toggle:hover
+  border-color: #adb5bd
+  background-color: #ffffff
+
+.tiptap-toolbar .toolbar-divider
+  width: 1px
+  background-color: #ced4da
+  margin: 4px 4px
+
+.tiptap-toolbar .toolbar-extras
+  display: contents
+
+.table-picker-wrap
+  position: relative
+  display: inline-flex
+
+.table-picker-popup
+  position: absolute
+  top: calc(100% + 4px)
+  left: 0
+  z-index: 40
+  background: #ffffff
+  border: 1px solid #ced4da
+  border-radius: 8px
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18)
+  padding: 10px
+  min-width: 168px
+  user-select: none
+
+.table-picker-label
+  font-size: 0.78rem
+  font-weight: 600
+  color: #495057
+  margin-bottom: 8px
+  text-align: center
+
+.table-picker-grid
+  display: grid
+  grid-template-columns: repeat(10, 14px)
+  gap: 3px
+  justify-content: center
+
+.table-picker-cell
+  width: 14px
+  height: 14px
+  border: 1px solid #ced4da
+  border-radius: 2px
+  background: #ffffff
+  box-sizing: border-box
+
+.table-picker-cell.is-selected
+  background: rgba(192, 87, 17, 0.18)
+  border-color: #c05711
+
+.table-picker-hint
+  margin-top: 8px
+  font-size: 0.72rem
+  color: #6c757d
+  text-align: center
+
+.tiptap-content
+  padding: 8px 12px
+  min-height: 0
+  overflow-x: clip
+
+.tiptap-code-block
+  margin: 0.75rem 0
+
+.tiptap-code-block-mermaid
+  border: 1px solid #e9ecef
+  border-radius: 6px
+  padding: 10px
+  background-color: #fafbfc
+
+.tiptap-mermaid-preview
+  overflow-x: auto
+  text-align: center
+  margin-bottom: 6px
+
+.tiptap-mermaid-preview svg
+  max-width: 100%
+  height: auto
+
+.tiptap-mermaid-preview-error
+  color: #842029
+  background-color: #f8d7da
+  border-radius: 4px
+  padding: 8px 10px
+  text-align: left
+  font-size: 0.9rem
+
+.tiptap-mermaid-source-toggle
+  display: inline-flex
+  align-items: center
+  margin: 0 0 6px
+  padding: 2px 8px
+  min-height: 28px
+  border: 1px solid #ced4da
+  border-radius: 4px
+  background: #ffffff
+  color: #495057
+  font-size: 0.8rem
+  cursor: pointer
+
+.tiptap-mermaid-source-toggle:hover
+  border-color: #adb5bd
+  background: #f8f9fa
+
+.tiptap-code-block pre
+  margin: 0
+  padding: 8px 10px
+  border-radius: 4px
+  background-color: #f1f3f5
+  overflow-x: auto
+
+.tiptap-code-block code
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+  font-size: 0.85rem
+  white-space: pre
+
+.tiptap-code-block-mermaid:not(.tiptap-code-block-mermaid-source-open) > pre
+  display: none
+
+.tiptap-code-block-mermaid.tiptap-code-block-mermaid-source-open > pre
+  display: block
+
+.tiptap-content.email-width
+  max-width: 600px
+  margin: 0 auto
+  padding: 30px
+  box-sizing: border-box
+  min-height: 180px
+
+.tiptap-content img,
+.tiptap-content table,
+.tiptap-content video,
+.tiptap-content iframe
+  max-width: 100%
+  height: auto
+
+.tiptap-content img
+  max-height: 120px
+  width: auto
+  border: 1px solid #ced4da
+  border-radius: 4px
+  padding: 2px
+  background-color: #f8f9fa
+  cursor: zoom-in
+  transition: max-height 0.15s ease
+
+.tiptap-content .ProseMirror code
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+  font-size: 0.9em
+  color: #c7254e
+  background-color: #f7f2f4
+  border-radius: 3px
+  padding: 0.1em 0.35em
+
+.tiptap-content .ProseMirror > img
+  display: block
+  margin-bottom: 12px
+
+.tiptap-content img[data-sized],
+.tiptap-content img[data-sized]:hover
+  max-height: none
+
+.image-resize-handle
+  position: absolute
+  z-index: 26
+  width: 10px
+  height: 34px
+  background-color: #ffffff
+  border: 1px solid #6c757d
+  border-radius: 5px
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35)
+  cursor: ew-resize
+
+.image-resize-handle::after
+  content: ""
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, -50%)
+  width: 4px
+  height: 16px
+  border-left: 1px solid #adb5bd
+  border-right: 1px solid #adb5bd
+
+.tiptap-content img:hover
+  max-height: 460px
+  cursor: zoom-out
+
+.tiptap-content img.ProseMirror-selectednode
+  max-height: none
+  cursor: default
+  box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.7)
+
+.tiptap-content,
+.tiptap-content p,
+.tiptap-content li,
+.tiptap-content blockquote,
+.tiptap-content pre,
+.tiptap-content a,
+.tiptap-content span
+  word-wrap: break-word
+  overflow-wrap: anywhere
+  word-break: break-word
+  max-width: 100%
+
+.tiptap-content blockquote
+  border-left: 4px solid #a8d08d
+  margin: 0.75rem 0
+  padding: 0.6rem 1rem
+  background-color: rgba(168, 208, 141, 0.12)
+  color: #444
+  font-style: italic
+
+.tiptap-content blockquote p
+  margin-bottom: 0
+
+.tiptap-content blockquote p + p
+  margin-top: 0.5rem
+
+.tiptap-content .ProseMirror
+  min-height: 2.5rem
+  outline: none
+
+.tiptap-content.email-width .ProseMirror
+  min-height: 160px
+
+.tiptap-content .ProseMirror ul
+  list-style: revert
+  padding-left: revert
+  margin: revert
+
+.tiptap-content.list-arrow .ProseMirror ul,
+.tiptap-content.list-tick-large .ProseMirror ul,
+.tiptap-content.list-tick-medium .ProseMirror ul,
+.tiptap-content.list-default .ProseMirror ul
+  list-style: none
+  padding: 0
+  margin: 0
+
+.tiptap-content.list-arrow .ProseMirror ul li,
+.tiptap-content.list-tick-large .ProseMirror ul li,
+.tiptap-content.list-tick-medium .ProseMirror ul li
+  list-style: none
+
+.tiptap-content.background-panel
+  border-radius: 6px
+
+.tiptap-content merge-field,
+.tiptap-content .merge-field-chip
+  display: inline-block
+  background-color: rgba(249, 177, 4, 0.18)
+  border: 1px solid rgb(249, 177, 4)
+  border-radius: 4px
+  padding: 0 5px
+  font-size: 0.85em
+  line-height: 1.4
+  white-space: nowrap
+  color: #6b5200
+  cursor: default
+
+.tiptap-content merge-field.ProseMirror-selectednode
+  box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
+
+.tiptap-content page-break,
+.tiptap-content .page-break-chip
+  display: flex
+  align-items: center
+  gap: 10px
+  margin: 0.75rem 0
+  color: #6b5200
+  cursor: default
+  user-select: none
+
+.tiptap-content page-break::before,
+.tiptap-content page-break::after
+  content: ""
+  flex: 1
+  border-top: 2px dashed rgb(249, 177, 4)
+
+.tiptap-content .page-break-label
+  font-size: 0.72rem
+  font-weight: 700
+  text-transform: uppercase
+  letter-spacing: 0.06em
+  background-color: rgba(249, 177, 4, 0.18)
+  border: 1px solid rgb(249, 177, 4)
+  border-radius: 4px
+  padding: 0 6px
+
+.tiptap-content page-break.ProseMirror-selectednode .page-break-label
+  box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
+
+.tiptap-content .chip-example
+  display: none
+
+.tiptap-content.show-examples .chip-name
+  display: none
+
+.tiptap-content.show-examples .chip-example
+  display: inline
+
+.tiptap-content link-token,
+.tiptap-content .link-pill
+  display: inline-flex
+  align-items: baseline
+  gap: 7px
+  vertical-align: baseline
+  background-color: rgba(155, 200, 171, 0.25)
+  border: 1px solid rgb(155, 200, 171)
+  border-radius: 6px
+  padding: 1px 9px
+  margin: 0 2px
+  cursor: default
+
+.tiptap-content .link-pill-label
+  color: rgb(64, 65, 65)
+  font-weight: 600
+
+.tiptap-content .link-pill-destination
+  font-size: 0.78em
+  color: rgb(99, 134, 110)
+
+.tiptap-content link-token.ProseMirror-selectednode
+  box-shadow: 0 0 0 2px rgba(155, 200, 171, 0.7)
+
+.tiptap-content table
+  border-collapse: collapse
+  margin: 8px 0
+  width: 100%
+
+.tiptap-content table td,
+.tiptap-content table th
+  border: 1px solid #ced4da
+  padding: 6px 8px
+  vertical-align: top
+  min-width: 50px
+
+.tiptap-content table th
+  background-color: #f8f9fa
+  font-weight: bold
+  text-align: left
+
+.tiptap-content .ProseMirror p.is-editor-empty:first-child::before
+  content: attr(data-placeholder)
+  float: left
+  color: #adb5bd
+  pointer-events: none
+  height: 0
+
+.inline-input-bar
+  display: flex
+  gap: 6px
+  padding: 6px
+  border-bottom: 1px solid #e9ecef
+  background-color: #ffffff
+  flex-wrap: wrap
+  align-items: center
+
+.inline-input-bar input
+  flex: 1
+  min-width: 160px
+
+.link-url-bar
+  display: flex
+  flex-direction: column
+  align-items: stretch
+  gap: 8px
+  padding: 8px 10px
+  border-bottom: 1px solid #e9ecef
+  background-color: #ffffff
+
+.link-url-label
+  margin: 0
+  font-size: 0.75rem
+  font-weight: 600
+  color: #495057
+
+.link-url-input
+  width: 100%
+  min-width: 0
+
+.link-url-actions
+  display: flex
+  flex-wrap: wrap
+  gap: 6px
+
+.link-url-hint
+  font-size: 0.78rem
+  color: #6c757d
+  margin: 0
+
+.contact-button-bar
+  display: flex
+  flex-direction: column
+  align-items: stretch
+  gap: 8px
+  padding: 8px 10px
+  border-bottom: 1px solid #e9ecef
+  background-color: #ffffff
+
+.contact-button-bar .link-url-label
+  margin: 0
+  font-size: 0.75rem
+  font-weight: 600
+  color: #495057
+
+.contact-button-bar .form-select,
+.contact-button-bar .form-control
+  width: 100%
+  min-width: 0
+
+.contact-button-preview
+  font-size: 0.78rem
+  color: #6c757d
+  word-break: break-all
+
+.contact-button-actions
+  display: flex
+  flex-wrap: wrap
+  gap: 6px

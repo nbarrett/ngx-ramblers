@@ -59,13 +59,16 @@ import {
   parseContactUsHref
 } from "./contact-us-link";
 import {
-  friendlyFieldLabel,
-  friendlyText,
   LINK_DESTINATIONS,
   MemberMergeFieldHint,
   MERGE_FIELD_CATALOGUE,
   MergeFieldGroup
 } from "../../../models/email-composer.model";
+import {
+  friendlyFieldLabel,
+  friendlyText,
+  stripMergeFieldBraces
+} from "../../../functions/merge-fields";
 import { EditorFocusPosition, TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
 import { MERGE_FIELD_NODE_NAME, MergeField } from "./merge-field.extension";
 import { LINK_TOKEN_NODE_NAME, LinkToken } from "./link-token.extension";
@@ -86,952 +89,338 @@ import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/compat";
+import { isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste } from "./tiptap-paste";
 
 @Component({
   selector: "app-tiptap-markdown-editor",
   encapsulation: ViewEncapsulation.None,
   imports: [NgClass, TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
-  styles: [`
-    .tiptap-editor-shell
-      border: 1px solid transparent
-      border-radius: 4px
-      background-color: transparent
-      display: flex
-      flex-direction: column
-      max-width: 100%
-      min-width: 0
-      position: relative
-      transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease
-
-    .tiptap-editor-shell.tiptap-editor-shell-detail
-      border-style: solid
-      border-color: #ced4da
-      background-color: #ffffff
-
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail)
-      cursor: pointer
-
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail):hover
-      border-style: dashed
-      border-color: #adb5bd
-      background-color: rgba(248, 249, 250, 0.7)
-      box-shadow: inset 0 0 0 1px rgba(173, 181, 189, 0.15)
-
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content .ProseMirror,
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content a,
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content .as-button a,
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled):not(.tiptap-editor-shell-detail) .tiptap-content.as-button a
-      cursor: pointer
-
-    .tiptap-editor-shell:not(.tiptap-editor-shell-detail) .tiptap-content
-      padding: 0
-
-    .tiptap-editor-shell-disabled
-      border-color: transparent
-      background-color: transparent
-      box-shadow: none
-      cursor: default
-
-    .tiptap-editor-shell-disabled .tiptap-content
-      background-color: transparent
-      color: inherit
-
-    .tiptap-editor-shell-disabled .tiptap-content .ProseMirror
-      cursor: not-allowed
-
-    .tiptap-editor-shell.tiptap-editor-shell-detail:not(.tiptap-editor-shell-disabled) .tiptap-content .ProseMirror
-      cursor: text
-
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content a
-      cursor: text
-      pointer-events: auto
-
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content .as-button a,
-    .tiptap-editor-shell:not(.tiptap-editor-shell-disabled).tiptap-editor-shell-detail .tiptap-content.as-button a
-      cursor: text
-      box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.15)
-
-    .tiptap-click-to-edit-hint
-      position: fixed
-      z-index: 1080
-      pointer-events: none
-      padding: 4px 8px
-      border-radius: 4px
-      background-color: #212529
-      color: #ffffff
-      font-size: 0.75rem
-      line-height: 1.2
-      white-space: nowrap
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22)
-      transform: translate(12px, 14px)
-
-    .token-editor-popup
-      position: absolute
-      z-index: 30
-      display: flex
-      flex-direction: column
-      gap: 8px
-      background-color: #ffffff
-      border: 1px solid #adb5bd
-      border-radius: 8px
-      padding: 12px
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25)
-
-    .token-editor-popup.above
-      transform: translateY(-100%)
-
-    .dest-opt-label
-      display: block
-
-    .dest-opt-path
-      display: block
-      font-size: 0.78em
-      color: #6c757d
-
-    .token-editor-popup select,
-    .token-editor-popup input
-      width: 100%
-      padding: 4px 6px
-      border-radius: 4px
-      border: 1px solid #ced4da
-
-    .token-editor-title
-      font-size: 0.72rem
-      font-weight: 700
-      color: #343a40
-      text-transform: uppercase
-      letter-spacing: 0.04em
-      padding-bottom: 8px
-      margin-bottom: 2px
-      border-bottom: 1px solid #e9ecef
-
-    .token-editor-label
-      font-size: 0.72rem
-      color: #6c757d
-      margin: 2px 0 -2px
-
-    .token-type-toggle
-      display: flex
-      gap: 4px
-
-    .token-type-toggle button
-      flex: 1
-      padding: 4px 8px
-      border-radius: 4px
-      border: 1px solid #ced4da
-      background-color: #ffffff
-      cursor: pointer
-
-    .token-type-toggle button.is-active
-      background-color: rgb(249, 177, 4)
-      border-color: rgb(211, 150, 3)
-      font-weight: 600
-
-    .token-editor-actions
-      display: flex
-      gap: 6px
-
-    .tiptap-toolbar
-      display: flex
-      flex-wrap: wrap
-      gap: 4px
-      padding: 6px
-      border-bottom: 1px solid #e9ecef
-      background-color: #f8f9fa
-
-    .tiptap-toolbar.tiptap-toolbar-sticky
-      position: sticky
-      top: var(--tiptap-toolbar-offset, 0)
-      z-index: 20
-      background-color: #f8f9fa
-
-    .tiptap-toolbar button
-      background: transparent
-      border: 1px solid transparent
-      border-radius: 3px
-      padding: 4px 8px
-      min-height: 32px
-      cursor: pointer
-      color: #495057
-
-    .tiptap-toolbar button:hover
-      border-color: #adb5bd
-      background-color: #ffffff
-
-    .tiptap-toolbar button.is-active
-      background-color: #ffffff
-      border-color: #6c757d
-      color: #c05711
-
-    .tiptap-toolbar button:disabled
-      opacity: 0.4
-      cursor: not-allowed
-      color: #adb5bd
-
-    .tiptap-toolbar button:disabled:hover
-      border-color: transparent
-      background: transparent
-
-    .tiptap-toolbar button.toolbar-text-toggle
-      font-size: 0.8rem
-      font-weight: 600
-      border-color: #ced4da
-      color: #495057
-
-    .tiptap-toolbar select
-      padding: 4px 8px
-      border-radius: 3px
-      border: 1px solid #ced4da
-      background-color: #ffffff
-      color: #495057
-
-    .tiptap-toolbar app-image-actions-dropdown button.dropdown-toggle
-      color: #495057
-      background: transparent
-      padding: 4px 8px
-      min-height: 32px
-      margin: 0
-
-    .tiptap-toolbar app-image-actions-dropdown button.dropdown-toggle:hover
-      border-color: #adb5bd
-      background-color: #ffffff
-
-    .tiptap-toolbar .toolbar-divider
-      width: 1px
-      background-color: #ced4da
-      margin: 4px 4px
-
-    .tiptap-toolbar .toolbar-extras
-      display: contents
-
-    .table-picker-wrap
-      position: relative
-      display: inline-flex
-
-    .table-picker-popup
-      position: absolute
-      top: calc(100% + 4px)
-      left: 0
-      z-index: 40
-      background: #ffffff
-      border: 1px solid #ced4da
-      border-radius: 8px
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18)
-      padding: 10px
-      min-width: 168px
-      user-select: none
-
-    .table-picker-label
-      font-size: 0.78rem
-      font-weight: 600
-      color: #495057
-      margin-bottom: 8px
-      text-align: center
-
-    .table-picker-grid
-      display: grid
-      grid-template-columns: repeat(10, 14px)
-      gap: 3px
-      justify-content: center
-
-    .table-picker-cell
-      width: 14px
-      height: 14px
-      border: 1px solid #ced4da
-      border-radius: 2px
-      background: #ffffff
-      box-sizing: border-box
-
-    .table-picker-cell.is-selected
-      background: rgba(192, 87, 17, 0.18)
-      border-color: #c05711
-
-    .table-picker-hint
-      margin-top: 8px
-      font-size: 0.72rem
-      color: #6c757d
-      text-align: center
-
-    .tiptap-content
-      padding: 8px 12px
-      min-height: 0
-      overflow-x: clip
-
-    .tiptap-code-block
-      margin: 0.75rem 0
-
-    .tiptap-code-block-mermaid
-      border: 1px solid #e9ecef
-      border-radius: 6px
-      padding: 10px
-      background-color: #fafbfc
-
-    .tiptap-mermaid-preview
-      overflow-x: auto
-      text-align: center
-      margin-bottom: 6px
-
-    .tiptap-mermaid-preview svg
-      max-width: 100%
-      height: auto
-
-    .tiptap-mermaid-preview-error
-      color: #842029
-      background-color: #f8d7da
-      border-radius: 4px
-      padding: 8px 10px
-      text-align: left
-      font-size: 0.9rem
-
-    .tiptap-mermaid-source-toggle
-      display: inline-flex
-      align-items: center
-      margin: 0 0 6px
-      padding: 2px 8px
-      min-height: 28px
-      border: 1px solid #ced4da
-      border-radius: 4px
-      background: #ffffff
-      color: #495057
-      font-size: 0.8rem
-      cursor: pointer
-
-    .tiptap-mermaid-source-toggle:hover
-      border-color: #adb5bd
-      background: #f8f9fa
-
-    .tiptap-code-block pre
-      margin: 0
-      padding: 8px 10px
-      border-radius: 4px
-      background-color: #f1f3f5
-      overflow-x: auto
-
-    .tiptap-code-block code
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
-      font-size: 0.85rem
-      white-space: pre
-
-    .tiptap-code-block-mermaid:not(.tiptap-code-block-mermaid-source-open) > pre
-      display: none
-
-    .tiptap-code-block-mermaid.tiptap-code-block-mermaid-source-open > pre
-      display: block
-
-    .tiptap-content.email-width
-      max-width: 600px
-      margin: 0 auto
-      padding: 30px
-      box-sizing: border-box
-      min-height: 180px
-
-    .tiptap-content img,
-    .tiptap-content table,
-    .tiptap-content video,
-    .tiptap-content iframe
-      max-width: 100%
-      height: auto
-
-    .tiptap-content img
-      max-height: 120px
-      width: auto
-      border: 1px solid #ced4da
-      border-radius: 4px
-      padding: 2px
-      background-color: #f8f9fa
-      cursor: zoom-in
-      transition: max-height 0.15s ease
-
-    .tiptap-content .ProseMirror code
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
-      font-size: 0.9em
-      color: #c7254e
-      background-color: #f7f2f4
-      border-radius: 3px
-      padding: 0.1em 0.35em
-
-    .tiptap-content .ProseMirror > img
-      display: block
-      margin-bottom: 12px
-
-    .tiptap-content img[data-sized],
-    .tiptap-content img[data-sized]:hover
-      max-height: none
-
-    .image-resize-handle
-      position: absolute
-      z-index: 26
-      width: 10px
-      height: 34px
-      background-color: #ffffff
-      border: 1px solid #6c757d
-      border-radius: 5px
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35)
-      cursor: ew-resize
-
-    .image-resize-handle::after
-      content: ""
-      position: absolute
-      top: 50%
-      left: 50%
-      transform: translate(-50%, -50%)
-      width: 4px
-      height: 16px
-      border-left: 1px solid #adb5bd
-      border-right: 1px solid #adb5bd
-
-    .tiptap-content img:hover
-      max-height: 460px
-      cursor: zoom-out
-
-    .tiptap-content img.ProseMirror-selectednode
-      max-height: none
-      cursor: default
-      box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.7)
-
-    .tiptap-content,
-    .tiptap-content p,
-    .tiptap-content li,
-    .tiptap-content blockquote,
-    .tiptap-content pre,
-    .tiptap-content a,
-    .tiptap-content span
-      word-wrap: break-word
-      overflow-wrap: anywhere
-      word-break: break-word
-      max-width: 100%
-
-    .tiptap-content blockquote
-      border-left: 4px solid #a8d08d
-      margin: 0.75rem 0
-      padding: 0.6rem 1rem
-      background-color: rgba(168, 208, 141, 0.12)
-      color: #444
-      font-style: italic
-
-    .tiptap-content blockquote p
-      margin-bottom: 0
-
-    .tiptap-content blockquote p + p
-      margin-top: 0.5rem
-
-    .tiptap-content .ProseMirror
-      min-height: 2.5rem
-      outline: none
-
-    .tiptap-content.email-width .ProseMirror
-      min-height: 160px
-
-    .tiptap-content .ProseMirror ul
-      list-style: revert
-      padding-left: revert
-      margin: revert
-
-    .tiptap-content.list-arrow .ProseMirror ul,
-    .tiptap-content.list-tick-large .ProseMirror ul,
-    .tiptap-content.list-tick-medium .ProseMirror ul,
-    .tiptap-content.list-default .ProseMirror ul
-      list-style: none
-      padding: 0
-      margin: 0
-
-    .tiptap-content.list-arrow .ProseMirror ul li,
-    .tiptap-content.list-tick-large .ProseMirror ul li,
-    .tiptap-content.list-tick-medium .ProseMirror ul li
-      list-style: none
-
-    .tiptap-content.background-panel
-      border-radius: 6px
-
-    .tiptap-content merge-field,
-    .tiptap-content .merge-field-chip
-      display: inline-block
-      background-color: rgba(249, 177, 4, 0.18)
-      border: 1px solid rgb(249, 177, 4)
-      border-radius: 4px
-      padding: 0 5px
-      font-size: 0.85em
-      line-height: 1.4
-      white-space: nowrap
-      color: #6b5200
-      cursor: default
-
-    .tiptap-content merge-field.ProseMirror-selectednode
-      box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
-
-    .tiptap-content page-break,
-    .tiptap-content .page-break-chip
-      display: flex
-      align-items: center
-      gap: 10px
-      margin: 0.75rem 0
-      color: #6b5200
-      cursor: default
-      user-select: none
-
-    .tiptap-content page-break::before,
-    .tiptap-content page-break::after
-      content: ""
-      flex: 1
-      border-top: 2px dashed rgb(249, 177, 4)
-
-    .tiptap-content .page-break-label
-      font-size: 0.72rem
-      font-weight: 700
-      text-transform: uppercase
-      letter-spacing: 0.06em
-      background-color: rgba(249, 177, 4, 0.18)
-      border: 1px solid rgb(249, 177, 4)
-      border-radius: 4px
-      padding: 0 6px
-
-    .tiptap-content page-break.ProseMirror-selectednode .page-break-label
-      box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
-
-    .tiptap-content .chip-example
-      display: none
-
-    .tiptap-content.show-examples .chip-name
-      display: none
-
-    .tiptap-content.show-examples .chip-example
-      display: inline
-
-    .tiptap-content link-token,
-    .tiptap-content .link-pill
-      display: inline-flex
-      align-items: baseline
-      gap: 7px
-      vertical-align: baseline
-      background-color: rgba(155, 200, 171, 0.25)
-      border: 1px solid rgb(155, 200, 171)
-      border-radius: 6px
-      padding: 1px 9px
-      margin: 0 2px
-      cursor: default
-
-    .tiptap-content .link-pill-label
-      color: rgb(64, 65, 65)
-      font-weight: 600
-
-    .tiptap-content .link-pill-destination
-      font-size: 0.78em
-      color: rgb(99, 134, 110)
-
-    .tiptap-content link-token.ProseMirror-selectednode
-      box-shadow: 0 0 0 2px rgba(155, 200, 171, 0.7)
-
-    .tiptap-content table
-      border-collapse: collapse
-      margin: 8px 0
-      width: 100%
-
-    .tiptap-content table td,
-    .tiptap-content table th
-      border: 1px solid #ced4da
-      padding: 6px 8px
-      vertical-align: top
-      min-width: 50px
-
-    .tiptap-content table th
-      background-color: #f8f9fa
-      font-weight: bold
-      text-align: left
-
-    .tiptap-content .ProseMirror p.is-editor-empty:first-child::before
-      content: attr(data-placeholder)
-      float: left
-      color: #adb5bd
-      pointer-events: none
-      height: 0
-
-    .inline-input-bar
-      display: flex
-      gap: 6px
-      padding: 6px
-      border-bottom: 1px solid #e9ecef
-      background-color: #ffffff
-      flex-wrap: wrap
-      align-items: center
-
-    .inline-input-bar input
-      flex: 1
-      min-width: 160px
-
-    .link-url-bar
-      display: flex
-      flex-direction: column
-      align-items: stretch
-      gap: 8px
-      padding: 8px 10px
-      border-bottom: 1px solid #e9ecef
-      background-color: #ffffff
-
-    .link-url-label
-      margin: 0
-      font-size: 0.75rem
-      font-weight: 600
-      color: #495057
-
-    .link-url-input
-      width: 100%
-      min-width: 0
-
-    .link-url-actions
-      display: flex
-      flex-wrap: wrap
-      gap: 6px
-
-    .link-url-hint
-      font-size: 0.78rem
-      color: #6c757d
-      margin: 0
-
-    .contact-button-bar
-      display: flex
-      flex-direction: column
-      align-items: stretch
-      gap: 8px
-      padding: 8px 10px
-      border-bottom: 1px solid #e9ecef
-      background-color: #ffffff
-
-    .contact-button-bar .link-url-label
-      margin: 0
-      font-size: 0.75rem
-      font-weight: 600
-      color: #495057
-
-    .contact-button-bar .form-select,
-    .contact-button-bar .form-control
-      width: 100%
-      min-width: 0
-
-    .contact-button-preview
-      font-size: 0.78rem
-      color: #6c757d
-      word-break: break-all
-
-    .contact-button-actions
-      display: flex
-      flex-wrap: wrap
-      gap: 6px
-  `],
   template: `
-    <div class="tiptap-editor-shell"
-         [class.tiptap-editor-shell-disabled]="!editable"
-         [class.tiptap-editor-shell-detail]="editable && toolbarExpanded"
-         [attr.aria-disabled]="!editable"
-         (pointerenter)="onCalmPointerEnter($event)"
-         (pointermove)="onCalmPointerMove($event)"
-         (pointerleave)="onCalmPointerLeave()">
-      @if (clickToEditHintVisible) {
-        <div class="tiptap-click-to-edit-hint"
-             [style.left.px]="clickToEditHintX"
-             [style.top.px]="clickToEditHintY">Click to edit</div>
-      }
-      @if (editable && toolbarExpanded) {
-      <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
-           role="toolbar" (mousedown)="onToolbarMousedown($event)">
-        <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
-          <fa-icon [icon]="faBold"/>
-        </button>
-        <button type="button" tooltip="Italic" container="body" delay=500 (click)="toggle(TiptapMark.Italic)" [class.is-active]="isActive('italic')">
-          <fa-icon [icon]="faItalic"/>
-        </button>
-        <button type="button" tooltip="Inline code" container="body" delay=500
-                (click)="toggle(TiptapMark.Code)" [class.is-active]="isActive('code')">
-          <fa-icon [icon]="faCode"/>
-        </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" tooltip="Heading 2" container="body" delay=500 (click)="toggleHeading(2)" [class.is-active]="isActive('heading', { level: 2 })">
-          <fa-icon [icon]="faHeading"/> 2
-        </button>
-        <button type="button" tooltip="Heading 3" container="body" delay=500 (click)="toggleHeading(3)" [class.is-active]="isActive('heading', { level: 3 })">
-          <fa-icon [icon]="faHeading"/> 3
-        </button>
-        <button type="button" tooltip="Heading 4 (click again to make it normal text)" container="body" delay=500 (click)="toggleHeading(4)" [class.is-active]="isActive('heading', { level: 4 })">
-          <fa-icon [icon]="faHeading"/> 4
-        </button>
-        <button type="button" tooltip="Normal text (removes any heading)" container="body" delay=500 (click)="setNormalText()" [class.is-active]="isActive('paragraph')">
-          Normal
-        </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" tooltip="Bulleted list" container="body" delay=500 (click)="toggle(TiptapMark.BulletList)" [class.is-active]="isActive('bulletList')">
-          <fa-icon [icon]="faListUl"/>
-        </button>
-        <button type="button" tooltip="Numbered list" container="body" delay=500 (click)="toggle(TiptapMark.OrderedList)" [class.is-active]="isActive('orderedList')">
-          <fa-icon [icon]="faListOl"/>
-        </button>
-        <button type="button" tooltip="Quote" container="body" delay=500 (click)="toggle(TiptapMark.Blockquote)" [class.is-active]="isActive('blockquote')">
-          <fa-icon [icon]="faQuoteRight"/>
-        </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" tooltip="Insert link" container="body" delay=500 (click)="openLinkBar()">
-          <fa-icon [icon]="faLink"/>
-        </button>
-        <button type="button" tooltip="Contact button — pick a committee role" container="body" delay=500
-                [class.is-active]="contactBarOpen"
-                (click)="openContactButtonBar()">
-          <fa-icon [icon]="faEnvelope"/>
-        </button>
-        <button type="button" tooltip="Insert a link" container="body" delay=500 (click)="openLinkTokenInsert()">
-          <fa-icon [icon]="faBolt"/>
-        </button>
-        <button type="button" tooltip="Insert image" container="body" delay=500 (click)="insertImage()">
-          <fa-icon [icon]="faImage"/>
-        </button>
-        <div class="table-picker-wrap">
-          <button type="button" class="toolbar-text-toggle" [class.is-active]="tablePickerOpen"
-                  tooltip="Insert a table — press and drag across the grid to choose size" container="body" delay=500
-                  (pointerdown)="onTableButtonPointerDown($event)"
-                  (click)="$event.preventDefault(); $event.stopPropagation()">
-            Table
-          </button>
-          @if (tablePickerOpen) {
-            <div class="table-picker-popup">
-              <div class="table-picker-label">{{ tablePickerLabel() }}</div>
-              <div class="table-picker-grid">
-                @for (row of tablePickerRows; track row) {
-                  @for (col of tablePickerCols; track col) {
-                    <div class="table-picker-cell"
-                         [class.is-selected]="tablePickerHasSelection && row <= tablePickerHoverRows && col <= tablePickerHoverCols"
-                         [attr.data-table-row]="row"
-                         [attr.data-table-col]="col"
-                         [attr.aria-label]="col + ' by ' + row + ' table'">
-                    </div>
-                  }
-                }
-              </div>
-              <div class="table-picker-hint">Hold and drag, then release</div>
-            </div>
-          }
+<div class="tiptap-editor-shell"
+     [class.tiptap-editor-shell-disabled]="!editable"
+     [class.tiptap-editor-shell-detail]="editable && toolbarExpanded"
+     [attr.aria-disabled]="!editable"
+     (pointerenter)="onCalmPointerEnter($event)"
+     (pointermove)="onCalmPointerMove($event)"
+     (pointerleave)="onCalmPointerLeave()">
+  @if (clickToEditHintVisible) {
+    <div class="tiptap-click-to-edit-hint"
+         [style.left.px]="clickToEditHintX"
+         [style.top.px]="clickToEditHintY">Click to edit</div>
+  }
+  @if (editable && toolbarExpanded) {
+  <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
+       role="toolbar" (mousedown)="onToolbarMousedown($event)">
+    <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
+      <fa-icon [icon]="faBold"/>
+    </button>
+    <button type="button" tooltip="Italic" container="body" delay=500 (click)="toggle(TiptapMark.Italic)" [class.is-active]="isActive('italic')">
+      <fa-icon [icon]="faItalic"/>
+    </button>
+    <button type="button" tooltip="Inline code" container="body" delay=500
+            (click)="toggle(TiptapMark.Code)" [class.is-active]="isActive('code')">
+      <fa-icon [icon]="faCode"/>
+    </button>
+    <span class="toolbar-divider"></span>
+    <button type="button" tooltip="Heading 1" container="body" delay=500 (click)="toggleHeading(1)" [class.is-active]="isActive('heading', { level: 1 })">
+      <fa-icon [icon]="faHeading"/> 1
+    </button>
+    <button type="button" tooltip="Heading 2" container="body" delay=500 (click)="toggleHeading(2)" [class.is-active]="isActive('heading', { level: 2 })">
+      <fa-icon [icon]="faHeading"/> 2
+    </button>
+    <button type="button" tooltip="Heading 3" container="body" delay=500 (click)="toggleHeading(3)" [class.is-active]="isActive('heading', { level: 3 })">
+      <fa-icon [icon]="faHeading"/> 3
+    </button>
+    <button type="button" tooltip="Heading 4" container="body" delay=500 (click)="toggleHeading(4)" [class.is-active]="isActive('heading', { level: 4 })">
+      <fa-icon [icon]="faHeading"/> 4
+    </button>
+    <button type="button" tooltip="Heading 5" container="body" delay=500 (click)="toggleHeading(5)" [class.is-active]="isActive('heading', { level: 5 })">
+      <fa-icon [icon]="faHeading"/> 5
+    </button>
+    <button type="button" tooltip="Heading 6" container="body" delay=500 (click)="toggleHeading(6)" [class.is-active]="isActive('heading', { level: 6 })">
+      <fa-icon [icon]="faHeading"/> 6
+    </button>
+    <button type="button" tooltip="Normal text (removes any heading)" container="body" delay=500 (click)="setNormalText()" [class.is-active]="isActive('paragraph')">
+      Normal
+    </button>
+    <span class="toolbar-divider"></span>
+    <button type="button" tooltip="Bulleted list" container="body" delay=500 (click)="toggle(TiptapMark.BulletList)" [class.is-active]="isActive('bulletList')">
+      <fa-icon [icon]="faListUl"/>
+    </button>
+    <button type="button" tooltip="Numbered list" container="body" delay=500 (click)="toggle(TiptapMark.OrderedList)" [class.is-active]="isActive('orderedList')">
+      <fa-icon [icon]="faListOl"/>
+    </button>
+    <button type="button" tooltip="Quote" container="body" delay=500 (click)="toggle(TiptapMark.Blockquote)" [class.is-active]="isActive('blockquote')">
+      <fa-icon [icon]="faQuoteRight"/>
+    </button>
+    <span class="toolbar-divider"></span>
+    <button type="button" tooltip="Insert link" container="body" delay=500 (click)="openLinkBar()">
+      <fa-icon [icon]="faLink"/>
+    </button>
+    <button type="button" tooltip="Contact button — pick a committee role" container="body" delay=500
+            [class.is-active]="contactBarOpen"
+            (click)="openContactButtonBar()">
+      <fa-icon [icon]="faEnvelope"/>
+    </button>
+    <button type="button" tooltip="Insert a link" container="body" delay=500 (click)="openLinkTokenInsert()">
+      <fa-icon [icon]="faBolt"/>
+    </button>
+    <button type="button" tooltip="Insert image" container="body" delay=500 (click)="insertImage()">
+      <fa-icon [icon]="faImage"/>
+    </button>
+    <div class="table-picker-wrap">
+      <button type="button" class="toolbar-text-toggle" [class.is-active]="tablePickerOpen"
+              tooltip="Insert a table — press and drag across the grid to choose size" container="body" delay=500
+              (pointerdown)="onTableButtonPointerDown($event)"
+              (click)="$event.preventDefault(); $event.stopPropagation()">
+        Table
+      </button>
+      @if (tablePickerOpen) {
+        <div class="table-picker-popup">
+          <div class="table-picker-label">{{ tablePickerLabel() }}</div>
+          <div class="table-picker-grid">
+            @for (row of tablePickerRows; track row) {
+              @for (col of tablePickerCols; track col) {
+                <div class="table-picker-cell"
+                     [class.is-selected]="tablePickerHasSelection && row <= tablePickerHoverRows && col <= tablePickerHoverCols"
+                     [attr.data-table-row]="row"
+                     [attr.data-table-col]="col"
+                     [attr.aria-label]="col + ' by ' + row + ' table'">
+                </div>
+              }
+            }
+          </div>
+          <div class="table-picker-hint">Hold and drag, then release</div>
         </div>
-        @if (showPageBreak) {
-          <button type="button" class="toolbar-text-toggle" tooltip="Insert a page break at the cursor" container="body" delay=500
-                  (click)="insertPageBreak()">
-            Page break
-          </button>
+      }
+    </div>
+    @if (showPageBreak) {
+      <button type="button" class="toolbar-text-toggle" tooltip="Insert a page break at the cursor" container="body" delay=500
+              (click)="insertPageBreak()">
+        Page break
+      </button>
+    }
+    <span class="toolbar-divider"></span>
+    @if (showMergeFields) {
+      <select tooltip="Insert a merge field at the cursor" container="body" delay=500 (change)="onMergeFieldInsert($event)">
+        <option value="">Insert merge field…</option>
+        @for (group of mergeFieldCatalogue; track group.group) {
+          <optgroup [label]="group.group">
+            @for (field of group.fields; track field.token) {
+              <option [value]="field.token">{{ field.label }}</option>
+            }
+          </optgroup>
         }
-        <span class="toolbar-divider"></span>
+      </select>
+      <button type="button" class="toolbar-text-toggle" [class.is-active]="showExampleValues"
+              tooltip="Toggle merge fields between their names and example values" container="body" delay=500
+              (click)="showExampleValues = !showExampleValues">
+        {{ showExampleValues ? "Example values" : "Field names" }}
+      </button>
+      <span class="toolbar-divider"></span>
+    }
+    @if (tableSelected) {
+      <button type="button" class="toolbar-text-toggle" tooltip="Add a row above the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddRowAbove)">+Row ↑</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Add a row below the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddRowBelow)">+Row ↓</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Delete the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteRow)">−Row</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Add a column to the left" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddColumnLeft)">+Col ←</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Add a column to the right" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddColumnRight)">+Col →</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Delete the current column" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteColumn)">−Col</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Move the current column left" container="body" delay=500 (click)="moveTableColumn(-1)">◀ Col</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Move the current column right" container="body" delay=500 (click)="moveTableColumn(1)">Col ▶</button>
+      <button type="button" class="toolbar-text-toggle" tooltip="Delete the whole table" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteTable)">−Table</button>
+      <span class="toolbar-divider"></span>
+    }
+    <button type="button" tooltip="Clear formatting" container="body" delay=500 (click)="clearFormatting()">
+      <fa-icon [icon]="faRemoveFormat"/>
+    </button>
+    <span class="toolbar-divider"></span>
+    <button type="button" class="toolbar-text-toggle" [class.is-active]="unwrapLineBreaksOnPaste"
+            [tooltip]="(unwrapLineBreaksOnPaste ? 'On' : 'Off') + ': when on, line breaks within paragraphs of pasted text are unwrapped so body text flows as one paragraph; headings, lists, blank lines and code blocks are kept as they are. Click to turn ' + (unwrapLineBreaksOnPaste ? 'off' : 'on') + '.'"
+            container="body" delay=500
+            (click)="unwrapLineBreaksOnPaste = !unwrapLineBreaksOnPaste">
+      <fa-icon [icon]="unwrapLineBreaksOnPaste ? faToggleOn : faToggleOff" [class.text-success]="unwrapLineBreaksOnPaste" class="me-1"/>
+      Unwrap on paste
+    </button>
+    <ng-content select="[toolbarExtras]"/>
+    <span class="toolbar-divider"></span>
+    <button type="button" [tooltip]="undoTooltip" container="body" delay=500
+            [disabled]="!canUndo" (click)="undo()">
+      <fa-icon [icon]="faUndo"/>
+    </button>
+    <button type="button" [tooltip]="redoTooltip" container="body" delay=500
+            [disabled]="!canRedo" (click)="redo()">
+      <fa-icon [icon]="faRedo"/>
+    </button>
+  </div>
+  }
+  @if (linkBarOpen) {
+    <div class="link-url-bar">
+      <label class="link-url-label" for="tiptap-link-url">Link URL</label>
+      <input #linkUrlInput
+             id="tiptap-link-url"
+             type="text"
+             class="form-control form-control-sm link-url-input"
+             name="tiptap-link-url"
+             [(ngModel)]="linkUrl"
+             placeholder="https://…  /walks/…  or ?contact-us&role=…&redirect=…"
+             (keyup.enter)="confirmLink()">
+      @if (linkHrefMissing) {
+        <div class="link-url-hint">This link has no URL stored. Enter a path or address, then Apply.</div>
+      }
+      <div class="link-url-actions">
+        <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
+        @if (isActive("link")) {
+          <button type="button" class="btn btn-sm btn-secondary" (click)="removeLink()">Remove link</button>
+        }
+      </div>
+    </div>
+  }
+  @if (contactBarOpen) {
+    <div class="contact-button-bar">
+      <label class="link-url-label" for="tiptap-contact-role">Committee role</label>
+      <select id="tiptap-contact-role"
+              class="form-select form-select-sm"
+              name="tiptap-contact-role"
+              [(ngModel)]="contactRoleType"
+              (ngModelChange)="onContactRoleChange($event)">
+        <option value="">Select role…</option>
+        @for (member of contactRoles; track member.type) {
+          <option [value]="member.type">{{ contactRoleLabel(member) }}</option>
+        }
+      </select>
+      <label class="link-url-label" for="tiptap-contact-label">Link name</label>
+      <input id="tiptap-contact-label"
+             type="text"
+             class="form-control form-control-sm"
+             name="tiptap-contact-label"
+             [(ngModel)]="contactLabel"
+             placeholder="Contact Nick"
+             (keyup.enter)="applyContactButton()">
+      <div class="contact-button-preview">
+        Redirects back to <strong>{{ contactRedirectPath || "this page" }}</strong>
+        @if (contactRoleType && contactLabel) {
+          <div class="mt-1"><code>{{ contactHrefPreview() }}</code></div>
+        }
+      </div>
+      <div class="contact-button-actions">
+        <button type="button" class="btn btn-sm btn-primary"
+                [disabled]="!contactRoleType || !contactLabel.trim()"
+                (click)="applyContactButton()">
+          {{ contactUpdatingExisting ? "Update button" : "Insert button" }}
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="cancelContactButtonBar()">Cancel</button>
+      </div>
+    </div>
+  }
+  @if (imageCropperOpen) {
+    <div class="inline-input-bar" style="display:block">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="token-editor-title">{{ cropperPreloadSrc ? "Crop &amp; resize image" : "Add or replace image" }}</span>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="cancelImageCropper()">Cancel</button>
+      </div>
+      <app-image-cropper-and-resizer wrapButtons
+                                     [rootFolder]="rootFolder"
+                                     [preloadImage]="cropperPreloadSrc"
+                                     (quit)="cancelImageCropper()"
+                                     (save)="onImageCropperSave($event)"/>
+    </div>
+  }
+  @if (pastedImageUploading) {
+    <div class="inline-input-bar" style="display:block">
+      <span class="token-editor-title">Uploading pasted image…</span>
+    </div>
+  }
+  <div class="tiptap-content"
+       [class.show-examples]="showExampleValues"
+       [class.email-width]="constrainToEmailWidth && !editable"
+       [ngClass]="contentClass">
+    @if (editor) {
+      <tiptap-editor [editor]="editor"></tiptap-editor>
+    }
+  </div>
+  @if (editable && imageSelected && !imageCropperOpen) {
+    <div class="image-resize-handle" [style.top.px]="imageHandleTop" [style.left.px]="imageHandleLeft"
+         tooltip="Drag to set the image width" container="body" delay=500 (mousedown)="onImageResizeStart($event)"></div>
+  }
+  @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || imageSelected)) {
+    <div class="token-editor-popup" [class.above]="tokenEditorAbove"
+         [style.top.px]="tokenEditorTop" [style.left.px]="tokenEditorLeft"
+         [style.min-width.px]="tokenEditorMinWidth">
+      @if (imageSelected) {
+        <div class="token-editor-title">Image</div>
+        <div class="token-editor-actions">
+          <button type="button" class="btn btn-sm btn-primary" (click)="onImageActionEdit()">Crop &amp; resize</button>
+          <button type="button" class="btn btn-sm btn-secondary" (click)="onImageActionReplace()">Replace</button>
+          <button type="button" class="btn btn-sm btn-danger" (click)="onImageActionRemove()">Remove</button>
+        </div>
+        <label class="token-editor-label">Space above &amp; below</label>
+        <div class="token-type-toggle">
+          <button type="button" [class.is-active]="imageSpacing === ImageSpacing.None" (click)="setImageSpacing(ImageSpacing.None)">None</button>
+          <button type="button" [class.is-active]="imageSpacing === ImageSpacing.Small" (click)="setImageSpacing(ImageSpacing.Small)">Small</button>
+          <button type="button" [class.is-active]="imageSpacing === ImageSpacing.Medium" (click)="setImageSpacing(ImageSpacing.Medium)">Medium</button>
+          <button type="button" [class.is-active]="imageSpacing === ImageSpacing.Large" (click)="setImageSpacing(ImageSpacing.Large)">Large</button>
+        </div>
+        <label class="token-editor-label">Align (when narrower than the email)</label>
+        <div class="token-type-toggle">
+          <button type="button" [class.is-active]="imageAlign === ImageAlign.Left" (click)="setImageAlign(ImageAlign.Left)">Left</button>
+          <button type="button" [class.is-active]="imageAlign === ImageAlign.Center" (click)="setImageAlign(ImageAlign.Center)">Centre</button>
+          <button type="button" [class.is-active]="imageAlign === ImageAlign.Right" (click)="setImageAlign(ImageAlign.Right)">Right</button>
+        </div>
+      } @else {
+        <div class="token-editor-title">{{ insertLinkMode ? "Add" : "Edit" }}</div>
         @if (showMergeFields) {
-          <select tooltip="Insert a merge field at the cursor" container="body" delay=500 (change)="onMergeFieldInsert($event)">
-            <option value="">Insert merge field…</option>
+          <div class="token-type-toggle">
+            <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Field" (click)="setTokenType(TokenPopupType.Field)">Merge field</button>
+            <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Link" (click)="setTokenType(TokenPopupType.Link)">Link</button>
+          </div>
+        }
+        @if (showMergeFields && tokenPopupType === TokenPopupType.Field) {
+          <label class="token-editor-label">Field</label>
+          <select tooltip="Pick a merge field" container="body" delay=500 (change)="tokenFieldValue = inputValue($event)">
+            <option value="">Choose a field…</option>
             @for (group of mergeFieldCatalogue; track group.group) {
               <optgroup [label]="group.group">
                 @for (field of group.fields; track field.token) {
-                  <option [value]="field.token">{{ field.label }}</option>
+                  <option [value]="field.token" [selected]="field.token === tokenFieldValue">{{ field.label }}</option>
                 }
               </optgroup>
             }
           </select>
-          <button type="button" class="toolbar-text-toggle" [class.is-active]="showExampleValues"
-                  tooltip="Toggle merge fields between their names and example values" container="body" delay=500
-                  (click)="showExampleValues = !showExampleValues">
-            {{ showExampleValues ? "Example values" : "Field names" }}
-          </button>
-          <span class="toolbar-divider"></span>
+        } @else {
+          <label class="token-editor-label">Link text</label>
+          <input type="text" [attr.list]="'tiptap-fields-' + editorId" [value]="linkTextDisplay"
+                 placeholder="Type text or pick a field"
+                 (keyup.enter)="applyToken()" (input)="linkTextDisplay = inputValue($event)">
+          <datalist [id]="'tiptap-fields-' + editorId">
+            @for (field of allMergeFields; track field.token) {
+              <option [value]="field.label"></option>
+            }
+          </datalist>
+          <label class="token-editor-label">Goes to</label>
+          <ng-select class="token-editor-dest" [items]="linkDestinationItems" bindLabel="label" bindValue="token"
+                     [(ngModel)]="linkHrefValue" [addTag]="addExternalUrl" addTagText="Use web address:"
+                     [searchFn]="searchDestinations" [clearable]="false"
+                     placeholder="Pick a page or paste a web address">
+            <ng-template ng-option-tmp let-item="item">
+              <span class="dest-opt-label">{{ item.label }}</span>
+              @if (destinationHint(item)) {
+                <span class="dest-opt-path">{{ destinationHint(item) }}</span>
+              }
+            </ng-template>
+          </ng-select>
         }
-        @if (tableSelected) {
-          <button type="button" class="toolbar-text-toggle" tooltip="Add a row above the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddRowAbove)">+Row ↑</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Add a row below the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddRowBelow)">+Row ↓</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Delete the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteRow)">−Row</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Add a column to the left" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddColumnLeft)">+Col ←</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Add a column to the right" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddColumnRight)">+Col →</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Delete the current column" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteColumn)">−Col</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Move the current column left" container="body" delay=500 (click)="moveTableColumn(-1)">◀ Col</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Move the current column right" container="body" delay=500 (click)="moveTableColumn(1)">Col ▶</button>
-          <button type="button" class="toolbar-text-toggle" tooltip="Delete the whole table" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteTable)">−Table</button>
-          <span class="toolbar-divider"></span>
-        }
-        <button type="button" tooltip="Clear formatting" container="body" delay=500 (click)="clearFormatting()">
-          <fa-icon [icon]="faRemoveFormat"/>
-        </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" class="toolbar-text-toggle" [class.is-active]="unwrapLineBreaksOnPaste"
-                [tooltip]="(unwrapLineBreaksOnPaste ? 'On' : 'Off') + ': when on, line breaks within paragraphs of pasted text are unwrapped so body text flows as one paragraph; headings, lists, blank lines and code blocks are kept as they are. Click to turn ' + (unwrapLineBreaksOnPaste ? 'off' : 'on') + '.'"
-                container="body" delay=500
-                (click)="unwrapLineBreaksOnPaste = !unwrapLineBreaksOnPaste">
-          <fa-icon [icon]="unwrapLineBreaksOnPaste ? faToggleOn : faToggleOff" [class.text-success]="unwrapLineBreaksOnPaste" class="me-1"/>
-          Unwrap on paste
-        </button>
-        <ng-content select="[toolbarExtras]"/>
-        <span class="toolbar-divider"></span>
-        <button type="button" [tooltip]="undoTooltip" container="body" delay=500
-                [disabled]="!canUndo" (click)="undo()">
-          <fa-icon [icon]="faUndo"/>
-        </button>
-        <button type="button" [tooltip]="redoTooltip" container="body" delay=500
-                [disabled]="!canRedo" (click)="redo()">
-          <fa-icon [icon]="faRedo"/>
-        </button>
-      </div>
-      }
-      @if (linkBarOpen) {
-        <div class="link-url-bar">
-          <label class="link-url-label" for="tiptap-link-url">Link URL</label>
-          <input #linkUrlInput
-                 id="tiptap-link-url"
-                 type="text"
-                 class="form-control form-control-sm link-url-input"
-                 name="tiptap-link-url"
-                 [(ngModel)]="linkUrl"
-                 placeholder="https://…  /walks/…  or ?contact-us&role=…&redirect=…"
-                 (keyup.enter)="confirmLink()">
-          @if (linkHrefMissing) {
-            <div class="link-url-hint">This link has no URL stored. Enter a path or address, then Apply.</div>
-          }
-          <div class="link-url-actions">
-            <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
-            <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
-            @if (isActive("link")) {
-              <button type="button" class="btn btn-sm btn-secondary" (click)="removeLink()">Remove link</button>
-            }
-          </div>
+        <div class="token-editor-actions">
+          <button type="button" class="btn btn-sm btn-primary" (click)="applyToken()">Apply</button>
+          <button type="button" class="btn btn-sm btn-secondary" (click)="closeTokenEditor()">Cancel</button>
         </div>
       }
-      @if (contactBarOpen) {
-        <div class="contact-button-bar">
-          <label class="link-url-label" for="tiptap-contact-role">Committee role</label>
-          <select id="tiptap-contact-role"
-                  class="form-select form-select-sm"
-                  name="tiptap-contact-role"
-                  [(ngModel)]="contactRoleType"
-                  (ngModelChange)="onContactRoleChange($event)">
-            <option value="">Select role…</option>
-            @for (member of contactRoles; track member.type) {
-              <option [value]="member.type">{{ contactRoleLabel(member) }}</option>
-            }
-          </select>
-          <label class="link-url-label" for="tiptap-contact-label">Link name</label>
-          <input id="tiptap-contact-label"
-                 type="text"
-                 class="form-control form-control-sm"
-                 name="tiptap-contact-label"
-                 [(ngModel)]="contactLabel"
-                 placeholder="Contact Nick"
-                 (keyup.enter)="applyContactButton()">
-          <div class="contact-button-preview">
-            Redirects back to <strong>{{ contactRedirectPath || "this page" }}</strong>
-            @if (contactRoleType && contactLabel) {
-              <div class="mt-1"><code>{{ contactHrefPreview() }}</code></div>
-            }
-          </div>
-          <div class="contact-button-actions">
-            <button type="button" class="btn btn-sm btn-primary"
-                    [disabled]="!contactRoleType || !contactLabel.trim()"
-                    (click)="applyContactButton()">
-              {{ contactUpdatingExisting ? "Update button" : "Insert button" }}
-            </button>
-            <button type="button" class="btn btn-sm btn-secondary" (click)="cancelContactButtonBar()">Cancel</button>
-          </div>
-        </div>
-      }
-      @if (imageCropperOpen) {
-        <div class="inline-input-bar" style="display:block">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="token-editor-title">{{ cropperPreloadSrc ? "Crop &amp; resize image" : "Add or replace image" }}</span>
-            <button type="button" class="btn btn-sm btn-secondary" (click)="cancelImageCropper()">Cancel</button>
-          </div>
-          <app-image-cropper-and-resizer wrapButtons
-                                         [rootFolder]="rootFolder"
-                                         [preloadImage]="cropperPreloadSrc"
-                                         (quit)="cancelImageCropper()"
-                                         (save)="onImageCropperSave($event)"/>
-        </div>
-      }
-      @if (pastedImageUploading) {
-        <div class="inline-input-bar" style="display:block">
-          <span class="token-editor-title">Uploading pasted image…</span>
-        </div>
-      }
-      <div class="tiptap-content"
-           [class.show-examples]="showExampleValues"
-           [class.email-width]="constrainToEmailWidth && !editable"
-           [ngClass]="contentClass">
-        @if (editor) {
-          <tiptap-editor [editor]="editor"></tiptap-editor>
-        }
-      </div>
-      @if (editable && imageSelected && !imageCropperOpen) {
-        <div class="image-resize-handle" [style.top.px]="imageHandleTop" [style.left.px]="imageHandleLeft"
-             tooltip="Drag to set the image width" container="body" delay=500 (mousedown)="onImageResizeStart($event)"></div>
-      }
-      @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || imageSelected)) {
-        <div class="token-editor-popup" [class.above]="tokenEditorAbove"
-             [style.top.px]="tokenEditorTop" [style.left.px]="tokenEditorLeft"
-             [style.min-width.px]="tokenEditorMinWidth">
-          @if (imageSelected) {
-            <div class="token-editor-title">Image</div>
-            <div class="token-editor-actions">
-              <button type="button" class="btn btn-sm btn-primary" (click)="onImageActionEdit()">Crop &amp; resize</button>
-              <button type="button" class="btn btn-sm btn-secondary" (click)="onImageActionReplace()">Replace</button>
-              <button type="button" class="btn btn-sm btn-danger" (click)="onImageActionRemove()">Remove</button>
-            </div>
-            <label class="token-editor-label">Space above &amp; below</label>
-            <div class="token-type-toggle">
-              <button type="button" [class.is-active]="imageSpacing === ImageSpacing.None" (click)="setImageSpacing(ImageSpacing.None)">None</button>
-              <button type="button" [class.is-active]="imageSpacing === ImageSpacing.Small" (click)="setImageSpacing(ImageSpacing.Small)">Small</button>
-              <button type="button" [class.is-active]="imageSpacing === ImageSpacing.Medium" (click)="setImageSpacing(ImageSpacing.Medium)">Medium</button>
-              <button type="button" [class.is-active]="imageSpacing === ImageSpacing.Large" (click)="setImageSpacing(ImageSpacing.Large)">Large</button>
-            </div>
-            <label class="token-editor-label">Align (when narrower than the email)</label>
-            <div class="token-type-toggle">
-              <button type="button" [class.is-active]="imageAlign === ImageAlign.Left" (click)="setImageAlign(ImageAlign.Left)">Left</button>
-              <button type="button" [class.is-active]="imageAlign === ImageAlign.Center" (click)="setImageAlign(ImageAlign.Center)">Centre</button>
-              <button type="button" [class.is-active]="imageAlign === ImageAlign.Right" (click)="setImageAlign(ImageAlign.Right)">Right</button>
-            </div>
-          } @else {
-            <div class="token-editor-title">{{ insertLinkMode ? "Add" : "Edit" }}</div>
-            @if (showMergeFields) {
-              <div class="token-type-toggle">
-                <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Field" (click)="setTokenType(TokenPopupType.Field)">Merge field</button>
-                <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Link" (click)="setTokenType(TokenPopupType.Link)">Link</button>
-              </div>
-            }
-            @if (showMergeFields && tokenPopupType === TokenPopupType.Field) {
-              <label class="token-editor-label">Field</label>
-              <select tooltip="Pick a merge field" container="body" delay=500 (change)="tokenFieldValue = inputValue($event)">
-                <option value="">Choose a field…</option>
-                @for (group of mergeFieldCatalogue; track group.group) {
-                  <optgroup [label]="group.group">
-                    @for (field of group.fields; track field.token) {
-                      <option [value]="field.token" [selected]="field.token === tokenFieldValue">{{ field.label }}</option>
-                    }
-                  </optgroup>
-                }
-              </select>
-            } @else {
-              <label class="token-editor-label">Link text</label>
-              <input type="text" [attr.list]="'tiptap-fields-' + editorId" [value]="linkTextDisplay"
-                     placeholder="Type text or pick a field"
-                     (keyup.enter)="applyToken()" (input)="linkTextDisplay = inputValue($event)">
-              <datalist [id]="'tiptap-fields-' + editorId">
-                @for (field of allMergeFields; track field.token) {
-                  <option [value]="field.label"></option>
-                }
-              </datalist>
-              <label class="token-editor-label">Goes to</label>
-              <ng-select class="token-editor-dest" [items]="linkDestinationItems" bindLabel="label" bindValue="token"
-                         [(ngModel)]="linkHrefValue" [addTag]="addExternalUrl" addTagText="Use web address:"
-                         [searchFn]="searchDestinations" [clearable]="false"
-                         placeholder="Pick a page or paste a web address">
-                <ng-template ng-option-tmp let-item="item">
-                  <span class="dest-opt-label">{{ item.label }}</span>
-                  @if (destinationHint(item)) {
-                    <span class="dest-opt-path">{{ destinationHint(item) }}</span>
-                  }
-                </ng-template>
-              </ng-select>
-            }
-            <div class="token-editor-actions">
-              <button type="button" class="btn btn-sm btn-primary" (click)="applyToken()">Apply</button>
-              <button type="button" class="btn btn-sm btn-secondary" (click)="closeTokenEditor()">Cancel</button>
-            </div>
-          }
-        </div>
-      }
-    </div>`
+    </div>
+  }
+</div>
+  `,
+  styleUrls: ["./tiptap-markdown-editor.sass"]
 })
 export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
@@ -1240,7 +629,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       this.changeDetector.markForCheck();
     });
     const extensions: any[] = [
-      StarterKit.configure({ bold: false, italic: false, listItem: false, link: false, codeBlock: false }),
+      StarterKit.configure({
+        bold: false,
+        italic: false,
+        listItem: false,
+        link: false,
+        codeBlock: false,
+        heading: { levels: [1, 2, 3, 4, 5, 6] }
+      }),
       MermaidCodeBlock,
       ListItem.extend({
         content: "block+"
@@ -1282,7 +678,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         handlePaste: (_view, event) => {
           const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
           const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
-          const internalPaste = this.isInternalPaste(pastedHtml);
+          const internalPaste = isInternalPaste(pastedHtml);
           const text = event.clipboardData?.getData("text/plain") ?? "";
           const consumed = {value: false};
           let handled = false;
@@ -1303,7 +699,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
               handled = true;
             } else if (!internalPaste && text && this.looksLikeMarkdown(text)) {
               event.preventDefault();
-              const sanitised = this.unwrapIfEnabled(this.sanitiseMarkdownForPaste(text));
+              const sanitised = this.unwrapIfEnabled(sanitiseMarkdownForPaste(text));
               try {
                 this.editor?.commands.insertContent(sanitised, {contentType: "markdown"});
               } catch (error) {
@@ -1323,7 +719,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           }
           return handled;
         },
-        transformPastedHTML: (html: string) => this.isInternalPaste(html) ? html : this.sanitiseHtmlForPaste(html)
+        transformPastedHTML: (html: string) => isInternalPaste(html) ? html : sanitiseHtmlForPaste(html)
       },
       content: this.pendingValue,
       contentType: "markdown",
@@ -1391,59 +787,6 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         this.positionImageHandle();
       }
     });
-  }
-
-  private isInternalPaste(html: string): boolean {
-    return !!html && html.includes("data-pm-slice");
-  }
-
-  private sanitiseHtmlForPaste(html: string): string {
-    if (!html) return html;
-    try {
-      const collapsed = html.replace(/&nbsp;/gi, " ").replace(/\u00A0/g, " ");
-      const doc = new DOMParser().parseFromString(collapsed, "text/html");
-      const widthAffectingAttrs = ["style", "width", "height", "bgcolor", "align", "valign", "cellpadding", "cellspacing", "border"];
-      doc.querySelectorAll("*").forEach(el => {
-        widthAffectingAttrs.forEach(attr => el.removeAttribute(attr));
-        const cls = (el.getAttribute("class") ?? "")
-          .split(/\s+/)
-          .filter(c => c && !/^mso/i.test(c) && !/^Mso/.test(c))
-          .join(" ");
-        if (cls) el.setAttribute("class", cls); else el.removeAttribute("class");
-      });
-      doc.querySelectorAll("o\\:p, v\\:shape, v\\:imagedata, v\\:roundrect, v\\:line, v\\:rect, v\\:textbox, w\\:wordDocument").forEach(el => el.remove());
-      doc.querySelectorAll("font").forEach(el => {
-        const span = doc.createElement("span");
-        Array.from(el.childNodes).forEach(child => span.appendChild(child));
-        el.replaceWith(span);
-      });
-      doc.querySelectorAll("table").forEach(table => {
-        const fragment = doc.createDocumentFragment();
-        table.querySelectorAll("td, th").forEach(cell => {
-          Array.from(cell.childNodes).forEach(child => fragment.appendChild(child));
-          fragment.appendChild(doc.createElement("br"));
-        });
-        table.replaceWith(fragment);
-      });
-      return doc.body.innerHTML;
-    } catch {
-      return html;
-    }
-  }
-
-  private sanitiseMarkdownForPaste(text: string): string {
-    let cleaned = text;
-    if (cleaned.startsWith("---\n")) {
-      const closingIdx = cleaned.indexOf("\n---", 4);
-      if (closingIdx > 0) {
-        const afterClosing = closingIdx + 4;
-        const newlineAfter = cleaned.indexOf("\n", afterClosing);
-        cleaned = cleaned.slice(newlineAfter > 0 ? newlineAfter + 1 : afterClosing);
-      }
-    }
-    cleaned = cleaned.replace(/<\/?(?:Tabs|Tab|Note|Tip|Warning|Steps|Step|Frame|Card|CardGroup|Accordion|AccordionGroup|CodeGroup|Info|Check|Callout)\b[^>]*>/gi, "");
-    cleaned = cleaned.replace(/^\s*```[a-zA-Z0-9]*\s+theme=\{null\}\s*$/gm, "```");
-    return cleaned;
   }
 
   public unwrapIfEnabled(text: string): string {
@@ -1700,7 +1043,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor.chain().focus().setTextSelection({ from: trimmedFrom, to: trimmedTo }).toggleMark(markName).run();
   }
 
-  toggleHeading(level: 2 | 3 | 4): void {
+  toggleHeading(level: 1 | 2 | 3 | 4 | 5 | 6): void {
     this.editor?.chain().focus().toggleHeading({ level }).run();
   }
 
@@ -2225,7 +1568,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     if (this.tokenPopupType === TokenPopupType.Field) {
       const raw = this.tokenFieldValue;
       if (raw) {
-        const token = raw.replace(/^\{\{\s*|\s*\}\}$/g, "");
+        const token = stripMergeFieldBraces(raw);
         this.editor.chain().focus().insertContent({type: MERGE_FIELD_NODE_NAME, attrs: {token}}).run();
       }
     } else {
@@ -2492,7 +1835,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     const target = event.target as HTMLSelectElement;
     const raw = target.value;
     if (raw && this.editor) {
-      const token = raw.replace(/^\{\{\s*|\s*\}\}$/g, "");
+      const token = stripMergeFieldBraces(raw);
       this.editor.chain().focus().setTextSelection(this.editor.state.selection.to).insertContent({ type: MERGE_FIELD_NODE_NAME, attrs: { token } }).run();
     }
     target.value = "";
