@@ -143,6 +143,7 @@ import { S3_BASE_URL } from "../../models/content-metadata.model";
 import { AwsFileUploadResponse } from "../../models/aws-object.model";
 import { NumberUtilsService } from "../../services/number-utils.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
+import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeQueryService } from "../../services/committee/committee-query.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { GoogleMapsService } from "../../services/google-maps.service";
@@ -883,9 +884,20 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 </select>
               </fieldset>
             }
-            <div class="alert alert-success">
-              <fa-icon [icon]="faCheckCircle" class="me-2"/>
-              <strong>Sender:</strong> Unbranded emails will go from your <strong>{{ senderInfo.description }}</strong> role ({{ senderInfo.name }} &lt;{{ senderInfo.email }}&gt;). Sign off the email however you like in the body.
+            <div class="alert alert-success d-flex align-items-start">
+              <fa-icon [icon]="faCheckCircle" class="me-2 mt-1 flex-shrink-0"/>
+              <div>
+                <strong class="d-block">Sender</strong>
+                Unbranded emails will go from your <strong>{{ senderInfo.description }}</strong> role ({{ senderInfo.name }} &lt;{{ senderInfo.email }}&gt;). Sign off the email however you like in the body.
+              </div>
+            </div>
+          } @else if (!unbrandedSenderCheckReady()) {
+            <div class="alert alert-warning d-flex align-items-start">
+              <fa-icon [icon]="faCircleInfo" class="me-2 mt-1 flex-shrink-0"/>
+              <div>
+                <strong class="d-block">Loading sender</strong>
+                Checking which committee role will send this email…
+              </div>
             </div>
           }
         }
@@ -1741,6 +1753,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private externalRecipientService = inject(ExternalRecipientService);
   private committeeQueryService = inject(CommitteeQueryService);
+  private committeeConfigService = inject(CommitteeConfigService);
   private committeeFileService = inject(CommitteeFileService);
   protected committeeDisplayService = inject(CommitteeDisplayService);
   private mediaQueryService = inject(MediaQueryService);
@@ -1868,9 +1881,15 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.applyUrlStateToComposer(paramMap);
       void this.applyCompositionFromRoute(paramMap);
     }));
+    this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
+      this.committeeReferenceData = data;
+      this.changeDetector.markForCheck();
+    }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
       this.mailMessagingConfig = config;
-      this.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
+      if (config.committeeReferenceData) {
+        this.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
+      }
       if (this.forcedConfigSlug) {
         this.forcedConfigId = this.resolveConfigIdFromSlug(this.forcedConfigSlug);
       }
@@ -1881,6 +1900,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       };
       this.autoSelectNotificationConfig();
       this.applyDefaultListIfNeeded();
+      this.changeDetector.markForCheck();
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
@@ -3889,14 +3909,24 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.recipientsStepErrors().join("; ");
   }
 
+  private committeeRolesReady(): boolean {
+    return !!this.committeeReferenceData;
+  }
+
+  protected unbrandedSenderCheckReady(): boolean {
+    return !!this.committeeReferenceData && !!this.mailMessagingConfig;
+  }
+
   templateStepErrors(): ValidationError[] {
     const errors: ValidationError[] = [];
     if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      if (!this.unbrandedSenderInfo().email) {
-        errors.push("You are not linked to a committee role with a valid email on this site - unbranded sends must come from a verified committee role address. Ask a site administrator to map your member record to a committee role, or switch to Branded mode.");
+      if (this.unbrandedSenderCheckReady() && !this.unbrandedSenderInfo().email) {
+        errors.push("You are not linked to a committee role with a valid email on this site. Emails are sent from a committee role address, so a site administrator needs to map your member record to a committee role before you can send.");
       }
     } else if (!this.state.notificationConfig) {
       errors.push("Choose an email type");
+    } else if (!this.committeeRolesReady()) {
+      return errors;
     } else {
       if (!this.state.notificationConfig.templateName) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
       if (!this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender role for this email type is not set up - configure it in ", "Mail Settings"));
@@ -3968,11 +3998,30 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   templateStepValid(): boolean {
-    return this.templateStepErrors().length === 0;
+    const errorsEmpty = this.templateStepErrors().length === 0;
+    let valid = errorsEmpty;
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      if (this.unbrandedSenderInfo().email) {
+        valid = errorsEmpty;
+      } else if (!this.unbrandedSenderCheckReady()) {
+        valid = false;
+      } else {
+        valid = errorsEmpty;
+      }
+    } else if (this.state.brandingMode === BrandingMode.BRANDED && this.state.notificationConfig && !this.committeeRolesReady()) {
+      valid = false;
+    }
+    return valid;
   }
 
   templateStepValidationMessage(): string {
-    return this.templateStepErrors().join("; ");
+    let message = this.templateStepErrors().join("; ");
+    if (this.state.brandingMode === BrandingMode.UNBRANDED && !this.unbrandedSenderInfo().email && !this.unbrandedSenderCheckReady()) {
+      message = "Loading committee roles…";
+    } else if (this.state.brandingMode === BrandingMode.BRANDED && this.state.notificationConfig && !this.committeeRolesReady()) {
+      message = "Loading committee roles…";
+    }
+    return message;
   }
 
   composeStepErrors(): string[] {

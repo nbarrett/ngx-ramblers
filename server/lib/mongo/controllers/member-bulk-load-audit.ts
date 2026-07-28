@@ -17,30 +17,38 @@ type MemberBulkLoadDateMapResult = {
 };
 
 export async function memberBulkLoadDateMap(req: Request, res: Response) {
-  const pipeline: PipelineStage[] = [
-    {$sort: {createdDate: -1}},
-    {$unwind: "$members"},
-    {$group: {
-      _id: "$members.membershipNumber",
-      lastBulkLoadDate: {$first: "$createdDate"}
-    }},
-    {$group: {
-      _id: null,
-      entries: {
-        $push: {
-          k: "$_id",
-          v: "$lastBulkLoadDate"
+  try {
+    const pipeline: PipelineStage[] = [
+      {$sort: {createdDate: -1}},
+      {$unwind: "$members"},
+      {$match: {
+        "members.membershipNumber": {$type: "string", $ne: ""}
+      }},
+      {$group: {
+        _id: "$members.membershipNumber",
+        lastBulkLoadDate: {$first: "$createdDate"}
+      }},
+      {$group: {
+        _id: null,
+        entries: {
+          $push: {
+            k: "$_id",
+            v: "$lastBulkLoadDate"
+          }
         }
-      }
-    }},
-    {$project: {
-      _id: 0,
-      dateMap: {$arrayToObject: "$entries"}
-    }}
-  ];
-  const results = await memberBulkLoadAudit.aggregate<MemberBulkLoadDateMapResult>(pipeline);
-  const dateMap = results[0]?.dateMap || {};
-  res.json(dateMap);
+      }},
+      {$project: {
+        _id: 0,
+        dateMap: {$arrayToObject: "$entries"}
+      }}
+    ];
+    const results = await memberBulkLoadAudit.aggregate<MemberBulkLoadDateMapResult>(pipeline);
+    const dateMap = results[0]?.dateMap || {};
+    res.json(dateMap);
+  } catch (error) {
+    debugLog("memberBulkLoadDateMap failed:", error);
+    res.status(500).json({message: "Failed to build member bulk load date map"});
+  }
 }
 
 export async function deleteMemberBulkLoadAudit(req: Request, res: Response) {
