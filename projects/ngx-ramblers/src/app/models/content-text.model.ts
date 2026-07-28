@@ -469,6 +469,7 @@ export interface AlbumData {
   gridViewOptions: GridViewOptions;
   galleryViewOptions: GalleryViewOptions;
   allowSwitchView: boolean;
+  allowSocialShare?: boolean;
   eventId: string;
   eventDate: number;
   eventType: string;

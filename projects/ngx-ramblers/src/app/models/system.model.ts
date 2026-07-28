@@ -258,10 +258,8 @@ export interface ExternalSystem {
 
 export interface Instagram extends ExternalSystem {
   groupName?: string;
-  accessToken?: string;
-  clientId?: string;
-  clientSecret?: string;
-  userId?: string;
+  igUserId?: string;
+  publishingEnabled?: boolean;
 }
 
 export interface Meetup extends ExternalSystem {
@@ -278,6 +276,10 @@ export interface Meetup extends ExternalSystem {
 export interface Facebook extends ExternalSystem {
   pagesUrl?: string;
   appId?: string;
+  appSecret?: string;
+  pageId?: string;
+  pageAccessToken?: string;
+  publishingEnabled?: boolean;
 }
 
 export interface Flickr extends ExternalSystem {

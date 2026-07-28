@@ -185,16 +185,17 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe((paramMap: ParamMap) => {
       const code = paramMap["code"];
-      if (code) {
+      if (code && paramMap["state"] === "meetup") {
         this.meetupAccessCode = code;
         this.logger.info("received meetupAccessCode:", this.meetupAccessCode);
         this.notify.warning({
           title: `Requesting Meetup Access Token`,
           message: `Using Access Code ${this.meetupAccessCode}`,
         });
-        return this.meetupService.requestAccess(this.meetupAccessCode)
+        this.meetupService.requestAccess(this.meetupAccessCode)
           .then(requestAccessResponse => {
             this.urlService.removeQueryParameter("code");
+            this.urlService.removeQueryParameter("state");
             this.logger.info("requestAccess requestAccessResponse", requestAccessResponse);
             this.notify.warning({
               title: `Meetup Access Response received`,
@@ -212,6 +213,8 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
               });
           }).catch(error => {
             this.logger.error("requestAccess error", error);
+            this.urlService.removeQueryParameter("code");
+            this.urlService.removeQueryParameter("state");
             this.notify.error({
               title: `Unexpected Error Occurred In Meetup Authentication`,
               message: error,

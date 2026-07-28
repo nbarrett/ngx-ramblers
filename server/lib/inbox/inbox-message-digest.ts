@@ -1,6 +1,7 @@
 import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { Brevo, BrevoClient } from "@getbrevo/brevo";
+import { AdminProfilePath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
@@ -193,7 +194,10 @@ function buildDigestHtml(items: DigestItem[], groupHref: string, groupShortName:
     </div>`;
   }).join("");
   const allInboxLink = groupHref ? `<p style="font-family:sans-serif"><a href="${groupHref}/admin/inbox" style="color:#c05711">Open the inbox</a></p>` : "";
-  const footer = `<p style="font-family:sans-serif;color:#888;font-size:0.85em">You're receiving this because you're assigned to the ${escapeHtml(items[0].role.description || items[0].role.type)} committee role and inbox notifications are enabled for it. A member administrator can turn these off in the Gmail inbox settings.</p>`;
+  const emailSubscriptionsLink = groupHref
+    ? `<a href="${groupHref}/${AdminProfilePath.EMAIL_SUBSCRIPTIONS}" style="color:#c05711">Email Subscriptions</a>`
+    : "Email Subscriptions";
+  const footer = `<p style="font-family:sans-serif;color:#888;font-size:0.85em">You're receiving this because you're assigned to the ${escapeHtml(items[0].role.description || items[0].role.type)} committee role and inbox notifications are enabled for it. You can change or turn off these notifications yourself on the ${emailSubscriptionsLink} page in your profile.</p>`;
   return `<div style="max-width:640px">${heading}${rows}${allInboxLink}${footer}</div>`;
 }
 
