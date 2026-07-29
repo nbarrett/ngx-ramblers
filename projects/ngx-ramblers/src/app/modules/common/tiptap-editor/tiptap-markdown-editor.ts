@@ -34,6 +34,7 @@ import {
   faBolt,
   faCode,
   faEnvelope,
+  faExternalLinkAlt,
   faHeading,
   faImage,
   faItalic,
@@ -89,7 +90,7 @@ import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/compat";
-import { isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste } from "./tiptap-paste";
+import { htmlHasRichFormatting, isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste } from "./tiptap-paste";
 import { EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
 
@@ -110,9 +111,11 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
          [style.left.px]="clickToEditHintX"
          [style.top.px]="clickToEditHintY">Click to edit</div>
   }
-  @if (editable && toolbarExpanded) {
+  <div class="tiptap-sticky-region" [class.tiptap-sticky-region-active]="stickyToolbar">
+  @if (editable && (toolbarExpanded || sourceMode)) {
   <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
        role="toolbar" (mousedown)="onToolbarMousedown($event)">
+    @if (!sourceMode) {
     <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
       <fa-icon [icon]="faBold"/>
     </button>
@@ -254,10 +257,25 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
             [disabled]="!canRedo" (click)="redo()">
       <fa-icon [icon]="faRedo"/>
     </button>
+    <span class="toolbar-divider"></span>
+    }
+    <button type="button" class="toolbar-text-toggle" [class.is-active]="sourceMode"
+            [tooltip]="sourceMode ? 'Back to formatted editing' : 'Edit the markdown source directly'"
+            container="body" delay=500 (click)="toggleSourceMode()">
+      <fa-icon [icon]="faCode" class="me-1"/>{{ sourceMode ? "Formatted" : "Markdown" }}
+    </button>
   </div>
   }
   @if (linkBarOpen) {
     <div class="link-url-bar">
+      <label class="link-url-label" for="tiptap-link-text">Link text</label>
+      <input id="tiptap-link-text"
+             type="text"
+             class="form-control form-control-sm link-url-input"
+             name="tiptap-link-text"
+             [(ngModel)]="linkText"
+             placeholder="The words the reader sees"
+             (keyup.enter)="confirmLink()">
       <label class="link-url-label" for="tiptap-link-url">Link URL</label>
       <input #linkUrlInput
              id="tiptap-link-url"
@@ -273,6 +291,11 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       <div class="link-url-actions">
         <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
         <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
+        <button type="button" class="btn btn-sm btn-secondary" [disabled]="!linkUrl?.trim()"
+                tooltip="Open this link in a new tab — your editing stays as it is" container="body" delay=500
+                (click)="openLinkInNewTab(linkUrl)">
+          <fa-icon [icon]="faExternalLinkAlt" class="me-1"/>Open in new tab
+        </button>
         @if (isActive("link")) {
           <button type="button" class="btn btn-sm btn-secondary" (click)="removeLink()">Remove link</button>
         }
@@ -316,6 +339,7 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       </div>
     </div>
   }
+  </div>
   @if (imageCropperOpen) {
     <div class="inline-input-bar" style="display:block">
       <div class="d-flex justify-content-between align-items-center mb-2">
@@ -334,7 +358,17 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       <span class="token-editor-title">Uploading pasted image…</span>
     </div>
   }
+  @if (sourceMode) {
+    <textarea class="tiptap-source-editor form-control"
+              spellcheck="false"
+              [attr.aria-label]="'Markdown source'"
+              [ngModel]="sourceMarkdown"
+              name="tiptap-source"
+              (ngModelChange)="onSourceMarkdownChange($event)"></textarea>
+  }
   <div class="tiptap-content"
+       [class.tiptap-content-empty]="documentEmpty && editable"
+       [class.tiptap-content-hidden]="sourceMode"
        [class.show-examples]="showExampleValues"
        [class.email-width]="constrainToEmailWidth && !editable"
        [ngClass]="contentClass">
@@ -444,7 +478,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   @Input() set value(markdown: string) {
     const incoming = markdown ?? "";
-    if (this.editor) {
+    if (this.sourceMode) {
+      this.sourceMarkdown = incoming;
+    } else if (this.editor) {
       const current = this.currentMarkdown();
       if (incoming !== current) {
         this.editor.commands.setContent(incoming, { contentType: "markdown", emitUpdate: false });
@@ -586,6 +622,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected cropperPreloadSrc: string | null = null;
   protected replaceSelectedImageOnSave: boolean = false;
   protected linkUrl: string = "";
+  protected linkText: string = "";
+  protected documentEmpty: boolean = true;
+  protected sourceMode: boolean = false;
+  protected sourceMarkdown: string = "";
   protected linkHrefMissing = false;
   protected contactBarOpen = false;
   protected contactRoles: CommitteeMember[] = [];
@@ -632,6 +672,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faImage = faImage;
   protected readonly faItalic = faItalic;
   protected readonly faLink = faLink;
+  protected readonly faExternalLinkAlt = faExternalLinkAlt;
   protected readonly faEnvelope = faEnvelope;
   protected readonly faListOl = faListOl;
   protected readonly faListUl = faListUl;
@@ -704,6 +745,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
           const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
           const internalPaste = isInternalPaste(pastedHtml);
+          const richTextPaste = !internalPaste && htmlHasRichFormatting(pastedHtml);
           const text = event.clipboardData?.getData("text/plain") ?? "";
           const consumed = {value: false};
           let handled = false;
@@ -722,7 +764,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
             if (consumed.value) {
               event.preventDefault();
               handled = true;
-            } else if (!internalPaste && text && this.looksLikeMarkdown(text)) {
+            } else if (!internalPaste && !richTextPaste && text && this.looksLikeMarkdown(text)) {
               event.preventDefault();
               const sanitised = this.unwrapIfEnabled(sanitiseMarkdownForPaste(text));
               try {
@@ -732,7 +774,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
                 this.editor?.commands.insertContent(sanitised);
               }
               handled = true;
-            } else if (!internalPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
+            } else if (!internalPaste && !richTextPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
               event.preventDefault();
               const html = unwrapSoftLineBreaks(text)
                 .split(/\n{2,}/)
@@ -863,7 +905,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private calmHintActive(): boolean {
-    return this.editable && !this.toolbarExpanded;
+    return this.editable && !this.toolbarExpanded && !this.sourceMode;
   }
 
   private scheduleClickToEditHint(event: PointerEvent): void {
@@ -901,15 +943,17 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private exitDetailMode(): void {
-    this.toolbarExpanded = false;
-    this.linkBarOpen = false;
-    this.contactBarOpen = false;
-    this.tablePickerOpen = false;
-    this.insertLinkMode = false;
-    this.mergeFieldSelected = false;
-    this.linkTokenSelected = false;
-    this.imageSelected = false;
-    this.changeDetector.markForCheck();
+    if (!this.sourceMode) {
+      this.toolbarExpanded = false;
+      this.linkBarOpen = false;
+      this.contactBarOpen = false;
+      this.tablePickerOpen = false;
+      this.insertLinkMode = false;
+      this.mergeFieldSelected = false;
+      this.linkTokenSelected = false;
+      this.imageSelected = false;
+      this.changeDetector.markForCheck();
+    }
   }
 
   private hostContainsActiveElement(): boolean {
@@ -1561,6 +1605,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   private populateLinkBar(domLink: HTMLAnchorElement | null): void {
     this.linkUrl = this.editorLinkHref(domLink);
+    this.linkText = this.selectedPlainText();
     this.linkHrefMissing = this.editor?.isActive("link") === true && !this.linkUrl;
     this.imageCropperOpen = false;
     this.linkBarOpen = true;
@@ -1577,6 +1622,25 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     });
   }
 
+  public insertMarkdownAtCursor(markdown: string): void {
+    const content = (markdown ?? "").trim();
+    if (content) {
+      if (this.sourceMode) {
+        this.onSourceMarkdownChange(`${this.sourceMarkdown}${this.sourceMarkdown.endsWith("\n") ? "" : "\n\n"}${content}\n`);
+      } else {
+        this.enterDetailMode();
+        this.editor?.chain().focus().insertContent(content, {contentType: "markdown"}).run();
+      }
+    }
+  }
+
+  protected openLinkInNewTab(url: string): void {
+    const href = (url ?? "").trim();
+    if (href) {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  }
+
   private handleEditableLinkClick(view: {editable: boolean; dom: HTMLElement}, event: Event): boolean {
     let handled = false;
     if (view.editable && this.editable) {
@@ -1585,15 +1649,21 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       if (link && view.dom.contains(link)) {
         event.preventDefault();
         event.stopPropagation();
+        const mouseEvent = event as MouseEvent;
+        const openRequested = mouseEvent.metaKey || mouseEvent.ctrlKey;
         this.zone.run(() => {
-          this.enterDetailMode();
-          this.editor?.chain().focus().extendMarkRange("link").run();
           const href = this.editorLinkHref(link);
-          if (isContactUsHref(href)) {
-            this.openContactButtonBar(href);
+          if (openRequested) {
+            this.openLinkInNewTab(href);
           } else {
-            this.contactBarOpen = false;
-            this.populateLinkBar(link);
+            this.enterDetailMode();
+            this.editor?.chain().focus().extendMarkRange("link").run();
+            if (isContactUsHref(href)) {
+              this.openContactButtonBar(href);
+            } else {
+              this.contactBarOpen = false;
+              this.populateLinkBar(link);
+            }
           }
         });
         handled = true;
@@ -1603,24 +1673,37 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   cancelLinkBar(): void {
+    this.closeLinkBar();
+  }
+
+  private closeLinkBar(): void {
     this.linkBarOpen = false;
     this.linkUrl = "";
+    this.linkText = "";
     this.linkHrefMissing = false;
+  }
+
+  private applyLinkTextAndHref(url: string, text: string): boolean {
+    return this.editor.chain().focus().extendMarkRange("link")
+      .insertContent({type: "text", text, marks: [{type: "link", attrs: {href: url}}]})
+      .run();
   }
 
   confirmLink(): void {
     if (this.editor) {
       const url = (this.linkUrl ?? "").trim();
+      const text = (this.linkText ?? "").trim();
       if (!url) {
         this.removeLink();
       } else {
-        const applied = this.editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+        const textChanged = !!text && text !== this.selectedPlainText();
+        const applied = textChanged
+          ? this.applyLinkTextAndHref(url, text)
+          : this.editor.chain().focus().extendMarkRange("link").setLink({href: url}).run();
         if (!applied) {
-          this.logger.warn("setLink rejected href:", url);
+          this.logger.warn("link update rejected for href:", url);
         } else {
-          this.linkBarOpen = false;
-          this.linkUrl = "";
-          this.linkHrefMissing = false;
+          this.closeLinkBar();
         }
       }
     }
@@ -1628,9 +1711,41 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   removeLink(): void {
     this.editor?.chain().focus().extendMarkRange("link").unsetLink().run();
-    this.linkBarOpen = false;
-    this.linkUrl = "";
-    this.linkHrefMissing = false;
+    this.closeLinkBar();
+  }
+
+  toggleSourceMode(): void {
+    if (this.sourceMode) {
+      this.editor?.commands.setContent(this.sourceMarkdown ?? "", {contentType: "markdown", emitUpdate: false});
+      this.sourceMode = false;
+      this.queueMermaidPreviewRefresh();
+      this.valueChange.emit(this.currentMarkdown());
+    } else {
+      this.closeLinkBar();
+      this.contactBarOpen = false;
+      this.sourceMarkdown = this.currentMarkdown();
+      this.sourceMode = true;
+      this.enterDetailMode();
+      this.autosizeSourceEditor();
+    }
+  }
+
+  onSourceMarkdownChange(markdown: string): void {
+    this.sourceMarkdown = markdown ?? "";
+    this.valueChange.emit(this.sourceMarkdown);
+    this.autosizeSourceEditor();
+  }
+
+  private autosizeSourceEditor(): void {
+    this.zone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        const textarea = this.host.nativeElement.querySelector(".tiptap-source-editor") as HTMLTextAreaElement | null;
+        if (textarea) {
+          textarea.style.height = "auto";
+          textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+      });
+    });
   }
 
   openLinkTokenInsert(): void {
@@ -1920,13 +2035,15 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private refreshHistoryState(): void {
-    if (!this.editor) {
+    if (this.editor) {
+      this.canUndo = undoDepth(this.editor.state) > 0;
+      this.canRedo = redoDepth(this.editor.state) > 0;
+      this.documentEmpty = this.editor.isEmpty;
+    } else {
       this.canUndo = false;
       this.canRedo = false;
-      return;
+      this.documentEmpty = true;
     }
-    this.canUndo = undoDepth(this.editor.state) > 0;
-    this.canRedo = redoDepth(this.editor.state) > 0;
   }
 
   private clearEditorHistory(): void {

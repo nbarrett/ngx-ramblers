@@ -6,9 +6,10 @@ import { resolveClientPath } from "../../shared/path-utils";
 const debugLog = debug(envConfig.logNamespace("brevo:local-template-reader"));
 
 export const BREVO_TEMPLATES_DIR = "projects/ngx-ramblers/src/brevo/templates";
+const TEMPLATE_EXTENSION = ".md";
 
 export function localTemplatePath(templateName: string): string {
-  return resolveClientPath(`${BREVO_TEMPLATES_DIR}/${templateName}.html`);
+  return resolveClientPath(`${BREVO_TEMPLATES_DIR}/${templateName}${TEMPLATE_EXTENSION}`);
 }
 
 export function readLocalTemplate(templateName: string): string | null {
@@ -30,6 +31,6 @@ export function localTemplateNames(): string[] {
     return [];
   }
   return readdirSync(dirPath)
-    .filter((file: string) => file.endsWith(".html"))
-    .map((file: string) => file.replace(/\.html$/, ""));
+    .filter((file: string) => file.endsWith(TEMPLATE_EXTENSION))
+    .map((file: string) => file.replace(/\.md$/, ""));
 }

@@ -2,6 +2,21 @@ export function isInternalPaste(html: string): boolean {
   return !!html && html.includes("data-pm-slice");
 }
 
+const RICH_FORMATTING_SELECTOR = "a[href], strong, b, em, i, u, s, strike, del, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, img";
+
+export function htmlHasRichFormatting(html: string): boolean {
+  let rich = false;
+  if (html) {
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      rich = !!doc.body.querySelector(RICH_FORMATTING_SELECTOR);
+    } catch {
+      rich = false;
+    }
+  }
+  return rich;
+}
+
 export function sanitiseHtmlForPaste(html: string): string {
   let result = html;
   if (html) {

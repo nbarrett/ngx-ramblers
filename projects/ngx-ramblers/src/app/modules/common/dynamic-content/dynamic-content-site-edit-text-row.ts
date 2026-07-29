@@ -213,6 +213,13 @@ import { ClipboardService } from "../../../services/clipboard.service";
                                         (click)="actions.deleteColumn(row, columnIndex, pageContent)"
                                         [icon]="faRemove"
                                         [tooltip]="'Delete column'"/>
+                      @if (!showContentTextEditor(column)) {
+                        <app-badge-button noRightMargin
+                                          (click)="revealContentTextEditor(column)"
+                                          [icon]="faAdd"
+                                          caption="add text"
+                                          [tooltip]="'Add text to this column'"/>
+                      }
                       @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
                         <app-badge-button noRightMargin
                                           (click)="joinWithPreviousRow()"
@@ -352,6 +359,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                         }
                         @if (showContentTextEditor(column)) {
                           <app-content-text-editor class="w-100"
+                                               [autoFocus]="textEditorJustRevealed(column)"
                                                (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
                                                (split)="onSplit($event, rowIndex, columnIndex)"
                                                (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)"
@@ -394,12 +402,6 @@ import { ClipboardService } from "../../../services/clipboard.service";
                           </div>
                           @if (!column.imageSource && !isNarrow(column)) {
                             <ng-container [ngTemplateOutlet]="placeholderToggle"></ng-container>
-                          }
-                          @if (columnHasMedia(column) && !showContentTextEditor(column)) {
-                            <app-badge-button class="ms-2"
-                                              [icon]="faAdd"
-                                              caption="add text"
-                                              (click)="revealContentTextEditor(column)"/>
                           }
                         </div>
                       }
@@ -864,6 +866,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   private uniqueCheckboxId: string;
   private controlsVisible = new WeakMap<PageContentColumn, boolean>();
   private textEditorRevealed = new WeakMap<PageContentColumn, boolean>();
+  private textEditorAwaitingFocus: PageContentColumn = null;
   protected readonly faRemove = faRemove;
   protected readonly faArrowUp = faArrowUp;
   protected readonly faArrowDown = faArrowDown;
@@ -1348,9 +1351,14 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   revealContentTextEditor(column: PageContentColumn) {
     this.textEditorRevealed.set(column, true);
+    this.textEditorAwaitingFocus = column;
     if (isUndefined(column.contentText) || isNull(column.contentText)) {
       column.contentText = "";
     }
+  }
+
+  textEditorJustRevealed(column: PageContentColumn): boolean {
+    return this.textEditorAwaitingFocus === column;
   }
 
   onNestedRowTypeChange(row: PageContentRow) {

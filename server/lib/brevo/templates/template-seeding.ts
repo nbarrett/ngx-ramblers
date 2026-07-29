@@ -1,7 +1,8 @@
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { createOrUpdateTemplate, findTemplateByName } from "./template-management";
-import { localTemplateNames, readLocalTemplate } from "./local-template-reader";
+import { localTemplateNames } from "./local-template-reader";
+import { localTemplateHtml } from "../common/messages";
 import { logBrevoError } from "../common/error-log";
 
 const debugLog = debug(envConfig.logNamespace("brevo:template-seeding"));
@@ -26,7 +27,7 @@ export async function seedBrevoTemplatesFromLocal(): Promise<SeedBrevoTemplatesR
   debugLog("Seeding Brevo templates from local", templateNames.length);
 
   for (const templateName of templateNames) {
-    const htmlContent = readLocalTemplate(templateName);
+    const htmlContent = localTemplateHtml(templateName);
     if (!htmlContent) {
       skippedCount += 1;
       continue;

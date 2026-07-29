@@ -10,6 +10,7 @@ import {
   extractContentBlockKeys,
   renderBrandedTemplate,
   renderLocalBrandedTemplate,
+  renderTemplateMarkdownToHtml,
   sanitiseBrevoTemplate,
   wrapMergeFieldsAsFroalaPlaceholders
 } from "./messages";
@@ -307,6 +308,33 @@ describe("brevo messages", () => {
     });
   });
 
+  describe("renderTemplateMarkdownToHtml", () => {
+
+    it("renders markdown to html while leaving template directives and merge fields intact", () => {
+      const result = renderTemplateMarkdownToHtml("#### Walks\n\n{% block WALKS_SECTION %}\n\nSee our [walks]({{params.systemMergeFields.APP_URL}}/walks).\n\n{% endblock %}");
+      expect(result).toContain("<h4>Walks</h4>");
+      expect(result).toContain("{% block WALKS_SECTION %}");
+      expect(result).toContain("{% endblock %}");
+      expect(result).toContain(`href="{{params.systemMergeFields.APP_URL}}/walks"`);
+      expect(result).not.toContain("%7B%7B");
+    });
+
+    it("gives markdown tables borders that survive email clients", () => {
+      const result = renderTemplateMarkdownToHtml("| Membership Id | Expiration Date |\n| --- | --- |\n| {{params.memberMergeFields.MEMBER_NUM}} | {{params.memberMergeFields.MEMBER_EXP}} |");
+      expect(result).toContain("<table style=\"border-collapse:collapse");
+      expect(result).toContain("{{params.memberMergeFields.MEMBER_NUM}}");
+      expect(result).toContain("border:1px solid #ced4da");
+    });
+
+    it("leaves body content merge fields unwrapped so supplied html is not nested inside a paragraph", () => {
+      const result = renderTemplateMarkdownToHtml("{{params.messageMergeFields.BODY_CONTENT_TOP}}\n\nSome wording.\n\n{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}");
+      expect(result).toContain("{{params.messageMergeFields.BODY_CONTENT_TOP}}");
+      expect(result).not.toContain("<p>{{params.messageMergeFields.BODY_CONTENT_TOP}}</p>");
+      expect(result).not.toContain("<p>{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}</p>");
+      expect(result).toContain("<p>Some wording.</p>");
+    });
+  });
+
   describe("renderLocalBrandedTemplate", () => {
 
     const paramsWith = (passwordResetLink: string, bodyContent = "") => ({
@@ -339,12 +367,23 @@ describe("brevo messages", () => {
       }
     });
 
-    it("renders welcome-to-the-group from the repo file with PW_RESET_LINK resolved and not mangled", () => {
+    it("renders the markdown welcome-to-the-group from the repo file as html, with merge fields resolved", () => {
+      const result = renderLocalBrandedTemplate("welcome-to-the-group", paramsWith("https://example.org.uk/admin/set-password/abc-def-123"));
+      expect(result).toContain("Welcome to <a href=\"https://example.org.uk\"");
+      expect(result).toContain("East Kent Walking Group");
+      expect(result).toContain("https://example.org.uk/walks");
+      expect(result).toContain("https://example.org.uk/social");
+      expect(result).toContain("<h4>");
+      expect(result).not.toContain("{% block");
+      expect(result).not.toContain("%7B%7B");
+    });
+
+    it("leaves login and account activation out of the welcome email", () => {
       const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
       const result = renderLocalBrandedTemplate("welcome-to-the-group", paramsWith(passwordResetLink));
-      expect(result).toContain(passwordResetLink);
-      expect(result).not.toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
-      expect(result).not.toContain("%7B%7B");
+      expect(result).not.toContain(passwordResetLink);
+      expect(result).not.toContain("PW_RESET_LINK");
+      expect(result).not.toContain("Activate");
     });
 
     it("renders website-and-login-details from the repo file with PW_RESET_LINK resolved and not mangled", () => {
