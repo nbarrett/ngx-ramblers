@@ -25,7 +25,8 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                                    [queryCompleted]="queryCompleted"
                                    [contentPath]="contentPath"
                                    [contentDescription]="contentDescription"
-                                   [defaultPageContent]="defaultPageContent"/>
+                                   [defaultPageContent]="defaultPageContent"
+                                   (pageContentDeleted)="onPageContentDeleted()"/>
     <app-dynamic-content-view [pageContent]="pageContent"
                               [notify]="notify"
                               [contentPath]="contentPath"
@@ -107,6 +108,13 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
     this.pageTitle = this.pageService.pageSubtitle();
     this.logger.info("Finding page content for " + this.contentPath);
+    this.pageContent = null;
+    this.queryCompleted = false;
+    this.refreshPageContent();
+  }
+
+  onPageContentDeleted(): void {
+    this.logger.info("page content deleted for", this.contentPath, "- refreshing to show not found view");
     this.pageContent = null;
     this.queryCompleted = false;
     this.refreshPageContent();

@@ -1,9 +1,16 @@
-import { Component, Input, OnChanges, OnInit, inject } from "@angular/core";
+import { Component, Input, OnChanges, OnInit, ViewChild, inject } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faRotateLeft } from "@fortawesome/free-solid-svg-icons";
-import { startCase } from "es-toolkit/compat";
+import { faRotateLeft, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { keys, startCase } from "es-toolkit/compat";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
-import { NotificationConfig } from "../../../../models/mail.model";
+import {
+  NotificationConfig,
+  overrideKeyToLabel,
+  TemplateOverrides,
+  TemplateOverrideState,
+  TemplateOverrideType,
+  UnusedTemplateImage
+} from "../../../../models/mail.model";
 import { MemberMergeFieldHint } from "../../../../models/email-composer.model";
 import { registerExampleValues, registerLinkDestinations } from "../../../../functions/merge-fields";
 import { TiptapMarkdownEditor } from "../../../../modules/common/tiptap-editor/tiptap-markdown-editor";
@@ -64,9 +71,37 @@ function pageLabel(path: string): string {
                 </div>
               }
             </div>
+            @if (unusedImageOverrides.length > 0) {
+              <div class="col-sm-12 mb-2">
+                <div class="alert alert-warning">
+                  <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                  <strong>Images not used by this template</strong>
+                  <div class="mt-1">
+                    <small>These images were set up for sections this email no longer has. They are not sent to anyone.
+                      Insert one to place it where your cursor is, or discard it if it is no longer wanted.</small>
+                  </div>
+                  @for (override of unusedImageOverrides; track override.key) {
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                      <img class="unused-override-thumbnail" [src]="override.imageUrl" [alt]="override.label">
+                      <div class="flex-grow-1">
+                        <div>{{ override.label }}</div>
+                        <small class="text-muted text-break">{{ override.imageUrl }}</small>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-primary text-nowrap"
+                              (click)="insertUnusedImage(override)">Insert
+                      </button>
+                      <button type="button" class="btn btn-sm btn-secondary text-nowrap"
+                              (click)="discardUnusedImage(override)">Discard
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
             @if (ready) {
               <div class="col-sm-12">
-                <app-tiptap-markdown-editor [value]="notificationConfig.body || ''"
+                <app-tiptap-markdown-editor #bodyEditor
+                                            [value]="notificationConfig.body || ''"
                                             [showMergeFields]="true"
                                             [constrainToEmailWidth]="true"
                                             [stickyToolbar]="true"
@@ -78,11 +113,20 @@ function pageLabel(path: string): string {
           }
         }
       </div>
-    </div>`
+    </div>`,
+  styles: [`
+    .unused-override-thumbnail
+      width: 64px
+      height: 48px
+      object-fit: cover
+      border: 1px solid #ced4da
+      border-radius: 3px
+  `]
 })
 export class EmailBodyEditorComponent implements OnInit, OnChanges {
   @Input() notificationConfig: NotificationConfig;
   @Input() isBuiltInProcess = false;
+  @ViewChild("bodyEditor") private bodyEditor: TiptapMarkdownEditor;
   private mailService = inject(MailService);
   private mailMessagingService = inject(MailMessagingService);
   private legacyUrlMappingService = inject(LegacyUrlMappingService);
@@ -90,7 +134,10 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   protected ready = false;
   protected busy = false;
   protected internalPageDestinations: MemberMergeFieldHint[] = [];
+  protected unusedImageOverrides: UnusedTemplateImage[] = [];
+  private templateOverrideKeys: string[] = [];
   protected readonly faRotateLeft = faRotateLeft;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly contentSourceTabs: SectionToggleTab[] = [
     {value: "written", label: "Written here"},
     {value: "composer", label: "Composed in Email Composer"}
@@ -118,18 +165,70 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
     return startCase(templateName);
   }
 
+  private imageOverridesWithinBody(body: string): TemplateOverrides {
+    const overrides: TemplateOverrides = {};
+    [...(body || "").matchAll(/!\[([A-Z][A-Z0-9_]*)]\(([^)\s]+)[^)]*\)/g)]
+      .filter(match => (match[2] || "").trim())
+      .forEach(match => {
+        overrides[match[1]] = {
+          type: TemplateOverrideType.IMAGE,
+          state: TemplateOverrideState.CUSTOM,
+          imageUrl: match[2].trim()
+        };
+      });
+    return overrides;
+  }
+
+  private overridesPreservingImages(): TemplateOverrides {
+    const configured = this.notificationConfig?.templateOverrides || {};
+    const withinBody = this.imageOverridesWithinBody(this.notificationConfig?.body);
+    const preserved = {...withinBody, ...configured};
+    this.notificationConfig.templateOverrides = preserved;
+    return preserved;
+  }
+
   async resetToTemplate(templateName: string): Promise<void> {
     this.busy = true;
     this.ready = false;
     try {
-      const response = await this.mailService.editableBody({templateName});
+      const response = await this.mailService.editableBody({templateName, templateOverrides: this.overridesPreservingImages()});
       this.notificationConfig.body = response.body;
+      await this.refreshUnusedImageOverrides(templateName);
     } catch (error) {
       this.logger.error("failed to reset to template", templateName, error);
     } finally {
       this.busy = false;
       this.ready = true;
     }
+  }
+
+  private async refreshUnusedImageOverrides(templateName: string): Promise<void> {
+    try {
+      const response = await this.mailService.templateDiff({templateName});
+      this.templateOverrideKeys = response.overrideKeys || [];
+      this.recalculateUnusedImageOverrides();
+    } catch (error) {
+      this.logger.error("failed to read template override keys", templateName, error);
+    }
+  }
+
+  private recalculateUnusedImageOverrides(): void {
+    const overrides = this.notificationConfig?.templateOverrides || {};
+    const body = this.notificationConfig?.body || "";
+    this.unusedImageOverrides = keys(overrides)
+      .filter(key => !this.templateOverrideKeys.includes(key))
+      .filter(key => !body.includes(`![${key}]`))
+      .map(key => ({key, label: overrideKeyToLabel(key), imageUrl: overrides[key]?.imageUrl}))
+      .filter(unused => !!unused.imageUrl);
+  }
+
+  protected insertUnusedImage(unused: UnusedTemplateImage): void {
+    this.bodyEditor?.insertMarkdownAtCursor(`![${unused.key}](${unused.imageUrl})`);
+  }
+
+  protected discardUnusedImage(unused: UnusedTemplateImage): void {
+    delete this.notificationConfig.templateOverrides[unused.key];
+    this.recalculateUnusedImageOverrides();
   }
 
   private registerExampleParams(): void {
@@ -218,6 +317,7 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
       if (!this.isAutomaticallyGenerated && this.notificationConfig.body == null) {
         this.notificationConfig.body = response.body;
       }
+      await this.refreshUnusedImageOverrides(this.notificationConfig.templateName);
     } catch (error) {
       this.logger.error("failed to load editable body", error);
     } finally {
@@ -227,5 +327,6 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
 
   onBodyChange(value: string): void {
     this.notificationConfig.body = value;
+    this.recalculateUnusedImageOverrides();
   }
 }

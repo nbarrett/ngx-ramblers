@@ -1412,6 +1412,12 @@ export function extractOverrideKeys(html: string): string[] {
   return [...new Set(matches.map(m => m.replace(/\{\{override\.|}}/g, "")))];
 }
 
+export interface UnusedTemplateImage {
+  key: string;
+  label: string;
+  imageUrl: string;
+}
+
 export function overrideKeyToLabel(key: string): string {
   return key.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }

@@ -151,6 +151,38 @@
   z-index: 20
   background-color: #f8f9fa
 
+.tiptap-sticky-region-active
+  position: sticky
+  top: var(--tiptap-toolbar-offset, 0)
+  z-index: 20
+  background-color: #f8f9fa
+
+.tiptap-sticky-region-active .tiptap-toolbar.tiptap-toolbar-sticky
+  position: static
+
+.tiptap-source-editor
+  width: 100%
+  min-height: 120px
+  height: auto
+  border: none
+  border-radius: 0
+  padding: 12px 14px
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace
+  font-size: 0.85rem
+  line-height: 1.55
+  resize: vertical
+  white-space: pre-wrap
+  overflow-wrap: anywhere
+  overflow-x: hidden
+  overflow-y: auto
+
+.tiptap-source-editor:focus
+  outline: none
+  box-shadow: none
+
+.tiptap-content-hidden
+  display: none
+
 .tiptap-toolbar button
   background: transparent
   border: 1px solid transparent
@@ -428,6 +460,12 @@
 .tiptap-content.email-width .ProseMirror
   min-height: 160px
 
+.tiptap-content .ProseMirror li > p
+  margin-bottom: 0
+
+.tiptap-content .ProseMirror li > p + p
+  margin-top: 0.5rem
+
 .tiptap-content .ProseMirror ul
   list-style: revert
   padding-left: revert
@@ -544,12 +582,16 @@
   font-weight: bold
   text-align: left
 
-.tiptap-content .ProseMirror p.is-editor-empty:first-child::before
+.tiptap-content .ProseMirror
+  position: relative
+
+.tiptap-content.tiptap-content-empty .ProseMirror::before
   content: attr(data-placeholder)
-  float: left
+  position: absolute
+  top: 0
+  left: 0
   color: #adb5bd
   pointer-events: none
-  height: 0
 
 .inline-input-bar
   display: flex

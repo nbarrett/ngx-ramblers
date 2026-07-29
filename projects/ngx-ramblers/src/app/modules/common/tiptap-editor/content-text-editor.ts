@@ -1,4 +1,6 @@
 import {
+  AfterViewInit,
+  booleanAttribute,
   Component,
   EventEmitter,
   inject,
@@ -408,7 +410,7 @@ import { ContentTextUnsavedChangesService } from "../../../services/content-text
   `,
   imports: [TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ContentFormattingSelectorComponent, TiptapMarkdownEditor]
 })
-export class ContentTextEditor implements OnInit, OnDestroy {
+export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ContentTextEditor", NgxLoggerLevel.ERROR);
   private config = inject(ConfigService);
   private contentTextUnsavedChanges = inject(ContentTextUnsavedChangesService);
@@ -483,6 +485,7 @@ export class ContentTextEditor implements OnInit, OnDestroy {
   private injector = inject(Injector);
   private systemConfig: SystemConfig;
   @Input() initialView: View;
+  @Input({transform: booleanAttribute}) autoFocus = false;
   @Input() description: string;
   @Input() parentRowColumnCount: number;
   @Input() insertableFields: InsertableField[] = [];
@@ -533,6 +536,12 @@ export class ContentTextEditor implements OnInit, OnDestroy {
   public pastePromptCustomUrl = "";
   public pastePromptShowSaveToConfigPrompt = false;
   public pastePromptSaveToConfig = false;
+
+  ngAfterViewInit(): void {
+    if (this.autoFocus && this.canEditContent()) {
+      this.tiptapEditor?.focusAtEnd();
+    }
+  }
 
   async ngOnInit() {
     this.logger.info("ngOnInit:name", this.content?.name, "data:", this.data, "description:", this.description);

@@ -1,8 +1,8 @@
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import { handleError, successfulResponse } from "../common/messages";
-import { localTemplateNames, readLocalTemplate } from "./local-template-reader";
+import { handleError, localTemplateHtml, successfulResponse } from "../common/messages";
+import { localTemplateNames } from "./local-template-reader";
 
 const messageType = "brevo:local-template-content";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -11,7 +11,7 @@ debugLog.enabled = false;
 export async function localTemplateContent(req: Request, res: Response): Promise<void> {
   try {
     const templateName: string = req.body?.templateName;
-    const htmlContent: string | null = templateName ? readLocalTemplate(templateName) : null;
+    const htmlContent: string | null = templateName ? localTemplateHtml(templateName) : null;
     debugLog("local template content for", templateName, "length:", htmlContent?.length || 0);
     successfulResponse({req, res, response: {templateName, htmlContent}, messageType, debugLog});
   } catch (error) {

@@ -1,23 +1,17 @@
 import { Db, MongoClient } from "mongodb";
-import { readFileSync } from "fs";
 import createMigrationLogger from "../migrations-logger";
 import { createOrUpdateTemplate } from "../../../brevo/templates/template-management";
 import { configuredBrevo } from "../../../brevo/brevo-config";
-import { localTemplatePath } from "../../../brevo/templates/local-template-reader";
+import { localTemplateHtml } from "../../../brevo/common/messages";
 import { isObject } from "es-toolkit/compat";
 
 const debugLog = createMigrationLogger("update-brevo-transactional-template");
 const TEMPLATE_NAME = "fully-automated-text-body";
 const TEMPLATE_SUBJECT = "{{params.messageMergeFields.subject}}";
 
-function templateHtmlPath(): string {
-  return localTemplatePath(TEMPLATE_NAME);
-}
-
 function readTemplateHtml(): string {
-  const templatePath = templateHtmlPath();
-  debugLog(`Reading template from ${templatePath}`);
-  return readFileSync(templatePath, "utf-8");
+  debugLog(`Reading template ${TEMPLATE_NAME}`);
+  return localTemplateHtml(TEMPLATE_NAME) ?? "";
 }
 
 export async function up(db: Db, client: MongoClient) {

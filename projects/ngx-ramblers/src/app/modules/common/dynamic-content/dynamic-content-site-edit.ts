@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from "@angular/core";
 import {
   faAdd,
   faArrowsUpDown,
@@ -857,6 +857,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   @Input() public notify: AlertInstance;
   @Input() public contentDescription: string;
   @Input() public contentPath: string;
+  @Output() public pageContentDeleted = new EventEmitter<void>();
   @ViewChildren(IndexSiteEdit) albumIndexComponents: QueryList<IndexSiteEdit>;
   private queriedContentPath: string;
   private albumIndexDataRows: PageContent[] = [];
@@ -2164,14 +2165,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private async performDeletePageContent(deleteAlbums: boolean) {
     this.deleteConfirm.clear();
     this.deleteAlbumsConfirmOutstanding = false;
-    const currentPath = this.pageContent?.path || "";
-    const parentPath = currentPath.includes("/") ? currentPath.substring(0, currentPath.lastIndexOf("/")) : "";
     const albumNames = deleteAlbums ? this.pageAlbumNames() : [];
     if (deleteAlbums && albumNames.length > 0) {
       await this.deleteLinkedAlbums(albumNames);
     }
     await this.pageContentService.delete(this.pageContent.id);
-    await this.urlService.navigateUnconditionallyTo([parentPath || this.urlService.area()]);
+    this.pageContentDeleted.emit();
   }
 
   public pageAlbumNames(): string[] {
