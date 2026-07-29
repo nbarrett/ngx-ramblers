@@ -321,6 +321,14 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                           [title]="'View'"/>
                         </div>
                       </div>
+                      <div class="form-group">
+                        <label for="smtp-keepalive-recipient">SMTP Keepalive Recipient</label>
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.smtpKeepaliveRecipient" type="email"
+                          class="form-control input-sm" id="smtp-keepalive-recipient"
+                          autocomplete="off"
+                          [placeholder]="'Defaults to ' + (mailMessagingConfig.mailConfig.smtpUser || 'the SMTP Login above')">
+                        <small class="form-text text-muted">Brevo marks an SMTP key inactive after three months without a send. A monthly probe message goes to this address to keep the key alive and to prove the inbound relay still works.</small>
+                      </div>
                     </div>
                   </div>
                   @if (pendingApiKeyValidation) {

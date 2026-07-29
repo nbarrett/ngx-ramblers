@@ -13,6 +13,16 @@ export interface ScheduledTaskDefinition {
   run: () => Promise<void>;
 }
 
+export interface CronSchedule {
+  minutes: number[];
+  hours: number[];
+  daysOfMonth: number[];
+  months: number[];
+  daysOfWeek: number[];
+  dayOfMonthRestricted: boolean;
+  dayOfWeekRestricted: boolean;
+}
+
 export interface RegisteredScheduledTask {
   definition: ScheduledTaskDefinition;
   defaultCronExpression: string;

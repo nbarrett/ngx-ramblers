@@ -40,6 +40,30 @@ export interface RelayEnvelope {
   envelopeTo: string;
 }
 
+export async function keepaliveRecipient(): Promise<string | null> {
+  const config = await configuredBrevo();
+  return config.smtpKeepaliveRecipient?.trim() || config.smtpUser?.trim() || null;
+}
+
+export async function sendSmtpKeepalive(): Promise<string> {
+  const tx = await transporter();
+  const config = await configuredBrevo();
+  const recipient = await keepaliveRecipient();
+  if (!recipient) {
+    throw new Error("No SMTP keepalive recipient configured and no SMTP Login to fall back to.");
+  }
+  const sender = config.smtpUser;
+  debugLog("Sending SMTP keepalive probe to %s", recipient);
+  const info = await tx.sendMail({
+    from: sender,
+    to: recipient,
+    subject: "SMTP keepalive probe",
+    text: "Automated monthly probe. It keeps the Brevo SMTP key active so inbound committee email continues to be relayed, and confirms the relay is still working. No action needed."
+  });
+  debugLog("SMTP keepalive accepted; messageId=%s response=%s", info.messageId, info.response);
+  return recipient;
+}
+
 export async function relayRawMime(envelope: RelayEnvelope): Promise<void> {
   const tx = await transporter();
   debugLog("Relaying %d bytes via Brevo SMTP to %s", envelope.rawMime.length, envelope.recipient);

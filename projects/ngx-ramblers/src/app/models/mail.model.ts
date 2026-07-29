@@ -306,6 +306,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   smtpPort?: number;
   smtpUser?: string;
   smtpPassword?: string;
+  smtpKeepaliveRecipient?: string;
   inboundWebhookSecret?: string;
   brevoEventsWebhookSecret?: string;
   unsubscribeTokenSecret?: string;
