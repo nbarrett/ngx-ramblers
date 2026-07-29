@@ -3,44 +3,83 @@ import { take } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleExclamation, faSpinner } from "@fortawesome/free-solid-svg-icons";
-import { InstagramMediaPost, InstagramRecentMediaData } from "../../models/instagram.model";
+import { faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faInstagram } from "@fortawesome/free-brands-svg-icons";
+import { InstagramMediaPost, InstagramProfile, InstagramRecentMediaData } from "../../models/instagram.model";
 import { ExternalSystems } from "../../models/system.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { InstagramService } from "../../services/instagram.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
-import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { BuiltInAnchor } from "../../models/content-text.model";
 
 @Component({
   selector: "app-instagram",
-  templateUrl: "./instagram.component.html",
+  template: `
+    <app-card-container [icon]="faInstagram" [title]="accountName()" [subtitle]="followerSummary()"
+                        [href]="profileHref()" [brandColour]="brandColour">
+      @if (loading) {
+        <div class="instagram-media-grid instagram-media-skeleton" aria-busy="true" aria-label="Loading recent posts">
+          @for (placeholder of skeletonTiles; track placeholder) {
+            <div class="instagram-skeleton-tile"></div>
+          }
+        </div>
+      } @else if (loadError) {
+        <div class="alert alert-warning d-flex align-items-start mb-0">
+          <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
+          <div>
+            <strong class="d-block">Instagram feed unavailable</strong>
+            {{ loadError }}
+          </div>
+        </div>
+      } @else if (recentMedia.length > 0) {
+        <div class="instagram-media-grid">
+          @for (media of recentMedia; track media.id) {
+            <a [href]="media.permalink" target="_blank" rel="noopener noreferrer"
+               delay="500" [tooltip]="mediaTooltip(media)" [placement]="'top'">
+              <img [src]="media.media_url" [alt]="media.caption || 'Instagram post'"/>
+            </a>
+          }
+        </div>
+      } @else if (externalSystems?.instagram?.showFeed) {
+        <div class="alert alert-warning d-flex align-items-start mb-0">
+          <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
+          <div>
+            <strong class="d-block">No Instagram posts yet</strong>
+            Connect Facebook with a linked Instagram account in System Settings, or check that the account has public posts.
+          </div>
+        </div>
+      }
+    </app-card-container>
+  `,
   styleUrls: ["./instagram.component.sass"],
-  imports: [CardContainerComponent, DynamicContentComponent, TooltipDirective, FontAwesomeModule]
+  imports: [CardContainerComponent, TooltipDirective, FontAwesomeModule]
 })
 export class InstagramComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("InstagramComponent", NgxLoggerLevel.ERROR);
   private instagramService = inject(InstagramService);
   private systemConfigService = inject(SystemConfigService);
-  dateUtils = inject(DateUtilsService);
+  private dateUtils = inject(DateUtilsService);
   public recentMedia: InstagramMediaPost[] = [];
+  public profile: InstagramProfile;
   public externalSystems: ExternalSystems;
   public loading = false;
   public loadError = "";
   private loadInFlight = false;
+  private readonly feedSize = 9;
   private subscriptions: Subscription[] = [];
-  protected readonly BuiltInAnchor = BuiltInAnchor;
-  protected readonly faSpinner = faSpinner;
+  protected readonly skeletonTiles = Array.from({length: this.feedSize}, (ignored, index) => index);
   protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faInstagram = faInstagram;
+  protected readonly brandColour = "#e4405f";
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
       this.externalSystems = item.externalSystems;
+      this.logger.debug("system config event: instagram config:", this.externalSystems?.instagram);
       this.loadRecentMedia();
     }));
   }
@@ -65,36 +104,48 @@ export class InstagramComponent implements OnInit, OnDestroy {
 
   private loadRecentMedia(): void {
     if (!this.externalSystems?.instagram?.showFeed) {
+      this.logger.debug("showFeed is not enabled - clearing feed. instagram config:", this.externalSystems?.instagram);
       this.recentMedia = [];
       this.loadError = "";
       this.loading = false;
-    } else if (!this.loadInFlight) {
+    } else if (this.loadInFlight) {
+      this.logger.debug("load already in flight - ignoring this config event");
+    } else {
       this.loadInFlight = true;
       this.loading = true;
       this.loadError = "";
+      this.logger.debug("requesting recent media");
       this.instagramService.recentMedia()
         .then((recentMedia: InstagramRecentMediaData) => {
-          this.recentMedia = take((recentMedia?.data || []).filter(item => item?.media_url), 14);
-          this.logger.info("Refreshed instagram recent media", this.recentMedia.length);
+          const returned = recentMedia?.data || [];
+          this.profile = recentMedia?.profile;
+          this.recentMedia = take(returned.filter(item => item?.media_url), this.feedSize);
+          this.logger.debug("recent media response: returned:", returned.length, "displaying:", this.recentMedia.length, "data:", recentMedia);
         })
         .catch(error => {
           this.recentMedia = [];
           this.loadError = error?.error?.error || error?.message || "Could not load Instagram posts";
-          this.logger.error("instagram recent media failed", error);
+          this.logger.error("instagram recent media failed:", this.loadError, error);
         })
         .finally(() => {
           this.loading = false;
           this.loadInFlight = false;
+          this.logger.debug("load complete: loading:", this.loading, "loadError:", this.loadError, "recentMedia:", this.recentMedia.length, "showFeed:", this.externalSystems?.instagram?.showFeed);
         });
     }
   }
 
-  imageWidth(media: InstagramMediaPost): string {
-    return this.recentMedia.indexOf(media) <= 1 ? "50%" : "25%";
+  accountName(): string {
+    return this.externalSystems?.instagram?.groupName || this.profile?.username || "Instagram";
   }
 
-  imageHeight(media: InstagramMediaPost): string {
-    return this.recentMedia.indexOf(media) <= 1 ? "250px" : "130px";
+  followerSummary(): string {
+    const followers = this.profile?.followersCount;
+    const posts = this.profile?.mediaCount;
+    return [
+      followers ? `${followers.toLocaleString()} ${followers === 1 ? "follower" : "followers"}` : "",
+      posts ? `${posts.toLocaleString()} posts` : ""
+    ].filter(Boolean).join(" · ");
   }
 
   mediaTooltip(media: InstagramMediaPost): string {

@@ -301,6 +301,25 @@ import { FileUtilsService } from "../../../file-utils.service";
   styles: [`
     .action-button-card-editor
       position: relative
+      overflow: hidden
+
+    .action-button-card-editor ::ng-deep .card-image-focal-wrapper
+      overflow: hidden
+
+    .action-button-card-editor ::ng-deep .card-image-cropper,
+    .action-button-card-editor ::ng-deep .card-image-link
+      display: block
+      overflow: hidden
+
+    .action-button-card-editor ::ng-deep .card-image-focal-wrapper img,
+    .action-button-card-editor ::ng-deep .card-image-cropper img,
+    .action-button-card-editor ::ng-deep .card-image-link img
+      transition: scale 0.35s ease
+
+    .action-button-card-editor:hover ::ng-deep .card-image-focal-wrapper img,
+    .action-button-card-editor:hover ::ng-deep .card-image-cropper img,
+    .action-button-card-editor:hover ::ng-deep .card-image-link img
+      scale: 1.04
 
     .action-button-card-controls
       position: absolute

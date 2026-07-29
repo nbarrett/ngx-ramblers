@@ -1,4 +1,85 @@
-.card-fixed-height
-  max-height: 650px
+@import "../../../assets/styles/colours"
+
+:host
+  display: block
+  height: 100%
+
+.social-card
+  display: flex
+  flex-direction: column
+  height: 100%
+  background: $ramblers-colour-cloudy
+  border: 1px solid $ramblers-colour-grey
+  border-radius: 6px
   overflow: hidden
-  padding-bottom: 1rem
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15)
+
+.social-card-header
+  display: flex
+  align-items: center
+  gap: 12px
+  padding: 14px 16px
+  border-bottom: 1px solid $ramblers-colour-grey
+
+.social-card-brand
+  display: flex
+  align-items: center
+  font-size: 1.6rem
+  line-height: 1
+
+.social-card-heading
+  display: flex
+  flex-direction: column
+  min-width: 0
+  margin-right: auto
+
+.social-card-title
+  color: $ramblers-colour-black
+  font-size: 1.05rem
+  font-weight: 700
+  line-height: 1.2
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.social-card-subtitle
+  color: $ramblers-colour-granite
+  font-size: 0.8rem
+  line-height: 1.3
+
+.social-card-link
+  display: inline-flex
+  align-items: center
+  gap: 6px
+  flex-shrink: 0
+  padding: 6px 12px
+  border: 1px solid $ramblers-colour-grey
+  border-radius: 999px
+  background: transparent
+  color: $ramblers-colour-granite
+  font-size: 0.8rem
+  font-weight: 600
+  text-decoration: none
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease
+
+  &:hover,
+  &:focus
+    background: $ramblers-colour-sunrise
+    border-color: $ramblers-colour-sunrise
+    color: $ramblers-colour-black
+    text-decoration: none
+
+  &:active
+    background: $ramblers-colour-sunrise-hover-background
+    border-color: $ramblers-colour-sunrise-hover-border
+    color: $ramblers-colour-black
+
+.social-card-body
+  flex: 1 1 auto
+  min-height: 0
+  padding: 16px
+  overflow: hidden
+
+@media (max-width: 575.98px)
+  .social-card-link-text
+    display: none

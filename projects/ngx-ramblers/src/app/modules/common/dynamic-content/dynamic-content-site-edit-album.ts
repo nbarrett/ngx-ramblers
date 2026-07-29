@@ -46,6 +46,7 @@ import { ActionButtons } from "../action-buttons/action-buttons";
 import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
 import { RangeSliderComponent } from "../../../components/range-slider";
+import { ZoomSliderComponent } from "../zoom-slider/zoom-slider";
 import { PageContentService } from "../../../services/page-content.service";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 
@@ -477,27 +478,10 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                     <div class="col-sm-12">
                       <div class="row mt-3">
                         <div class="col-sm-12">
-                          <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label mb-0">Zoom</label>
-                            <span class="zoom-value">{{ focalPointZoom() | number:'1.1-1' }}x</span>
-                          </div>
-                          <div class="range-slider-row">
-                            <span class="range-edge text-start">{{ coverImageMinZoom }}x</span>
-                            <div class="slider-wrapper">
-                              <input type="range"
-                                     class="range-slider range-high"
-                                     [min]="coverImageMinZoom"
-                                     [max]="coverImageMaxZoom"
-                                     step="0.1"
-                                     [ngModel]="focalPointZoom()"
-                                     (ngModelChange)="onZoomChange($event)"/>
-                              <div class="slider-track">
-                                <div class="slider-fill" [style.left.%]="0" [style.width.%]="zoomFillWidth()"></div>
-                              </div>
-                            </div>
-                            <span class="range-edge text-end">{{ coverImageMaxZoom }}x</span>
-                          </div>
-                          <div class="small text-muted mt-1">Use mouse wheel over image above or drag slider</div>
+                          <app-zoom-slider [min]="coverImageMinZoom" [max]="coverImageMaxZoom"
+                                           [value]="focalPointZoom()"
+                                           hint="Use mouse wheel over image above or drag slider"
+                                           (valueChange)="onZoomChange($event)"/>
                         </div>
                       </div>
                       <div class="row mt-3 align-items-center">
@@ -669,7 +653,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
 
     ${rangeSliderStyles}
   `],
-  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule]
+  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule, ZoomSliderComponent]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
@@ -885,14 +869,6 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
   focalPointZoom(): number {
     return this.row?.carousel?.coverImageFocalPoint?.zoom ?? 1;
-  }
-
-  zoomFillWidth(): number {
-    const range = this.coverImageMaxZoom - this.coverImageMinZoom;
-    if (range <= 0) {
-      return 0;
-    }
-    return ((this.focalPointZoom() - this.coverImageMinZoom) / range) * 100;
   }
 
   onZoomChange(zoom: number) {

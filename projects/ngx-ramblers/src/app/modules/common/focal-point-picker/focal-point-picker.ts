@@ -1,8 +1,8 @@
 import { Component, ElementRef, EventEmitter, inject, Input, NgZone, Output, ViewChild } from "@angular/core";
-import { DecimalPipe, NgStyle } from "@angular/common";
-import { FormsModule } from "@angular/forms";
+import { NgStyle } from "@angular/common";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
 import { ResizerComponent } from "../resizer/resizer";
+import { roundZoom, ZoomSliderComponent } from "../zoom-slider/zoom-slider";
 import { FocalPoint } from "../../../models/image-cropper.model";
 
 export type { FocalPoint } from "../../../models/image-cropper.model";
@@ -36,29 +36,8 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
         (sizeChange)="onHeightChange($event)"/>
     }
     @if (showZoomSlider) {
-      <div class="zoom-slider-container mt-2">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <label class="form-label mb-0">Zoom</label>
-          <span class="zoom-value">{{ zoomValue | number:'1.1-1' }}x</span>
-        </div>
-        <div class="range-slider-row">
-          <span class="range-edge text-start">{{ minZoom }}x</span>
-          <div class="slider-wrapper">
-            <input type="range"
-                   class="range-slider range-high"
-                   [min]="minZoom"
-                   [max]="maxZoom"
-                   [step]="0.1"
-                   [ngModel]="zoomValue"
-                   (ngModelChange)="onZoomChange($event)"/>
-            <div class="slider-track">
-              <div class="slider-fill" [style.left.%]="0" [style.width.%]="fillWidth"></div>
-            </div>
-          </div>
-          <span class="range-edge text-end">{{ maxZoom }}x</span>
-        </div>
-        <div class="small text-muted mt-1">Use mouse wheel over image or drag slider</div>
-      </div>
+      <app-zoom-slider class="d-block mt-2" [min]="minZoom" [max]="maxZoom" [value]="zoomValue"
+                       (valueChange)="onZoomChange($event)"/>
     }
   `,
   styles: [`
@@ -117,7 +96,7 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
 
     ${rangeSliderStyles}
   `],
-  imports: [NgStyle, FormsModule, DecimalPipe, ResizerComponent]
+  imports: [NgStyle, ResizerComponent, ZoomSliderComponent]
 })
 export class FocalPointPickerComponent {
   @ViewChild("container") container: ElementRef<HTMLDivElement>;
@@ -144,10 +123,6 @@ export class FocalPointPickerComponent {
 
   get zoomValue(): number {
     return this.focalPoint?.zoom ?? 1;
-  }
-
-  get fillWidth(): number {
-    return ((this.zoomValue - this.minZoom) / (this.maxZoom - this.minZoom)) * 100;
   }
 
   onHeightChange(newHeight: number) {
@@ -224,9 +199,9 @@ export class FocalPointPickerComponent {
 
   onWheel(event: WheelEvent) {
     event.preventDefault();
-    const delta = event.deltaY > 0 ? -0.2 : 0.2;
-    const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, (this.focalPoint?.zoom ?? 1) + delta));
-    this.onZoomChange(Math.round(newZoom * 10) / 10);
+    const factor = event.deltaY > 0 ? 1 / 1.1 : 1.1;
+    const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, (this.focalPoint?.zoom ?? 1) * factor));
+    this.onZoomChange(roundZoom(newZoom));
   }
 
   onZoomChange(zoom: number) {
