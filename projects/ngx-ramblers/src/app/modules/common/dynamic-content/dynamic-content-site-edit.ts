@@ -626,11 +626,6 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               }
             }
             </div>
-            @if (!albumWorkflow) {
-              <div class="page-content-actions-bottom">
-                <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
-              </div>
-            }
           </div>
         </div>
       }

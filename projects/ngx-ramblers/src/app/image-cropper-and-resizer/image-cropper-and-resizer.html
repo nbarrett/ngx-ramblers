@@ -145,34 +145,34 @@
   </div>
 }
 <ng-template #buttonSet1>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateLeft()"
                       delay=500 tooltip="Rotate left"
                       [icon]="faRotateLeft" caption="left"/>
   </div>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateRight()"
                       delay=500 tooltip="Rotate right"
                       [icon]="faRotateRight" caption="right"/>
   </div>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="flipHorizontal()"
                       delay=500 tooltip="Flip horizontal"
                       [icon]="faArrowRightArrowLeft" caption="flip"/>
   </div>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="flipVertical()"
                       delay=500 tooltip="Flip vertical"
                       [icon]="faUpDown" caption="flip"/>
   </div>
-  <div class="col" [ngClass]="{'pe-1': !wrapButtons}">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="zoomIn()"
                       delay=500 tooltip="Zoom in"
                       [icon]="faMagnifyingGlassPlus"
                       caption="zoom"/>
   </div>
   @if (nonDestructive && allowPermanentSave) {
-    <div class="col" [ngClass]="{'pe-1': !wrapButtons}">
+    <div class="col">
       <app-badge-button fullWidth (click)="saveImagePermanently()"
                         delay=500 tooltip="save image" [disabled]="!fileTypeAttributes"
                         [icon]="faSave"
@@ -181,19 +181,19 @@
   }
 </ng-template>
 <ng-template #buttonSet2>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="zoomOut()"
                       delay=500 tooltip="Zoom out"
                       [icon]="faMagnifyingGlassMinus"
                       caption="zoom"/>
   </div>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="resetImage()"
                       delay=500 tooltip="Reset image"
                       [icon]="faRedoAlt"
                       caption="reset"/>
   </div>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth (click)="toggleContainWithinAspectRatio()"
                       delay=500
                       [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
@@ -201,14 +201,14 @@
                       [icon]="containWithinAspectRatio? faCompress: faExpand"
                       [caption]="containWithinAspectRatio ? 'fill' : 'contain'"/>
   </div>
-  <div class="col pe-1">
+  <div class="col">
     <app-badge-button fullWidth (click)="quit.next()"
                       delay=500 tooltip="quit without saving"
                       [icon]="faClose"
                       caption="quit"/>
   </div>
   @if (nonDestructive) {
-    <div class="col pe-1">
+    <div class="col">
       <app-badge-button fullWidth (click)="applyCrop()"
                         delay=500 tooltip="apply crop" [disabled]="!fileTypeAttributes"
                         [icon]="faSave"
@@ -226,8 +226,8 @@
 </ng-template>
 @if (!hideActionButtons) {
   @if (cropOnlyMode) {
-    <div class="row g-0">
-      <div class="col pe-1">
+    <div class="row g-1">
+      <div class="col">
         <app-badge-button fullWidth (click)="quit.next()"
                           delay=500 tooltip="quit without saving"
                           [icon]="faClose"
@@ -242,24 +242,24 @@
     </div>
   }
   @if (!cropOnlyMode && !wrapButtons) {
-    <div class="row row-cols-6 g-0">
+    <div class="row row-cols-2 row-cols-md-6 g-1">
       <ng-container *ngTemplateOutlet="buttonSet1"/>
     </div>
-    <div class="row row-cols-6 g-0">
+    <div class="row row-cols-2 row-cols-md-6 g-1">
       <ng-container *ngTemplateOutlet="buttonSet2"/>
-      <div class="col pe-1 invisible" aria-hidden="true"></div>
+      <div class="col invisible d-none d-md-block" aria-hidden="true"></div>
     </div>
   }
   @if (!cropOnlyMode && wrapButtons) {
-    <div class="row row-cols-6 g-0">
+    <div class="row row-cols-2 row-cols-md-6 g-1">
       <ng-container *ngTemplateOutlet="buttonSet1"/>
       @if (!nonDestructive || !allowPermanentSave) {
-        <div class="col pe-1 invisible" aria-hidden="true"></div>
+        <div class="col invisible d-none d-md-block" aria-hidden="true"></div>
       }
     </div>
-    <div class="row row-cols-6 g-0">
+    <div class="row row-cols-2 row-cols-md-6 g-1">
       <ng-container *ngTemplateOutlet="buttonSet2"/>
-      <div class="col pe-1 invisible" aria-hidden="true"></div>
+      <div class="col invisible d-none d-md-block" aria-hidden="true"></div>
     </div>
   }
 }

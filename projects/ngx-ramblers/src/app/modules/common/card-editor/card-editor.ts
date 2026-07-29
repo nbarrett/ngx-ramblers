@@ -49,7 +49,7 @@ import { FileUtilsService } from "../../../file-utils.service";
       @if (actionButtonControlsVisible()) {
         <div class="action-button-card-controls">
           <button type="button"
-                  class="badge-button action-button-card-control"
+                  class="badge-button border-0 action-button-card-control"
                   [attr.draggable]="true"
                   tooltip="Drag action button"
                   container="body"
@@ -58,7 +58,7 @@ import { FileUtilsService } from "../../../file-utils.service";
             <fa-icon [icon]="faArrowsUpDown"></fa-icon>
           </button>
           <button type="button"
-                  class="badge-button action-button-card-control"
+                  class="badge-button border-0 action-button-card-control"
                   [disabled]="!canMoveActionButtonUp()"
                   tooltip="Move action button up"
                   container="body"
@@ -66,7 +66,7 @@ import { FileUtilsService } from "../../../file-utils.service";
             <fa-icon [icon]="faArrowUp"></fa-icon>
           </button>
           <button type="button"
-                  class="badge-button action-button-card-control"
+                  class="badge-button border-0 action-button-card-control"
                   [disabled]="!canMoveActionButtonDown()"
                   tooltip="Move action button down"
                   container="body"
@@ -74,7 +74,7 @@ import { FileUtilsService } from "../../../file-utils.service";
             <fa-icon [icon]="faArrowDown"></fa-icon>
           </button>
           <button type="button"
-                  class="badge-button action-button-card-control"
+                  class="badge-button border-0 action-button-card-control"
                   tooltip="Delete action button"
                   container="body"
                   (click)="deleteActionButton($event)">
@@ -230,7 +230,7 @@ import { FileUtilsService } from "../../../file-utils.service";
               @if (imageSettingsChanged()) {
                 <div class="form-group">
                   <button type="button"
-                          class="badge-button"
+                          class="badge-button border-0"
                           tooltip="Reset image fit, padding and focal point to their defaults"
                           container="body"
                           (click)="resetImageSettings()">

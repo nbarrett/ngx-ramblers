@@ -1,11 +1,12 @@
 import { Component, Input, output } from "@angular/core";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgClass } from "@angular/common";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 @Component({
   selector: "app-form-save-actions",
-  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, NgClass],
+  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, NgClass, TooltipDirective],
   template: `
     <div class="form-save-actions d-flex flex-wrap align-items-center gap-2">
       <button type="button"
@@ -24,13 +25,21 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
       </button>
       <div class="btn-group" dropdown [insideClick]="true">
         <button type="button"
-                class="btn dropdown-toggle"
+                class="btn"
+                [ngClass]="disabled ? 'btn-secondary' : 'btn-quiet'"
+                [disabled]="disabled"
+                [tooltip]="saveAndExitLabel"
+                (click)="runSaveAndExit()">
+          {{ exitMenuLabel }}
+        </button>
+        <button type="button"
+                class="btn dropdown-toggle dropdown-toggle-split"
                 [ngClass]="disabled ? 'btn-secondary' : 'btn-quiet'"
                 [disabled]="disabled"
                 dropdownToggle
                 aria-haspopup="true"
                 aria-controls="form-save-actions-exit-menu">
-          {{ exitMenuLabel }}
+          <span class="visually-hidden">Show exit options</span>
         </button>
         <ul *dropdownMenu class="dropdown-menu" id="form-save-actions-exit-menu" role="menu">
           <li role="menuitem">
