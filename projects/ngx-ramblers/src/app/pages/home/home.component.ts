@@ -31,7 +31,7 @@ import { BuiltInAnchor } from "../../models/content-text.model";
       </div>
     }
     <app-dynamic-content [anchor]="BuiltInAnchor.HOME_CONTENT" contentPathReadOnly/>
-    <div class="row g-3">
+    <div class="row g-4">
       @if (externalSystems?.facebook?.showFeed) {
         <div class="col-lg-6">
           <app-facebook/>

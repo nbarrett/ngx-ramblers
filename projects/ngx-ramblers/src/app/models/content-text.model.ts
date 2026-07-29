@@ -536,7 +536,6 @@ export interface Index {
 export enum BuiltInAnchor {
   ACTION_BUTTONS = "action-buttons",
   HOME_CONTENT = "home-content",
-  INSTAGRAM_CONTENT = "instagram-content",
 }
 
 export enum PathSegment {
@@ -573,7 +572,7 @@ export interface BuiltInPageContentConfig {
 export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentConfig } = {
   [BuiltInPath.HOME]: {
     contentPath: BuiltInPath.ADMIN,
-    anchors: [BuiltInAnchor.HOME_CONTENT, BuiltInAnchor.INSTAGRAM_CONTENT]
+    anchors: [BuiltInAnchor.HOME_CONTENT]
   },
   [BuiltInPath.ADMIN]: {
     contentPath: BuiltInPath.ADMIN,
