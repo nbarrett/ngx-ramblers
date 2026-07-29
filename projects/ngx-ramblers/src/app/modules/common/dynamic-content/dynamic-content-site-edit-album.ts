@@ -34,7 +34,7 @@ import { AlbumComponent } from "../../../album/view/album";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/group-event-type-selector";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
-import { DecimalPipe, Location, NgClass } from "@angular/common";
+import { Location, NgClass } from "@angular/common";
 import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { ImageListEditComponent } from "../../../carousel/edit/image-list-edit/image-list-edit";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -653,7 +653,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
 
     ${rangeSliderStyles}
   `],
-  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule, ZoomSliderComponent]
+  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule, ZoomSliderComponent]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 

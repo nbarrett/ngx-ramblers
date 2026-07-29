@@ -25,10 +25,13 @@ import { InputSize } from "../../../../models/ui-size.model";
                 <div class="col-md-12">
                   <div class="form-group">
                     <label for="site-key">Site Key (v2)</label>
-                    <input [(ngModel)]="systemConfigInternal.recaptcha.siteKey"
+                    <app-secret-input
+                      [(ngModel)]="systemConfigInternal.recaptcha.siteKey"
                       id="site-key"
-                      type="text" class="form-control input-sm"
+                      name="siteKey"
+                      [size]="InputSize.SM"
                       placeholder="Enter reCAPTCHA Site Key">
+                    </app-secret-input>
                     @if (!systemConfigInternal?.recaptcha?.siteKey) {
                       <div class="mt-1 small text-danger">
                         Site Key is required

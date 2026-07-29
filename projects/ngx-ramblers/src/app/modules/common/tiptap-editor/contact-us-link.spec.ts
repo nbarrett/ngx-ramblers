@@ -18,6 +18,13 @@ describe("contact-us-link", () => {
     );
   });
 
+  it("omits the redirect when the link is created on the root page", () => {
+    expect(buildContactUsHref("support", "")).toBe("?contact-us&role=support");
+    expect(buildContactUsHref("support", null)).toBe("?contact-us&role=support");
+    expect(buildContactUsHref("support", "home")).toBe("?contact-us&role=support");
+    expect(buildContactUsHref("support", "/home")).toBe("?contact-us&role=support");
+  });
+
   it("parses contact-us hrefs", () => {
     expect(parseContactUsHref("?contact-us&role=treasurer&redirect=contact-us")).toEqual({
       role: "treasurer",

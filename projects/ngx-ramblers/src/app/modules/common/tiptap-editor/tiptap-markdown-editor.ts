@@ -1461,7 +1461,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private currentPageRedirectPath(): string {
-    return this.urlService.pathSegments().filter(segment => !!segment).join("/") || "home";
+    return this.urlService.pathSegments().filter(segment => !!segment).join("/");
   }
 
   private defaultLabelForRole(roleType: string): string {

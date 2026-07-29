@@ -5,6 +5,7 @@ import { Auditable, HasEmailFirstAndLastName, Member, MemberFilterSelection } fr
 import { AuditStatus } from "./audit";
 import { SortDirection } from "./sort.model";
 import { CommitteeReferenceDataLike } from "./committee-reference-data.model";
+import { CONTACT_US_TYPE } from "./committee.model";
 import { NotificationHost } from "./notification-host.model";
 import { DateRangeUnit, NotificationTimeUnit } from "./search.model";
 import { kebabCase } from "es-toolkit/compat";
@@ -557,9 +558,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
     timeUnit: DateRangeUnit.MONTHS,
-    senderRole: "support",
-    replyToRole: "support",
-    signOffRoles: ["support"],
+    senderRole: CONTACT_US_TYPE,
+    replyToRole: CONTACT_US_TYPE,
+    signOffRoles: [CONTACT_US_TYPE],
     bannerId: null
   },
   {

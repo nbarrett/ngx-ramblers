@@ -1,4 +1,5 @@
 import { CommitteeMember } from "../../../models/committee.model";
+import { BuiltInPath } from "../../../models/content-text.model";
 
 export interface ContactUsLinkParts {
   role: string;
@@ -8,7 +9,9 @@ export interface ContactUsLinkParts {
 export function buildContactUsHref(roleType: string, redirectPath: string): string {
   const role = (roleType || "").trim();
   const redirect = (redirectPath || "").trim().replace(/^\/+/, "");
-  return `?contact-us&role=${role}&redirect=${redirect}`;
+  return redirect && redirect !== BuiltInPath.HOME
+    ? `?contact-us&role=${role}&redirect=${redirect}`
+    : `?contact-us&role=${role}`;
 }
 
 export function parseContactUsHref(href: string): ContactUsLinkParts | null {
