@@ -83,6 +83,7 @@ import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
 import { scheduleBookingReminders } from "./cron/booking-reminder-job";
 import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-job";
 import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job";
+import { scheduleBrevoSmtpKeepalive } from "./cron/brevo-smtp-keepalive-job";
 import { scheduleInboxTokenHealthCheck } from "./cron/inbox-token-health-check-job";
 import { scheduleBackups } from "./cron/backups-job";
 import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
@@ -379,6 +380,10 @@ async function startServer() {
 
       scheduleBrevoCampaignRelease().catch(error => {
         debugLog("❌ Failed to schedule Brevo campaign release:", error);
+      });
+
+      scheduleBrevoSmtpKeepalive().catch(error => {
+        debugLog("❌ Failed to schedule Brevo SMTP keepalive:", error);
       });
 
       scheduleInboxBackgroundWork().catch(error => {
