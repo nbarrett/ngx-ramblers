@@ -213,9 +213,13 @@ import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/cont
                           <strong class="ms-2">Delete Sender</strong>
                           <span class="ms-2">Are you sure you want to delete sender "{{ sender.name }}" ({{ sender.email }})?</span>
                         </span>
-                        <div class="btn-group btn-group-sm">
-                          <button type="button" class="btn btn-danger" [disabled]="deleting" (click)="confirmDelete(sender)">Delete</button>
-                          <button type="button" class="btn btn-outline-secondary" (click)="cancelDelete()">Cancel</button>
+                        <div class="btn-group btn-group-sm flex-shrink-0 ms-3">
+                          <button type="button" class="btn btn-danger text-nowrap" [disabled]="deleting"
+                                  (click)="confirmDelete(sender)">Delete
+                          </button>
+                          <button type="button" class="btn btn-outline-secondary text-nowrap"
+                                  (click)="cancelDelete()">Cancel
+                          </button>
                         </div>
                       </div>
                     </td>

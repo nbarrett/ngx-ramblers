@@ -7,6 +7,7 @@ import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeMember } from "../../models/committee.model";
 import { StoredValue } from "../../models/ui-actions";
+import { redirectPathFrom } from "../../functions/redirect-path";
 
 @Injectable({
   providedIn: "root"
@@ -73,7 +74,7 @@ export class ContactUsModalService {
   }
 
   redirectBackToRoute(queryParams: Params) {
-    const path = queryParams[StoredValue.REDIRECT];
+    const path = redirectPathFrom(queryParams[StoredValue.REDIRECT]);
     this.logger.info("Redirecting to:", path);
     this.router.navigate([path]);
   }

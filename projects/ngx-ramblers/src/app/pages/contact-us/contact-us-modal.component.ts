@@ -28,6 +28,7 @@ import { UrlService } from "../../services/url.service";
 import { ContactInteractionService } from "../../services/contact-interaction.service";
 import { ContactInteractionStatus } from "../../models/booking.model";
 import { StoredValue } from "../../models/ui-actions";
+import { redirectPathFrom } from "../../functions/redirect-path";
 
 @Component({
     selector: "app-contact-modal",
@@ -454,7 +455,6 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
 
   pageUrl(): string {
     const path = this.queryParams?.[StoredValue.REDIRECT] || window.location.pathname;
-    const normalised = path.startsWith("/") ? path : `/${path}`;
-    return `${this.urlService.publicBaseUrl()}${normalised}`;
+    return `${this.urlService.publicBaseUrl()}${redirectPathFrom(path)}`;
   }
 }
