@@ -16,6 +16,7 @@ import { AiService } from "../ai/ai.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { walkLeaderFirstNameForAlbumThanks } from "../../functions/walks/walk-leader-fields";
+import { socialPublishingEnabled } from "../../functions/social-publishing";
 import { SiteEditService } from "../../site-edit/site-edit.service";
 
 @Injectable({
@@ -221,7 +222,7 @@ export class CreateWalkAlbumService {
       eventType: "walks",
       showPreAlbumText: true,
       preAlbumText,
-      allowSocialShare: false
+      allowSocialShare: socialPublishingEnabled(this.config)
     };
     if (albumIndex < 0) {
       rows.push(albumRow);

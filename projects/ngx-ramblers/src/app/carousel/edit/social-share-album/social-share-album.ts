@@ -25,7 +25,12 @@ import {
   SocialPublishProgress,
   SocialPublishResult
 } from "../../../models/social-publish.model";
-import { SystemConfig } from "../../../models/system.model";
+import { ExternalSystemsSubTab, SystemConfig, SystemSettingsTab } from "../../../models/system.model";
+import { AdminSettingsPath } from "../../../models/admin-route-paths.model";
+import { StoredValue } from "../../../models/ui-actions";
+import { facebookPublishingEnabled, instagramPublishingEnabled } from "../../../functions/social-publishing";
+import { RouterLink } from "@angular/router";
+import { kebabCase } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -406,7 +411,9 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
               @if (!contentMetadata?.files?.length) {
                 Loading album photos…
               } @else if (!facebookEnabled && !instagramEnabled) {
-                Connect Facebook or Instagram in System Settings to publish
+                Connect Facebook or Instagram in
+                <a [routerLink]="'/' + adminSettingsSystemSettingsPath"
+                   [queryParams]="socialSettingsQueryParams">System Settings</a> to publish
               } @else if (allNetworksPublished()) {
                 Already published to the available networks
               } @else {
@@ -456,7 +463,9 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
               <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
               <div>
                 <strong class="d-block">Not configured</strong>
-                Enable Facebook and/or Instagram publishing in System Settings → External Systems.
+                Enable Facebook and/or Instagram publishing in
+                <a [routerLink]="'/' + adminSettingsSystemSettingsPath"
+                   [queryParams]="socialSettingsQueryParams">System Settings → External Systems</a>.
               </div>
             </div>
             <div class="share-footer">
@@ -746,7 +755,7 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
           }
       </div>
     </div>`,
-  imports: [FormsModule, FontAwesomeModule, TitleCasePipe, DatePipe, EmojiTextareaComponent]
+  imports: [FormsModule, FontAwesomeModule, TitleCasePipe, DatePipe, EmojiTextareaComponent, RouterLink]
 })
 export class SocialShareAlbumComponent implements OnInit, OnDestroy {
 
@@ -841,12 +850,18 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  protected readonly adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
+  protected readonly socialSettingsQueryParams = {
+    [StoredValue.TAB]: kebabCase(SystemSettingsTab.EXTERNAL_SYSTEMS),
+    [StoredValue.SUB_TAB]: ExternalSystemsSubTab.SOCIAL
+  };
+
   get facebookEnabled(): boolean {
-    return !!this.config?.externalSystems?.facebook?.publishingEnabled;
+    return facebookPublishingEnabled(this.config);
   }
 
   get instagramEnabled(): boolean {
-    return !!this.config?.externalSystems?.instagram?.publishingEnabled;
+    return instagramPublishingEnabled(this.config);
   }
 
   onSeparateCaptionsChange(enabled: boolean): void {
