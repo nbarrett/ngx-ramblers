@@ -10,9 +10,11 @@ import { GitHubTokenProvider } from "../shared/github-token-provider.js";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { commitsBetween, findCommitByHash, gitLog, gitLogSinceDate, latestTag } from "./commit-parser.js";
 import {
+  appendReleaseNoteSection,
   createReleaseNotesData,
   extractExistingBuildMetadata,
   formatDateForPath,
+  generateMarkdown,
   generatePageContent,
   updateIndexPageContent
 } from "./content-generator.js";
@@ -345,13 +347,57 @@ async function resolveNonCollidingReleasePath(
   return tryCandidate(1);
 }
 
+async function dayNotePathFor(auth: CMSAuth, config: ReleaseNotesConfig, date: string): Promise<string | null> {
+  const datePath = `${config.indexPath}/${formatDateForPath(date)}`;
+  const datePage = await cms.pageContent(auth, datePath);
+  if (datePage) {
+    return datePath;
+  } else {
+    const allPages = await cms.fetchAllPages(auth);
+    const issuePages = allPages
+      .map(page => page.path)
+      .filter(path => path?.startsWith(`${datePath}-issue-`))
+      .sort((left, right) => asNumber(right.match(/-issue-(\d+)$/)?.[1]) - asNumber(left.match(/-issue-(\d+)$/)?.[1]));
+    return issuePages[0] || null;
+  }
+}
+
+async function appendUnassignedToDayNote(
+  data: ReleaseNotesData,
+  auth: CMSAuth,
+  config: ReleaseNotesConfig
+): Promise<boolean> {
+  const dayNotePath = await dayNotePathFor(auth, config, data.date);
+  if (dayNotePath) {
+    const dayNote = await cms.pageContent(auth, dayNotePath);
+    const merged = appendReleaseNoteSection(dayNote, generateMarkdown(data, config.githubRepo));
+    await cms.updatePageContent(auth, dayNote.id!, merged);
+    debugLog(`Appended unassigned commits for ${data.date} to existing note ${dayNotePath}`);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 async function generateReleaseNote(
   data: ReleaseNotesData,
   auth: CMSAuth,
   config: ReleaseNotesConfig,
   pathSuffix: string,
-  dryRun: boolean,
-  allowUnassigned: boolean
+  dryRun: boolean
+): Promise<void> {
+  const appendedToDayNote = pathSuffix === "-other" && !dryRun && await appendUnassignedToDayNote(data, auth, config);
+  if (!appendedToDayNote) {
+    await createReleaseNotePage(data, auth, config, pathSuffix, dryRun);
+  }
+}
+
+async function createReleaseNotePage(
+  data: ReleaseNotesData,
+  auth: CMSAuth,
+  config: ReleaseNotesConfig,
+  pathSuffix: string,
+  dryRun: boolean
 ): Promise<void> {
   const basePath = `${config.indexPath}/${formatDateForPath(data.date)}${pathSuffix}`;
 
@@ -424,8 +470,7 @@ async function generateReleaseNote(
       path: releasePath,
       issueNumber: data.issueNumber,
       buildNumber: data.buildNumber
-    },
-    { allowUnassigned }
+    }
   );
 
   await cms.updatePageContent(auth, indexPage.id!, updatedIndex);
@@ -478,7 +523,7 @@ async function generateMultipleReleaseNotes(
       data.issueNumber = group.issueNumber;
       data.issueUrl = `https://github.com/${config.githubRepo}/issues/${group.issueNumber}`;
     }
-    await generateReleaseNote(data, auth, config, group.pathSuffix, dryRun, includeUnassigned);
+    await generateReleaseNote(data, auth, config, group.pathSuffix, dryRun);
   }, Promise.resolve());
 }
 

@@ -10,7 +10,7 @@ import {
   PageContentRow,
   PageContentType
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, textBeforeSeparators, truncateWithEllipsis } from "../shared/string-utils";
+import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, textBeforeSeparators, truncateAtWordBoundary } from "../shared/string-utils";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
@@ -60,7 +60,6 @@ const TYPE_SUMMARIES: Record<string, { singular: string; plural?: string }> = {
 };
 
 const TITLE_MAX_LENGTH = 90;
-const PAGE_TITLE_MAX_LENGTH = 200;
 const CAMERA_SUFFIX = " 📸";
 const entryLineRegex = /^-\s*\[(.+?)\]\((.+?)\)(\s*📸)?\s*$/;
 
@@ -103,35 +102,24 @@ export function groupCommitsByType(commits: ConventionalCommit[]): CommitGroup[]
 export function generateTitle(commits: ConventionalCommit[]): string {
   if (commits.length === 0) {
     return "Release notes";
+  } else if (commits.length === 1) {
+    return truncateAtWordBoundary(commits[0].subject, TITLE_MAX_LENGTH);
+  } else {
+    const scopes = commits.map(c => c.scope).filter((s): s is string => Boolean(s));
+    const uniqueScopes = Array.from(new Set(scopes));
+    const scopeSummary = summariseScopes(commits);
+    const changeSummary = summariseChanges(commits);
+    if (uniqueScopes.length === 1 && scopes.length === commits.length) {
+      const withoutTrailingDetail = textBeforeSeparators(commits[0].subject, [" - ", " — ", " (", " ["]);
+      return `${uniqueScopes[0]}: ${textBeforeSeparators(withoutTrailingDetail, ["(", "["])}`;
+    } else if (scopeSummary && changeSummary) {
+      return `${scopeSummary}: ${changeSummary}`;
+    } else if (changeSummary) {
+      return changeSummary;
+    } else {
+      return truncateAtWordBoundary(commits[0].subject, TITLE_MAX_LENGTH);
+    }
   }
-
-  if (commits.length === 1) {
-    return truncateWithEllipsis(commits[0].subject, TITLE_MAX_LENGTH);
-  }
-
-  const scopes = commits.map(c => c.scope).filter((s): s is string => Boolean(s));
-  const uniqueScopes = Array.from(new Set(scopes));
-
-  if (uniqueScopes.length === 1 && scopes.length === commits.length) {
-    const primaryCommit = commits[0];
-    let cleaned = primaryCommit.subject;
-    cleaned = textBeforeSeparators(cleaned, [" - ", " — ", " (", " ["]);
-    cleaned = textBeforeSeparators(cleaned, ["(", "["]);
-    return `${uniqueScopes[0]}: ${cleaned}`;
-  }
-
-  const scopeSummary = summariseScopes(commits);
-  const changeSummary = summariseChanges(commits);
-
-  if (scopeSummary && changeSummary) {
-    return `${scopeSummary}: ${changeSummary}`;
-  }
-
-  if (changeSummary) {
-    return changeSummary;
-  }
-
-  return truncateWithEllipsis(commits[0].subject, TITLE_MAX_LENGTH);
 }
 
 export function formatDate(dateStr: string): string {
@@ -443,6 +431,21 @@ interface IndexEntry {
 }
 
 
+const TRAILING_ISSUE_REFS = /\s*\((?:ref\.?\s*)?#\d+(?:\s*,\s*(?:ref\.?\s*)?#\d+)*\)\s*$/i;
+
+export function stripRedundantIssueRefs(remainder: string): string {
+  const text = (remainder || "").trim();
+  const trailing = text.match(TRAILING_ISSUE_REFS);
+  if (trailing) {
+    const withoutRefs = text.replace(TRAILING_ISSUE_REFS, "").trim();
+    const alreadyStated = new Set((withoutRefs.match(/#\d+/g) || []));
+    const remaining = (trailing[0].match(/#\d+/g) || []).filter(issue => !alreadyStated.has(issue));
+    return remaining.length > 0 ? `${withoutRefs} (ref ${remaining.join(", ")})` : withoutRefs;
+  } else {
+    return text;
+  }
+}
+
 function parseIndexLine(line: string): IndexEntry | null {
   const trimmed = line.trim();
   if (!trimmed) {
@@ -459,7 +462,7 @@ function parseIndexLine(line: string): IndexEntry | null {
   const [dateSegment, ...rest] = label.split(" — ");
   const buildFromLabel = rest[0]?.trim().match(/^build (\d+)$/i)?.[1] || null;
   const remainderParts = buildFromLabel ? rest.slice(1) : rest;
-  const remainder = remainderParts.join(" — ").trim();
+  const remainder = stripRedundantIssueRefs(remainderParts.join(" — "));
   const buildNumber = buildFromLabel || path.match(/-build-(\d+)/)?.[1] || null;
   const issueNumberFromLabel = remainder.match(/^#(\d+)\b/)?.[1] || null;
   const issueNumberFromPath = path.match(/-issue-(\d+)$/)?.[1] || null;
@@ -566,45 +569,58 @@ function stripYearHeadings(preambleLines: string[]): string[] {
 }
 
 function indexEntryKey(entry: IndexEntry): string {
-  const basePath = entry.path.replace(/(-issue-\d+|-other)$/, "");
+  const basePath = entry.path.replace(/-issue-\d+$/, "");
   if (entry.issueNumber) {
     return `${basePath}::issue::${entry.issueNumber}`;
   }
   return `${basePath}::unassigned`;
 }
 
+export function releaseNoteTextRow(contentText: string): PageContentRow {
+  return {
+    type: PageContentType.TEXT,
+    showSwiper: false,
+    maxColumns: 1,
+    columns: [
+      {
+        contentText,
+        columns: 12
+      } satisfies PageContentColumn
+    ]
+  };
+}
+
 export function generatePageContent(data: ReleaseNotesData, githubRepo: string, path: string): PageContent {
-  const markdown = generateMarkdown(data, githubRepo);
-
-  const rows: PageContentRow[] = [
-    {
-      type: PageContentType.TEXT,
-      showSwiper: false,
-      maxColumns: 1,
-      columns: [
-        {
-          contentText: markdown,
-          columns: 12
-        } satisfies PageContentColumn
-      ]
-    }
-  ];
-
   return {
     path,
-    rows
+    rows: [releaseNoteTextRow(generateMarkdown(data, githubRepo))]
+  };
+}
+
+const RELEASE_NOTE_HEADING = /^#\s+\d{2}-[A-Za-z]{3}-\d{4}\s+—\s+(.+)$/m;
+
+export function demoteReleaseNoteHeading(markdown: string): string {
+  return (markdown || "").replace(RELEASE_NOTE_HEADING, "## $1");
+}
+
+export function appendReleaseNoteSection(existingContent: PageContent, markdown: string): PageContent {
+  return {
+    ...existingContent,
+    rows: [
+      ...(existingContent.rows || []),
+      releaseNoteTextRow("_____"),
+      releaseNoteTextRow(demoteReleaseNoteHeading(markdown))
+    ]
   };
 }
 
 export function updateIndexPageContent(
   existingContent: PageContent,
-  newEntry: { date: string; title: string; path: string; issueNumber: string | null; buildNumber?: string | null },
-  options?: { allowUnassigned?: boolean }
+  newEntry: { date: string; title: string; path: string; issueNumber: string | null; buildNumber?: string | null }
 ): PageContent {
-  const allowUnassigned = Boolean(options?.allowUnassigned);
   const isoDate = formatIsoDateString(newEntry.date);
   const displayDate = formatDisplayDateString(newEntry.date) || newEntry.date;
-  const remainderText = (newEntry.issueNumber ? `#${newEntry.issueNumber} — ${newEntry.title}` : newEntry.title).trim();
+  const remainderText = stripRedundantIssueRefs(newEntry.issueNumber ? `#${newEntry.issueNumber} — ${newEntry.title}` : newEntry.title);
   const baseLabel = remainderText.length > 0 ? `${displayDate} — ${remainderText}` : displayDate;
   const newIndexEntry: IndexEntry = {
     path: newEntry.path,
@@ -653,8 +669,7 @@ export function updateIndexPageContent(
 
   const parsedEntries = entryLines
     .map(line => parseIndexLine(line))
-    .filter((entry): entry is IndexEntry => Boolean(entry))
-    .filter(entry => allowUnassigned || !entry.path.endsWith("-other"));
+    .filter((entry): entry is IndexEntry => Boolean(entry));
   const entries = new Map<string, IndexEntry>(parsedEntries.map(entry => [indexEntryKey(entry), entry]));
 
   const existingForNewEntry = entries.get(indexEntryKey(newIndexEntry));
@@ -690,9 +705,8 @@ export function updateIndexPageContent(
  */
 export function refreshIndexPageContent(
   existingContent: PageContent,
-  options?: { allowUnassigned?: boolean; imageStatusByPath?: Map<string, boolean>; buildNumberByPath?: Map<string, string> }
+  options?: { imageStatusByPath?: Map<string, boolean>; buildNumberByPath?: Map<string, string> }
 ): PageContent {
-  const allowUnassigned = Boolean(options?.allowUnassigned);
   const imageStatusByPath = options?.imageStatusByPath;
   const buildNumberByPath = options?.buildNumberByPath;
   if (!existingContent.rows || existingContent.rows.length === 0) {
@@ -714,7 +728,6 @@ export function refreshIndexPageContent(
   const parsedEntries = entryLines
     .map(line => parseIndexLine(line))
     .filter((entry): entry is IndexEntry => Boolean(entry))
-    .filter(entry => allowUnassigned || !entry.path.endsWith("-other"))
     .map(entry => imageStatusByPath?.has(entry.path)
       ? { ...entry, hasCamera: imageStatusByPath.get(entry.path)! }
       : entry)

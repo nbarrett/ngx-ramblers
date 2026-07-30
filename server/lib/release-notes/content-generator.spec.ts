@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { createReleaseNotesData, extractPlaintextBuildRef, generateMarkdown, linkPlaintextBuildLine, refreshIndexPageContent, updateIndexPageContent } from "./content-generator";
+import { createReleaseNotesData, extractPlaintextBuildRef, generateMarkdown, linkPlaintextBuildLine, refreshIndexPageContent, stripRedundantIssueRefs, updateIndexPageContent } from "./content-generator";
 import {
   PageContent,
   PageContentType
@@ -31,7 +31,57 @@ function extractContent(page: PageContent): string {
   return (page.rows?.[0]?.columns?.[0] as any).contentText;
 }
 
+describe("content-generator stripRedundantIssueRefs", () => {
+
+  it("removes a trailing ref that repeats the issue already stated in the line", () => {
+    expect(stripRedundantIssueRefs("#310 — separate inbox privacy from admin config (ref #310)"))
+      .toEqual("#310 — separate inbox privacy from admin config");
+  });
+
+  it("keeps refs that name issues not already stated in the line", () => {
+    expect(stripRedundantIssueRefs("#338 — contact-us button builder and TipTap editor improvements (ref #338, #303)"))
+      .toEqual("#338 — contact-us button builder and TipTap editor improvements (ref #303)");
+  });
+
+  it("leaves a line alone when it has no trailing refs", () => {
+    expect(stripRedundantIssueRefs("#312 — Always set a walk album cover after saving photos"))
+      .toEqual("#312 — Always set a walk album cover after saving photos");
+  });
+
+  it("leaves parenthesised wording that is not an issue reference", () => {
+    expect(stripRedundantIssueRefs("#800 — refresh codebase evolution stats snapshot (28 July 2026)"))
+      .toEqual("#800 — refresh codebase evolution stats snapshot (28 July 2026)");
+  });
+});
+
 describe("content-generator updateIndexPageContent", () => {
+
+  it("drops a redundant trailing issue ref from a new entry, keeping the camera marker", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "Welcome to the release notes page.",
+        "",
+        "- [27-Jul-2026 — build 798 — #310 — separate inbox privacy (ref #310)](how-to/committee/release-notes/2026-07-27) 📸"
+      ].join("\n")
+    );
+
+    const updated = updateIndexPageContent(existing, {
+      date: "2026-07-28",
+      title: "H1–H6 headings and extract TipTap/composer helpers (ref #303)",
+      path: "how-to/committee/release-notes/2026-07-28",
+      issueNumber: "303",
+      buildNumber: "801"
+    });
+
+    const content = extractContent(updated);
+    expect(content).toContain("- [28-Jul-2026 — build 801 — #303 — H1–H6 headings and extract TipTap/composer helpers](how-to/committee/release-notes/2026-07-28)");
+    expect(content).toContain("- [27-Jul-2026 — build 798 — #310 — separate inbox privacy](how-to/committee/release-notes/2026-07-27) 📸");
+    expect(content).not.toContain("(ref #303)");
+    expect(content).not.toContain("(ref #310)");
+  });
+
 
   it("preserves existing 📸 camera markers when adding a new entry", () => {
     const existing = makeIndexPage(
@@ -391,5 +441,64 @@ describe("plain-text build-heading linking", () => {
   it("leaves an already-linked build heading unchanged", () => {
     const linked = "## [GitHub #706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)";
     expect(linkPlaintextBuildLine(linked, "https://github.com/owner/repo/actions/runs/999")).toEqual(linked);
+  });
+});
+
+describe("content-generator preserves unassigned entries", () => {
+
+  it("keeps existing -other links when the index is rewritten", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "- [26-Jun-2026 — Unassigned commits](how-to/committee/release-notes/2026-06-26-other)",
+        "- [26-Jun-2026 — #298 — an issue note](how-to/committee/release-notes/2026-06-26-issue-298)"
+      ].join("\n")
+    );
+
+    const updated = updateIndexPageContent(existing, {
+      date: "2026-06-27",
+      title: "Something later",
+      path: "how-to/committee/release-notes/2026-06-27",
+      issueNumber: null
+    });
+
+    const content = extractContent(updated);
+    expect(content).toContain("(how-to/committee/release-notes/2026-06-26-other)");
+    expect(content).toContain("(how-to/committee/release-notes/2026-06-26-issue-298)");
+  });
+
+  it("treats a date page and its -other sibling as separate entries", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "- [23-Jun-2026 — the day's note](how-to/committee/release-notes/2026-06-23)"
+      ].join("\n")
+    );
+
+    const updated = updateIndexPageContent(existing, {
+      date: "2026-06-23",
+      title: "Unassigned commits",
+      path: "how-to/committee/release-notes/2026-06-23-other",
+      issueNumber: null
+    });
+
+    const content = extractContent(updated);
+    expect(content).toContain("(how-to/committee/release-notes/2026-06-23)");
+    expect(content).toContain("(how-to/committee/release-notes/2026-06-23-other)");
+  });
+
+  it("keeps existing -other links when refreshing without adding an entry", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "- [26-Jun-2026 — Unassigned commits](how-to/committee/release-notes/2026-06-26-other)"
+      ].join("\n")
+    );
+
+    expect(extractContent(refreshIndexPageContent(existing)))
+      .toContain("(how-to/committee/release-notes/2026-06-26-other)");
   });
 });

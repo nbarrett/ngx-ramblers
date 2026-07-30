@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { padLeft, padRight } from "./string-utils";
+import { padLeft, padRight, truncateAtWordBoundary } from "./string-utils";
 
 describe("padRight", () => {
   it("pads short strings to length", () => {
@@ -47,5 +47,33 @@ describe("padLeft", () => {
 
   it("pads numeric string", () => {
     expect(padLeft("42", 6)).toBe("    42");
+  });
+});
+
+describe("truncateAtWordBoundary", () => {
+
+  it("returns titles shorter than the limit unchanged", () => {
+    expect(truncateAtWordBoundary("hide non-approved walks from public visitors", 90))
+      .toBe("hide non-approved walks from public visitors");
+  });
+
+  it("cuts on a word boundary without adding an ellipsis", () => {
+    expect(truncateAtWordBoundary("content path Contains match returns no results and carousel titles not showing", 40))
+      .toBe("content path Contains match returns no");
+  });
+
+  it("drops a dangling opening bracket rather than cutting mid-reference", () => {
+    expect(truncateAtWordBoundary("separate inbox privacy from admin config (ref #310, #319)", 48))
+      .toBe("separate inbox privacy from admin config");
+  });
+
+  it("keeps a complete bracketed phrase within the limit", () => {
+    expect(truncateAtWordBoundary("refresh codebase stats (28 July 2026) and tidy up the rest of it", 37))
+      .toBe("refresh codebase stats (28 July 2026)");
+  });
+
+  it("handles empty input and a zero limit", () => {
+    expect(truncateAtWordBoundary("", 90)).toBe("");
+    expect(truncateAtWordBoundary("anything", 0)).toBe("");
   });
 });
