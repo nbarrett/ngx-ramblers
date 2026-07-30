@@ -3,34 +3,38 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { derivedAliasesForConnection, generalAliasFor, internalEmailsForConnection, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { derivedAliasesForConnection, generalAliasFor, internalDomainsForConnection, internalEmailsForConnection, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import {
   InboxAliasConfig,
   InboxAliasConnectionStatus,
   InboxConnectionHealthResult,
   InboxMailboxConnection,
+  InboxMessage,
   InboxMessageDirection,
   InboxPollResult,
   InboxReaderProvider,
   InboxSyncMode,
+  InboxThread,
   InboxThreadFolder,
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
   fetchFullMessage,
+  fetchFullMessageDetailed,
   listAllInboxMessageIds,
   listHistoryDelta,
   listRecentInboxMessageIds,
   listSpamMessageIds,
   mailboxHistoryId,
-  registerGmailWatch
+  registerGmailWatch,
+  removeSpamLabel
 } from "./gmail-inbox-reader";
 import { recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { emailDomain, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { emailComposition as emailCompositionModel } from "../mongo/models/email-composition";
 import { member as memberModel } from "../mongo/models/member";
@@ -335,24 +339,47 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
   const identityEmailsByType = await roleIdentityEmailsByType();
   const mailboxEmails = connection.gmailAccountEmail ? [connection.gmailAccountEmail] : [];
   const internalEmails = await internalEmailsForConnection(connection);
+  const internalDomains = await internalDomainsForConnection(connection);
   const spamMessageIds = await listSpamMessageIds(connection, 50);
   return spamMessageIds.reduce<Promise<number>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
-    const parsed = await fetchFullMessage(connection, gmailMessageId);
-    const alreadyStored = await inboxThreadModel.findOne({
+    const {message: parsed, authentication} = await fetchFullMessageDetailed(connection, gmailMessageId);
+    const rescue = authentication.dmarcPass && isOwnDomain(emailDomain(parsed.from?.email ?? ""), internalDomains);
+    const existingThread = await inboxThreadModel.findOne({
       tenantSlug: connection.tenantSlug,
-      folder: InboxThreadFolder.JUNK,
       messageIds: parsed.messageId
-    }).lean();
-    if (alreadyStored) {
-      return accumulator;
-    }
+    }).lean() as InboxThread | null;
     const addressedRealAliases = realAliases.filter(alias =>
       roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageRecipientEmails(parsed), identityEmailsByType, mailboxEmails));
     const alias = addressedRealAliases[0] ?? generalAlias;
-    await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK, internalEmails);
-    return accumulator + 1;
+    return accumulator + await fileSpamScanMessage(connection, parsed, alias, gmailMessageId, rescue, internalEmails, existingThread);
   }, Promise.resolve(0));
+}
+
+async function fileSpamScanMessage(connection: InboxMailboxConnection, parsed: InboxMessage, alias: InboxAliasConfig, gmailMessageId: string, rescue: boolean, internalEmails: Set<string>, existingThread: InboxThread | null): Promise<number> {
+  const rehomeExisting = Boolean(existingThread && rescue && existingThread.folder === InboxThreadFolder.JUNK);
+  const storeFresh = !existingThread;
+  if (rehomeExisting) {
+    await removeSpamLabel(connection, gmailMessageId)
+      .catch(error => debugLog(`un-spam failed for ${gmailMessageId}: ${(error as Error).message}`));
+    await inboxThreadModel.updateOne(
+      {tenantSlug: connection.tenantSlug, messageIds: parsed.messageId, folder: InboxThreadFolder.JUNK},
+      {$set: {folder: InboxThreadFolder.INBOX, unread: true, readByMemberIds: []}});
+    debugLog(`re-homed already-junked message ${parsed.messageId} from ${parsed.from?.email} to inbox`);
+  } else if (storeFresh && rescue) {
+    await removeSpamLabel(connection, gmailMessageId)
+      .catch(error => debugLog(`un-spam failed for ${gmailMessageId}: ${(error as Error).message}`));
+    await storeInboundMessage(alias, parsed, InboxThreadFolder.INBOX, internalEmails);
+    debugLog(`rescued authenticated internal message ${parsed.messageId} from ${parsed.from?.email} out of spam`);
+  } else if (storeFresh) {
+    await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK, internalEmails);
+  }
+  return rehomeExisting || storeFresh ? 1 : 0;
+}
+
+function isOwnDomain(fromDomain: string, internalDomains: Set<string>): boolean {
+  return Boolean(fromDomain) && Array.from(internalDomains).some(domain =>
+    fromDomain === domain || fromDomain.endsWith(`.${domain}`) || domain.endsWith(`.${fromDomain}`));
 }
 
 export async function runInboxTokenHealthCheck(): Promise<InboxConnectionHealthResult[]> {

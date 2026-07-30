@@ -4,7 +4,7 @@ import { Brevo, BrevoClient } from "@getbrevo/brevo";
 import { AdminProfilePath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMessage, InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { brevoClient } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
@@ -81,7 +81,14 @@ export async function runInboxMessageDigest(): Promise<number> {
   ]);
   const isInboxRoutingAddress = (email: string): boolean => inboxRoutingAddresses.has(normaliseEmail(email));
 
-  const itemsByMember = messages.reduce<Map<string, DigestItem[]>>((map, message) => {
+  const junkMessages = messages.filter(message => threadById.get(message.threadId)?.folder === InboxThreadFolder.JUNK);
+  if (junkMessages.length > 0) {
+    await markMessagesNotified(junkMessages, now);
+    debugLog(`excluded ${pluraliseWithCount(junkMessages.length, "junk-filed message")} from digest`);
+  }
+  const notifiableMessages = messages.filter(message => threadById.get(message.threadId)?.folder !== InboxThreadFolder.JUNK);
+
+  const itemsByMember = notifiableMessages.reduce<Map<string, DigestItem[]>>((map, message) => {
     const thread = threadById.get(message.threadId);
     if (!thread) {
       return map;

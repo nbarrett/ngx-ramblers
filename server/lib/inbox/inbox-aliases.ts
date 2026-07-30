@@ -5,7 +5,7 @@ import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailbo
 import * as config from "../mongo/controllers/config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { member as memberModel } from "../mongo/models/member";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { emailDomain, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { systemConfig } from "../config/system-config";
 
 export function defaultTenantSlug(): string {
@@ -264,6 +264,12 @@ export async function internalEmailsForConnection(connection: InboxMailboxConnec
   const identityEmailsByType = await roleIdentityEmailsByType();
   const identityEmails = Array.from(identityEmailsByType.values()).flatMap(set => Array.from(set));
   return new Set([...mailboxEmails, ...aliasEmails, ...identityEmails].map(normaliseEmail));
+}
+
+export async function internalDomainsForConnection(connection: InboxMailboxConnection): Promise<Set<string>> {
+  const aliases = await derivedAliasesForConnection(connection);
+  const domains = aliases.map(alias => emailDomain(alias.roleEmail)).filter(Boolean);
+  return new Set(domains);
 }
 
 export async function collaborativeRoleTypes(tenantSlug: string): Promise<string[]> {
