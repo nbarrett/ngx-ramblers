@@ -111,6 +111,27 @@ export function joinWithAnd(parts: string[]): string {
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
+const TRAILING_SEPARATORS = /[\s,;:—–-]+$/;
+
+export function truncateAtWordBoundary(value: string, maxLength: number): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || maxLength <= 0) {
+    return "";
+  } else if (trimmed.length <= maxLength) {
+    return trimmed;
+  } else {
+    const cut = trimmed.slice(0, maxLength);
+    const lastSpace = cut.lastIndexOf(" ");
+    const cutEndsOnWord = trimmed.charAt(maxLength) === " ";
+    const onWordBoundary = cutEndsOnWord || lastSpace <= 0 ? cut : cut.slice(0, lastSpace);
+    const lastOpen = onWordBoundary.lastIndexOf("(");
+    const withoutDanglingBracket = lastOpen > 0 && !onWordBoundary.slice(lastOpen).includes(")")
+      ? onWordBoundary.slice(0, lastOpen)
+      : onWordBoundary;
+    return withoutDanglingBracket.replace(TRAILING_SEPARATORS, "");
+  }
+}
+
 export function truncateWithEllipsis(value: string, maxLength: number, ellipsis: string = "..."): string {
   const trimmed = value?.trim() ?? "";
   if (!trimmed || maxLength <= 0) {

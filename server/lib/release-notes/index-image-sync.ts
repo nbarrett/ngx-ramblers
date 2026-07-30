@@ -83,7 +83,6 @@ export async function syncReleaseNotesIndexImages(
       merged = updateIndexPageContent(
         merged,
         { date: entry.date, title: entry.title, path: entry.path, issueNumber: entry.issueNumber },
-        { allowUnassigned: true }
       );
     }
 
@@ -113,7 +112,6 @@ async function applyIndexRefresh(
 ): Promise<IndexSyncStats> {
   const beforeText = page.rows?.[0]?.columns?.[0]?.contentText ?? "";
   const refreshed = refreshIndexPageContent(page, {
-    allowUnassigned: true,
     imageStatusByPath
   });
   const afterText = refreshed.rows?.[0]?.columns?.[0]?.contentText ?? "";
