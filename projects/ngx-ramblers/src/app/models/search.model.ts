@@ -75,6 +75,7 @@ export interface AdvancedSearchCriteria {
   distanceMax?: number;
   accessibility?: string[];
   facilities?: string[];
+  walkTypes?: string[];
   freeOnly?: boolean;
   cancelled?: boolean;
   noLocation?: boolean;
@@ -105,6 +106,7 @@ export interface SavedSearchCriteria {
   distanceMax?: number;
   accessibility?: string[];
   facilities?: string[];
+  walkTypes?: string[];
   freeOnly?: boolean;
   cancelled?: boolean;
   noLocation?: boolean;
@@ -145,6 +147,7 @@ export const ADVANCED_SEARCH_CRITERIA_FIELDS: AdvancedSearchCriteriaField[] = [
   { key: "distanceMax", storedValue: StoredValue.DISTANCE_MAX, type: AdvancedSearchFieldType.NUMBER },
   { key: "accessibility", storedValue: StoredValue.ACCESSIBILITY, type: AdvancedSearchFieldType.ARRAY },
   { key: "facilities", storedValue: StoredValue.FACILITIES, type: AdvancedSearchFieldType.ARRAY },
+  { key: "walkTypes", storedValue: StoredValue.WALK_TYPES, type: AdvancedSearchFieldType.ARRAY },
   { key: "freeOnly", storedValue: StoredValue.FREE_ONLY, type: AdvancedSearchFieldType.BOOLEAN },
   { key: "cancelled", storedValue: StoredValue.CANCELLED, type: AdvancedSearchFieldType.BOOLEAN },
   { key: "noLocation", storedValue: StoredValue.NO_LOCATION, type: AdvancedSearchFieldType.BOOLEAN }

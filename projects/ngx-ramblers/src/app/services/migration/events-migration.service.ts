@@ -128,7 +128,7 @@ export class EventsMigrationService {
       linked_event: "",
       meeting_date_time: "",
       meeting_location: undefined,
-      shape: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.walkType || WalkType.CIRCULAR : null,
+      shape: this.isWalk(walkOrSocialEvent) ? (walkOrSocialEvent.walkType || WalkType.CIRCULAR).toLowerCase() : null,
       status: undefined,
       url: this.eventDefaultsService.initialUrl(title, startDateTime),
       id: ramblersWalk?.groupEvent?.id || null,

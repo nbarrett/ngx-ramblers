@@ -134,8 +134,8 @@ import { environment } from "../../../../environments/environment";
             <ng-container *ngTemplateOutlet="paginationControls"/>
             @if (notifyTarget.showAlert) {
               <div class="alert-wrapper flex-grow-1 min-w-0">
-                <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2">
-                  <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+                <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-start gap-2">
+                  <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0 search-alert-icon"></fa-icon>
                   <div class="search-alert-body">
                     @if (notifyTarget.alertTitle) {
                       <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>

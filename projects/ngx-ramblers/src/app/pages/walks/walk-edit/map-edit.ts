@@ -29,6 +29,8 @@ import { PaletteColor } from "../../../models/content-text.model";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
 import { isUndefined } from "es-toolkit/compat";
 
+const COMBINED_MAP_BOUNDS_PADDING = 0.25;
+
 @Component({
     selector: "[app-map-edit]",
     template: `
@@ -212,7 +214,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
       const startLatLng = L.latLng(latitude, longitude);
       const endLatLng = L.latLng(this.endLocationDetails.latitude, this.endLocationDetails.longitude);
-      bounds = L.latLngBounds(startLatLng, endLatLng);
+      bounds = L.latLngBounds(startLatLng, endLatLng).pad(COMBINED_MAP_BOUNDS_PADDING);
       center = bounds.getCenter();
     }
 
@@ -244,6 +246,14 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     this.fitBounds = bounds as any;
+
+    if (this.map) {
+      if (bounds) {
+        this.mapZoom.applyBoundsToMap(this.map, bounds, { maxZoom: 15 });
+      } else {
+        this.map.setView(center, this.map.getZoom());
+      }
+    }
 
     if (this.gpxFile?.awsFileName) {
       this.loadAndRenderGpxRoute();

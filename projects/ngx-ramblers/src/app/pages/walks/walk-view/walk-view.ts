@@ -131,13 +131,24 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                     </button>
                   </div>
                 } @else {
-                  <button type="button" class="btn btn-sm btn-light map-expand-btn"
-                          (click)="cycleMapSize()"
-                          [tooltip]="mapExpanded ? 'Full screen' : 'Expand map'"
-                          placement="left"
-                          [attr.aria-label]="mapExpanded ? 'Full screen map' : 'Expand map'">
-                    <fa-icon [icon]="mapExpanded ? faMaximize : faExpand"></fa-icon>
-                  </button>
+                  <div class="map-expand-controls">
+                    @if (mapExpanded) {
+                      <button type="button" class="btn btn-sm btn-light map-expand-btn"
+                              (click)="restoreMapSize()"
+                              tooltip="Restore map"
+                              placement="left"
+                              aria-label="Restore map">
+                        <fa-icon [icon]="faCompress"></fa-icon>
+                      </button>
+                    }
+                    <button type="button" class="btn btn-sm btn-light map-expand-btn"
+                            (click)="cycleMapSize()"
+                            [tooltip]="mapExpanded ? 'Full screen' : 'Expand map'"
+                            placement="left"
+                            [attr.aria-label]="mapExpanded ? 'Full screen map' : 'Expand map'">
+                      <fa-icon [icon]="mapExpanded ? faMaximize : faExpand"></fa-icon>
+                    </button>
+                  </div>
                 }
                 @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
                   <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
@@ -150,76 +161,97 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                   <div app-map-edit [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
                        class="map-walk-view" readonly
                        [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
-                       [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
+                       [locationDetails]="mapDisplay==MapDisplay.SHOW_END_POINT? displayedWalk?.walk?.groupEvent?.end_location:displayedWalk?.walk?.groupEvent?.start_location"
+                       [showCombinedMap]="mapDisplay==MapDisplay.SHOW_START_AND_END_POINT"
+                       [endLocationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                        [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
                        [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
                        [notify]="notify"></div>
                 }
+                @if (mapFullScreen) {
+                  <ng-container *ngTemplateOutlet="mapDisplayControls"/>
+                }
               </div>
-              <form class="rounded img-thumbnail map-radio-frame d-flex flex-wrap align-items-center justify-content-center">
-                <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
-                  <span class="me-2 fw-bold">Show Map As</span>
-                  <div class="form-check form-check-inline ms-2">
-                    <input class="form-check-input" type="radio" [name]="'mapView-' + index"
-                           [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
-                           id="{{index}}-pin-view-mode-start"
-                           [value]="false" (ngModelChange)="mapProviderChanged()">
-                    <label class="form-check-label" for="{{index}}-pin-view-mode-start">
-                      {{ mapViewLabel }}</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" [name]="'mapView-' + index"
-                           [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
-                           id="{{index}}-google-maps-mode-start"
-                           [value]="true" (ngModelChange)="mapProviderChanged()">
-                    <label class="form-check-label" for="{{index}}-google-maps-mode-start">
-                      Google Maps</label>
-                  </div>
-                </div>
-                <div class="ms-2 me-2 d-flex align-items-center flex-wrap" [class.mt-2]="!mapExpanded" [class.w-100]="!mapExpanded">
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" id="{{index}}-show-start-point"
-                           type="radio"
-                           [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
-                           (ngModelChange)="changeMapView($event)"
-                           [value]="MapDisplay.SHOW_START_POINT"/>
-                    <label class="form-check-label" for="{{index}}-show-start-point">
-                      At start point {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</label>
-                  </div>
-                  @if (displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
+              @if (!mapFullScreen) {
+                <ng-container *ngTemplateOutlet="mapDisplayControls"/>
+              }
+              <ng-template #mapDisplayControls>
+                <form class="rounded img-thumbnail map-radio-frame d-flex flex-wrap align-items-center justify-content-start">
+                  <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
+                    <span class="me-2 fw-bold">Show Map As</span>
+                    <div class="form-check form-check-inline ms-2">
+                      <input class="form-check-input" type="radio" [name]="'mapView-' + index"
+                             [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
+                             id="{{index}}-pin-view-mode-start"
+                             [value]="false" (ngModelChange)="mapProviderChanged()">
+                      <label class="form-check-label" for="{{index}}-pin-view-mode-start">
+                        {{ mapViewLabel }}</label>
+                    </div>
                     <div class="form-check form-check-inline">
-                      <input class="form-check-input" id="{{index}}-show-end-point"
+                      <input class="form-check-input" type="radio" [name]="'mapView-' + index"
+                             [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
+                             id="{{index}}-google-maps-mode-start"
+                             [value]="true" (ngModelChange)="mapProviderChanged()">
+                      <label class="form-check-label" for="{{index}}-google-maps-mode-start">
+                        Google Maps</label>
+                    </div>
+                  </div>
+                  <div class="ms-2 me-2 d-flex align-items-center flex-wrap" [class.mt-2]="mapControlsStacked" [class.w-100]="mapControlsStacked">
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" id="{{index}}-show-start-point"
                              type="radio"
                              [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
                              (ngModelChange)="changeMapView($event)"
-                             [value]="MapDisplay.SHOW_END_POINT"/>
-                      <label class="form-check-label" for="{{index}}-show-end-point">
-                        At finish point {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
+                             [value]="MapDisplay.SHOW_START_POINT"/>
+                      <label class="form-check-label text-nowrap" for="{{index}}-show-start-point">
+                        Start {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</label>
                     </div>
-                  }
-                </div>
-                @if (showGoogleMapsView) {
-                  <div class="w-100 ms-2 me-2 mt-2">
-                    <div class="form-check">
-                      <div class="d-flex align-items-center flex-wrap">
-                        <input id="{{index}}-show-driving-directions"
+                    @if (displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" id="{{index}}-show-end-point"
                                type="radio"
-                               class="form-check-input align-middle"
-                               (ngModelChange)="changeMapView($event)"
                                [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
-                               [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
-                        <label class="form-check-label text-nowrap align-middle ms-2"
-                               for="{{index}}-show-driving-directions">
-                          Driving from</label>
-                        <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
-                               [ngModel]="fromPostcode" name="fromPostcode"
-                               (ngModelChange)="changeFromPostcode($event)"
-                               type="text" #fromPostcodeInput>
+                               (ngModelChange)="changeMapView($event)"
+                               [value]="MapDisplay.SHOW_END_POINT"/>
+                        <label class="form-check-label text-nowrap" for="{{index}}-show-end-point">
+                          Finish {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
+                      </div>
+                      @if (!showGoogleMapsView) {
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" id="{{index}}-show-start-and-end-point"
+                                 type="radio"
+                                 [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
+                                 (ngModelChange)="changeMapView($event)"
+                                 [value]="MapDisplay.SHOW_START_AND_END_POINT"/>
+                          <label class="form-check-label text-nowrap" for="{{index}}-show-start-and-end-point">
+                            Both</label>
+                        </div>
+                      }
+                    }
+                  </div>
+                  @if (showGoogleMapsView) {
+                    <div class="ms-2 me-2" [class.w-100]="mapControlsStacked" [class.mt-2]="mapControlsStacked">
+                      <div class="form-check">
+                        <div class="d-flex align-items-center flex-wrap">
+                          <input id="{{index}}-show-driving-directions"
+                                 type="radio"
+                                 class="form-check-input align-middle"
+                                 (ngModelChange)="changeMapView($event)"
+                                 [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
+                                 [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
+                          <label class="form-check-label text-nowrap align-middle ms-2"
+                                 for="{{index}}-show-driving-directions">
+                            Driving from</label>
+                          <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
+                                 [ngModel]="fromPostcode" name="fromPostcode"
+                                 (ngModelChange)="changeFromPostcode($event)"
+                                 type="text" #fromPostcodeInput>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                }
-              </form>
+                  }
+                </form>
+              </ng-template>
             }
           </div>
         </div>
@@ -699,7 +731,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     const switchToShowStartPoint = this.drivingDirectionsDisabled() && this.showDrivingDirections();
     const switchToShowDrivingDirections = this.validFromPostcodeEntered() && !this.showDrivingDirections() && this.showGoogleMapsView;
     this.logger.info("autoSelectMapDisplay on entering: drivingDirectionsDisabled:", this.drivingDirectionsDisabled(), "switchToShowStartPoint:", switchToShowStartPoint, "switchToShowDrivingDirections:", switchToShowDrivingDirections, "mapDisplay:", this.mapDisplay, "fromPostcode:", this.fromPostcode);
-    if (switchToShowStartPoint) {
+    if (switchToShowStartPoint || (this.showGoogleMapsView && this.mapDisplay === MapDisplay.SHOW_START_AND_END_POINT)) {
       this.mapDisplay = MapDisplay.SHOW_START_POINT;
     } else if (switchToShowDrivingDirections) {
       this.mapDisplay = MapDisplay.SHOW_DRIVING_DIRECTIONS;
@@ -811,6 +843,15 @@ export class WalkViewComponent implements OnInit, OnDestroy {
         this.updateGoogleMapIfApplicable();
       }, 320);
     }
+  }
+
+  protected get mapControlsStacked(): boolean {
+    return !this.mapExpanded && !this.mapFullScreen;
+  }
+
+  restoreMapSize() {
+    this.applyMapSize(false, false);
+    this.syncMapSizeToUrl();
   }
 
   @HostListener("document:keydown.escape")

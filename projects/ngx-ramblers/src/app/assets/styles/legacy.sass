@@ -132,10 +132,16 @@ audio[controls], canvas, video
   right: 25px
   z-index: 1000
   padding: 4px !important
-  background-color: rgba(255, 255, 255, 0.3)
-  border-color: rgba(0, 0, 0, 0.08)
+  background-color: rgba(255, 255, 255, 0.85)
+  border: 2px solid #adb5bd !important
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2)
+  &:focus, &:focus-visible, &:active, &.active, &:first-child:active
+    background-color: rgba(255, 255, 255, 0.85)
+    border-color: #adb5bd !important
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2)
   &:hover
-    background-color: rgba(255, 255, 255, 0.5)
+    background-color: rgba(255, 255, 255, 1)
+    border-color: #6c757d !important
 
 .map-walks-list-view
   border-radius: 8px

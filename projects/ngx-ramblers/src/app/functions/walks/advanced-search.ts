@@ -221,6 +221,9 @@ export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | 
   if (criteria.facilities?.length > 0) {
     parts.push(criteria.facilities.map(item => stringUtils.asTitle(item)).join(", "));
   }
+  if (criteria.walkTypes?.length > 0) {
+    parts.push(criteria.walkTypes.map(walkType => stringUtils.asTitle(walkType)).join(", "));
+  }
   if (criteria.freeOnly) {
     parts.push("free only");
   }
@@ -263,6 +266,7 @@ export function savedCriteriaToAdvancedCriteria(saved: SavedSearchCriteria | und
   if (isNumber(saved.distanceMax)) { criteria.distanceMax = saved.distanceMax; }
   if (saved.accessibility?.length) { criteria.accessibility = saved.accessibility; }
   if (saved.facilities?.length) { criteria.facilities = saved.facilities; }
+  if (saved.walkTypes?.length) { criteria.walkTypes = saved.walkTypes; }
   if (saved.freeOnly) { criteria.freeOnly = saved.freeOnly; }
   if (saved.cancelled) { criteria.cancelled = saved.cancelled; }
   if (saved.noLocation) { criteria.noLocation = saved.noLocation; }
@@ -288,6 +292,7 @@ export function advancedCriteriaToSavedCriteria(criteria: AdvancedSearchCriteria
   if (isNumber(criteria.distanceMax)) { saved.distanceMax = criteria.distanceMax; }
   if (criteria.accessibility?.length) { saved.accessibility = criteria.accessibility; }
   if (criteria.facilities?.length) { saved.facilities = criteria.facilities; }
+  if (criteria.walkTypes?.length) { saved.walkTypes = criteria.walkTypes; }
   if (criteria.freeOnly) { saved.freeOnly = criteria.freeOnly; }
   if (criteria.cancelled) { saved.cancelled = criteria.cancelled; }
   if (criteria.noLocation) { saved.noLocation = criteria.noLocation; }
