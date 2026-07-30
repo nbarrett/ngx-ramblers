@@ -98,19 +98,29 @@ export async function handleSocialPublishAlbum(ws: WebSocket, data: SocialPublis
       const config: SystemConfig = await systemConfig();
       const baseUrl = publicBaseUrlFor(config, data?.publicBaseUrl);
       const results: SocialPublishResult[] = [];
+      const imageNamesFor = (network: SocialNetwork): string[] => {
+        const perNetwork = data?.imageNamesByNetwork?.[network];
+        return perNetwork?.length ? perNetwork : imageNames;
+      };
+      const allImageNames = Array.from(new Set(networks.flatMap(network => imageNamesFor(network))));
       sendProgress(ws, jobId, {
-        message: `Resolving ${imageNames.length} album images`,
+        message: `Resolving ${allImageNames.length} album images`,
         phase: "resolve-images",
         completed: 0,
         total: networks.length,
         percent: 0
       });
-      const images = await resolveAlbumImages(baseUrl, albumName, imageNames);
-      debugLog("resolved images:", images.length, "baseUrl:", baseUrl);
+      const resolvedImages = await resolveAlbumImages(baseUrl, albumName, allImageNames);
+      const imagesByName = new Map(resolvedImages.map(image => [image.image, image]));
+      debugLog("resolved images:", resolvedImages.length, "baseUrl:", baseUrl);
       for (const network of networks) {
         const caption = data?.captions?.[network] || "";
+        const networkImageNames = imageNamesFor(network);
+        const networkImages = networkImageNames.map(name => imagesByName.get(name)).filter(Boolean);
         if (!caption?.trim()) {
           results.push({network, success: false, error: `A caption is required for ${network}`});
+        } else if (networkImages.length === 0) {
+          results.push({network, success: false, error: `Select at least one image to publish to ${network}`});
         } else {
           const existing = await socialPublication.findOne({albumName, network}).lean().exec() as {postId?: string; permalink?: string} | null;
           if (existing) {
@@ -131,15 +141,15 @@ export async function handleSocialPublishAlbum(ws: WebSocket, data: SocialPublis
             try {
               const onProgress = (progress: SocialPublishProgress) => sendProgress(ws, jobId, progress);
               const result = network === SocialNetwork.FACEBOOK
-                ? await publishAlbumToFacebook(config?.externalSystems?.facebook, images, caption, onProgress)
+                ? await publishAlbumToFacebook(config?.externalSystems?.facebook, networkImages, caption, onProgress)
                 : await publishAlbumToInstagram(
                   config?.externalSystems?.instagram,
                   config?.externalSystems?.facebook?.pageAccessToken,
-                  images,
+                  networkImages,
                   caption,
                   onProgress
                 );
-              await recordPublication(albumName, result, imageNames, caption);
+              await recordPublication(albumName, result, networkImageNames, caption);
               results.push(result);
             } catch (error) {
               debugLog(network, "publish failed:", error);

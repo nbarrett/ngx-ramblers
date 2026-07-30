@@ -10,6 +10,7 @@ import { discoverFacebookPages, facebookConnectionStatus, publishAlbumToFacebook
 import { exchangeCodeForPages, facebookOAuthUrl, facebookTokenHealth } from "../facebook/facebook-oauth";
 import { instagramConnectionStatus, publishAlbumToInstagram } from "../instagram/instagram-publish";
 import { recentMedia } from "../instagram/recent-media";
+import { recentPosts } from "../facebook/recent-posts";
 import { socialPublication } from "../mongo/models/social-publication";
 import { dateTimeNowAsValue } from "../shared/dates";
 
@@ -145,9 +146,12 @@ router.get("/instagram/status", authConfig.authenticate(), async (_req: Request,
 
 router.get("/instagram/recent-media", recentMedia);
 
-router.get("/publications", authConfig.authenticate(), async (req: Request, res: Response) => {
+router.get("/facebook/recent-posts", recentPosts);
+
+router.get("/publications", async (req: Request, res: Response) => {
   const albumName = req.query.albumName as string;
-  const response = await socialPublication.find({albumName}).sort({publishedAt: -1}).lean().exec();
+  const response = await socialPublication.find({albumName}, "albumName network postId permalink imageCount publishedAt")
+    .sort({publishedAt: -1}).lean().exec();
   res.json({request: {albumName}, response});
 });
 

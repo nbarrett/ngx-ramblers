@@ -222,7 +222,8 @@ export class CreateWalkAlbumService {
       eventType: "walks",
       showPreAlbumText: true,
       preAlbumText,
-      allowSocialShare: socialPublishingEnabled(this.config)
+      allowSocialShare: socialPublishingEnabled(this.config),
+      showSocialPostLinks: true
     };
     if (albumIndex < 0) {
       rows.push(albumRow);

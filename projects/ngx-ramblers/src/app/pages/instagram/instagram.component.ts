@@ -10,6 +10,7 @@ import { ExternalSystems } from "../../models/system.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { InstagramService } from "../../services/instagram.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
+import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -37,7 +38,8 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
         <div class="instagram-media-grid">
           @for (media of recentMedia; track media.id) {
             <a [href]="media.permalink" target="_blank" rel="noopener noreferrer"
-               delay="500" [tooltip]="mediaTooltip(media)" [placement]="'top'">
+               delay="500" [tooltip]="mediaTooltip(media)" [placement]="'top'"
+               containerClass="social-media-tooltip">
               <img [src]="media.media_url" [alt]="media.caption || 'Instagram post'"/>
             </a>
           }
@@ -62,6 +64,7 @@ export class InstagramComponent implements OnInit, OnDestroy {
   private instagramService = inject(InstagramService);
   private systemConfigService = inject(SystemConfigService);
   private dateUtils = inject(DateUtilsService);
+  private stringUtils = inject(StringUtilsService);
   public recentMedia: InstagramMediaPost[] = [];
   public profile: InstagramProfile;
   public externalSystems: ExternalSystems;
@@ -150,7 +153,7 @@ export class InstagramComponent implements OnInit, OnDestroy {
 
   mediaTooltip(media: InstagramMediaPost): string {
     const when = media?.timestamp ? this.dateUtils.displayDate(media.timestamp) : "";
-    const caption = (media?.caption || "").trim();
+    const caption = this.stringUtils.truncate((media?.caption || "").trim(), 220);
     return [when, caption].filter(Boolean).join(" - ");
   }
 }

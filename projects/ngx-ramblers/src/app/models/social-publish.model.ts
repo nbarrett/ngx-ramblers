@@ -41,6 +41,7 @@ export interface SocialPublishJobRequest {
   networks: SocialNetwork[];
   captions: Partial<Record<SocialNetwork, string>>;
   imageNames: string[];
+  imageNamesByNetwork?: Partial<Record<SocialNetwork, string[]>>;
   publicBaseUrl?: string;
 }
 

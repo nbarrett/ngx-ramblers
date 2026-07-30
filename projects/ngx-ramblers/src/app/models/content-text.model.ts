@@ -470,6 +470,7 @@ export interface AlbumData {
   galleryViewOptions: GalleryViewOptions;
   allowSwitchView: boolean;
   allowSocialShare?: boolean;
+  showSocialPostLinks?: boolean;
   eventId: string;
   eventDate: number;
   eventType: string;
