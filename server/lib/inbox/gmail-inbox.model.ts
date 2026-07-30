@@ -153,6 +153,12 @@ export interface GmailMessage {
   payload?: GmailMessagePart | null;
 }
 
+export interface MessageAuthentication {
+  dmarcPass: boolean;
+  dkimPass: boolean;
+  spfPass: boolean;
+}
+
 export interface GmailAttachment {
   data?: string | null;
   size?: number | null;

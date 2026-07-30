@@ -24,6 +24,12 @@ export function normaliseEmail(email: string): string {
   }
 }
 
+export function emailDomain(email: string): string {
+  const normalised = normaliseEmail(email) ?? "";
+  const at = normalised.lastIndexOf("@");
+  return at >= 0 ? normalised.slice(at + 1) : "";
+}
+
 export function toSlug(input: string): string {
   if (!input) {
     return "";

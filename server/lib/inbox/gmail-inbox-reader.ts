@@ -32,6 +32,7 @@ import {
   GmailAttachmentRef,
   GmailHistoryResponse,
   GmailMessage,
+  MessageAuthentication,
   GmailMessageListResponse,
   GmailMessagePart,
   GmailMessagePartHeader,
@@ -195,12 +196,25 @@ export async function listHistoryDelta(connection: InboxMailboxConnection, start
 }
 
 export async function fetchFullMessage(connection: InboxMailboxConnection, gmailMessageId: string): Promise<InboxMessage> {
+  return (await fetchFullMessageDetailed(connection, gmailMessageId)).message;
+}
+
+export async function fetchFullMessageDetailed(connection: InboxMailboxConnection, gmailMessageId: string): Promise<{ message: InboxMessage; authentication: MessageAuthentication }> {
   const payload = await gmailRequest<GmailMessage>(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE(gmailMessageId), {
     format: "full"
   });
   const message = parseGmailMessage(payload);
   message.attachments = await downloadAttachmentsToS3(connection, gmailMessageId, payload);
-  return message;
+  return {message, authentication: parseAuthenticationResults(payload)};
+}
+
+export function parseAuthenticationResults(payload: GmailMessage): MessageAuthentication {
+  const combined = (payload.payload?.headers ?? [])
+    .filter(header => ["authentication-results", "arc-authentication-results"].includes((header.name ?? "").toLowerCase()))
+    .map(header => (header.value ?? "").toLowerCase())
+    .join(" ; ");
+  const passed = (method: string): boolean => new RegExp(`\\b${method}=pass\\b`).test(combined);
+  return {dmarcPass: passed("dmarc"), dkimPass: passed("dkim"), spfPass: passed("spf")};
 }
 
 function collectAttachmentRefs(part: GmailMessagePart | null): GmailAttachmentRef[] {
