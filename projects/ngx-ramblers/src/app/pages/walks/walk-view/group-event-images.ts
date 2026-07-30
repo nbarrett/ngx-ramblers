@@ -2,6 +2,7 @@ import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } fro
 import { Subscription } from "rxjs";
 import { BasicMedia, Media } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { UrlService } from "../../../services/url.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { SvgComponent } from "../../../modules/common/svg/svg";
 import { NgClass } from "@angular/common";
@@ -104,7 +105,7 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
           <div class="form-group mt-3">
             <label class="form-label">Focal point for image {{ imageIndex + 1 }}</label>
             <app-focal-point-picker
-              [imageSrc]="imageSourceOrPreview()"
+              [imageSrc]="focalPointImageSrc()"
               [minZoom]="0.2"
               [maxPreviewHeight]="260"
               [focalPoint]="currentMedia().focalPoint || defaultFocalPoint"
@@ -139,6 +140,7 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
 export class GroupEventImages implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventImages", NgxLoggerLevel.ERROR);
   mediaQueryService = inject(MediaQueryService);
+  private urlService = inject(UrlService);
   private walksConfigService = inject(WalksConfigService);
   private subscriptions: Subscription[] = [];
   protected naturalImageHeight = false;
@@ -215,6 +217,10 @@ export class GroupEventImages implements OnInit, OnDestroy {
 
   imageSourceOrPreview(): string {
     return this.imagePreview || this.currentBasicMedia()?.url;
+  }
+
+  focalPointImageSrc(): string {
+    return this.imagePreview || this.urlService.imageSource(this.currentBasicMedia()?.url, false, false);
   }
 
   currentBasicMedia(): BasicMedia {

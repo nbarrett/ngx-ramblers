@@ -30,7 +30,11 @@ export class MediaQueryService {
   private imageUrlFromMedia(media: Media[]): string {
     this.logger.info("image from media:", media);
     const mediaItem: Media = media?.find(item => item.styles.find(style => style.style === "medium"));
-    return mediaItem?.styles?.find(style => style.style === "medium")?.url;
+    return this.mediumStyleUrlFrom(mediaItem);
+  }
+
+  public mediumStyleUrlFrom(media: Media): string {
+    return media?.styles?.find(style => style.style === "medium")?.url;
   }
 
   public basicMediaFrom(mediaObject: HasMedia): BasicMedia[] {
