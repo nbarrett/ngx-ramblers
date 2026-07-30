@@ -100,34 +100,38 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
 
     .share-header-actions
       display: flex
-      align-items: center
+      flex-direction: row
+      flex-wrap: wrap
+      align-items: stretch
       gap: var(--space-2, 8px)
-      flex-shrink: 0
 
-    .network-chip
-      display: inline-flex
-      align-items: center
-      gap: 6px
-      padding: 6px 12px
-      border-radius: 999px
+    .network-toggle.shared
+      cursor: default
+      flex: 0 0 auto
+      max-width: none
+      border-color: #d99c0a
+      background: rgba(249, 177, 4, 0.1)
+
+    .network-shared-link
+      margin-left: auto
       font-size: 0.8rem
       font-weight: 600
-      border: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
-      background: #fff
-      color: var(--rsm-muted, rgb(110, 112, 115))
+      white-space: nowrap
+      color: var(--rsm-text, rgb(64, 65, 65))
+      text-decoration: underline
 
-    .network-chip.ready
-      border-color: rgba(25, 135, 84, 0.35)
-      background: rgba(25, 135, 84, 0.08)
-      color: #146c43
+    @media (max-width: 575.98px)
+      .share-header-actions
+        width: 100%
 
-    .network-chip.done
-      border-color: rgba(13, 110, 253, 0.3)
-      background: rgba(13, 110, 253, 0.08)
-      color: #0a58ca
+      .network-toggle.shared
+        flex: 1 1 100%
 
     .share-body
       padding: var(--space-4, 16px) var(--space-5, 20px) var(--space-5, 20px)
+
+    .share-body.collapsed
+      padding: 0
 
     .network-toggles
       display: flex
@@ -150,7 +154,7 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       flex: 1 1 180px
       max-width: 280px
 
-    .network-toggle:hover:not(.disabled)
+    .network-toggle:hover:not(.shared)
       border-color: rgba(217, 156, 10, 0.55)
       background: rgba(249, 177, 4, 0.04)
 
@@ -158,10 +162,6 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       border-color: #d99c0a
       background: rgba(249, 177, 4, 0.1)
       box-shadow: 0 0 0 1px rgba(217, 156, 10, 0.2)
-
-    .network-toggle.disabled
-      opacity: 0.55
-      cursor: not-allowed
 
     .network-toggle-icon
       font-size: 1.35rem
@@ -288,27 +288,6 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25)
       z-index: 1
 
-    .prior-list
-      display: flex
-      flex-direction: column
-      gap: 6px
-      margin-bottom: var(--space-4, 16px)
-      padding: 10px 12px
-      border-radius: var(--radius-2, 6px)
-      background: rgba(13, 110, 253, 0.05)
-      border: 1px solid rgba(13, 110, 253, 0.12)
-
-    .prior-item
-      display: flex
-      flex-wrap: wrap
-      align-items: center
-      gap: 6px
-      font-size: 0.85rem
-      color: var(--rsm-text, rgb(64, 65, 65))
-
-    .prior-item a
-      font-weight: 600
-
     .share-footer
       display: flex
       flex-wrap: wrap
@@ -415,34 +394,43 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                 <a [routerLink]="'/' + adminSettingsSystemSettingsPath"
                    [queryParams]="socialSettingsQueryParams">System Settings</a> to publish
               } @else if (allNetworksPublished()) {
-                Already published to the available networks
+                This album has already been shared
               } @else {
                 Choose networks, caption and photos, then publish
               }
             </p>
           </div>
         </div>
-        <div class="share-header-actions">
-          @if (facebookEnabled) {
-            <span class="network-chip"
-                  [class.ready]="!publishedPreviously(SocialNetwork.FACEBOOK) && !alreadyPublished(SocialNetwork.FACEBOOK)"
-                  [class.done]="publishedPreviously(SocialNetwork.FACEBOOK) || alreadyPublished(SocialNetwork.FACEBOOK)">
-              <fa-icon class="icon-facebook" [icon]="faFacebook"/>
-              {{ publishedPreviously(SocialNetwork.FACEBOOK) || alreadyPublished(SocialNetwork.FACEBOOK) ? "Done" : "Facebook" }}
-            </span>
-          }
-          @if (instagramEnabled) {
-            <span class="network-chip"
-                  [class.ready]="!publishedPreviously(SocialNetwork.INSTAGRAM) && !alreadyPublished(SocialNetwork.INSTAGRAM)"
-                  [class.done]="publishedPreviously(SocialNetwork.INSTAGRAM) || alreadyPublished(SocialNetwork.INSTAGRAM)">
-              <fa-icon class="icon-instagram" [icon]="faInstagram"/>
-              {{ publishedPreviously(SocialNetwork.INSTAGRAM) || alreadyPublished(SocialNetwork.INSTAGRAM) ? "Done" : "Instagram" }}
-            </span>
-          }
-        </div>
+        @if (publishedNetworksList().length > 0) {
+          <div class="share-header-actions">
+            @for (network of publishedNetworksList(); track network) {
+              <div class="network-toggle shared">
+                <fa-icon class="network-toggle-icon"
+                         [class.icon-facebook]="network === SocialNetwork.FACEBOOK"
+                         [class.icon-instagram]="network === SocialNetwork.INSTAGRAM"
+                         [icon]="network === SocialNetwork.FACEBOOK ? faFacebook : faInstagram"/>
+                <span class="network-toggle-label">
+                  <span class="network-toggle-name">{{ network | titlecase }}</span>
+                  <span class="network-toggle-status">
+                    @if (publishedAtFor(network)) {
+                      Shared {{ publishedAtFor(network) | date: "d MMM yyyy" }}
+                    } @else {
+                      Shared just now
+                    }
+                  </span>
+                </span>
+                @if (publishedPermalinkFor(network)) {
+                  <a class="network-shared-link"
+                     [href]="publishedPermalinkFor(network)" target="_blank" rel="noopener">View post</a>
+                }
+                <fa-icon class="network-toggle-check" [icon]="faCheck"/>
+              </div>
+            }
+          </div>
+        }
       </div>
 
-      <div class="share-body">
+      <div class="share-body" [class.collapsed]="!!contentMetadata?.files?.length && allNetworksPublished()">
           @if (!contentMetadata?.files?.length) {
             <div class="alert alert-warning d-flex align-items-start not-configured">
               <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
@@ -475,73 +463,41 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                 Back to album
               </button>
             </div>
+          } @else if (allNetworksPublished()) {
           } @else {
-            @if (priorPublications.length > 0) {
-              <div class="prior-list">
-                @for (pub of priorPublications; track pub.postId) {
-                  <div class="prior-item">
-                    <fa-icon
-                      [class.icon-facebook]="pub.network === SocialNetwork.FACEBOOK"
-                      [class.icon-instagram]="pub.network === SocialNetwork.INSTAGRAM"
-                      [icon]="pub.network === SocialNetwork.FACEBOOK ? faFacebook : faInstagram"/>
-                    <span>{{ pub.network | titlecase }} · {{ pub.publishedAt | date: "d MMM yyyy" }}</span>
-                    @if (pub.permalink) {
-                      <a [href]="pub.permalink" target="_blank" rel="noopener">View post</a>
-                    }
-                  </div>
-                }
-              </div>
-            }
-
             <div class="network-toggles">
-              @if (facebookEnabled) {
+              @if (facebookEnabled && !networkBlocked(SocialNetwork.FACEBOOK)) {
                 <div class="network-toggle"
                      [class.active]="postToFacebook"
-                     [class.disabled]="networkBlocked(SocialNetwork.FACEBOOK)"
                      (click)="toggleNetwork(SocialNetwork.FACEBOOK)"
                      role="checkbox"
-                     [attr.aria-checked]="postToFacebook"
-                     [attr.aria-disabled]="networkBlocked(SocialNetwork.FACEBOOK)">
+                     [attr.aria-checked]="postToFacebook">
                   <fa-icon class="network-toggle-icon icon-facebook" [icon]="faFacebook"/>
                   <span class="network-toggle-label">
                     <span class="network-toggle-name">Facebook</span>
                     <span class="network-toggle-status">
-                      @if (networkBlocked(SocialNetwork.FACEBOOK)) {
-                        Already published
-                      } @else if (postToFacebook) {
-                        Will publish
-                      } @else {
-                        Not selected
-                      }
+                      {{ postToFacebook ? "Will publish" : "Not selected" }}
                     </span>
                   </span>
-                  @if (postToFacebook && !networkBlocked(SocialNetwork.FACEBOOK)) {
+                  @if (postToFacebook) {
                     <fa-icon class="network-toggle-check" [icon]="faCheck"/>
                   }
                 </div>
               }
-              @if (instagramEnabled) {
+              @if (instagramEnabled && !networkBlocked(SocialNetwork.INSTAGRAM)) {
                 <div class="network-toggle"
                      [class.active]="postToInstagram"
-                     [class.disabled]="networkBlocked(SocialNetwork.INSTAGRAM)"
                      (click)="toggleNetwork(SocialNetwork.INSTAGRAM)"
                      role="checkbox"
-                     [attr.aria-checked]="postToInstagram"
-                     [attr.aria-disabled]="networkBlocked(SocialNetwork.INSTAGRAM)">
+                     [attr.aria-checked]="postToInstagram">
                   <fa-icon class="network-toggle-icon icon-instagram" [icon]="faInstagram"/>
                   <span class="network-toggle-label">
                     <span class="network-toggle-name">Instagram</span>
                     <span class="network-toggle-status">
-                      @if (networkBlocked(SocialNetwork.INSTAGRAM)) {
-                        Already published
-                      } @else if (postToInstagram) {
-                        Will publish
-                      } @else {
-                        Not selected
-                      }
+                      {{ postToInstagram ? "Will publish" : "Not selected" }}
                     </span>
                   </span>
-                  @if (postToInstagram && !networkBlocked(SocialNetwork.INSTAGRAM)) {
+                  @if (postToInstagram) {
                     <fa-icon class="network-toggle-check" [icon]="faCheck"/>
                   }
                 </div>
@@ -606,19 +562,26 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
             }
 
             <div class="mb-2">
-              <div class="section-label">
-                <span>Photos <span class="section-meta">({{ selectedCount() }} of {{ images.length }} selected)</span></span>
-                <div class="selection-actions">
-                  <button type="button" class="rams-text-decoration-pink" (click)="selectAll()">Select all</button>
-                  <button type="button" class="rams-text-decoration-pink" (click)="selectNone()">Clear</button>
-                  @if (postToInstagram && !networkBlocked(SocialNetwork.INSTAGRAM) && !instagramCountValid()) {
-                    <button type="button" class="rams-text-decoration-pink" (click)="autoChooseForInstagram()">
-                      Auto-choose for Instagram
-                    </button>
-                  }
+              @if (postToFacebook && !networkBlocked(SocialNetwork.FACEBOOK)) {
+                <div class="section-label">
+                  <span><fa-icon [icon]="faFacebook" class="me-1 icon-facebook"/> Facebook photos</span>
+                  <span class="section-meta">All {{ stringUtils.pluraliseWithCount(images.length, "photo") }} will be shared</span>
                 </div>
-              </div>
+              }
               @if (postToInstagram && !networkBlocked(SocialNetwork.INSTAGRAM)) {
+                <div class="section-label">
+                  <span><fa-icon [icon]="faInstagram" class="me-1 icon-instagram"/> Instagram photos
+                    <span class="section-meta">({{ selectedCount() }} of {{ images.length }} selected)</span></span>
+                  <div class="selection-actions">
+                    <button type="button" class="rams-text-decoration-pink" (click)="selectAll()">Select all</button>
+                    <button type="button" class="rams-text-decoration-pink" (click)="selectNone()">Clear</button>
+                    @if (!instagramCountValid()) {
+                      <button type="button" class="rams-text-decoration-pink" (click)="autoChooseForInstagram()">
+                        Auto-choose for Instagram
+                      </button>
+                    }
+                  </div>
+                </div>
                 <div class="alert {{ instagramCountValid() ? 'alert-success' : 'alert-warning' }} d-flex align-items-start mb-2">
                   <fa-icon [icon]="instagramCountValid() ? faCircleCheck : faCircleExclamation"
                            class="flex-shrink-0 mt-1 me-2"/>
@@ -653,9 +616,8 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                     }
                   </div>
                 </div>
-              }
-              <div class="image-grid">
-                @for (item of images; track item.image) {
+                <div class="image-grid">
+                  @for (item of images; track item.image) {
                   <div class="image-tile"
                        [class.selected]="isSelected(item)"
                        [class.ratio-warning]="showInstagramRatioWarning(item)"
@@ -674,8 +636,9 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                       </span>
                     }
                   </div>
-                }
-              </div>
+                  }
+                </div>
+              }
             </div>
 
             @if (notifyTarget.showAlert) {
@@ -691,21 +654,15 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
             }
 
             @for (result of results; track result.network) {
-              <div class="alert {{ result.success ? 'alert-success' : 'alert-warning' }} d-flex align-items-start mt-2 mb-0">
-                <fa-icon [icon]="result.success ? faCircleCheck : faCircleExclamation"
-                         class="flex-shrink-0 mt-1 me-2"/>
-                <div>
-                  <strong class="d-block">{{ result.network | titlecase }}</strong>
-                  @if (result.success) {
-                    Published {{ stringUtils.pluraliseWithCount(result.imageCount, "image") }}.
-                    @if (result.permalink) {
-                      <a [href]="result.permalink" target="_blank" rel="noopener">View post</a>
-                    }
-                  } @else {
+              @if (!result.success) {
+                <div class="alert alert-warning d-flex align-items-start mt-2 mb-0">
+                  <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
+                  <div>
+                    <strong class="d-block">{{ result.network | titlecase }}</strong>
                     {{ result.error }}
-                  }
+                  </div>
                 </div>
-              </div>
+              }
             }
 
             <div class="share-footer">
@@ -844,6 +801,33 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
 
   publishedPreviously(network: SocialNetwork): boolean {
     return this.priorPublications.some(publication => publication.network === network);
+  }
+
+  publishedNetworksList(): SocialNetwork[] {
+    return [
+      this.facebookEnabled && this.networkBlocked(SocialNetwork.FACEBOOK) ? SocialNetwork.FACEBOOK : null,
+      this.instagramEnabled && this.networkBlocked(SocialNetwork.INSTAGRAM) ? SocialNetwork.INSTAGRAM : null
+    ].filter(Boolean);
+  }
+
+  private publicationFor(network: SocialNetwork): SocialPublication | null {
+    return this.priorPublications.find(publication => publication.network === network) || null;
+  }
+
+  publishedAtFor(network: SocialNetwork): number | null {
+    return this.publicationFor(network)?.publishedAt ?? null;
+  }
+
+  publishedPermalinkFor(network: SocialNetwork): string | null {
+    return this.publicationFor(network)?.permalink
+      || this.results.find(result => result.network === network && result.success)?.permalink
+      || null;
+  }
+
+  private imageNamesFor(network: SocialNetwork): string[] {
+    return network === SocialNetwork.FACEBOOK
+      ? this.images.map(item => item.image)
+      : this.selectedImageNames();
   }
 
   ngOnDestroy(): void {
@@ -1115,9 +1099,10 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
   }
 
   publishDisabled(): boolean {
-    const missingBasics = this.publishing || !this.caption?.trim() || this.selectedCount() === 0 || this.publishableNetworks().length === 0;
-    const instagramBlockedByCount = this.postToInstagram && !this.networkBlocked(SocialNetwork.INSTAGRAM) && !this.instagramCountValid();
-    return missingBasics || instagramBlockedByCount;
+    const networks = this.publishableNetworks();
+    const instagramInvalid = networks.includes(SocialNetwork.INSTAGRAM) && !this.instagramCountValid();
+    const facebookInvalid = networks.includes(SocialNetwork.FACEBOOK) && this.images.length === 0;
+    return this.publishing || !this.caption?.trim() || networks.length === 0 || instagramInvalid || facebookInvalid;
   }
 
   async publish(): Promise<void> {
@@ -1128,14 +1113,18 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
     this.notify.progress({title: "Publishing", message: "Sending album to social media"});
     try {
       const captions: Partial<Record<SocialNetwork, string>> = {};
+      const imageNamesByNetwork: Partial<Record<SocialNetwork, string[]>> = {};
       networks.forEach(network => {
         captions[network] = this.captionFor(network);
+        imageNamesByNetwork[network] = this.imageNamesFor(network);
       });
+      const imageNames = Array.from(new Set(networks.flatMap(network => imageNamesByNetwork[network] || [])));
       const results = await this.socialPublishService.publishAlbum({
         albumName: this.contentMetadata.name,
         networks,
         captions,
-        imageNames: this.selectedImageNames()
+        imageNames,
+        imageNamesByNetwork
       }, progress => {
         this.publishProgress = progress;
         if (progress?.message) {

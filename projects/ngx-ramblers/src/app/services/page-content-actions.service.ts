@@ -199,6 +199,7 @@ export class PageContentActionsService {
       galleryViewOptions: DEFAULT_GALLERY_OPTIONS,
       allowSwitchView: false,
       allowSocialShare: false,
+      showSocialPostLinks: true,
       showStoryNavigator: true,
       showIndicators: true,
       slideInterval: 5000,

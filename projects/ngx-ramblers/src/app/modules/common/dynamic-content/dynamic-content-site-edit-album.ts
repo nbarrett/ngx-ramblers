@@ -173,6 +173,16 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                               Allow Share To Social Media</label>
                           </div>
                         </div>
+                        <div class="col-sm-6">
+                          <div class="form-check">
+                            <input [(ngModel)]="row.carousel.showSocialPostLinks"
+                                   type="checkbox" class="form-check-input"
+                                   [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-social-post-links')">
+                            <label class="form-check-label"
+                                   [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-social-post-links')">
+                              Show Links To Social Posts</label>
+                          </div>
+                        </div>
                       }
                     </div>
                     <div class="d-flex flex-wrap gap-3 mt-3">
@@ -725,6 +735,9 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     }
     if (this.row?.carousel && this.row.carousel.allowSocialShare !== true) {
       this.row.carousel.allowSocialShare = false;
+    }
+    if (this.row?.carousel && this.row.carousel.showSocialPostLinks !== false) {
+      this.row.carousel.showSocialPostLinks = true;
     }
     if (this.row?.carousel) {
       this.row.carousel.gridViewOptions = {...DEFAULT_GRID_OPTIONS, ...this.row.carousel.gridViewOptions};

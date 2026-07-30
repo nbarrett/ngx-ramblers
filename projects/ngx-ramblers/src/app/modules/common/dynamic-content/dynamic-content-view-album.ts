@@ -13,6 +13,7 @@ import { CardImageComponent } from "../card/image/card-image";
 import { AlbumComponent } from "../../../album/view/album";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { SocialShareAlbumComponent } from "../../../carousel/edit/social-share-album/social-share-album";
+import { SocialPostLinksComponent } from "../../../album/view/social-post-links";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { RootFolder } from "../../../models/system.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -30,6 +31,10 @@ import { NamedEventType } from "../../../models/broadcast.model";
       position: sticky
       top: 0
       z-index: 40
+      display: flex
+      flex-wrap: wrap
+      align-items: center
+      gap: 12px
       margin: 0 0 1rem
       padding: 0.5rem 0
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 70%, rgba(255, 255, 255, 0.88) 100%)
@@ -83,6 +88,14 @@ import { NamedEventType } from "../../../models/broadcast.model";
 
     .share-panel-shell
       margin-bottom: 1.25rem
+
+    @media (max-width: 767.98px)
+      .share-toggle-bar
+        align-items: stretch
+        gap: 8px
+
+      .share-toggle-btn
+        width: 100%
   `],
   template: `
     @if (actions.isAlbum(row)) {
@@ -104,22 +117,27 @@ import { NamedEventType } from "../../../models/broadcast.model";
             </h3>
           </div>
         }
-        @if (canShareAlbum) {
+        @if (canShareAlbum || showSocialPostLinks()) {
           <div class="col-sm-12">
             <div class="share-toggle-bar">
-              <button type="button"
-                      class="share-toggle-btn"
-                      [class.open]="shareExpanded"
-                      [attr.aria-expanded]="shareExpanded"
-                      (click)="toggleShare()">
-                <span class="share-toggle-icon" aria-hidden="true">
-                  <fa-icon [icon]="faShareNodes"/>
-                </span>
-                {{ shareExpanded ? "Hide social sharing" : "Share to social" }}
-                <fa-icon [icon]="shareExpanded ? faChevronUp : faChevronDown"/>
-              </button>
+              @if (canShareAlbum) {
+                <button type="button"
+                        class="share-toggle-btn"
+                        [class.open]="shareExpanded"
+                        [attr.aria-expanded]="shareExpanded"
+                        (click)="toggleShare()">
+                  <span class="share-toggle-icon" aria-hidden="true">
+                    <fa-icon [icon]="faShareNodes"/>
+                  </span>
+                  {{ shareExpanded ? "Hide social sharing" : "Share to social" }}
+                  <fa-icon [icon]="shareExpanded ? faChevronUp : faChevronDown"/>
+                </button>
+              }
+              @if (showSocialPostLinks() && !shareExpanded) {
+                <app-social-post-links [albumName]="row.carousel?.name"/>
+              }
             </div>
-            @if (shareExpanded) {
+            @if (canShareAlbum && shareExpanded) {
               <div class="share-panel-shell">
                 <app-social-share-album [contentMetadata]="shareAlbumContentMetadata"
                                         [caption]="shareAlbumCaption()"
@@ -153,7 +171,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
         </div>
       </div>
     }`,
-  imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe, SocialShareAlbumComponent, FontAwesomeModule]
+  imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe, SocialShareAlbumComponent, SocialPostLinksComponent, FontAwesomeModule]
 })
 export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   protected readonly AlbumView = AlbumView;
@@ -223,6 +241,12 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
 
   collapseShare(): void {
     this.shareExpanded = false;
+  }
+
+  showSocialPostLinks(): boolean {
+    return !!this.row?.carousel?.name
+      && this.row?.carousel?.albumView !== AlbumView.BACKGROUNDS
+      && this.row?.carousel?.showSocialPostLinks !== false;
   }
 
   shareAlbumCaption(): string {
