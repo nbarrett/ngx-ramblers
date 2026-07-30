@@ -200,7 +200,13 @@ export class EditGroupEventImagesComponent implements OnInit {
   }
 
   imageSourceOrPreview(): string {
-    return this.editMode === EditMode.ADD_NEW ? null : (this.awsFileData?.awsFileName || this.mediaQueryService.basicMediaFrom(this.extendedGroupEvent?.groupEvent)?.[0]?.url);
+    if (this.editMode === EditMode.ADD_NEW) {
+      return null;
+    } else {
+      return this.awsFileData?.awsFileName
+        || this.mediaQueryService.mediumStyleUrlFrom(this.media)
+        || this.mediaQueryService.basicMediaFrom(this.extendedGroupEvent?.groupEvent)?.[0]?.url;
+    }
   }
 
 }
