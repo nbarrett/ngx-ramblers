@@ -60,6 +60,13 @@ export function buildDifficultyCriteria(difficulty: string[]): any {
   };
 }
 
+export function buildWalkTypesCriteria(walkTypes: string[]): any {
+  const shapeMatches = walkTypes.map(walkType => ({
+    [GroupEventField.SHAPE]: { $regex: `^${walkType}$`, $options: "i" }
+  }));
+  return shapeMatches.length === 1 ? shapeMatches[0] : { $or: shapeMatches };
+}
+
 export function buildDistanceRangeCriteria(
   distanceMin?: number,
   distanceMax?: number
@@ -304,6 +311,10 @@ export function buildAdvancedSearchCriteria(
 
     if (advancedSearchCriteria.facilities?.length) {
       criteriaParts.push(buildFacilitiesCriteria(advancedSearchCriteria.facilities));
+    }
+
+    if (advancedSearchCriteria.walkTypes?.length) {
+      criteriaParts.push(buildWalkTypesCriteria(advancedSearchCriteria.walkTypes));
     }
 
     if (advancedSearchCriteria.freeOnly) {

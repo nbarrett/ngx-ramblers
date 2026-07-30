@@ -166,6 +166,7 @@ export enum StoredValue {
   WALK_LIST_VIEW = "walk-list-view",
   WALK_SELECT_TYPE = "walk-select-type",
   WALK_SORT_ASC = "walk-sort-asc",
+  WALK_TYPES = "walk-types",
 }
 
 export type StoredValueQueryParameters = Partial<Record<StoredValue, string | number | boolean | null>>;

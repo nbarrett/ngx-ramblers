@@ -132,7 +132,7 @@ export class EventDefaultsService {
         ascent_feet: 0,
         ascent_metres: 0,
         difficulty: MODERATE,
-        shape: isUndefined(overridingGroupEvent?.shape) ? WalkType.CIRCULAR : overridingGroupEvent?.shape,
+        shape: !overridingGroupEvent?.shape ? WalkType.CIRCULAR.toLowerCase() : overridingGroupEvent?.shape,
         duration: 0,
         walk_leader: null,
         url: this.initialUrl(overrides?.groupEvent?.title, startDateTime),

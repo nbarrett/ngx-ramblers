@@ -82,7 +82,7 @@ import { StoredValue } from "../../../models/ui-actions";
                   <div class="form-group">
                     <label for="walkType">Walk Type</label>
                     @if (allowDetailView) {
-                      <select [disabled]="syncDisabled"
+                      <select [compareWith]="shapeComparer" [disabled]="syncDisabled"
                               [(ngModel)]="displayedWalk.walk.groupEvent.shape"
                               (ngModelChange)="walkTypeChange()"
                               class="form-control input-sm" id="walkType">
@@ -539,6 +539,10 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
 
   difficultyComparer(item1: Difficulty, item2: Difficulty): boolean {
     return item1?.code === item2?.code;
+  }
+
+  shapeComparer(item1: string, item2: string): boolean {
+    return item1?.toLowerCase() === item2?.toLowerCase();
   }
 
   getDropdownTitle(item: GpxFileListItem): string {

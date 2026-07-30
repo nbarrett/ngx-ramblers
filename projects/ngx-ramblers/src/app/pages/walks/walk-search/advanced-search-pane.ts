@@ -28,7 +28,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersGroupWithLabel, WalkLeaderContact } from "../../../models/ramblers-walks-manager";
 import { from, Subject } from "rxjs";
-import { GroupEventField, WALK_GRADES } from "../../../models/walk.model";
+import { GroupEventField, WALK_GRADES, WalkType } from "../../../models/walk.model";
 import { FEATURE_CATEGORIES, FeatureCategory } from "../../../models/walk-feature.model";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -37,7 +37,7 @@ import { sortBy } from "../../../functions/arrays";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { DataQueryOptions, FilterCriteria } from "../../../models/api-request.model";
-import { isArray, isNumber } from "es-toolkit/compat";
+import { isArray, isNumber, values } from "es-toolkit/compat";
 import { DistanceRangeSlider } from "../../../components/distance-range-slider/distance-range-slider";
 import { ActivatedRoute } from "@angular/router";
 import { advancedSearchCriteriaFromParams } from "../../../functions/walks/advanced-search";
@@ -188,6 +188,20 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
               dropdownPosition="bottom"
               placeholder="Select difficulty..."
               [(ngModel)]="selectedDifficulty"
+              (ngModelChange)="onCriteriaChange()">
+            </ng-select>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Walk type ({{ selectedWalkTypes.length }} of {{ walkTypes.length }} selected)</label>
+            <ng-select
+              [items]="walkTypes"
+              [multiple]="true"
+              [closeOnSelect]="false"
+              [clearSearchOnAdd]="true"
+              dropdownPosition="bottom"
+              placeholder="Select walk type..."
+              [(ngModel)]="selectedWalkTypes"
               (ngModelChange)="onCriteriaChange()">
             </ng-select>
           </div>
@@ -619,6 +633,8 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   selectedDaysOfWeek: string[] = [];
   difficultyLevels = WALK_GRADES.map(grade => grade.description);
   selectedDifficulty: string[] = [];
+  walkTypes = values(WalkType);
+  selectedWalkTypes: string[] = [];
 
   distanceMin?: number;
   distanceMax?: number;
@@ -1048,6 +1064,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       distanceMax: this.distanceMax,
       accessibility: this.selectedAccessibility.length > 0 ? this.selectedAccessibility : undefined,
       facilities: this.selectedFacilities.length > 0 ? this.selectedFacilities : undefined,
+      walkTypes: this.selectedWalkTypes.length > 0 ? this.selectedWalkTypes : undefined,
       freeOnly: this.freeOnly,
       cancelled: this.cancelled,
       noLocation: this.noLocation
@@ -1086,6 +1103,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.selectedDifficulty = [];
     this.selectedAccessibility = [];
     this.selectedFacilities = [];
+    this.selectedWalkTypes = [];
     this.freeOnly = false;
     this.cancelled = false;
     this.noLocation = false;
@@ -1313,6 +1331,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       distanceMax: this.distanceMax,
       accessibility: this.selectedAccessibility.length > 0 ? this.selectedAccessibility : undefined,
       facilities: this.selectedFacilities.length > 0 ? this.selectedFacilities : undefined,
+      walkTypes: this.selectedWalkTypes.length > 0 ? this.selectedWalkTypes : undefined,
       freeOnly: this.freeOnly,
       cancelled: this.cancelled,
       noLocation: this.noLocation
@@ -1544,6 +1563,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       this.selectedDifficulty = criteria?.difficulty ? [...criteria.difficulty] : [];
       this.selectedAccessibility = criteria?.accessibility ? [...criteria.accessibility] : [];
       this.selectedFacilities = criteria?.facilities ? [...criteria.facilities] : [];
+      this.selectedWalkTypes = criteria?.walkTypes ? [...criteria.walkTypes] : [];
       this.freeOnly = criteria?.freeOnly ?? false;
       this.cancelled = criteria?.cancelled ?? false;
       this.noLocation = criteria?.noLocation ?? false;

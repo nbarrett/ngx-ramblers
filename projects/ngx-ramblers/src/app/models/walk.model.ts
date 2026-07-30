@@ -217,6 +217,7 @@ export enum WalkType {
 export enum MapDisplay {
   SHOW_START_POINT = "show-start-point",
   SHOW_END_POINT = "show-end-point",
+  SHOW_START_AND_END_POINT = "show-start-and-end-point",
   SHOW_DRIVING_DIRECTIONS = "show-driving-directions"
 }
 
