@@ -1,4 +1,5 @@
 import { Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { NgTemplateOutlet } from "@angular/common";
 import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -259,60 +260,79 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
         </div>
         <div class="walk-meta-footer" [class.d-none]="mapExpanded">
           @if (showWalkViewActions() || showWalkViewStatusAlert() || showWalkStatusWarning()) {
-            <div class="walk-view-footer-bar" role="toolbar" aria-label="Walk actions and status">
-              @if (showAlbumAction()) {
-                <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
-                        [tooltip]="albumActionTooltip()"
-                        class="btn btn-quiet btn-sm walk-view-action">
-                  <fa-icon [icon]="faImages"/>
-                  <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
-                </button>
-              }
-              @if (showPublishToRamblers) {
-                <a [routerLink]="publishExportLink"
-                   [queryParams]="publishExportQueryParams"
-                   [tooltip]="publishTooltip"
-                   class="btn btn-primary btn-sm walk-view-action">
-                  <fa-icon [icon]="faCloudArrowUp"/>
-                  <span>Publish</span>
-                </a>
-              }
-              @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                <button type="button"
-                        (click)="display.edit(displayedWalk)"
-                        [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                        class="btn btn-primary btn-sm walk-view-action">
-                  <fa-icon [icon]="walkActionIcon()"/>
-                  <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
-                </button>
-              } @else if (allowWalkAdminEdits) {
-                <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
-                   tooltip="View this walk"
-                   class="btn btn-quiet btn-sm walk-view-action">
-                  <fa-icon [icon]="faEye"/>
-                  <span>View</span>
-                </a>
-              }
-              @if (showWalkViewStatusAlert()) {
-                <div class="alert {{notifyTarget.alertClass}} walk-view-status-alert">
-                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  @if (notifyTarget.alertTitle) {
-                    <strong>{{ notifyTarget.alertTitle }}</strong>
+            <div class="walk-view-footer">
+              @if (showWalkViewActions()) {
+                <div class="walk-view-actions-row" role="toolbar" aria-label="Walk actions">
+                  @if (showAlbumAction()) {
+                    <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
+                            [tooltip]="albumActionTooltip()"
+                            class="btn btn-quiet btn-sm walk-view-action">
+                      <fa-icon [icon]="faImages"/>
+                      <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
+                    </button>
                   }
-                  <span>{{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}</span>
-                  <a [routerLink]="'/' + display.walksArea()" type="button"
-                     class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
+                  @if (showPublishToRamblers) {
+                    @if (publishBlockedUntilApproved()) {
+                      <span class="walk-view-action-disabled-wrap" [tooltip]="publishBlockedTooltip" container="body">
+                        <button type="button" disabled
+                                class="btn btn-primary btn-sm walk-view-action">
+                          <fa-icon [icon]="faCloudArrowUp"/>
+                          <span>Publish</span>
+                        </button>
+                      </span>
+                    } @else {
+                      <a [routerLink]="publishExportLink"
+                         [queryParams]="publishExportQueryParams"
+                         [tooltip]="publishTooltip"
+                         class="btn btn-primary btn-sm walk-view-action">
+                        <fa-icon [icon]="faCloudArrowUp"/>
+                        <span>Publish</span>
+                      </a>
+                    }
+                  }
+                  @if (displayedWalk?.walkAccessMode?.walkWritable) {
+                    <button type="button"
+                            (click)="display.edit(displayedWalk)"
+                            [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                            class="btn btn-primary btn-sm walk-view-action">
+                      <fa-icon [icon]="walkActionIcon()"/>
+                      <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
+                    </button>
+                  } @else if (allowWalkAdminEdits) {
+                    <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+                       tooltip="View this walk"
+                       class="btn btn-quiet btn-sm walk-view-action">
+                      <fa-icon [icon]="faEye"/>
+                      <span>View</span>
+                    </a>
+                  }
+                  @if (showWalkViewStatusAlert()) {
+                    <div class="alert {{notifyTarget.alertClass}} walk-view-status-alert walk-view-status-alert-inline">
+                      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                      @if (notifyTarget.alertTitle) {
+                        <strong>{{ notifyTarget.alertTitle }}</strong>
+                      }
+                      <span>{{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}</span>
+                      <a [routerLink]="'/' + display.walksArea()" type="button"
+                         class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
+                    </div>
+                  } @else if (showWalkStatusWarning()) {
+                    <ng-container [ngTemplateOutlet]="walkStatusWarning" [ngTemplateOutletContext]="{inline: true}"/>
+                  }
                 </div>
               }
-              @if (showWalkStatusWarning()) {
-                <div class="alert {{ALERT_WARNING.class}} walk-view-status-alert">
-                  <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-                  <strong>Walk Status</strong>
-                  <span>This walk is not approved by {{ display.walksCoordinatorName() }}</span>
-                </div>
+              @if (showWalkStatusWarning() && (showWalkViewStatusAlert() || !showWalkViewActions())) {
+                <ng-container [ngTemplateOutlet]="walkStatusWarning" [ngTemplateOutletContext]="{inline: false}"/>
               }
             </div>
           }
+          <ng-template #walkStatusWarning let-inline="inline">
+            <div class="alert {{ALERT_WARNING.class}} walk-view-status-alert" [class.walk-view-status-alert-inline]="inline">
+              <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+              <strong>Walk Status</strong>
+              <span>This walk is not approved by {{ display.walksCoordinatorName() }}</span>
+            </div>
+          </ng-template>
           <div class="walk-booking-form">
             <app-booking-form [extendedGroupEvent]="displayedWalk?.walk" [eventLink]="displayedWalk?.walkLink"></app-booking-form>
           </div>
@@ -329,7 +349,7 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -416,6 +436,13 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       && this.display.walkPopulationLocal()
       && !this.extendedGroupEventQueryService.approvedWalk(this.displayedWalk?.walk)
       && !!this.notifyTarget.showAlert;
+  }
+
+  public readonly publishBlockedTooltip = "Cannot be published until it's approved.";
+
+  publishBlockedUntilApproved(): boolean {
+    return this.display.walkPopulationLocal()
+      && !this.extendedGroupEventQueryService.approvedWalk(this.displayedWalk?.walk);
   }
 
   private refreshPublishAction(walk: ExtendedGroupEvent) {

@@ -140,16 +140,22 @@
   min-width: 0
   width: 100%
 
-.walk-view-footer-bar
+.walk-view-footer
   display: flex
-  flex-flow: row nowrap
-  align-items: center
+  flex-direction: column
   gap: var(--space-2, 0.5rem)
   width: 100%
   margin-top: 12px
-  margin-bottom: 0
   padding-top: 12px
   border-top: 1px solid rgba(29, 53, 87, 0.08)
+  min-width: 0
+
+.walk-view-actions-row
+  display: flex
+  flex-flow: row wrap
+  align-items: center
+  gap: var(--space-2, 0.5rem)
+  width: 100%
   min-width: 0
 
   > .btn + .btn,
@@ -182,26 +188,29 @@
 
 .walk-view-status-alert
   display: flex
-  flex-flow: row nowrap
+  flex-flow: row wrap
   align-items: center
+  justify-content: flex-start
   gap: 0.5rem
-  flex: 1 1 auto
-  width: auto
+  width: 100%
   min-width: 0
   min-height: 40px
   margin: 0
   padding: 0.5rem 0.85rem
   line-height: 1.35
-  overflow: hidden
-
-  > *
-    flex: 0 1 auto
-    min-width: 0
 
   > span
-    overflow: hidden
-    text-overflow: ellipsis
-    white-space: nowrap
+    min-width: 0
+
+.walk-view-status-alert-inline
+  flex: 1 1 auto
+  width: auto
+
+.walk-view-action-disabled-wrap
+  display: inline-flex
+
+  > .btn:disabled
+    pointer-events: none
 
 .map-full-screen-container
   position: fixed
