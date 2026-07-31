@@ -1,10 +1,11 @@
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { Request, Response } from "express";
 import debug from "debug";
+import { isArray } from "es-toolkit/compat";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { envConfig } from "../../env-config/env-config";
 import { emailComposition } from "../models/email-composition";
-import { EmailCompositionDocument, EmailCompositionStatus } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
+import { EmailCompositionDocument, EmailCompositionKind, EmailCompositionStatus, PreviousNewsletter } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import * as transforms from "./transforms";
 
@@ -30,6 +31,50 @@ function summaryFromQuery(req: Request): boolean {
   return (req.query?.summary ?? "").toString().toLowerCase() === "true";
 }
 
+function kindFromQuery(req: Request): EmailCompositionKind | null {
+  const raw = (req.query?.kind ?? "").toString().toLowerCase();
+  const recognised = raw === EmailCompositionKind.STANDARD || raw === EmailCompositionKind.NEWSLETTER;
+  return recognised ? raw as EmailCompositionKind : null;
+}
+
+function kindFromBody(body: any): EmailCompositionKind {
+  return body?.kind === EmailCompositionKind.NEWSLETTER ? EmailCompositionKind.NEWSLETTER : EmailCompositionKind.STANDARD;
+}
+
+export function previousNewsletterFromDocument(doc: EmailCompositionDocument): PreviousNewsletter {
+  const state: any = doc.state ?? {};
+  return {
+    id: doc.id,
+    title: doc.title,
+    sentAt: doc.sentAt ?? null,
+    windowEnd: state?.groupEventsFilter?.toDate?.value ?? null,
+    announcedEventIds: isArray(state?.selectedGroupEventIds) ? state.selectedGroupEventIds : [],
+    selectedListId: state?.selectedListId ?? null,
+    cadence: state?.newsletter?.cadence ?? null
+  };
+}
+
+export async function findPreviousNewsletter(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const memberId = memberIdFrom(req);
+  if (!memberId) {
+    res.status(401).json({ message: "Authentication required" });
+    return;
+  }
+  try {
+    const excludeId = (req.query?.excludeId ?? "").toString();
+    const filter: any = { kind: EmailCompositionKind.NEWSLETTER, status: EmailCompositionStatus.Sent };
+    if (excludeId) filter._id = { $ne: excludeId };
+    const doc = await emailComposition.findOne(filter).sort({ sentAt: -1 }).exec();
+    res.status(200).json({
+      action: ApiAction.QUERY,
+      response: doc ? previousNewsletterFromDocument(transforms.toObjectWithId(doc)) : null
+    });
+  } catch (error) {
+    errorDebugLog("findPreviousNewsletter error:", error);
+    res.status(500).json({ message: "previous newsletter lookup failed", error: transforms.parseError(error) });
+  }
+}
+
 export async function listForCurrentMember(req: AuthenticatedRequest, res: Response): Promise<void> {
   const memberId = memberIdFrom(req);
   if (!memberId) {
@@ -40,6 +85,8 @@ export async function listForCurrentMember(req: AuthenticatedRequest, res: Respo
     const filter: any = { $or: [{ ownerMemberId: memberId }, { shared: true }] };
     const status = statusFromQuery(req);
     if (status) filter.status = status;
+    const kind = kindFromQuery(req);
+    if (kind) filter.kind = kind;
     const query = summaryFromQuery(req)
       ? emailComposition.find(filter).select("-state").sort({ updatedAt: -1 }).lean()
       : emailComposition.find(filter).sort({ updatedAt: -1 });
@@ -89,6 +136,7 @@ export async function create(req: AuthenticatedRequest, res: Response): Promise<
     const doc = await emailComposition.create({
       ownerMemberId: memberId,
       status: body.status === "sent" ? "sent" : "draft",
+      kind: kindFromBody(body),
       shared: body.shared === true,
       title: body.title ?? "Untitled draft",
       state: body.state ?? {},
@@ -125,6 +173,7 @@ export async function update(req: AuthenticatedRequest, res: Response): Promise<
     if (body.title !== undefined) existing.title = body.title;
     if (body.state !== undefined) existing.state = body.state;
     if (body.shared !== undefined) existing.shared = body.shared === true;
+    if (body.kind !== undefined) existing.kind = kindFromBody(body);
     if (body.status === EmailCompositionStatus.Sent && existing.status !== EmailCompositionStatus.Sent) {
       existing.status = EmailCompositionStatus.Sent;
       existing.sentAt = dateTimeNowAsValue();

@@ -38,6 +38,7 @@ import {
   faTableColumns,
   faTrash,
   faTriangleExclamation,
+  faWandMagicSparkles,
   faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -69,9 +70,17 @@ import {
   EmailComposerState,
   EmailComposerStepKey,
   EmailComposition,
+  EmailCompositionKind,
   EmailCompositionStatus,
   EmailCompositionSummary,
   EventInclusionMode,
+  DEFAULT_NEWSLETTER_CADENCE,
+  NEWSLETTER_CADENCE_OPTIONS,
+  NewsletterCadence,
+  NewsletterCadenceOption,
+  NewsletterStartMode,
+  NewsletterWindow,
+  PreviousNewsletter,
   EXPANDABLE_FRAGMENT_KINDS,
   EmailComposerContextSource,
   PreviewStepDirection,
@@ -92,11 +101,26 @@ import {
 import {
   buildDefaultFragmentOrder,
   defaultEmailComposerState,
+  defaultNewsletterSettings,
   dividerHtml,
   findRecycledTrackingUrls,
   newDividerFragment,
   newMultiColumnFragment
 } from "../../functions/email-composer";
+import {
+  markEventsNewSinceLastNewsletter,
+  newEventCount,
+  newsletterWindowFrom
+} from "../../functions/newsletter-window";
+import { AiService } from "../../services/ai/ai.service";
+import {
+  DEFAULT_NEWSLETTER_INTRO_PURPOSE,
+  NEWSLETTER_INTRO_PURPOSE_OPTIONS,
+  NewsletterIntroEvent,
+  NewsletterIntroPurpose,
+  NewsletterPlan
+} from "../../models/ai.model";
+import { eventsForPurpose } from "../../functions/newsletter-purpose";
 import {
   BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
   CreateCampaignRequest,
@@ -857,6 +881,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               [notificationConfig]="state.notificationConfig"
               [notificationConfigListing]="state.notificationConfigListing"
               [showBranding]="true"/>
+            @if (draftingOffered()) {
+              <ng-container *ngTemplateOutlet="newsletterStartUi"/>
+            }
           </fieldset>
         }
         @if (state.notificationConfig && state.brandingMode !== BrandingMode.UNBRANDED) {
@@ -904,6 +931,68 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 Checking which committee role will send this email…
               </div>
             </div>
+          }
+        }
+      </div>
+    </ng-template>
+
+    <ng-template #newsletterStartUi>
+      <div class="mt-3 pt-3 border-top">
+        @if (newsletterMode()) {
+          <div class="email-composer-validation-summary">
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ newsletterWindowTitle() }}</h5>
+            <div>{{ newsletterWindowDescription() }} The period, the events and the drafted intro can all be changed further on.</div>
+          </div>
+        } @else {
+          <p class="text-muted small mb-3">Have the coming walks and social events pulled in for you, with an intro drafted from them. Everything stays editable afterwards.</p>
+          <div class="row mb-3">
+            <div class="col-sm-12">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" id="newsletter-start-period" name="newsletter-start-mode"
+                       [checked]="newsletterStartMode === NewsletterStartMode.PERIOD"
+                       (change)="newsletterStartMode = NewsletterStartMode.PERIOD">
+                <label class="form-check-label" for="newsletter-start-period">Create a newsletter for a period</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" id="newsletter-start-free-text" name="newsletter-start-mode"
+                       [checked]="newsletterStartMode === NewsletterStartMode.FREE_TEXT"
+                       (change)="newsletterStartMode = NewsletterStartMode.FREE_TEXT">
+                <label class="form-check-label" for="newsletter-start-free-text">Create one from free text</label>
+              </div>
+            </div>
+          </div>
+          <div class="row align-items-end">
+            @if (newsletterStartMode === NewsletterStartMode.PERIOD) {
+              <div class="col-sm-6 col-lg-4">
+                <label for="newsletter-start-period-select">Create a newsletter covering:</label>
+                <ng-select id="newsletter-start-period-select"
+                           [items]="newsletterPeriodOptions"
+                           bindLabel="periodLabel"
+                           bindValue="key"
+                           [clearable]="false"
+                           [searchable]="false"
+                           [(ngModel)]="newsletterStartPeriod"/>
+              </div>
+            } @else {
+              <div class="col-sm-8 col-lg-6">
+                <label for="newsletter-free-text">Describe the newsletter you want:</label>
+                <input id="newsletter-free-text" type="text" class="form-control"
+                       placeholder="everything up to the end of September, and mention the coach trip"
+                       [(ngModel)]="newsletterFreeText">
+              </div>
+            }
+            <div class="col-sm-4 mt-3 mt-sm-0">
+              <button type="button" class="btn btn-primary"
+                      [disabled]="creatingNewsletter || !templateStepValid()"
+                      [title]="templateStepValid() ? '' : templateStepValidationMessage()"
+                      (click)="createNewsletter()">
+                <fa-icon [icon]="creatingNewsletter ? faSpinner : faWandMagicSparkles" [spin]="creatingNewsletter" class="me-1"/>
+                {{ creatingNewsletter ? "Creating…" : "Create newsletter" }}
+              </button>
+            </div>
+          </div>
+          @if (!templateStepValid()) {
+            <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
           }
         }
       </div>
@@ -1144,6 +1233,42 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <div class="fragment-row-body">
                 @switch (fragment.kind) {
                   @case (ComposerFragmentKind.INTRO) {
+                    @if (newsletterMode()) {
+                      <div class="row mb-2">
+                        <div class="col-sm-6 col-lg-4">
+                          <label for="draft-purpose">What should the intro do?</label>
+                          <ng-select id="draft-purpose"
+                                     [items]="draftPurposeOptions"
+                                     bindLabel="label"
+                                     bindValue="key"
+                                     [clearable]="false"
+                                     [searchable]="false"
+                                     [(ngModel)]="draftPurpose"/>
+                          <div class="text-muted small mt-1">{{ draftPurposeHint() }}</div>
+                        </div>
+                      </div>
+                      <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary btn-sm"
+                                [disabled]="draftingIntro || selectedGroupEventCount() === 0"
+                                (click)="draftNewsletterIntro()">
+                          <fa-icon [icon]="draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="draftingIntro" class="me-1"/>
+                          {{ draftingIntro ? "Drafting…" : introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
+                        </button>
+                        @if (introDraftUndoAvailable()) {
+                          <button type="button" class="btn btn-sunset btn-sm" (click)="undoDraftedIntro()">
+                            <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
+                          </button>
+                        }
+                        @let draftEventCount = eventsForDraftPurpose().length;
+                        <span class="text-muted small">
+                          @if (draftEventCount === 0) {
+                            Nothing on the Events step matches {{ draftPurposeLabel() }} yet.
+                          } @else {
+                            Written from {{ draftEventCount }} of the {{ selectedGroupEventCount() }} selected {{ selectedGroupEventCount() === 1 ? "event" : "events" }}. Read it before you send.
+                          }
+                        </span>
+                      </div>
+                    }
                     <app-tiptap-markdown-editor #introEditor
                                                 [value]="state.introMarkdown"
                                                 (valueChange)="onIntroMarkdownChange($event)"
@@ -1330,11 +1455,62 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </div>
       </div>
+      @if (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
+        <div class="row mb-3">
+          <div class="col-sm-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="newsletter-mode"
+                     [checked]="newsletterMode()"
+                     (change)="onNewsletterModeToggled($any($event.target).checked)">
+              <label class="form-check-label" for="newsletter-mode">
+                <strong>Newsletter</strong> — carry on from where the last newsletter finished. Newsletters are normally created on the Sender &amp; Template step; tick this to turn an email you have already started into one.
+              </label>
+            </div>
+          </div>
+        </div>
+        @if (newsletterMode() && state.newsletter) {
+          <ng-container *ngTemplateOutlet="newsletterUi"/>
+        }
+      }
       @if (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && state.groupEventsFilter) {
         <ng-container *ngTemplateOutlet="autoIncludeUi"/>
       } @else if (state.eventInclusion === EventInclusionMode.SINGLE_EVENT && state.singleEvent) {
         <ng-container *ngTemplateOutlet="singleEventUi"/>
       }
+    </ng-template>
+
+    <ng-template #newsletterUi>
+      <div class="row mb-3">
+        <div class="col-sm-4">
+          <label for="newsletter-cadence">How often this newsletter goes out:</label>
+          <ng-select id="newsletter-cadence"
+                     [items]="newsletterCadenceOptions"
+                     bindLabel="label"
+                     bindValue="key"
+                     [clearable]="false"
+                     [searchable]="false"
+                     [ngModel]="state.newsletter!.cadence"
+                     (ngModelChange)="onNewsletterCadenceChange($event)"/>
+        </div>
+        <div class="col-sm-8 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="newsletter-mark-new"
+                   [(ngModel)]="state.newsletter!.markNewEvents"
+                   (ngModelChange)="onMarkNewEventsChanged()">
+            <label class="form-check-label" for="newsletter-mark-new">
+              Point out which events are new since the last newsletter
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-sm-12">
+          <div class="alert alert-warning">
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ newsletterWindowTitle() }}</h5>
+            <div>{{ newsletterWindowDescription() }}</div>
+          </div>
+        </div>
+      </div>
     </ng-template>
 
     <ng-template #singleEventUi>
@@ -1496,6 +1672,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                              [id]="'event-' + idx"
                              [(ngModel)]="event.selected">
                       <label class="form-check-label" [for]="'event-' + idx">
+                        @if (event.newSinceLastNewsletter) {
+                          <span class="badge bg-warning text-dark me-1">New</span>
+                        }
                         <strong>{{ event.eventDate | displayDate }}</strong>
                         @if (event.eventTime) { <span> &bull; {{ event.eventTime }}</span> }
                         &bull; {{ event?.eventType?.description }}
@@ -1768,6 +1947,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected googleMapsService = inject(GoogleMapsService);
   protected urlService = inject(UrlService);
   private compositionsService = inject(EmailCompositionsService);
+  private aiService = inject(AiService);
   private scheduledTaskService = inject(ScheduledTaskService);
   private http = inject(HttpClient);
   protected numberUtils = inject(NumberUtilsService);
@@ -1853,6 +2033,19 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faFolderOpen = faFolderOpen;
   protected readonly faFile = faFile;
   protected readonly faTriangleExclamation = faTriangleExclamation;
+  protected readonly faWandMagicSparkles = faWandMagicSparkles;
+  protected readonly newsletterCadenceOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS;
+  protected readonly newsletterPeriodOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS.filter(option => option.days !== null);
+  protected readonly NewsletterStartMode = NewsletterStartMode;
+  protected newsletterStartMode: NewsletterStartMode = NewsletterStartMode.PERIOD;
+  protected newsletterStartPeriod: NewsletterCadence = DEFAULT_NEWSLETTER_CADENCE;
+  protected newsletterFreeText = "";
+  protected creatingNewsletter = false;
+  protected draftingIntro = false;
+  protected draftPurpose: NewsletterIntroPurpose = DEFAULT_NEWSLETTER_INTRO_PURPOSE;
+  protected readonly draftPurposeOptions = NEWSLETTER_INTRO_PURPOSE_OPTIONS;
+  private introBeforeDraft: string | null = null;
+  private previousNewsletter: PreviousNewsletter | null = null;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faGripVertical = faGripVertical;
   protected readonly faAlignLeft = faAlignLeft;
@@ -2287,9 +2480,253 @@ export class EmailComposer implements OnInit, OnDestroy {
     try {
       const events = await this.committeeQueryService.groupEvents(this.state.groupEventsFilter!);
       const priorById = new Map(this.state.groupEvents.map(item => [item.id, item]));
-      this.state.groupEvents = events.map(event => this.mergePriorSelection(event, priorById.get(event.id)));
+      this.state.groupEvents = this.markNewSinceLastNewsletter(events.map(event => this.mergePriorSelection(event, priorById.get(event.id))));
     } catch (error) {
       this.logger.error("populateGroupEvents failed", error);
+    }
+  }
+
+  private markNewSinceLastNewsletter(events: GroupEventSummary[]): GroupEventSummary[] {
+    const settings = this.state.newsletter;
+    const canMark = this.newsletterMode() && !!settings?.markNewEvents && !!settings?.previousNewsletterId;
+    return markEventsNewSinceLastNewsletter(events, canMark ? settings.previouslyAnnouncedEventIds : null);
+  }
+
+  protected newsletterMode(): boolean {
+    return this.state.compositionKind === EmailCompositionKind.NEWSLETTER;
+  }
+
+  protected draftingOffered(): boolean {
+    return this.state.notificationConfig?.composerDrafting?.offerDraftedIntro === true;
+  }
+
+  protected async onNewsletterModeToggled(enabled: boolean): Promise<void> {
+    this.state.compositionKind = enabled ? EmailCompositionKind.NEWSLETTER : EmailCompositionKind.STANDARD;
+    if (enabled) {
+      this.state.newsletter = this.state.newsletter ?? defaultNewsletterSettings();
+      await this.loadPreviousNewsletter();
+      this.applyNewsletterWindow();
+      await this.populateGroupEvents();
+    } else {
+      this.state.newsletter = null;
+      this.previousNewsletter = null;
+      this.state.groupEvents = this.markNewSinceLastNewsletter(this.state.groupEvents);
+    }
+  }
+
+  private async loadPreviousNewsletter(): Promise<void> {
+    this.previousNewsletter = await this.compositionsService.previousNewsletter(this.currentDraftId);
+    const existing = this.state.newsletter ?? defaultNewsletterSettings();
+    this.state.newsletter = {
+      ...existing,
+      cadence: this.previousNewsletter?.cadence ?? existing.cadence,
+      previousNewsletterId: this.previousNewsletter?.id ?? null,
+      previousSentAt: this.previousNewsletter?.sentAt ?? null,
+      previousWindowEnd: this.previousNewsletter?.windowEnd ?? null,
+      previouslyAnnouncedEventIds: this.previousNewsletter?.announcedEventIds ?? []
+    };
+    if (this.previousNewsletter?.selectedListId && !this.state.selectedListId) {
+      this.state.selectedListId = this.previousNewsletter.selectedListId;
+    }
+  }
+
+  protected async onNewsletterCadenceChange(cadence: NewsletterCadence): Promise<void> {
+    if (this.state.newsletter) {
+      this.state.newsletter.cadence = cadence;
+      this.applyNewsletterWindow();
+      await this.populateGroupEvents();
+    }
+  }
+
+  protected onMarkNewEventsChanged(): void {
+    this.state.groupEvents = this.markNewSinceLastNewsletter(this.state.groupEvents);
+  }
+
+  private currentNewsletterWindow(): NewsletterWindow | null {
+    const filter = this.state.groupEventsFilter;
+    return filter?.fromDate?.value && filter?.toDate?.value
+      ? { fromMillis: filter.fromDate.value, toMillis: filter.toDate.value, continuesPreviousWindow: false }
+      : null;
+  }
+
+  private applyNewsletterWindow(): void {
+    if (this.state.newsletter) {
+      this.ensureGroupEventsFilter();
+      const window = newsletterWindowFrom(this.previousNewsletter, this.state.newsletter.cadence, this.dateUtils.dateTimeNow().toMillis(), this.currentNewsletterWindow());
+      this.applyNewsletterDates(window.fromMillis, window.toMillis);
+    }
+  }
+
+  private applyNewsletterDates(fromMillis: number, toMillis: number): void {
+    this.state.groupEventsFilter!.fromDate = this.dateUtils.asDateValue(fromMillis);
+    this.state.groupEventsFilter!.toDate = this.dateUtils.asDateValue(toMillis);
+    this.recomputeSliderBoundsFromCurrentRange();
+    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
+  }
+
+  protected async createNewsletter(): Promise<void> {
+    const freeText = this.newsletterFreeText.trim();
+    if (this.newsletterStartMode === NewsletterStartMode.FREE_TEXT && !freeText) {
+      this.notify.warning({ title: "Create newsletter", message: "Describe the newsletter you want first, such as everything up to the end of September." });
+    } else {
+      this.creatingNewsletter = true;
+      try {
+        await this.buildNewsletter(this.newsletterStartMode === NewsletterStartMode.FREE_TEXT ? await this.plannedNewsletter(freeText) : null);
+      } catch (error) {
+        this.logger.error("createNewsletter failed", error);
+        this.notify.warning({ title: "Create newsletter", message: `The newsletter could not be created: ${this.errorMessage(error)}` });
+      } finally {
+        this.creatingNewsletter = false;
+        this.changeDetector.detectChanges();
+      }
+    }
+  }
+
+  private async plannedNewsletter(request: string): Promise<NewsletterPlan | null> {
+    try {
+      const plan = await this.aiService.newsletterPlan({ request });
+      if (!plan?.understood) {
+        this.notify.warning({ title: "Create newsletter", message: "The period in that description was not clear, so the next month has been used. The dates can be changed on the Events step." });
+      }
+      return plan ?? null;
+    } catch (error) {
+      this.logger.error("plannedNewsletter failed", error);
+      this.notify.warning({ title: "Create newsletter", message: `The description could not be worked out, so the next month has been used instead: ${this.errorMessage(error)}` });
+      return null;
+    }
+  }
+
+  private async buildNewsletter(plan: NewsletterPlan | null): Promise<void> {
+    this.state.compositionKind = EmailCompositionKind.NEWSLETTER;
+    this.state.eventInclusion = EventInclusionMode.AUTO_INCLUDE;
+    this.ensureGroupEventsFilter();
+    await this.loadPreviousNewsletter();
+    this.state.newsletter!.cadence = plan ? NewsletterCadence.CUSTOM : this.newsletterStartPeriod;
+    this.state.newsletter!.guidance = plan?.guidance ?? (this.newsletterStartMode === NewsletterStartMode.FREE_TEXT ? this.newsletterFreeText.trim() : null);
+    if (plan) {
+      this.applyNewsletterDates(plan.fromMillis, plan.toMillis);
+    } else {
+      this.applyNewsletterWindow();
+    }
+    this.syncStateToUrl({ [StoredValue.EVENT_INCLUSION]: EventInclusionMode.AUTO_INCLUDE });
+    await this.populateGroupEvents();
+    this.applyNewsletterSubject();
+    await this.draftNewsletterIntro();
+    this.goToStepKey(this.canAccessStep(EmailComposerStepKey.COMPOSE) ? EmailComposerStepKey.COMPOSE : EmailComposerStepKey.RECIPIENTS);
+  }
+
+  private applyNewsletterSubject(): void {
+    const period = this.newsletterPeriodDescription();
+    if (period && !this.state.subject?.trim()) {
+      this.state.subject = `What's coming up: ${period}`;
+    }
+  }
+
+  private previousNewsletterExists(): boolean {
+    return !!this.previousNewsletter || !!this.state.newsletter?.previousNewsletterId;
+  }
+
+  protected newsletterWindowTitle(): string {
+    const previousSentAt = this.previousNewsletter?.sentAt ?? this.state.newsletter?.previousSentAt;
+    const sentAt = previousSentAt ? this.dateUtils.displayDate(previousSentAt) : "an unrecorded date";
+    return this.previousNewsletterExists() ? `Last newsletter went out on ${sentAt}` : "This is the first newsletter";
+  }
+
+  private newEventsSentence(): string {
+    const newCount = newEventCount(this.state.groupEvents);
+    const countDescription = newCount === 0 ? "None of them are" : newCount === 1 ? "One of them is" : `${newCount} of them are`;
+    return this.state.newsletter?.markNewEvents ? ` ${countDescription} new since that newsletter.` : "";
+  }
+
+  protected newsletterWindowDescription(): string {
+    const range = this.newsletterPeriodDescription() ?? "the dates chosen on the Events step";
+    return this.previousNewsletterExists()
+      ? `Covering ${range}, carrying on from the last one so members are not told the same thing twice.${this.newEventsSentence()}`
+      : `There is no earlier newsletter to carry on from, so this one covers ${range}. Every event is shown as it is, with nothing marked as new.`;
+  }
+
+  protected introDraftUndoAvailable(): boolean {
+    return this.introBeforeDraft !== null;
+  }
+
+  protected undoDraftedIntro(): void {
+    if (this.introBeforeDraft !== null) {
+      this.state.introMarkdown = this.introBeforeDraft;
+      this.introBeforeDraft = null;
+    }
+  }
+
+  protected awaitingDetails(event: GroupEventSummary): boolean {
+    const isWalk = event.ramblersEventType !== RamblersEventType.GROUP_EVENT;
+    return isWalk && (!event.contactName?.trim() || !event.distance?.trim() || !event.title?.trim() || /^awaiting\b/i.test(event.title));
+  }
+
+  private newsletterIntroEvents(): NewsletterIntroEvent[] {
+    return this.selectedGroupEventsList().map(event => ({
+      title: event.title,
+      eventType: event.eventType?.description || "Event",
+      dateDescription: this.dateUtils.displayDate(event.eventDate),
+      distance: event.distance || undefined,
+      location: event.location || undefined,
+      description: event.description || undefined,
+      newSinceLastNewsletter: this.state.newsletter?.markNewEvents ? event.newSinceLastNewsletter : undefined,
+      awaitingDetails: this.awaitingDetails(event)
+    }));
+  }
+
+  private newsletterPeriodDescription(): string | undefined {
+    const from = this.state.groupEventsFilter?.fromDate?.value;
+    const to = this.state.groupEventsFilter?.toDate?.value;
+    return from && to ? `${this.dateUtils.displayDate(from)} to ${this.dateUtils.displayDate(to)}` : undefined;
+  }
+
+  protected draftPurposeLabel(): string {
+    return NEWSLETTER_INTRO_PURPOSE_OPTIONS.find(option => option.key === this.draftPurpose)?.label ?? "";
+  }
+
+  protected draftPurposeHint(): string {
+    return NEWSLETTER_INTRO_PURPOSE_OPTIONS.find(option => option.key === this.draftPurpose)?.hint ?? "";
+  }
+
+  protected eventsForDraftPurpose(): NewsletterIntroEvent[] {
+    return eventsForPurpose(this.newsletterIntroEvents(), this.draftPurpose);
+  }
+
+  protected async draftNewsletterIntro(): Promise<void> {
+    const events = this.eventsForDraftPurpose();
+    if (events.length) {
+      await this.requestDraftedIntro(events);
+    } else {
+      this.notify.warning({ title: "Draft intro", message: this.draftPurpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST
+        ? "None of the selected dates are empty slots, so there is nothing to ask for leaders for. Widen the dates on the Events step."
+        : "No completed events are selected, so there is nothing to write an intro from. Choose events, or widen the dates, on the Events step." });
+    }
+  }
+
+  private async requestDraftedIntro(events: NewsletterIntroEvent[]): Promise<void> {
+    this.draftingIntro = true;
+    const previousIntro = this.state.introMarkdown ?? "";
+    try {
+      const output = await this.aiService.newsletterIntro({
+        events,
+        periodDescription: this.newsletterPeriodDescription(),
+        groupName: this.systemConfig?.group?.longName || this.systemConfig?.group?.shortName,
+        guidance: this.state.newsletter?.guidance ?? undefined,
+        purpose: this.draftPurpose
+      });
+      if (output?.trim()) {
+        this.introBeforeDraft = previousIntro;
+        this.state.introMarkdown = output.trim();
+        this.notify.success({ title: "Draft intro", message: "Intro drafted from the selected events. Read it over and change anything you would say differently." });
+      } else {
+        this.notify.warning({ title: "Draft intro", message: "Nothing came back, so the intro has been left as it was." });
+      }
+    } catch (error) {
+      this.logger.error("draftNewsletterIntro failed", error);
+      this.notify.warning({ title: "Draft intro", message: `The intro could not be drafted, so it has been left as it was: ${this.errorMessage(error)}` });
+    } finally {
+      this.draftingIntro = false;
+      this.changeDetector.detectChanges();
     }
   }
 
@@ -4503,6 +4940,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.attachments = restored.attachments ?? [];
     restored.fragmentOrder = restored.fragmentOrder ?? [];
     restored.articleBlocks = restored.articleBlocks ?? [];
+    restored.compositionKind = restored.compositionKind ?? EmailCompositionKind.STANDARD;
+    restored.newsletter = restored.compositionKind === EmailCompositionKind.NEWSLETTER
+      ? { ...defaultNewsletterSettings(), ...(restored.newsletter ?? {}) }
+      : null;
     if (restored.groupEventsFilter) {
       restored.groupEventsFilter.fromDate = this.restoredDateValue(restored.groupEventsFilter.fromDate);
       restored.groupEventsFilter.toDate = this.restoredDateValue(restored.groupEventsFilter.toDate);

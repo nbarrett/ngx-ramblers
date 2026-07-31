@@ -7,6 +7,12 @@ import {
   ChooseCoverImageApiResponse,
   ChooseCoverImageResponse,
   CoverImageCandidate,
+  NewsletterIntroApiResponse,
+  NewsletterIntroRequest,
+  NewsletterIntroResponse,
+  NewsletterPlan,
+  NewsletterPlanApiResponse,
+  NewsletterPlanRequest,
   TextRewriteApiResponse,
   TextRewriteResponse
 } from "../../models/ai.model";
@@ -26,6 +32,16 @@ export class AiService {
   async rewrite(input: string, systemPrompt?: string): Promise<string> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<TextRewriteApiResponse>(`${this.BASE_URL}/rewrite`, {input, systemPrompt}));
     return (response.response as TextRewriteResponse)?.output;
+  }
+
+  async newsletterIntro(request: NewsletterIntroRequest): Promise<string> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<NewsletterIntroApiResponse>(`${this.BASE_URL}/newsletter-intro`, request));
+    return (response.response as NewsletterIntroResponse)?.output ?? "";
+  }
+
+  async newsletterPlan(request: NewsletterPlanRequest): Promise<NewsletterPlan> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<NewsletterPlanApiResponse>(`${this.BASE_URL}/newsletter-plan`, request));
+    return response.response as NewsletterPlan;
   }
 
   async chooseCoverImage(

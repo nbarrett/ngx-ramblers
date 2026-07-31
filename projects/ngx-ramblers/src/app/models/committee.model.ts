@@ -96,6 +96,7 @@ export interface GroupEventSummary extends Identifiable {
   contactPhone?: string;
   contactEmail: string;
   contactHref?: string;
+  newSinceLastNewsletter?: boolean;
 }
 
 interface NotificationImage {
