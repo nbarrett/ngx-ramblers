@@ -1,5 +1,6 @@
 import { Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
+import { values } from "es-toolkit/compat";
 import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -601,6 +602,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     });
     this.subscriptions.push(this.route.queryParamMap.subscribe((paramMap: ParamMap) => {
       this.applyMapSizeFromQuery(paramMap);
+      this.applyMapOptionsFromQuery(paramMap);
     }));
     this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
       this.walkDetailsMapHeight = walksConfig?.walkDetailsMapHeight || 380;
@@ -763,6 +765,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   changeMapView(newValue: MapDisplay) {
     this.logger.info("changeShowDrivingDirections:", newValue);
     this.mapDisplay = newValue;
+    this.syncMapOptionsToUrl();
     if (this.showGoogleMapsView && newValue === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
       this.suppressMapToggle = true;
       this.updateGoogleMapIfApplicable();
@@ -775,6 +778,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   changeFromPostcode(fromPostcode: string) {
     this.logger.info("changeFromPostcode:", fromPostcode);
     this.fromPostcode = fromPostcode;
+    this.syncMapOptionsToUrl();
     this.autoSelectMapDisplay();
     this.suppressMapToggle = true;
     this.updateGoogleMapIfApplicable();
@@ -814,6 +818,34 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     const maximised = paramMap.get(StoredValue.MAXIMISE) === "true";
     const expanded = !maximised && paramMap.get(StoredValue.EXPANDED) === "true";
     this.applyMapSize(expanded, maximised);
+  }
+
+  private applyMapOptionsFromQuery(paramMap: ParamMap) {
+    if (this.mapOptionsFollowUrl) {
+      const requestedDisplay = values(MapDisplay).find(mapDisplay => mapDisplay === paramMap.get(StoredValue.MAP_DISPLAY));
+      if (requestedDisplay) {
+        this.mapDisplay = requestedDisplay;
+      }
+      const requestedPostcode = paramMap.get(StoredValue.FROM_POSTCODE);
+      if (requestedPostcode && requestedPostcode !== this.fromPostcode) {
+        this.fromPostcode = requestedPostcode;
+      }
+      this.showGoogleMapsView = paramMap.get(StoredValue.MAP_PROVIDER) === WalkDetailsMapProvider.GOOGLE_MAPS;
+    }
+  }
+
+  private syncMapOptionsToUrl() {
+    if (this.mapOptionsFollowUrl) {
+      this.uiActions.updateQueryParameters({
+        [StoredValue.MAP_DISPLAY]: this.mapDisplay === MapDisplay.SHOW_START_POINT ? null : this.mapDisplay,
+        [StoredValue.FROM_POSTCODE]: this.validFromPostcodeEntered() ? this.fromPostcode : null,
+        [StoredValue.MAP_PROVIDER]: this.showGoogleMapsView ? WalkDetailsMapProvider.GOOGLE_MAPS : WalkDetailsMapProvider.OS_MAPS
+      });
+    }
+  }
+
+  private get mapOptionsFollowUrl(): boolean {
+    return !this.walkInjected;
   }
 
   private applyMapSize(expanded: boolean, fullScreen: boolean) {
@@ -864,6 +896,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   mapProviderChanged() {
     this.mapProviderTouched = true;
+    this.syncMapOptionsToUrl();
     this.configureMapDisplay();
   }
 }
