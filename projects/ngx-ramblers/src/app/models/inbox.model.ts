@@ -211,6 +211,8 @@ export interface InboxMessage extends Identifiable {
   inReplyTo: string | null;
   references: string[];
   from: InboxAddress;
+  replyTo?: InboxAddress | null;
+  autoReply?: boolean;
   to: InboxAddress[];
   cc: InboxAddress[];
   subject: string;

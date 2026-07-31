@@ -16,12 +16,13 @@ import {
   InboxReaderProvider,
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { storeInboundMessage } from "../inbox/inbox-message-import";
+import { autoReplyFromHeaders, storeInboundMessage } from "../inbox/inbox-message-import";
 import { storeInboxAttachmentBuffer } from "../inbox/inbox-attachment-store";
 import {
   cloudflareIngressAliasesForMessage,
   defaultTenantSlug,
   generalInboxForwardAddress,
+  internalEmailsForConnection,
   messageRecipientEmails
 } from "../inbox/inbox-aliases";
 import { ensureCloudflareIngressConnection } from "./cloudflare-ingress-connection";
@@ -76,6 +77,11 @@ async function uploadAttachments(attachments: Attachment[]): Promise<InboxAttach
   }, Promise.resolve([]));
 }
 
+function headerText(parsed: ParsedMail, name: string): string | null {
+  const value = parsed.headers?.get(name);
+  return isString(value) ? value : null;
+}
+
 async function parsedToInboxMessage(parsed: ParsedMail): Promise<InboxMessage> {
   const attachments = await uploadAttachments(parsed.attachments ?? []);
   const receivedAt = parsed.date ? parsed.date.getTime() : dateTimeNow().toMillis();
@@ -89,6 +95,8 @@ async function parsedToInboxMessage(parsed: ParsedMail): Promise<InboxMessage> {
     inReplyTo: parsed.inReplyTo ?? null,
     references: normaliseReferences(parsed.references),
     from: firstInboxAddress(parsed.from),
+    replyTo: toInboxAddresses(parsed.replyTo)[0] ?? null,
+    autoReply: autoReplyFromHeaders(name => headerText(parsed, name), parsed.subject ?? ""),
     to: toInboxAddresses(parsed.to),
     cc: toInboxAddresses(parsed.cc),
     subject: parsed.subject ?? "",
@@ -178,7 +186,8 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
         return;
       }
     }
-    await Promise.all(aliases.map(alias => storeInboundMessage(alias, message)));
+    const internalEmails = await internalEmailsForConnection(connection);
+    await Promise.all(aliases.map(alias => storeInboundMessage(alias, message, undefined, internalEmails)));
     debugLog("Stored inbound message %s under %s: %o", message.messageId, pluraliseWithCount(aliases.length, "role"), aliases.map(alias => alias.roleType));
     res.status(200).json({request: {messageType}, response: {action: "store", stored: aliases.length, roleTypes: aliases.map(alias => alias.roleType)}});
   } catch (error) {

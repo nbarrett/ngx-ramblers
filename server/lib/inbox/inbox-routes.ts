@@ -37,12 +37,13 @@ import {
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
+import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, statedReplyAddress } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireCanUpdateInboxRoleNotifications, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
-import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import {
   conversationCount,
@@ -183,6 +184,38 @@ async function hydrateMessage(connection: InboxMailboxConnection, storedMessage:
     {$set: {externalId, bodyHtml: hydratedMessage.bodyHtml, bodyText: hydratedMessage.bodyText, attachments: hydratedMessage.attachments}}
   );
   return hydratedMessage;
+}
+
+async function hydrateReplyTo(connection: InboxMailboxConnection, message: InboxMessage): Promise<InboxAddress | null> {
+  const stated = statedReplyAddress(message);
+  const lookupNeeded = !stated
+    && message.replyTo === undefined
+    && message.direction === InboxMessageDirection.INBOUND
+    && message.externalSource === InboxReaderProvider.GMAIL_API
+    && Boolean(message.externalId);
+  const fetched = lookupNeeded ? await fetchMessageReplyTo(connection, message.externalId)
+    .catch(lookupError => {
+      debugLog(`hydrateReplyTo: Reply-To lookup failed for ${message.messageId}: ${(lookupError as Error).message}`);
+      return null;
+    }) : null;
+  if (lookupNeeded) {
+    await inboxMessageModel.updateOne({threadId: message.threadId, messageId: message.messageId}, {$set: {replyTo: fetched}});
+    debugLog(`hydrateReplyTo: stored Reply-To ${JSON.stringify(fetched)} on message ${message.messageId}`);
+  }
+  if (fetched?.email && !isAutoReplyMessage(message)) {
+    await correctThreadExternalAddress(message.threadId, fetched, await internalEmailsForConnection(connection));
+  }
+  return stated ?? (fetched?.email ? fetched : null);
+}
+
+async function refreshThreadCorrespondent(connection: InboxMailboxConnection, threadId: string, messages: InboxMessage[]): Promise<InboxAddress | null> {
+  const latestInbound = messages
+    .filter(message => message.direction === InboxMessageDirection.INBOUND && !isAutoReplyMessage(message))
+    .reduce<InboxMessage | null>((latest, candidate) =>
+      (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest?.receivedAt ?? latest?.sentAt ?? -1) ? candidate : latest, null);
+  const stated = latestInbound ? await hydrateReplyTo(connection, latestInbound) : null;
+  const sender = stated ?? latestInbound?.from ?? null;
+  return sender ? correctThreadExternalAddress(threadId, sender, await internalEmailsForConnection(connection)) : null;
 }
 
 router.get("/mailbox-connections", authConfig.authenticate(), async (req: Request, res: Response) => {
@@ -772,7 +805,12 @@ router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: 
       const storedMessage = message as InboxMessage;
       return hydrateMessage(await connectionForMessage(storedMessage, connection), storedMessage);
     }));
-    const threadForMember = {...thread, unread: threadUnreadForMember(thread, requestingMemberId(req))};
+    const correspondent = await refreshThreadCorrespondent(connection, req.params.id, messages);
+    const threadForMember = {
+      ...thread,
+      ...(correspondent ? {externalAddress: correspondent} : {}),
+      unread: threadUnreadForMember(thread, requestingMemberId(req))
+    };
     const response: InboxThreadMessagesResponse = {thread: threadForMember, messages};
     res.json({request: {messageType}, response});
   } catch (error) {
@@ -879,9 +917,16 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
       .filter(connectionAlias => connectionAlias.roleEmail.toLowerCase() !== (connection.gmailAccountEmail ?? "").toLowerCase())
       .filter(connectionAlias => rolesByType.has(connectionAlias.roleType))
       .map(connectionAlias => ({name: rolesByType.get(connectionAlias.roleType)?.description ?? null, email: connectionAlias.roleEmail}));
-    const replyTo = thread.externalAddress ?? (hydratedMessage.direction === InboxMessageDirection.OUTBOUND ? hydratedMessage.to?.[0] : hydratedMessage.from) ?? hydratedMessage.from;
+    const stated = await hydrateReplyTo(sourceConnection, hydratedMessage);
+    const internalEmails = await internalEmailsForConnection(sourceConnection);
+    const messageAddress = stated ?? (hydratedMessage.direction === InboxMessageDirection.OUTBOUND ? hydratedMessage.to?.[0] : hydratedMessage.from);
+    const correspondent = messageAddress?.email && !internalEmails.has(normaliseEmail(messageAddress.email)) ? messageAddress : null;
+    const replyTo = correspondent ?? thread.externalAddress ?? messageAddress ?? hydratedMessage.from;
+    if (correspondent && !isAutoReplyMessage(hydratedMessage) && hydratedMessage.direction === InboxMessageDirection.INBOUND) {
+      await correctThreadExternalAddress(req.params.id, correspondent, internalEmails);
+    }
     const reply = buildComposeResponse(hydratedMessage, replyTo, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true);
-    debugLog(`compose-reply: thread ${req.params.id} externalAddress=${JSON.stringify(thread.externalAddress)} reply.to=${JSON.stringify(reply.to)} message.from=${JSON.stringify(hydratedMessage.from)} messageId=${composeRequest?.messageId ?? "latest"}`);
+    debugLog(`compose-reply: thread ${req.params.id} externalAddress=${JSON.stringify(thread.externalAddress)} reply.to=${JSON.stringify(reply.to)} message.from=${JSON.stringify(hydratedMessage.from)} message.replyTo=${JSON.stringify(hydratedMessage.replyTo)} messageId=${composeRequest?.messageId ?? "latest"}`);
     res.json({request: {messageType}, response: reply});
   } catch (error) {
     errorDebugLog("Error composing reply:", (error as Error).message);

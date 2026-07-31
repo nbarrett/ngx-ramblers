@@ -1364,6 +1364,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       const representativeResponse = responses.find(response => this.threadIdOf(response.thread) === threadId) ?? responses[0];
       this.selectedThread = representativeResponse.thread;
+      responses.forEach(response => {
+        const listed = siblings.find(sibling => this.threadIdOf(sibling) === this.threadIdOf(response.thread));
+        if (listed) {
+          listed.externalAddress = response.thread.externalAddress;
+        }
+      });
       this.selectedMessages = this.collapseSends(responses.flatMap(response => response.messages));
       const newestMessage = this.selectedMessages.length
         ? this.selectedMessages.reduce((latest, candidate) =>
@@ -1371,17 +1377,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         : null;
       this.expandedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
       this.loadingThread = false;
-      const unreadSiblings = markRead ? siblings.filter(sibling => sibling.unread) : [];
-      if (unreadSiblings.length > 0) {
-        unreadSiblings.forEach(sibling => sibling.unread = false);
-        this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
-        if (this.readFilter === InboxReadFilter.UNREAD) {
-          this.threadListTotalCount = Math.max(0, this.threadListTotalCount - 1);
-        }
-        Promise.all(unreadSiblings.map(sibling => this.inboxService.markThreadRead(this.threadIdOf(sibling))))
-          .then(() => this.inboxNotificationService.resync())
-          .catch(error => this.logger.error("mark-read failed:", error));
-      }
+      this.markThreadsRead(markRead ? siblings : []);
     } catch (error) {
       if (requestId !== this.openThreadRequestId) {
         return;
@@ -1396,6 +1392,20 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       this.notify.error({title: "Open thread", message: (error as Error).message});
       this.logger.error("Failed to open thread:", error);
+    }
+  }
+
+  private markThreadsRead(threads: InboxThread[]): void {
+    const unreadThreads = threads.filter(thread => thread.unread);
+    if (unreadThreads.length > 0) {
+      unreadThreads.forEach(thread => thread.unread = false);
+      this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
+      if (this.readFilter === InboxReadFilter.UNREAD) {
+        this.threadListTotalCount = Math.max(0, this.threadListTotalCount - 1);
+      }
+      Promise.all(unreadThreads.map(thread => this.inboxService.markThreadRead(this.threadIdOf(thread))))
+        .then(() => this.inboxNotificationService.resync())
+        .catch(error => this.logger.error("mark-read failed:", error));
     }
   }
 
@@ -1437,6 +1447,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     try {
       const threadId = this.selectedThreadId ?? "";
       const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId, forward: options.forward});
+      this.markThreadsRead(this.siblingConversationThreads(this.selectedThread));
       if (options.replyAll) {
         reply.cc = this.replyAllRecipients(reply, target);
         reply.replyAll = true;
@@ -1546,13 +1557,14 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   messagePreview(message: InboxMessage): string {
-    const raw = message.bodyText?.trim() ? message.bodyText : (message.bodyHtml ?? "");
+    const raw = message.bodyHtml?.trim() ? message.bodyHtml : (message.bodyText ?? "");
     const cleaned = raw
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<head[\s\S]*?<\/head>/gi, " ")
       .replace(/<!--[\s\S]*?-->/g, " ")
       .replace(/<[^>]+>/g, " ")
+      .replace(/[^{}]*\{[^{}]*:[^{}]*\}/g, " ")
       .replace(/&nbsp;/gi, " ")
       .replace(/&amp;/gi, "&")
       .replace(/&lt;/gi, "<")

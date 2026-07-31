@@ -14,6 +14,7 @@ import { dateTimeNow } from "../shared/dates";
 import { isString } from "es-toolkit/compat";
 import { decryptInboxRefreshToken } from "./inbox-oauth-token-crypto";
 import { storeInboxAttachmentBuffer } from "./inbox-attachment-store";
+import { autoReplyFromHeaders } from "./inbox-message-import";
 import { systemConfig } from "../config/system-config";
 import {
   GMAIL_API_ROOT,
@@ -25,6 +26,7 @@ import {
   GmailHistoryType,
   GmailInternalDateSource,
   GmailLabel,
+  GmailMessageFormat,
   GmailMimePrefix,
   GmailMimeType,
   GmailQuery,
@@ -201,7 +203,7 @@ export async function fetchFullMessage(connection: InboxMailboxConnection, gmail
 
 export async function fetchFullMessageDetailed(connection: InboxMailboxConnection, gmailMessageId: string): Promise<{ message: InboxMessage; authentication: MessageAuthentication }> {
   const payload = await gmailRequest<GmailMessage>(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE(gmailMessageId), {
-    format: "full"
+    format: GmailMessageFormat.FULL
   });
   const message = parseGmailMessage(payload);
   message.attachments = await downloadAttachmentsToS3(connection, gmailMessageId, payload);
@@ -314,6 +316,13 @@ export async function insertSentCopy(connection: InboxMailboxConnection, rfc822:
   return response.id ?? null;
 }
 
+export async function fetchMessageReplyTo(connection: InboxMailboxConnection, gmailMessageId: string): Promise<InboxAddress | null> {
+  const payload = await gmailRequest<GmailMessage>(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE(gmailMessageId), {
+    format: GmailMessageFormat.METADATA
+  });
+  return parseAddressList(headerMap(payload.payload?.headers ?? []).get(GmailHeader.REPLY_TO) ?? "")[0] ?? null;
+}
+
 export function parseGmailMessage(payload: GmailMessage): InboxMessage {
   const headers = headerMap(payload.payload?.headers ?? []);
   const messageId = headers.get(GmailHeader.MESSAGE_ID) ?? "";
@@ -321,6 +330,7 @@ export function parseGmailMessage(payload: GmailMessage): InboxMessage {
   const references = (headers.get(GmailHeader.REFERENCES) ?? "").split(/\s+/).filter(token => token.length > 0);
   const conversationKey = headers.get(GmailHeader.CONVERSATION_KEY) ?? null;
   const fromHeader = headers.get(GmailHeader.FROM) ?? "";
+  const replyToHeader = headers.get(GmailHeader.REPLY_TO) ?? "";
   const toHeader = headers.get(GmailHeader.TO) ?? "";
   const ccHeader = headers.get(GmailHeader.CC) ?? "";
   const subject = headers.get(GmailHeader.SUBJECT) ?? "";
@@ -337,6 +347,8 @@ export function parseGmailMessage(payload: GmailMessage): InboxMessage {
     inReplyTo,
     references,
     from: parseAddress(fromHeader),
+    replyTo: parseAddressList(replyToHeader)[0] ?? null,
+    autoReply: autoReplyFromHeaders(name => headers.get(name), subject),
     to: parseAddressList(toHeader),
     cc: parseAddressList(ccHeader),
     subject,
