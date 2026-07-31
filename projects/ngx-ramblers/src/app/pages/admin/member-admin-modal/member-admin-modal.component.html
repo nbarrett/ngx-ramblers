@@ -401,6 +401,127 @@
               }
             </div>
           </div>
+          @if (hasHeadOfficeSupporterData()) {
+            <div class="row thumbnail-heading-frame">
+              <div class="thumbnail-heading">Head office supporter data</div>
+              <div class="col-sm-12">
+                <p>The fields below come directly from Ramblers head office via the Ramblers Team Emails API. They are
+                  read-only here and are refreshed on each supporter sync.</p>
+                <div class="row">
+                  <div class="col col-sm-4">
+                    <div class="form-group">
+                      <label for="ho-team-status">Team Status</label>
+                      <input disabled [value]="member.salesforceTeamStatus || '—'" type="text"
+                             class="form-control input-sm" id="ho-team-status">
+                    </div>
+                  </div>
+                  <div class="col col-sm-4">
+                    <div class="form-group">
+                      <label for="ho-team-from">Team Relationship From</label>
+                      <input disabled [value]="member.salesforceTeamRelationshipFrom ? (member.salesforceTeamRelationshipFrom | displayDate) : '—'"
+                             type="text" class="form-control input-sm" id="ho-team-from">
+                    </div>
+                  </div>
+                  <div class="col col-sm-4">
+                    <div class="form-group">
+                      <label for="ho-volunteer-roles">Volunteer Roles</label>
+                      <input disabled [value]="member.volunteerRoles || '—'" type="text"
+                             class="form-control input-sm" id="ho-volunteer-roles">
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col col-sm-4">
+                    <div class="form-group">
+                      <label for="ho-join-date">Membership Join Date</label>
+                      <input disabled [value]="member.membershipJoinDate ? (member.membershipJoinDate | displayDate) : '—'"
+                             type="text" class="form-control input-sm" id="ho-join-date">
+                    </div>
+                  </div>
+                  <div class="col col-sm-4">
+                    <div class="form-group">
+                      <label for="ho-end-date">Membership End Date</label>
+                      <input disabled [value]="member.membershipEndDate ? (member.membershipEndDate | displayDate) : '—'"
+                             type="text" class="form-control input-sm" id="ho-end-date">
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-2 mb-2"><strong>Sending permissions and preferences</strong></p>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Walk Leader</dt>
+                      <dd><app-switch-icon [on]="member.walkLeader"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Wellbeing Walker</dt>
+                      <dd><app-switch-icon [on]="member.wellbeingWalker"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Can Email Members</dt>
+                      <dd><app-switch-icon [on]="member.canEmailMembers"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Can Email Volunteers</dt>
+                      <dd><app-switch-icon [on]="member.canEmailVolunteers"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Can Email Wellbeing Walkers</dt>
+                      <dd><app-switch-icon [on]="member.canEmailWellbeingWalkers"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Can View Member Data</dt>
+                      <dd><app-switch-icon [on]="member.canViewMemberData"/></dd>
+                    </dl>
+                  </div>
+                  <div class="col-sm-6">
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Do Not Email</dt>
+                      <dd><app-switch-icon [on]="member.doNotEmail"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>No Walk Programme</dt>
+                      <dd><app-switch-icon [on]="member.noWalkProgram"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>No Campaigning</dt>
+                      <dd><app-switch-icon [on]="member.noCampaigning"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>No Surveys</dt>
+                      <dd><app-switch-icon [on]="member.noSurveys"/></dd>
+                    </dl>
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Wellbeing Walks Email Consent</dt>
+                      <dd><app-switch-icon [on]="member.emailConsentWellbeingWalks"/></dd>
+                    </dl>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col col-sm-6">
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Post Consent</dt>
+                      <dd><app-switch-icon [on]="member.postConsent"/>
+                        @if (member.postConsentLastUpdated) {
+                          <span class="ms-2 text-muted">(updated {{ member.postConsentLastUpdated | displayDate }})</span>
+                        }
+                      </dd>
+                    </dl>
+                  </div>
+                  <div class="col col-sm-6">
+                    <dl class="dl-horizontal input-sm">
+                      <dt>Phone Consent</dt>
+                      <dd><app-switch-icon [on]="member.phoneConsent"/>
+                        @if (member.phoneConsentLastUpdated) {
+                          <span class="ms-2 text-muted">(updated {{ member.phoneConsentLastUpdated | displayDate }})</span>
+                        }
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
           <div class="row thumbnail-heading-frame">
             <div class="thumbnail-heading">Walks Manager</div>
             <div class="col-sm-12">

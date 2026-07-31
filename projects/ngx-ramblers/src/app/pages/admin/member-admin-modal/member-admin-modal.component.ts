@@ -9,7 +9,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
-import { Member, MemberTerm, MemberUpdateAudit } from "../../../models/member.model";
+import { HEAD_OFFICE_SUPPORTER_FIELDS, Member, MemberTerm, MemberUpdateAudit } from "../../../models/member.model";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { EditMode, StoredValue } from "../../../models/ui-actions";
 import { FullNamePipe } from "../../../pipes/full-name.pipe";
@@ -382,5 +382,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     return this.member?.groupMarketingConsent !== undefined
       || this.member?.areaMarketingConsent !== undefined
       || this.member?.otherMarketingConsent !== undefined;
+  }
+
+  hasHeadOfficeSupporterData(): boolean {
+    return HEAD_OFFICE_SUPPORTER_FIELDS.some(field => this.member?.[field] !== undefined && this.member?.[field] !== null);
   }
 }

@@ -55,4 +55,49 @@ export const AUDIT_FIELDS: AuditField[] = [
   {fieldName: "groupMarketingConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "areaMarketingConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "otherMarketingConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "salesforceTeamStatus", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
+  {
+    fieldName: "salesforceTeamRelationshipFrom",
+    writeDataIf: WriteDataRule.CHANGED,
+    type: WriteDataType.DATE,
+    dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
+  },
+  {
+    fieldName: "membershipJoinDate",
+    writeDataIf: WriteDataRule.CHANGED,
+    type: WriteDataType.DATE,
+    dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
+  },
+  {
+    fieldName: "membershipEndDate",
+    writeDataIf: WriteDataRule.CHANGED,
+    type: WriteDataType.DATE,
+    dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
+  },
+  {fieldName: "volunteerRoles", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
+  {fieldName: "wellbeingWalker", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "walkLeader", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "canEmailVolunteers", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "canEmailMembers", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "canEmailWellbeingWalkers", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "canViewMemberData", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "doNotEmail", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "noWalkProgram", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "noCampaigning", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "noSurveys", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "postConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {
+    fieldName: "postConsentLastUpdated",
+    writeDataIf: WriteDataRule.CHANGED,
+    type: WriteDataType.DATE,
+    dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
+  },
+  {fieldName: "phoneConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {
+    fieldName: "phoneConsentLastUpdated",
+    writeDataIf: WriteDataRule.CHANGED,
+    type: WriteDataType.DATE,
+    dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
+  },
+  {fieldName: "emailConsentWellbeingWalks", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
 ];

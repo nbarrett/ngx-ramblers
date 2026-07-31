@@ -118,6 +118,18 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   canEmailMembers?: boolean;
   canEmailWellbeingWalkers?: boolean;
   canViewMemberData?: boolean;
+  doNotEmail?: boolean;
+  noWalkProgram?: boolean;
+  noCampaigning?: boolean;
+  noSurveys?: boolean;
+  postConsent?: boolean;
+  postConsentLastUpdated?: number;
+  phoneConsent?: boolean;
+  phoneConsentLastUpdated?: number;
+  emailConsentWellbeingWalks?: boolean;
+  membershipJoinDate?: number;
+  membershipEndDate?: number;
+  volunteerRoles?: string;
   membershipExpiryDate?: number;
   membershipNumber?: string;
   postcode?: string;
@@ -146,6 +158,29 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   otherMarketingConsent?: boolean;
   emailBlock?: MemberEmailBlock;
 }
+
+export const HEAD_OFFICE_SUPPORTER_FIELDS: (keyof Member)[] = [
+  "salesforceTeamStatus",
+  "salesforceTeamRelationshipFrom",
+  "membershipJoinDate",
+  "membershipEndDate",
+  "volunteerRoles",
+  "wellbeingWalker",
+  "walkLeader",
+  "canEmailMembers",
+  "canEmailVolunteers",
+  "canEmailWellbeingWalkers",
+  "canViewMemberData",
+  "doNotEmail",
+  "noWalkProgram",
+  "noCampaigning",
+  "noSurveys",
+  "postConsent",
+  "postConsentLastUpdated",
+  "phoneConsent",
+  "phoneConsentLastUpdated",
+  "emailConsentWellbeingWalks",
+];
 
 export interface MemberEmailBlock {
   reasonCode: string;
@@ -242,8 +277,13 @@ export interface RamblersMember extends HasEmailFirstAndLastName {
   noCampaigning?: boolean;
   noSurveys?: boolean;
   postConsent?: boolean;
+  postConsentLastUpdated?: string;
   phoneConsent?: boolean;
+  phoneConsentLastUpdated?: string;
   emailConsentWellbeingWalks?: boolean;
+  membershipJoinDate?: string;
+  membershipEndDate?: string;
+  volunteerRoles?: string;
   membershipNumber: string;
   mobileNumber: string;
   postcode: string;
