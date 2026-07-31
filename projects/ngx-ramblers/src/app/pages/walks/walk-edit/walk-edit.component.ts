@@ -203,7 +203,7 @@ import {
         <div class="d-inline-flex align-items-center flex-wrap align-middle">
           @if (allowClose()) {
             <button [disabled]="saveInProgress" type="button"
-                    (click)="closeEditView()" title="Close and go back to walks list"
+                    (click)="closeEditView()" title="Close and go back to where you came from"
                     class="btn pager-btn me-2">
               <fa-icon [icon]="faArrowLeft"/><span class="ms-2">Close</span>
             </button>

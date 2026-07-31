@@ -61,6 +61,7 @@ Existing early-return sites are listed in `.eslint-baselines/no-early-return.jso
 - **Verify the stored message after every commit, amend or rebase** with `git log -1 --format=%B`. Git's default editor cleanup can remove Markdown headings beginning with `#`; when an editor is involved, use a cleanup mode that preserves them or commit from a message file, then confirm all three headings remain in the stored message.
 - **Trunk-based development** - all work directly on main. Never create branches or worktrees unilaterally. The only exception is Claude Swarm, which creates worktrees as part of a multi-ticket session.
 - **No literal `\n`** in commit messages - use real newlines or multiple `-m` flags
+- **Never hard-wrap commit message bodies.** Each paragraph is one unbroken line, and each list item is one unbroken line, however long. Do not wrap at 72, 80 or any other column. A newline inside a paragraph is a soft line break: release notes are generated from these bodies via `npm run release-notes` and rendered as Markdown, where mid-paragraph breaks corrupt the output. Let the terminal and the renderer wrap it. Check before committing with `git log -1 --format=%B | awk 'length > 0 && length < 95 && $0 !~ /^[-#]/'` - any prose line it prints that is not a heading or a short standalone sentence is a wrapped paragraph and must be joined
 - **Hook setup**: `npm run setup:hooks`
 
 ## Deployment Dialect

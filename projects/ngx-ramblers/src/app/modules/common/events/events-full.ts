@@ -129,26 +129,7 @@ import { environment } from "../../../../environments/environment";
         @if (!walkListView || walkListView === WalkListView.TABLE) {
           <app-event-table-view [currentPageEvents]="currentPageWalks"/>
         }
-        @if (showRepeatedPagination()) {
-          <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-3">
-            <ng-container *ngTemplateOutlet="paginationControls"/>
-            @if (notifyTarget.showAlert) {
-              <div class="alert-wrapper flex-grow-1 min-w-0">
-                <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-start gap-2">
-                  <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0 search-alert-icon"></fa-icon>
-                  <div class="search-alert-body">
-                    @if (notifyTarget.alertTitle) {
-                      <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
-                    }
-                    @if (notifyTarget.alertMessage) {
-                      <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
-                    }
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-        }
+        
       </div>
     </div>
     <ng-template #paginationControls>
@@ -327,12 +308,6 @@ export class EventsFull implements OnInit, OnDestroy {
     return window.innerWidth <= DeviceSize.MEDIUM ? 3 : 5;
   }
 
-  showRepeatedPagination(): boolean {
-    return this.walkListView !== WalkListView.MAP
-      && this.pageCount > 1
-      && this.walksConfig?.showRepeatedPagination !== false
-      && this.currentPageWalks.length >= this.pageSize;
-  }
 
   applyFilter(searchTerm?: NamedEvent<string>): void {
     if (Boolean(searchTerm)) {

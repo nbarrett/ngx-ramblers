@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { IndexRenderMode, PageContent, PageContentRow } from "../../../models/content-text.model";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { ActionButtons } from "../action-buttons/action-buttons";
@@ -43,15 +44,16 @@ import {
                  [class.mb-5]="row.marginBottom === 5">
               <app-dynamic-content-view-index-map
                 [pageContent]="filteredPageContent()"
-                [mapHeight]="row.albumIndex.mapConfig?.height || 500"
+                [mapHeight]="row.albumIndex.mapConfig?.mapHeight || 500"
                 [clusteringEnabled]="row.albumIndex.mapConfig?.clusteringEnabled ?? true"
                 [clusteringThreshold]="row.albumIndex.mapConfig?.clusteringThreshold || 10"
                 [provider]="row.albumIndex.mapConfig?.provider || MapProvider.OSM"
                 [osStyle]="row.albumIndex.mapConfig?.osStyle || DEFAULT_OS_STYLE"
-                [mapCenter]="row.albumIndex.mapConfig?.mapCenter || [51.25, 0.75]"
-                [mapZoom]="row.albumIndex.mapConfig?.mapZoom || 10"
+                [mapCenter]="row.albumIndex.mapConfig?.mapCenter || mapDefaults.center()"
+                [mapZoom]="row.albumIndex.mapConfig?.mapZoom || mapDefaults.zoom()"
                 [showControlsDefault]="row.albumIndex.mapConfig?.showControlsDefault ?? true"
-                [allowControlsToggle]="row.albumIndex.mapConfig?.allowControlsToggle ?? true"/>
+                [allowControlsToggle]="row.albumIndex.mapConfig?.allowControlsToggle ?? true"
+                [autoFitBounds]="row.albumIndex.mapConfig?.autoFitBounds !== false"/>
             </div>
           }
         }
@@ -71,6 +73,7 @@ export class DynamicContentViewIndex implements OnInit {
   protected readonly IndexRenderMode = IndexRenderMode;
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
+  protected mapDefaults = inject(MapDefaultsService);
   public searchText = "";
   private memoizedSource: PageContent;
   private memoizedSearchText: string;

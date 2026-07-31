@@ -541,7 +541,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                       </p>
                       <div class="d-flex gap-2 align-items-start flex-wrap">
                         <input type="text" class="form-control" style="max-width: 320px;"
-                               placeholder="Primary hostname e.g. www.ekwg.co.uk"
+                               placeholder="Primary hostname e.g. www.your-group.org.uk"
                                [(ngModel)]="apexRedirectHostname"
                                [disabled]="operationBusy || customDomainBusy || apexRedirectBusy">
                         <button class="btn btn-primary" (click)="setupApexRedirect()"

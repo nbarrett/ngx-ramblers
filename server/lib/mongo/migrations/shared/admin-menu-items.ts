@@ -7,6 +7,12 @@ import {
   AdminSettingsPath,
   AdminPlatformPath,
 } from "../../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
+import {
+  WALKS_HOW_TO_DOCUMENTATION_URL,
+  WalksAdminSegment,
+  walksAdminPath,
+  walksLeaderPath
+} from "../../../../../projects/ngx-ramblers/src/app/models/walks-route-paths.model";
 
 export const CONTRIBUTOR_ENVIRONMENT_MENU_ITEM: ActionButtonColumn = {
   accessLevel: "committee",
@@ -466,3 +472,99 @@ export const MAIL_PROVIDER_MENU_ITEMS: { [key: string]: ActionButtonColumn } = {
     contentText: "Configure Mailchimp integration and defaults for the site"
   }
 };
+
+export function walkAdminMenuItems(walksArea: string): ActionButtonColumn[] {
+  return [
+    {
+      accessLevel: "loggedInMember",
+      title: "Ramblers Walk Export",
+      icon: "faFileExport",
+      iconColour: "ramblers",
+      href: walksAdminPath(walksArea, WalksAdminSegment.EXPORT),
+      contentText: "* Upload walks directly to [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n* Export walks in CSV format\n* Review audits of previous upload sessions"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Ramblers Walk Import",
+      icon: "faFileImport",
+      iconColour: "ramblers",
+      href: walksAdminPath(walksArea, WalksAdminSegment.IMPORT),
+      contentText: "* Upload a walks CSV exported from [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n* Match imported walk leaders to members in your database\n* Review and save the imported walks into your local database"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Add Walk Slots",
+      icon: "faCalendarPlus",
+      iconColour: "calendar",
+      href: walksAdminPath(walksArea, WalksAdminSegment.ADD_WALK_SLOTS),
+      contentText: "* Add walk slots in bulk for any number of up and coming dates on your configured regular walk day\n* Add a non-standard walk slot - for example on a different day of the week or a weekday evening"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Programme Overview",
+      icon: "faListCheck",
+      iconColour: "calendar",
+      href: walksAdminPath(walksArea, WalksAdminSegment.PROGRAMME),
+      contentText: "* See the whole programme grouped by status: awaiting a leader, awaiting walk details, awaiting approval, approved, published and cancelled\n* Headline counts across the top take you straight to that set of walks when you click them\n* The filter is held in the web address, so a view can be bookmarked or sent to somebody else"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Programme Calendar",
+      icon: "faCalendarDays",
+      iconColour: "calendar",
+      href: walksAdminPath(walksArea, WalksAdminSegment.CALENDAR),
+      contentText: "* View the programme as a month or a week\n* Colour walks by status, grade or leader\n* Show group events alongside walks, or walks on their own\n* Drag a walk to a new date, when dragging is switched on in walk configuration"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Programme Map",
+      icon: "faMap",
+      iconColour: "calendar",
+      href: walksAdminPath(walksArea, WalksAdminSegment.MAP),
+      contentText: "* See where the whole programme takes place on one map\n* Walks are coloured by their status\n* Narrow the map down to a single status"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "My Walks (Leader View)",
+      icon: "faPersonHiking",
+      iconColour: "calendar",
+      href: walksLeaderPath(walksArea),
+      contentText: "* See your own upcoming walks in one place\n* Check what is still outstanding on each of them\n* Open to any walk leader, whether or not they administer walks"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Walk Configuration",
+      icon: "faGear",
+      iconColour: "ramblers",
+      href: walksAdminPath(walksArea, WalksAdminSegment.CONFIG),
+      contentText: "* Configure walk validation rules and default walking pace\n* Maintain content that automatically gets added to our walk description\n* Configure defaults for Meetup publishing"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "Event Data Management",
+      icon: "faDatabase",
+      iconColour: "meetup",
+      href: walksAdminPath(walksArea, WalksAdminSegment.EVENT_DATA_MANAGEMENT),
+      contentText: "* Used to view and manage the total number of events per group code and event type categories\n* Bulk delete data within these categories"
+    },
+    {
+      accessLevel: "loggedInMember",
+      title: "How To Documentation",
+      icon: "faBook",
+      iconColour: "ramblers",
+      href: WALKS_HOW_TO_DOCUMENTATION_URL,
+      contentText: "* All documentation related to administering all walk-related activities"
+    }
+  ];
+}
+
+export function walkAdminLegacyHelpNames(walksArea: string): { [href: string]: string } {
+  return {
+    [walksAdminPath(walksArea, WalksAdminSegment.EXPORT)]: "ramblers-export-help",
+    [walksAdminPath(walksArea, WalksAdminSegment.IMPORT)]: "ramblers-import-help",
+    [walksAdminPath(walksArea, WalksAdminSegment.ADD_WALK_SLOTS)]: "add-walks-slots-help",
+    [walksAdminPath(walksArea, WalksAdminSegment.CONFIG)]: "walk-config-help",
+    [walksAdminPath(walksArea, WalksAdminSegment.EVENT_DATA_MANAGEMENT)]: "event-data-management-help",
+    [WALKS_HOW_TO_DOCUMENTATION_URL]: "how-to-documentation-help"
+  };
+}

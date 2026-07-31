@@ -138,6 +138,16 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
         this.loadAndRenderGpxRoute();
       }
     }
+    if (this.mapDisplayChanged(changes)) {
+      this.logger.info("map display changed - showCombinedMap:", this.showCombinedMap, "endLocationDetails:", this.endLocationDetails);
+      this.initializeMap();
+    }
+  }
+
+  private mapDisplayChanged(changes: SimpleChanges): boolean {
+    const combinedMapChanged = changes["showCombinedMap"] && !changes["showCombinedMap"].firstChange;
+    const endLocationChanged = changes["endLocationDetails"] && !changes["endLocationDetails"].firstChange;
+    return !!(combinedMapChanged || endLocationChanged);
   }
 
   private effectiveZoomOffset(): number {

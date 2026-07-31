@@ -14,6 +14,14 @@ export interface CachedMapView {
   zoom: number;
 }
 
+export interface MapViewChange {
+  center: [number, number];
+  zoom: number;
+}
+
+export const UK_MAP_CENTER: [number, number] = [54.5, -3];
+export const UK_MAP_ZOOM = 5;
+
 export const MAP_PROVIDER_LABELS: Record<MapProvider, string> = {
   [MapProvider.OSM]: "OpenStreetMap",
   [MapProvider.OS]: "OS Maps"

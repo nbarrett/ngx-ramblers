@@ -182,12 +182,14 @@ export async function syncActionButtonDetailsByHref(db: Db, path: string, column
       if (!match) {
         return column;
       }
-      if (column?.title === match.title && column?.icon === match.icon && column?.contentText === match.contentText) {
+      const iconColourMatches = match.iconColour ? column?.iconColour === match.iconColour : true;
+      if (column?.title === match.title && column?.icon === match.icon && column?.contentText === match.contentText && iconColourMatches) {
         return column;
       }
       updatedCount++;
       log(`Updating action button "${column?.title}" to "${match.title}" for href "${match.href}" on "${path}"`);
-      return {...column, title: match.title, icon: match.icon, contentText: match.contentText};
+      const iconColour = match.iconColour ? {iconColour: match.iconColour} : {};
+      return {...column, ...iconColour, title: match.title, icon: match.icon, contentText: match.contentText};
     });
     return {...row, columns: updatedColumns};
   });

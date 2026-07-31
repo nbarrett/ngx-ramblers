@@ -70,6 +70,20 @@
 .pager-btn:hover, .pager-btn:focus
   @extend %pager-quiet-hover
 
+%pager-primary
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+
+.pager-btn-primary
+  @extend %pager-base
+  @extend %pager-primary
+
+.pager-btn-primary:hover, .pager-btn-primary:focus
+  @extend %pager-primary
+  background-color: $ramblers-colour-sunrise-hover-border
+  border-color: $ramblers-colour-sunrise-hover-border
+
 .pager-btn:active, .pager-btn.active, .show > .pager-btn.dropdown-toggle
   @extend %pager-quiet-active
   background-color: $ramblers-colour-sunrise-hover-border

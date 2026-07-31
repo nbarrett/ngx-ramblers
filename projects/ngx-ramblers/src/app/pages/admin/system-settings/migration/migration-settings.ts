@@ -350,7 +350,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                                           Parent Page URL</label>
                                         <input [id]="stringUtils.kebabCase('parent-url', siteIndex, parentIndex)"
                                                type="text" class="form-control"
-                                               placeholder="e.g., KentWalks/index.htm" [(ngModel)]="parentPage.url">
+                                               placeholder="e.g., Walks/index.htm" [(ngModel)]="parentPage.url">
                                       </div>
                                     </div>
                                     <div class="col-sm-6">
@@ -359,7 +359,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                                           Path Prefix</label>
                                         <input [id]="stringUtils.kebabCase('path-prefix', siteIndex, parentIndex)"
                                                type="text" class="form-control"
-                                               placeholder="e.g., kent-walks" [(ngModel)]="parentPage.pathPrefix">
+                                               placeholder="e.g., walks" [(ngModel)]="parentPage.pathPrefix">
                                       </div>
                                     </div>
                                   </div>

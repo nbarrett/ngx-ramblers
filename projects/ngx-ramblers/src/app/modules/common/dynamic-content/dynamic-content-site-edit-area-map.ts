@@ -14,6 +14,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { GroupAreasService } from "../../../services/group-areas.service";
 import { MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { MapProvider, OUTDOOR_OS_STYLE } from "../../../models/map.model";
+import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { SharedDistrictStyle } from "../../../models/system.model";
 import { SharedDistrictStyleSelectorComponent } from "../../../shared/components/shared-district-style-selector";
 import { LegendPositionSelectorComponent } from "../../../shared/components/legend-position-selector";
@@ -32,8 +33,8 @@ interface RegionOption extends KeyValue<string> {}
         [defaults]="{
           provider: MapProvider.OSM,
           osStyle: OUTDOOR_OS_STYLE,
-          mapCenter: [51.25, 0.75],
-          mapZoom: 10,
+          mapCenter: mapDefaults.center(),
+          mapZoom: mapDefaults.zoom(),
           mapHeight: 480,
           opacityNormal: 0.5,
           opacityHover: 0.8,
@@ -172,6 +173,7 @@ interface RegionOption extends KeyValue<string> {}
 export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAreaMapComponent", NgxLoggerLevel.OFF);
   private broadcastService = inject(BroadcastService);
+  protected mapDefaults = inject(MapDefaultsService);
   private systemConfigService = inject(SystemConfigService);
   private groupAreasService = inject(GroupAreasService);
   @Input() row!: PageContentRow;
@@ -200,8 +202,8 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
       this.row.areaMap = {
         region: regionName,
         title: "Areas",
-        mapCenter: [51.25, 0.75],
-        mapZoom: 10,
+        mapCenter: this.mapDefaults.center(),
+        mapZoom: this.mapDefaults.zoom(),
         mapHeight: 480,
         showControls: true,
         selectedGroups: [],

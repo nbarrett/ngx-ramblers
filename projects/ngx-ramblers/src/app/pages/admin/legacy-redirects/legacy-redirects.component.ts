@@ -222,7 +222,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
               <div class="col-sm-6">
                 <label class="form-label fw-bold">Legacy Domain</label>
                 <input type="text" class="form-control" [(ngModel)]="scrapeDomain"
-                       placeholder="e.g. www.kentramblers.org.uk"/>
+                       placeholder="e.g. www.your-old-site.org.uk"/>
               </div>
               <div class="col-sm-3 d-flex align-items-end">
                 <button class="btn btn-primary" (click)="runScrape()" [disabled]="scraping || !scrapeDomain">

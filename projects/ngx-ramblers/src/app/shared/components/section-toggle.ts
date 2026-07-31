@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { booleanAttribute, Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { Subscription } from "rxjs";
 import { isString, kebabCase } from "es-toolkit/compat";
@@ -17,7 +17,6 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
     :host.full-width-host
       display: contents
     .section-toggle
-      margin-bottom: 0.75rem
       border: 2px solid var(--ramblers-colour-sunrise)
       border-radius: 0.375rem
       overflow: hidden
@@ -34,13 +33,13 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
       white-space: nowrap
     .section-toggle .btn:last-child
       border-right: none
-    .section-toggle .btn.btn-outline-ramblers
-      color: var(--ramblers-colour-sunset)
-      background-color: #fff
-    .section-toggle .btn.btn-outline-ramblers:hover,
-    .section-toggle .btn.btn-outline-ramblers:focus
-      background-color: var(--ramblers-colour-sunrise)
-      color: var(--ramblers-colour-black)
+    .section-toggle-swatch
+      width: 12px
+      height: 12px
+      border-radius: 3px
+      display: inline-block
+      margin-right: 0.35rem
+      vertical-align: middle
   `],
   template: `
     <div class="btn-group section-toggle" [class.full-width]="fullWidth" role="group">
@@ -53,6 +52,9 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
           (click)="selectTab(tab.value)">
           @if (tab.icon) {
             <fa-icon [icon]="tab.icon" class="me-1"></fa-icon>
+          }
+          @if (tab.swatchColour) {
+            <span class="section-toggle-swatch" [style.background-color]="tab.swatchColour"></span>
           }
           {{ tab.label }}
         </button>
@@ -92,8 +94,8 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
 
   @Input() selectedTab: T;
   @Input() queryParamKey: StoredValue | null = null;
-  @Input() fullWidth = false;
-  @Input() disabled = false;
+  @Input({transform: booleanAttribute}) fullWidth = false;
+  @Input({transform: booleanAttribute}) disabled = false;
   @Output() selectedTabChange = new EventEmitter<T>();
 
   get normalizedTabs(): SectionToggleTab[] {

@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost } from "../../../models/walks-config.model";
+import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy } from "../../../models/walks-config.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -94,6 +94,26 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                           }
                         </select>
                       </div>
+                      <div class="form-group mb-3">
+                        <label for="programme-overview-default-weeks">Programme Overview default date range (weeks ahead)</label>
+                        <input [(ngModel)]="walksConfig.programmeOverviewDefaultWeeks"
+                               type="number"
+                               class="form-control input-sm"
+                               id="programme-overview-default-weeks"
+                               step="1"
+                               min="1"
+                               placeholder="12">
+                      </div>
+                      <div class="form-group mb-3">
+                        <label for="calendar-default-colour-by">Programme Calendar default colouring</label>
+                        <select [(ngModel)]="walksConfig.calendarDefaultColourBy"
+                                class="form-control input-sm"
+                                id="calendar-default-colour-by">
+                          @for (option of colourByOptions; track option.value) {
+                            <option [ngValue]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </div>
                     </div>
                     <div class="col-md-6">
                       <div class="form-check mb-2">
@@ -130,13 +150,6 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                                class="form-check-input"
                                id="rematch-walk-leaders-on-member-change">
                         <label class="form-check-label" for="rematch-walk-leaders-on-member-change">Automatically match unmatched walk leaders to members when Member Bulk Load is run</label>
-                      </div>
-                      <div class="form-check mb-2">
-                        <input [(ngModel)]="walksConfig.showRepeatedPagination"
-                               type="checkbox"
-                               class="form-check-input"
-                               id="show-repeated-pagination">
-                        <label class="form-check-label" for="show-repeated-pagination">Repeat the pagination row below the event list when the current page is full (helps mobile users after a long scroll)</label>
                       </div>
                     </div>
                   </div>
@@ -623,6 +636,12 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   protected readonly WalkAlbumPanelStyle = WalkAlbumPanelStyle;
   protected readonly WalkDetailsImageStyle = WalkDetailsImageStyle;
   protected readonly WalkDetailsMapProvider = WalkDetailsMapProvider;
+  protected readonly CalendarColourBy = CalendarColourBy;
+  protected readonly colourByOptions: { value: CalendarColourBy; label: string }[] = [
+    {value: CalendarColourBy.STATUS, label: "Status"},
+    {value: CalendarColourBy.GRADE, label: "Grade"},
+    {value: CalendarColourBy.LEADER, label: "Leader"}
+  ];
   protected walkRelatedLinksShown = true;
 
   ngOnInit() {

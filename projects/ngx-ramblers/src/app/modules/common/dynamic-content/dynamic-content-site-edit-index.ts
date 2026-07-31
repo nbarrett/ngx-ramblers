@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { faAdd, faArrowDown, faArrowUp, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faArrowDown, faArrowUp, faEraser, faPencil, faSearch, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlbumIndexSortField, ContentPathMatch, IndexContentType, IndexRenderMode, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
 import { SortDirection } from "../../../models/sort.model";
@@ -24,9 +24,12 @@ import { MapOverlayControls } from "../../../shared/components/map-overlay-contr
 import { DynamicContentViewIndexMap } from "./dynamic-content-view-index-map";
 import { IndexService } from "../../../services/index.service";
 import { IndexEntryOverrideEditor } from "./index-entry-override-editor";
-import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { ResizerComponent } from "../resizer/resizer";
+import { DEFAULT_OS_STYLE, MapProvider, MapViewChange } from "../../../models/map.model";
+import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { PageService } from "../../../services/page.service";
 import { ContentText } from "../../../models/content-text.model";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
     selector: "app-album-index-site-edit",
@@ -262,16 +265,30 @@ import { ContentText } from "../../../models/content-text.model";
           [showOpacityControls]="false"
           [showClusteringControls]="true"
           [showWaypointControls]="false"
+          autoFitCaption="Auto-fit map to all locations"
           [defaults]="{
           provider: MapProvider.OSM,
           osStyle: DEFAULT_OS_STYLE,
-          mapCenter: [51.25, 0.75],
-          mapZoom: 10,
+          mapCenter: mapDefaults.center(),
+          mapZoom: mapDefaults.zoom(),
           mapHeight: 500,
           clusteringEnabled: true,
-          clusteringThreshold: 10
+          clusteringThreshold: 10,
+          autoFitBounds: true
         }"
           (configChange)="onMapConfigChange()"/>
+        <div class="row mb-3">
+          <div class="col-12">
+            <div class="alert alert-warning">
+              <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+              <strong>Choosing the map view:</strong> with <em>Auto-fit map to all locations</em> ticked, the map always
+              zooms out far enough to show every location, so one far-flung entry can leave everything else in a huddle.
+              Untick it to freeze the map where it is now, then pan and zoom the preview below to the area you want
+              visitors to see - that view is saved with the page. Every index entry still appears in the action buttons
+              whatever the map shows.
+            </div>
+          </div>
+        </div>
         <div class="row mb-3">
           <div class="col-sm-6">
             <app-margin-select label="Map Margin Top" [data]="row" field="marginTop"/>
@@ -286,31 +303,39 @@ import { ContentText } from "../../../models/content-text.model";
             @if (indexPageContent?.rows?.[0]?.columns && showMapPreview) {
               <app-dynamic-content-view-index-map
                 [pageContent]="indexPageContent"
-                [mapHeight]="row.albumIndex.mapConfig.height || 500"
+                [mapHeight]="row.albumIndex.mapConfig.mapHeight || 500"
                 [clusteringEnabled]="row.albumIndex.mapConfig.clusteringEnabled ?? true"
                 [clusteringThreshold]="row.albumIndex.mapConfig.clusteringThreshold || 10"
                 [provider]="row.albumIndex.mapConfig.provider || MapProvider.OSM"
                 [osStyle]="row.albumIndex.mapConfig.osStyle || DEFAULT_OS_STYLE"
-                [mapCenter]="row.albumIndex.mapConfig.mapCenter || [51.25, 0.75]"
-                [mapZoom]="row.albumIndex.mapConfig.mapZoom || 10"
+                [mapCenter]="row.albumIndex.mapConfig.mapCenter || mapDefaults.center()"
+                [mapZoom]="row.albumIndex.mapConfig.mapZoom || mapDefaults.zoom()"
                 [showControlsDefault]="row.albumIndex.mapConfig.showControlsDefault ?? true"
                 [allowControlsToggle]="row.albumIndex.mapConfig.allowControlsToggle ?? true"
+                [autoFitBounds]="row.albumIndex.mapConfig.autoFitBounds !== false"
+                [editing]="true"
                 (mapProviderChange)="previewMapProviderChanged($event)"
                 (mapStyleChange)="previewMapStyleChanged($event)"
-                (mapHeightChange)="previewMapHeightChanged($event)"/>
+                (mapHeightChange)="previewMapHeightChanged($event)"
+                (mapViewChange)="previewMapViewChanged($event)"/>
             } @else {
               <div class="card shadow d-flex align-items-center justify-content-center"
-                   [style.height.px]="row.albumIndex.mapConfig.height || 500">
+                   [style.height.px]="row.albumIndex.mapConfig.mapHeight || 500">
                 <div class="spinner-border text-secondary" role="status">
                   <span class="visually-hidden">Loading…</span>
                 </div>
               </div>
             }
+            <app-resizer orientation="vertical" variant="tab" compact
+                         [size]="row.albumIndex.mapConfig.mapHeight || 500"
+                         [minSize]="300"
+                         [maxSize]="2000"
+                         (sizeChange)="previewMapHeightChanged($event)"/>
           </div>
         </div>
       }
       <app-action-buttons [pageContent]="previewPageContent()" [rowIndex]="0" presentationMode/>`,
-    imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, ContentTextEditor, IndexEntryOverrideEditor]
+    imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, ContentTextEditor, IndexEntryOverrideEditor, FontAwesomeModule, ResizerComponent]
 })
 export class IndexSiteEdit implements OnInit {
   public booleanOf = booleanOf;
@@ -336,6 +361,7 @@ export class IndexSiteEdit implements OnInit {
   faArrowUp = faArrowUp;
   id: string;
   protected readonly faSearch = faSearch;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
   stringMatchingValues: KeyValue<string>[] = enumKeyValues(StringMatch);
   contentTypeValues: (KeyValue<string> & {title: string})[] = enumKeyValues(IndexContentType)
     .map(item => ({...item, title: this.stringUtils.asTitle(item.value)}));
@@ -352,9 +378,12 @@ export class IndexSiteEdit implements OnInit {
     {value: SortDirection.DESC, title: "Descending"}
   ];
   showMapPreview = false;
+  previewMapView: MapViewChange = null;
+  private autoFitBoundsWasOn = true;
   overrideExpandedHref: string = null;
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
+  protected mapDefaults = inject(MapDefaultsService);
   private pageService: PageService = inject(PageService);
 
   async ngOnInit() {
@@ -478,15 +507,16 @@ export class IndexSiteEdit implements OnInit {
   private ensureMapConfig() {
     if (this.showMapConfig() && !this.row.albumIndex.mapConfig) {
       this.row.albumIndex.mapConfig = {
-        height: 500,
+        mapHeight: 500,
         clusteringEnabled: true,
         clusteringThreshold: 10,
         provider: MapProvider.OSM,
         osStyle: DEFAULT_OS_STYLE,
-        mapCenter: [51.25, 0.75],
-        mapZoom: 10,
+        mapCenter: this.mapDefaults.center(),
+        mapZoom: this.mapDefaults.zoom(),
         showControlsDefault: true,
-        allowControlsToggle: true
+        allowControlsToggle: true,
+        autoFitBounds: true
       };
     }
     if (this.showMapConfig()) {
@@ -496,6 +526,12 @@ export class IndexSiteEdit implements OnInit {
 
   onMapConfigChange() {
     this.logger.info("Map config changed:", this.row.albumIndex.mapConfig);
+    const autoFitBounds = this.row.albumIndex.mapConfig?.autoFitBounds !== false;
+    if (this.autoFitBoundsWasOn && !autoFitBounds && this.previewMapView) {
+      this.logger.info("auto-fit turned off: keeping the view the map is showing:", this.previewMapView);
+      this.saveMapView(this.previewMapView);
+    }
+    this.autoFitBoundsWasOn = autoFitBounds;
     this.showMapPreview = false;
     setTimeout(() => {
       this.showMapPreview = true;
@@ -518,9 +554,21 @@ export class IndexSiteEdit implements OnInit {
 
   previewMapHeightChanged(height: number) {
     if (this.row?.albumIndex?.mapConfig) {
-      this.row.albumIndex.mapConfig.height = height;
-      this.onMapConfigChange();
+      this.row.albumIndex.mapConfig.mapHeight = height;
     }
+  }
+
+  previewMapViewChanged(view: MapViewChange) {
+    this.previewMapView = view;
+    if (this.row?.albumIndex?.mapConfig?.autoFitBounds === false) {
+      this.logger.info("previewMapViewChanged:saving chosen view:", view);
+      this.saveMapView(view);
+    }
+  }
+
+  private saveMapView(view: MapViewChange) {
+    this.row.albumIndex.mapConfig.mapCenter = view.center;
+    this.row.albumIndex.mapConfig.mapZoom = view.zoom;
   }
 
   onOverrideExpandedHrefChanged(href: string) {

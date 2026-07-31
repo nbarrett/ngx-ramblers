@@ -333,6 +333,7 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                     </button>
                   } @else if (allowWalkAdminEdits) {
                     <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+                       (click)="display.rememberReturnUrl()"
                        tooltip="View this walk"
                        class="btn btn-quiet btn-sm walk-view-action">
                       <fa-icon [icon]="faEye"/>
@@ -346,8 +347,8 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                         <strong>{{ notifyTarget.alertTitle }}</strong>
                       }
                       <span>{{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}</span>
-                      <a [routerLink]="'/' + display.walksArea()" type="button"
-                         class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
+                      <a (click)="display.returnToPreviousView()" type="button"
+                         class="rams-text-decoration-pink pointer">{{ display.returnToPreviousViewLabel() }}</a>
                     </div>
                   } @else if (showWalkStatusWarning()) {
                     <ng-container [ngTemplateOutlet]="walkStatusWarning" [ngTemplateOutletContext]="{inline: true}"/>
@@ -375,10 +376,9 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
       <div class="alert {{notifyTarget.alertClass}} table-pointer mt-3">
         <fa-icon [icon]="notifyTarget.alert.icon"/>
         <strong class="ms-1">{{ notifyTarget.alertTitle }}</strong>
-        <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
-                                                                    class="rams-text-decoration-pink"
-                                                                    type="button"> Go Back to {{ area }}
-          page</a></span>
+        <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a (click)="display.returnToPreviousView()"
+                                                                    class="rams-text-decoration-pink pointer"
+                                                                    type="button"> {{ display.returnToPreviousViewLabel() }}</a></span>
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],

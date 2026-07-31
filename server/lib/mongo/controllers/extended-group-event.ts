@@ -23,7 +23,7 @@ export { convertTitleToSlug };
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
 debugLog.enabled = false;
-const LOCAL_ACTIVE_FILTER = {
+export const LOCAL_ACTIVE_FILTER = {
   $or: [
     {[DocumentField.SOURCE]: {$ne: EventSource.LOCAL}},
     {[DocumentField.SOURCE]: EventSource.LOCAL, [GroupEventField.STATUS]: {$ne: "deleted"}}

@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MapProvider, MapStyleInfo, mapProviderFromLabel, MAP_PROVIDER_OPTIONS, OS_MAP_STYLE_LIST } from "../../models/map.model";
+import { MapDefaultsService } from "../../services/maps/map-defaults.service";
 
 export interface MapConfigData {
   provider?: MapProvider | string;
@@ -94,18 +95,18 @@ export class MapConfigControls implements OnInit {
   @Input() id = "";
   @Output() configChange = new EventEmitter<MapConfigData>();
 
+  private mapDefaults = inject(MapDefaultsService);
   osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
   providerOptions = MAP_PROVIDER_OPTIONS;
-  centerLat = 51.25;
-  centerLng = 0.75;
+  centerLat: number;
+  centerLng: number;
   protected readonly MapProvider = MapProvider;
 
   ngOnInit() {
     this.normalizeProviderValue();
-    if (this.config?.mapCenter) {
-      this.centerLat = this.config.mapCenter[0];
-      this.centerLng = this.config.mapCenter[1];
-    }
+    const [defaultLat, defaultLng] = this.mapDefaults.center();
+    this.centerLat = this.config?.mapCenter?.[0] ?? defaultLat;
+    this.centerLng = this.config?.mapCenter?.[1] ?? defaultLng;
   }
 
   updateMapCenter() {

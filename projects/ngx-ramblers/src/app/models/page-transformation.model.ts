@@ -1,5 +1,5 @@
-import { IndexContentType, IndexRenderMode, LocationRowData, MigrationTemplateMapMapping, PageContentRow, PageContentType } from "./content-text.model";
-import { DEFAULT_OS_STYLE, MapProvider } from "./map.model";
+import { IndexContentType, IndexMapConfig, IndexRenderMode, LocationRowData, MigrationTemplateMapMapping, PageContentRow, PageContentType } from "./content-text.model";
+import { DEFAULT_OS_STYLE, MapProvider, UK_MAP_CENTER, UK_MAP_ZOOM } from "./map.model";
 import { UIDateFormat } from "./date-format.model";
 
 export enum TransformationActionType {
@@ -138,17 +138,7 @@ export interface IndexRowConfig {
   contentPaths?: Array<{contentPath: string; stringMatch: string}>;
   minCols?: number;
   maxCols?: number;
-  mapConfig?: {
-    provider?: string;
-    osStyle?: string;
-    mapCenter?: [number, number];
-    mapZoom?: number;
-    height?: number;
-    clusteringEnabled?: boolean;
-    clusteringThreshold?: number;
-    showControlsDefault?: boolean;
-    allowControlsToggle?: boolean;
-  };
+  mapConfig?: IndexMapConfig;
 }
 
 export interface MapRowConfig {
@@ -731,9 +721,9 @@ export function createRouteIndexTransformationConfig(): PageTransformationConfig
             mapConfig: {
               provider: MapProvider.OSM,
               osStyle: DEFAULT_OS_STYLE,
-              mapCenter: [51.25, 0.75],
-              mapZoom: 10,
-              height: 500,
+              mapCenter: [...UK_MAP_CENTER] as [number, number],
+              mapZoom: UK_MAP_ZOOM,
+              mapHeight: 500,
               clusteringEnabled: true,
               clusteringThreshold: 10,
               showControlsDefault: true,

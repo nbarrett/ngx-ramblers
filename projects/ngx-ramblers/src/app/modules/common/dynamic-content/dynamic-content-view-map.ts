@@ -41,6 +41,7 @@ import {
   RouteGpxData,
   TrackWithBounds
 } from "../../../models/map.model";
+import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { isArray, isUndefined, keys } from "es-toolkit/compat";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -441,6 +442,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   public selectedLocation: GeocodeResult | null = null;
   public selectedPath: AutocompleteSuggestion | null = null;
   public numberUtils = inject(NumberUtilsService);
+  private mapDefaults = inject(MapDefaultsService);
   private dateUtils = inject(DateUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
@@ -766,10 +768,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       const willAutoFit = !isUndefined(this.fitBounds);
       const useDefaultPosition = !hasSavedPosition || willAutoFit;
 
-      const zoom = hasSessionPosition ? this.sessionMapZoom : (useDefaultPosition ? 10 : this.row.map.mapZoom);
+      const zoom = hasSessionPosition ? this.sessionMapZoom : (useDefaultPosition ? this.mapDefaults.zoom() : this.row.map.mapZoom);
       const center = hasSessionPosition
         ? L.latLng(this.sessionMapCenter[0], this.sessionMapCenter[1])
-        : (useDefaultPosition ? L.latLng(51.25, 0.75) : L.latLng(this.row.map.mapCenter[0], this.row.map.mapCenter[1]));
+        : (useDefaultPosition ? L.latLng(this.mapDefaults.center()[0], this.mapDefaults.center()[1]) : L.latLng(this.row.map.mapCenter[0], this.row.map.mapCenter[1]));
 
       this.logger.info(`initialiseMap: Position decision - hasSessionPosition=${hasSessionPosition}, hasSavedPosition=${hasSavedPosition}, sessionCenter=${this.sessionMapCenter}, sessionZoom=${this.sessionMapZoom}, using center=${center}, zoom=${zoom}`);
 

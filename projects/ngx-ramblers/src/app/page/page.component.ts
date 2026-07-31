@@ -24,7 +24,9 @@ import { RouterLink } from "@angular/router";
         @if (pageTitle && showTitle) {
           <h1>{{ pageTitle }}</h1>
         }
-        <ng-content></ng-content>
+        <div class="page-content">
+          <ng-content></ng-content>
+        </div>
       </div>
     </main>
   `,

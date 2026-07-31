@@ -75,7 +75,6 @@ export class WalksConfigService {
       requireWalkLeaderDisplayName: true,
       matchWalkLeadersOnWalksManagerSync: true,
       rematchWalkLeadersOnMemberChange: true,
-      showRepeatedPagination: true,
       relatedLinkShowOnRamblers: true,
       relatedLinkShowThisWalk: true,
       relatedLinkShowMeetup: true,

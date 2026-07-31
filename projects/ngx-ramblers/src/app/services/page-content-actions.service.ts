@@ -1,9 +1,10 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, first, isArray, isEqual, isNull, isUndefined, kebabCase, remove } from "es-toolkit/compat";
+import { cloneDeep, first, isArray, isEqual, isNull, isUndefined, kebabCase, remove, toPairs } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ActionType,
   AlbumData,
+  ALBUM_INDEX_MAP_CONFIG_DEFAULTS,
   AlbumIndexSortField,
   AlbumView,
   ColumnInsertData,
@@ -27,6 +28,7 @@ import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "../functions/enums";
 import { UrlService } from "./url.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../models/map.model";
+import { MapDefaultsService } from "./maps/map-defaults.service";
 
 @Injectable({
   providedIn: "root"
@@ -37,6 +39,7 @@ export class PageContentActionsService {
   private stringUtils = inject(StringUtilsService);
   private urlService = inject(UrlService);
   private numberUtils = inject(NumberUtilsService);
+  private mapDefaults = inject(MapDefaultsService);
   public rowsInEdit: number[] = [];
   public draggedRowIndex: number = null;
   public draggedColumnRowIndex: number = null;
@@ -445,8 +448,8 @@ export class PageContentActionsService {
     if (!row?.map) {
       row.map = {
         text: "",
-        mapCenter: [51.25, 0.75],
-        mapZoom: 10,
+        mapCenter: this.mapDefaults.center(),
+        mapZoom: this.mapDefaults.zoom(),
         mapHeight: 500,
         provider: MapProvider.OSM,
         osStyle: DEFAULT_OS_STYLE,
@@ -466,14 +469,14 @@ export class PageContentActionsService {
   }
 
   public ensureAlbumIndexMapConfigDefaults(row: PageContentRow) {
-    if (!row?.albumIndex?.mapConfig) {
-      return;
-    }
-    if (isUndefined(row.albumIndex.mapConfig.showControlsDefault)) {
-      row.albumIndex.mapConfig.showControlsDefault = true;
-    }
-    if (isUndefined(row.albumIndex.mapConfig.allowControlsToggle)) {
-      row.albumIndex.mapConfig.allowControlsToggle = true;
+    const mapConfig: Record<string, any> = row?.albumIndex?.mapConfig;
+    if (mapConfig) {
+      if (isUndefined(mapConfig.mapHeight) && !isUndefined(mapConfig.height)) {
+        mapConfig.mapHeight = mapConfig.height;
+      }
+      toPairs(ALBUM_INDEX_MAP_CONFIG_DEFAULTS)
+        .filter(([key]) => isUndefined(mapConfig[key]))
+        .forEach(([key, value]) => mapConfig[key] = value);
     }
   }
 

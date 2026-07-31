@@ -41,6 +41,7 @@ import { MapRouteStylePaletteComponent } from "./map-route-style-palette.compone
 import { isNumber, isUndefined } from "es-toolkit/compat";
 import { RouteImportService } from "../../../services/maps/route-import.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 
 @Component({
   selector: "app-dynamic-content-site-edit-map",
@@ -240,8 +241,8 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
               [defaults]="{
                 provider: MapProvider.OSM,
                 osStyle: DEFAULT_OS_STYLE,
-                mapCenter: [51.25, 0.75],
-                mapZoom: 10,
+                mapCenter: mapDefaults.center(),
+                mapZoom: mapDefaults.zoom(),
                 mapHeight: 500,
                 showControlsDefault: true,
                 allowControlsToggle: true,
@@ -260,6 +261,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);
   private broadcastService = inject(BroadcastService);
+  protected mapDefaults = inject(MapDefaultsService);
   private numberUtils = inject(NumberUtilsService);
   private fileUploadService = inject(FileUploadService);
   private routeImportService = inject(RouteImportService);
@@ -331,8 +333,8 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
     if (!this.row.map) {
       this.row.map = {
         text: "",
-        mapCenter: [51.25, 0.75],
-        mapZoom: 10,
+        mapCenter: this.mapDefaults.center(),
+        mapZoom: this.mapDefaults.zoom(),
         mapHeight: 500,
         useLocationFromPage: this.hasLocationRow(),
         provider: MapProvider.OSM,

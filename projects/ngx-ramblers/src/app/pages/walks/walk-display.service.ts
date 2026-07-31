@@ -443,7 +443,6 @@ export class WalkDisplayService {
   }
 
   walkViewLink(extendedGroupEvent: ExtendedGroupEvent): string[] {
-    this.viewReturnUrl = this.location.path();
     return ["/" + this.walksArea(), PathSegment.VIEW, this.walkSlug(extendedGroupEvent)];
   }
 
@@ -498,20 +497,71 @@ export class WalkDisplayService {
     });
   }
 
-  closeEditView(walk: ExtendedGroupEvent) {
-    const rawReturnUrl = this.viewReturnUrl || "/" + this.walksArea();
+  public returnToPreviousViewLabel(): string {
+    const destination = this.returnDestinationTitle();
+    return destination ? `Back to ${destination}` : "Back";
+  }
+
+  private returnDestinationTitle(): string {
+    const path = (this.viewReturnUrl || "").split("#")[0].split("?")[0];
+    const lastSegment = path.split("/").filter(segment => segment).pop();
+    return lastSegment ? this.stringUtils.asPathSegmentTitle(lastSegment) : null;
+  }
+
+  public returnToPreviousView(): void {
+    const returnUrl = this.viewReturnUrl;
     this.viewReturnUrl = null;
-    const [pathWithQuery, fragment] = rawReturnUrl.split("#");
-    const [path, queryString] = pathWithQuery.split("?");
-    const queryParams: Record<string, string> = {};
-    if (queryString) {
-      queryString.split("&").forEach(pair => {
-        const [key, value] = pair.split("=");
-        queryParams[decodeURIComponent(key)] = decodeURIComponent(value || "");
-      });
+    this.logger.info("returnToPreviousView:returnUrl:", returnUrl, "historyLength:", window.history.length);
+    if (returnUrl) {
+      const [pathWithQuery, fragment] = returnUrl.split("#");
+      const [path, queryString] = pathWithQuery.split("?");
+      this.router.navigate([path], {queryParams: this.queryParamsFrom(queryString), fragment});
+    } else if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      this.router.navigate(["/" + this.walksArea()]);
     }
-    this.logger.info("closeEditView:rawReturnUrl:", rawReturnUrl, "path:", path, "queryParams:", queryParams, "fragment:", fragment);
-    this.router.navigate([path], {queryParams, fragment, queryParamsHandling: "merge"});
+  }
+
+  private queryParamsFrom(queryString: string): Record<string, string> {
+    return (queryString || "").split("&").filter(pair => pair).reduce((params: Record<string, string>, pair) => {
+      const [key, value] = pair.split("=");
+      params[decodeURIComponent(key)] = decodeURIComponent(value || "");
+      return params;
+    }, {});
+  }
+
+  public rememberReturnUrl(): void {
+    this.viewReturnUrl = this.location.path();
+  }
+
+  public openWalkViewFor(identifier: string): Promise<boolean> {
+    this.rememberReturnUrl();
+    return this.router.navigate(["/" + this.walksArea(), identifier]);
+  }
+
+  public openWalkEditFor(identifier: string): Promise<boolean> {
+    this.rememberReturnUrl();
+    return this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, identifier]);
+  }
+
+  public openWalkView(walk: ExtendedGroupEvent): Promise<boolean> {
+    return this.openWalkViewFor(this.editIdentifierFor(walk));
+  }
+
+  public openWalkEdit(walk: ExtendedGroupEvent): Promise<boolean> {
+    return this.openWalkEditFor(this.editIdentifierFor(walk));
+  }
+
+  public openGroupEventView(walk: ExtendedGroupEvent): Promise<boolean> {
+    this.rememberReturnUrl();
+    const groupEventArea = this.groupEventArea();
+    const areaSegments = groupEventArea ? groupEventArea.split("/").filter(segment => segment) : [this.walksArea()];
+    return this.router.navigate(["/" + [...areaSegments, this.editIdentifierFor(walk)].join("/")]);
+  }
+
+  closeEditView(walk: ExtendedGroupEvent) {
+    this.returnToPreviousView();
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }
 

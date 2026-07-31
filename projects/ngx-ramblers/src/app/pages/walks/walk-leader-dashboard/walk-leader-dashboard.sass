@@ -1,0 +1,114 @@
+@import "../../../assets/styles/colours"
+
+.leader
+  display: flex
+  flex-direction: column
+  gap: var(--space-6)
+  margin-top: var(--space-4)
+
+.leader-intro
+  color: var(--rsm-muted)
+
+.leader-section
+  display: flex
+  flex-direction: column
+  gap: var(--space-3)
+  h3
+    font-size: 18px
+    font-weight: 700
+    font-family: "Rucksack", sans-serif
+    color: var(--rsm-text)
+    display: flex
+    align-items: center
+    gap: var(--space-2)
+    margin: 0
+
+.empty
+  color: var(--rsm-muted)
+  margin: 0
+
+.walk-rows
+  display: flex
+  flex-direction: column
+  gap: var(--space-3)
+
+.walk-row
+  --status-colour: #{$ramblers-colour-mintcake}
+  display: grid
+  grid-template-columns: 92px 1fr auto
+  gap: var(--space-4)
+  align-items: center
+  padding: var(--space-4)
+  border: 1px solid var(--rsm-border)
+  border-left: 6px solid var(--status-colour)
+  border-radius: var(--rsm-panel-radius)
+  background: var(--rsm-panel-bg)
+  cursor: pointer
+  transition: box-shadow 150ms ease
+  &:hover,
+  &:focus-visible
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12)
+    border-color: var(--status-colour)
+
+.walk-row-date
+  display: flex
+  flex-direction: column
+  align-items: center
+  text-align: center
+  .walk-day
+    font-size: 13px
+    font-weight: 600
+    text-transform: uppercase
+    color: var(--rsm-muted)
+  .walk-date
+    font-size: 15px
+    font-weight: 700
+    color: var(--rsm-text)
+
+.walk-row-main
+  display: flex
+  flex-direction: column
+  gap: var(--space-1)
+  min-width: 0
+
+.walk-row-title
+  font-size: 17px
+  font-weight: 600
+  color: var(--rsm-text)
+
+.walk-row-meta
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: var(--space-3)
+  font-size: 14px
+  color: var(--rsm-muted)
+
+.status-badge
+  display: inline-flex
+  align-items: center
+  padding: 4px 12px
+  border-radius: 999px
+  font-size: 12px
+  font-weight: 700
+  white-space: nowrap
+
+.walk-row-actions
+  display: flex
+  gap: var(--space-2)
+  align-items: center
+  justify-content: flex-end
+  flex-wrap: wrap
+
+@media (max-width: 768px)
+  .walk-row
+    grid-template-columns: 68px 1fr
+    grid-template-areas: "date main" "actions actions"
+    gap: var(--space-3)
+  .walk-row-date
+    grid-area: date
+  .walk-row-main
+    grid-area: main
+  .walk-row-actions
+    grid-area: actions
+    justify-content: flex-start
