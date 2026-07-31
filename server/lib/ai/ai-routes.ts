@@ -8,13 +8,14 @@ import {
   AiConnectionStatus,
   CoverImageCandidate
 } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
+import { draftNewsletterIntro, planNewsletter } from "./newsletter-controllers";
 import { aiConfigFromEnvironment } from "./ai-config";
+import { generate } from "./ai-generation";
 import { aiProviderFor } from "./ai-provider-factory";
 import {
   aiStatusViaIntegrationWorker,
   chooseCoverViaIntegrationWorker,
-  integrationWorkerConfigured,
-  rewriteViaIntegrationWorker
+  integrationWorkerConfigured
 } from "./ai-worker-client";
 import { chooseCoverImageFromCandidates } from "./choose-cover-image";
 
@@ -28,7 +29,7 @@ const WALK_REPORT_SYSTEM_PROMPT = [
   "Write in the first person plural as if a member of the group is recounting the day (we, our, us).",
   "Use warm, natural prose in flowing sentences, not a stiff third-person itinerary.",
   "Prefer openings like Starting from... or From... rather than The walk began at... or The route headed....",
-  "Describe direction and places in plain English (for example northwest, through the Kent countryside) without inventing places or scenery that are not in the source.",
+  "Describe direction and places in plain English (for example northwest, through open countryside) without inventing places or scenery that are not in the source.",
   "Keep it factual and route-focused, but readable as a short story of the day rather than a bullet-style summary.",
   "Drop pre-walk logistics such as parking prices, meet times, and where the group assembled before setting off.",
   "If the description mentions drinks, coffee, a pub, lunch or a similar stop at the end, include it as something we did together (for example where we enjoyed a well-earned lunch together).",
@@ -36,13 +37,6 @@ const WALK_REPORT_SYSTEM_PROMPT = [
   "Do not use surnames, initials, or jammed display names such as JayneM in the thank-you.",
   "Aim for two or three sentences plus the thank-you, unless the source needs a little more to cover the route."
 ].join(" ");
-
-async function generate(ai: Ai, systemPrompt: string, input: string): Promise<string> {
-  if (integrationWorkerConfigured()) {
-    return rewriteViaIntegrationWorker(ai, input, systemPrompt);
-  }
-  return aiProviderFor(ai).generate({systemPrompt, input, maxTokens: 1024});
-}
 
 async function connectionStatus(ai: Ai): Promise<AiConnectionStatus> {
   if (integrationWorkerConfigured()) {
@@ -67,6 +61,10 @@ router.post("/rewrite", authConfig.authenticate(), async (req: Request, res: Res
     res.status(502).json({request: {}, error: error?.message || String(error)});
   }
 });
+
+router.post("/newsletter-intro", authConfig.authenticate(), draftNewsletterIntro);
+
+router.post("/newsletter-plan", authConfig.authenticate(), planNewsletter);
 
 router.post("/choose-cover", authConfig.authenticate(), async (req: Request, res: Response) => {
   const ai: Ai = aiConfigFromEnvironment();

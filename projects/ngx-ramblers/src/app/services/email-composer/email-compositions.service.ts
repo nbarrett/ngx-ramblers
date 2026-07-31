@@ -1,7 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse } from "../../models/email-composer.model";
+import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionKind, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse, PreviousNewsletter } from "../../models/email-composer.model";
+import { ApiResponse } from "../../models/api-response.model";
 import { EmailAttachment } from "../../models/mail.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -38,8 +39,23 @@ export class EmailCompositionsService {
     }
   }
 
+  async previousNewsletter(excludeId?: string | null): Promise<PreviousNewsletter | null> {
+    try {
+      const url = excludeId ? `${this.BASE_URL}/newsletter/previous?excludeId=${excludeId}` : `${this.BASE_URL}/newsletter/previous`;
+      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(url));
+      return (apiResponse.response as PreviousNewsletter) ?? null;
+    } catch (error) {
+      this.logger.error("previousNewsletter lookup failed:", error);
+      return null;
+    }
+  }
+
   async save(state: EmailComposerState, existingId?: string | null, shared?: boolean): Promise<EmailComposition> {
-    const body: any = { title: this.titleFor(state), state: this.serialiseStateForStorage(state) };
+    const body: any = {
+      title: this.titleFor(state),
+      kind: state.compositionKind ?? EmailCompositionKind.STANDARD,
+      state: this.serialiseStateForStorage(state)
+    };
     if (shared !== undefined) body.shared = shared;
     if (existingId) {
       const apiResponse = await this.http.put<EmailCompositionSingleResponse>(`${this.BASE_URL}/${existingId}`, body).toPromise();
@@ -84,6 +100,16 @@ export class EmailCompositionsService {
     } : null;
     return {
       context: state.context ? { ...state.context } : null,
+      compositionKind: state.compositionKind ?? EmailCompositionKind.STANDARD,
+      newsletter: state.newsletter ? {
+        cadence: state.newsletter.cadence,
+        previousNewsletterId: state.newsletter.previousNewsletterId ?? null,
+        previousSentAt: state.newsletter.previousSentAt ?? null,
+        previousWindowEnd: state.newsletter.previousWindowEnd ?? null,
+        previouslyAnnouncedEventIds: [...(state.newsletter.previouslyAnnouncedEventIds ?? [])],
+        markNewEvents: state.newsletter.markNewEvents ?? true,
+        guidance: state.newsletter.guidance ?? null
+      } : null,
       brandingMode: state.brandingMode,
       unbrandedSenderRoleType: state.unbrandedSenderRoleType ?? null,
       recipientMode: state.recipientMode,
@@ -169,6 +195,7 @@ export class EmailCompositionsService {
       id: doc.id,
       ownerMemberId: doc.ownerMemberId,
       status: doc.status,
+      kind: doc.kind ?? EmailCompositionKind.STANDARD,
       shared: doc.shared ?? false,
       title: doc.title,
       savedAt: doc.updatedAt,

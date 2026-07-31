@@ -5,10 +5,13 @@ import {
   ComposerFragment,
   ComposerFragmentKind,
   DEFAULT_COLUMN_GAP_PX,
+  DEFAULT_NEWSLETTER_CADENCE,
   EmailComposerContextSource,
   EmailComposerFragmentOrderState,
   EmailComposerState,
+  EmailCompositionKind,
   EventInclusionMode,
+  NewsletterSettings,
   RecipientMode,
   SectionDividerStyle,
   SECTION_DIVIDER_OPTIONS,
@@ -112,9 +115,23 @@ export function buildDefaultFragmentOrder(
   return order;
 }
 
+export function defaultNewsletterSettings(): NewsletterSettings {
+  return {
+    cadence: DEFAULT_NEWSLETTER_CADENCE,
+    previousNewsletterId: null,
+    previousSentAt: null,
+    previousWindowEnd: null,
+    previouslyAnnouncedEventIds: [],
+    markNewEvents: true,
+    guidance: null
+  };
+}
+
 export function defaultEmailComposerState(): EmailComposerState {
   return {
     context: { source: EmailComposerContextSource.ADMIN },
+    compositionKind: EmailCompositionKind.STANDARD,
+    newsletter: null,
     brandingMode: BrandingMode.BRANDED,
     unbrandedSenderRoleType: null,
     recipientMode: RecipientMode.ENTIRE_LIST,

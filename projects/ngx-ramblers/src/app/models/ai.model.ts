@@ -51,6 +51,75 @@ export interface TextRewriteApiResponse extends ApiResponse {
   response?: TextRewriteResponse;
 }
 
+export enum NewsletterIntroPurpose {
+  UPCOMING_EVENTS = "upcoming-events",
+  WALK_LEADER_REQUEST = "walk-leader-request"
+}
+
+export interface NewsletterIntroPurposeOption {
+  key: NewsletterIntroPurpose;
+  label: string;
+  hint: string;
+}
+
+export const NEWSLETTER_INTRO_PURPOSE_OPTIONS: NewsletterIntroPurposeOption[] = [
+  {
+    key: NewsletterIntroPurpose.UPCOMING_EVENTS,
+    label: "Up and coming events",
+    hint: "Covers what is on. Only events with their details filled in are included"
+  },
+  {
+    key: NewsletterIntroPurpose.WALK_LEADER_REQUEST,
+    label: "Request for walk leaders",
+    hint: "Lists the empty slots in the period that still need someone to lead them"
+  }
+];
+
+export const DEFAULT_NEWSLETTER_INTRO_PURPOSE = NewsletterIntroPurpose.UPCOMING_EVENTS;
+
+export interface NewsletterIntroEvent {
+  title: string;
+  eventType: string;
+  dateDescription: string;
+  distance?: string;
+  location?: string;
+  description?: string;
+  newSinceLastNewsletter?: boolean;
+  awaitingDetails?: boolean;
+}
+
+export interface NewsletterIntroRequest {
+  events: NewsletterIntroEvent[];
+  periodDescription?: string;
+  groupName?: string;
+  guidance?: string;
+  purpose?: NewsletterIntroPurpose;
+}
+
+export interface NewsletterIntroResponse {
+  output: string;
+}
+
+export interface NewsletterIntroApiResponse extends ApiResponse {
+  response?: NewsletterIntroResponse;
+}
+
+export interface NewsletterPlanRequest {
+  request: string;
+}
+
+export interface NewsletterPlan {
+  fromMillis: number;
+  toMillis: number;
+  periodDescription: string;
+  guidance: string | null;
+  understood: boolean;
+}
+
+export interface NewsletterPlanApiResponse extends ApiResponse {
+  response?: NewsletterPlan;
+}
+
 export interface AiConnectionStatus {
   connected: boolean;
   model?: string;

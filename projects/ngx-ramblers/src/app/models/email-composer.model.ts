@@ -37,6 +37,67 @@ export enum EventInclusionMode {
   SINGLE_EVENT = "single-event"
 }
 
+export enum EmailCompositionKind {
+  STANDARD = "standard",
+  NEWSLETTER = "newsletter"
+}
+
+export enum NewsletterCadence {
+  WEEKLY = "weekly",
+  FORTNIGHTLY = "fortnightly",
+  MONTHLY = "monthly",
+  QUARTERLY = "quarterly",
+  CUSTOM = "custom"
+}
+
+export interface NewsletterCadenceOption {
+  key: NewsletterCadence;
+  label: string;
+  periodLabel: string;
+  days: number | null;
+}
+
+export const NEWSLETTER_CADENCE_OPTIONS: NewsletterCadenceOption[] = [
+  { key: NewsletterCadence.WEEKLY, label: "Weekly", periodLabel: "the next week", days: 7 },
+  { key: NewsletterCadence.FORTNIGHTLY, label: "Fortnightly", periodLabel: "the next fortnight", days: 14 },
+  { key: NewsletterCadence.MONTHLY, label: "Monthly", periodLabel: "the next month", days: 30 },
+  { key: NewsletterCadence.QUARTERLY, label: "Quarterly", periodLabel: "the next quarter", days: 91 },
+  { key: NewsletterCadence.CUSTOM, label: "Custom dates", periodLabel: "dates I choose", days: null }
+];
+
+export const DEFAULT_NEWSLETTER_CADENCE = NewsletterCadence.MONTHLY;
+
+export enum NewsletterStartMode {
+  PERIOD = "period",
+  FREE_TEXT = "free-text"
+}
+
+export interface NewsletterSettings {
+  cadence: NewsletterCadence;
+  previousNewsletterId: string | null;
+  previousSentAt: number | null;
+  previousWindowEnd: number | null;
+  previouslyAnnouncedEventIds: string[];
+  markNewEvents: boolean;
+  guidance: string | null;
+}
+
+export interface PreviousNewsletter {
+  id: string;
+  title: string;
+  sentAt: number | null;
+  windowEnd: number | null;
+  announcedEventIds: string[];
+  selectedListId: number | null;
+  cadence: NewsletterCadence | null;
+}
+
+export interface NewsletterWindow {
+  fromMillis: number;
+  toMillis: number;
+  continuesPreviousWindow: boolean;
+}
+
 export enum SendingChannel {
   CAMPAIGN = "campaign",
   TRANSACTIONAL_BATCH = "transactional-batch"
@@ -180,6 +241,8 @@ export interface EmailComposerContext {
 
 export interface EmailComposerState {
   context: EmailComposerContext;
+  compositionKind: EmailCompositionKind;
+  newsletter: NewsletterSettings | null;
   brandingMode: BrandingMode;
   unbrandedSenderRoleType: string | null;
   recipientMode: RecipientMode;
@@ -479,6 +542,7 @@ export interface EmailCompositionDocument {
   id?: string;
   ownerMemberId: string;
   status: EmailCompositionStatus;
+  kind: EmailCompositionKind;
   shared: boolean;
   title: string;
   state: any;
@@ -493,6 +557,7 @@ export interface EmailCompositionSummary {
   id: string;
   ownerMemberId: string;
   status: EmailCompositionStatus;
+  kind: EmailCompositionKind;
   shared: boolean;
   title: string;
   savedAt: number;
@@ -508,6 +573,7 @@ export interface EmailCompositionDocumentDto {
   id: string;
   ownerMemberId: string;
   status: EmailCompositionStatus;
+  kind: EmailCompositionKind;
   shared: boolean;
   title: string;
   state: EmailComposerState;
@@ -521,6 +587,7 @@ export interface EmailCompositionSummaryDto {
   id: string;
   ownerMemberId: string;
   status: EmailCompositionStatus;
+  kind: EmailCompositionKind;
   shared: boolean;
   title: string;
   createdAt: number;

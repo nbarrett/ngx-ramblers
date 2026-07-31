@@ -4,6 +4,8 @@ import { faRotateLeft, faTriangleExclamation } from "@fortawesome/free-solid-svg
 import { keys, startCase } from "es-toolkit/compat";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import {
+  ComposerDrafting,
+  defaultComposerDrafting,
   NotificationConfig,
   overrideKeyToLabel,
   TemplateOverrides,
@@ -52,6 +54,28 @@ function pageLabel(path: string): string {
             <div class="col-sm-12 mb-2">
               <small class="text-muted">This email's content is written fresh each time it is sent, in the Email
                 Composer. There is nothing to edit here - the body is just a placeholder that the composer fills in.</small>
+            </div>
+            <div class="col-sm-12 mb-2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="offer-drafted-intro"
+                       [checked]="drafting().offerDraftedIntro"
+                       (change)="setOfferDraftedIntro($any($event.target).checked)">
+                <label class="form-check-label" for="offer-drafted-intro">
+                  <strong>Offer a drafted intro</strong> — the composer offers to write the opening paragraph from the
+                  events being sent, as an editable draft
+                </label>
+              </div>
+              @if (drafting().offerDraftedIntro) {
+                <div class="form-check ms-4 mt-2">
+                  <input class="form-check-input" type="checkbox" id="only-approved-walks"
+                         [checked]="drafting().onlyApprovedWalks"
+                         (change)="setOnlyApprovedWalks($any($event.target).checked)">
+                  <label class="form-check-label" for="only-approved-walks">
+                    Only include walks that have been approved, so the draft does not mention walks still awaiting
+                    their details
+                  </label>
+                </div>
+              }
             </div>
           } @else {
             <div class="col-sm-12 mb-2 d-flex justify-content-between align-items-start gap-2">
@@ -245,6 +269,18 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
 
   isComposerDriven(): boolean {
     return (this.notificationConfig?.body || "").trim() === BODY_CONTENT_PLACEHOLDER;
+  }
+
+  protected drafting(): ComposerDrafting {
+    return this.notificationConfig?.composerDrafting ?? defaultComposerDrafting();
+  }
+
+  protected setOfferDraftedIntro(offerDraftedIntro: boolean): void {
+    this.notificationConfig.composerDrafting = {...this.drafting(), offerDraftedIntro};
+  }
+
+  protected setOnlyApprovedWalks(onlyApprovedWalks: boolean): void {
+    this.notificationConfig.composerDrafting = {...this.drafting(), onlyApprovedWalks};
   }
 
   setContentSource(value: string): void {

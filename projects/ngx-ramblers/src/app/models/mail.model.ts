@@ -64,6 +64,15 @@ export interface TemplateOverride {
 
 export type TemplateOverrides = Record<string, TemplateOverride>;
 
+export interface ComposerDrafting {
+  offerDraftedIntro: boolean;
+  onlyApprovedWalks: boolean;
+}
+
+export function defaultComposerDrafting(): ComposerDrafting {
+  return {offerDraftedIntro: false, onlyApprovedWalks: true};
+}
+
 export interface NotificationConfig extends Auditable, Identifiable {
   subject: NotificationSubject;
   bannerId: string;
@@ -88,6 +97,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   defaultListing?: boolean;
   omitComposeStep?: boolean;
   omitEventsStep?: boolean;
+  composerDrafting?: ComposerDrafting;
 }
 
 export enum MemberSelection {
