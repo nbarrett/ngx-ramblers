@@ -19,6 +19,8 @@ export function mapSalesforceMemberToRamblersMember(supporter: SalesforceMember)
     salesforceMemberRef: supporter.memberRef || null,
     membershipNumber: supporter.membershipNo || null,
     membershipExpiryDate: formatIsoDateAs(supporter.membershipExpiry, RamblersInsightHubDateFormat.TWO_DIGIT_YEAR),
+    membershipJoinDate: formatIsoDateAs(supporter.membershipJoinDate, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
+    membershipEndDate: formatIsoDateAs(supporter.membershipEndDate, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
     email: supporter.email || null,
     firstName: supporter.firstName || supporter.friendlyName || null,
     lastName: supporter.lastName || null,
@@ -42,7 +44,10 @@ export function mapSalesforceMemberToRamblersMember(supporter: SalesforceMember)
     noCampaigning: supporter.noCampaigning,
     noSurveys: supporter.noSurveys,
     postConsent: supporter.postConsent,
+    postConsentLastUpdated: formatIsoDateAs(supporter.postConsentLastUpdated, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
     phoneConsent: supporter.phoneConsent,
+    phoneConsentLastUpdated: formatIsoDateAs(supporter.phoneConsentLastUpdated, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
     emailConsentWellbeingWalks: supporter.emailConsentWellbeingWalks,
+    volunteerRoles: supporter.volunteerRoles?.length ? supporter.volunteerRoles.join(", ") : null,
   } as RamblersMember;
 }
