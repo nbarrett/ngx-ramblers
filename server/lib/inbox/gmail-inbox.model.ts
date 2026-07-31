@@ -59,6 +59,11 @@ export enum GmailHeader {
   IN_REPLY_TO = "in-reply-to",
   REFERENCES = "references",
   FROM = "from",
+  REPLY_TO = "reply-to",
+  AUTO_SUBMITTED = "auto-submitted",
+  PRECEDENCE = "precedence",
+  X_AUTOREPLY = "x-autoreply",
+  X_AUTORESPOND = "x-autorespond",
   TO = "to",
   CC = "cc",
   SUBJECT = "subject",
@@ -98,6 +103,11 @@ export interface GoogleInboxOauthResolved {
 
 export interface GmailQueryParams {
   [key: string]: string | number | boolean | null;
+}
+
+export enum GmailMessageFormat {
+  FULL = "full",
+  METADATA = "metadata"
 }
 
 export enum GmailRequestMethod {

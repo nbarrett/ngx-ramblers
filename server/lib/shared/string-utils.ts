@@ -186,7 +186,10 @@ export function htmlToPlainText(html: string): string {
   if (!html) {
     return "";
   }
-  const withLinkTargets = html.replace(/<a\b[^>]*\bhref=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi, (_match, _q, href, inner) => {
+  const contentOnly = html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(style|script|head|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
+  const withLinkTargets = contentOnly.replace(/<a\b[^>]*\bhref=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi, (_match, _q, href, inner) => {
     const innerText = inner.replace(/<[^>]+>/g, "").trim();
     if (!innerText) return href;
     if (innerText === href) return href;

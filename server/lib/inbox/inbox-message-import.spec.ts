@@ -6,7 +6,7 @@ import {
   InboxMessageDirection,
   InboxReaderProvider
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { resolveThreadExternalAddress, shouldRefreshUnreadForInbound } from "./inbox-message-import";
+import { autoReplyFromHeaders, resolveThreadExternalAddress, shouldRefreshUnreadForInbound } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -63,6 +63,26 @@ describe("resolveThreadExternalAddress", () => {
     expect(result.name).toEqual("Walker");
   });
 
+  it("uses Reply-To when an inbound contact-us email states the enquirer", () => {
+    const result = resolveThreadExternalAddress(message({
+      from: address("walks@ekwg.co.uk", "Contact Us"),
+      replyTo: address("enquirer@example.com", "Enquirer"),
+      to: [address("walks@ekwg.co.uk")]
+    }), undefined, internalEmails);
+    expect(result.email).toEqual("enquirer@example.com");
+    expect(result.name).toEqual("Enquirer");
+  });
+
+  it("ignores Reply-To on outbound mail", () => {
+    const result = resolveThreadExternalAddress(message({
+      direction: InboxMessageDirection.OUTBOUND,
+      from: address("walks@ekwg.co.uk", "Walks"),
+      replyTo: address("walks@ekwg.co.uk", "Walks"),
+      to: [address("walker@example.com", "Walker")]
+    }), undefined, internalEmails);
+    expect(result.email).toEqual("walker@example.com");
+  });
+
   it("falls back to internal From rather than returning null", () => {
     const result = resolveThreadExternalAddress(message({
       from: address("eastkentwalkinggroup@gmail.com"),
@@ -77,6 +97,26 @@ describe("resolveThreadExternalAddress", () => {
       to: []
     }), undefined, internalEmails);
     expect(result.email).toEqual("unknown@local");
+  });
+});
+
+describe("autoReplyFromHeaders", () => {
+  const headers = (values: Record<string, string>) => (name: string) => values[name] ?? null;
+
+  it("detects an out of office from its Auto-Submitted header", () => {
+    expect(autoReplyFromHeaders(headers({"auto-submitted": "auto-replied"}), "Website Enquiry")).toBe(true);
+  });
+
+  it("detects an out of office from its subject", () => {
+    expect(autoReplyFromHeaders(headers({}), "Automatic reply: Website Enquiry")).toBe(true);
+  });
+
+  it("treats Auto-Submitted: no as an ordinary message", () => {
+    expect(autoReplyFromHeaders(headers({"auto-submitted": "no"}), "Website Enquiry")).toBe(false);
+  });
+
+  it("treats mail from a person as an ordinary message", () => {
+    expect(autoReplyFromHeaders(headers({precedence: "list"}), "Re: Website Enquiry")).toBe(false);
   });
 });
 

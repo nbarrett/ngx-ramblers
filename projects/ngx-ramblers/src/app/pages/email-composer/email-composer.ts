@@ -192,6 +192,9 @@ import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/bre
 import { BREVO_CAMPAIGN_RELEASE_TASK_ID } from "../../models/scheduled-task.model";
 import { ScheduledTaskService } from "../../services/scheduled-task.service";
 
+const HIDDEN_STYLE_PATTERN = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|max-height\s*:\s*0/i;
+const TRACKING_PIXEL_MAX_DIMENSION = 2;
+
 @Component({
   selector: "app-email-composer",
   styleUrls: ["./email-composer.sass"],
@@ -3152,6 +3155,23 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   private removeReplyMarkdownNonContent(container: HTMLElement): void {
     container.querySelectorAll("style, script, title, meta, link, head").forEach(element => element.remove());
+    container.querySelectorAll<HTMLElement>("[style]").forEach(element => {
+      if (HIDDEN_STYLE_PATTERN.test(element.getAttribute("style") ?? "")) {
+        element.remove();
+      }
+    });
+    container.querySelectorAll("img").forEach(image => {
+      if (this.trackingPixel(image)) {
+        image.remove();
+      }
+    });
+  }
+
+  private trackingPixel(image: HTMLImageElement): boolean {
+    const dimensions = [image.getAttribute("width"), image.getAttribute("height")]
+      .map(dimension => Number.parseInt(dimension ?? "", 10))
+      .filter(dimension => Number.isFinite(dimension));
+    return dimensions.length > 0 && dimensions.every(dimension => dimension <= TRACKING_PIXEL_MAX_DIMENSION);
   }
 
   private syncStateToUrl(extra: Record<string, string | null | undefined>): void {

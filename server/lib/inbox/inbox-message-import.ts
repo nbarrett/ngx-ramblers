@@ -18,6 +18,7 @@ import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
+import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -63,27 +64,76 @@ async function conversationKeyBySubject(tenantSlug: string, message: InboxMessag
   return conversationKey;
 }
 
-export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress, internalEmails?: Set<string>): InboxAddress {
-  if (counterparty?.email) {
-    return {name: counterparty.name ?? null, email: counterparty.email};
+export function replyAddress(message: InboxMessage): InboxAddress {
+  return message.direction === InboxMessageDirection.INBOUND && message.replyTo?.email ? message.replyTo : message.from;
+}
+
+const AUTO_REPLY_SUBJECT_PATTERN = /^\s*(automatic reply|auto[- ]?reply|auto[- ]?response|out of (the )?office)\b/i;
+const AUTO_REPLY_PRECEDENCE = ["auto_reply", "auto-reply"];
+
+export function autoReplyFromHeaders(headerValue: (name: string) => string | null | undefined, subject: string): boolean {
+  const autoSubmitted = (headerValue("auto-submitted") ?? "").trim().toLowerCase();
+  const precedence = (headerValue("precedence") ?? "").trim().toLowerCase();
+  return (autoSubmitted.length > 0 && autoSubmitted !== "no")
+    || AUTO_REPLY_PRECEDENCE.includes(precedence)
+    || Boolean(headerValue("x-autoreply"))
+    || Boolean(headerValue("x-autorespond"))
+    || AUTO_REPLY_SUBJECT_PATTERN.test(subject ?? "");
+}
+
+export function isAutoReplyMessage(message: InboxMessage): boolean {
+  return message.autoReply ?? AUTO_REPLY_SUBJECT_PATTERN.test(message.subject ?? "");
+}
+
+export function statedReplyAddress(message: InboxMessage): InboxAddress | null {
+  return message.direction === InboxMessageDirection.INBOUND && message.replyTo?.email ? message.replyTo : null;
+}
+
+export async function correctThreadExternalAddress(threadId: string, sender: InboxAddress, internalEmails?: Set<string>): Promise<InboxAddress | null> {
+  const thread = threadId ? await inboxThreadModel.findById(threadId).lean() as unknown as InboxThread | null : null;
+  const currentExternal = thread?.externalAddress?.email ? normaliseEmail(thread.externalAddress.email) : null;
+  const senderEmail = sender?.email ? normaliseEmail(sender.email) : null;
+  const correctable = Boolean(internalEmails && senderEmail && !internalEmails.has(senderEmail) && currentExternal !== senderEmail);
+  if (correctable) {
+    await inboxThreadModel.updateOne({_id: threadId}, {$set: {externalAddress: sender}});
+    debugLog(`externalAddress moved on thread ${threadId}: ${currentExternal} -> ${senderEmail}`);
   }
+  return correctable ? sender : null;
+}
+
+export async function backfillStatedReplyAddress(message: InboxMessage, internalEmails?: Set<string>): Promise<number> {
+  const stated = statedReplyAddress(message);
+  const storedWithoutReplyTo = stated
+    ? await inboxMessageModel.find({
+      messageId: message.messageId,
+      direction: InboxMessageDirection.INBOUND,
+      "replyTo.email": {$exists: false}
+    }).lean() as unknown as InboxMessage[]
+    : [];
+  await storedWithoutReplyTo.reduce<Promise<void>>(async (previous, storedMessage) => {
+    await previous;
+    await inboxMessageModel.updateOne({_id: storedMessage["_id"]}, {$set: {replyTo: stated}});
+    await correctThreadExternalAddress(storedMessage.threadId, stated, internalEmails);
+  }, Promise.resolve());
+  if (storedWithoutReplyTo.length > 0) {
+    debugLog(`stored Reply-To ${stated.email} on ${pluraliseWithCount(storedWithoutReplyTo.length, "existing copy", "existing copies")} of message ${message.messageId}`);
+  }
+  return storedWithoutReplyTo.length;
+}
+
+export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress, internalEmails?: Set<string>): InboxAddress {
   const isInternal = (address?: InboxAddress | null) =>
     Boolean(address?.email && internalEmails?.has(normaliseEmail(address.email)));
-  if (message.from?.email && !isInternal(message.from)) {
-    return {name: message.from.name ?? null, email: message.from.email};
-  }
+  const sender = replyAddress(message);
   const recipients = [...(message.to ?? []), ...(message.cc ?? [])].filter(address => address?.email);
-  const externalRecipient = recipients.find(address => !isInternal(address));
-  if (externalRecipient?.email) {
-    return {name: externalRecipient.name ?? null, email: externalRecipient.email};
-  }
-  if (message.from?.email) {
-    return {name: message.from.name ?? null, email: message.from.email};
-  }
-  if (recipients[0]?.email) {
-    return {name: recipients[0].name ?? null, email: recipients[0].email};
-  }
-  return {name: null, email: "unknown@local"};
+  const preferred = [
+    counterparty,
+    isInternal(sender) ? null : sender,
+    recipients.find(address => !isInternal(address)),
+    sender,
+    recipients[0]
+  ].find(address => address?.email);
+  return preferred?.email ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
 }
 
 export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number, previousLastSeenAt: number | null | undefined): boolean {
@@ -110,15 +160,13 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   const existingThread = await findExistingThread(aliasConfig, message, folder, externalAddress);
   const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder, externalAddress, InboxMessageDirection.INBOUND, internalEmails);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
-  if (existingThread && internalEmails && message.from?.email) {
-    const fromEmail = normaliseEmail(message.from.email);
-    const currentExternal = thread.externalAddress?.email ? normaliseEmail(thread.externalAddress.email) : null;
-    if (currentExternal && internalEmails.has(currentExternal) && !internalEmails.has(fromEmail)) {
-      await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {$set: {externalAddress: message.from}});
-      debugLog(`externalAddress corrected on thread ${threadId}: ${currentExternal} -> ${fromEmail}`);
-      thread.externalAddress = message.from;
+  if (existingThread && !isAutoReplyMessage(message)) {
+    const corrected = await correctThreadExternalAddress(threadId, replyAddress(message), internalEmails);
+    if (corrected) {
+      thread.externalAddress = corrected;
     }
   }
+  await backfillStatedReplyAddress(message, internalEmails);
   const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
   if (alreadyStored) {
     await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {

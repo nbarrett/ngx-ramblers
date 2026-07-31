@@ -29,7 +29,7 @@ import {
   registerGmailWatch,
   removeSpamLabel
 } from "./gmail-inbox-reader";
-import { recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
+import { backfillStatedReplyAddress, recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { dateTimeNow } from "../shared/dates";
@@ -321,10 +321,12 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
         messageIds: parsed.messageId
       }).lean();
       if (existingThread) {
+        await backfillStatedReplyAddress(parsed, internalEmails);
         return existingStored;
+      } else {
+        await storeInboundMessage(alias, parsed, undefined, internalEmails);
+        return true;
       }
-      await storeInboundMessage(alias, parsed, undefined, internalEmails);
-      return true;
     }, Promise.resolve(false));
     return storedForAliases ? accumulator.concat(parsed.messageId) : accumulator;
   }, Promise.resolve([]));

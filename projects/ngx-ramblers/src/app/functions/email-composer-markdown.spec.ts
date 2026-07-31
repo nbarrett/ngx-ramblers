@@ -15,4 +15,17 @@ describe("renderEmailComposerMarkdown", () => {
     expect(html).toContain("<blockquote style=\"border-left:4px solid #9bc8ab;");
     expect(html).toContain("background-color:#f7fbf8;");
   });
+
+  it("holds quoted images to a readable size", () => {
+    const html = renderEmailComposerMarkdown("> ![Logo](https://example.com/logo.png)");
+
+    expect(html).toContain("max-width:300px;height:auto;");
+  });
+
+  it("leaves images outside a quote at full width", () => {
+    const html = renderEmailComposerMarkdown("![Logo](https://example.com/logo.png)");
+
+    expect(html).toContain("max-width:100%;height:auto;");
+    expect(html).not.toContain("max-width:300px");
+  });
 });
