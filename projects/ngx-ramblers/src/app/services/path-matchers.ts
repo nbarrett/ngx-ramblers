@@ -2,6 +2,7 @@ import { UrlMatchResult, UrlSegment } from "@angular/router";
 import { isMongoId } from "./mongo-utils";
 import { last } from "es-toolkit/compat";
 import { PathSegment, RouteParam } from "../models/content-text.model";
+import { WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT } from "../models/walks-route-paths.model";
 
 function relativePathFrom(urlSegments: UrlSegment[]) {
   return new UrlSegment(urlSegments.map(urlSegment => urlSegment.path).join("/"), {});
@@ -17,6 +18,19 @@ export function returnMatch(matched: boolean, urlSegments: UrlSegment[]) {
 
 export function hasDynamicPath(urlSegments: UrlSegment[]): UrlMatchResult {
   return returnMatch(urlSegments.length > 0, urlSegments);
+}
+
+const WALKS_AREA_SUB_PATHS: string[] = [WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT];
+
+export function hasWalksAreaSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 2 && WALKS_AREA_SUB_PATHS.includes(urlSegments[1].path)) {
+    return {
+      consumed: [urlSegments[0]],
+      posParams: {[RouteParam.AREA]: urlSegments[0]}
+    };
+  } else {
+    return null;
+  }
 }
 
 export function hasEmailComposerPath(urlSegments: UrlSegment[]): UrlMatchResult {

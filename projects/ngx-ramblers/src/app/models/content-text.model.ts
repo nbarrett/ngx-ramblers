@@ -289,6 +289,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   imageCropperPosition?: ImageCropperPosition | null;
   imageFocalPoint?: FocalPoint | null;
   icon?: string;
+  iconColour?: string;
   accessLevel?: AccessLevel;
   showPlaceholderImage?: boolean;
   showTextAfterImage?: boolean;
@@ -501,6 +502,7 @@ export interface BackgroundsOverlay {
 }
 
 export interface IndexMapConfig {
+  mapHeight?: number;
   height?: number;
   clusteringEnabled?: boolean;
   clusteringThreshold?: number;
@@ -510,7 +512,15 @@ export interface IndexMapConfig {
   mapZoom?: number;
   showControlsDefault?: boolean;
   allowControlsToggle?: boolean;
+  autoFitBounds?: boolean;
 }
+
+export const ALBUM_INDEX_MAP_CONFIG_DEFAULTS: Partial<IndexMapConfig> = {
+  mapHeight: 500,
+  showControlsDefault: true,
+  allowControlsToggle: true,
+  autoFitBounds: true
+};
 
 export interface IndexColumnOverride {
   href: string;
@@ -639,6 +649,19 @@ export enum ImageType {
 export enum View {
   EDIT = "edit",
   VIEW = "view"
+}
+
+export const ICON_COLOURS: NamedIconColour[] = [
+  {name: "Default", cssClass: null},
+  {name: "Ramblers green", cssClass: "ramblers"},
+  {name: "Teal", cssClass: "calendar"},
+  {name: "Red", cssClass: "meetup"},
+  {name: "Rosy", cssClass: "group-event"}
+];
+
+export interface NamedIconColour {
+  name: string;
+  cssClass: string;
 }
 
 export enum PaletteColor {
@@ -867,6 +890,7 @@ export interface ActionButtonColumn {
   accessLevel?: string;
   title?: string;
   icon?: string;
+  iconColour?: string;
   href?: string;
   contentText?: string;
 }

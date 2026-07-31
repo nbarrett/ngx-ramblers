@@ -175,7 +175,7 @@ function customGeometryFeatureCollection(group: AreaGroupConfig): GeoJSON.Featur
 
 export async function areas(req: Request, res: Response) {
   try {
-    const {areaName, areaNames, regionName = "Kent"} = req.query;
+    const {areaName, areaNames} = req.query;
 
     if (isString(areaNames) && areaNames.trim()) {
       return batchAreas(req, res, areaNames.split(",").map(n => n.trim()).filter(Boolean));

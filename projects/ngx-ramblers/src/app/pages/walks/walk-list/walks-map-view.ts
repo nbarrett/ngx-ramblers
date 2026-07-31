@@ -239,6 +239,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalksMapView", NgxLoggerLevel.ERROR);
   @Input() filteredWalks: DisplayedWalk[] = [];
   @Input() loading = false;
+  @Input() showControlsByDefault = true;
   @Output() selected = new EventEmitter<DisplayedWalk>();
   @Output() autoShowAllChange = new EventEmitter<boolean>();
   public provider: MapProvider = MapProvider.OSM;
@@ -332,7 +333,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
     this.mapHeight = initialState.mapHeight || 520;
     this.smoothScroll = initialState.smoothScroll || true;
     this.autoShowAll = initialState.autoShowAll || false;
-    this.showControls = this.uiActions.initialBooleanValueFor(StoredValue.MAP_SHOW_CONTROLS, true);
+    this.showControls = this.uiActions.initialBooleanValueFor(StoredValue.MAP_SHOW_CONTROLS, this.showControlsByDefault);
 
     this.mapControlsState = initialState;
 

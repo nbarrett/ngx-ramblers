@@ -29,6 +29,7 @@ import { MapOverlay } from "../../shared/components/map-overlay";
 import { MapControlsStateService } from "../../shared/services/map-controls-state.service";
 import { MapRecreationService } from "../../shared/services/map-recreation.service";
 import { MapProvider, OUTDOOR_OS_STYLE } from "../../models/map.model";
+import { MapDefaultsService } from "../../services/maps/map-defaults.service";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { StoredValue } from "../../models/ui-actions";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -529,6 +530,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   private mainAreaGroupCodes: string[] = [];
   private stripePatternContainer: HTMLElement | null = null;
   private stripePatternCounter = 0;
+  private mapDefaults = inject(MapDefaultsService);
   private areas = inject(GroupAreasService);
   private parishService = inject(ParishMapService);
   private tiles = inject(MapTilesService);
@@ -778,8 +780,8 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     return {
       region: regionName,
       title: "Areas",
-      mapCenter: [51.25, 0.75],
-      mapZoom: 10,
+      mapCenter: this.mapDefaults.center(),
+      mapZoom: this.mapDefaults.zoom(),
       mapHeight: 480,
       showControls: true,
       selectedGroups: [],

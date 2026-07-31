@@ -1,0 +1,25 @@
+.programme-map
+  display: flex
+  flex-direction: column
+  gap: var(--space-4)
+
+.status-filter
+  display: flex
+  flex-wrap: wrap
+  gap: var(--space-2)
+
+@media (max-width: 768px)
+  .status-filter
+    overflow-x: auto
+    flex-wrap: nowrap
+    padding-bottom: var(--space-1)
+
+.view-row
+  display: flex
+  align-items: center
+  gap: var(--space-3)
+  flex-wrap: wrap
+  app-walk-programme-view-selector
+    flex: 0 0 auto
+  app-date-range-direction-selector
+    margin-left: auto

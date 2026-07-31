@@ -11,6 +11,10 @@ export function websiteWalkLeaderDisplayName(walk: ExtendedGroupEvent): WebsiteW
   return (walk?.fields?.contactDetails?.displayName || "").trim();
 }
 
+export function walkLeaderDisplayName(walk: ExtendedGroupEvent): WebsiteWalkLeaderDisplayName {
+  return websiteWalkLeaderDisplayName(walk) || (walk?.groupEvent?.walk_leader?.name || "").trim();
+}
+
 export function walksManagerContactNamesForCsv(walk: ExtendedGroupEvent): WalksManagerContactNameForCsv {
   return normalisedWalkLeaderName(walk?.fields?.publishing?.ramblers?.contactName) || "";
 }

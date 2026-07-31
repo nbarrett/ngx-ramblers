@@ -14,9 +14,10 @@ import {
   MapControlsConfig,
   MapControlsState
 } from "../../../shared/components/map-controls";
-import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { DEFAULT_OS_STYLE, MapProvider, MapViewChange } from "../../../models/map.model";
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { UiActionsService } from "../../../services/ui-actions.service";
+import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
@@ -159,13 +160,16 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   @Input() clusteringThreshold = 10;
   @Input() provider: MapProvider = MapProvider.OSM;
   @Input() osStyle = DEFAULT_OS_STYLE;
-  @Input() mapCenter: [number, number] = [51.25, 0.75];
-  @Input() mapZoom = 10;
+  @Input() mapCenter: [number, number];
+  @Input() mapZoom: number;
   @Input() showControlsDefault = true;
   @Input() allowControlsToggle = true;
+  @Input() autoFitBounds = true;
+  @Input() editing = false;
   @Output() mapProviderChange = new EventEmitter<MapProvider>();
   @Output() mapStyleChange = new EventEmitter<string>();
   @Output() mapHeightChange = new EventEmitter<number>();
+  @Output() mapViewChange = new EventEmitter<MapViewChange>();
 
   public options: any;
   public leafletLayers: L.Layer[] = [];
@@ -178,6 +182,8 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   protected readonly faSpinner = faSpinner;
   private clusterGroupRef: any;
   private allMarkers: L.Marker[] = [];
+  private suppressViewportHandler = false;
+  private viewCaptureReady = false;
 
   public mapControlsConfig: MapControlsConfig = {
     showProvider: true,
@@ -201,9 +207,12 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   private mapViewCache = inject(MapViewCacheService);
   private urlService = inject(UrlService);
   private uiActions = inject(UiActionsService);
+  private mapDefaults = inject(MapDefaultsService);
   private zone = inject(NgZone);
 
   ngOnInit() {
+    this.mapCenter = this.mapCenter || this.mapDefaults.center();
+    this.mapZoom = this.mapZoom || this.mapDefaults.zoom();
     this.mapTiles.initializeProjections();
     this.mapControlsState.provider = this.provider;
     this.mapControlsState.osStyle = this.osStyle;
@@ -232,11 +241,11 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
     if ((changes["clusteringEnabled"] || changes["clusteringThreshold"]) && !changes["clusteringEnabled"]?.firstChange) {
       this.updateMarkers();
     }
-    if (changes["mapZoom"] && !changes["mapZoom"].firstChange && this.mapRef) {
-      this.mapRef.setZoom(this.mapZoom);
+    if ((changes["mapZoom"] || changes["mapCenter"]) && !changes["mapZoom"]?.firstChange && !changes["mapCenter"]?.firstChange) {
+      this.setMapView(this.configuredCenter(), this.mapZoom);
     }
-    if (changes["mapCenter"] && !changes["mapCenter"].firstChange && this.mapRef) {
-      this.mapRef.setView(L.latLng(this.mapCenter[0], this.mapCenter[1]), this.mapRef.getZoom());
+    if (changes["autoFitBounds"] && !changes["autoFitBounds"].firstChange) {
+      this.fitMapToBounds();
     }
     if (changes["showControlsDefault"] && !changes["showControlsDefault"].firstChange) {
       this.showControls = this.uiActions.booleanOf(this.showControlsDefault, true);
@@ -257,7 +266,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
     this.options = {
       layers: [base],
       zoom: this.mapZoom,
-      center: L.latLng(this.mapCenter[0], this.mapCenter[1]),
+      center: this.configuredCenter(),
       crs,
       maxZoom,
       zoomSnap: 0.1,
@@ -290,19 +299,49 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
 
   onMapReady(map: L.Map) {
     this.mapRef = map;
+    this.viewCaptureReady = false;
     this.logger.info("Map ready, invalidating size");
-    map.on("moveend zoomend", () => this.cacheCurrentView());
+    map.on("moveend zoomend", () => {
+      this.cacheCurrentView();
+      this.captureMapView();
+    });
     setTimeout(() => {
       map.invalidateSize();
       this.cacheCurrentView();
     }, 100);
+    setTimeout(() => this.viewCaptureReady = true, 800);
+  }
+
+  private captureMapView() {
+    if (this.mapRef && !this.suppressViewportHandler && this.viewCaptureReady) {
+      const center = this.mapRef.getCenter();
+      const zoom = this.mapRef.getZoom();
+      this.zone.run(() => this.mapViewChange.emit({center: [center.lat, center.lng], zoom}));
+    }
+  }
+
+  private configuredCenter(): L.LatLng {
+    return L.latLng(this.mapCenter[0], this.mapCenter[1]);
+  }
+
+  private setMapView(center: L.LatLng, zoom: number) {
+    const alreadyShowing = this.mapRef
+      && this.mapRef.getCenter().distanceTo(center) < 1
+      && Math.abs(this.mapRef.getZoom() - zoom) < 0.01;
+    if (this.mapRef && !alreadyShowing) {
+      this.suppressViewportChanges(400);
+      this.mapRef.setView(center, zoom, {animate: false});
+    }
+  }
+
+  private suppressViewportChanges(milliseconds: number) {
+    this.suppressViewportHandler = true;
+    setTimeout(() => this.suppressViewportHandler = false, milliseconds);
   }
 
   private updateMapSize() {
     if (this.mapRef) {
-      setTimeout(() => {
-        this.mapRef.invalidateSize();
-      }, 100);
+      requestAnimationFrame(() => this.mapRef?.invalidateSize(true));
     }
   }
 
@@ -400,23 +439,27 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   }
 
   private fitMapToBounds() {
+    const cachedView = this.autoFitBounds && !this.editing ? this.mapViewCache.get(this.mapViewCacheKey()) : null;
     if (this.allMarkers.length === 0) {
-      return;
-    }
-
-    const cachedView = this.mapViewCache.get(this.mapViewCacheKey());
-    if (cachedView) {
+      this.logger.info("No markers to position the map against");
+    } else if (!this.autoFitBounds) {
+      this.logger.info("Applying chosen map view", this.mapCenter, this.mapZoom);
+      this.fitBounds = undefined;
+      this.options.center = this.configuredCenter();
+      this.options.zoom = this.mapZoom;
+      this.setMapView(this.configuredCenter(), this.mapZoom);
+    } else if (cachedView) {
       this.logger.info("Applying cached map view", cachedView);
       this.fitBounds = undefined;
       this.options.center = L.latLng(cachedView.center.lat, cachedView.center.lng);
       this.options.zoom = cachedView.zoom;
-      return;
+    } else {
+      this.logger.info("Fitting map to bounds with", this.allMarkers.length, "points");
+      const bounds = L.latLngBounds(this.allMarkers.map(marker => marker.getLatLng()));
+      this.suppressViewportChanges(600);
+      this.fitBounds = bounds;
+      this.options.center = bounds.getCenter();
     }
-
-    const bounds = L.latLngBounds(this.allMarkers.map(marker => marker.getLatLng()));
-    this.fitBounds = bounds;
-    this.options.center = bounds.getCenter();
-    this.logger.info("Fitting map to bounds with", this.allMarkers.length, "points");
   }
 
   onProviderChange(provider: MapProvider) {
@@ -440,6 +483,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
 
   private recreateMap() {
     this.showMap = false;
+    this.viewCaptureReady = false;
     setTimeout(() => {
       this.initializeMap();
       this.showMap = true;

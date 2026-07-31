@@ -3,6 +3,7 @@ import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove, faRotateLef
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
+  ICON_COLOURS,
   ImageFit,
   ImageType,
   PageContent,
@@ -86,6 +87,7 @@ import { FileUtilsService } from "../../../file-utils.service";
         [smallIconContainer]="smallIconContainer"
         [imageType]="imageType"
         [icon]="iconService.iconForName(column?.icon)"
+        [iconColour]="column?.iconColour"
         [aspectRatio]="column?.imageAspectRatio"
         [imageSource]="imageSourceOrPreview()"
         [objectPositionY]="column?.imageVerticalPosition"
@@ -170,6 +172,16 @@ import { FileUtilsService } from "../../../file-utils.service";
                      [typeahead]="iconService.iconKeys"
                      [id]="idFor('icon')"
                      class="form-control input-sm" placeholder="Enter icon value">
+            </div>
+            <div class="form-group">
+              <label class="form-label" [for]="idFor('icon-colour')">Icon Colour</label>
+              <select [(ngModel)]="column.iconColour"
+                      [id]="idFor('icon-colour')"
+                      class="form-control input-sm">
+                @for (iconColour of ICON_COLOURS; track iconColour.cssClass) {
+                  <option [ngValue]="iconColour.cssClass">{{ iconColour.name }}</option>
+                }
+              </select>
             </div>
           }
           @if (imageType === ImageType.IMAGE) {
@@ -403,6 +415,7 @@ export class CardEditorComponent implements OnInit {
   protected readonly PageContentType = PageContentType;
 
   protected readonly ImageType = ImageType;
+  protected readonly ICON_COLOURS = ICON_COLOURS;
   protected readonly ImageFit = ImageFit;
   protected readonly defaultFocalPoint: FocalPoint = { x: 50, y: 50, zoom: 1 };
 

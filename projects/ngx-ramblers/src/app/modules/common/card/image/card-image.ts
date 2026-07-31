@@ -85,7 +85,7 @@ const FIXED_CARD_IMAGE_HEIGHT = 200;
       <div class="row no-image"
            [ngClass]="{'small-icon-container': smallIconContainer}">
         <div class="col align-self-center text-center">
-          <fa-icon [icon]="icon || faImage" class="fa-icon fa-3x"></fa-icon>
+          <fa-icon [icon]="icon || faImage" class="fa-icon fa-3x" [ngClass]="iconColour"></fa-icon>
           @if (!icon) {
             <div>{{ imageText }}</div>
           }
@@ -142,6 +142,7 @@ export class CardImageComponent implements OnInit {
   @Input() public imageLink: string;
   @Input() public alt: string;
   @Input() public icon: IconProp;
+  @Input() public iconColour: string;
   @Input() public borderRadius: number;
   @Input() public aspectRatio: DescribedDimensions;
   @Input("padding") set paddingValue(padding: number) {

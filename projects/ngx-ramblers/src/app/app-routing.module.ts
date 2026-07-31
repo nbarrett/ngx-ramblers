@@ -2,7 +2,7 @@ import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath, hasEditSubPath, hasEmailComposerPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath } from "./services/path-matchers";
+import { hasDynamicPath, hasEditSubPath, hasEmailComposerPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath, hasWalksAreaSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
 import { EmailComposerAuthGuard } from "./guards/email-composer-auth-guard";
@@ -109,6 +109,12 @@ const routes: Routes = [
     loadComponent: () => import("./pages/group-events/edit/group-event-edit")
       .then(m => m.GroupEventEdit),
     canActivate: [SystemHealthyGuard, AreaExistsGuard, GroupEventAuthGuard]
+  },
+  {
+    matcher: hasWalksAreaSubPath,
+    loadChildren: () => import("./modules/walks/walks-routing.module")
+      .then(module => module.WalksRoutingModule),
+    canActivate: [SystemHealthyGuard]
   },
   {
     matcher: hasDynamicPath,

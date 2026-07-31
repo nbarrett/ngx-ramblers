@@ -21,11 +21,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { EventsHeader } from "./events-header";
-import { FormsModule } from "@angular/forms";
 import { EventCardsList } from "./event-cards-list";
 import { EventsFull } from "./events-full";
-import { PaginationComponent } from "ngx-bootstrap/pagination";
-import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { WalksConfig } from "../../../models/walks-config.model";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
@@ -53,27 +50,10 @@ import { isMongoId } from "../../../services/mongo-utils";
         <app-event-cards-list [eventsData]="eventsData"
                               [notifyTarget]="notifyTarget"
                               [currentPageFilteredEvents]="currentPageFilteredEvents"/>
-        @if (showRepeatedPagination()) {
-          <div class="d-flex flex-column flex-md-row events-header-full-width mt-3">
-            <pagination class="rounded" [boundaryLinks]="true" [rotate]="true" [maxSize]="5"
-                        [itemsPerPage]="pageSize"
-                        [totalItems]="extendedGroupEvents?.length" [(ngModel)]="pageNumber"
-                        (pageChanged)="pageChanged($event)"/>
-            @if ((!eventsData || eventsData?.allow?.alert) && notifyTarget.showAlert) {
-              <div class="form-group mb-0 flex-grow-1 mt-md-0">
-                <div class="alert {{notifyTarget.alertClass}}">
-                  <fa-icon [icon]="notifyTarget.alert.icon"/>
-                  <strong>{{ notifyTarget.alertTitle }}</strong>
-                  {{ notifyTarget.alertMessage }}
-                </div>
-              </div>
-            }
-          </div>
-        }
       }
     `,
   styleUrls: ["../../../pages/group-events/home/group-event-home.sass"],
-  imports: [EventsHeader, FormsModule, EventCardsList, EventsFull, PaginationComponent, FontAwesomeModule]
+  imports: [EventsHeader, EventCardsList, EventsFull]
 })
 export class Events implements OnInit, OnDestroy {
 
@@ -316,12 +296,6 @@ export class Events implements OnInit, OnDestroy {
     this.goToPage(event.page);
   }
 
-  showRepeatedPagination(): boolean {
-    return this.pages.length > 1
-      && (!this.eventsData || this.eventsData?.allow?.pagination !== false)
-      && this.walksConfig?.showRepeatedPagination !== false
-      && this.currentPageFilteredEvents.length >= this.pageSize;
-  }
 
   goToPage(pageNumber) {
     this.pageNumber = pageNumber;

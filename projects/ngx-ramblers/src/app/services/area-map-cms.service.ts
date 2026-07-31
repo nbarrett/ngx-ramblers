@@ -6,6 +6,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentService } from "./page-content.service";
 import { SystemConfigService } from "./system/system-config.service";
 import { MapProvider, OUTDOOR_OS_STYLE } from "../models/map.model";
+import { MapDefaultsService } from "./maps/map-defaults.service";
 
 @Injectable({
   providedIn: "root"
@@ -14,6 +15,7 @@ export class AreaMapCmsService {
   private logger: Logger = inject(LoggerFactory).createLogger("AreaMapCmsService", NgxLoggerLevel.ERROR);
   private pageContentService = inject(PageContentService);
   private systemConfigService = inject(SystemConfigService);
+  private mapDefaults = inject(MapDefaultsService);
 
   private settingsSubject = new BehaviorSubject<AreaMapData | null>(null);
   private currentPageContent?: PageContent;
@@ -71,8 +73,8 @@ export class AreaMapCmsService {
     return {
       region: regionName,
       title: "Areas",
-      mapCenter: [51.25, 0.75],
-      mapZoom: 10,
+      mapCenter: this.mapDefaults.center(),
+      mapZoom: this.mapDefaults.zoom(),
       mapHeight: 480,
       showControls: true,
       selectedGroups: [],

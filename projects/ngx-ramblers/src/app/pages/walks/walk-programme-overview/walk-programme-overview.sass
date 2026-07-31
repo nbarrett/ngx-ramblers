@@ -1,0 +1,256 @@
+@import "../../../assets/styles/colours"
+
+.programme
+  display: flex
+  flex-direction: column
+  gap: var(--space-5)
+
+.programme-toolbar
+  display: flex
+  flex-wrap: wrap
+  gap: var(--space-4)
+  align-items: flex-end
+  justify-content: space-between
+
+.range-controls
+  display: block
+  flex: 1 1 320px
+  min-width: 0
+
+.programme-links
+  display: flex
+  gap: var(--space-2)
+  flex-wrap: wrap
+
+.stat-grid
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))
+  gap: var(--space-3)
+
+.stat-card
+  --stat-colour: #{$ramblers-colour-mintcake}
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: var(--space-1)
+  padding: var(--space-4)
+  border: 1px solid var(--rsm-border)
+  border-left: 6px solid var(--stat-colour)
+  border-radius: var(--rsm-panel-radius)
+  background: var(--rsm-panel-bg)
+  cursor: pointer
+  text-align: left
+  min-height: 84px
+  transition: transform 0.12s ease, box-shadow 0.12s ease
+  &:hover
+    transform: translateY(-2px)
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12)
+  &.active
+    background: var(--stat-colour)
+    color: #fff
+    .stat-label
+      color: rgba(255, 255, 255, 0.9)
+
+.stat-count
+  font-size: 30px
+  font-weight: 700
+  line-height: 1
+  font-family: "Rucksack", sans-serif
+
+.stat-label
+  font-size: 14px
+  font-weight: 600
+  color: var(--rsm-muted)
+
+.filter-chip
+  display: flex
+  align-items: center
+  gap: var(--space-3)
+  flex-wrap: wrap
+
+.chip
+  display: inline-flex
+  align-items: center
+  padding: 4px 12px
+  border-radius: 999px
+  font-size: 13px
+  font-weight: 600
+
+.chip-count
+  color: var(--rsm-muted)
+  font-size: 14px
+
+.clear-filter
+  margin-left: auto
+
+.programme-empty
+  padding: var(--space-6)
+  text-align: center
+  color: var(--rsm-muted)
+
+.walk-rows
+  display: flex
+  flex-direction: column
+  gap: var(--space-3)
+
+.programme-sticky
+  display: flex
+  flex-direction: column
+  gap: var(--space-3)
+
+.walk-row
+  --status-colour: #{$ramblers-colour-mintcake}
+  display: grid
+  grid-template-columns: 92px 1fr 180px auto
+  gap: var(--space-4)
+  align-items: center
+  padding: var(--space-4)
+  border: 1px solid var(--rsm-border)
+  border-left: 6px solid var(--status-colour)
+  border-radius: var(--rsm-panel-radius)
+  background: var(--rsm-panel-bg)
+  cursor: pointer
+  transition: box-shadow 150ms ease, transform 150ms ease
+  &:hover,
+  &:focus-visible
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12)
+    border-color: var(--status-colour)
+
+.walk-row-date
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  text-align: center
+  .walk-day
+    font-size: 13px
+    font-weight: 600
+    text-transform: uppercase
+    color: var(--rsm-muted)
+  .walk-date
+    font-size: 15px
+    font-weight: 700
+    color: var(--rsm-text)
+  .walk-countdown
+    font-size: 12px
+    color: var(--status-colour)
+    font-weight: 600
+
+.walk-row-main
+  display: flex
+  flex-direction: column
+  gap: var(--space-1)
+  min-width: 0
+
+.walk-row-title
+  font-size: 17px
+  font-weight: 600
+  color: var(--rsm-text)
+
+.walk-row-meta
+  display: flex
+  flex-wrap: wrap
+  gap: var(--space-3)
+  font-size: 14px
+  color: var(--rsm-muted)
+  .muted
+    color: $ramblers-colour-sunset
+
+.walk-row-missing
+  display: flex
+  align-items: center
+  gap: var(--space-2)
+  font-size: 13px
+  font-weight: 600
+  color: $ramblers-colour-sunset
+
+.status-badge
+  display: inline-flex
+  align-items: center
+  padding: 4px 12px
+  border-radius: 999px
+  font-size: 12px
+  font-weight: 700
+  white-space: nowrap
+
+.walk-row-status
+  display: flex
+  justify-content: flex-end
+
+.walk-row-actions
+  display: flex
+  gap: var(--space-2)
+  align-items: center
+  justify-content: flex-end
+  flex-wrap: nowrap
+  .btn
+    min-width: 108px
+    justify-content: center
+
+.programme-pagination
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: var(--space-4)
+
+.page-indicator
+  font-size: 14px
+  font-weight: 600
+  color: var(--rsm-muted)
+
+@media (max-width: 768px)
+  .walk-row
+    grid-template-columns: 68px 1fr
+    grid-template-areas: "date main" "status status" "actions actions"
+    gap: var(--space-3)
+  .walk-row-date
+    grid-area: date
+  .walk-row-main
+    grid-area: main
+  .walk-row-status
+    grid-area: status
+  .walk-row-actions
+    grid-area: actions
+    justify-content: flex-start
+  .clear-filter
+    margin-left: 0
+  .programme-toolbar
+    flex-direction: column
+    align-items: stretch
+
+.walk-rows.with-thumbnails .walk-row
+  grid-template-columns: 92px 64px 1fr 180px auto
+
+.walk-row-thumbnail-cell
+  width: 64px
+  height: 64px
+
+.walk-row-thumbnail
+  width: 64px
+  height: 64px
+  object-fit: cover
+  border-radius: var(--radius-2)
+  display: block
+
+.group-badge
+  display: inline-block
+  margin-right: var(--space-2)
+  padding: 2px 8px
+  border-radius: 999px
+  font-size: 12px
+  font-weight: 700
+  text-transform: uppercase
+  letter-spacing: 0.02em
+  color: var(--rsm-text)
+  background: rgba(15, 23, 42, 0.06)
+  vertical-align: middle
+
+.view-row
+  display: flex
+  align-items: center
+  gap: var(--space-3)
+  flex-wrap: wrap
+  app-walk-programme-view-selector
+    flex: 0 0 auto
+  app-date-range-direction-selector
+    margin-left: auto

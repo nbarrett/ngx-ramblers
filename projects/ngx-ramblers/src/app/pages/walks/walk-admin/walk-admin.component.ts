@@ -1,114 +1,64 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faBook, faCalendarPlus, faFileExport, faFileImport, faGear } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
+import { AlertTarget } from "../../../models/alert-target.model";
+import { BuiltInAnchor, PageContent, PageContentType } from "../../../models/content-text.model";
 import { LoginResponse } from "../../../models/member.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { UrlService } from "../../../services/url.service";
+import { PageService } from "../../../services/page.service";
+import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageComponent } from "../../../page/page.component";
-import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
-import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
+import { LoginRequiredComponent } from "../../../modules/common/login-required/login-required";
+import { DynamicContentComponent } from "../../../modules/common/dynamic-content/dynamic-content";
 
 @Component({
-    selector: "app-walk-admin",
-    template: `
-      <app-page>
-        <div class="body-content">
-          <div class="row">
-            @if (allowAdminEdits) {
-              <div class="col-sm-6">
-                <div class="item-panel">
-                  <div (click)="selectWalksForExport()" class="item-icon">
-                    <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
-                    <h5>Ramblers Walk Export</h5>
-                  </div>
-                  <app-content-text-editor standalone class="item-text" name="ramblers-export-help"
-                                       description="Ramblers export help"/>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="item-panel">
-                  <div (click)="selectWalksForImport()" class="item-icon">
-                    <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
-                    <h5>Ramblers Walk Import</h5>
-                  </div>
-                  <app-content-text-editor standalone class="item-text" name="ramblers-import-help"
-                                       description="Ramblers import help"/>
-                </div>
-              </div>
-            }
-            <div class="col-sm-6">
-              <div class="item-panel">
-                <div (click)="addWalkSlots()" class="item-icon">
-                  <fa-icon [icon]="faCalendarPlus" class="fa-3x calendar"/>
-                  <h5>Add Walk Slots</h5>
-                </div>
-                <app-content-text-editor standalone class="item-text" name="add-walks-slots-help"
-                                     description="Add walk slots help"/>
-              </div>
-            </div>
-            @if (allowAdminEdits) {
-              <div class="col-sm-6">
-                <div class="item-panel">
-                  <div (click)="navigateToConfig()" class="item-icon">
-                    <fa-icon [icon]="faGear" class="fa-3x ramblers"/>
-                    <h5>Walk Configuration</h5>
-                  </div>
-                  <app-content-text-editor standalone class="item-text" name="walk-config-help"
-                                       description="Walk configuration help"/>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="item-panel">
-                  <div (click)="selectEventDataManagement()" class="item-icon">
-                    <fa-icon [icon]="faDatabase" class="fa-3x meetup"/>
-                    <h5>Event Data Management</h5>
-                  </div>
-                  <app-content-text-editor standalone class="item-text" name="event-data-management-help"
-                                       description="Event data management help"/>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="item-panel">
-                  <div (click)="adminHowTo()" class="item-icon">
-                    <fa-icon [icon]="faBook" class="fa-3x ramblers"/>
-                    <h5>How To Documentation</h5>
-                  </div>
-                  <app-content-text-editor category="walks-admin" standalone class="item-text" name="how-to-documentation-help"
-                                       description="How-to documentation help"/>
-                </div>
-              </div>
-            }
-          </div>
-        </div>
-      </app-page>
-    `,
-    styleUrls: ["./walk-admin.component.sass"],
-    changeDetection: ChangeDetectionStrategy.Default,
-    imports: [PageComponent, FontAwesomeModule, ContentTextEditor]
+  selector: "app-walk-admin",
+  template: `
+    <app-page>
+      <app-login-required/>
+      @if (loggedIn) {
+        <app-dynamic-content [anchor]="BuiltInAnchor.ACTION_BUTTONS" contentPathReadOnly
+                             [defaultPageContent]="defaultPageContent"
+                             [notifier]="notify">
+        </app-dynamic-content>
+      }
+    </app-page>
+  `,
+  styleUrls: ["../../admin/admin/admin.component.sass"],
+  changeDetection: ChangeDetectionStrategy.Default,
+  imports: [PageComponent, LoginRequiredComponent, DynamicContentComponent]
 })
 export class WalkAdminComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkAdminComponent", NgxLoggerLevel.ERROR);
   private memberLoginService = inject(MemberLoginService);
+  private notifierService = inject(NotifierService);
   private authService = inject(AuthService);
-  private urlService = inject(UrlService);
-  allowAdminEdits: boolean;
+  private pageService = inject(PageService);
+
   private subscriptions: Subscription[] = [];
-  faCalendarPlus = faCalendarPlus;
-  faFileExport = faFileExport;
-  faGear = faGear;
-  protected readonly faFileImport = faFileImport;
-  protected readonly faDatabase = faDatabase;
-  protected readonly faBook = faBook;
+  notify: AlertInstance;
+  notifyTarget: AlertTarget = {};
+  loggedIn = false;
+  defaultPageContent: PageContent;
+
+  protected readonly BuiltInAnchor = BuiltInAnchor;
 
   ngOnInit() {
-    this.logger.debug("ngOnInit");
     this.setPrivileges();
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.setPrivileges(loginResponse)));
+    this.defaultPageContent = {
+      path: this.pageService.contentPath(BuiltInAnchor.ACTION_BUTTONS),
+      rows: [{
+        maxColumns: 3,
+        showSwiper: false,
+        type: PageContentType.ACTION_BUTTONS,
+        columns: []
+      }]
+    };
   }
 
   ngOnDestroy(): void {
@@ -116,31 +66,7 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
   }
 
   private setPrivileges(loginResponse?: LoginResponse) {
-    this.allowAdminEdits = this.memberLoginService.allowWalkAdminEdits();
-    this.logger.debug("setPrivileges:allowAdminEdits", this.allowAdminEdits);
-  }
-
-  selectWalksForExport() {
-    this.urlService.navigateTo(["walks", "admin", "export"]);
-  }
-
-  selectWalksForImport() {
-    this.urlService.navigateTo(["walks", "admin", "import"]);
-  }
-
-  selectEventDataManagement() {
-    this.urlService.navigateTo(["walks", "admin", "event-data-management"]);
-  }
-
-  adminHowTo() {
-    this.urlService.navigateToAbsoluteUrl("https://www.ngx-ramblers.org.uk/how-to/committee/walks");
-  }
-
-  addWalkSlots() {
-    this.urlService.navigateTo(["walks", "admin", "add-walk-slots"]);
-  }
-
-  navigateToConfig() {
-    this.urlService.navigateTo(["walks", "admin", "config"]);
+    this.loggedIn = this.memberLoginService.memberLoggedIn();
+    this.logger.debug(loginResponse, "setPrivileges:loggedIn", this.loggedIn);
   }
 }

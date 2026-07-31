@@ -2,7 +2,7 @@ import { Time } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { range } from "es-toolkit";
 import { isNumber, isString } from "es-toolkit/compat";
-import { DateTime, Duration } from "luxon";
+import { DateTime, Duration, ToRelativeUnit } from "luxon";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -380,6 +380,33 @@ export class DateUtilsService {
       return null;
     }
     return (parsed.weekday % 7) + 1;
+  }
+
+  relativeDay(dateValue?: DateInput): string {
+    const target = this.asDateTime(dateValue).startOf("day");
+    const today = this.dateTimeNowNoTime();
+    const days = Math.round(target.diff(today, "days").days);
+    if (days === 0) {
+      return "Today";
+    } else if (days === 1) {
+      return "Tomorrow";
+    } else if (days === -1) {
+      return "Yesterday";
+    } else {
+      return target.toRelative({base: today, unit: this.relativeUnitFor(Math.abs(days))});
+    }
+  }
+
+  private relativeUnitFor(days: number): ToRelativeUnit {
+    if (days < 14) {
+      return "days";
+    } else if (days < 60) {
+      return "weeks";
+    } else if (days < 365) {
+      return "months";
+    } else {
+      return "years";
+    }
   }
 
 }

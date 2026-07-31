@@ -28,7 +28,6 @@ export interface WalksConfig {
   requireWalkLeaderDisplayName: boolean;
   matchWalkLeadersOnWalksManagerSync?: boolean;
   rematchWalkLeadersOnMemberChange?: boolean;
-  showRepeatedPagination?: boolean;
   relatedLinkShowOnRamblers?: boolean;
   relatedLinkShowThisWalk?: boolean;
   relatedLinkShowMeetup?: boolean;
@@ -46,6 +45,15 @@ export interface WalksConfig {
   walkDetailsMapProvider?: WalkDetailsMapProvider;
   walkAlbumPanelStyle?: WalkAlbumPanelStyle;
   walkAlbumPanelHeight?: number;
+  allowCalendarDragToReschedule?: boolean;
+  programmeOverviewDefaultWeeks?: number;
+  calendarDefaultColourBy?: CalendarColourBy;
+}
+
+export enum CalendarColourBy {
+  STATUS = "status",
+  GRADE = "grade",
+  LEADER = "leader"
 }
 
 export enum WalkConfigTab {

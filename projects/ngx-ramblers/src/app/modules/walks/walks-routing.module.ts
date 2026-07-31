@@ -3,8 +3,10 @@ import { RouterModule } from "@angular/router";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { GroupEventAuthGuard } from "../../guards/group-event-auth-guard";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
+import { WalkLeaderAuthGuard } from "../../guards/walk-leader-auth-guard";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
 import { PathSegment, RouteParam } from "../../models/content-text.model";
+import { WALKS_LEADER_SEGMENT } from "../../models/walks-route-paths.model";
 import { hasEmailComposerPath, hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-matchers";
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
@@ -24,9 +26,33 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [WalksAuthGuard]
     },
     {
+      path: WALKS_LEADER_SEGMENT,
+      loadComponent: () => import("../../pages/walks/walk-leader-dashboard/walk-leader-dashboard")
+        .then(m => m.WalkLeaderDashboardComponent),
+      canActivate: [WalkLeaderAuthGuard]
+    },
+    {
       path: "admin/add-walk-slots",
       loadComponent: () => import("../../pages/walks/walk-add-slots/walk-add-slots.component")
         .then(m => m.WalkAddSlotsComponent),
+      canActivate: [WalksAuthGuard]
+    },
+    {
+      path: "admin/programme",
+      loadComponent: () => import("../../pages/walks/walk-programme-overview/walk-programme-overview")
+        .then(m => m.WalkProgrammeOverviewComponent),
+      canActivate: [WalksAuthGuard]
+    },
+    {
+      path: "admin/calendar",
+      loadComponent: () => import("../../pages/walks/walk-programme-calendar/walk-programme-calendar")
+        .then(m => m.WalkProgrammeCalendarComponent),
+      canActivate: [WalksAuthGuard]
+    },
+    {
+      path: "admin/map",
+      loadComponent: () => import("../../pages/walks/walk-programme-map/walk-programme-map")
+        .then(m => m.WalkProgrammeMapComponent),
       canActivate: [WalksAuthGuard]
     },
     {

@@ -1,10 +1,11 @@
-import { Component, DoCheck, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, DoCheck, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { DEFAULT_OS_STYLE, MapProvider, MapStyleInfo, MAP_PROVIDER_OPTIONS, mapProviderFromLabel, OS_MAP_STYLE_LIST } from "../../models/map.model";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
 import { isUndefined } from "es-toolkit/compat";
+import { MapDefaultsService } from "../../services/maps/map-defaults.service";
 
 interface MapSliderControl {
   key: string;
@@ -255,7 +256,7 @@ interface MapOverlayDefaults {
                  [(ngModel)]="config.autoFitBounds"
                  (ngModelChange)="onChange()">
           <label class="form-check-label" for="auto-fit-bounds-{{id}}">
-            Auto-fit map to routes
+            {{ autoFitCaption }}
           </label>
         </div>
       </div>
@@ -289,12 +290,13 @@ export class MapOverlayControls implements OnInit, DoCheck {
   @Input() showOpacityControls = false;
   @Input() showClusteringControls = false;
   @Input() showWaypointControls = false;
+  @Input() autoFitCaption = "Auto-fit map to routes";
   @Output() configChange = new EventEmitter<MapOverlayConfig>();
 
   providerOptions = MAP_PROVIDER_OPTIONS;
   osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
-  centerLat = 51.25;
-  centerLng = 0.75;
+  centerLat: number;
+  centerLng: number;
   protected readonly faUndo = faUndo;
   protected readonly MapProvider = MapProvider;
   private lastCenter: [number, number] | undefined;
@@ -346,11 +348,12 @@ export class MapOverlayControls implements OnInit, DoCheck {
       : "col-lg-3 col-md-6 col-sm-6 col-12";
   }
 
+  private mapDefaults = inject(MapDefaultsService);
   private defaultConfig: MapOverlayDefaults = {
     provider: MapProvider.OSM,
     osStyle: DEFAULT_OS_STYLE,
-    mapCenter: [51.25, 0.75],
-    mapZoom: 10,
+    mapCenter: this.mapDefaults.center(),
+    mapZoom: this.mapDefaults.zoom(),
     mapHeight: 500,
     opacityNormal: 0.5,
     opacityHover: 0.2,

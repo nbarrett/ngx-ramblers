@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AuthService } from "../../../../auth/auth.service";
+import { MapDefaultsService } from "../../../../services/maps/map-defaults.service";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -545,7 +546,7 @@ interface GroupBoundaryUploadResult {
                                       <input type="number"
                                              class="form-control"
                                              step="0.01"
-                                             placeholder="e.g. 51.25"
+                                             placeholder="Latitude"
                                              [(ngModel)]="centerLatitude">
                                   </div>
                                   <div class="col-md-4">
@@ -553,7 +554,7 @@ interface GroupBoundaryUploadResult {
                                       <input type="number"
                                              class="form-control"
                                              step="0.01"
-                                             placeholder="e.g. 0.75"
+                                             placeholder="Longitude"
                                              [(ngModel)]="centerLongitude">
                                   </div>
                                   <div class="col-md-4">
@@ -728,6 +729,7 @@ interface GroupBoundaryUploadResult {
 })
 export class SystemAreaMapSyncComponent implements OnInit {
   private uiActionsService = inject(UiActionsService);
+  private mapDefaults = inject(MapDefaultsService);
   private http = inject(HttpClient);
   private authService = inject(AuthService);
   private router = inject(Router);
@@ -839,9 +841,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
   set centerLatitude(value: number | null) {
     if (this.config?.area) {
       if (!this.config.area.center) {
-        this.config.area.center = [51.25, 0.75];
+        this.config.area.center = this.mapDefaults.center();
       }
-      this.config.area.center[0] = value ?? 51.25;
+      this.config.area.center[0] = value ?? this.mapDefaults.center()[0];
     }
   }
 
@@ -852,9 +854,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
   set centerLongitude(value: number | null) {
     if (this.config?.area) {
       if (!this.config.area.center) {
-        this.config.area.center = [51.25, 0.75];
+        this.config.area.center = this.mapDefaults.center();
       }
-      this.config.area.center[1] = value ?? 0.75;
+      this.config.area.center[1] = value ?? this.mapDefaults.center()[1];
     }
   }
 

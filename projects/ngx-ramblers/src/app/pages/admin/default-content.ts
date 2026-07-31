@@ -135,13 +135,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   },
   {
     name: "ramblers-import-help-page",
-    text: "This page should be used to prepare your group for when you wish to switch from using Walks Manager as your data source to your local database. There are several reasons why this can be beneficial, including providing better control over the walk leader information published on walks, email-backed workflow such as advertising walk slots and email notifications on change of walk details and the ability to provide more informative fields on the walk that are not supported by Walks Manager. The steps for using this page are to :\n" +
-      "* Click the **Collect Walks From Walks Manager** button below to query all walks that are held in Walks manager and load them into an unsaved state.  \n" +
-      "* During the above process, the imported walks are analysed for walk leaders and an attempt is made to match each walk leader to an existing member in your member database.\n" +
-      "* The walks are then listed in a table.\n" +
-      "* You can then perform further matching of the imported walk leaders to existing members in your database.\n" +
-      "* When you are happy with the proposed import information, click the **Save Walks** button and the walks will be saved into your database.\n" +
-      "* If you are not happy with the import at any stage before saving, click the **Reset** button and you can start again or leave the import page.",
+    text: "Walks are imported from a CSV file exported from [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager). Upload the file, match the walk leaders it names to members in your database, then review and save the walks. Importing directly from Walks Manager is no longer part of this process.",
     category: "admin"
   },
   {
@@ -267,12 +261,6 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
     category: "walks-admin"
   },
   RAMBLERS_PUBLISHING_HELP,
-  {
-    name: "how-to-documentation-help",
-    text: "* Import walks via a CSV exported from [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +
-      "* You can do this when you want to change your website usage from the read-only view of Ramblers walks to when you create walks on this website and push them in bulk to Ramblers.",
-    category: "walks-admin"
-  },
   {
     name: "add-walks-slots-help",
     text: "* Add walk slots in bulk for any number of up and coming dates on your configured regular walk day\n" +

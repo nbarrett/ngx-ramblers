@@ -690,7 +690,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
                               <div class="col-sm-6">
                                 <label class="form-label-sm">Map Height (px)</label>
                                 <input type="number" min="200" class="form-control"
-                                       [(ngModel)]="step.indexRowConfig.mapConfig.height" placeholder="500">
+                                       [(ngModel)]="step.indexRowConfig.mapConfig.mapHeight" placeholder="500">
                               </div>
                               <div class="col-sm-6">
                                 <label class="form-label-sm">Map Provider</label>

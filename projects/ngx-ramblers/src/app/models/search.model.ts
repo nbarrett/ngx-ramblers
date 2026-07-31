@@ -172,9 +172,12 @@ export enum DateRangeUnit {
   YEARS = "years"
 }
 
+export const ALL_FUTURE_DATES_LABEL = "All Future Dates";
+
 export enum DateRangeDirection {
   FUTURE = "future",
-  PAST = "past"
+  PAST = "past",
+  ALL = "all"
 }
 
 export const RANGE_UNIT_OPTIONS: { value: DateRangeUnit; label: string }[] = [
@@ -212,6 +215,7 @@ export interface AdvancedSearchPreset {
   label: string;
   range: () => SearchDateRange;
   relativeDateRange?: RelativeDateRange;
+  allTime?: boolean;
 }
 
 export interface WalkLeaderOption {
@@ -266,6 +270,7 @@ export function createPastPreset(label: string, duration: { days?: number; month
 export function createAllTimePreset(label: string, minDate: DateTime, maxDate: DateTime): AdvancedSearchPreset {
   return {
     label,
+    allTime: true,
     range: () => ({
       from: minDate.toMillis(),
       to: maxDate.toMillis()
@@ -298,7 +303,7 @@ export function createFuturePresetRanges(minDate: DateTime, maxDate: DateTime): 
     createFuturePreset("Next 30 Days", { days: 30 }),
     createFuturePreset("Next 3 Months", { months: 3 }),
     createFuturePreset("Next 6 Months", { months: 6 }),
-    createAllTimePreset("All Walks Today Onwards", minDate, maxDate)
+    createAllTimePreset(ALL_FUTURE_DATES_LABEL, DateTime.local().startOf("day"), maxDate)
   ];
 }
 
@@ -310,7 +315,7 @@ export function createPastPresetRanges(minDate: DateTime, maxDate: DateTime): Ad
     createPastPreset("Past 6 Months", { months: 6 }),
     createPastPreset("Past Year", { years: 1 }),
     createPastPreset("Past 2 Years", { years: 2 }),
-    createAllTimePreset("All Past Walks", minDate, maxDate)
+    createAllTimePreset("All Past Dates", minDate, DateTime.local().startOf("day"))
   ];
 }
 
@@ -320,6 +325,36 @@ export function createAllWalksPresetRanges(minDate: DateTime, maxDate: DateTime)
     createPastPreset("Past Year", { years: 1 }),
     createFuturePreset("Next 30 Days", { days: 30 }),
     createFuturePreset("Next 6 Months", { months: 6 }),
-    createAllTimePreset("All Walks", minDate, maxDate)
+    createAllTimePreset("All Dates", minDate, maxDate)
   ];
+}
+
+export const DATE_RANGE_DIRECTION_TABS: { value: DateRangeDirection; label: string }[] = [
+  {value: DateRangeDirection.FUTURE, label: "Future"},
+  {value: DateRangeDirection.PAST, label: "Past"},
+  {value: DateRangeDirection.ALL, label: "All"}
+];
+
+export function directionApplicableFor(minDate: DateTime, maxDate: DateTime): boolean {
+  const today = DateTime.local().startOf("day");
+  return !!minDate && !!maxDate && minDate < today && maxDate > today;
+}
+
+export function availableDirectionFor(maxDate: DateTime): DateRangeDirection {
+  const today = DateTime.local().startOf("day");
+  return maxDate && maxDate <= today ? DateRangeDirection.PAST : DateRangeDirection.FUTURE;
+}
+
+export function presetRangesFor(direction: DateRangeDirection, minDate: DateTime, maxDate: DateTime): AdvancedSearchPreset[] {
+  if (direction === DateRangeDirection.ALL) {
+    return createAllWalksPresetRanges(minDate, maxDate);
+  } else if (direction === DateRangeDirection.PAST) {
+    return createPastPresetRanges(minDate, maxDate);
+  } else {
+    return createFuturePresetRanges(minDate, maxDate);
+  }
+}
+
+export function defaultProgrammeRange(maxDate: DateTime, dateTimeNowNoTime: DateTime): SearchDateRange {
+  return createAllTimePreset(ALL_FUTURE_DATES_LABEL, dateTimeNowNoTime, maxDate || dateTimeNowNoTime).range();
 }

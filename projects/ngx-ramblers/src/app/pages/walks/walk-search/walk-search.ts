@@ -1,6 +1,6 @@
 import { AfterViewChecked, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
-import { ActivatedRoute, ParamMap, Router } from "@angular/router";
-import { Location } from "@angular/common";
+import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
+import { Location, NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -15,9 +15,10 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { Organisation, SystemConfig } from "../../../models/system.model";
 import { WalkDisplayService } from "../walk-display.service";
+import { walksLeaderPath } from "../../../models/walks-route-paths.model";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faSliders } from "@fortawesome/free-solid-svg-icons";
+import { faPersonHiking, faSliders } from "@fortawesome/free-solid-svg-icons";
 import {
   AdvancedSearchCriteria,
   AdvancedSearchPreset,
@@ -71,6 +72,12 @@ interface DateRangePreset {
           max-height: 2000px
           opacity: 1
 
+      .my-walks-action
+        position: absolute
+        top: 8px
+        right: 0
+        z-index: 6
+
       .advanced-search-icon
         transition: transform 0.3s ease-in-out
 
@@ -108,6 +115,21 @@ interface DateRangePreset {
         font-size: 1rem
         margin: 0
 
+      @media (min-width: 992px)
+        .search-alert-inline
+          flex: 0 1 auto
+
+          .search-alert-body
+            flex-direction: row
+            align-items: baseline
+            gap: .35rem
+
+          strong,
+          .search-alert-message
+            white-space: nowrap
+            overflow: hidden
+            text-overflow: ellipsis
+
       ::ng-deep .ng-select
         .ng-select-container
           font-size: 1rem
@@ -139,6 +161,12 @@ interface DateRangePreset {
     `],
     template: `
     @if (!currentWalkId) {
+      @if (showMyWalks()) {
+        <a class="btn pager-btn-primary rounded my-walks-action" [routerLink]="myWalksLink()">
+          <fa-icon [icon]="faPersonHiking" class="me-2"/>My Walks
+        </a>
+      }
+      <div class="sticky-toolbar">
       <div class="d-lg-flex pb-0 pb-lg-2 align-items-lg-center gap-lg-3">
         <div class="mb-2 mb-lg-0 flex-lg-fill">
           <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
@@ -190,18 +218,8 @@ interface DateRangePreset {
           </div>
         }
         @if (alertInline() && showAlerts && notifyTarget.showAlert) {
-          <div class="mb-2 mb-lg-0 flex-lg-fill d-flex justify-content-end min-w-0">
-            <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2">
-              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-              <div class="search-alert-body">
-                @if (notifyTarget.alertTitle) {
-                  <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
-                }
-                @if (notifyTarget.alertMessage) {
-                  <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
-                }
-              </div>
-            </div>
+          <div class="mb-2 mb-lg-0 d-flex justify-content-end min-w-0">
+            <ng-container *ngTemplateOutlet="searchAlert; context: {inline: true}"/>
           </div>
         }
       </div>
@@ -212,21 +230,26 @@ interface DateRangePreset {
           }
           @if (showAlerts && notifyTarget.showAlert) {
             <div class="alert-wrapper flex-grow-1 min-w-0">
-              <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2">
-                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-                <div class="search-alert-body">
-                  @if (notifyTarget.alertTitle) {
-                    <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
-                  }
-                  @if (notifyTarget.alertMessage) {
-                    <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
-                  }
-                </div>
-              </div>
+              <ng-container *ngTemplateOutlet="searchAlert; context: {inline: false}"/>
             </div>
           }
         </div>
       }
+      </div>
+      <ng-template #searchAlert let-inline="inline">
+        <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2"
+             [class.search-alert-inline]="inline" [title]="inline ? notifyTarget.alertMessage : null">
+          <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+          <div class="search-alert-body">
+            @if (notifyTarget.alertTitle) {
+              <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
+            }
+            @if (notifyTarget.alertMessage) {
+              <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
+            }
+          </div>
+        </div>
+      </ng-template>
       @if (showAdvancedSearch) {
         <app-advanced-search-panel
           [class.show]="advancedSearchExpanded"
@@ -237,11 +260,12 @@ interface DateRangePreset {
           (searchCriteriaChange)="onAdvancedSearchChange($event)"/>
       }
     }`,
-  imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule],
+  imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule, RouterLink, NgTemplateOutlet],
     standalone: true
 })
 export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
+  protected readonly faPersonHiking = faPersonHiking;
   private logger: Logger = inject(LoggerFactory).createLogger("WalkSearch", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -342,6 +366,14 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
         this.queryParamsActive = true;
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm));
       }));
+  }
+
+  showMyWalks(): boolean {
+    return this.memberLoginService.memberLoggedIn();
+  }
+
+  myWalksLink(): string {
+    return "/" + walksLeaderPath(this.displayService.walksArea());
   }
 
   ngOnDestroy(): void {
