@@ -34,6 +34,7 @@ import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/
 import { EventDefaultsService } from "../../services/event-defaults.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { WalksConfigService } from "../../services/system/walks-config.service";
+import { DEFAULT_REGULAR_WALK_DAY } from "../../models/walks-config.model";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
@@ -294,11 +295,14 @@ export class WalkDisplayService {
     return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
   }
 
-  memberCanAddWalk(eventsData?: EventsData): boolean {
-    return !!eventsData?.eventTypes?.includes(RamblersEventType.GROUP_WALK)
-      && this.memberLoginService.memberLoggedIn()
+  memberCanCreateWalk(): boolean {
+    return this.memberLoginService.memberLoggedIn()
       && this.walkPopulationLocal()
       && this.memberMeetsWalkCreationAccess();
+  }
+
+  memberCanAddWalk(eventsData?: EventsData): boolean {
+    return !!eventsData?.eventTypes?.includes(RamblersEventType.GROUP_WALK) && this.memberCanCreateWalk();
   }
 
   private memberMeetsWalkCreationAccess(): boolean {
@@ -307,9 +311,9 @@ export class WalkDisplayService {
   }
 
   memberWalkButtonLabel(): string {
-    const configured = this.walksConfigService.walksConfig()?.regularWalkDay ?? 7;
-    const weekday = configured >= 1 && configured <= 7 ? configured : 7;
-    return `Add non-${this.dateUtils.daysOfWeek()[weekday - 1]} walk`;
+    const regularWalkDay = this.walksConfigService.walksConfig()?.regularWalkDay ?? DEFAULT_REGULAR_WALK_DAY;
+    const dayName = this.dateUtils.dayNameFor(regularWalkDay);
+    return dayName ? `Add non-${dayName} walk` : "Add walk";
   }
 
   async addMemberLedWalk(): Promise<void> {

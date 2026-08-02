@@ -371,6 +371,10 @@ export class DateUtilsService {
     return range(0, 7).map(offset => this.asString(startOfWeek.plus({days: offset}), undefined, this.formats.dayName));
   }
 
+  dayNameFor(weekday: number): string | null {
+    return weekday >= 1 && weekday <= 7 ? this.daysOfWeek()[weekday - 1] : null;
+  }
+
   mongoDayOfWeekFromName(dayName: string): number | null {
     if (!dayName) {
       return null;
