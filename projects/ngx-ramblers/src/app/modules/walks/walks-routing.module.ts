@@ -6,7 +6,7 @@ import { WalksAuthGuard } from "../../guards/walks-auth-guard";
 import { WalkLeaderAuthGuard } from "../../guards/walk-leader-auth-guard";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
 import { PathSegment, RouteParam } from "../../models/content-text.model";
-import { WALKS_LEADER_SEGMENT } from "../../models/walks-route-paths.model";
+import { WALKS_ADD_WALK_SEGMENT, WALKS_LEADER_SEGMENT } from "../../models/walks-route-paths.model";
 import { hasEmailComposerPath, hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-matchers";
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
@@ -30,6 +30,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       loadComponent: () => import("../../pages/walks/walk-leader-dashboard/walk-leader-dashboard")
         .then(m => m.WalkLeaderDashboardComponent),
       canActivate: [WalkLeaderAuthGuard]
+    },
+    {
+      path: WALKS_ADD_WALK_SEGMENT,
+      loadComponent: () => import("../../pages/walks/walk-create/walk-create")
+        .then(m => m.WalkCreate),
+      canActivate: [WalkLeaderAuthGuard, WalksPopulationLocalGuard]
     },
     {
       path: "admin/add-walk-slots",

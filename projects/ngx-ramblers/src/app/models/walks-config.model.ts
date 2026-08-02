@@ -20,6 +20,9 @@ export interface WalkViewPreviewGhost {
   height: number;
 }
 
+export const NO_REGULAR_WALK_DAY = 0;
+export const DEFAULT_REGULAR_WALK_DAY = 7;
+
 export interface WalksConfig {
   milesPerHour: number;
   mapZoomOutLevels?: number;

@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy } from "../../../models/walks-config.model";
+import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy, NO_REGULAR_WALK_DAY } from "../../../models/walks-config.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -75,7 +75,8 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                                placeholder="Default miles per hour">
                       </div>
                       <div class="form-group mb-3">
-                        <label for="regular-walk-day">Regular Walk Day (used by Add Walk Slots bulk mode)</label>
+                        <label for="regular-walk-day">Regular Walk Day — seeds Add Walk Slots bulk mode and wording of
+                          the add-walk button. Choose None if your group has no fixed walking day.</label>
                         <select [(ngModel)]="walksConfig.regularWalkDay"
                                 class="form-control input-sm"
                                 id="regular-walk-day">
@@ -648,7 +649,8 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     this.logger.debug("ngOnInit");
     this.loadPreviewWalk();
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.weekdayOptions = this.dateUtils.daysOfWeek().map((label, index) => ({label, value: index + 1}));
+    this.weekdayOptions = [{label: "None — no regular walk day", value: NO_REGULAR_WALK_DAY}]
+      .concat(this.dateUtils.daysOfWeek().map((label, index) => ({label, value: index + 1})));
     this.meetupService.queryConfig().then(config => this.meetupConfig = config);
     this.walksConfig = this.walksConfigService.default();
     this.subscriptions.push(this.systemConfigService.events().subscribe(config => {

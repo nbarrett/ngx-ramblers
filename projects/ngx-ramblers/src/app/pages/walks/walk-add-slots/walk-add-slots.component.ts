@@ -34,6 +34,7 @@ import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/sea
 import { DataQueryOptions } from "../../../models/api-request.model";
 import { GroupEventField } from "../../../models/walk.model";
 import { WeekdayNumbers } from "luxon";
+import { DEFAULT_REGULAR_WALK_DAY } from "../../../models/walks-config.model";
 
 @Component({
     selector: "app-walk-add-slots",
@@ -117,7 +118,7 @@ import { WeekdayNumbers } from "luxon";
               @if (selectionMade && !bulk) {
                 <div>
                   <ul class="list-arrow">
-                    <li>Use this option to create a slot on any day rather than just on a {{ regularWalkDayName }}.</li>
+                    <li>{{ nonStandardSlotHint() }}</li>
                   </ul>
                   <div class="row align-items-center">
                     <div class="col-auto">
@@ -229,8 +230,8 @@ export class WalkAddSlotsComponent implements OnInit {
   public notifyTarget: AlertTarget = {};
   public selectionMade: string;
   private displaySlotTimes = false;
-  public regularWalkDay: WeekdayNumbers = 7;
-  public regularWalkDayName = "Sunday";
+  public regularWalkDay: WeekdayNumbers = DEFAULT_REGULAR_WALK_DAY;
+  public configuredWalkDayName: string = null;
   public regularWalkDayUserSelected = false;
   public weekdayOptions: { label: string; value: number }[] = [];
   public startTime: string;
@@ -257,10 +258,17 @@ export class WalkAddSlotsComponent implements OnInit {
   }
 
   private applyRegularWalkDay() {
+    this.configuredWalkDayName = this.dateUtils.dayNameFor(this.walksConfigService.walksConfig()?.regularWalkDay ?? DEFAULT_REGULAR_WALK_DAY);
     if (this.regularWalkDayUserSelected) {
       return;
     }
     this.setRegularWalkDay(this.normaliseWeekday(this.walksConfigService.walksConfig()?.regularWalkDay));
+  }
+
+  nonStandardSlotHint(): string {
+    return this.configuredWalkDayName
+      ? `Use this option to create a slot on any day rather than just on a ${this.configuredWalkDayName}.`
+      : "Use this option to create a slot on a specific day.";
   }
 
   onRegularWalkDayChange(value: WeekdayNumbers) {
@@ -270,13 +278,12 @@ export class WalkAddSlotsComponent implements OnInit {
 
   private setRegularWalkDay(weekday: WeekdayNumbers) {
     this.regularWalkDay = weekday;
-    this.regularWalkDayName = this.dateUtils.daysOfWeek()[this.regularWalkDay - 1] || "Sunday";
     const momentUntil = this.dateUtils.dateTimeNowNoTime().set({ weekday: this.regularWalkDay }).plus({ weeks: 12 });
     this.untilDate = this.dateUtils.asDateValue(momentUntil.valueOf());
   }
 
   private normaliseWeekday(value: number): WeekdayNumbers {
-    return (value >= 1 && value <= 7 ? value : 7) as WeekdayNumbers;
+    return (value >= 1 && value <= 7 ? value : DEFAULT_REGULAR_WALK_DAY) as WeekdayNumbers;
   }
 
   validDate(date: DateValue) {

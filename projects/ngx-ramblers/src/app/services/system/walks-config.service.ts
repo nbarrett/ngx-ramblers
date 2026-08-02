@@ -7,7 +7,7 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalksConfig } from "../../models/walks-config.model";
+import { DEFAULT_REGULAR_WALK_DAY, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalksConfig } from "../../models/walks-config.model";
 import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
@@ -82,7 +82,7 @@ export class WalksConfigService {
       relatedLinkShowWhat3words: true,
       relatedLinkShowVenue: true,
       relatedLinkShowGpx: true,
-      regularWalkDay: 7,
+      regularWalkDay: DEFAULT_REGULAR_WALK_DAY,
       walkCreationAccessLevel: AccessLevel.HIDDEN,
       hideAwaitingLeaderFromPublic: false,
       hideNonApprovedWalksFromPublic: false,
