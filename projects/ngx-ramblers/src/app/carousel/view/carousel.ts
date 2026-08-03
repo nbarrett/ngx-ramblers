@@ -2,10 +2,12 @@ import { Component, HostListener, inject, Input, OnDestroy, OnInit, ViewChild } 
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
+import { EventSlugResolverService } from "../../services/walks-and-events/event-slug-resolver.service";
 import {
   ALL_PHOTOS,
   ContentMetadataItem,
   DuplicateImages,
+  HasEventId,
   ImageTag,
   LazyLoadingMetadata,
   SlideInitialisation
@@ -92,7 +94,7 @@ import { ResizerComponent } from "../../modules/common/resizer/resizer";
                         <a [delay]="500" class="badge event-date"
                            [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
                            [placement]="!showIndicators?'bottom':'right'"
-                           [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
+                           [href]="eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
                           on {{ slide.date | displayDate }}</a>
                       </div>
                     }
@@ -135,6 +137,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   private imageDuplicatesService = inject(ImageDuplicatesService);
   contentMetadataService = inject(ContentMetadataService);
   urlService = inject(UrlService);
+  private eventSlugResolver = inject(EventSlugResolverService);
   public showIndicators = false;
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
@@ -204,6 +207,13 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   eventTooltip(dateSource: string) {
     return "Show details of this " + (groupEventTypeFor(dateSource)?.description || dateSource).toLowerCase();
+  }
+
+  eventUrl(hasEventId: HasEventId): string {
+    return this.urlService.eventUrl({
+      ...hasEventId,
+      eventId: this.eventSlugResolver.slugOrId(hasEventId.eventId)
+    });
   }
 
   activeSlideChange(force: boolean, $event: number) {

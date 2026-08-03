@@ -19,6 +19,7 @@ import { RootFolder } from "../../../models/system.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { BroadcastService } from "../../../services/broadcast-service";
+import { EventSlugResolverService } from "../../../services/walks-and-events/event-slug-resolver.service";
 import { NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
@@ -107,7 +108,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
               @if (row.carousel.subtitle) {
                 @if (row.carousel.eventId) {
                   <span> - <a delay="500"
-                              [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">
+                              [href]="urlService.linkUrl({area: row.carousel.eventType, id: eventLinkId() })">
                   {{ row.carousel.subtitle }}</a></span>
                 }
                 @if (!row.carousel.eventId) {
@@ -186,6 +187,7 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   public actions: PageContentActionsService = inject(PageContentActionsService);
   public urlService: UrlService = inject(UrlService);
   private memberLoginService = inject(MemberLoginService);
+  private eventSlugResolver = inject(EventSlugResolverService);
   private broadcastService = inject(BroadcastService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger: Logger = this.loggerFactory.createLogger("DynamicContentViewAlbumComponent", NgxLoggerLevel.ERROR);
@@ -241,6 +243,10 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
 
   collapseShare(): void {
     this.shareExpanded = false;
+  }
+
+  eventLinkId(): string {
+    return this.eventSlugResolver.slugOrId(this.row?.carousel?.eventId);
   }
 
   showSocialPostLinks(): boolean {
