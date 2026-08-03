@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import { RouterLink } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faImages } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -190,9 +190,9 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
             }
             <a class="ms-auto text-nowrap rams-text-decoration-pink"
                [routerLink]="'/' + albumPath"
-               tooltip="Open the full photo album">Photo album</a>
+               [tooltip]="albumLinkTooltip()">View photo album</a>
           </div>
-          <div class="walk-album-match-image">
+          <div class="walk-album-match-image pointer" (click)="openAlbum()">
             @if (imageUrls.length > 1) {
               <div class="swiper-viewport" appSwipeable
                    (draggingChange)="dragging = $event"
@@ -218,7 +218,7 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
         </div>
       } @else {
         <div class="walk-album-panel">
-          <div class="walk-album-panel-cover" [style.height.px]="panelHeight">
+          <div class="walk-album-panel-cover pointer" [style.height.px]="panelHeight" (click)="openAlbum()">
             @if (imageUrls.length > 1) {
               <div class="swiper-viewport"
                    [class.dragging]="dragging"
@@ -246,13 +246,13 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
             <div class="walk-album-panel-copy">
               <a class="walk-album-panel-link"
                  [routerLink]="'/' + albumPath"
-                 tooltip="Open the full photo album">
-                <p class="walk-album-panel-title">Photo album</p>
+                 [tooltip]="albumLinkTooltip()">
+                <p class="walk-album-panel-title">View photo album</p>
                 <p class="walk-album-panel-meta">
                   @if (imageUrls.length > 1) {
-                    Swipe to browse · open full album
+                    Swipe to browse, or tap a photo
                   } @else {
-                    View photos from this walk
+                    Tap the photo to see the album
                   }
                 </p>
               </a>
@@ -293,6 +293,7 @@ export class WalkAlbumPanelComponent implements OnInit, OnDestroy {
   private logger = inject(LoggerFactory).createLogger("WalkAlbumPanelComponent", NgxLoggerLevel.ERROR);
   private contentMetadataService = inject(ContentMetadataService);
   private urlService = inject(UrlService);
+  private router = inject(Router);
   private walksConfigService = inject(WalksConfigService);
   private subscriptions: Subscription[] = [];
   protected readonly faImages = faImages;
@@ -349,8 +350,20 @@ export class WalkAlbumPanelComponent implements OnInit, OnDestroy {
 
   currentImageTooltip(): string {
     return this.imageUrls.length > 1
-      ? `Photo album image ${this.imageIndex + 1} of ${this.imageUrls.length}`
-      : "Photo album";
+      ? `Photo ${this.imageIndex + 1} of ${this.imageUrls.length} - click to open the album page`
+      : "Click to open the album page";
+  }
+
+  albumLinkTooltip(): string {
+    return this.imageUrls.length > 1
+      ? `Open the album page to see all ${this.imageUrls.length} photos from this walk`
+      : "Open the album page to see the photos from this walk";
+  }
+
+  openAlbum(): void {
+    if (this.albumPath) {
+      this.router.navigate(["/" + this.albumPath]);
+    }
   }
 
   back(): void {
