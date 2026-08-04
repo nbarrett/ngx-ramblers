@@ -7,6 +7,7 @@ import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { dateTimeFromMillis, dateTimeNowAsValue } from "../../shared/dates";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { clampDateRange } from "../common/date-range";
 import { member } from "../../mongo/models/member";
 import { mailListAudit } from "../../mongo/models/mail-list-audit";
 import {
@@ -699,11 +700,15 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
 
 export async function unsubscribes(req: Request, res: Response): Promise<void> {
   try {
+    const { startDate, endDate } = clampDateRange(
+      isString(req.query.startDate) ? req.query.startDate : undefined,
+      isString(req.query.endDate) ? req.query.endDate : undefined
+    );
     const result = await runUnsubscribesSync({
       limit: parsePositiveInt(req.query.limit, DEFAULT_PAGE_LIMIT),
       offset: parsePositiveInt(req.query.offset, 0) || 0,
-      startDate: isString(req.query.startDate) ? req.query.startDate : undefined,
-      endDate: isString(req.query.endDate) ? req.query.endDate : undefined,
+      startDate,
+      endDate,
       senders: parseSenders(req.query.senders),
       sort: parseSort(req.query.sort)
     });

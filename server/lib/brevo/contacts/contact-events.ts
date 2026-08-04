@@ -6,6 +6,7 @@ import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { BrevoEmailEventReport } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { clampDateRange } from "../common/date-range";
 import { Brevo } from "@getbrevo/brevo";
 
 const messageType = "brevo:contact-events";
@@ -31,9 +32,10 @@ export async function contactEvents(req: Request, res: Response): Promise<void> 
     }
     const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
     const offset = parsePositiveInt(req.query.offset, 0) || 0;
-    const days = req.query.startDate || req.query.endDate ? undefined : parsePositiveInt(req.query.days, DEFAULT_DAYS, 90);
-    const startDate = isString(req.query.startDate) ? req.query.startDate : undefined;
-    const endDate = isString(req.query.endDate) ? req.query.endDate : undefined;
+    const rawStartDate = isString(req.query.startDate) ? req.query.startDate : undefined;
+    const rawEndDate = isString(req.query.endDate) ? req.query.endDate : undefined;
+    const { startDate, endDate } = clampDateRange(rawStartDate, rawEndDate);
+    const days = startDate || endDate ? undefined : parsePositiveInt(req.query.days, DEFAULT_DAYS, 90);
     const sort = req.query.sort === "asc" ? "asc" : "desc";
     const event = isString(req.query.event) ? req.query.event as Brevo.GetEmailEventReportRequest["event"] : undefined;
     const client = await brevoClient();
