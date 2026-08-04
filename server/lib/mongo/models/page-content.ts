@@ -34,6 +34,7 @@ const PageContentRow = new mongoose.Schema({
   columns: [PageContentColumn],
   marginTop: {type: Number},
   marginBottom: {type: Number},
+  gutter: {type: Number},
   album: {type: Object},
   carousel: {type: Object},
   committeeDocuments: {type: Object},
@@ -43,6 +44,8 @@ const PageContentRow = new mongoose.Schema({
   map: {type: Object},
   fragment: {type: Object},
   location: {type: Object},
+  migrationPlaceholder: {type: Boolean},
+  hidden: {type: Boolean},
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({

@@ -4,7 +4,6 @@ import { DateTime } from "luxon";
 import { DateRange, DateRangeSlider } from "../date-range-slider/date-range-slider";
 import {
   AdvancedSearchPreset,
-  DATE_RANGE_DIRECTION_TABS,
   DateRangeDirection,
   DateRangeUnit,
   availableDirectionFor,
@@ -14,8 +13,6 @@ import {
 } from "../../models/search.model";
 import { SectionToggle } from "../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../models/section-toggle.model";
-import { StoredValue } from "../../models/ui-actions";
-import { UiActionsService } from "../../services/ui-actions.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 
 const DAY_MILLIS = 24 * 60 * 60 * 1000;
@@ -28,10 +25,10 @@ const CUSTOM_PRESET_LABEL = "Custom";
   imports: [FormsModule, DateRangeSlider, SectionToggle],
   template: `
     <div class="date-range-selector">
-      <app-date-range-slider [minDate]="minDate" [maxDate]="maxDate" [range]="range"
+      <app-date-range-slider [minDate]="scaledMinDate" [maxDate]="scaledMaxDate" [range]="range"
                              (rangeChange)="onSliderChange($event)"/>
       <div class="custom-range-row">
-        <app-section-toggle class="preset-toggle" fullWidth [tabs]="presetTabs()" [selectedTab]="selectedPresetTab()"
+        <app-section-toggle class="preset-toggle" fullWidth [tabs]="presetTabs" [selectedTab]="selectedPresetTab()"
                             (selectedTabChange)="selectPresetTab($event)"/>
         <div class="custom-range-inputs">
           <label class="visually-hidden" for="date-range-custom-amount">Range amount</label>
@@ -78,41 +75,59 @@ const CUSTOM_PRESET_LABEL = "Custom";
 export class DateRangeSelector {
 
   private dateUtils = inject(DateUtilsService);
-  private uiActions = inject(UiActionsService);
   protected readonly units = RANGE_UNIT_OPTIONS;
   protected customAmount = 7;
   protected customUnit: DateRangeUnit = DateRangeUnit.DAYS;
   private selectedPresetLabel: string | null = null;
+  protected presetTabs: SectionToggleTab[] = [{value: CUSTOM_PRESET_LABEL, label: CUSTOM_PRESET_LABEL}];
+  private dataMinDate: DateTime;
+  private dataMaxDate: DateTime;
+  protected scaledMinDate: DateTime;
+  protected scaledMaxDate: DateTime;
+  private directionValue: DateRangeDirection = DateRangeDirection.FUTURE;
+  private directionReady = false;
+  private presets: AdvancedSearchPreset[] = [];
+  private rangeValue: DateRange;
+  private applyFullSpanWhenBoundsReady = false;
 
   @Input() set minDate(value: DateTime) {
-    this.minDateValue = value;
-    this.refreshPresets();
+    this.dataMinDate = value;
+    this.refreshPresets(false);
   }
 
   get minDate(): DateTime {
-    return this.minDateValue;
+    return this.dataMinDate;
   }
 
   @Input() set maxDate(value: DateTime) {
-    this.maxDateValue = value;
-    this.refreshPresets();
+    this.dataMaxDate = value;
+    this.refreshPresets(false);
   }
 
   get maxDate(): DateTime {
-    return this.maxDateValue;
+    return this.dataMaxDate;
   }
 
-  private minDateValue: DateTime;
-  private maxDateValue: DateTime;
-  protected direction: DateRangeDirection = DateRangeDirection.FUTURE;
-  protected presets: AdvancedSearchPreset[] = [];
-  protected readonly StoredValue = StoredValue;
+  @Input() set direction(value: DateRangeDirection) {
+    const next = value || DateRangeDirection.FUTURE;
+    if (next !== this.directionValue) {
+      const userChangedDirection = this.directionReady;
+      this.directionValue = next;
+      this.refreshPresets(userChangedDirection);
+    }
+    this.directionReady = true;
+  }
+
+  get direction(): DateRangeDirection {
+    return this.directionValue;
+  }
+
   @Input()
   set range(value: DateRange) {
-    this.rangeValue = value;
-    this.selectedPresetLabel = value ? this.matchingPresetLabel(value) : null;
-    if (!this.selectedPresetLabel && value) {
-      this.applyAmountAndUnitFromRange(value);
+    this.rangeValue = value ? this.clampRange(value) : value;
+    this.selectedPresetLabel = this.rangeValue ? this.matchingPresetLabel(this.rangeValue) : null;
+    if (!this.selectedPresetLabel && this.rangeValue) {
+      this.applyAmountAndUnitFromRange(this.rangeValue);
     }
   }
 
@@ -120,21 +135,20 @@ export class DateRangeSelector {
     return this.rangeValue;
   }
 
-  private rangeValue: DateRange;
-
   @Output() rangeChange = new EventEmitter<DateRange>();
 
   onSliderChange(range: DateRange) {
-    this.selectedPresetLabel = this.matchingPresetLabel(range);
+    const clamped = this.clampRange(range);
+    this.selectedPresetLabel = this.matchingPresetLabel(clamped);
     if (!this.selectedPresetLabel) {
-      this.applyAmountAndUnitFromRange(range);
+      this.applyAmountAndUnitFromRange(clamped);
     }
-    this.emit(range);
+    this.emit(clamped);
   }
 
   applyPreset(preset: AdvancedSearchPreset) {
     this.selectedPresetLabel = preset.label;
-    this.emit(preset.range());
+    this.emit(this.clampRange(preset.range()));
   }
 
   activateCustom() {
@@ -145,11 +159,6 @@ export class DateRangeSelector {
   onCustomChange() {
     this.selectedPresetLabel = null;
     this.emitCustomRange();
-  }
-
-  presetTabs(): SectionToggleTab[] {
-    return [...this.presets.map(preset => ({value: preset.label, label: preset.label})),
-      {value: CUSTOM_PRESET_LABEL, label: CUSTOM_PRESET_LABEL}];
   }
 
   selectedPresetTab(): string {
@@ -173,7 +182,11 @@ export class DateRangeSelector {
     const amount = Number.isFinite(Number(this.customAmount)) ? Math.max(1, Math.floor(Number(this.customAmount))) : 1;
     this.customAmount = amount;
     const start = this.dateUtils.dateTimeNowNoTime();
-    this.emit({from: start.valueOf(), to: start.plus({[this.customUnit]: amount}).valueOf()});
+    if (this.directionValue === DateRangeDirection.PAST) {
+      this.emit(this.clampRange({from: start.minus({[this.customUnit]: amount}).valueOf(), to: start.valueOf()}));
+    } else {
+      this.emit(this.clampRange({from: start.valueOf(), to: start.plus({[this.customUnit]: amount}).valueOf()}));
+    }
   }
 
   private emit(range: DateRange) {
@@ -181,19 +194,85 @@ export class DateRangeSelector {
     this.rangeChange.emit(range);
   }
 
-
-  private refreshPresets() {
-    this.direction = directionApplicableFor(this.minDateValue, this.maxDateValue)
-      ? this.directionFromUrl() : availableDirectionFor(this.maxDateValue);
-    this.presets = this.minDateValue && this.maxDateValue
-      ? presetRangesFor(this.direction, this.minDateValue, this.maxDateValue)
-      : [];
-    this.selectedPresetLabel = this.rangeValue ? this.matchingPresetLabel(this.rangeValue) : this.selectedPresetLabel;
+  private refreshPresets(directionChanged: boolean) {
+    if (directionChanged) {
+      this.applyFullSpanWhenBoundsReady = true;
+    }
+    this.updateScaledBounds();
+    if (!this.scaledMinDate || !this.scaledMaxDate) {
+      this.presets = [];
+      this.rebuildPresetTabs();
+    } else {
+      const effectiveDirection = directionApplicableFor(this.dataMinDate, this.dataMaxDate)
+        ? this.directionValue
+        : availableDirectionFor(this.dataMaxDate);
+      this.presets = presetRangesFor(effectiveDirection, this.scaledMinDate, this.scaledMaxDate);
+      this.rebuildPresetTabs();
+      if (this.applyFullSpanWhenBoundsReady) {
+        this.applyFullSpanWhenBoundsReady = false;
+        this.applyFullSpanPresetForDirection();
+      } else if (this.rangeValue) {
+        const clamped = this.clampRange(this.rangeValue);
+        if (clamped.from !== this.rangeValue.from || clamped.to !== this.rangeValue.to) {
+          this.emit(clamped);
+        }
+        this.selectedPresetLabel = this.matchingPresetLabel(clamped);
+      }
+    }
   }
 
-  private directionFromUrl(): DateRangeDirection {
-    const fromUrl = this.uiActions.queryParameter(StoredValue.DATE_RANGE_DIRECTION);
-    return DATE_RANGE_DIRECTION_TABS.find(tab => tab.value === fromUrl)?.value || DateRangeDirection.FUTURE;
+  private updateScaledBounds() {
+    if (!this.dataMinDate || !this.dataMaxDate) {
+      this.scaledMinDate = this.dataMinDate;
+      this.scaledMaxDate = this.dataMaxDate;
+    } else {
+      const today = this.dateUtils.dateTimeNowNoTime();
+      const effectiveDirection = directionApplicableFor(this.dataMinDate, this.dataMaxDate)
+        ? this.directionValue
+        : availableDirectionFor(this.dataMaxDate);
+      if (effectiveDirection === DateRangeDirection.FUTURE) {
+        this.scaledMinDate = DateTime.max(this.dataMinDate, today);
+        this.scaledMaxDate = this.dataMaxDate;
+      } else if (effectiveDirection === DateRangeDirection.PAST) {
+        this.scaledMinDate = this.dataMinDate;
+        this.scaledMaxDate = DateTime.min(this.dataMaxDate, today);
+      } else {
+        this.scaledMinDate = this.dataMinDate;
+        this.scaledMaxDate = this.dataMaxDate;
+      }
+      if (this.scaledMinDate > this.scaledMaxDate) {
+        this.scaledMinDate = this.scaledMaxDate;
+      }
+    }
+  }
+
+  private clampRange(range: DateRange): DateRange {
+    if (!range || !this.scaledMinDate || !this.scaledMaxDate) {
+      return range;
+    } else {
+      const minMillis = this.scaledMinDate.toMillis();
+      const maxMillis = this.scaledMaxDate.toMillis();
+      const boundedFrom = Math.max(minMillis, Math.min(maxMillis, range.from));
+      const boundedTo = Math.max(minMillis, Math.min(maxMillis, range.to));
+      return {
+        from: Math.min(boundedFrom, boundedTo),
+        to: Math.max(boundedFrom, boundedTo)
+      };
+    }
+  }
+
+  private rebuildPresetTabs() {
+    this.presetTabs = [
+      ...this.presets.map(preset => ({value: preset.label, label: preset.label})),
+      {value: CUSTOM_PRESET_LABEL, label: CUSTOM_PRESET_LABEL}
+    ];
+  }
+
+  private applyFullSpanPresetForDirection() {
+    const fullSpan = this.presets.find(preset => preset.allTime) || this.presets[this.presets.length - 1];
+    if (fullSpan) {
+      this.applyPreset(fullSpan);
+    }
   }
 
   private matchingPresetLabel(range: DateRange): string | null {

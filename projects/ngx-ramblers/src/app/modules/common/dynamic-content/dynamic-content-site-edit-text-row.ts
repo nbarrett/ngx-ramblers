@@ -14,6 +14,7 @@ import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.mod
 import {
   ColumnContentType,
   ColumnMappingContext,
+  ContentTextStyles,
   EM_DASH_WITH_SPACES,
   FragmentWithLabel, MigrationTemplateSourceType,
   NestedRowContentSource,
@@ -45,7 +46,6 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
-import { isNull, isUndefined } from "es-toolkit/compat";
 import { FileUtilsService } from "../../../file-utils.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
 import { FragmentService } from "../../../services/fragment.service";
@@ -199,51 +199,53 @@ import { ClipboardService } from "../../../services/clipboard.service";
                        [class.thumbnail-site-edit-content-active]="controlsShown(column)"
                        (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
                        (drop)="onColumnDrop($event, columnIndex)">
-                    <div class="thumbnail-heading" [attr.draggable]="true"
+                    <div class="thumbnail-heading thumbnail-heading-column" [attr.draggable]="true"
                          (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
                          [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
                          [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
                          container="body" triggers="">
                       <span class="column-heading-label">Col {{ columnIndex + 1 }}</span>
-                      <app-badge-button noRightMargin
-                                        (click)="toggleControls(column)"
-                                        [icon]="controlsShown(column) ? faCheck : faSliders"
-                                        [caption]="controlsShown(column) ? 'done' : 'settings'"/>
-                      <app-badge-button noRightMargin
-                                        (click)="actions.deleteColumn(row, columnIndex, pageContent)"
-                                        [icon]="faRemove"
-                                        [tooltip]="'Delete column'"/>
-                      @if (!showContentTextEditor(column)) {
+                      <span class="column-heading-actions">
                         <app-badge-button noRightMargin
-                                          (click)="revealContentTextEditor(column)"
-                                          [icon]="faAdd"
-                                          caption="add text"
-                                          [tooltip]="'Add text to this column'"/>
-                      }
-                      @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
+                                          (click)="toggleControls(column)"
+                                          [icon]="controlsShown(column) ? faCheck : faSliders"
+                                          [caption]="controlsShown(column) ? 'done' : 'settings'"/>
                         <app-badge-button noRightMargin
-                                          (click)="joinWithPreviousRow()"
-                                          [icon]="faArrowUp"
-                                          [tooltip]="'Join with row above'"/>
-                      }
-                      @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
-                        <app-badge-button noRightMargin
-                                          (click)="joinWithNextRow()"
-                                          [icon]="faArrowDown"
-                                          [tooltip]="'Join with row below'"/>
-                      }
-                      @if (controlsShown(column) && !isNarrow(column)) {
-                        <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
-                                                    (edit)="editImage(rowIndex, columnIndex)"
-                                                    (replace)="replaceImage(column, rowIndex, columnIndex)"
-                                                    (remove)="removeImage(column)"/>
-                        <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
-                                              [pageContent]="pageContent" [column]="column" [row]="row"
-                                              [fullWidth]="false" [showRowActions]="false"/>
-                      }
-                      <span class="drag-handle" [attr.draggable]="true"
-                            (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
-                        <fa-icon [icon]="faArrowsUpDown"/>
+                                          (click)="actions.deleteColumn(row, columnIndex, pageContent)"
+                                          [icon]="faRemove"
+                                          [tooltip]="'Delete column'"/>
+                        @if (!showContentTextEditor(column)) {
+                          <app-badge-button noRightMargin
+                                            (click)="revealContentTextEditor(column)"
+                                            [icon]="faAdd"
+                                            caption="add text"
+                                            [tooltip]="'Add text to this column'"/>
+                        }
+                        @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
+                          <app-badge-button noRightMargin
+                                            (click)="joinWithPreviousRow()"
+                                            [icon]="faArrowUp"
+                                            [tooltip]="'Join with row above'"/>
+                        }
+                        @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
+                          <app-badge-button noRightMargin
+                                            (click)="joinWithNextRow()"
+                                            [icon]="faArrowDown"
+                                            [tooltip]="'Join with row below'"/>
+                        }
+                        @if (controlsShown(column) && !isNarrow(column)) {
+                          <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
+                                                      (edit)="editImage(rowIndex, columnIndex)"
+                                                      (replace)="replaceImage(column, rowIndex, columnIndex)"
+                                                      (remove)="removeImage(column)"/>
+                          <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
+                                                [pageContent]="pageContent" [column]="column" [row]="row"
+                                                [fullWidth]="false" [showRowActions]="false"/>
+                        }
+                        <span class="drag-handle" [attr.draggable]="true"
+                              (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
+                          <fa-icon [icon]="faArrowsUpDown"/>
+                        </span>
                       </span>
                     </div>
                     <ng-container [ngTemplateOutlet]="columnMappingControls"></ng-container>
@@ -363,11 +365,11 @@ import { ClipboardService } from "../../../services/clipboard.service";
                                                (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
                                                (split)="onSplit($event, rowIndex, columnIndex)"
                                                (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)"
-                                               [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
+                                               [description]="editorDescription(rowIndex, columnIndex)"
                                                [text]="column.contentText"
-                                               [styles]="column.styles"
+                                               [styles]="columnStyles(column)"
                                                [parentRowColumnCount]="row.columns?.length"
-                                               [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
+                                               [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex, parentColumnIndex)"
                                                [category]="contentPath">
                             <ng-container prepend/>
                           </app-content-text-editor>
@@ -381,23 +383,23 @@ import { ClipboardService } from "../../../services/clipboard.service";
                       </div>
                       <ng-template #placeholderToggle>
                         <div class="form-check form-check-inline mb-0">
-                          <input [name]="getUniqueCheckboxId('show-placeholder-image')" type="checkbox"
+                          <input [name]="checkboxId('show-placeholder-image', columnIndex)" type="checkbox"
                                  class="form-check-input"
-                                 [id]="getUniqueCheckboxId('show-placeholder-image')"
+                                 [id]="checkboxId('show-placeholder-image', columnIndex)"
                                  [checked]="column.showPlaceholderImage"
                                  (change)="onShowPlaceholderImageChanged($event, column)">
-                          <label class="form-check-label" [for]="getUniqueCheckboxId('show-placeholder-image')">
+                          <label class="form-check-label" [for]="checkboxId('show-placeholder-image', columnIndex)">
                             Show Placeholder Image</label>
                         </div>
                       </ng-template>
                       @if (controlsShown(column)) {
                         <div class="form-group mt-2">
                           <div class="form-check form-check-inline mb-0 me-4">
-                            <input [name]="getUniqueCheckboxId('show-text-after-image')"
+                            <input [name]="checkboxId('show-text-after-image', columnIndex)"
                                    type="checkbox" class="form-check-input"
-                                   [id]="getUniqueCheckboxId('show-text-after-image')"
+                                   [id]="checkboxId('show-text-after-image', columnIndex)"
                                    [(ngModel)]="column.showTextAfterImage">
-                            <label class="form-check-label" [for]="getUniqueCheckboxId('show-text-after-image')">
+                            <label class="form-check-label" [for]="checkboxId('show-text-after-image', columnIndex)">
                               Text After Image</label>
                           </div>
                           @if (!column.imageSource && !isNarrow(column)) {
@@ -695,25 +697,35 @@ import { ClipboardService } from "../../../services/clipboard.service";
                           <fa-icon [icon]="faArrowsUpDown"/>
                         </span>
                           </div>
-                          <div class="row align-items-end mb-3">
-                            <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                          <div class="row g-2 align-items-end mb-3">
+                            <div class="col-12 col-sm-6">
                               <app-row-type-selector
                                 [row]="nestedRow"
                                 [rowIndex]="nestedRowIndex"
                                 [contentPath]="contentPath"
                                 (typeChange)="onNestedRowTypeChange(nestedRow)"/>
                             </div>
-                            <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                            <div class="col-6 col-sm-3">
                               <app-margin-select label="Margin Top"
                                                  [data]="nestedRow"
                                                  field="marginTop"/>
                             </div>
-                            <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                            <div class="col-6 col-sm-3">
                               <app-margin-select label="Margin Bottom"
                                                  [data]="nestedRow"
                                                  field="marginBottom"/>
                             </div>
-                            <div [ngClass]="column.columns >= 6 || expanded ? 'col-auto' : 'col-sm-12 mt-3'">
+                            @if ((nestedRow.columns?.length || 0) > 1) {
+                              <div class="col-6 col-sm-3">
+                                <app-margin-select label="Column gap"
+                                                   [data]="nestedRow"
+                                                   field="gutter"
+                                                   noneLabel="default"
+                                                   [minValue]="0"
+                                                   [maxValue]="5"/>
+                              </div>
+                            }
+                            <div class="col-12 col-sm-auto">
                               <app-actions-dropdown [rowIndex]="nestedRowIndex" fullWidth
                                                     [pageContent]="pageContent"
                                                     [rowIsNested]="true"
@@ -751,7 +763,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                           <app-dynamic-content-site-edit-text-row
                             [row]="nestedRow"
                             [rootRowIndex]="rootRowIndex ?? rowIndex"
-                            [rootColumnIndex]="!isUndefined(rootColumnIndex) ? rootColumnIndex : columnIndex"
+                            [rootColumnIndex]="rootColumnIndex ?? columnIndex"
                             [parentRowIndex]="rowIndex"
                             [parentColumnIndex]="columnIndex"
                             [rowIndex]="nestedRowIndex"
@@ -815,7 +827,6 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   actions = inject(PageContentActionsService);
   fragmentService = inject(FragmentService);
   public expanded: boolean;
-  isUndefined = isUndefined;
   private fileUtils = inject(FileUtilsService);
   private clipboardService = inject(ClipboardService);
 
@@ -912,16 +923,17 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   private mappingContext(rowIndex: number, columnIndex: number): ColumnMappingContext {
     const resolvedRowIndex = this.rootRowIndex ?? this.parentRowIndex ?? rowIndex;
-    if (isUndefined(this.parentColumnIndex) || isNull(this.parentColumnIndex)) {
+    if (this.parentColumnIndex == null) {
       return {rowIndex: resolvedRowIndex, columnIndex};
+    } else {
+      const resolvedColumnIndex = this.rootColumnIndex ?? this.parentColumnIndex;
+      return {
+        rowIndex: resolvedRowIndex,
+        columnIndex: resolvedColumnIndex,
+        nestedRowIndex: this.rowIndex,
+        nestedColumnIndex: columnIndex
+      };
     }
-    const resolvedColumnIndex = this.rootColumnIndex ?? this.parentColumnIndex;
-    return {
-      rowIndex: resolvedRowIndex,
-      columnIndex: resolvedColumnIndex,
-      nestedRowIndex: this.rowIndex,
-      nestedColumnIndex: columnIndex
-    };
   }
 
   private async loadNestedFragments() {
@@ -936,6 +948,10 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   getUniqueCheckboxId(suffix: string): string {
     return `${this.uniqueCheckboxId}-${suffix}`;
+  }
+
+  checkboxId(suffix: string, columnIndex: number): string {
+    return `${this.uniqueCheckboxId}-col-${columnIndex}-${suffix}`;
   }
 
   imageSource(rowIndex: number, columnIndex: number, imageSource: string) {
@@ -1072,33 +1088,35 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   onColumnDrop($event: DragEvent, targetColumnIndex: number) {
     $event.preventDefault();
     $event.stopPropagation();
-    if (this.actions.draggedColumnIsNested !== this.isNestedLevel()) { return; }
-    if (this.actions.isActionButtons(this.actions.draggedColumnSourceRow)) { return; }
     const sourceColumnIndex = this.actions.draggedColumnIndex;
     const sourceRow = this.actions.draggedColumnSourceRow;
     const targetRow = this.row;
-    if (isNull(sourceRow) || isNull(sourceColumnIndex)) { return; }
-    const insertAfter = this.actions.dragInsertAfter && this.actions.dragOverColumnRowIndex === this.rowIndex && this.actions.dragOverColumnIndex === targetColumnIndex;
-    if (sourceRow === targetRow && sourceColumnIndex === targetColumnIndex && !insertAfter) {
-      this.actions.clearColumnDragState();
-      return;
+    const canDrop = this.actions.draggedColumnIsNested === this.isNestedLevel()
+      && !this.actions.isActionButtons(this.actions.draggedColumnSourceRow)
+      && sourceRow != null
+      && sourceColumnIndex != null;
+    if (canDrop) {
+      const insertAfter = this.actions.dragInsertAfter && this.actions.dragOverColumnRowIndex === this.rowIndex && this.actions.dragOverColumnIndex === targetColumnIndex;
+      if (sourceRow === targetRow && sourceColumnIndex === targetColumnIndex && !insertAfter) {
+        this.actions.clearColumnDragState();
+      } else if (sourceRow === targetRow) {
+        this.actions.moveColumnWithinRow(targetRow.columns, sourceColumnIndex, targetColumnIndex, insertAfter);
+        this.actions.clearColumnDragState();
+      } else {
+        this.actions.moveColumnBetweenRows(sourceRow, sourceColumnIndex, targetRow, targetColumnIndex + (insertAfter ? 1 : 0));
+        this.actions.clearColumnDragState();
+      }
     }
-    if (sourceRow === targetRow) {
-      this.actions.moveColumnWithinRow(targetRow.columns, sourceColumnIndex, targetColumnIndex, insertAfter);
-    } else {
-      this.actions.moveColumnBetweenRows(sourceRow, sourceColumnIndex, targetRow, targetColumnIndex + (insertAfter ? 1 : 0));
-    }
-    this.actions.clearColumnDragState();
   }
 
   onEmptyRowDrop() {
-    if (this.actions.isActionButtons(this.actions.draggedColumnSourceRow)) { return; }
     const sourceColumnIndex = this.actions.draggedColumnIndex;
     const sourceRow = this.actions.draggedColumnSourceRow;
     const targetRow = this.row;
-    if (isNull(sourceRow) || isNull(sourceColumnIndex)) { return; }
-    this.actions.moveColumnToEmptyRow(sourceRow, sourceColumnIndex, targetRow, this.pageContent);
-    this.actions.clearColumnDragState();
+    if (!this.actions.isActionButtons(this.actions.draggedColumnSourceRow) && sourceRow != null && sourceColumnIndex != null) {
+      this.actions.moveColumnToEmptyRow(sourceRow, sourceColumnIndex, targetRow, this.pageContent);
+      this.actions.clearColumnDragState();
+    }
   }
 
   onColumnDragOver($event: DragEvent, rowIndex: number, columnIndex: number) {
@@ -1132,7 +1150,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
 
   public isNestedLevel(): boolean {
-    return !isUndefined(this.parentRowIndex) && !isNull(this.parentRowIndex);
+    return this.parentRowIndex != null;
   }
 
   onNestedRowDragStart(columnIndex: number, nestedRowIndex: number) {
@@ -1143,13 +1161,14 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   onNestedRowDrop(targetColumnIndex: number, targetNestedRowIndex: number) {
     const sourceColumnIndex = this.actions.draggedNestedColumnIndex;
     const sourceNestedRowIndex = this.actions.draggedNestedRowIndex;
-    if (isNull(sourceColumnIndex) || isNull(sourceNestedRowIndex)) { return; }
-    if (sourceColumnIndex === targetColumnIndex && sourceNestedRowIndex === targetNestedRowIndex) {
-      this.actions.clearNestedRowDragState();
-      return;
+    if (sourceColumnIndex != null && sourceNestedRowIndex != null) {
+      if (sourceColumnIndex === targetColumnIndex && sourceNestedRowIndex === targetNestedRowIndex) {
+        this.actions.clearNestedRowDragState();
+      } else {
+        this.actions.moveNestedRowBetweenColumns(this.row, sourceColumnIndex, sourceNestedRowIndex, targetColumnIndex, targetNestedRowIndex);
+        this.actions.clearNestedRowDragState();
+      }
     }
-    this.actions.moveNestedRowBetweenColumns(this.row, sourceColumnIndex, sourceNestedRowIndex, targetColumnIndex, targetNestedRowIndex);
-    this.actions.clearNestedRowDragState();
   }
 
   private resolveActualImage(rowIndex: number, columnIndex: number, column: PageContentColumn): string | null {
@@ -1212,7 +1231,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
 
     const rowsToInsert: PageContentRow[] = [];
-    if (!isUndefined(splitData.textAfter)) {
+    if (splitData.textAfter != null) {
       rowsToInsert.push(this.createRowFromSplitRow({text: splitData.textAfter}));
     }
     if (splitData.additionalRows && splitData.additionalRows.length > 0) {
@@ -1263,13 +1282,13 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const newRow: PageContentRow = this.actions.defaultRowFor("text");
     const newColumn = newRow.columns && newRow.columns.length > 0 ? newRow.columns[0] : null;
     if (newColumn) {
-      if (!isUndefined(rowData.text)) {
+      if (rowData.text != null) {
         newColumn.contentText = rowData.text;
       }
-      if (!isUndefined(rowData.imageSource)) {
+      if (rowData.imageSource != null) {
         newColumn.imageSource = rowData.imageSource;
       }
-      if (!isUndefined(rowData.alt)) {
+      if (rowData.alt != null) {
         newColumn.alt = rowData.alt;
       }
     }
@@ -1279,7 +1298,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   private processRowInsert(rowsToInsert: PageContentRow[], rowIndex: number, columnIndex: number, userChoice: boolean | undefined, column: PageContentColumn) {
     const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
-    const createNestedRows = !isUndefined(userChoice) ? userChoice : parentRowHasMultipleColumns;
+    const createNestedRows = userChoice != null ? userChoice : parentRowHasMultipleColumns;
     this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
     if (createNestedRows) {
       this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
@@ -1299,7 +1318,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       return;
     }
 
-    const isNestedRow = !isUndefined(this.parentRowIndex) && !isNull(this.parentRowIndex);
+    const isNestedRow = this.parentRowIndex != null;
     this.logger.info("insertRowsAfterCurrent: isNestedRow:", isNestedRow, "parentRowIndex:", this.parentRowIndex, "rowIndex:", rowIndex, "rowsToInsert.length:", rowsToInsert.length);
     this.logger.info("this.row:", this.row);
 
@@ -1342,6 +1361,18 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     return !!(column.contentText || "").trim();
   }
 
+  columnStyles(column: PageContentColumn): ContentTextStyles {
+    if (!column.styles) {
+      column.styles = {list: null, class: null};
+    }
+    return column.styles;
+  }
+
+  editorDescription(rowIndex: number, columnIndex: number): string {
+    const nestedId = this.actions.parentRowColFor(this.parentRowIndex, rowIndex, columnIndex, this.parentColumnIndex);
+    return this.contentDescription ? `${this.contentDescription}-${nestedId}` : nestedId;
+  }
+
   showContentTextEditor(column: PageContentColumn): boolean {
     const showEditor = this.textEditorRevealed.get(column)
       || this.columnHasText(column)
@@ -1352,7 +1383,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   revealContentTextEditor(column: PageContentColumn) {
     this.textEditorRevealed.set(column, true);
     this.textEditorAwaitingFocus = column;
-    if (isUndefined(column.contentText) || isNull(column.contentText)) {
+    if (column.contentText == null) {
       column.contentText = "";
     }
   }

@@ -8,7 +8,7 @@ import fs from "fs";
 import { configuredEnvironments, findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
-import { ensureRequiredSecrets, loadSecretsWithFallback, REQUIRED_SECRETS, secretsExist } from "../../shared/secrets";
+import { resolveSecretsForDeploy, secretsExist } from "../../shared/secrets";
 import { keys } from "es-toolkit/compat";
 import { log } from "../cli-logger";
 import { select, isBack, isQuit, handleQuit, clearScreen } from "../cli-prompt";
@@ -270,20 +270,8 @@ function buildCleanEnvironment(): NodeJS.ProcessEnv {
 }
 
 async function loadAndEnsureSecrets(environmentName: string, appName: string, flyApiToken: string): Promise<Record<string, string>> {
-  const secretsFile = await loadSecretsWithFallback(environmentName, appName);
-  log("Loaded %d secrets from %s: %s", keys(secretsFile.secrets).length, secretsFile.path, keys(secretsFile.secrets).join(", "));
-  const missingBefore = REQUIRED_SECRETS.filter(key => !secretsFile.secrets[key]);
-  if (missingBefore.length > 0) {
-    log("Missing required secrets: %s — attempting fallbacks...", missingBefore.join(", "));
-  }
-  const completeSecrets = ensureRequiredSecrets(appName, secretsFile.secrets, flyApiToken);
-  const missingAfter = REQUIRED_SECRETS.filter(key => !completeSecrets[key]);
-  if (missingAfter.length > 0) {
-    log("Warning: still missing after fallbacks: %s", missingAfter.join(", "));
-    log("Tip: ensure flyctl is installed and authenticated, or add missing secrets to local file");
-  } else {
-    log("Secrets ready: %d keys", keys(completeSecrets).length);
-  }
+  const completeSecrets = await resolveSecretsForDeploy(environmentName, appName, flyApiToken, message => log("%s", message));
+  log("Secrets ready: %d keys (%s)", keys(completeSecrets).length, keys(completeSecrets).join(", "));
   return completeSecrets;
 }
 

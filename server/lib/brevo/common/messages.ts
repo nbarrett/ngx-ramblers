@@ -168,6 +168,17 @@ export function localTemplateHtml(templateName: string): string | null {
   return source ? renderTemplateMarkdownToHtml(source) : null;
 }
 
+export function brevoNativeTemplateHtml(bodyHtml: string): string {
+  const overriddenHtml = applyTemplateOverrides(sanitiseBrevoTemplate(bodyHtml));
+  const wrappedHtml = ramblersEmailLayout(overriddenHtml);
+  return escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(removeEmptyParagraphs(wrappedHtml)));
+}
+
+export function seedableTemplateHtml(templateName: string): string | null {
+  const source = readLocalTemplate(templateName);
+  return source ? brevoNativeTemplateHtml(renderTemplateMarkdownToHtml(applyContentBlocksAsMarkdown(source))) : null;
+}
+
 function resolveContentBlocks(source: string, overrides: TemplateOverrides | undefined, renderOverride: (content: string) => string): string {
   return source.replace(CONTENT_BLOCK_REGEX, (_full: string, key: string, defaultContent: string) => {
     const override = resolveTemplateOverride(overrides, key);

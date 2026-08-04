@@ -263,6 +263,7 @@ export interface PageContentRow extends HasColumnRange {
   columns: PageContentColumn[];
   marginTop?: number;
   marginBottom?: number;
+  gutter?: number;
   carousel?: AlbumData;
   committeeDocuments?: CommitteeDocumentsData;
   events?: EventsData;

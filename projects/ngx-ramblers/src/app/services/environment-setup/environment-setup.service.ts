@@ -11,6 +11,7 @@ import {
   EnvironmentDefaults,
   EnvironmentSetupRequest,
   EnvironmentStatus,
+  FlyOrgMigrationStatus,
   HostnameHealthReport,
   ExistingEnvironmentsResponse,
   GroupsByAreaResponse,
@@ -239,13 +240,25 @@ export class EnvironmentSetupService {
     };
   }
 
-  async authenticateBrevoDomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string }> {
+  async authenticateBrevoDomain(environmentName: string): Promise<{
+    success: boolean;
+    authenticated?: boolean;
+    message: string;
+    hostname?: string;
+    brevoDomainsUrl?: string;
+  }> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
       this.http.post<ApiResponse>(`${this.BASE_URL}/authenticate-brevo-domain/${environmentName}`, {}, this.opts),
       this.notifications
     );
-    return response as unknown as { success: boolean; message: string; hostname?: string };
+    return response as unknown as {
+      success: boolean;
+      authenticated?: boolean;
+      message: string;
+      hostname?: string;
+      brevoDomainsUrl?: string;
+    };
   }
 
   async seedSamplePages(environmentName: string): Promise<{ success: boolean; message: string; upsertedCount?: number }> {
@@ -264,15 +277,6 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as { success: boolean; message: string; seededCount?: number; skippedCount?: number };
-  }
-
-  async populateBrevoTemplates(environmentName: string): Promise<{ success: boolean; message: string; createdCount?: number; updatedCount?: number; skippedCount?: number }> {
-    const response = await this.commonDataService.responseFrom(
-      this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/populate-brevo-templates/${environmentName}`, {}, this.opts),
-      this.notifications
-    );
-    return response as unknown as { success: boolean; message: string; createdCount?: number; updatedCount?: number; skippedCount?: number };
   }
 
   async adminPasswordReset(environmentName: string): Promise<{
@@ -300,6 +304,25 @@ export class EnvironmentSetupService {
     return response as unknown as EnvironmentStatus;
   }
 
+  async flyOrgMigrationStatus(
+    environmentName: string,
+    credentials?: {
+      previousApiKey?: string;
+      previousOrganisation?: string;
+      previousAppName?: string;
+      newApiKey?: string;
+      newOrganisation?: string;
+      newAppName?: string;
+    }
+  ): Promise<FlyOrgMigrationStatus> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/fly-org-migration-status/${environmentName}`, credentials || {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as FlyOrgMigrationStatus;
+  }
+
   async hostnameHealth(environmentName: string): Promise<HostnameHealthReport> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
@@ -307,6 +330,15 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as HostnameHealthReport;
+  }
+
+  async updateSiteUrl(environmentName: string, siteUrl: string | null): Promise<{ success: boolean; message: string; siteUrl: string }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/site-url/${environmentName}`, {siteUrl}, this.opts),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; siteUrl: string };
   }
 
   async setupSubdomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string }> {

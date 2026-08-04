@@ -162,8 +162,12 @@ export class WalkDisplayService {
   }
 
   public walkDetailsComplete(walk: ExtendedGroupEvent): boolean {
-    const eventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
-    return !!eventType && eventType !== EventType.AWAITING_LEADER && eventType !== EventType.AWAITING_WALK_DETAILS;
+    if (walk?.fields?.inputSource === InputSource.WALKS_MANAGER_CACHE) {
+      return true;
+    } else {
+      const eventType = this.walkEventService.statusFor(walk);
+      return !!eventType && eventType !== EventType.AWAITING_LEADER && eventType !== EventType.AWAITING_WALK_DETAILS;
+    }
   }
 
   private hasRamblersContactChannel(walk: ExtendedGroupEvent): boolean {

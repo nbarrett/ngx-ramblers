@@ -48,6 +48,18 @@ export class IndexService {
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public urlService: UrlService = inject(UrlService);
   public pageService: PageService = inject(PageService);
+
+  private contentPathMatchConfig(stringMatch: StringMatch | string | undefined) {
+    return ContentPathMatchConfigs[stringMatch as StringMatch] || ContentPathMatchConfigs[StringMatch.STARTS_WITH];
+  }
+
+  private validContentPaths(contentPaths: ContentPathMatch[] | undefined): ContentPathMatch[] {
+    return (contentPaths || []).filter(contentPath => !!contentPath?.contentPath);
+  }
+
+  private pathMongoRegex(contentPath: ContentPathMatch, pathValue?: string): MongoRegex {
+    return this.contentPathMatchConfig(contentPath?.stringMatch).mongoRegex(pathValue ?? contentPath?.contentPath ?? "");
+  }
   public actions: PageContentActionsService = inject(PageContentActionsService);
   private locationExtractionService: LocationExtractionService = inject(LocationExtractionService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
@@ -59,7 +71,8 @@ export class IndexService {
 
   public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {
     const albumIndex = pageContentRow.albumIndex;
-    if (albumIndex?.contentPaths?.length > 0) {
+    const contentPaths = this.validContentPaths(albumIndex?.contentPaths);
+    if (contentPaths.length > 0) {
       const cacheKey = `${rowIndex}:${JSON.stringify(albumIndex)}`;
       const cached = this.contentCache.getIndex(cacheKey);
       if (cached) {
@@ -68,7 +81,7 @@ export class IndexService {
       }
       const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
 
-      const pathRegex = albumIndex.contentPaths.map(contentPath => ({
+      const pathRegex = contentPaths.map(contentPath => ({
         path: this.depthLimitedRegex(contentPath)
       }));
 
@@ -77,9 +90,9 @@ export class IndexService {
       let pages = await this.pageContentService.all({criteria: {$or: pathRegex}});
       this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
 
-      const hasDepthLimits = albumIndex.contentPaths.some(cp => cp.maxPathSegments > 0);
+      const hasDepthLimits = contentPaths.some(cp => cp.maxPathSegments > 0);
       if (hasDepthLimits) {
-        pages = this.filterByMaxPathSegments(pages, albumIndex.contentPaths);
+        pages = this.filterByMaxPathSegments(pages, contentPaths);
         this.logger.info("After depth filter:", pages.length, "pages");
       }
 
@@ -263,11 +276,13 @@ export class IndexService {
 
     if (pendingImageResolution.length > 0) {
       const allContentPathRegex = pendingImageResolution.flatMap(item =>
-        item.indexRow.albumIndex.contentPaths.map(contentPath => ({
-          path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
+        this.validContentPaths(item.indexRow.albumIndex.contentPaths).map(contentPath => ({
+          path: this.pathMongoRegex(contentPath)
         }))
       );
-      const allChildPages = await this.pageContentService.all({criteria: {$or: allContentPathRegex}});
+      const allChildPages = allContentPathRegex.length > 0
+        ? await this.pageContentService.all({criteria: {$or: allContentPathRegex}})
+        : [];
       const allCarouselNames = allChildPages
         .flatMap(page => (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row)))
         .map(row => row.carousel?.name)
@@ -279,10 +294,10 @@ export class IndexService {
       }
       this.logger.info("Batch fallback: fetched", allChildPages.length, "child pages and", childMetadata.length, "metadata for", pendingImageResolution.length, "items");
       pendingImageResolution.forEach(item => {
-        const contentPaths = item.indexRow.albumIndex.contentPaths;
+        const contentPaths = this.validContentPaths(item.indexRow.albumIndex.contentPaths);
         const matchingPages = allChildPages.filter(page =>
           contentPaths.some(cp => {
-            const regex = ContentPathMatchConfigs[cp.stringMatch].mongoRegex(cp.contentPath);
+            const regex = this.pathMongoRegex(cp);
             return new RegExp(regex.$regex, regex.$options).test(page.path);
           })
         );
@@ -377,12 +392,14 @@ export class IndexService {
     }
 
     const allContentPathRegex = childIndexes.flatMap(item =>
-      item.indexRow.albumIndex.contentPaths.map(contentPath => ({
-        path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
+      this.validContentPaths(item.indexRow.albumIndex.contentPaths).map(contentPath => ({
+        path: this.pathMongoRegex(contentPath)
       }))
     );
 
-    const allMatchedPages = await this.pageContentService.all({criteria: {$or: allContentPathRegex}});
+    const allMatchedPages = allContentPathRegex.length > 0
+      ? await this.pageContentService.all({criteria: {$or: allContentPathRegex}})
+      : [];
     this.logger.info("Batch enrichment: fetched", allMatchedPages.length, "pages for", childIndexes.length, "child indexes");
 
     const allCarouselNames: string[] = allMatchedPages
@@ -403,10 +420,10 @@ export class IndexService {
         return column;
       }
 
-      const contentPaths = childIndex.indexRow.albumIndex.contentPaths;
+      const contentPaths = this.validContentPaths(childIndex.indexRow.albumIndex.contentPaths);
       const allChildPages = allMatchedPages.filter(page =>
         contentPaths.some(cp => {
-          const regex = ContentPathMatchConfigs[cp.stringMatch].mongoRegex(cp.contentPath);
+          const regex = this.pathMongoRegex(cp);
           return new RegExp(regex.$regex, regex.$options).test(page.path);
         })
       );
@@ -524,40 +541,41 @@ export class IndexService {
       return contentPaths.some(contentPath => {
         if (!contentPath.maxPathSegments) {
           return true;
-        }
-        const basePath = contentPath.contentPath.replace(/\/$/, "");
-        const pagePath = page.path || "";
-        const regex = ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(basePath);
-        if (!new RegExp(regex.$regex, regex.$options).test(pagePath)) {
-          return false;
-        }
-        if (contentPath.stringMatch === StringMatch.CONTAINS) {
-          const matchIndex = pagePath.toLowerCase().indexOf(basePath.toLowerCase());
-          const remainingPath = pagePath.slice(matchIndex + basePath.length).replace(/^\//, "");
-          const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
-          return segmentCount <= contentPath.maxPathSegments;
         } else {
-          const remainingPath = pagePath.slice(basePath.length).replace(/^\//, "");
-          const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
-          return segmentCount <= contentPath.maxPathSegments;
+          const basePath = (contentPath.contentPath || "").replace(/\/$/, "");
+          const pagePath = page.path || "";
+          const regex = this.pathMongoRegex(contentPath, basePath);
+          if (!new RegExp(regex.$regex, regex.$options).test(pagePath)) {
+            return false;
+          } else if (contentPath.stringMatch === StringMatch.CONTAINS) {
+            const matchIndex = pagePath.toLowerCase().indexOf(basePath.toLowerCase());
+            const remainingPath = pagePath.slice(matchIndex + basePath.length).replace(/^\//, "");
+            const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
+            return segmentCount <= contentPath.maxPathSegments;
+          } else {
+            const remainingPath = pagePath.slice(basePath.length).replace(/^\//, "");
+            const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
+            return segmentCount <= contentPath.maxPathSegments;
+          }
         }
       });
     });
   }
 
   private depthLimitedRegex(contentPath: ContentPathMatch): MongoRegex {
-    const baseRegex = ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath);
+    const baseRegex = this.pathMongoRegex(contentPath);
     if (!contentPath.maxPathSegments) {
       return baseRegex;
-    }
-    const basePath = contentPath.contentPath.replace(/\/$/, "");
-    const depthSuffix = `(/[^/]+){1,${contentPath.maxPathSegments}}$`;
-    if (contentPath.stringMatch === StringMatch.STARTS_WITH) {
-      return {$regex: "^" + basePath + depthSuffix, $options: "i"};
-    } else if (contentPath.stringMatch === StringMatch.EQUALS) {
-      return baseRegex;
     } else {
-      return baseRegex;
+      const basePath = (contentPath.contentPath || "").replace(/\/$/, "");
+      const depthSuffix = `(/[^/]+){1,${contentPath.maxPathSegments}}$`;
+      if (contentPath.stringMatch === StringMatch.STARTS_WITH || !contentPath.stringMatch) {
+        return {$regex: "^" + basePath + depthSuffix, $options: "i"};
+      } else if (contentPath.stringMatch === StringMatch.EQUALS) {
+        return baseRegex;
+      } else {
+        return baseRegex;
+      }
     }
   }
 
@@ -650,10 +668,11 @@ export class IndexService {
   }
 
   private filterOutExcludedPaths(pages: PageContent[], excludePaths: ContentPathMatch[]): PageContent[] {
+    const validExcludePaths = this.validContentPaths(excludePaths);
     return pages.filter(page => {
-      return !excludePaths.some(excludePath => {
-        const regex = ContentPathMatchConfigs[excludePath.stringMatch].mongoRegex(excludePath.contentPath);
-        return new RegExp(regex.$regex, regex.$options).test(page.path);
+      return !validExcludePaths.some(excludePath => {
+        const regex = this.pathMongoRegex(excludePath);
+        return new RegExp(regex.$regex, regex.$options).test(page.path || "");
       });
     });
   }

@@ -352,6 +352,10 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                     <div class="d-inline-flex align-items-end flex-wrap gap-3">
                       <div app-margin-select label="Margin Top" [data]="row" field="marginTop"></div>
                       <div app-margin-select label="Margin Bottom" [data]="row" field="marginBottom"></div>
+                      @if ((row.columns?.length || 0) > 1) {
+                        <div app-margin-select label="Column gap" [data]="row" field="gutter"
+                             noneLabel="default" [minValue]="0" [maxValue]="5"></div>
+                      }
                     </div>
                     <div class="d-inline-flex align-items-end flex-wrap gap-3 ms-auto"
                          [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
@@ -2110,12 +2114,18 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public savePageContent(): Promise<boolean> {
     if (this.actions.rowsInEdit.length === 0) {
       this.logger.info("pageContent before save:", cloneDeep(this.pageContent));
-        return this.pageContentService.createOrUpdate(this.pageContent)
-          .then(async pageContent => {
-            this.logger.info("pageContent after save response:", cloneDeep(pageContent));
+      return this.pageContentService.createOrUpdate(this.pageContent)
+        .then(async pageContent => {
+          this.logger.info("pageContent after save response:", cloneDeep(pageContent));
+          try {
             await this.initialisePageContent(pageContent);
-            return this.urlService.redirectToNormalisedUrl(this.pageContent.path);
-          });
+          } catch (error) {
+            this.logger.warn("initialisePageContent after save failed; page was still saved:", error);
+          }
+          return this.urlService.redirectToNormalisedUrl(this.pageContent.path);
+        });
+    } else {
+      return Promise.resolve(false);
     }
   }
 
@@ -2294,18 +2304,28 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   private async collectNestedAlbumIndexes() {
-    const allPages = [this.pageContent, ...this.pagesBelow];
-    const fragmentIds: string[] = allPages
-      .flatMap(page => (page?.rows || []).filter(row => this.actions.isSharedFragment(row)))
-      .map(row => row.fragment?.pageContentId)
-      .filter(id => !!id);
-    const fragmentPages = await Promise.all(fragmentIds.map(id => this.pageContentService.findById(id).catch(() => null)));
-    const resolvedFragments = fragmentPages.filter(page => !!page);
-    const allPagesWithFragments = [...allPages, ...resolvedFragments];
-    const albumIndexRows: PageContentRow[] = allPagesWithFragments.map(item => (item?.rows || []).filter(row => this.actions.isIndex(row))).flat(3);
-    const albums = await Promise.all(albumIndexRows.map(albumIndexRow => this.indexService.albumIndexToPageContent(albumIndexRow, albumIndexRows.indexOf(albumIndexRow))));
-    this.logger.debug("collectNestedAlbumIndexes:albums:", albums, "resolvedFragments:", resolvedFragments.length);
-    albums.forEach(album => this.collectAlbumIndexData(album));
+    try {
+      const allPages = [this.pageContent, ...this.pagesBelow];
+      const fragmentIds: string[] = allPages
+        .flatMap(page => (page?.rows || []).filter(row => this.actions.isSharedFragment(row)))
+        .map(row => row.fragment?.pageContentId)
+        .filter(id => !!id);
+      const uniqueFragmentIds = [...new Set(fragmentIds)];
+      const fragmentPages = await Promise.all(uniqueFragmentIds.map(id => this.pageContentService.findById(id).catch(() => null)));
+      const resolvedFragments = fragmentPages.filter(page => !!page);
+      const allPagesWithFragments = [...allPages, ...resolvedFragments];
+      const albumIndexRows: PageContentRow[] = allPagesWithFragments.map(item => (item?.rows || []).filter(row => this.actions.isIndex(row))).flat(3);
+      const albums = await Promise.all(albumIndexRows.map((albumIndexRow, index) =>
+        this.indexService.albumIndexToPageContent(albumIndexRow, index).catch(error => {
+          this.logger.warn("collectNestedAlbumIndexes: album index preview failed for row", index, error);
+          return null;
+        })
+      ));
+      this.logger.debug("collectNestedAlbumIndexes:albums:", albums, "resolvedFragments:", resolvedFragments.length);
+      albums.forEach(album => this.collectAlbumIndexData(album));
+    } catch (error) {
+      this.logger.warn("collectNestedAlbumIndexes failed:", error);
+    }
   }
 
   public deletePagContentDisabled(): boolean {

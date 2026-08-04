@@ -29,6 +29,7 @@ export enum EventType {
   CONTENT_MIGRATION_SCAN_HOSTS = "content-migration-scan-hosts",
   ENVIRONMENT_CREATE = "environment-create",
   ENVIRONMENT_SETUP = "environment-setup",
+  FLY_ORG_MIGRATE = "fly-org-migrate",
   ESRI_ROUTE_IMPORT = "esri-route-import",
   EXTERNAL_ALBUM_FETCH = "external-album-fetch",
   EXTERNAL_ALBUM_IMPORT = "external-album-import",

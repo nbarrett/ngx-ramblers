@@ -37,18 +37,20 @@ export class MarginSelectComponent implements OnInit {
   public data: object;
   @Input()
   public field: any;
+  @Input() public noneLabel = "none";
+  @Input() public minValue = 1;
+  @Input() public maxValue = 5;
   public margins: Margin[] = [];
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
-    this.margins = [{value: undefined, description: "none"}].concat(range(1, 6).map(value => ({value, description: value.toString()})));
+    this.margins = [{value: undefined, description: this.noneLabel}]
+      .concat(range(this.minValue, this.maxValue + 1).map(value => ({value, description: value.toString()})));
     this.logger.debug("ngOnInit");
   }
 
   marginTracker = (index: number, margin: Margin) => {
-    const returned = margin.value || undefined;
-    this.logger.debug("marginTracker:index:", index, "margin:", margin, "returned:", returned);
-    return returned;
+    return margin.value != null ? margin.value : "none";
   };
 
   marginComparer = (item1: Margin, item2: Margin): boolean => {

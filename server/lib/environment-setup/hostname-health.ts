@@ -15,11 +15,17 @@ import {
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { CustomDomainEntry, EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ramblersNationalUrl } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 
 const debugLog = debug(envConfig.logNamespace("hostname-health"));
 
 const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";
 const HTTP_PROBE_TIMEOUT_MS = 8000;
+
+enum HttpProbeMethod {
+  HEAD = "HEAD",
+  GET = "GET"
+}
 
 interface HostnameCandidate {
   hostname: string;
@@ -45,35 +51,109 @@ function primaryCandidates(siteHostname: string, customDomains: CustomDomainEntr
   const withCustomDomains = customDomains.reduce(
     (accumulator, entry) => addCandidate(accumulator, entry.hostname, HostnameOrigin.CUSTOM_DOMAIN),
     fromSite);
-  const environmentSubdomainRelevant = !siteHostname || siteHostname === environmentSubdomain;
-  return environmentSubdomainRelevant
-    ? addCandidate(withCustomDomains, environmentSubdomain, HostnameOrigin.ENVIRONMENT_SUBDOMAIN)
-    : withCustomDomains;
+  return addCandidate(withCustomDomains, environmentSubdomain, HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
 }
 
-async function siteHostnameFor(environmentEntry: EnvironmentConfig): Promise<string> {
+async function siteHrefFor(environmentEntry: EnvironmentConfig): Promise<string> {
   if (!environmentEntry?.mongo?.cluster) {
     return "";
+  } else {
+    const { client, db } = await connectToEnvironmentMongo(environmentEntry);
+    try {
+      const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
+      return systemConfigDoc?.value?.group?.href || "";
+    } finally {
+      await client.close();
+    }
   }
-  const { client, db } = await connectToEnvironmentMongo(environmentEntry);
-  try {
-    const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
-    const href = systemConfigDoc?.value?.group?.href || "";
-    return hostnameFromUrl(href);
-  } finally {
-    await client.close();
+}
+
+function validatedSiteUrl(normalised: string): string {
+  if (ramblersNationalUrl(normalised)) {
+    throw new Error("Site URL must be this environment's own address, not a ramblers.org.uk group page. The national page belongs in the footer quick link only.");
+  } else {
+    try {
+      const parsed = new URL(normalised);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        throw new Error("Site URL must be an http or https address");
+      } else {
+        return normalised;
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Site URL")) {
+        throw error;
+      } else {
+        throw new Error("Site URL must be a full address such as https://finchley-hornsey.ngx-ramblers.org.uk");
+      }
+    }
   }
+}
+
+export async function updateEnvironmentSiteUrl(environmentName: string, siteUrl: string | null): Promise<{
+  success: boolean;
+  message: string;
+  siteUrl: string;
+}> {
+  const environmentsConfig = await configuredEnvironments();
+  const environmentEntry = (environmentsConfig?.environments || []).find(entry => entry.environment === environmentName);
+  if (!environmentEntry) {
+    throw new Error(`Environment ${environmentName} not found`);
+  } else {
+    const normalised = (siteUrl || "").trim();
+    const siteUrlToStore = normalised ? validatedSiteUrl(normalised) : "";
+    const { client, db } = await connectToEnvironmentMongo(environmentEntry);
+    try {
+      const configCollection = db.collection("config");
+      const systemConfigDoc = await configCollection.findOne({ key: "system" });
+      if (!systemConfigDoc?.value) {
+        throw new Error(`No system config found for environment ${environmentName}`);
+      } else {
+        await configCollection.updateOne(
+          { key: "system" },
+          { $set: { "value.group.href": siteUrlToStore } }
+        );
+        return {
+          success: true,
+          message: siteUrlToStore
+            ? `Site URL set to ${siteUrlToStore}`
+            : "Site URL cleared",
+          siteUrl: siteUrlToStore
+        };
+      }
+    } finally {
+      await client.close();
+    }
+  }
+}
+
+async function probeOnce(hostname: string, method: HttpProbeMethod, signal: AbortSignal): Promise<{ httpStatus: number; httpRedirectLocation: string }> {
+  const response = await fetch(`https://${hostname}/`, { method, redirect: "manual", signal });
+  return { httpStatus: response.status, httpRedirectLocation: response.headers.get("location") || "" };
+}
+
+function probeLooksSuccessful(httpStatus: number): boolean {
+  return httpStatus >= 200 && httpStatus < 400;
 }
 
 async function probeHttp(hostname: string): Promise<{ httpStatus: number; httpRedirectLocation: string }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), HTTP_PROBE_TIMEOUT_MS);
   try {
-    const response = await fetch(`https://${hostname}/`, { method: "HEAD", redirect: "manual", signal: controller.signal });
-    return { httpStatus: response.status, httpRedirectLocation: response.headers.get("location") || "" };
+    const headResult = await probeOnce(hostname, HttpProbeMethod.HEAD, controller.signal);
+    if (probeLooksSuccessful(headResult.httpStatus) || (headResult.httpStatus >= 300 && headResult.httpStatus < 400)) {
+      return headResult;
+    } else {
+      debugLog("HEAD probe for %s returned %s — retrying with GET", hostname, headResult.httpStatus);
+      return await probeOnce(hostname, HttpProbeMethod.GET, controller.signal);
+    }
   } catch (error) {
     debugLog("HTTP probe failed for %s: %s", hostname, error instanceof Error ? error.message : String(error));
-    return { httpStatus: 0, httpRedirectLocation: "" };
+    try {
+      return await probeOnce(hostname, HttpProbeMethod.GET, controller.signal);
+    } catch (getError) {
+      debugLog("GET probe failed for %s: %s", hostname, getError instanceof Error ? getError.message : String(getError));
+      return { httpStatus: 0, httpRedirectLocation: "" };
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -201,7 +281,8 @@ export async function environmentHostnameHealth(environmentName: string): Promis
   const apiToken = environmentsConfig?.cloudflare?.apiToken;
   const baseDomain = environmentsConfig?.cloudflare?.baseDomain;
   const environmentEntry = (environmentsConfig?.environments || []).find(entry => entry.environment === environmentName);
-  const siteHostname = await siteHostnameFor(environmentEntry);
+  const siteHref = environmentEntry ? await siteHrefFor(environmentEntry) : "";
+  const siteHostname = hostnameFromUrl(siteHref);
   const environmentSubdomain = baseDomain ? `${environmentName}.${baseDomain}` : "";
   const primaries = primaryCandidates(siteHostname, environmentEntry?.customDomains || [], environmentSubdomain);
 
@@ -246,7 +327,7 @@ export async function environmentHostnameHealth(environmentName: string): Promis
   const targetStatuses = targetSettled
     .filter((result): result is PromiseFulfilledResult<HostnameStatus> => result.status === "fulfilled")
     .map(result => result.value);
-  const hostnames = validateRedirectTargets([...checked, ...targetStatuses]);
+  const hostnames = annotateNationalSiteUrl(validateRedirectTargets([...checked, ...targetStatuses]));
 
   return {
     environmentName,
@@ -255,6 +336,18 @@ export async function environmentHostnameHealth(environmentName: string): Promis
     problemCount: hostnames.filter(hostname => !hostname.healthy).length,
     checkedAt: dateTimeNowAsValue()
   };
+}
+
+function annotateNationalSiteUrl(hostnames: HostnameStatus[]): HostnameStatus[] {
+  return hostnames.map(status =>
+    status.origin === HostnameOrigin.SITE_URL && ramblersNationalUrl(`https://${status.hostname}`)
+      ? {
+        ...status,
+        health: HostnameHealth.UNREACHABLE,
+        healthy: false,
+        message: "Not this site's address (Ramblers national group page). Clear Site URL, then set the environment subdomain once it is live."
+      }
+      : status);
 }
 
 const CACHE_TTL_MS = 15 * 60 * 1000;

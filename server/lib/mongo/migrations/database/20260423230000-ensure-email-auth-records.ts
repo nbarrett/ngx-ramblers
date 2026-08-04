@@ -6,18 +6,20 @@ import { ensureEmailAuthRecords, queryEmailAuthStatus } from "../../../cloudflar
 import { listDomains } from "../../../brevo/domains/domain-management";
 import { BrevoDomainInfo } from "../../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { apexHost } from "../../../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { MigrationUpResult } from "../../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
+import { withBrevoMigrationSafety } from "../shared/brevo-migration-safety";
 
 const debugLog = createMigrationLogger("ensure-email-auth-records");
 
 async function ensureForDomain(apiToken: string, rawDomain: string): Promise<void> {
   const domain = apexHost(rawDomain);
   if (!domain) {
-    debugLog("Empty domain — skipping");
+    debugLog("Empty domain - skipping");
     return;
   }
   const zone = await zoneForHostname(apiToken, domain);
   if (!zone) {
-    debugLog("No Cloudflare zone found for %s — skipping", domain);
+    debugLog("No Cloudflare zone found for %s - skipping", domain);
     return;
   }
   const dnsConfig = { apiToken, zoneId: zone.id };
@@ -27,31 +29,39 @@ async function ensureForDomain(apiToken: string, rawDomain: string): Promise<voi
     return;
   }
   if (before.spf.multiple) {
-    debugLog("Multiple SPF records on %s — refusing to auto-fix (RFC 7208). Consolidate manually in Cloudflare.", domain);
+    debugLog("Multiple SPF records on %s - refusing to auto-fix (RFC 7208). Consolidate manually in Cloudflare.", domain);
     return;
   }
-  debugLog("Ensuring email auth records for %s (spf.allPresent=%s, dmarc.present=%s, dmarc.reportingConfigured=%s)", domain, before.spf.allPresent, before.dmarc.present, before.dmarc.reportingConfigured);
+  debugLog(
+    "Ensuring email auth records for %s (spf.allPresent=%s, dmarc.present=%s, dmarc.reportingConfigured=%s)",
+    domain,
+    before.spf.allPresent,
+    before.dmarc.present,
+    before.dmarc.reportingConfigured
+  );
   const after = await ensureEmailAuthRecords(dnsConfig, domain, zone.name);
-  debugLog("Email auth records ensured for %s — spf=%s, dmarc=%s", domain, after.spf.rawContent, after.dmarc.rawContent);
+  debugLog("Email auth records ensured for %s - spf=%s, dmarc=%s", domain, after.spf.rawContent, after.dmarc.rawContent);
 }
 
-export async function up(_db: Db, _client: MongoClient) {
-  try {
+export async function up(_db: Db, _client: MongoClient): Promise<MigrationUpResult | void> {
+  return withBrevoMigrationSafety("ensure-email-auth-records", async () => {
     const cloudflareConfig = await configuredCloudflare().catch(() => null);
     if (!cloudflareConfig) {
-      debugLog("No Cloudflare config available for this environment — skipping");
-      return;
+      const reason = "No Cloudflare config available for this environment";
+      debugLog(reason);
+      return {skipped: true, reason};
     }
     const brevoDomains: BrevoDomainInfo[] = await listDomains().catch(error => {
-      debugLog("Could not list Brevo domains: %s — falling back to Cloudflare baseDomain only", error?.message || error);
+      debugLog("Could not list Brevo domains: %s - falling back to Cloudflare baseDomain only", error?.message || error);
       return [] as BrevoDomainInfo[];
     });
     const fromBrevo = brevoDomains.map(d => d.domainName).filter((d): d is string => !!d);
     const fromBase = cloudflareConfig.baseDomain ? [cloudflareConfig.baseDomain] : [];
     const candidates = Array.from(new Set([...fromBrevo, ...fromBase].map(apexHost).filter(Boolean)));
     if (candidates.length === 0) {
-      debugLog("No candidate domains to check — skipping");
-      return;
+      const reason = "No candidate domains to check for email auth records";
+      debugLog(reason);
+      return {skipped: true, reason};
     }
     debugLog("Ensuring email auth records for %d candidate domain(s): %s", candidates.length, candidates.join(", "));
     await candidates.reduce(async (previous, domain) => {
@@ -62,11 +72,10 @@ export async function up(_db: Db, _client: MongoClient) {
         debugLog("Non-fatal error while ensuring %s: %s", domain, error?.message || error);
       }
     }, Promise.resolve());
-  } catch (error) {
-    debugLog("Non-fatal error while ensuring email auth records: %s", error?.message || error);
-  }
+    return {};
+  }, debugLog);
 }
 
 export async function down(_db: Db, _client: MongoClient) {
-  debugLog("Down migration not implemented — SPF/DMARC records may be in use by other tooling and should not be blindly removed");
+  debugLog("Down migration not implemented - SPF/DMARC records may be in use by other tooling and should not be blindly removed");
 }

@@ -166,7 +166,7 @@ import { isNull } from "es-toolkit/compat";
                               [disabled]="!migrationStatus?.migrations?.failed"
                               class="btn btn-warning text-nowrap">
                         <fa-icon [icon]="faTrash" class="me-2"/>
-                        Clear Failed
+                        Ignore Failed
                       </button>
                       <button (click)="viewLogs()" class="btn btn-secondary text-nowrap">
                         View Logs
@@ -409,10 +409,10 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
       const result = await this.siteMaintenanceService.clearFailedMigrations();
       await this.checkStatus();
       this.lastRetrySuccess = true;
-      this.lastRetryMessage = `Cleared ${this.stringUtilsService.pluraliseWithCount(result.deletedCount, "failed migration")}`;
+      this.lastRetryMessage = `Ignored ${this.stringUtilsService.pluraliseWithCount(result.deletedCount, "failed migration")} (marked as skipped)`;
     } catch (error: any) {
       this.lastRetrySuccess = false;
-      this.lastRetryMessage = error.message || "Failed to clear failed migrations";
+      this.lastRetryMessage = error.message || "Failed to ignore failed migrations";
     }
   }
 

@@ -163,7 +163,10 @@ export async function listEnvironmentSummariesFromDatabase(): Promise<Environmen
     memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
     scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
     organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION,
-    hasApiKey: Boolean(env.flyio?.apiKey)
+    hasApiKey: Boolean(env.flyio?.apiKey),
+    hasPreviousFlyCredentials: Boolean(env.flyio?.previous?.apiKey),
+    previousOrganisation: env.flyio?.previous?.organisation || null,
+    previousAppName: env.flyio?.previous?.appName || null
   }));
 }
 
@@ -178,7 +181,11 @@ export async function upsertEnvironmentInDatabase(envUpdate: DbEnvironmentConfig
   const environments = existing.environments || [];
   const idx = environments.findIndex(e => e.environment === envUpdate.environment);
   if (idx >= 0) {
-    environments[idx] = { ...environments[idx], ...envUpdate, flyio: { ...(environments[idx].flyio || {}), ...(envUpdate.flyio || {}) } };
+    const mergedFlyio: Record<string, any> = { ...(environments[idx].flyio || {}), ...(envUpdate.flyio || {}) };
+    if (envUpdate.flyio && Object.prototype.hasOwnProperty.call(envUpdate.flyio, "previous") && !envUpdate.flyio.previous) {
+      mergedFlyio.previous = null;
+    }
+    environments[idx] = { ...environments[idx], ...envUpdate, flyio: mergedFlyio };
   } else {
     environments.push(envUpdate);
   }

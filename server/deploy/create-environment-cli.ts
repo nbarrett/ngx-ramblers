@@ -396,12 +396,6 @@ async function promptSetupOptions(brevoApiKey: string): Promise<SetupOptions> {
     },
     {
       type: "confirm",
-      name: "populateBrevoTemplates",
-      message: "Populate Brevo templates?",
-      default: !!brevoApiKey
-    },
-    {
-      type: "confirm",
       name: "authenticateBrevoDomain",
       message: "Authenticate Brevo sending domain via Cloudflare DNS?",
       default: !!brevoApiKey
@@ -460,7 +454,7 @@ function displaySummary(request: EnvironmentSetupRequest): void {
   log("\nOptions:");
   log(`  Sample Pages: ${request.options.includeSamplePages ? "Yes" : "No"}`);
   log(`  Notification Configs: ${request.options.includeNotificationConfigs ? "Yes" : "No"}`);
-  log(`  Populate Brevo Templates: ${request.options.populateBrevoTemplates ? "Yes" : "No"}`);
+  log(`  Authenticate Brevo Domain: ${request.options.authenticateBrevoDomain ? "Yes" : "No"}`);
   log(`  Skip Fly.io: ${request.options.skipFlyDeployment ? "Yes" : "No"}`);
   log(`  Copy Standard Assets: ${request.options.copyStandardAssets ? "Yes" : "No"}`);
 

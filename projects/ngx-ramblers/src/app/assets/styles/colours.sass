@@ -50,27 +50,37 @@ $confirm-hover: #eb0c35
 .colour-disabled
   color: $disabled-color
 
+%text-style-card
+  box-sizing: border-box
+  border-radius: 6px
+  height: 100%
+
 .text-style-mintcake
+  @extend %text-style-card
   background-color: $ramblers-colour-mintcake
   color: #fff
 
 .text-style-rosycheeks
+  @extend %text-style-card
   background-color: $ramblers-colour-rosycheeks
   color: #fff
 
-
 .text-style-sunset
+  @extend %text-style-card
   background-color: $ramblers-colour-sunset
   color: #fff
 
 .text-style-grey
+  @extend %text-style-card
   background-color: $grey-color
 
 .text-style-sunrise
+  @extend %text-style-card
   background-color: $ramblers-colour-sunrise
   color: #fff
 
 .text-style-cloudy
+  @extend %text-style-card
   background-color: $ramblers-colour-cloudy
   border-color: lightgrey
   border-style: solid
@@ -78,6 +88,7 @@ $confirm-hover: #eb0c35
   color: $ramblers-colour-granite
 
 .text-style-granite
+  @extend %text-style-card
   background-color: $ramblers-colour-granite
   color: #fff
 

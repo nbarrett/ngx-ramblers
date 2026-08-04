@@ -12,8 +12,10 @@ import {
   renderLocalBrandedTemplate,
   renderTemplateMarkdownToHtml,
   sanitiseBrevoTemplate,
+  seedableTemplateHtml,
   wrapMergeFieldsAsFroalaPlaceholders
 } from "./messages";
+import { localTemplateNames } from "../templates/local-template-reader";
 import {
   TemplateOverride,
   TemplateOverrides,
@@ -411,6 +413,37 @@ describe("brevo messages", () => {
 
     it("throws when the template name has no repo file", () => {
       expect(() => renderLocalBrandedTemplate("template-that-does-not-exist", paramsWith(""))).toThrow();
+    });
+  });
+
+  describe("seedableTemplateHtml", () => {
+
+    it("emits only Brevo-native syntax, with no ngx-only block or override directives", () => {
+      localTemplateNames().forEach(templateName => {
+        const result = seedableTemplateHtml(templateName);
+        expect(result).not.toContain("{% block");
+        expect(result).not.toContain("{% endblock");
+        expect(result).not.toContain("{{override.");
+      });
+    });
+
+    it("wraps each template in the full branded email document so Brevo holds a sendable email", () => {
+      localTemplateNames().forEach(templateName => {
+        const result = seedableTemplateHtml(templateName);
+        expect(result).toContain("<!DOCTYPE html");
+        expect(result).toContain("{{ mirror }}");
+      });
+    });
+
+    it("keeps the default content of each block and the merge fields intact", () => {
+      const result = seedableTemplateHtml("website-and-login-details");
+      expect(result).toContain("<h4>Your {{params.systemMergeFields.APP_SHORTNAME}} login details</h4>");
+      expect(result).toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
+      expect(result).toContain("{% if params.messageMergeFields.ADDRESS_LINE %}");
+    });
+
+    it("returns null when the template name has no repo file", () => {
+      expect(seedableTemplateHtml("template-that-does-not-exist")).toBe(null);
     });
   });
 });

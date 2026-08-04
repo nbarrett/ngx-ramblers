@@ -296,3 +296,44 @@ export function ensureRequiredSecrets(appName: string, secrets: Record<string, s
 
   return mergedSecrets;
 }
+
+export async function healMissingRequiredSecrets(
+  environmentName: string,
+  secrets: Record<string, string>,
+  onHealed?: (message: string) => void
+): Promise<Record<string, string>> {
+  const { missing, autoGeneratable, unrecoverable } = classifyMissingRequiredSecrets(secrets);
+  if (missing.length === 0) {
+    return secrets;
+  } else if (unrecoverable.length > 0) {
+    throw new Error(
+      `Cannot prepare secrets for ${environmentName}: missing required secrets [${unrecoverable.join(", ")}] that cannot be auto-generated. Supply them via environment Settings before deploying.`
+    );
+  } else {
+    const { persistEnvironmentSecret } = await import("../environments/environments-config");
+    const { generateAuthSecret } = await import("../contributor-environment/contributor-bundle");
+    const healed = { ...secrets };
+    await Promise.all(autoGeneratable.map(async key => {
+      const value = STATIC_SECRET_DEFAULTS[key] ?? generateAuthSecret();
+      await persistEnvironmentSecret(environmentName, key, value);
+      healed[key] = value;
+      const message = `Missing ${key} auto-generated and persisted to the ${environmentName} environment record`;
+      debugLog(message);
+      if (onHealed) {
+        onHealed(message);
+      }
+    }));
+    return healed;
+  }
+}
+
+export async function resolveSecretsForDeploy(
+  environmentName: string,
+  appName: string,
+  flyApiToken: string,
+  onProgress?: (message: string) => void
+): Promise<Record<string, string>> {
+  const secretsFile = await loadSecretsWithFallback(environmentName, appName);
+  const afterPull = ensureRequiredSecrets(appName, secretsFile.secrets || {}, flyApiToken);
+  return healMissingRequiredSecrets(environmentName, afterPull, onProgress);
+}

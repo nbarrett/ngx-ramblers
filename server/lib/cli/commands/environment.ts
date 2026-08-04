@@ -2,10 +2,9 @@ import { Command } from "commander";
 import debug from "debug";
 import { keys } from "es-toolkit/compat";
 import { EnvironmentSetupRequest } from "../../environment-setup/types";
-import { classifyMissingRequiredSecrets, loadSecretsForEnvironment, loadSecretsWithFallback, STATIC_SECRET_DEFAULTS, updateSecretsFile } from "../../shared/secrets";
+import { healMissingRequiredSecrets, loadSecretsForEnvironment, loadSecretsWithFallback, updateSecretsFile } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
-import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase, persistEnvironmentSecret } from "../../environments/environments-config";
-import { generateAuthSecret } from "../../contributor-environment/contributor-bundle";
+import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { reinitDatabase, seedDatabase } from "./database";
 import { deployToFlyio } from "./fly";
@@ -34,34 +33,6 @@ export async function createEnvironment(
   };
 }
 
-async function healMissingRequiredSecrets(
-  environmentName: string,
-  secrets: Record<string, string>,
-  onProgress?: ProgressCallback
-): Promise<Record<string, string>> {
-  const { missing, autoGeneratable, unrecoverable } = classifyMissingRequiredSecrets(secrets);
-  if (missing.length === 0) {
-    return secrets;
-  }
-
-  if (unrecoverable.length > 0) {
-    throw new Error(`Cannot resume ${environmentName}: missing required secrets [${unrecoverable.join(", ")}] that cannot be auto-generated. Supply them via the Edit environment view in /admin/environment-management before resuming.`);
-  }
-
-  const healed = { ...secrets };
-  for (const key of autoGeneratable) {
-    const value = STATIC_SECRET_DEFAULTS[key] ?? generateAuthSecret();
-    await persistEnvironmentSecret(environmentName, key, value);
-    healed[key] = value;
-    const message = `Missing ${key} auto-generated and persisted to the ${environmentName} environment record`;
-    debugLog(message);
-    if (onProgress) {
-      onProgress({ step: SetupStep.GENERATE_SECRETS, status: SetupStepStatus.Completed, message });
-    }
-  }
-  return healed;
-}
-
 export async function resumeEnvironment(
   name: string,
   options: ResumeEnvironmentOptions,
@@ -80,7 +51,14 @@ export async function resumeEnvironment(
   }
   debugLog("Loaded secrets from:", loadedSecrets.path);
 
-  const secrets = { ...loadedSecrets, secrets: await healMissingRequiredSecrets(name, loadedSecrets.secrets, onProgress) };
+  const secrets = {
+    ...loadedSecrets,
+    secrets: await healMissingRequiredSecrets(name, loadedSecrets.secrets, message => {
+      if (onProgress) {
+        onProgress({ step: SetupStep.GENERATE_SECRETS, status: SetupStepStatus.Completed, message });
+      }
+    })
+  };
 
   const mongoUri = secrets.secrets.MONGODB_URI;
   if (!mongoUri) {

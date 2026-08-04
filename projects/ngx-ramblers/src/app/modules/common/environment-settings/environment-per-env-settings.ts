@@ -30,7 +30,7 @@ import {
 import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
 import { CrossEnvironmentHealthService } from "../../../services/cross-environment-health.service";
 import { AiProviderType, EnvironmentSettingsSubTab, Image, SystemConfig, SystemSettingsTab } from "../../../models/system.model";
-import { EnvironmentSetupTab } from "../../../models/environment-setup.model";
+import { EnvironmentSetupTab, ManageAction, SetupMode } from "../../../models/environment-setup.model";
 import { InputSize } from "../../../models/ui-size.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { asNumber } from "../../../functions/numbers";
@@ -340,6 +340,12 @@ import { toKebabCase } from "../../../functions/strings";
                      name="flyOrg"
                      autocomplete="off"
                      placeholder="Fly.io organisation/team name">
+              <small class="form-text text-muted">
+                To move this app between Fly organisations, use
+                <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath"
+                   [queryParams]="flyOrgMigrateQueryParams">Create or Modify → Move Fly organisation</a>
+                (old and new tokens are entered there).
+              </small>
             </div>
           </div>
         </div>
@@ -499,6 +505,19 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
   protected readonly faRobot = faRobot;
   protected readonly AiProviderType = AiProviderType;
+
+  get flyOrgMigrateQueryParams(): Record<string, string> {
+    const environment = this.currentEnvironment?.environment;
+    const params: Record<string, string> = {
+      [StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.CREATE),
+      [StoredValue.SETUP_MODE]: SetupMode.MANAGE,
+      [StoredValue.MANAGE_ACTION]: ManageAction.MIGRATE_FLY_ORG
+    };
+    if (environment) {
+      params[StoredValue.ENVIRONMENT] = environment;
+    }
+    return params;
+  }
 
   private _currentEnvironmentIndex = 0;
 
