@@ -54,13 +54,14 @@ export async function transactionalEmailsList(req: Request, res: Response): Prom
     const rawEndDate = isString(req.query.endDate) ? req.query.endDate : undefined;
     const sort = req.query.sort === "asc" ? "asc" : "desc";
     const client = await brevoClient();
+    const { startDate, endDate } = clampDateRange(rawStartDate, rawEndDate);
     if (hasIdentityFilter(email, templateId, messageId)) {
       const response = await scheduleBrevo(() => client.transactionalEmails.getTransacEmailsList({
         email: email || undefined,
         templateId,
         messageId,
-        startDate: rawStartDate,
-        endDate: rawEndDate,
+        startDate,
+        endDate,
         sort,
         limit,
         offset
@@ -74,7 +75,6 @@ export async function transactionalEmailsList(req: Request, res: Response): Prom
       };
       successfulResponse({ req, res, response: body, messageType, debugLog });
     } else {
-      const { startDate, endDate } = clampDateRange(rawStartDate, rawEndDate);
       const days = startDate || endDate ? undefined : DEFAULT_EVENT_DAYS;
       const event = isString(req.query.event)
         ? req.query.event as Brevo.GetEmailEventReportRequest["event"]

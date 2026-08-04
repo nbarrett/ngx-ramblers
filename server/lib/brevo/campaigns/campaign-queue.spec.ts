@@ -59,9 +59,18 @@ describe("campaign queue", () => {
   });
 
   it("clamps Brevo report ranges to ninety inclusive calendar days", () => {
-    expect(clampDateRange("2026-03-31", "2026-06-29")).toEqual({
+    const now = dateTimeFromIso("2026-06-29T14:30:00.000+01:00");
+    expect(clampDateRange("2026-03-31", "2026-06-29", 90, now)).toEqual({
       startDate: "2026-04-01",
       endDate: "2026-06-29"
+    });
+  });
+
+  it("caps end date so Brevo never receives a day after UTC today", () => {
+    const now = dateTimeFromIso("2026-08-05T00:30:00.000+01:00");
+    expect(clampDateRange("2026-07-30", "2026-08-05", 90, now)).toEqual({
+      startDate: "2026-07-30",
+      endDate: "2026-08-04"
     });
   });
 });
