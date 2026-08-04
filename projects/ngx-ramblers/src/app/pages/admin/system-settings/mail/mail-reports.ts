@@ -45,6 +45,7 @@ import { DraggableModalComponent } from "../../../../modules/common/draggable-mo
 import { EmailPreviewComponent } from "../../../../modules/common/email-preview/email-preview.component";
 import { groupTransactionalEmailsBySendAction } from "../../../../functions/transactional-send-grouping";
 import { isInboxDigestSubject } from "../../../../functions/transactional-email-origin";
+import { clampBrevoDayRange } from "../../../../functions/brevo-date-range";
 enum CampaignSortField {
   SUBJECT = "subject",
   SENT = "sent",
@@ -612,7 +613,9 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   protected readonly faInbox = faInbox;
 
   constructor() {
-    this.sliderMaxDate = this.dateUtils.dateTimeNow().startOf("day");
+    const todayUtc = this.dateUtils.dateTimeNow().toUTC().toISODate()
+      || this.dateUtils.dateTimeNow().toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    this.sliderMaxDate = this.dateUtils.asDateTime(todayUtc).startOf("day");
     this.sliderMinDate = this.sliderMaxDate.minus({days: 89});
     this.selectedPresetLabel = this.presets[1].label;
     this.presetLabels = [...this.presets.map(p => p.label), this.CUSTOM_LABEL];
@@ -1093,11 +1096,23 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   }
 
   private formattedRangeStart(): string {
-    return this.fromDate.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    return this.brevoSafeRange().startDate
+      || this.fromDate.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
   private formattedRangeEnd(): string {
-    return this.toDate.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    return this.brevoSafeRange().endDate
+      || this.toDate.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+  }
+
+  private brevoSafeRange(): { startDate: string | undefined; endDate: string | undefined } {
+    const todayUtc = this.dateUtils.dateTimeNow().toUTC().toISODate()
+      || this.dateUtils.dateTimeNow().toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    return clampBrevoDayRange(
+      this.fromDate.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES),
+      this.toDate.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES),
+      todayUtc
+    );
   }
 
   private errorMessage(error: any, fallback: string): string {

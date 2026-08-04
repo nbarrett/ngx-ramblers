@@ -73,4 +73,12 @@ describe("campaign queue", () => {
       endDate: "2026-08-04"
     });
   });
+
+  it("caps a lone end date when start is missing", () => {
+    const now = dateTimeFromIso("2026-08-05T00:30:00.000+01:00");
+    expect(clampDateRange(undefined, "2026-08-05", 90, now)).toEqual({
+      startDate: undefined,
+      endDate: "2026-08-04"
+    });
+  });
 });
