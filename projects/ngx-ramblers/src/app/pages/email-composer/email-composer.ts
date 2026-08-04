@@ -2964,11 +2964,14 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private applyDefaultListIfNeeded(): void {
-    if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST) return;
-    if (this.state.selectedListId !== null) return;
-    const lists = this.nonEmptyLists();
-    if (lists.length > 0) {
-      this.state.selectedListId = lists[0].id;
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+      this.state.preFilterKey = null;
+      const lists = this.nonEmptyLists();
+      const selectionStillValid = this.state.selectedListId != null
+        && lists.some(list => list.id === this.state.selectedListId);
+      if (!selectionStillValid) {
+        this.state.selectedListId = lists.length > 0 ? lists[0].id : null;
+      }
     }
   }
 
@@ -3084,11 +3087,18 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   setRecipientMode(mode: RecipientMode): void {
-    if (mode === RecipientMode.ENTIRE_LIST && this.state.brandingMode === BrandingMode.UNBRANDED) return;
-    this.state.recipientMode = mode;
-    this.state.sendingChannel = mode === RecipientMode.ENTIRE_LIST ? SendingChannel.CAMPAIGN : SendingChannel.TRANSACTIONAL_BATCH;
-    this.applyDefaultListIfNeeded();
-    this.syncStateToUrl({ [StoredValue.EMAIL_TYPE]: kebabCase(mode) });
+    if (!(mode === RecipientMode.ENTIRE_LIST && this.state.brandingMode === BrandingMode.UNBRANDED)) {
+      this.state.recipientMode = mode;
+      this.state.sendingChannel = mode === RecipientMode.ENTIRE_LIST ? SendingChannel.CAMPAIGN : SendingChannel.TRANSACTIONAL_BATCH;
+      if (mode === RecipientMode.ENTIRE_LIST) {
+        this.state.preFilterKey = null;
+      }
+      this.applyDefaultListIfNeeded();
+      this.syncStateToUrl({
+        [StoredValue.EMAIL_TYPE]: kebabCase(mode),
+        [StoredValue.PRE_FILTER]: mode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null
+      });
+    }
   }
 
   protected pendingForwardedHeaderLines: string[] = [];
@@ -3420,6 +3430,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (emailType === kebabCase(RecipientMode.ENTIRE_LIST) && allowEntireList && this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
       this.state.recipientMode = RecipientMode.ENTIRE_LIST;
       this.state.sendingChannel = SendingChannel.CAMPAIGN;
+      this.state.preFilterKey = null;
     } else if (emailType === kebabCase(RecipientMode.SELECTED_MEMBERS) && this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
       this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
       this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
@@ -4030,29 +4041,29 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
-    if (!config) return;
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-      this.state.preFilterKey = null;
-      this.state.selectedMemberIds = [];
-      return;
-    }
-    if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
-      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-      this.state.sendingChannel = SendingChannel.CAMPAIGN;
-      this.state.preFilterKey = null;
-      if (isNumber(config.defaultListId)) {
-        this.state.selectedListId = config.defaultListId;
+    if (config) {
+      if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+        this.state.preFilterKey = null;
+        this.state.selectedMemberIds = [];
+      } else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
+        this.state.recipientMode = RecipientMode.ENTIRE_LIST;
+        this.state.sendingChannel = SendingChannel.CAMPAIGN;
+        this.state.preFilterKey = null;
+        if (isNumber(config.defaultListId)) {
+          this.state.selectedListId = config.defaultListId;
+        }
+        this.state.selectedMemberIds = [];
+        this.applyDefaultListIfNeeded();
+      } else {
+        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+        this.state.preFilterKey = config.defaultMemberSelection ?? null;
+        this.state.selectedMemberIds = [];
       }
-      this.state.selectedMemberIds = [];
-    } else {
-      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-      this.state.preFilterKey = config.defaultMemberSelection ?? null;
-      this.state.selectedMemberIds = [];
+      this.applyForcedMemberSelection();
     }
-    this.applyForcedMemberSelection();
   }
 
   private applyForcedMemberSelection(): void {
@@ -4157,7 +4168,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected showRecipientSourceRadios(): boolean {
-    return !this.state.preFilterKey;
+    return this.state.brandingMode !== BrandingMode.UNBRANDED && !this.forcedMemberId;
   }
 
   protected async refreshTemplateContent(): Promise<void> {
@@ -4338,7 +4349,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
       if (this.nonEmptyLists().length === 0) {
         errors.push("No mailing lists configured - set them up in Mail Settings before sending to a whole list");
-      } else if (this.state.selectedListId === null) {
+      } else if (this.state.selectedListId == null
+        || !this.nonEmptyLists().some(list => list.id === this.state.selectedListId)) {
         errors.push("Choose which mailing list to send to");
       }
     } else {
@@ -4952,6 +4964,15 @@ export class EmailComposer implements OnInit, OnDestroy {
       restored.recipientMode = RecipientMode.SELECTED_MEMBERS;
       restored.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
     }
+    if (restored.recipientMode === RecipientMode.ENTIRE_LIST) {
+      restored.preFilterKey = null;
+    }
+    if (restored.selectedListId === undefined) {
+      restored.selectedListId = null;
+    }
+    if (restored.narrowListId === undefined) {
+      restored.narrowListId = null;
+    }
     return selectedGroupEventIds;
   }
 
@@ -4997,6 +5018,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       }
       await this.resolveCommitteeFiles(allIds);
     }
+    this.applyDefaultListIfNeeded();
   }
 
   protected async deleteDraft(id: string): Promise<void> {

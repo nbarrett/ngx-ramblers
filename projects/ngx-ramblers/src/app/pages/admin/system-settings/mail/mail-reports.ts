@@ -1,8 +1,20 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faBan, faChartLine, faPlay, faRefresh, faSearch, faSort, faSortDown, faSortUp, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBan,
+  faEnvelopeOpenText,
+  faInbox,
+  faPlay,
+  faRefresh,
+  faSearch,
+  faSort,
+  faSortDown,
+  faSortUp,
+  faSpinner
+} from "@fortawesome/free-solid-svg-icons";
+import { isNumber } from "es-toolkit/compat";
 import { DateTime } from "luxon";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, takeUntil } from "rxjs/operators";
@@ -10,17 +22,29 @@ import { DateRange, DateRangeSlider } from "../../../../components/date-range-sl
 import { BrevoCampaignProgress, BrevoCampaignQueueSummary } from "../../../../models/brevo-campaign-queue.model";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
-import { BrevoTransactionalAggregatedReport, BrevoTransactionalEmailSummary } from "../../../../models/mail.model";
+import {
+  BrevoEmailPreviewContent,
+  BrevoTransactionalAggregatedReport,
+  BrevoTransactionalEmailSummary,
+  MailReportStatTile,
+  TransactionalEmailOrigin,
+  TransactionalSendActionGroup
+} from "../../../../models/mail.model";
 import { SortDirection } from "../../../../models/sort.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { PageComponent } from "../../../../page/page.component";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { MailService } from "../../../../services/mail/mail.service";
+import { BrevoContactService } from "../../../../services/mail/brevo-contact.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { DraggableModalComponent } from "../../../../modules/common/draggable-modal/draggable-modal";
+import { EmailPreviewComponent } from "../../../../modules/common/email-preview/email-preview.component";
+import { groupTransactionalEmailsBySendAction } from "../../../../functions/transactional-send-grouping";
+import { isInboxDigestSubject } from "../../../../functions/transactional-email-origin";
 enum CampaignSortField {
   SUBJECT = "subject",
   SENT = "sent",
@@ -35,14 +59,26 @@ enum CampaignSortField {
   SENT_DATE = "sent-date"
 }
 
+enum MailReportType {
+  CAMPAIGNS = "campaigns",
+  TRANSACTIONAL = "transactional"
+}
+
 @Component({
   selector: "app-mail-reports",
   standalone: true,
-  imports: [DateRangeSlider, FontAwesomeModule, FormsModule, PageComponent, SectionToggle],
+  imports: [DateRangeSlider, DraggableModalComponent, EmailPreviewComponent, FontAwesomeModule, FormsModule, PageComponent, RouterLink, SectionToggle],
   template: `
     <app-page autoTitle>
       <p>Brevo campaign and transactional email statistics.</p>
       <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
+        <div class="form-group">
+          <label class="d-block">Type</label>
+          <app-section-toggle
+            [tabs]="reportTypeLabels"
+            [selectedTab]="selectedReportTypeLabel"
+            (selectedTabChange)="selectReportTypeByLabel($event)"/>
+        </div>
         <div class="form-group">
           <label class="d-block">Range</label>
           <app-section-toggle
@@ -66,153 +102,268 @@ enum CampaignSortField {
       @if (error) {
         <div class="alert alert-danger">{{ error }}</div>
       }
-      @if (summary) {
-        <h5 class="mt-3">Campaign Activity</h5>
-        @if (summary.aggregateStats) {
-          <div class="row mb-3 g-2">
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.campaignCount }}</div><div class="stat-label">Campaigns</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalSent }}</div><div class="stat-label">Sent</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalDelivered }}</div><div class="stat-label">Delivered</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalViewed }}</div><div class="stat-label">Opens</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalUniqueViews }}</div><div class="stat-label">Unique Opens</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalUniqueClicks }}</div><div class="stat-label">Clicks</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalHardBounces }}</div><div class="stat-label">Hard Bounces</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalSoftBounces }}</div><div class="stat-label">Soft Bounces</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalUnsubscriptions }}</div><div class="stat-label">Unsubs</div></div></div>
-            <div class="col"><div class="stat-tile"><div class="stat-value">{{ summary.aggregateStats.totalComplaints }}</div><div class="stat-label">Complaints</div></div></div>
-          </div>
-        }
 
-        @if (transactionalStats) {
-          <h5 class="mt-3">Transactional Email Activity</h5>
-          <div class="row mb-3 g-2">
-            <div class="col clickable" (click)="toggleTransactionalRecipients()" role="button">
-              <div class="stat-tile" [class.selected]="showTransactionalRecipients"><div class="stat-value">{{ transactionalStats.sentCount }}</div><div class="stat-label">Sent</div></div>
+      @if (reportType === MailReportType.CAMPAIGNS) {
+        @if (summary) {
+          @if (campaignStatTiles.length > 0) {
+            <h5 class="mt-3">Campaign Activity</h5>
+            <div class="row mb-3 g-2">
+              @for (tile of campaignStatTiles; track tile.key) {
+                <div class="col">
+                  <div class="stat-tile">
+                    <div class="stat-value">{{ tile.value }}</div>
+                    <div class="stat-label">{{ tile.label }}</div>
+                  </div>
+                </div>
+              }
             </div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.deliveredCount }}</div><div class="stat-label">Delivered</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.openedCount }}</div><div class="stat-label">Opens</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.clickedCount }}</div><div class="stat-label">Clicks</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.hardBouncesCount }}</div><div class="stat-label">Hard Bounces</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.softBouncesCount }}</div><div class="stat-label">Soft Bounces</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.unsubscribedCount }}</div><div class="stat-label">Unsubs</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.complaintsCount }}</div><div class="stat-label">Complaints</div></div></div>
-            <div class="col not-clickable"><div class="stat-tile"><div class="stat-value">{{ transactionalStats.blockedCount }}</div><div class="stat-label">Blocked</div></div></div>
+          }
+
+          @if (summary.pendingCampaigns.length > 0) {
+            <h5 class="mt-4">Pending Remainders</h5>
+            <div class="ngx-data-table-card">
+              <table class="ngx-data-table">
+                <thead>
+                  <tr><th>Campaign</th><th>Sent so far</th><th>Remaining</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  @for (campaign of summary.pendingCampaigns; track campaign.id) {
+                    <tr>
+                      <td><strong>{{ campaign.subject }}</strong><div class="small text-muted">{{ campaign.name }}</div></td>
+                      <td>{{ campaign.sent }}</td>
+                      <td>{{ campaign.remaining }}</td>
+                      <td>{{ campaign.status }}</td>
+                      <td class="d-flex gap-2">
+                        <button type="button" class="btn btn-primary btn-sm" [disabled]="busy" (click)="release(campaign)">
+                          <fa-icon [icon]="faPlay"/> Release now
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" [disabled]="busy" (click)="cancel(campaign)">
+                          <fa-icon [icon]="faBan"/> Cancel remainder
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <h5 class="mt-4">Completed Campaigns</h5>
+          <p class="text-muted">Showing {{ dateRangeLabel }}.</p>
+          <div class="row mb-3">
+            <div class="col-sm-12">
+              <div class="input-group">
+                <span class="input-group-text"><fa-icon [icon]="faSearch"/></span>
+                <input type="text" class="form-control" [(ngModel)]="searchTerm"
+                       (ngModelChange)="updateQueryParams()"
+                       placeholder="Filter by campaign name or subject...">
+              </div>
+            </div>
+          </div>
+          @if (summary.completedCampaigns.length === 0) {
+            <p class="text-muted">No completed {{ groupLongName }} campaigns were found in this period.</p>
+          } @else {
+            <div class="ngx-data-table-card">
+              <table class="ngx-data-table">
+                <thead>
+                  <tr>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.SUBJECT" (click)="toggleSort(CampaignSortField.SUBJECT)">Campaign <fa-icon [icon]="sortIcon(CampaignSortField.SUBJECT)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.SENT" (click)="toggleSort(CampaignSortField.SENT)">Sent <fa-icon [icon]="sortIcon(CampaignSortField.SENT)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.DELIVERED" (click)="toggleSort(CampaignSortField.DELIVERED)">Delivered <fa-icon [icon]="sortIcon(CampaignSortField.DELIVERED)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.VIEWED" (click)="toggleSort(CampaignSortField.VIEWED)">Opens <fa-icon [icon]="sortIcon(CampaignSortField.VIEWED)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.UNIQUE_VIEWS" (click)="toggleSort(CampaignSortField.UNIQUE_VIEWS)">Unique Opens <fa-icon [icon]="sortIcon(CampaignSortField.UNIQUE_VIEWS)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.CLICKS" (click)="toggleSort(CampaignSortField.CLICKS)">Clicks <fa-icon [icon]="sortIcon(CampaignSortField.CLICKS)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.HARD_BOUNCES" (click)="toggleSort(CampaignSortField.HARD_BOUNCES)">Hard Bounces <fa-icon [icon]="sortIcon(CampaignSortField.HARD_BOUNCES)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.SOFT_BOUNCES" (click)="toggleSort(CampaignSortField.SOFT_BOUNCES)">Soft Bounces <fa-icon [icon]="sortIcon(CampaignSortField.SOFT_BOUNCES)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.UNSUBSCRIPTIONS" (click)="toggleSort(CampaignSortField.UNSUBSCRIPTIONS)">Unsubs <fa-icon [icon]="sortIcon(CampaignSortField.UNSUBSCRIPTIONS)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.COMPLAINTS" (click)="toggleSort(CampaignSortField.COMPLAINTS)">Complaints <fa-icon [icon]="sortIcon(CampaignSortField.COMPLAINTS)" size="xs"/></th>
+                    <th class="sortable" [class.sorted]="sortField === CampaignSortField.SENT_DATE" (click)="toggleSort(CampaignSortField.SENT_DATE)">Completed <fa-icon [icon]="sortIcon(CampaignSortField.SENT_DATE)" size="xs"/></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (campaign of sortedCampaigns; track campaign.id) {
+                    <tr class="clickable-row" (click)="openCampaignDrillDown(campaign)">
+                      <td><strong>{{ campaign.subject }}</strong><div class="small text-muted">{{ campaign.name }}</div></td>
+                      <td>{{ campaign.sent }}</td>
+                      <td>{{ campaign.delivered }}</td>
+                      <td>{{ campaign.viewed }}</td>
+                      <td>{{ campaign.uniqueViews }}</td>
+                      <td>{{ campaign.uniqueClicks }}</td>
+                      <td>{{ campaign.hardBounces }}</td>
+                      <td>{{ campaign.softBounces }}</td>
+                      <td>{{ campaign.unsubscriptions }}</td>
+                      <td>{{ campaign.complaints }}</td>
+                      <td>{{ formatDate(campaign.sentDate || campaign.modifiedAt) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+      }
+
+      @if (reportType === MailReportType.TRANSACTIONAL) {
+        @if (transactionalStatTiles.length > 0) {
+          <h5 class="mt-3">Transactional Email Activity</h5>
+          <p class="text-muted small mb-2">Includes list-subset sends, login mail, and inbox replies. Grouped by send action. Click <strong>Sent</strong> to show or hide the list.</p>
+          <div class="row mb-3 g-2">
+            @for (tile of transactionalStatTiles; track tile.key) {
+              @if (tile.key === "sent") {
+                <div class="col clickable" (click)="toggleTransactionalRecipients()" role="button" title="Show or hide recipients">
+                  <div class="stat-tile" [class.selected]="showTransactionalRecipients">
+                    <div class="stat-value">{{ tile.value }}</div>
+                    <div class="stat-label">{{ tile.label }}</div>
+                  </div>
+                </div>
+              } @else {
+                <div class="col">
+                  <div class="stat-tile">
+                    <div class="stat-value">{{ tile.value }}</div>
+                    <div class="stat-label">{{ tile.label }}</div>
+                  </div>
+                </div>
+              }
+            }
           </div>
           @if (showTransactionalRecipients) {
             <section class="mb-4">
-              <div class="d-flex align-items-center justify-content-between mb-2">
-                <h5 class="mb-0">Recent Transactional Recipients <span class="text-muted fw-normal small">({{ transactionalEmails.length }})</span></h5>
-                @if (loadingTransactionalEmails) {
-                  <span class="text-muted small"><fa-icon [icon]="faSpinner" [animation]="'spin'"/> Loading</span>
-                }
-              </div>
-              @if (transactionalEmails.length > 0) {
-                <div class="ngx-data-table-card">
-                  <table class="ngx-data-table">
-                    <thead>
-                      <tr><th>Recipient</th><th>Subject</th><th>Sent</th><th>Message ID</th></tr>
-                    </thead>
-                    <tbody>
-                      @for (email of transactionalEmails; track email.uuid || email.messageId) {
-                        <tr>
-                          <td>{{ email.email }}</td>
-                          <td>{{ email.subject }}</td>
-                          <td>{{ formatDate(email.date) }}</td>
-                          <td>{{ email.messageId }}</td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h5 class="mb-0">Who was sent mail
+                  <span class="text-muted fw-normal small">({{ sendActionSummaryLabel }})</span>
+                </h5>
+                <div class="d-flex align-items-center gap-3">
+                  @if (hiddenInboxDigestCount > 0 || showInboxDigests) {
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="checkbox" id="show-inbox-digests"
+                             [ngModel]="showInboxDigests" (ngModelChange)="onShowInboxDigestsChange($event)">
+                      <label class="form-check-label small" for="show-inbox-digests">
+                        Show inbox digests
+                        @if (hiddenInboxDigestCount > 0 && !showInboxDigests) {
+                          <span class="text-muted">({{ hiddenInboxDigestCount }} hidden)</span>
+                        }
+                      </label>
+                    </div>
+                  }
+                  @if (loadingTransactionalEmails) {
+                    <span class="text-muted small"><fa-icon [icon]="faSpinner" [animation]="'spin'"/> Loading</span>
+                  }
                 </div>
+              </div>
+              @if (visibleTransactionalSendGroups.length > 0) {
+                @for (group of visibleTransactionalSendGroups; track group.id) {
+                  <div class="send-action-card mb-3">
+                    <div class="send-action-header" (click)="toggleSendActionGroup(group.id)" role="button">
+                      <div class="send-action-title">
+                        <strong>{{ group.subjectStem }}</strong>
+                        <div class="small text-muted">
+                          <span [class]="'origin-badge origin-' + group.origin">{{ group.originLabel }}</span>
+                          · {{ stringUtils.pluraliseWithCount(group.recipients.length, "recipient") }}
+                          · {{ formatDateTime(group.sentAt) }}
+                          @if (group.from) {
+                            · from {{ group.from }}
+                          }
+                        </div>
+                      </div>
+                      <span class="small text-muted">{{ expandedSendActionIds.has(group.id) ? "Hide" : "Show" }}</span>
+                    </div>
+                    @if (expandedSendActionIds.has(group.id)) {
+                      <div class="ngx-data-table-card send-action-recipients">
+                        <table class="ngx-data-table send-action-recipients-table">
+                          <colgroup>
+                            <col class="col-recipient"/>
+                            <col class="col-subject"/>
+                            <col class="col-sent"/>
+                          </colgroup>
+                          <thead>
+                            <tr><th>Recipient</th><th>Personalised subject</th><th>Sent</th></tr>
+                          </thead>
+                          <tbody>
+                            @for (email of group.recipients; track email.messageId || email.email + email.date) {
+                              <tr>
+                                <td [title]="email.email">{{ email.email }}</td>
+                                <td [title]="email.subject">{{ email.subject }}</td>
+                                <td class="sent-cell">
+                                  <span class="sent-when">{{ formatDateTime(email.date) }}</span>
+                                  <span class="action-buttons">
+                                    <button type="button" class="btn btn-sm btn-quiet action-icon-btn"
+                                            (click)="openEmailPreview(email); $event.stopPropagation()"
+                                            [disabled]="previewLoadingKey === previewKey(email)"
+                                            title="View email"
+                                            aria-label="View email">
+                                      <fa-icon [icon]="previewLoadingKey === previewKey(email) ? faSpinner : faEnvelopeOpenText"
+                                               [animation]="previewLoadingKey === previewKey(email) ? 'spin' : null"/>
+                                    </button>
+                                    @if (email.threadId) {
+                                      <a class="btn btn-sm btn-quiet action-icon-btn"
+                                         [routerLink]="['/' + AdminPath.INBOX]"
+                                         [queryParams]="inboxThreadQueryParams(email.threadId)"
+                                         (click)="$event.stopPropagation()"
+                                         title="Open in inbox"
+                                         aria-label="Open in inbox">
+                                        <fa-icon [icon]="faInbox"/>
+                                      </a>
+                                    }
+                                  </span>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
+                  </div>
+                }
               } @else if (!loadingTransactionalEmails) {
-                <p class="text-muted">No transactional recipient records were found in this period.</p>
+                <p class="text-muted">
+                  @if (hiddenInboxDigestCount > 0 && !showInboxDigests) {
+                    Only inbox digests were found in this period. Turn on <strong>Show inbox digests</strong> to list them.
+                  } @else {
+                    No transactional recipient records were found in this period.
+                  }
+                </p>
               }
             </section>
           }
-        }
-
-        @if (summary.pendingCampaigns.length > 0) {
-          <h5 class="mt-4">Pending Remainders</h5>
-          <div class="ngx-data-table-card">
-            <table class="ngx-data-table">
-              <thead>
-                <tr><th>Campaign</th><th>Sent so far</th><th>Remaining</th><th>Status</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                @for (campaign of summary.pendingCampaigns; track campaign.id) {
-                  <tr>
-                    <td><strong>{{ campaign.subject }}</strong><div class="small text-muted">{{ campaign.name }}</div></td>
-                    <td>{{ campaign.sent }}</td>
-                    <td>{{ campaign.remaining }}</td>
-                    <td>{{ campaign.status }}</td>
-                    <td class="d-flex gap-2">
-                      <button type="button" class="btn btn-primary btn-sm" [disabled]="busy" (click)="release(campaign)">
-                        <fa-icon [icon]="faPlay"/> Release now
-                      </button>
-                      <button type="button" class="btn btn-danger btn-sm" [disabled]="busy" (click)="cancel(campaign)">
-                        <fa-icon [icon]="faBan"/> Cancel remainder
-                      </button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        }
-
-        <h5 class="mt-4">Completed Campaigns</h5>
-        <p class="text-muted">Showing {{ dateRangeLabel }}.</p>
-        <div class="row mb-3">
-          <div class="col-sm-12">
-            <div class="input-group">
-              <span class="input-group-text"><fa-icon [icon]="faSearch"/></span>
-              <input type="text" class="form-control" [(ngModel)]="searchTerm"
-                     (ngModelChange)="updateQueryParams()"
-                     placeholder="Filter by campaign name or subject...">
-            </div>
-          </div>
-        </div>
-        @if (summary.completedCampaigns.length === 0) {
-          <p class="text-muted">No completed {{ groupLongName }} campaigns were found in this period.</p>
-        } @else {
-          <div class="ngx-data-table-card">
-            <table class="ngx-data-table">
-              <thead>
-                <tr>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.SUBJECT" (click)="toggleSort(CampaignSortField.SUBJECT)">Campaign <fa-icon [icon]="sortIcon(CampaignSortField.SUBJECT)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.SENT" (click)="toggleSort(CampaignSortField.SENT)">Sent <fa-icon [icon]="sortIcon(CampaignSortField.SENT)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.DELIVERED" (click)="toggleSort(CampaignSortField.DELIVERED)">Delivered <fa-icon [icon]="sortIcon(CampaignSortField.DELIVERED)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.VIEWED" (click)="toggleSort(CampaignSortField.VIEWED)">Opens <fa-icon [icon]="sortIcon(CampaignSortField.VIEWED)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.UNIQUE_VIEWS" (click)="toggleSort(CampaignSortField.UNIQUE_VIEWS)">Unique Opens <fa-icon [icon]="sortIcon(CampaignSortField.UNIQUE_VIEWS)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.CLICKS" (click)="toggleSort(CampaignSortField.CLICKS)">Clicks <fa-icon [icon]="sortIcon(CampaignSortField.CLICKS)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.HARD_BOUNCES" (click)="toggleSort(CampaignSortField.HARD_BOUNCES)">Hard Bounces <fa-icon [icon]="sortIcon(CampaignSortField.HARD_BOUNCES)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.SOFT_BOUNCES" (click)="toggleSort(CampaignSortField.SOFT_BOUNCES)">Soft Bounces <fa-icon [icon]="sortIcon(CampaignSortField.SOFT_BOUNCES)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.UNSUBSCRIPTIONS" (click)="toggleSort(CampaignSortField.UNSUBSCRIPTIONS)">Unsubs <fa-icon [icon]="sortIcon(CampaignSortField.UNSUBSCRIPTIONS)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.COMPLAINTS" (click)="toggleSort(CampaignSortField.COMPLAINTS)">Complaints <fa-icon [icon]="sortIcon(CampaignSortField.COMPLAINTS)" size="xs"/></th>
-                  <th class="sortable" [class.sorted]="sortField === CampaignSortField.SENT_DATE" (click)="toggleSort(CampaignSortField.SENT_DATE)">Completed <fa-icon [icon]="sortIcon(CampaignSortField.SENT_DATE)" size="xs"/></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (campaign of sortedCampaigns; track campaign.id) {
-                  <tr class="clickable-row" (click)="openCampaignDrillDown(campaign)">
-                    <td><strong>{{ campaign.subject }}</strong><div class="small text-muted">{{ campaign.name }}</div></td>
-                    <td>{{ campaign.sent }}</td>
-                    <td>{{ campaign.delivered }}</td>
-                    <td>{{ campaign.viewed }}</td>
-                    <td>{{ campaign.uniqueViews }}</td>
-                    <td>{{ campaign.uniqueClicks }}</td>
-                    <td>{{ campaign.hardBounces }}</td>
-                    <td>{{ campaign.softBounces }}</td>
-                    <td>{{ campaign.unsubscriptions }}</td>
-                    <td>{{ campaign.complaints }}</td>
-                    <td>{{ formatDate(campaign.sentDate || campaign.modifiedAt) }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+        } @else if (!busy) {
+          <p class="text-muted mt-3">No transactional email activity was found in this period.</p>
         }
       }
+
+      <app-draggable-modal [open]="!!emailPreview" contentWidth="min(920px, 95vw)" (closed)="closeEmailPreview()">
+        <div modalTitle>
+          <div class="text-truncate"
+               [title]="emailPreview?.content?.subject || emailPreview?.summary?.subject || ''">
+            <fa-icon [icon]="faEnvelopeOpenText" class="me-2"/>
+            {{ emailPreview?.content?.subject || emailPreview?.summary?.subject }}
+          </div>
+          @if (emailPreview) {
+            <div class="small text-white-50 text-truncate">
+              To {{ emailPreview.summary.email }}
+              · {{ formatDateTime(emailPreview.content?.date || emailPreview.summary.date) }}
+            </div>
+          }
+        </div>
+        <div modalBody>
+          @if (emailPreview?.loading) {
+            <div class="text-muted"><fa-icon [icon]="faSpinner" [animation]="'spin'"/> Loading email content…</div>
+          } @else if (emailPreview?.error) {
+            <div class="alert alert-warning mb-0">{{ emailPreview.error }}</div>
+          } @else if (emailPreview?.content?.body) {
+            <app-email-preview [html]="emailPreview.content.body"/>
+          } @else {
+            <div class="text-muted">No HTML body is available for this email.</div>
+          }
+        </div>
+        @if (emailPreview?.summary?.threadId) {
+          <a modalFooter class="btn btn-primary"
+             [routerLink]="['/' + AdminPath.INBOX]"
+             [queryParams]="inboxThreadQueryParams(emailPreview.summary.threadId)"
+             (click)="closeEmailPreview()">
+            <fa-icon [icon]="faInbox" class="me-2"/>Open in inbox
+          </a>
+        }
+      </app-draggable-modal>
     </app-page>
   `,
   styles: [`
@@ -233,9 +384,6 @@ enum CampaignSortField {
     .col.clickable .stat-tile
       cursor: pointer
       border-color: rgba(29, 111, 66, 0.55)
-
-    .col.not-clickable .stat-tile
-      opacity: 0.72
 
     .col.clickable .stat-tile:hover
       transform: translateY(-1px)
@@ -274,13 +422,127 @@ enum CampaignSortField {
 
     tr.clickable-row:hover
       background: rgba(155, 200, 171, 0.2)
+
+    .send-action-card
+      border: 1px solid rgba(155, 200, 171, 0.45)
+      border-radius: 8px
+      overflow: hidden
+      background: var(--rsm-table-header-bg, #f4f8f5)
+
+    .send-action-header
+      display: flex
+      align-items: center
+      justify-content: space-between
+      gap: 1rem
+      padding: 0.75rem 1rem
+      cursor: pointer
+
+    .send-action-header:hover
+      background: rgba(155, 200, 171, 0.25)
+
+    .send-action-title
+      min-width: 0
+
+    .origin-badge
+      display: inline-block
+      font-weight: 600
+      border-radius: 999px
+      padding: 0.12rem 0.6rem
+      margin-right: 0.15rem
+      border: 1px solid transparent
+      line-height: 1.3
+
+    .origin-badge.origin-inbox-reply
+      color: #2d3e33
+      background: rgba(155, 200, 171, 0.55)
+      border-color: rgba(99, 134, 110, 0.45)
+
+    .origin-badge.origin-composer
+      color: #5c4200
+      background: rgba(249, 177, 4, 0.3)
+      border-color: rgba(211, 150, 3, 0.45)
+
+    .origin-badge.origin-system
+      color: #7a3418
+      background: rgba(240, 128, 80, 0.28)
+      border-color: rgba(240, 128, 80, 0.5)
+
+    .origin-badge.origin-outbound
+      color: #404141
+      background: rgba(64, 65, 65, 0.1)
+      border-color: rgba(64, 65, 65, 0.22)
+
+    .origin-badge.origin-inbox-digest
+      color: #495057
+      background: rgba(222, 226, 230, 0.85)
+      border-color: rgba(108, 117, 125, 0.4)
+
+    .send-action-recipients
+      border-radius: 0
+      border-left: none
+      border-right: none
+      border-bottom: none
+
+    .send-action-recipients-table
+      table-layout: fixed
+      width: 100%
+
+    .send-action-recipients-table .col-recipient
+      width: 28%
+
+    .send-action-recipients-table .col-subject
+      width: 44%
+
+    .send-action-recipients-table .col-sent
+      width: 28%
+
+    .send-action-recipients-table th,
+    .send-action-recipients-table td
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+
+    .send-action-recipients-table td.sent-cell
+      overflow: visible
+      white-space: nowrap
+
+    .sent-cell
+      display: flex
+      align-items: center
+      justify-content: space-between
+      gap: 0.5rem
+
+    .sent-when
+      min-width: 0
+      overflow: hidden
+      text-overflow: ellipsis
+
+    .action-buttons
+      display: inline-flex
+      align-items: center
+      flex: 0 0 auto
+      gap: 0.25rem
+
+    .action-icon-btn
+      width: 2rem
+      height: 2rem
+      min-width: 2rem
+      min-height: 2rem
+      padding: 0
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      line-height: 1
+      flex: 0 0 auto
+
   `]
 })
 export class MailReportsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MailReportsComponent", NgxLoggerLevel.ERROR);
   private mailService = inject(MailService);
+  private brevoContactService = inject(BrevoContactService);
   private dateUtils = inject(DateUtilsService);
-  private stringUtils = inject(StringUtilsService);
+  protected stringUtils = inject(StringUtilsService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
   private systemConfigService = inject(SystemConfigService);
@@ -290,10 +552,22 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   protected summary: BrevoCampaignQueueSummary | null = null;
   protected transactionalStats: BrevoTransactionalAggregatedReport | null = null;
   protected transactionalEmails: BrevoTransactionalEmailSummary[] = [];
+  protected transactionalSendGroups: TransactionalSendActionGroup[] = [];
+  protected expandedSendActionIds = new Set<string>();
   protected showTransactionalRecipients = false;
+  protected showInboxDigests = false;
   protected loadingTransactionalEmails = false;
+  protected previewLoadingKey: string | null = null;
+  protected emailPreview: {
+    summary: BrevoTransactionalEmailSummary;
+    loading: boolean;
+    error: string | null;
+    content: BrevoEmailPreviewContent | null;
+  } | null = null;
   protected busy = false;
   protected error: string | null = null;
+  protected readonly AdminPath = AdminPath;
+  protected readonly StoredValue = StoredValue;
   protected dateRangeLabel = "";
   protected searchTerm = "";
   protected sortField: CampaignSortField | undefined;
@@ -315,6 +589,15 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   protected readonly presetLabels: string[];
   protected readonly CUSTOM_LABEL = "Custom";
 
+  protected reportType: MailReportType = MailReportType.TRANSACTIONAL;
+  protected readonly MailReportType = MailReportType;
+  protected readonly reportTypeOptions = [
+    {label: "Campaigns", value: MailReportType.CAMPAIGNS},
+    {label: "Transactional", value: MailReportType.TRANSACTIONAL}
+  ];
+  protected readonly reportTypeLabels = this.reportTypeOptions.map(option => option.label);
+  protected selectedReportTypeLabel = this.reportTypeOptions[1].label;
+
   protected readonly CampaignSortField = CampaignSortField;
   protected readonly SortDirection = SortDirection;
   protected readonly faRefresh = faRefresh;
@@ -325,6 +608,8 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   protected readonly faSort = faSort;
   protected readonly faSortUp = faSortUp;
   protected readonly faSortDown = faSortDown;
+  protected readonly faEnvelopeOpenText = faEnvelopeOpenText;
+  protected readonly faInbox = faInbox;
 
   constructor() {
     this.sliderMaxDate = this.dateUtils.dateTimeNow().startOf("day");
@@ -359,6 +644,15 @@ export class MailReportsComponent implements OnInit, OnDestroy {
     }));
     this.activatedRoute.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       this.searchTerm = params[StoredValue.FILTER] || "";
+      const reportTypeParam = params[StoredValue.MAIL_REPORT_TYPE];
+      const matchedType = this.reportTypeOptions.find(option => option.value === reportTypeParam);
+      if (matchedType) {
+        this.reportType = matchedType.value;
+        this.selectedReportTypeLabel = matchedType.label;
+      } else {
+        this.reportType = MailReportType.TRANSACTIONAL;
+        this.selectedReportTypeLabel = this.reportTypeOptions[1].label;
+      }
       const sortParam = params[StoredValue.SORT];
       if (sortParam) {
         this.sortField = sortParam as CampaignSortField;
@@ -373,12 +667,10 @@ export class MailReportsComponent implements OnInit, OnDestroy {
       debounceTime(300),
       takeUntil(this.destroy$)
     ).subscribe(range => {
-      void this.loadSummary(range.startDate, range.endDate);
-      void this.loadTransactional(range.startDate, range.endDate);
+      void this.loadActiveReport(range.startDate, range.endDate);
     });
     this.setDateRangeLabel(this.fromDate, this.toDate);
-    void this.loadSummary(this.formattedRangeStart(), this.formattedRangeEnd());
-    void this.loadTransactional(this.formattedRangeStart(), this.formattedRangeEnd());
+    void this.loadActiveReport(this.formattedRangeStart(), this.formattedRangeEnd());
   }
 
   ngOnDestroy(): void {
@@ -398,6 +690,22 @@ export class MailReportsComponent implements OnInit, OnDestroy {
     }
   }
 
+  protected selectReportTypeByLabel(label: string): void {
+    const matched = this.reportTypeOptions.find(option => option.label === label);
+    if (matched && matched.value !== this.reportType) {
+      this.reportType = matched.value;
+      this.selectedReportTypeLabel = matched.label;
+      this.closeEmailPreview();
+      this.updateQueryParams();
+      void this.loadActiveReport(this.formattedRangeStart(), this.formattedRangeEnd());
+    } else if (matched) {
+      this.selectedReportTypeLabel = matched.label;
+    } else {
+      this.selectedReportTypeLabel = this.reportTypeOptions.find(option => option.value === this.reportType)?.label
+        || this.reportTypeOptions[1].label;
+    }
+  }
+
   protected onRangeChange(range: DateRange): void {
     this.selectedPresetLabel = this.presetLabelForRange(range);
     this.fromDate = this.dateUtils.asDateTime(range.from);
@@ -409,10 +717,7 @@ export class MailReportsComponent implements OnInit, OnDestroy {
 
   protected async refresh(): Promise<void> {
     this.setDateRangeLabel(this.fromDate, this.toDate);
-    await Promise.all([
-      this.loadSummary(this.formattedRangeStart(), this.formattedRangeEnd()),
-      this.loadTransactional(this.formattedRangeStart(), this.formattedRangeEnd())
-    ]);
+    await this.loadActiveReport(this.formattedRangeStart(), this.formattedRangeEnd());
   }
 
   protected toggleSort(field: CampaignSortField): void {
@@ -434,6 +739,7 @@ export class MailReportsComponent implements OnInit, OnDestroy {
     this.router.navigate([], {
       relativeTo: this.activatedRoute,
       queryParams: {
+        [StoredValue.MAIL_REPORT_TYPE]: this.reportType,
         [StoredValue.FILTER]: this.searchTerm || null,
         [StoredValue.SORT]: this.sortField || null,
         [StoredValue.SORT_ORDER]: this.sortDirection === SortDirection.DESC ? SortDirection.DESC : SortDirection.ASC
@@ -446,12 +752,21 @@ export class MailReportsComponent implements OnInit, OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.activatedRoute,
       queryParams: {
+        [StoredValue.MAIL_REPORT_TYPE]: this.reportType,
         [StoredValue.SORT]: CampaignSortField.SENT_DATE,
         [StoredValue.SORT_ORDER]: SortDirection.DESC
       },
       queryParamsHandling: "merge",
       replaceUrl: true
     });
+  }
+
+  private async loadActiveReport(startDate: string, endDate: string): Promise<void> {
+    if (this.reportType === MailReportType.CAMPAIGNS) {
+      await this.loadSummary(startDate, endDate);
+    } else {
+      await this.loadTransactional(startDate, endDate);
+    }
   }
 
   protected openCampaignDrillDown(campaign: BrevoCampaignProgress): void {
@@ -462,9 +777,175 @@ export class MailReportsComponent implements OnInit, OnDestroy {
 
   protected toggleTransactionalRecipients(): void {
     this.showTransactionalRecipients = !this.showTransactionalRecipients;
-    if (this.showTransactionalRecipients && this.transactionalEmails.length === 0) {
+    if (this.showTransactionalRecipients) {
       void this.loadTransactionalEmails(this.formattedRangeStart(), this.formattedRangeEnd());
+    } else {
+      this.transactionalEmails = [];
+      this.transactionalSendGroups = [];
+      this.expandedSendActionIds = new Set<string>();
     }
+  }
+
+  protected toggleSendActionGroup(groupId: string): void {
+    const next = new Set(this.expandedSendActionIds);
+    if (next.has(groupId)) {
+      next.delete(groupId);
+    } else {
+      next.add(groupId);
+    }
+    this.expandedSendActionIds = next;
+  }
+
+  protected previewKey(email: BrevoTransactionalEmailSummary): string {
+    return `${email.messageId || ""}|${email.email || ""}|${email.date || ""}`;
+  }
+
+  protected inboxThreadQueryParams(threadId: string): Record<string, string> {
+    return {[StoredValue.THREAD]: threadId};
+  }
+
+  protected async openEmailPreview(email: BrevoTransactionalEmailSummary): Promise<void> {
+    const key = this.previewKey(email);
+    this.previewLoadingKey = key;
+    this.emailPreview = {
+      summary: email,
+      loading: true,
+      error: null,
+      content: null
+    };
+    try {
+      const uuid = email.uuid || await this.resolveTransactionalUuid(email);
+      if (!uuid) {
+        this.emailPreview = {
+          summary: email,
+          loading: false,
+          error: "No stored preview is available for this message in Brevo.",
+          content: null
+        };
+      } else {
+        const content = await this.brevoContactService.getTransactionalEmailContent(uuid);
+        this.emailPreview = {
+          summary: {...email, uuid},
+          loading: false,
+          error: null,
+          content: {
+            subject: content?.subject || email.subject || "",
+            date: content?.date || email.date,
+            body: content?.body || ""
+          }
+        };
+      }
+    } catch (error: any) {
+      this.logger.warn("Failed to load transactional email preview", error);
+      this.emailPreview = {
+        summary: email,
+        loading: false,
+        error: this.errorMessage(error, "Unable to load email content"),
+        content: null
+      };
+    }
+    this.previewLoadingKey = null;
+  }
+
+  protected closeEmailPreview(): void {
+    this.emailPreview = null;
+    this.previewLoadingKey = null;
+  }
+
+  private async resolveTransactionalUuid(email: BrevoTransactionalEmailSummary): Promise<string | null> {
+    if (!email.email || !email.messageId) {
+      return null;
+    } else {
+      const list = await this.brevoContactService.getTransactionalEmails(email.email, {
+        messageId: email.messageId,
+        limit: 1
+      });
+      return list?.transactionalEmails?.[0]?.uuid || null;
+    }
+  }
+
+  get visibleTransactionalSendGroups(): TransactionalSendActionGroup[] {
+    if (this.showInboxDigests) {
+      return this.transactionalSendGroups;
+    } else {
+      return this.transactionalSendGroups.filter(group => !this.isInboxDigestGroup(group));
+    }
+  }
+
+  get hiddenInboxDigestCount(): number {
+    return this.transactionalSendGroups.filter(group => this.isInboxDigestGroup(group)).length;
+  }
+
+  private isInboxDigestGroup(group: TransactionalSendActionGroup): boolean {
+    return group.origin === TransactionalEmailOrigin.INBOX_DIGEST
+      || isInboxDigestSubject(group.subjectStem)
+      || group.recipients.some(recipient => isInboxDigestSubject(recipient.subject));
+  }
+
+  get sendActionSummaryLabel(): string {
+    const groups = this.visibleTransactionalSendGroups;
+    const recipients = groups.reduce((total, group) => total + group.recipients.length, 0);
+    if (groups.length === 0) {
+      return "0";
+    } else {
+      return `${this.stringUtils.pluraliseWithCount(groups.length, "send")}, ${this.stringUtils.pluraliseWithCount(recipients, "recipient")}`;
+    }
+  }
+
+  protected onShowInboxDigestsChange(show: boolean): void {
+    this.showInboxDigests = show;
+    if (show) {
+      const digestIds = this.transactionalSendGroups
+        .filter(group => this.isInboxDigestGroup(group))
+        .map(group => group.id);
+      this.expandedSendActionIds = new Set([...this.expandedSendActionIds, ...digestIds]);
+    }
+  }
+
+  get campaignStatTiles(): MailReportStatTile[] {
+    const stats = this.summary?.aggregateStats;
+    if (!stats || stats.campaignCount <= 0) {
+      return [];
+    } else {
+      return this.tilesWithValues([
+        {key: "campaigns", label: "Campaigns", value: stats.campaignCount},
+        {key: "sent", label: "Sent", value: stats.totalSent},
+        {key: "delivered", label: "Delivered", value: stats.totalDelivered},
+        {key: "opens", label: "Opens", value: stats.totalViewed},
+        {key: "unique-opens", label: "Unique Opens", value: stats.totalUniqueViews},
+        {key: "clicks", label: "Clicks", value: stats.totalUniqueClicks},
+        {key: "hard-bounces", label: "Hard Bounces", value: stats.totalHardBounces},
+        {key: "soft-bounces", label: "Soft Bounces", value: stats.totalSoftBounces},
+        {key: "unsubs", label: "Unsubs", value: stats.totalUnsubscriptions},
+        {key: "complaints", label: "Complaints", value: stats.totalComplaints}
+      ]);
+    }
+  }
+
+  get transactionalStatTiles(): MailReportStatTile[] {
+    const stats = this.transactionalStats;
+    if (!stats) {
+      return [];
+    } else {
+      return this.tilesWithValues([
+        {key: "sent", label: "Sent", value: stats.sentCount},
+        {key: "delivered", label: "Delivered", value: stats.deliveredCount},
+        {key: "opens", label: "Opens", value: stats.openedCount},
+        {key: "clicks", label: "Clicks", value: stats.clickedCount},
+        {key: "hard-bounces", label: "Hard Bounces", value: stats.hardBouncesCount},
+        {key: "soft-bounces", label: "Soft Bounces", value: stats.softBouncesCount},
+        {key: "unsubs", label: "Unsubs", value: stats.unsubscribedCount},
+        {key: "complaints", label: "Complaints", value: stats.complaintsCount},
+        {key: "blocked", label: "Blocked", value: stats.blockedCount}
+      ]);
+    }
+  }
+
+  private tilesWithValues(tiles: MailReportStatTile[]): MailReportStatTile[] {
+    return tiles.filter(tile => {
+      const numeric = isNumber(tile.value) ? tile.value : Number(tile.value);
+      return Number.isFinite(numeric) && numeric > 0;
+    });
   }
 
   private sortValue(campaign: BrevoCampaignProgress, field: CampaignSortField): string | number {
@@ -505,11 +986,23 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   }
 
   private emitRange(): void {
-    this.transactionalEmails = [];
+    if (!this.showTransactionalRecipients) {
+      this.transactionalEmails = [];
+      this.transactionalSendGroups = [];
+      this.expandedSendActionIds = new Set<string>();
+    }
     this.rangeChangeSubject.next({
       startDate: this.formattedRangeStart(),
       endDate: this.formattedRangeEnd()
     });
+  }
+
+  private applyTransactionalEmailList(emails: BrevoTransactionalEmailSummary[]): void {
+    this.transactionalEmails = emails;
+    this.transactionalSendGroups = groupTransactionalEmailsBySendAction(emails);
+    this.expandedSendActionIds = new Set(
+      this.visibleTransactionalSendGroups.map(group => group.id)
+    );
   }
 
   private async loadSummary(startDate: string, endDate: string): Promise<void> {
@@ -524,21 +1017,37 @@ export class MailReportsComponent implements OnInit, OnDestroy {
   }
 
   private async loadTransactional(startDate: string, endDate: string): Promise<void> {
+    this.busy = true;
+    this.error = null;
     try {
       this.transactionalStats = await this.mailService.transactionalAggregatedReport(startDate, endDate);
+      if (this.transactionalStats?.sentCount > 0) {
+        this.showTransactionalRecipients = true;
+        await this.loadTransactionalEmails(startDate, endDate);
+      } else {
+        this.showTransactionalRecipients = false;
+        this.applyTransactionalEmailList([]);
+      }
     } catch (error: any) {
       this.logger.warn("Failed to load transactional stats", error);
+      this.transactionalStats = null;
+      this.showTransactionalRecipients = false;
+      this.applyTransactionalEmailList([]);
+      this.error = this.errorMessage(error, "Unable to load transactional email statistics");
     }
+    this.busy = false;
   }
 
   private async loadTransactionalEmails(startDate: string, endDate: string): Promise<void> {
     this.loadingTransactionalEmails = true;
     try {
       const response = await this.mailService.transactionalEmails(startDate, endDate);
-      this.transactionalEmails = response.transactionalEmails ?? [];
+      this.applyTransactionalEmailList(response?.transactionalEmails ?? []);
+      this.error = null;
     } catch (error: any) {
       this.logger.warn("Failed to load transactional emails", error);
-      this.transactionalEmails = [];
+      this.applyTransactionalEmailList([]);
+      this.error = this.errorMessage(error, "Unable to load transactional recipients");
     }
     this.loadingTransactionalEmails = false;
   }
@@ -569,6 +1078,15 @@ export class MailReportsComponent implements OnInit, OnDestroy {
     if (date) {
       const dt = this.dateUtils.asDateTime(date);
       return dt.isValid ? this.dateUtils.asString(dt, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : date;
+    } else {
+      return "";
+    }
+  }
+
+  protected formatDateTime(date: string): string {
+    if (date) {
+      const dt = this.dateUtils.asDateTime(date);
+      return dt.isValid ? this.dateUtils.asString(dt, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME) : date;
     } else {
       return "";
     }

@@ -1010,6 +1010,14 @@ export interface BrevoContactSnapshotApiResponse extends ApiResponse {
   response: BrevoContactSnapshot | null;
 }
 
+export enum TransactionalEmailOrigin {
+  INBOX_REPLY = "inbox-reply",
+  COMPOSER = "composer",
+  SYSTEM = "system",
+  OUTBOUND = "outbound",
+  INBOX_DIGEST = "inbox-digest"
+}
+
 export interface BrevoTransactionalEmailSummary {
   email: string;
   subject: string;
@@ -1019,6 +1027,19 @@ export interface BrevoTransactionalEmailSummary {
   date: string;
   from?: string;
   tags?: string[];
+  origin?: TransactionalEmailOrigin;
+  originLabel?: string;
+  threadId?: string | null;
+}
+
+export interface TransactionalSendActionGroup {
+  id: string;
+  subjectStem: string;
+  sentAt: string;
+  from?: string;
+  origin: TransactionalEmailOrigin;
+  originLabel: string;
+  recipients: BrevoTransactionalEmailSummary[];
 }
 
 export interface BrevoTransactionalEmailListResponse {

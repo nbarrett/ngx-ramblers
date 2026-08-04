@@ -74,6 +74,7 @@ export enum StoredValue {
   EDIT_SITE = "edit-site",
   EMAIL_STATE = "email-state",
   EMAIL_TYPE = "email-type",
+  MAIL_REPORT_TYPE = "mail-report-type",
   END_DATE = "end-date",
   ENVIRONMENT = "environment",
   ENVIRONMENTS = "environments",
