@@ -1,0 +1,44 @@
+.draggable-modal .modal-title
+  color: #fff
+  flex: 1 1 auto
+  min-width: 0
+
+.draggable-modal .modal-dialog
+  max-width: none
+  width: fit-content
+  margin-left: auto
+  margin-right: auto
+  transition: none
+
+.draggable-modal .modal-content
+  resize: both
+  overflow: hidden
+  min-width: 340px
+  min-height: 220px
+  max-width: 95vw
+  max-height: 90vh
+  display: flex
+  flex-direction: column
+
+.draggable-modal .modal-header
+  cursor: move
+
+.draggable-modal .draggable-modal-body
+  flex: 1 1 auto
+  max-height: 60vh
+  overflow: auto
+
+.draggable-modal .modal-content[style] .draggable-modal-body
+  max-height: none
+
+.draggable-modal .modal-content[style] .draggable-modal-frame
+  height: 100%
+
+.draggable-modal-frame
+  width: 100%
+  height: 55vh
+  border: none
+  background: #fff
+
+.draggable-modal .min-width-0
+  min-width: 0

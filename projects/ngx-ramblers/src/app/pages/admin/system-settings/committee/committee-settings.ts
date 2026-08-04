@@ -125,6 +125,28 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
           background-color: #F6821F
           border-color: #F6821F
           color: white
+      .role-delete-button
+        display: inline-flex
+        align-items: center
+        justify-content: center
+        min-width: 40px
+        min-height: 40px
+        padding: 0
+        margin: 0
+        border: none !important
+        background: transparent !important
+        box-shadow: none !important
+        color: inherit
+        line-height: 1
+        &:hover:not(:disabled)
+          color: var(--ramblers-colour-rosycheeks, #e94b35)
+        &:focus, &:focus-visible
+          outline: none !important
+          box-shadow: none !important
+          border: none !important
+        &:disabled
+          opacity: 0.4
+          cursor: not-allowed
       :host ::ng-deep .email-forward-tooltip .tooltip-inner
         max-width: none
         white-space: nowrap
@@ -411,17 +433,16 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                 @if (isContactUsSystemRole(role)) {
                                   <span class="d-inline-block" (click)="$event.stopPropagation()"
                                         tooltip="The Contact Us system role is the sender of contact-us emails and is linked across the site, so it can't be deleted.">
-                                    <button class="btn btn-outline-ramblers btn-sm" disabled>
+                                    <button type="button" class="role-delete-button" disabled>
                                       <fa-icon [icon]="faTrash"></fa-icon>
                                     </button>
                                   </span>
                                 } @else {
-                                  <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-ramblers" (click)="confirmDeleteRole(role); $event.stopPropagation()"
-                                            [disabled]="!!editingRoleDraft || !!pendingDeleteRole" tooltip="Delete role">
-                                      <fa-icon [icon]="faTrash"></fa-icon>
-                                    </button>
-                                  </div>
+                                  <button type="button" class="role-delete-button"
+                                          (click)="confirmDeleteRole(role); $event.stopPropagation()"
+                                          [disabled]="!!editingRoleDraft || !!pendingDeleteRole" tooltip="Delete role">
+                                    <fa-icon [icon]="faTrash"></fa-icon>
+                                  </button>
                                 }
                               </td>
                             </tr>
