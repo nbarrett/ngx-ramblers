@@ -16,15 +16,26 @@ import { createAdminMember, createSystemMember } from "./templates/sample-data/a
 import { createAllSamplePageContent } from "./templates/sample-data/page-content-templates";
 import { committeeRootPageContent, committeeYearsFragmentPageContent } from "./templates/sample-data/committee-page-template";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { configuredEnvironments } from "../environments/environments-config";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
+import { seedAdminMenuStructure } from "../mongo/migrations/shared/seed-admin-menu";
+import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-banner";
 import { values } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
 
+export async function environmentSiteUrl(environmentName: string, appName: string): Promise<string> {
+  const environmentsConfig = await configuredEnvironments();
+  const baseDomain = environmentsConfig?.cloudflare?.baseDomain;
+  return baseDomain ? `https://${environmentName}.${baseDomain}` : `https://${appName}.fly.dev`;
+}
+
 export function toGroupShortName(groupName: string): string {
-  return groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
+  return groupName
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 const COLLECTIONS = {
@@ -144,6 +155,7 @@ export async function initialiseDatabase(
     reportProgress("Creating SystemConfig", SetupStepStatus.Running);
     const systemConfigParams: SystemConfigTemplateParams = {
       groupData: request.ramblersInfo.groupData,
+      siteUrl: await environmentSiteUrl(request.environmentBasics.environmentName, request.environmentBasics.appName),
       areaCode: request.ramblersInfo.areaCode,
       areaName: request.ramblersInfo.areaName,
       ramblersApiConfig: request.serviceConfigs.ramblers,
@@ -156,6 +168,10 @@ export async function initialiseDatabase(
     const systemConfig = createSystemConfig(systemConfigParams);
     await upsertConfigDocument(db, ConfigKey.SYSTEM, systemConfig);
     reportProgress("Creating SystemConfig", SetupStepStatus.Completed);
+
+    reportProgress("Creating default banner", SetupStepStatus.Running);
+    const bannerSeed = await seedDefaultLogoBanner(db, message => debugLog(message));
+    reportProgress("Creating default banner", SetupStepStatus.Completed, bannerSeed.reason);
 
     reportProgress("Creating Brevo config", SetupStepStatus.Running);
     const brevoConfig = createBrevoConfig({ apiKey: request.serviceConfigs.brevo.apiKey });
@@ -223,6 +239,10 @@ export async function initialiseDatabase(
     reportProgress("Assigning admin to committee roles", SetupStepStatus.Completed);
 
     await runMigrations(uri, reportProgress);
+
+    reportProgress("Seeding admin menu structure", SetupStepStatus.Running);
+    await seedAdminMenuStructure(db, message => debugLog(message));
+    reportProgress("Seeding admin menu structure", SetupStepStatus.Completed);
 
     reportProgress("Database initialisation complete", SetupStepStatus.Completed);
     return { passwordResetId };
@@ -423,7 +443,15 @@ export async function seedSampleData(
     await seedSamplePages(db, params.groupName, groupShortName);
     reportProgress("Seeding sample pages", SetupStepStatus.Completed);
 
+    reportProgress("Seeding default banner", SetupStepStatus.Running);
+    const bannerSeed = await seedDefaultLogoBanner(db, message => debugLog(message));
+    reportProgress("Seeding default banner", SetupStepStatus.Completed, bannerSeed.reason);
+
     await runMigrations(params.mongoUri, reportProgress);
+
+    reportProgress("Seeding admin menu structure", SetupStepStatus.Running);
+    await seedAdminMenuStructure(db, message => debugLog(message));
+    reportProgress("Seeding admin menu structure", SetupStepStatus.Completed);
 
     reportProgress("Database seeding complete", SetupStepStatus.Completed);
   } finally {
@@ -470,6 +498,7 @@ export async function reinitialiseDatabase(
     reportProgress("Updating SystemConfig", SetupStepStatus.Running);
     const systemConfigParams: SystemConfigTemplateParams = {
       groupData,
+      siteUrl: params.siteUrl || "",
       areaCode: params.areaCode,
       areaName: params.areaName,
       ramblersApiConfig: { apiKey: params.ramblersApiKey },
@@ -479,6 +508,10 @@ export async function reinitialiseDatabase(
     const systemConfig = createSystemConfig(systemConfigParams);
     await upsertConfigDocument(db, ConfigKey.SYSTEM, systemConfig);
     reportProgress("Updating SystemConfig", SetupStepStatus.Completed);
+
+    reportProgress("Seeding default banner", SetupStepStatus.Running);
+    const bannerSeed = await seedDefaultLogoBanner(db, message => debugLog(message));
+    reportProgress("Seeding default banner", SetupStepStatus.Completed, bannerSeed.reason);
 
     reportProgress("Updating Committee config", SetupStepStatus.Running);
     const committeeConfig = createCommitteeConfig({ groupShortName });
@@ -504,6 +537,10 @@ export async function reinitialiseDatabase(
     reportProgress("Updating sample pages", SetupStepStatus.Completed);
 
     await runMigrations(params.mongoUri, reportProgress);
+
+    reportProgress("Seeding admin menu structure", SetupStepStatus.Running);
+    await seedAdminMenuStructure(db, message => debugLog(message));
+    reportProgress("Seeding admin menu structure", SetupStepStatus.Completed);
 
     reportProgress("Database reinitialisation complete", SetupStepStatus.Completed);
   } finally {

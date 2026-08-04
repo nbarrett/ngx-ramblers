@@ -2,6 +2,11 @@ import debug from "debug";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { ConfigDocument, ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
+import {
+  EnvironmentConfig,
+  EnvironmentsConfig,
+  FlyioPreviousCredentials
+} from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { envConfig } from "../../env-config/env-config";
 import { config } from "../models/config";
 import * as crudController from "./crud-controller";
@@ -12,6 +17,7 @@ import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-
 import { isArray, isNull, isObject, isString, isUndefined, keys } from "es-toolkit/compat";
 import { broadcast } from "../../websockets/websocket-broadcaster";
 import { MessageType } from "../../../../projects/ngx-ramblers/src/app/models/websocket.model";
+import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
@@ -144,11 +150,73 @@ export function queryKeyProjected(configKey: ConfigKey, projection: Record<strin
     .then(response => toObjectWithId(response));
 }
 
+function withPreservedFlyPreviousCredentials(
+  existingValue: EnvironmentsConfig | null | undefined,
+  incomingValue: EnvironmentsConfig
+): EnvironmentsConfig {
+  const canProcess = !!(incomingValue && isArray(incomingValue.environments));
+  if (!canProcess) {
+    return incomingValue;
+  } else {
+    const existingEnvs: EnvironmentConfig[] = existingValue?.environments || [];
+    const environments = incomingValue.environments.map(env => {
+      const prior = existingEnvs.find(item => item.environment === env.environment);
+      const clearPrevious = !!(env.flyio && Object.prototype.hasOwnProperty.call(env.flyio, "previous") && !env.flyio.previous);
+      const oldKey = prior?.flyio?.apiKey || "";
+      const newKey = env.flyio?.apiKey || "";
+      const oldOrg = prior?.flyio?.organisation || "";
+      const newOrg = env.flyio?.organisation || "";
+      const keyChanged = !!oldKey && !!newKey && oldKey !== newKey;
+      const orgChanged = !!oldOrg && !!newOrg && oldOrg !== newOrg;
+      const retainExistingPrevious = !!(prior?.flyio?.previous?.apiKey && !env.flyio?.previous);
+      if (!prior?.flyio) {
+        return env;
+      } else if (clearPrevious) {
+        const flyioWithoutPrevious = {...(env.flyio || {})};
+        delete flyioWithoutPrevious.previous;
+        return {...env, flyio: flyioWithoutPrevious};
+      } else if (keyChanged || orgChanged) {
+        const previous: FlyioPreviousCredentials = env.flyio?.previous?.apiKey
+          ? env.flyio.previous
+          : {
+              apiKey: oldKey,
+              organisation: oldOrg || "personal",
+              appName: prior.flyio.appName || env.flyio?.appName || "",
+              capturedAt: dateTimeNowAsValue()
+            };
+        return {
+          ...env,
+          flyio: {
+            ...env.flyio,
+            previous
+          }
+        };
+      } else if (retainExistingPrevious) {
+        return {
+          ...env,
+          flyio: {
+            ...env.flyio,
+            previous: prior.flyio.previous
+          }
+        };
+      } else {
+        return env;
+      }
+    });
+    return {...incomingValue, environments};
+  }
+}
+
 export async function createOrUpdateKey(configKey: ConfigKey, value: any): Promise<ConfigDocument> {
   const criteria = criteriaForKey(configKey);
+  let valueToStore = value;
+  if (configKey === ConfigKey.ENVIRONMENTS) {
+    const existing = await config.findOne(criteria).lean().exec();
+    valueToStore = withPreservedFlyPreviousCredentials(existing?.value, value);
+  }
   const result = await config.findOneAndUpdate(
     criteria,
-    { key: configKey, value },
+    { key: configKey, value: valueToStore },
     { upsert: true, new: true, useFindAndModify: false }
   );
   debugLog(`createOrUpdateKey: ${configKey} updated`);

@@ -105,7 +105,6 @@ export interface AdminUserConfig {
 export interface SetupOptions {
   includeSamplePages: boolean;
   includeNotificationConfigs: boolean;
-  populateBrevoTemplates: boolean;
   authenticateBrevoDomain: boolean;
   skipFlyDeployment: boolean;
   copyStandardAssets: boolean;
@@ -137,6 +136,11 @@ export interface SetupSession {
   result?: EnvironmentSetupResult;
 }
 
+export interface SetupWarning {
+  step: string;
+  message: string;
+}
+
 export interface EnvironmentSetupResult {
   environmentName: string;
   appName: string;
@@ -146,6 +150,9 @@ export interface EnvironmentSetupResult {
   adminUserCreated: boolean;
   configsJsonUpdated: boolean;
   passwordResetId?: string;
+  adminUserName?: string;
+  adminEmail?: string;
+  warnings?: SetupWarning[];
 }
 
 export interface ValidationResult {
@@ -235,6 +242,9 @@ export interface ExistingEnvironment {
   scaleCount: number;
   organisation?: string;
   hasApiKey: boolean;
+  hasPreviousFlyCredentials?: boolean;
+  previousOrganisation?: string;
+  previousAppName?: string;
   customDomains?: CustomDomainEntry[];
 }
 
@@ -326,6 +336,9 @@ export interface EnvironmentSummary {
   scaleCount: number;
   organisation: string;
   hasApiKey: boolean;
+  hasPreviousFlyCredentials?: boolean;
+  previousOrganisation?: string;
+  previousAppName?: string;
 }
 
 export interface FlyDeployConfig {
@@ -433,9 +446,9 @@ export interface EnvironmentResult {
 export type ProgressCallback = (progress: SetupProgress) => void;
 
 export interface CopiedAssets {
-  icons: string[];
-  logos: string[];
-  backgrounds: string[];
+  icons: CopiedImage[];
+  logos: CopiedImage[];
+  backgrounds: CopiedImage[];
 }
 
 export interface InitialiseDatabaseResult {
@@ -452,6 +465,7 @@ export interface SeedDatabaseParams {
 export interface ReinitDatabaseParams {
   mongoUri: string;
   database: string;
+  siteUrl?: string;
   groupName: string;
   groupCode: string;
   areaCode: string;
@@ -500,7 +514,6 @@ export enum SetupStep {
   UPDATE_CONFIGS_JSON = "update-configs-json",
   UPDATE_ENVIRONMENTS_CONFIG = "update-environments-config",
   INITIALISE_DATABASE = "initialise-database",
-  POPULATE_BREVO_TEMPLATES = "populate-brevo-templates",
   AUTHENTICATE_BREVO_DOMAIN = "authenticate-brevo-domain",
   IMPORT_SECRETS = "import-secrets",
   DEPLOY_APP = "deploy-app",
@@ -511,7 +524,8 @@ export enum OperationInProgress {
   NONE = "none",
   CREATING = "creating",
   DESTROYING = "destroying",
-  VALIDATING = "validating"
+  VALIDATING = "validating",
+  MIGRATING_FLY_ORG = "migrating-fly-org"
 }
 
 export enum SetupMode {
@@ -528,7 +542,45 @@ export enum CloneType {
 
 export enum ManageAction {
   MODIFY = "modify",
+  MIGRATE_FLY_ORG = "migrate-fly-org",
   DESTROY = "destroy"
+}
+
+export enum FlyOrgMigrationPhase {
+  NOT_STARTED = "not-started",
+  CUTOVER_LIVE = "cutover-live",
+  RENAME_IN_PROGRESS = "rename-in-progress",
+  PARTIAL = "partial",
+  COMPLETE = "complete"
+}
+
+export interface FlyOrgMigrationStatus {
+  environmentName: string;
+  phase: FlyOrgMigrationPhase;
+  preferredAppName: string;
+  cutoverAppName: string;
+  previousAppName: string;
+  previousOrganisation: string;
+  newOrganisation: string;
+  preferredExistsUnderNew: boolean;
+  preferredDeployedUnderNew: boolean;
+  cutoverExistsUnderNew: boolean;
+  cutoverDeployedUnderNew: boolean;
+  sourceExistsUnderOld: boolean;
+  configAppName: string;
+  configPointsAtPreferred: boolean;
+  configPointsAtCutover: boolean;
+  hasPreviousCredentials: boolean;
+  needsPreferredApp: boolean;
+  needsPreferredDeploy: boolean;
+  needsCutoverCleanup: boolean;
+  needsSourceDestroy: boolean;
+  needsSubdomainOnPreferred: boolean;
+  needsConfigFinalise: boolean;
+  customDomainHostnames: string[];
+  needsCustomDomainReattach: boolean;
+  resumeAvailable: boolean;
+  summary: string;
 }
 
 export interface EnvironmentStatus {
@@ -538,7 +590,6 @@ export interface EnvironmentStatus {
   flyAppDeployed: boolean;
   standardAssetsPresent: boolean;
   subdomainConfigured: boolean;
-  brevoTemplatesPresent: boolean;
   brevoDomainAuthenticated: boolean;
   hostnameProblemCount: number;
 }
@@ -644,7 +695,6 @@ export function createEmptySetupRequest(): EnvironmentSetupRequest {
     options: {
       includeSamplePages: true,
       includeNotificationConfigs: true,
-      populateBrevoTemplates: false,
       authenticateBrevoDomain: false,
       skipFlyDeployment: false,
       copyStandardAssets: true,

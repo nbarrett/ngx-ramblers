@@ -22,7 +22,14 @@ import { handleBackupEventsWebSocket } from "../backup/backup-events-ws-handler"
 import { handleEsriRouteImport } from "../map-routes/map-route-import-ws-handler";
 import { handleWalksManagerSync } from "../walks/walks-manager-sync-ws-handler";
 import { handleContentMigrationScanHosts, handleContentMigrationScan, handleContentMigrationExecute, handleContentMigrationCancel } from "../image-migration/image-migration-ws-handler";
-import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData, EnvironmentCreateWsData } from "../environment-setup/environment-setup-ws-handler";
+import {
+  handleEnvironmentSetup,
+  handleEnvironmentCreate,
+  handleFlyOrgMigrate,
+  EnvironmentSetupWsData,
+  EnvironmentCreateWsData,
+  FlyOrgMigrateWsData
+} from "../environment-setup/environment-setup-ws-handler";
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 import { registerWebSocketServer } from "./websocket-broadcaster";
 import { handleLegacyUrlScrape } from "../legacy-redirect/legacy-redirect-ws-handler";
@@ -53,6 +60,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.CONTENT_MIGRATION_CANCEL]: async (ws: WebSocket, data: any) => handleContentMigrationCancel(ws, data),
   [EventType.ENVIRONMENT_SETUP]: async (ws: WebSocket, data: EnvironmentSetupWsData) => handleEnvironmentSetup(ws, data),
   [EventType.ENVIRONMENT_CREATE]: async (ws: WebSocket, data: EnvironmentCreateWsData) => handleEnvironmentCreate(ws, data),
+  [EventType.FLY_ORG_MIGRATE]: async (ws: WebSocket, data: FlyOrgMigrateWsData) => handleFlyOrgMigrate(ws, data),
   [EventType.EXTERNAL_ALBUM_FETCH]: async (ws: WebSocket, data: any) => handleExternalAlbumFetch(ws, data),
   [EventType.EXTERNAL_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalAlbumImport(ws, data),
   [EventType.EXTERNAL_ALBUM_SPLIT_PREVIEW]: async (ws: WebSocket, data: any) => handleExternalAlbumSplitPreview(ws, data),

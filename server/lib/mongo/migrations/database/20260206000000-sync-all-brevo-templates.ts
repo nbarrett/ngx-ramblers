@@ -1,115 +1,15 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-import { configuredBrevo } from "../../../brevo/brevo-config";
-import { seedBrevoTemplatesFromLocal } from "../../../brevo/templates/template-seeding";
-import { toPairs, isObject, keys } from "es-toolkit/compat";
 import { MigrationUpResult } from "../../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
-
-import { NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
 
 const debugLog = createMigrationLogger("sync-all-brevo-templates");
 
-const TEMPLATE_TO_SUBJECTS: Record<string, string[]> = {
-  "welcome-to-the-group": ["Welcome to The Group"],
-  "website-and-login-details": [
-    "Website Password Reset Instructions",
-    "Forgotten Password Reset",
-    "Your NGX-Ramblers Login"
-  ]
-};
-
-const DEFAULT_TEMPLATE = "fully-automated-text-body";
-
-async function autoMatchTemplatesToNotificationConfigs(db: Db, templateIdMap: Record<string, number>) {
-  const collection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
-  const unmatchedConfigs = await collection.find({
-    $or: [{templateId: null}, {templateId: {$exists: false}}]
-  }).toArray();
-
-  debugLog(`Found ${unmatchedConfigs.length} notification configs without template IDs`);
-
-  let matchedCount = 0;
-  for (const config of unmatchedConfigs) {
-    const subjectText = config.subject?.text;
-    if (!subjectText) continue;
-
-    let matchedTemplateName: string | null = null;
-    for (const [templateName, subjects] of toPairs(TEMPLATE_TO_SUBJECTS)) {
-      if (subjects.includes(subjectText)) {
-        matchedTemplateName = templateName;
-        break;
-      }
-    }
-
-    if (!matchedTemplateName && templateIdMap[DEFAULT_TEMPLATE]) {
-      matchedTemplateName = DEFAULT_TEMPLATE;
-    }
-
-    if (matchedTemplateName && templateIdMap[matchedTemplateName]) {
-      const templateId = templateIdMap[matchedTemplateName];
-      await collection.updateOne(
-        {_id: config._id},
-        {$set: {templateId}}
-      );
-      debugLog(`Matched "${subjectText}" → template "${matchedTemplateName}" (ID: ${templateId})`);
-      matchedCount++;
-    } else {
-      debugLog(`No template match for "${subjectText}"`);
-    }
-  }
-
-  debugLog(`Auto-matched ${matchedCount} of ${unmatchedConfigs.length} notification configs`);
+export async function up(_db: Db, _client: MongoClient): Promise<MigrationUpResult | void> {
+  const reason = "Email templates are rendered in NGX and sent via the Brevo API; Brevo no longer stores templates";
+  debugLog(reason);
+  return {skipped: true, reason};
 }
 
-export async function up(db: Db, client: MongoClient): Promise<MigrationUpResult | void> {
-  let brevoConfig = null;
-  try {
-    brevoConfig = await configuredBrevo();
-  } catch {
-    brevoConfig = null;
-  }
-
-  if (brevoConfig?.apiKey) {
-    try {
-      const seedResult = await seedBrevoTemplatesFromLocal();
-      debugLog(`Found ${seedResult.totalTemplates} local templates: ${seedResult.templateNames.join(", ")}`);
-      debugLog(`Template seeding completed: ${keys(seedResult.templateIdMap).length} templates available (created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount})`);
-
-      await autoMatchTemplatesToNotificationConfigs(db, seedResult.templateIdMap);
-    } catch (error) {
-      const apiError = error as any;
-      const statusCode = apiError?.statusCode || apiError?.response?.statusCode;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isAuthError = statusCode === 401 || statusCode === 403
-        || /Brevo API error \[(401|403)]/.test(errorMessage);
-      if (isAuthError) {
-        const reason = `Brevo API returned ${statusCode || "401/403"} — skipping template sync (API key may be invalid or sender not verified): ${errorMessage}`;
-        debugLog(reason);
-        return {skipped: true, reason};
-      } else {
-        debugLog(`Migration failed with error: ${error}`);
-        if (error instanceof Error) {
-          debugLog(`Error message: ${error.message}`);
-          debugLog(`Error stack: ${error.stack}`);
-        }
-        if (isObject(error)) {
-          debugLog(`Error details: ${JSON.stringify(error, null, 2)}`);
-        }
-        const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;
-        const apiErrorCode = apiError?.body?.code || apiError?.response?.body?.code;
-        const enhancedMessage = apiErrorMessage
-          ? `${errorMessage}: [${statusCode}] ${apiErrorCode} - ${apiErrorMessage}`
-          : errorMessage;
-        throw new Error(enhancedMessage);
-      }
-    }
-  } else {
-    const reason = "No Brevo API key configured — skipping template sync";
-    debugLog(reason);
-    return {skipped: true, reason};
-  }
-}
-
-export async function down(db: Db, client: MongoClient) {
-  debugLog("Down migration not implemented - template content cannot be automatically reverted");
+export async function down(_db: Db, _client: MongoClient) {
+  debugLog("Down migration not implemented");
 }

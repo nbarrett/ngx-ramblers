@@ -1,68 +1,15 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-import { createOrUpdateTemplate } from "../../../brevo/templates/template-management";
-import { configuredBrevo } from "../../../brevo/brevo-config";
-import { localTemplateHtml } from "../../../brevo/common/messages";
-import { isObject } from "es-toolkit/compat";
+import { MigrationUpResult } from "../../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
 
 const debugLog = createMigrationLogger("update-brevo-transactional-template");
-const TEMPLATE_NAME = "fully-automated-text-body";
-const TEMPLATE_SUBJECT = "{{params.messageMergeFields.subject}}";
 
-function readTemplateHtml(): string {
-  debugLog(`Reading template ${TEMPLATE_NAME}`);
-  return localTemplateHtml(TEMPLATE_NAME) ?? "";
+export async function up(_db: Db, _client: MongoClient): Promise<MigrationUpResult | void> {
+  const reason = "Email templates are rendered in NGX and sent via the Brevo API; Brevo no longer stores templates";
+  debugLog(reason);
+  return {skipped: true, reason};
 }
 
-export async function up(db: Db, client: MongoClient) {
-  let brevoConfig = null;
-  try {
-    brevoConfig = await configuredBrevo();
-  } catch {
-    brevoConfig = null;
-  }
-
-  if (brevoConfig?.apiKey) {
-    try {
-      const htmlContent = readTemplateHtml();
-      debugLog(`Template HTML loaded, length: ${htmlContent.length} characters`);
-
-      const templateId = await createOrUpdateTemplate({
-        templateName: TEMPLATE_NAME,
-        htmlContent,
-        subject: TEMPLATE_SUBJECT,
-        isActive: true
-      });
-
-      debugLog(`Template "${TEMPLATE_NAME}" created/updated with ID: ${templateId}`);
-      debugLog("Migration completed successfully");
-    } catch (error) {
-      const apiError = error as any;
-      const statusCode = apiError?.statusCode || apiError?.response?.statusCode;
-      if (statusCode === 401) {
-        debugLog("Brevo API key is invalid (401 unauthorised) — skipping migration");
-      } else {
-        debugLog(`Migration failed with error: ${error}`);
-        if (error instanceof Error) {
-          debugLog(`Error message: ${error.message}`);
-          debugLog(`Error stack: ${error.stack}`);
-        }
-        if (isObject(error)) {
-          debugLog(`Error details: ${JSON.stringify(error, null, 2)}`);
-        }
-        const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;
-        const apiErrorCode = apiError?.body?.code || apiError?.response?.body?.code;
-        const enhancedMessage = apiErrorMessage
-          ? `${error instanceof Error ? error.message : "Error"}: [${statusCode}] ${apiErrorCode} - ${apiErrorMessage}`
-          : (error instanceof Error ? error.message : String(error));
-        throw new Error(enhancedMessage);
-      }
-    }
-  } else {
-    debugLog("No Brevo API key configured, skipping migration");
-  }
-}
-
-export async function down(db: Db, client: MongoClient) {
+export async function down(_db: Db, _client: MongoClient) {
   debugLog("Down migration not implemented - template content cannot be automatically reverted");
 }

@@ -243,9 +243,9 @@ export async function authenticateSendingDomain(domainName: string, options: Dom
   const message = finalConfig.authenticated
     ? "Domain successfully authenticated"
     : authError && missingDkim
-      ? `Brevo code is configured in DNS, but Brevo did not return a DKIM record for ${domainName} via API. To complete authentication, open ${domainName} in Brevo, click "Authenticate", choose "Authenticate the domain yourself", then retry here.`
+      ? `Brevo code is configured in DNS, but Brevo did not return a DKIM record for ${domainName} via API. Complete authentication in the Brevo UI: open ${domainName}, click Authenticate, choose Authenticate the domain yourself, then retry here if needed.`
       : authError
-        ? `Authentication failed: ${authError}`
+        ? `Brevo could not finish domain authentication via API (${authError}). DNS records may already be in Cloudflare; complete authentication in the Brevo UI at ${BREVO_DOMAINS_URL} (open ${domainName}, click Authenticate), then re-check here later.`
         : "Authentication requested, DNS verification may still be propagating";
 
   return {

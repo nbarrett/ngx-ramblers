@@ -44,7 +44,7 @@
 .btn-primary
   color: $ramblers-colour-black
   background-color: $ramblers-colour-sunrise
-  border-color: $ramblers-colour-sunrise
+  border: 1px solid $ramblers-colour-sunrise
 
 
 .btn-primary.focus, .btn-primary:focus, .btn-primary:hover
@@ -76,7 +76,7 @@
 .btn-secondary
   color: $ramblers-colour-black
   background-color: $ramblers-colour-grey
-  border-color: $ramblers-colour-grey
+  border: 1px solid $ramblers-colour-grey
 
 
 .btn-secondary.focus, .btn-secondary:focus, .btn-secondary:hover
@@ -106,9 +106,21 @@
 
 
 .btn-quiet
+  --bs-btn-color: #{$ramblers-colour-black}
+  --bs-btn-bg: #{$ramblers-colour-grey}
+  --bs-btn-border-color: #{$ramblers-colour-grey}
+  --bs-btn-hover-color: #{$ramblers-colour-black}
+  --bs-btn-hover-bg: #{$ramblers-colour-sunrise}
+  --bs-btn-hover-border-color: #{$ramblers-colour-sunrise}
+  --bs-btn-active-color: #{$ramblers-colour-black}
+  --bs-btn-active-bg: #{$ramblers-colour-sunrise-hover-border}
+  --bs-btn-active-border-color: #{$ramblers-colour-sunrise-hover-border}
+  --bs-btn-disabled-color: #{$ramblers-colour-black}
+  --bs-btn-disabled-bg: #{$ramblers-colour-grey}
+  --bs-btn-disabled-border-color: #{$ramblers-colour-grey}
   color: $ramblers-colour-black
   background-color: $ramblers-colour-grey
-  border-color: $ramblers-colour-grey
+  border: 1px solid $ramblers-colour-grey
 
 
 .btn-quiet.focus, .btn-quiet:focus, .btn-quiet:hover
@@ -125,6 +137,7 @@
   color: $ramblers-colour-black
   background-color: $ramblers-colour-grey
   border-color: $ramblers-colour-grey
+  opacity: 1
 
 
 .btn-quiet:not(:disabled):not(.disabled).active, .btn-quiet:not(:disabled):not(.disabled):active, .show > .btn-quiet.dropdown-toggle
@@ -134,9 +147,15 @@
 
 
 .btn-outline-ramblers
+  --bs-btn-color: #{$ramblers-colour-black}
+  --bs-btn-bg: #fff
+  --bs-btn-border-color: #{$ramblers-colour-sunrise}
+  --bs-btn-hover-color: #{$ramblers-colour-black}
+  --bs-btn-hover-bg: #{$ramblers-colour-sunrise}
+  --bs-btn-hover-border-color: #{$ramblers-colour-sunrise}
   color: $ramblers-colour-black
   background-color: #fff
-  border-color: $ramblers-colour-sunrise
+  border: 1px solid $ramblers-colour-sunrise
 
 
 .btn-outline-ramblers.focus, .btn-outline-ramblers:focus, .btn-outline-ramblers:hover
@@ -294,7 +313,7 @@
 
 .btn-outline-sunset
   color: $ramblers-colour-sunset
-  border-color: $ramblers-colour-sunset
+  border: 1px solid $ramblers-colour-sunset
   background-color: transparent
 
 .btn-outline-sunset.focus, .btn-outline-sunset:focus, .btn-outline-sunset:hover

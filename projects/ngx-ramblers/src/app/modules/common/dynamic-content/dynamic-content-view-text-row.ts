@@ -21,9 +21,16 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
 
 @Component({
     selector: "app-dynamic-content-view-text-row",
+    host: {
+      "[class]": "hostClasses()"
+    },
+    styles: [`
+      :host
+        display: block
+    `],
     template: `
       @if (actions.isTextRow(row)) {
-        <div [class]="actions.rowClasses(row)">
+        <div [class]="actions.rowClasses(row, { omitMargins: isNestedRow() })">
           @for (column of row?.columns; track column; let columnIndex = $index) {
             <div
               [class]="'col-sm-' + (column.columns||12)">
@@ -179,6 +186,14 @@ export class DynamicContentViewTextRow implements OnInit {
   @Input() public contentDescription: string;
   @Input() public bordered: boolean;
   @Input() pageContent!: PageContent;
+
+  isNestedRow(): boolean {
+    return this.parentRowIndex != null;
+  }
+
+  hostClasses(): string {
+    return this.isNestedRow() ? this.actions.rowMarginClasses(this.row) : "";
+  }
 
   ngOnInit() {
     const rowDescription = this.parentRowIndex ? this.actions.nestedInnerRowHeading(this.parentRowIndex, this.rowIndex, this.row.type) : "rowIndex:" + this.rowIndex + " type:" + this.row.type;

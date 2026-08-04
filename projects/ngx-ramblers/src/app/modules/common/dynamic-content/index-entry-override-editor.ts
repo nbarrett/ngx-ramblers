@@ -9,7 +9,8 @@ import {
   PageContent,
   PageContentColumn,
   PageContentRow,
-  PageContentType
+  PageContentType,
+  StringMatch
 } from "../../../models/content-text.model";
 import { ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
 import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
@@ -540,24 +541,32 @@ export class IndexEntryOverrideEditor {
       return [];
     }
 
-    const contentPathRegex = indexRow.albumIndex.contentPaths.map(cp => ({
-      path: ContentPathMatchConfigs[cp.stringMatch].mongoRegex(cp.contentPath)
-    }));
-    const childPages = await this.pageContentService.all({criteria: {$or: contentPathRegex}});
-    const childCarouselNames = childPages.flatMap(childPage =>
-      (childPage.rows || [])
-        .filter(row => this.actions.isCarouselOrAlbum(row))
-        .map(row => row.carousel.name)
-    ).filter(name => !!name);
-    const uniqueNames = [...new Set(childCarouselNames)];
-    this.logger.info("findChildAlbumMetadata: found", uniqueNames.length, "carousel names from", childPages.length, "child pages via albumIndex for:", href);
-
-    if (uniqueNames.length === 0) {
+    const contentPaths = (indexRow.albumIndex.contentPaths || []).filter(cp => !!cp?.contentPath);
+    const contentPathRegex = contentPaths.map(cp => {
+      const matchConfig = ContentPathMatchConfigs[cp.stringMatch] || ContentPathMatchConfigs[StringMatch.STARTS_WITH];
+      return {
+        path: matchConfig.mongoRegex(cp.contentPath)
+      };
+    });
+    if (contentPathRegex.length === 0) {
       return [];
+    } else {
+      const childPages = await this.pageContentService.all({criteria: {$or: contentPathRegex}});
+      const childCarouselNames = childPages.flatMap(childPage =>
+        (childPage.rows || [])
+          .filter(row => this.actions.isCarouselOrAlbum(row))
+          .map(row => row.carousel.name)
+      ).filter(name => !!name);
+      const uniqueNames = [...new Set(childCarouselNames)];
+      this.logger.info("findChildAlbumMetadata: found", uniqueNames.length, "carousel names from", childPages.length, "child pages via albumIndex for:", href);
+      if (uniqueNames.length === 0) {
+        return [];
+      } else {
+        const metadataResults = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+        this.logger.info("findChildAlbumMetadata: found", metadataResults?.length, "metadata records for", uniqueNames);
+        return metadataResults || [];
+      }
     }
-    const metadataResults = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
-    this.logger.info("findChildAlbumMetadata: found", metadataResults?.length, "metadata records for", uniqueNames);
-    return metadataResults || [];
   }
 
   private updatePreviewColumn(column: PageContentColumn, updates: Partial<PageContentColumn>) {

@@ -13,7 +13,7 @@ import { DateRangeSelector } from "../../../components/date-range-selector/date-
 import { DateValue } from "../../../models/date.model";
 import { PathSegment } from "../../../models/content-text.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { defaultProgrammeRange } from "../../../models/search.model";
+import { DATE_RANGE_DIRECTION_TABS, DateRangeDirection, defaultProgrammeRange } from "../../../models/search.model";
 import {
   ProgrammeOverviewStatus,
   ProgrammeSortDirection,
@@ -46,10 +46,13 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
       <div class="programme-sticky sticky-toolbar">
         <div class="view-row">
           <app-walk-programme-view-selector/>
-          <app-date-range-direction-selector [minDate]="minDate" [maxDate]="maxDate"/>
+          <app-date-range-direction-selector [minDate]="minDate" [maxDate]="maxDate"
+                                             [direction]="dateRangeDirection"
+                                             (directionChange)="onDirectionChange($event)"/>
         </div>
         <div class="programme-toolbar">
-          <app-date-range-selector class="range-controls" [minDate]="minDate" [maxDate]="maxDate" [range]="range"
+          <app-date-range-selector class="range-controls" [minDate]="minDate" [maxDate]="maxDate"
+                                   [direction]="dateRangeDirection" [range]="range"
                                    (rangeChange)="onRangeChange($event)"/>
         </div>
 
@@ -192,6 +195,7 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
   protected minDate: DateTime;
   protected maxDate: DateTime;
   protected range: DateRange;
+  protected dateRangeDirection: DateRangeDirection = DateRangeDirection.FUTURE;
   protected status: ProgrammeOverviewStatus | null = null;
   protected page = 1;
   protected readonly limit = 12;
@@ -247,12 +251,14 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
     const toParam = this.uiActions.queryParameter(StoredValue.DATE_TO);
     const statusParam = this.uiActions.queryParameter(StoredValue.STATUS);
     const pageParam = this.uiActions.queryParameter(StoredValue.PAGE);
+    const directionParam = this.uiActions.queryParameter(StoredValue.DATE_RANGE_DIRECTION);
     const startOfToday = this.dateUtils.dateTimeNowNoTime();
     const fromMillis = fromParam ? this.dateUtils.asValueNoTime(fromParam) : startOfToday.valueOf();
     const toMillis = toParam ? this.dateUtils.asValueNoTime(toParam) : startOfToday.plus({weeks: this.defaultWeeks()}).valueOf();
     this.dateFrom = this.dateUtils.asDateValue(fromMillis);
     this.dateTo = this.dateUtils.asDateValue(toMillis);
     this.range = {from: fromMillis, to: toMillis};
+    this.dateRangeDirection = DATE_RANGE_DIRECTION_TABS.find(tab => tab.value === directionParam)?.value || DateRangeDirection.FUTURE;
     this.status = this.validStatus(statusParam);
     this.page = pageParam ? Math.max(1, Number(pageParam)) : 1;
     this.load();
@@ -335,10 +341,15 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
     this.uiActions.updateQueryParameters({[StoredValue.STATUS]: null, [StoredValue.PAGE]: null});
   }
 
+  onDirectionChange(direction: DateRangeDirection) {
+    this.dateRangeDirection = direction;
+  }
+
   onRangeChange(range: DateRange) {
     this.uiActions.updateQueryParameters({
       [StoredValue.DATE_FROM]: this.dateUtils.asString(range.from, null, this.dateUtils.formats.yearMonthDayWithDashes),
       [StoredValue.DATE_TO]: this.dateUtils.asString(range.to, null, this.dateUtils.formats.yearMonthDayWithDashes),
+      [StoredValue.DATE_RANGE_DIRECTION]: this.dateRangeDirection,
       [StoredValue.PAGE]: null
     });
   }

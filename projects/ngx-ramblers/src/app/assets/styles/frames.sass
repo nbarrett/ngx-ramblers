@@ -75,30 +75,48 @@ iframe
   min-width: 0
   max-width: 100%
 
-  > .thumbnail-heading
-    display: flex
+  > .thumbnail-heading.thumbnail-heading-column
+    display: inline-flex
     flex-wrap: wrap
     align-items: center
-    column-gap: 6px
-    row-gap: 6px
-    width: 100%
+    gap: 8px
+    width: auto
     max-width: 100%
-    top: 0
-    margin-bottom: 0
-    background-color: transparent
-
-    > *
-      display: inline-flex
-      vertical-align: middle
-      margin-left: 0
+    line-height: 1
 
     > .column-heading-label
       flex: 0 0 auto
       white-space: nowrap
+      line-height: 1
+      margin: 0
 
-    > .drag-handle
-      float: none
-      margin-left: 0
+    > .column-heading-actions
+      display: inline-flex
+      flex-wrap: wrap
+      align-items: center
+      gap: 6px
+      flex: 0 0 auto
+      margin: 0
+      padding: 0
+      line-height: 1
+
+      > *
+        display: inline-flex
+        align-items: center
+        margin: 0
+
+      > * + *
+        margin-left: 0
+
+      > .drag-handle
+        float: none
+        margin: 0
+
+      .badge-button,
+      .badge-button-active
+        margin-bottom: 0
+        margin-right: 0
+        vertical-align: middle
 
 .thumbnail-site-edit-top-bottom-margins
   @extend .thumbnail-site-edit

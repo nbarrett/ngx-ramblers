@@ -9,6 +9,8 @@ import { loadSecretsWithFallback } from "../shared/secrets";
 import { resumeEnvironment } from "../cli/commands/environment";
 import { ResumeEnvironmentOptions } from "../cli/cli.model";
 import { createEnvironment, validateSetupRequest } from "./environment-setup-service";
+import { pluraliseWithCount } from "../shared/string-utils";
+import { migrateFlyOrganisation } from "../fly/fly-org-migration";
 
 export interface EnvironmentSetupWsData {
   environmentName: string;
@@ -106,6 +108,73 @@ export async function handleEnvironmentSetup(ws: WebSocket, data: EnvironmentSet
   }
 }
 
+export interface FlyOrgMigrateWsData {
+  environmentName: string;
+  destroyOldApp?: boolean;
+  reattachSubdomain?: boolean;
+  previousApiKey?: string;
+  previousOrganisation?: string;
+  previousAppName?: string;
+  newApiKey?: string;
+  newOrganisation?: string;
+  newAppName?: string;
+}
+
+export async function handleFlyOrgMigrate(ws: WebSocket, data: FlyOrgMigrateWsData): Promise<void> {
+  debugLog("handleFlyOrgMigrate received:", data);
+  const {
+    environmentName,
+    destroyOldApp,
+    reattachSubdomain,
+    previousApiKey,
+    previousOrganisation,
+    previousAppName,
+    newApiKey,
+    newOrganisation,
+    newAppName
+  } = data || {} as FlyOrgMigrateWsData;
+  if (!environmentName) {
+    sendError(ws, "environmentName is required");
+  } else {
+    try {
+      sendProgress(ws, `Starting Fly organisation migration for ${environmentName}...`);
+      const result = await migrateFlyOrganisation(
+        environmentName,
+        {
+          destroyOldApp,
+          reattachSubdomain,
+          previousApiKey,
+          previousOrganisation,
+          previousAppName,
+          newApiKey,
+          newOrganisation,
+          newAppName,
+          onDeployOutput: (line: string) => {
+            sendProgress(ws, `[deploy] ${line}`);
+          }
+        },
+        message => {
+          sendProgress(ws, message);
+        }
+      );
+      sendComplete(ws, `Fly organisation migration completed for ${environmentName}`, {
+        result: {
+          environmentName: result.environmentName,
+          appName: result.appName,
+          appUrl: result.appUrl,
+          oldAppDestroyed: result.oldAppDestroyed,
+          usedTemporaryAppName: result.usedTemporaryAppName,
+          temporaryAppName: result.temporaryAppName
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Fly organisation migration failed";
+      debugLog("handleFlyOrgMigrate error:", message);
+      sendError(ws, message);
+    }
+  }
+}
+
 export async function handleEnvironmentCreate(ws: WebSocket, data: EnvironmentCreateWsData): Promise<void> {
   debugLog("handleEnvironmentCreate received:", data);
 
@@ -139,13 +208,20 @@ export async function handleEnvironmentCreate(ws: WebSocket, data: EnvironmentCr
       }
     );
 
-    sendComplete(ws, "Environment created successfully", {
+    const warnings = result.warnings || [];
+    const completionMessage = warnings.length > 0
+      ? `Environment created with ${pluraliseWithCount(warnings.length, "step")} needing attention: ${warnings.map(warning => `${warning.step}: ${warning.message}`).join("; ")}`
+      : "Environment created successfully";
+    sendComplete(ws, completionMessage, {
       result: {
         environmentName: result.environmentName,
         appName: result.appName,
         appUrl: result.appUrl,
         configsJsonUpdated: result.configsJsonUpdated,
-        passwordResetId: result.passwordResetId
+        passwordResetId: result.passwordResetId,
+        adminUserName: result.adminUserName,
+        adminEmail: result.adminEmail,
+        warnings
       }
     });
 

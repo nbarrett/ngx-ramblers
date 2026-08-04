@@ -1324,6 +1324,36 @@ export interface CreateTemplateResponse {
   id: number;
 }
 
+export interface TemplateSeedFailure {
+  templateName: string;
+  message: string;
+}
+
+export enum TemplateSeedStatus {
+  CREATED = "created",
+  UPDATED = "updated",
+  SKIPPED = "skipped",
+  FAILED = "failed"
+}
+
+export interface TemplateSeedOutcome {
+  templateName: string;
+  status: TemplateSeedStatus;
+  templateId?: number;
+  message?: string;
+}
+
+export interface SeedBrevoTemplatesResult {
+  templateIdMap: Record<string, number>;
+  templateNames: string[];
+  totalTemplates: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  failures: TemplateSeedFailure[];
+}
+
 export enum ForgotPasswordIdentificationMethod {
   EMAIL_OR_USERNAME = "email-or-username",
   MEMBERSHIP_DETAILS = "membership-details"

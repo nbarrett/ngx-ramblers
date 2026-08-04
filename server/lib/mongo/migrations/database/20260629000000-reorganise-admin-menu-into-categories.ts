@@ -1,17 +1,12 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { pullBannersOntoAdminLanding, renameSendNotificationToEmailComposer } from "../shared/admin-menu-actions";
-import { deduplicateActionButtonsByHref, deduplicatePageContentDocuments, ensureActionButton, ensureActionButtons, removeActionButtonByHref } from "../shared/page-content-actions";
+import { ensureActionButton, removeActionButtonByHref } from "../shared/page-content-actions";
 import {
-  ADMIN_CATEGORY_MENU_ITEMS,
-  CONTENT_MENU_ITEMS,
   INBOX_MENU_ITEM,
-  MEMBERS_MENU_ITEMS,
-  PLATFORM_MENU_ITEMS,
-  PROFILE_MENU_ITEMS,
-  SEND_NOTIFICATION_MENU_ITEM,
-  SETTINGS_MENU_ITEMS
+  SEND_NOTIFICATION_MENU_ITEM
 } from "../shared/admin-menu-items";
+import { seedAdminMenuStructure } from "../shared/seed-admin-menu";
 import {
   AdminContentPath,
   AdminPath,
@@ -34,73 +29,6 @@ const LEGACY_ADMIN_CONTENT_LINKS = [
   { from: "admin/page-content-navigator", to: AdminContentPath.PAGE_CONTENT_NAVIGATOR },
   { from: "admin/content-templates", to: AdminContentPath.CONTENT_TEMPLATES },
 ];
-const CATEGORY_PATHS: { path: string; items: typeof PROFILE_MENU_ITEMS }[] = [
-  { path: "admin/profile#action-buttons", items: PROFILE_MENU_ITEMS },
-  { path: MEMBERS_PATH, items: MEMBERS_MENU_ITEMS },
-  { path: "admin/content#action-buttons", items: CONTENT_MENU_ITEMS },
-  { path: "admin/settings#action-buttons", items: SETTINGS_MENU_ITEMS },
-  { path: "admin/platform#action-buttons", items: PLATFORM_MENU_ITEMS },
-];
-
-async function ensurePageContentDocumentExists(db: Db, path: string): Promise<boolean> {
-  const collection = db.collection(PAGE_CONTENT_COLLECTION);
-  await deduplicatePageContentDocuments(db, path, debugLog);
-  const existing = await collection.findOne({ path }, { sort: { _id: 1 } });
-  if (existing) {
-    debugLog("Page content document already exists for %s", path);
-    return false;
-  }
-  await collection.insertOne({
-    path,
-    rows: [{
-      maxColumns: 3,
-      showSwiper: false,
-      type: "action-buttons",
-      columns: []
-    }]
-  });
-  debugLog("Created page content document for %s", path);
-  return true;
-}
-
-async function replaceAdminLandingButtons(db: Db): Promise<void> {
-  const collection = db.collection(PAGE_CONTENT_COLLECTION);
-  await deduplicatePageContentDocuments(db, ADMIN_PATH, debugLog);
-  let target = await collection.findOne({ path: ADMIN_PATH }, { sort: { _id: 1 } });
-  if (!target) {
-    debugLog("No page content document found for %s, creating one", ADMIN_PATH);
-    await collection.insertOne({
-      path: ADMIN_PATH,
-      rows: [{
-        maxColumns: 3,
-        showSwiper: false,
-        type: "action-buttons",
-        columns: []
-      }]
-    });
-    target = await collection.findOne({ path: ADMIN_PATH }, { sort: { _id: 1 } });
-  }
-  const actionButtonsRow = (target?.rows || []).findIndex(
-    (row: any) => row?.type === "action-buttons"
-  );
-  if (actionButtonsRow < 0) {
-    debugLog("No action-buttons row found in %s, cannot replace columns", ADMIN_PATH);
-    return;
-  }
-  const columns = ADMIN_CATEGORY_MENU_ITEMS.map(item => ({
-    accessLevel: item.accessLevel,
-    title: item.title,
-    icon: item.icon,
-    href: item.href,
-    contentText: item.contentText,
-  }));
-  const setField = `rows.${actionButtonsRow}.columns`;
-  await collection.updateOne(
-    { _id: target._id },
-    { $set: { [setField]: columns } }
-  );
-  debugLog("Replaced admin landing page buttons with %d category buttons", columns.length);
-}
 
 async function migrateEnvironmentManagementPath(db: Db): Promise<void> {
   const collection = db.collection(PAGE_CONTENT_COLLECTION);
@@ -269,14 +197,7 @@ export async function up(db: Db) {
 
   await migrateEnvironmentManagementPath(db);
   await fixEnvironmentManagementHrefs(db);
-  await replaceAdminLandingButtons(db);
-
-  for (const { path, items } of CATEGORY_PATHS) {
-    await ensurePageContentDocumentExists(db, path);
-    const addedCount = await ensureActionButtons(db, path, items, debugLog);
-    await deduplicateActionButtonsByHref(db, path, debugLog);
-    debugLog("Seeded %d action buttons for %s", addedCount, path);
-  }
+  await seedAdminMenuStructure(db, debugLog);
   await removeDuplicateAndMovedButtons(db);
   await setMembersLandingColumns(db);
   await updateLegacyAdminContentLinks(db);

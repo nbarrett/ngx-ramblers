@@ -122,7 +122,7 @@ export function createAboutUsPageContent(params: PageContentTemplateParams): Pag
   };
 }
 
-export function createAdminActionButtons(params: PageContentTemplateParams): PageContent {
+export function createAdminActionButtons(_params: PageContentTemplateParams): PageContent {
   return {
     path: "admin#action-buttons",
     rows: [

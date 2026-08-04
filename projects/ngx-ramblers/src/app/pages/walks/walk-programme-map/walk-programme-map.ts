@@ -14,7 +14,7 @@ import { WalksMapView } from "../walk-list/walks-map-view";
 import { DateRange } from "../../../components/date-range-slider/date-range-slider";
 import { DateRangeSelector } from "../../../components/date-range-selector/date-range-selector";
 import { StoredValue } from "../../../models/ui-actions";
-import { defaultProgrammeRange } from "../../../models/search.model";
+import { DATE_RANGE_DIRECTION_TABS, DateRangeDirection, defaultProgrammeRange } from "../../../models/search.model";
 import {
   displayedWalkProgrammeStatus,
   ProgrammeOverviewStatus,
@@ -44,11 +44,13 @@ const ALL_STATUSES = "all-statuses";
     <app-page autoTitle>
       <div class="view-row">
           <app-walk-programme-view-selector/>
-          <app-date-range-direction-selector [minDate]="minDate" [maxDate]="maxDate"/>
+          <app-date-range-direction-selector [minDate]="minDate" [maxDate]="maxDate"
+                                             [direction]="dateRangeDirection"
+                                             (directionChange)="onDirectionChange($event)"/>
         </div>
       <div class="programme-map">
-        <app-date-range-selector [minDate]="minDate" [maxDate]="maxDate" [range]="range"
-                                 (rangeChange)="onRangeChange($event)"/>
+        <app-date-range-selector [minDate]="minDate" [maxDate]="maxDate" [direction]="dateRangeDirection"
+                                 [range]="range" (rangeChange)="onRangeChange($event)"/>
         <app-section-toggle [tabs]="statusTabs()" [selectedTab]="status || ALL_STATUSES"
                             (selectedTabChange)="selectStatusTab($event)"/>
 
@@ -61,7 +63,8 @@ const ALL_STATUSES = "all-statuses";
             </div>
           </div>
         } @else {
-          <app-walks-map-view [filteredWalks]="filteredWalks" [loading]="loading" [showControlsByDefault]="false"/>
+          <app-walks-map-view [filteredWalks]="filteredWalks" [loading]="loading" [showControlsByDefault]="false"
+                              (selected)="onMapSelect($event)"/>
         }
       </div>
     </app-page>
@@ -86,6 +89,7 @@ export class WalkProgrammeMapComponent implements OnInit, OnDestroy {
   protected minDate: DateTime;
   protected maxDate: DateTime;
   protected range: DateRange;
+  protected dateRangeDirection: DateRangeDirection = DateRangeDirection.FUTURE;
   private allWalks: DisplayedWalk[] = [];
   protected filteredWalks: DisplayedWalk[] = [];
   protected readonly faTriangleExclamation = faTriangleExclamation;
@@ -116,18 +120,31 @@ export class WalkProgrammeMapComponent implements OnInit, OnDestroy {
   private loadFromUrl() {
     const fromParam = this.uiActions.queryParameter(StoredValue.DATE_FROM);
     const toParam = this.uiActions.queryParameter(StoredValue.DATE_TO);
+    const directionParam = this.uiActions.queryParameter(StoredValue.DATE_RANGE_DIRECTION);
     const startOfToday = this.dateUtils.dateTimeNowNoTime();
     const fromMillis = fromParam ? this.dateUtils.asValueNoTime(fromParam) : startOfToday.valueOf();
     const toMillis = toParam ? this.dateUtils.asValueNoTime(toParam) : startOfToday.plus({weeks: this.defaultWeeks()}).valueOf();
     this.range = {from: fromMillis, to: toMillis};
+    this.dateRangeDirection = DATE_RANGE_DIRECTION_TABS.find(tab => tab.value === directionParam)?.value || DateRangeDirection.FUTURE;
     this.status = this.validStatus(this.uiActions.queryParameter(StoredValue.STATUS));
     this.reload();
+  }
+
+  onDirectionChange(direction: DateRangeDirection) {
+    this.dateRangeDirection = direction;
+  }
+
+  onMapSelect(displayedWalk: DisplayedWalk) {
+    if (displayedWalk?.walk) {
+      void this.display.openWalkView(displayedWalk.walk);
+    }
   }
 
   onRangeChange(range: DateRange) {
     this.uiActions.updateQueryParameters({
       [StoredValue.DATE_FROM]: this.dateUtils.asString(range.from, null, this.dateUtils.formats.yearMonthDayWithDashes),
-      [StoredValue.DATE_TO]: this.dateUtils.asString(range.to, null, this.dateUtils.formats.yearMonthDayWithDashes)
+      [StoredValue.DATE_TO]: this.dateUtils.asString(range.to, null, this.dateUtils.formats.yearMonthDayWithDashes),
+      [StoredValue.DATE_RANGE_DIRECTION]: this.dateRangeDirection
     });
   }
 

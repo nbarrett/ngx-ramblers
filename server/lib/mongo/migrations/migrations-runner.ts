@@ -25,14 +25,33 @@ debugLog.enabled = true;
 const CHANGELOG_COLLECTION = "changelog";
 const CHANGELOG_SIMULATION_COLLECTION = "changelogSimulation";
 
-const normalizeMigrationFileName = (fileName: string) => fileName?.replace(/\.ts$/, ".js");
+const normaliseMigrationFileName = (fileName: string) => fileName?.replace(/\.ts$/, ".js");
 
 const MANUAL_FLAG_PATTERN = /(?:export\s+const\s+manual|exports\.manual)\s*(?::[^=]+)?=\s*(?:true|!0)\b/;
+
+const RETIRED_BREVO_TEMPLATE_MIGRATIONS = new Set([
+  "20260120000000-update-brevo-transactional-template.js",
+  "20260206000000-sync-all-brevo-templates.js",
+  "20260406000000-apply-ramblers-aligned-email-templates.js",
+  "20260406210000-refresh-ramblers-email-templates.js",
+  "20260503120000-sync-brevo-templates-body-content-placement.js"
+].map(normaliseMigrationFileName));
+
+const RETIRED_BREVO_TEMPLATE_SKIP_REASON =
+  "Email templates are rendered in NGX and sent via the Brevo API; Brevo no longer stores templates";
+
+function isRetiredBrevoTemplateMigration(fileName: string): boolean {
+  return RETIRED_BREVO_TEMPLATE_MIGRATIONS.has(normaliseMigrationFileName(fileName));
+}
+
+function isExternalEmailServiceFailure(message: string): boolean {
+  return /brevo|sendinblue|smtp template|invalid_parameter|err_body|sandbox restriction|dkim|domain authentication|template.*create failed|template.*update failed|failed processing template/i.test(message);
+}
 
 function manualMigrationFileNames(): Set<string> {
   return new Set(
     (migrateMongoConfig().manualMigrations || [])
-      .map(normalizeMigrationFileName)
+      .map(normaliseMigrationFileName)
       .filter(Boolean)
   );
 }
@@ -206,11 +225,13 @@ export async function clearFailedMigrations() {
     const db = client.db();
     const collectionName = await activeChangelogCollection();
     const changelogCollection = db.collection(collectionName);
-
-    const result = await changelogCollection.deleteMany({ error: { $exists: true } });
-    debugLog(`Removed ${result.deletedCount} failed migration entries from ${collectionName} collection`);
-
-    return { success: true, deletedCount: result.deletedCount };
+    const skippedReason = "Ignored by admin after failure";
+    const result = await changelogCollection.updateMany(
+      {error: {$exists: true, $ne: null}},
+      {$set: {skippedReason, appliedAt: dateTimeNow().toJSDate()}, $unset: {error: ""}}
+    );
+    debugLog(`Ignored ${result.modifiedCount} failed migration entries in ${collectionName} (marked skipped)`);
+    return {success: true, deletedCount: result.modifiedCount};
   } catch (error) {
     debugLog("Failed to clear failed migrations:", error);
     throw error;
@@ -218,30 +239,30 @@ export async function clearFailedMigrations() {
 }
 
 export class MigrationRunner {
-  private normalizedToActualFileMap = new Map<string, string>();
+  private normalisedToActualFileMap = new Map<string, string>();
   private migrationMetadataCache = new Map<string, MigrationMetadata>();
-  private async loadMigrationMetadata(normalizedFileName: string, actualFileName?: string): Promise<MigrationMetadata> {
-    if (!normalizedFileName) {
+  private async loadMigrationMetadata(normalisedFileName: string, actualFileName?: string): Promise<MigrationMetadata> {
+    if (!normalisedFileName) {
       return { manual: false };
     }
-    if (this.migrationMetadataCache.has(normalizedFileName)) {
-      return this.migrationMetadataCache.get(normalizedFileName)!;
+    if (this.migrationMetadataCache.has(normalisedFileName)) {
+      return this.migrationMetadataCache.get(normalisedFileName)!;
     }
     if (!actualFileName) {
       const metadata = { manual: false };
-      this.migrationMetadataCache.set(normalizedFileName, metadata);
+      this.migrationMetadataCache.set(normalisedFileName, metadata);
       return metadata;
     }
     try {
       const migrationPath = path.join(migrateMongoConfig().migrationsDir, actualFileName);
       const source = fs.readFileSync(migrationPath, "utf-8");
       const metadata = { manual: MANUAL_FLAG_PATTERN.test(source) };
-      this.migrationMetadataCache.set(normalizedFileName, metadata);
+      this.migrationMetadataCache.set(normalisedFileName, metadata);
       return metadata;
     } catch (error) {
-      debugLog(`Failed to load migration metadata for ${normalizedFileName}:`, error);
+      debugLog(`Failed to load migration metadata for ${normalisedFileName}:`, error);
       const metadata = { manual: false };
-      this.migrationMetadataCache.set(normalizedFileName, metadata);
+      this.migrationMetadataCache.set(normalisedFileName, metadata);
       return metadata;
     }
   }
@@ -250,14 +271,14 @@ export class MigrationRunner {
     if (!fileName) {
       return false;
     }
-    const normalized = normalizeMigrationFileName(fileName);
-    if (!normalized) {
+    const normalised = normaliseMigrationFileName(fileName);
+    if (!normalised) {
       return false;
     }
-    if (manualMigrationFileNames().has(normalized)) {
+    if (manualMigrationFileNames().has(normalised)) {
       return true;
     }
-    const metadata = await this.loadMigrationMetadata(normalized, actualFileName);
+    const metadata = await this.loadMigrationMetadata(normalised, actualFileName);
     return metadata.manual;
   }
 
@@ -279,6 +300,7 @@ export class MigrationRunner {
       collectionResolvedMs = dateTimeNow().toMillis();
       debugLog("Using collection:", collectionName);
       const changelogCollection = db.collection(collectionName);
+      await this.retireBrevoTemplateMigrationsInChangelog(changelogCollection);
       const appliedMigrations = await changelogCollection.find({}).toArray();
       changelogQueriedMs = dateTimeNow().toMillis();
       debugLog("Found", appliedMigrations.length, "entries in", collectionName);
@@ -294,7 +316,7 @@ export class MigrationRunner {
       });
 
       const allFiles: string[] = [];
-      this.normalizedToActualFileMap.clear();
+      this.normalisedToActualFileMap.clear();
       const config = migrateMongoConfig();
 
       if (fs.existsSync(config.migrationsDir)) {
@@ -304,10 +326,10 @@ export class MigrationRunner {
           .sort();
 
         for (const file of filesOnDisk) {
-          const normalized = file.replace(/\.ts$/, ".js");
-          if (!this.normalizedToActualFileMap.has(normalized)) {
-            this.normalizedToActualFileMap.set(normalized, file);
-            allFiles.push(normalized);
+          const normalised = file.replace(/\.ts$/, ".js");
+          if (!this.normalisedToActualFileMap.has(normalised)) {
+            this.normalisedToActualFileMap.set(normalised, file);
+            allFiles.push(normalised);
           }
         }
       }
@@ -318,7 +340,7 @@ export class MigrationRunner {
         const appliedAsIs = appliedMap.get(fileName);
         const appliedAsTs = appliedMap.get(fileName.replace(/\.js$/, ".ts"));
         const applied = appliedAsIs || appliedAsTs;
-        const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
+        const actualFileName = this.normalisedToActualFileMap.get(fileName) || fileName;
         const manual = await this.isManualMigration(fileName, actualFileName);
 
         if (applied?.error) {
@@ -357,11 +379,11 @@ export class MigrationRunner {
       }
 
       for (const m of appliedMigrations) {
-        const normalizedFileName = m.fileName.replace(/\.ts$/, ".js");
-        if (!allFiles.includes(normalizedFileName) && m.error) {
-          const manual = await this.isManualMigration(normalizedFileName);
+        const normalisedFileName = m.fileName.replace(/\.ts$/, ".js");
+        if (!allFiles.includes(normalisedFileName) && m.error) {
+          const manual = await this.isManualMigration(normalisedFileName);
           files.push({
-            fileName: normalizedFileName,
+            fileName: normalisedFileName,
             status: MigrationFileStatus.FAILED,
             timestamp: appliedAtTimestamp(m.appliedAt),
             error: m.error,
@@ -392,7 +414,7 @@ export class MigrationRunner {
   }
 
   async runPendingMigrations(): Promise<MigrationRetryResult> {
-    debugLog("Checking for pending migrations...");
+    debugLog("Checking for pending and failed migrations...");
     try {
       const config = migrateMongoConfig();
       if (!config) {
@@ -406,15 +428,14 @@ export class MigrationRunner {
       }
 
       const pendingFiles = status.files.filter(f => f.status === MigrationFileStatus.PENDING);
+      const failedFiles = status.files.filter(f => f.status === MigrationFileStatus.FAILED);
       const appliedCount = status.files.filter(f => f.status === MigrationFileStatus.APPLIED).length;
       const skippedCount = status.files.filter(f => f.status === MigrationFileStatus.SKIPPED).length;
-      const failedCount = status.files.filter(f => f.status === MigrationFileStatus.FAILED).length;
 
-      debugLog(`Migration status: ${appliedCount} applied, ${skippedCount} skipped, ${pendingFiles.length} pending, ${failedCount} failed`);
+      debugLog(`Migration status: ${appliedCount} applied, ${skippedCount} skipped, ${pendingFiles.length} pending, ${failedFiles.length} failed`);
 
-      if (failedCount > 0) {
-        const failedFileNames = status.files.filter(f => f.status === MigrationFileStatus.FAILED).map(f => f.fileName);
-        debugLog(`Failed migrations: ${failedFileNames.join(", ")}`);
+      if (failedFiles.length > 0) {
+        debugLog(`Failed migrations to retry: ${failedFiles.map(f => f.fileName).join(", ")}`);
       }
 
       const manualPendingFiles = pendingFiles.filter(f => Boolean(f.manual));
@@ -422,14 +443,17 @@ export class MigrationRunner {
         debugLog(`Skipping ${manualPendingFiles.length} manual migration(s):`, manualPendingFiles.map(f => f.fileName));
       }
 
-      const pendingFilesToRun = pendingFiles.filter(f => !Boolean(f.manual));
+      const filesToRun = [
+        ...pendingFiles.filter(f => !Boolean(f.manual)),
+        ...failedFiles.filter(f => !Boolean(f.manual))
+      ];
 
-      if (pendingFilesToRun.length === 0) {
-        debugLog("No pending migrations to apply (manual migrations skipped)");
+      if (filesToRun.length === 0) {
+        debugLog("No pending or failed migrations to apply (manual migrations skipped)");
         return { success: true, appliedFiles: [] };
       }
 
-      debugLog(`Applying ${pendingFilesToRun.length} pending migration(s):`, pendingFilesToRun.map(f => f.fileName));
+      debugLog(`Applying ${filesToRun.length} migration(s):`, filesToRun.map(f => f.fileName));
 
       const client = await mongoClient();
       const db = client.db();
@@ -438,14 +462,31 @@ export class MigrationRunner {
 
       const appliedFiles: string[] = [];
 
-      for (const file of pendingFilesToRun) {
+      for (const file of filesToRun) {
         const fileName = file.fileName;
-        const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
+        const actualFileName = this.normalisedToActualFileMap.get(fileName) || fileName;
         debugLog(`Running migration: ${fileName} (actual file: ${actualFileName})`);
         const migrationPath = path.join(config.migrationsDir, actualFileName);
         const startedAt = dateTimeNow().toJSDate();
 
         try {
+          if (file.status === MigrationFileStatus.FAILED) {
+            await changelogCollection.deleteOne({fileName});
+            await changelogCollection.deleteOne({fileName: fileName.replace(/\.js$/, ".ts")});
+          }
+
+          if (isRetiredBrevoTemplateMigration(fileName)) {
+            await changelogCollection.insertOne({
+              fileName,
+              startedAt,
+              appliedAt: dateTimeNow().toJSDate(),
+              skippedReason: RETIRED_BREVO_TEMPLATE_SKIP_REASON
+            });
+            debugLog(`Retired Brevo template migration skipped: ${fileName}`);
+            appliedFiles.push(fileName);
+            continue;
+          }
+
           const loadedMigration = await import(migrationPath);
           const migration = loadedMigration.default || loadedMigration;
 
@@ -471,14 +512,27 @@ export class MigrationRunner {
           await changelogCollection.insertOne(changelogEntry);
           appliedFiles.push(fileName);
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
           debugLog(`Failed to apply migration ${fileName}:`, error);
-          await changelogCollection.insertOne({
-            fileName,
-            startedAt,
-            appliedAt: dateTimeNow().toJSDate(),
-            error: error.message
-          });
-          return { success: false, error: `Migration ${fileName} failed: ${error.message}`, appliedFiles };
+          if (isExternalEmailServiceFailure(errorMessage)) {
+            const skippedReason = `Skipped after external email/Brevo failure: ${errorMessage}`;
+            debugLog(skippedReason);
+            await changelogCollection.insertOne({
+              fileName,
+              startedAt,
+              appliedAt: dateTimeNow().toJSDate(),
+              skippedReason
+            });
+            appliedFiles.push(fileName);
+          } else {
+            await changelogCollection.insertOne({
+              fileName,
+              startedAt,
+              appliedAt: dateTimeNow().toJSDate(),
+              error: errorMessage
+            });
+            return { success: false, error: `Migration ${fileName} failed: ${errorMessage}`, appliedFiles };
+          }
         }
       }
 
@@ -504,7 +558,20 @@ export class MigrationRunner {
       const changelogCollection = db.collection(collectionName);
       await changelogCollection.deleteOne({ fileName });
       await changelogCollection.deleteOne({ fileName: fileName.replace(/\.js$/, ".ts") });
-      const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
+      const normalisedName = normaliseMigrationFileName(fileName);
+
+      if (isRetiredBrevoTemplateMigration(normalisedName)) {
+        await changelogCollection.insertOne({
+          fileName: normalisedName,
+          startedAt,
+          appliedAt: dateTimeNow().toJSDate(),
+          skippedReason: RETIRED_BREVO_TEMPLATE_SKIP_REASON
+        });
+        debugLog(`Retired Brevo template migration skipped: ${normalisedName}`);
+        return { success: true, appliedFiles: [normalisedName] };
+      }
+
+      const actualFileName = this.normalisedToActualFileMap.get(normalisedName) || fileName;
       const migrationPath = path.join(config.migrationsDir, actualFileName);
       const loadedMigration = await import(migrationPath);
       const migration = loadedMigration.default || loadedMigration;
@@ -515,29 +582,79 @@ export class MigrationRunner {
 
       const upResult: MigrationUpResult = await migration.up(db, client) || {};
 
-      const changelogEntry: Record<string, any> = { fileName, startedAt, appliedAt: dateTimeNow().toJSDate() };
+      const changelogEntry: Record<string, any> = { fileName: normalisedName, startedAt, appliedAt: dateTimeNow().toJSDate() };
 
       if (upResult.skipped) {
         changelogEntry.skippedReason = upResult.reason || "Migration skipped";
-        debugLog(`Migration skipped: ${fileName} — ${changelogEntry.skippedReason}`);
+        debugLog(`Migration skipped: ${normalisedName} — ${changelogEntry.skippedReason}`);
       } else {
-        debugLog(`Successfully applied migration: ${fileName}`);
+        debugLog(`Successfully applied migration: ${normalisedName}`);
       }
 
       await changelogCollection.insertOne(changelogEntry);
-      return { success: true, appliedFiles: [fileName] };
+      return { success: true, appliedFiles: [normalisedName] };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const client = await mongoClient();
       const db = client.db();
       const collectionName = await activeChangelogCollection();
       const changelogCollection = db.collection(collectionName);
+      const normalisedName = normaliseMigrationFileName(fileName);
+      if (isExternalEmailServiceFailure(errorMessage) || isRetiredBrevoTemplateMigration(normalisedName)) {
+        const skippedReason = isRetiredBrevoTemplateMigration(normalisedName)
+          ? RETIRED_BREVO_TEMPLATE_SKIP_REASON
+          : `Skipped after external email/Brevo failure: ${errorMessage}`;
+        debugLog(skippedReason);
+        await changelogCollection.insertOne({
+          fileName: normalisedName,
+          startedAt,
+          appliedAt: dateTimeNow().toJSDate(),
+          skippedReason
+        });
+        return { success: true, appliedFiles: [normalisedName] };
+      }
       await changelogCollection.insertOne({
-        fileName,
+        fileName: normalisedName,
         startedAt,
         appliedAt: dateTimeNow().toJSDate(),
-        error: error.message
+        error: errorMessage
       });
-      return { success: false, error: error.message, appliedFiles: [] };
+      return { success: false, error: errorMessage, appliedFiles: [] };
+    }
+  }
+
+  private async retireBrevoTemplateMigrationsInChangelog(changelogCollection: any): Promise<void> {
+    const retiredNames = Array.from(RETIRED_BREVO_TEMPLATE_MIGRATIONS);
+    const failedRetired = await changelogCollection.updateMany(
+      {
+        error: {$exists: true, $ne: null},
+        $or: [
+          {fileName: {$in: retiredNames}},
+          {fileName: {$in: retiredNames.map(name => name.replace(/\.js$/, ".ts"))}}
+        ]
+      },
+      {$set: {skippedReason: RETIRED_BREVO_TEMPLATE_SKIP_REASON, appliedAt: dateTimeNow().toJSDate()}, $unset: {error: ""}}
+    );
+    if (failedRetired.modifiedCount > 0) {
+      debugLog(`Auto-retired ${failedRetired.modifiedCount} failed Brevo template migration(s) as skipped`);
+    }
+    const missing = await Promise.all(retiredNames.map(async fileName => {
+      const existing = await changelogCollection.findOne({
+        $or: [{fileName}, {fileName: fileName.replace(/\.js$/, ".ts")}]
+      });
+      if (existing) {
+        return null;
+      }
+      await changelogCollection.insertOne({
+        fileName,
+        appliedAt: dateTimeNow().toJSDate(),
+        skippedReason: RETIRED_BREVO_TEMPLATE_SKIP_REASON
+      });
+      return fileName;
+    }));
+    const inserted = missing.filter(Boolean);
+    if (inserted.length > 0) {
+      debugLog(`Recorded ${inserted.length} missing retired Brevo template migration(s) as skipped:`, inserted);
     }
   }
 }

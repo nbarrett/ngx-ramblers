@@ -21,6 +21,7 @@ import {
   OperationInProgress,
   SetupMode,
   SetupProgress,
+  SetupWarning,
   ValidationResult
 } from "../../../models/environment-setup.model";
 import { FlyioMemory } from "../../../models/environment-config.model";
@@ -133,7 +134,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                              (change)="setSetupMode(SetupMode.MANAGE)">
                                       <label class="form-check-label" for="modeResume">
                                         <fa-icon [icon]="faRedo" class="me-2"></fa-icon>
-                                        Modify Existing Environment
+                                        Change existing environment
                                       </label>
                                     </div>
                                   </div>
@@ -286,7 +287,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                       }
                                     }
                                     <div class="stepper-nav">
-                                      <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
+                                      <button type="button" class="btn btn-quiet" (click)="cancel()">Cancel</button>
                                       <button type="button" class="btn btn-primary" (click)="goToStep(1)"
                                               [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
                                       </button>
@@ -381,7 +382,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                 }
                                 }
                                 <div class="stepper-nav">
-                                  <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
+                                  <button type="button" class="btn btn-quiet" (click)="cancel()">Cancel</button>
                                   <button type="button" class="btn btn-primary" (click)="goToStep(1)"
                                           [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
                                   </button>
@@ -476,7 +477,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     </app-secret-input>
                                   </div>
                                   <div class="col-md-4 d-flex align-items-end">
-                                    <button class="btn btn-secondary" (click)="validateMongodb()"
+                                    <button class="btn btn-quiet" (click)="validateMongodb()"
                                             [disabled]="mongoValidating">
                                       @if (mongoValidating) {
                                         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
@@ -532,6 +533,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                                       id="brevo-api-key"
                                                       placeholder="Enter your Brevo API key">
                                     </app-secret-input>
+                                    <small class="form-text text-muted">Emails are rendered in NGX and sent via the Brevo API. Templates are not stored in Brevo.</small>
                                   </div>
                                 </div>
                               </div>
@@ -566,7 +568,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                 </div>
                               </div>
                               <div class="stepper-nav">
-                                <button type="button" class="btn btn-secondary" (click)="goToStep(0)">Back</button>
+                                <button type="button" class="btn btn-quiet" (click)="goToStep(0)">Back</button>
                                 <button type="button" class="btn btn-primary" (click)="goToStep(2)"
                                         [disabled]="!canAccessStep(EnvironmentSetupStepperKey.ADMIN_USER)">Next
                                 </button>
@@ -616,17 +618,6 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     configs</label>
                                 </div>
                                 <div class="form-check">
-                                  <input [(ngModel)]="request.options.populateBrevoTemplates"
-                                         (ngModelChange)="brevoTemplatesOptionChanged()"
-                                         type="checkbox" class="form-check-input" id="populate-brevo-templates">
-                                  <label class="form-check-label" for="populate-brevo-templates">Populate Brevo templates</label>
-                                </div>
-                                <div class="form-check">
-                                  <input [(ngModel)]="request.options.authenticateBrevoDomain"
-                                         type="checkbox" class="form-check-input" id="authenticate-brevo-domain">
-                                  <label class="form-check-label" for="authenticate-brevo-domain">Authenticate Brevo sending domain</label>
-                                </div>
-                                <div class="form-check">
                                   <input [(ngModel)]="request.options.skipFlyDeployment"
                                          type="checkbox" class="form-check-input" id="skip-fly">
                                   <label class="form-check-label" for="skip-fly">Skip Fly.io deployment (database init
@@ -642,9 +633,18 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                          type="checkbox" class="form-check-input" id="setup-subdomain">
                                   <label class="form-check-label" for="setup-subdomain">Setup subdomain (DNS + SSL certificate)</label>
                                 </div>
+                                <div class="form-check">
+                                  <input [(ngModel)]="request.options.authenticateBrevoDomain"
+                                         (ngModelChange)="brevoDomainAuthOptionTouched = true"
+                                         type="checkbox" class="form-check-input" id="authenticate-brevo-domain">
+                                  <label class="form-check-label" for="authenticate-brevo-domain">
+                                    Authenticate Brevo sending domain
+                                    <span class="small text-muted">(after deploy and subdomain)</span>
+                                  </label>
+                                </div>
                               </div>
                               <div class="stepper-nav">
-                                <button type="button" class="btn btn-secondary" (click)="goToStep(1)">Back</button>
+                                <button type="button" class="btn btn-quiet" (click)="goToStep(1)">Back</button>
                                 <button type="button" class="btn btn-primary" (click)="goToStep(3)"
                                         [disabled]="!canAccessStep(EnvironmentSetupStepperKey.REVIEW)">Next
                                 </button>
@@ -701,16 +701,14 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <dd class="col-sm-6">{{ request.options.includeSamplePages ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Notification Configs</dt>
                                     <dd class="col-sm-6">{{ request.options.includeNotificationConfigs ? 'Yes' : 'No' }}</dd>
-                                    <dt class="col-sm-6">Populate Brevo Templates</dt>
-                                    <dd class="col-sm-6">{{ request.options.populateBrevoTemplates ? 'Yes' : 'No' }}</dd>
-                                    <dt class="col-sm-6">Authenticate Brevo Domain</dt>
-                                    <dd class="col-sm-6">{{ request.options.authenticateBrevoDomain ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Skip Fly.io</dt>
                                     <dd class="col-sm-6">{{ request.options.skipFlyDeployment ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Copy Standard Assets</dt>
                                     <dd class="col-sm-6">{{ request.options.copyStandardAssets ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Setup Subdomain</dt>
                                     <dd class="col-sm-6">{{ request.options.setupSubdomain ? 'Yes' : 'No' }}</dd>
+                                    <dt class="col-sm-6">Authenticate Brevo Domain</dt>
+                                    <dd class="col-sm-6">{{ request.options.authenticateBrevoDomain ? 'Yes' : 'No' }}</dd>
                                   </dl>
                                 </div>
                               </div>
@@ -730,7 +728,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                 </div>
                               }
                               <div class="stepper-nav">
-                                <button type="button" class="btn btn-secondary" (click)="goToStep(2)">Back</button>
+                                <button type="button" class="btn btn-quiet" (click)="goToStep(2)">Back</button>
                                 <button class="btn btn-warning" (click)="validateRequest()"
                                         [disabled]="validating">
                                   @if (validating) {
@@ -768,17 +766,46 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <dd class="col-sm-9">
                                       <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
                                     </dd>
-                                    <dt class="col-sm-3">Admin Email</dt>
-                                    <dd class="col-sm-9">{{ request.adminUser.email }}</dd>
+                                    <dt class="col-sm-3">Admin username</dt>
+                                    <dd class="col-sm-9">
+                                      <code>{{ setupResult.adminUserName || request.adminUser.email }}</code>
+                                      <span class="small text-muted ms-2">(use this to sign in)</span>
+                                    </dd>
+                                    <dt class="col-sm-3">Admin email</dt>
+                                    <dd class="col-sm-9">{{ setupResult.adminEmail || request.adminUser.email }}</dd>
                                     @if (setupResult.passwordResetId) {
-                                      <dt class="col-sm-3">Set Password</dt>
+                                      <dt class="col-sm-3">Set password</dt>
                                       <dd class="col-sm-9">
                                         <a [href]="setupResult.appUrl + '/admin/set-password/' + setupResult.passwordResetId" target="_blank">
                                           {{ setupResult.appUrl }}/admin/set-password/{{ setupResult.passwordResetId }}
                                         </a>
+                                        <div class="small text-muted mt-1">
+                                          There is no initial password. Open this link once to choose one, then sign in with the username above.
+                                        </div>
+                                      </dd>
+                                    } @else {
+                                      <dt class="col-sm-3">Set password</dt>
+                                      <dd class="col-sm-9 small text-muted">
+                                        No set-password link was returned. Use Change existing environment → Reset Admin Password.
                                       </dd>
                                     }
                                   </dl>
+                                </div>
+                              }
+
+                              @if (setupWarnings.length > 0) {
+                                <div class="alert alert-warning mt-3">
+                                  <h5><fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                                    <strong>Completed
+                                      with {{ stringUtils.pluraliseWithCount(setupWarnings.length, "step") }} needing
+                                      attention</strong></h5>
+                                  <p>The environment is usable — these steps can be re-run from Environment Management once the
+                                    underlying problem is resolved.</p>
+                                  <ul class="mb-0">
+                                    @for (warning of setupWarnings; track warning.message) {
+                                      <li><strong>{{ stringUtils.asTitle(warning.step) }}:</strong> {{ warning.message }}</li>
+                                    }
+                                  </ul>
                                 </div>
                               }
 
@@ -792,13 +819,13 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                 <button type="button" class="btn btn-primary me-2" (click)="retrySetup()">
                                   <fa-icon [icon]="faRedo" class="me-1"></fa-icon>Retry
                                 </button>
-                                <button type="button" class="btn btn-secondary me-2" (click)="goToStep(3)">
+                                <button type="button" class="btn btn-quiet me-2" (click)="goToStep(3)">
                                   <fa-icon [icon]="faArrowLeft" class="me-1"></fa-icon>Back
                                 </button>
                                 <button type="button" class="btn btn-warning me-2" (click)="startAgain()">
                                   <fa-icon [icon]="faUndo" class="me-1"></fa-icon>Start Again
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+                                <button type="button" class="btn btn-quiet" (click)="cancel()">
                                   Back to Admin
                                 </button>
                               </div>
@@ -861,7 +888,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private memberService = inject(MemberService);
   private urlService = inject(UrlService);
-  private stringUtils = inject(StringUtilsService);
+  protected stringUtils = inject(StringUtilsService);
   private websocketService = inject(WebSocketClientService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
@@ -880,7 +907,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   wsConnected = false;
   progressMessages: string[] = [];
   stepperActiveIndex = 0;
-  private brevoTemplatesOptionTouched = false;
+  protected brevoDomainAuthOptionTouched = false;
   request: EnvironmentSetupRequest = createEmptySetupRequest();
   protected readonly memoryOptions = enumKeyValues(FlyioMemory);
 
@@ -911,6 +938,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
   setupProgress: SetupProgress[] = [];
   setupResult: EnvironmentSetupResult | null = null;
+  setupWarnings: SetupWarning[] = [];
   setupError: string | null = null;
 
   setupMode = SetupMode.CREATE;
@@ -1048,6 +1076,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
           this.logger.info("Complete:", data);
           this.operationInProgress = OperationInProgress.NONE;
           if (data?.result) {
+            this.setupWarnings = data.result.warnings || [];
             this.setupResult = {
               environmentName: data.result.environmentName,
               appName: data.result.appName,
@@ -1056,7 +1085,10 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
               awsCredentials: null,
               adminUserCreated: false,
               configsJsonUpdated: true,
-              passwordResetId: data.result.passwordResetId
+              passwordResetId: data.result.passwordResetId,
+              adminUserName: data.result.adminUserName || this.request.adminUser.email,
+              adminEmail: data.result.adminEmail || this.request.adminUser.email,
+              warnings: this.setupWarnings
             };
           }
           this.progressMessages.push(data?.message || "Completed");
@@ -1178,8 +1210,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
           secretKey: details.serviceConfigs.recaptcha.secretKey
         };
       }
-      if (details.serviceConfigs.brevo?.apiKey && !this.brevoTemplatesOptionTouched) {
-        this.request.options.populateBrevoTemplates = true;
+      if (details.serviceConfigs.brevo?.apiKey) {
         this.request.options.authenticateBrevoDomain = true;
       }
       this.request.environmentBasics.environmentName = `${env.name}-copy`;
@@ -1219,6 +1250,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     this.setupProgress = [];
     this.setupError = null;
     this.setupResult = null;
+    this.setupWarnings = [];
     this.progressMessages = [];
     this.goToStep(4);
 
@@ -1405,15 +1437,10 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       !!this.request.adminUser.email;
   }
 
-  brevoTemplatesOptionChanged() {
-    this.brevoTemplatesOptionTouched = true;
-  }
-
   brevoApiKeyChanged(value: string) {
-    if (this.brevoTemplatesOptionTouched) {
-      return;
+    if (!this.brevoDomainAuthOptionTouched) {
+      this.request.options.authenticateBrevoDomain = !!value;
     }
-    this.request.options.populateBrevoTemplates = !!value;
   }
 
   async validateApiKey() {
@@ -1606,6 +1633,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     this.operationInProgress = OperationInProgress.CREATING;
     this.setupProgress = [];
     this.setupResult = null;
+    this.setupWarnings = [];
     this.setupError = null;
     this.progressMessages = [];
     this.goToStep(4);
@@ -1619,6 +1647,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
         const response = await this.environmentSetupService.createEnvironment(this.request);
         if (response.success) {
           this.setupResult = response.result;
+          this.setupWarnings = response.result?.warnings || [];
           this.notify.success({title: "Success", message: "Environment created successfully!"});
         } else {
           this.setupError = (response as any).error || "Unknown error";
@@ -1656,6 +1685,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   startAgain() {
     this.setupProgress = [];
     this.setupResult = null;
+    this.setupWarnings = [];
     this.setupError = null;
     this.progressMessages = [];
     this.operationInProgress = OperationInProgress.NONE;

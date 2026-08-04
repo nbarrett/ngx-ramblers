@@ -1,6 +1,7 @@
 import {
   AfterViewInit,
   booleanAttribute,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   inject,
@@ -23,7 +24,7 @@ import {
   faScissors,
   faSpinner
 } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, isEmpty, isEqual, isUndefined, pick } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, pick } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
@@ -72,13 +73,20 @@ import { ContentTextUnsavedChangesService } from "../../../services/content-text
 @Component({
   selector: "app-content-text-editor",
   styles: [`
+    :host
+      display: block
+      height: 100%
+
     .background-panel
       border-radius: 6px
       padding: 16px
+      box-sizing: border-box
+      height: 100%
 
     .content-text-editor-tiptap
       margin-top: 0
       margin-bottom: 0
+      height: 100%
 
     .paste-prompt-overlay
       position: fixed
@@ -189,16 +197,21 @@ import { ContentTextUnsavedChangesService } from "../../../services/content-text
                   <fa-icon [icon]="faImage"/>
                 </button>
               }
-              <div dropdown [container]="'body'" class="toolbar-dropdown">
+              <div dropdown [container]="'body'" placement="bottom right" class="toolbar-dropdown" #formattingDropdown="bs-dropdown">
                 <button type="button" class="dropdown-toggle" dropdownToggle
                         tooltip="Formatting styles" container="body" delay=500>
                   <fa-icon [icon]="faPaintBrush"/>
                 </button>
-                <app-content-formatting-selector
-                  [styles]="content?.styles"
-                  (listStyleChange)="assignListStyleTo($event)"
-                  (textStyleChange)="assignTextStyleTo($event)">
-                </app-content-formatting-selector>
+                <ul *dropdownMenu class="dropdown-menu dropdown-menu-end"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()">
+                  <app-content-formatting-selector
+                    [standaloneMenu]="false"
+                    [styles]="content?.styles"
+                    (listStyleChange)="onFormattingListStyleChange($event, formattingDropdown)"
+                    (textStyleChange)="onFormattingTextStyleChange($event, formattingDropdown)">
+                  </app-content-formatting-selector>
+                </ul>
               </div>
               @if (insertableFields.length > 0) {
                 <div dropdown [container]="'body'" class="toolbar-dropdown">
@@ -412,6 +425,7 @@ import { ContentTextUnsavedChangesService } from "../../../services/content-text
 })
 export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ContentTextEditor", NgxLoggerLevel.ERROR);
+  private changeDetectorRef = inject(ChangeDetectorRef);
   private config = inject(ConfigService);
   private contentTextUnsavedChanges = inject(ContentTextUnsavedChangesService);
   private static nextUnsavedTrackerId = 0;
@@ -429,7 +443,7 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
 
   @Input("text") set acceptTextChangesFrom(text: string) {
     this.logger.info("text:", text);
-    if (!isUndefined(text)) {
+    if (text != null) {
       this.textInputProvided = true;
     }
     if (!this.content) { this.content = {}; }
@@ -452,7 +466,9 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
   @Input("styles") set acceptStylesChangesFrom(styles: ContentTextStyles) {
     this.logger.info("styles:", styles);
     if (!this.content) { this.content = {}; }
-    this.content.styles = styles;
+    if (styles) {
+      this.content.styles = styles;
+    }
   }
 
   @Input("data") set dataValue(data: ContentText) {
@@ -612,19 +628,32 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
     }));
   }
 
+  onFormattingTextStyleChange(className: string, dropdown?: { hide: () => void }) {
+    this.assignTextStyleTo(className);
+    dropdown?.hide();
+  }
+
+  onFormattingListStyleChange(listStyle: ListStyle, dropdown?: { hide: () => void }) {
+    this.assignListStyleTo(listStyle);
+    dropdown?.hide();
+  }
+
   public assignListStyleTo(listStyle: ListStyle) {
     this.logger.info("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
     this.initialiseStyles();
     this.content.styles.list = listStyle;
     this.broadcastChange();
     this.syncUnsavedTracker();
+    this.changeDetectorRef.markForCheck();
   }
 
   assignTextStyleTo(className: string) {
     this.initialiseStyles();
     this.content.styles.class = className || null;
+    this.logger.info("assignTextStyleTo:className:", className, "content.styles:", this.content.styles);
     this.broadcastChange();
     this.syncUnsavedTracker();
+    this.changeDetectorRef.detectChanges();
   }
 
   onContactButtonApplied(): void {
@@ -635,10 +664,12 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private initialiseStyles() {
-    if (this.content && !this.content?.styles) {
-      const styles = {list: null, class: null};
-      this.logger.info("initialiseStyles:for:", this.content, "to:", styles);
-      this.content.styles = styles;
+    if (!this.content) {
+      this.content = {};
+    }
+    if (!this.content.styles) {
+      this.content.styles = {list: null, class: null};
+      this.logger.info("initialiseStyles:created styles for:", this.content.name || this.description);
     }
   }
 
@@ -832,7 +863,6 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
     if (this.editorState?.view === View.VIEW) {
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_CHANGED, this.content));
     }
-    this.logger.debug("broadcastChange:content:", this.content);
     this.changed.emit(this.content);
   }
 
@@ -874,7 +904,6 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
     const contentStyle = [styleClass, panelClass].filter(Boolean).join(" ") || null;
     const linkStyle = this.systemConfig?.globalStyles?.link || defaultStyles.link;
     const classes = [listStyle, contentStyle, linkStyle].filter(Boolean).join(" ");
-    this.logger.off("contentStyleClasses:listStyle:", listStyle, "contentStyle:", contentStyle, "linkStyle:", linkStyle, "classes:", classes);
     return classes;
   }
 

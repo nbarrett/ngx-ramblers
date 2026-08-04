@@ -11,7 +11,9 @@ import {
   SetupSession,
   SetupStep,
   SetupStepStatus,
-  ValidationResult
+  SetupWarning,
+  ValidationResult,
+  CopiedAssets
 } from "./types";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "./ramblers-api-client";
 import {
@@ -23,19 +25,18 @@ import {
 } from "./aws-setup";
 import { initialiseDatabase, validateMongoConnection } from "./database-initialiser";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { apexHost } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { uid } from "rand-token";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
   EnvironmentConfig,
   EnvironmentsConfig
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { seedBrevoTemplatesFromLocal } from "../brevo/templates/template-seeding";
 import { authenticateSendingDomain } from "../brevo/domains/domain-authentication";
 import * as configController from "../mongo/controllers/config";
 import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { normaliseMemory } from "../shared/spelling";
+import { pluraliseWithCount } from "../shared/string-utils";
 import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
 import { DeployOutputCallback } from "../cli/cli.model";
 import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
@@ -225,13 +226,6 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
       message: "Brevo API Key: Provided"
     });
   }
-  if (request.options.populateBrevoTemplates && !request.serviceConfigs.brevo.apiKey) {
-    results.push({
-      valid: false,
-      message: "Populate Brevo Templates: requires Brevo API Key"
-    });
-  }
-
   return results;
 }
 
@@ -262,6 +256,22 @@ export async function createEnvironment(
     debugLog(`[${sessionId}] ${step}: ${status}${message ? ` - ${message}` : ""}`);
     if (progressCallback) {
       progressCallback(progress);
+    }
+  };
+
+  const warnings: SetupWarning[] = [];
+
+  const recordWarning = (step: SetupStep, message: string) => {
+    warnings.push({step, message});
+    reportProgress(step, SetupStepStatus.Failed, `${message} — continuing with remaining steps`);
+  };
+
+  const runOptionalStep = async (step: SetupStep, runningMessage: string, action: () => Promise<string>): Promise<void> => {
+    reportProgress(step, SetupStepStatus.Running, runningMessage);
+    try {
+      reportProgress(step, SetupStepStatus.Completed, await action());
+    } catch (error) {
+      recordWarning(step, error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -297,7 +307,7 @@ export async function createEnvironment(
     reportProgress(SetupStep.QUERY_RAMBLERS_API, SetupStepStatus.Completed, `Found group: ${groupData.name}`);
 
     let awsCredentials: AwsCustomerCredentials;
-    let copiedAssets: { icons: string[]; logos: string[]; backgrounds: string[] } | undefined;
+    let copiedAssets: CopiedAssets | undefined;
     const awsAdminConfig = adminConfigFromEnvironment();
 
     if (!request.options.skipFlyDeployment && awsAdminConfig) {
@@ -315,20 +325,20 @@ export async function createEnvironment(
       reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Completed, `Created bucket: ${awsCredentials.bucket}`);
 
       if (request.options.copyStandardAssets) {
-        reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Running, "Copying standard assets to S3 bucket");
-        const copyResult = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
-        copiedAssets = {
-          icons: copyResult.icons.map(img => img.originalFileName),
-          logos: copyResult.logos.map(img => img.originalFileName),
-          backgrounds: copyResult.backgrounds.map(img => img.originalFileName)
-        };
-        const totalCopied = copyResult.icons.length + copyResult.logos.length + copyResult.backgrounds.length;
-        if (copyResult.failures.length > 0) {
-          const failureMsg = copyResult.failures.map(f => `${f.file}: ${f.error}`).join("; ");
-          reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Failed, `Copied ${totalCopied} assets but ${copyResult.failures.length} failed: ${failureMsg}`);
-        } else {
-          reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, `Copied ${totalCopied} assets (${copyResult.icons.length} icons, ${copyResult.logos.length} logos, ${copyResult.backgrounds.length} backgrounds)`);
-        }
+        await runOptionalStep(SetupStep.COPY_STANDARD_ASSETS, "Copying standard assets to S3 bucket", async () => {
+          const copyResult = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
+          copiedAssets = {
+            icons: copyResult.icons,
+            logos: copyResult.logos,
+            backgrounds: copyResult.backgrounds
+          };
+          const totalCopied = copyResult.icons.length + copyResult.logos.length + copyResult.backgrounds.length;
+          if (copyResult.failures.length > 0) {
+            const failureMsg = copyResult.failures.map(f => `${f.file}: ${f.error}`).join("; ");
+            throw new Error(`Copied ${totalCopied} assets but ${copyResult.failures.length} failed: ${failureMsg}`);
+          }
+          return `Copied ${totalCopied} assets (${copyResult.icons.length} icons, ${copyResult.logos.length} logos, ${copyResult.backgrounds.length} backgrounds)`;
+        });
       } else {
         reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped copying standard assets");
       }
@@ -377,38 +387,14 @@ export async function createEnvironment(
         debugLog(`[${sessionId}] Registered admin ${request.adminUser.email} as Brevo sender`);
       } catch (error) {
         debugLog(`[${sessionId}] Brevo sender registration skipped: ${error.message}`);
+        warnings.push({
+          step: SetupStep.AUTHENTICATE_BREVO_DOMAIN,
+          message: `Brevo sender registration for ${request.adminUser.email} failed: ${error.message}`
+        });
       }
     }
 
     await ensureMongoConnection();
-
-    if (request.options.populateBrevoTemplates && request.serviceConfigs.brevo.apiKey) {
-      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, SetupStepStatus.Running, "Populating Brevo templates");
-      const seedResult = await seedBrevoTemplatesFromLocal();
-      const message = `Created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount}`;
-      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, SetupStepStatus.Completed, message);
-    } else {
-      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, SetupStepStatus.Completed, "Skipped Brevo template population");
-    }
-
-    const environmentsConfig = await configuredEnvironments();
-    const baseDomain = environmentsConfig.cloudflare?.baseDomain || null;
-
-    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && (request.ramblersInfo.groupUrl || baseDomain)) {
-      const hostnameFromGroupUrl = request.ramblersInfo.groupUrl
-        ? apexHost(new URL(request.ramblersInfo.groupUrl).hostname)
-        : "";
-      const domainName = baseDomain || hostnameFromGroupUrl;
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, SetupStepStatus.Running, `Authenticating domain ${domainName}`);
-      const authResult = await authenticateSendingDomain(domainName);
-      const authenticatedDomainName = authResult.domainName;
-      const authMessage = authResult.authenticated
-        ? `Domain ${authenticatedDomainName} authenticated successfully`
-        : `Domain ${authenticatedDomainName}: ${authResult.message}`;
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, authResult.authenticated ? SetupStepStatus.Completed : SetupStepStatus.Failed, authMessage);
-    } else {
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, SetupStepStatus.Completed, "Skipped Brevo domain authentication");
-    }
 
     if (!request.options.skipFlyDeployment) {
       reportProgress(SetupStep.DEPLOY_APP, SetupStepStatus.Running, "Deploying to Fly.io");
@@ -432,16 +418,36 @@ export async function createEnvironment(
     }
 
     let appUrl = `https://${request.environmentBasics.appName}.fly.dev`;
+    let subdomainHostname = "";
 
     if (request.options.setupSubdomain && !request.options.skipFlyDeployment) {
-      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Running, "Setting up subdomain (DNS + SSL certificate)");
-      await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
-      const envConfigData = await configuredEnvironments();
-      const baseDomain = baseDomainFrom(envConfigData);
-      appUrl = `https://${request.environmentBasics.environmentName}.${baseDomain}`;
-      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, `Subdomain configured: ${appUrl}`);
+      await runOptionalStep(SetupStep.SETUP_SUBDOMAIN, "Setting up subdomain (DNS + SSL certificate)", async () => {
+        await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
+        const envConfigData = await configuredEnvironments();
+        subdomainHostname = `${request.environmentBasics.environmentName}.${baseDomainFrom(envConfigData)}`;
+        appUrl = `https://${subdomainHostname}`;
+        return `Subdomain configured: ${appUrl}`;
+      });
     } else {
       reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, "Skipped subdomain setup");
+    }
+
+    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && subdomainHostname) {
+      await runOptionalStep(SetupStep.AUTHENTICATE_BREVO_DOMAIN, `Authenticating domain ${subdomainHostname}`, async () => {
+        const authResult = await authenticateSendingDomain(subdomainHostname);
+        if (!authResult.authenticated) {
+          throw new Error(`Domain ${authResult.domainName}: ${authResult.message}`);
+        }
+        return `Domain ${authResult.domainName} authenticated successfully`;
+      });
+    } else if (request.options.authenticateBrevoDomain && !subdomainHostname) {
+      reportProgress(
+        SetupStep.AUTHENTICATE_BREVO_DOMAIN,
+        SetupStepStatus.Completed,
+        "Skipped Brevo domain authentication (needs deploy and subdomain setup first so DNS exists for the environment host)"
+      );
+    } else {
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, SetupStepStatus.Completed, "Skipped Brevo domain authentication");
     }
 
     session.status = SetupStepStatus.Completed;
@@ -455,8 +461,15 @@ export async function createEnvironment(
       awsCredentials,
       adminUserCreated: true,
       configsJsonUpdated: !request.options.skipFlyDeployment,
-      passwordResetId: dbResult.passwordResetId
+      passwordResetId: dbResult.passwordResetId,
+      adminUserName: request.adminUser.email.toLowerCase(),
+      adminEmail: request.adminUser.email.toLowerCase(),
+      warnings
     };
+
+    if (warnings.length > 0) {
+      debugLog(`[${sessionId}] Setup completed with ${pluraliseWithCount(warnings.length, "warning")}:`, warnings.map(warning => `${warning.step}: ${warning.message}`).join("; "));
+    }
 
     session.result = result;
     return result;

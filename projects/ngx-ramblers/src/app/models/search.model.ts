@@ -313,8 +313,6 @@ export function createPastPresetRanges(minDate: DateTime, maxDate: DateTime): Ad
     createPastPreset("Past 30 Days", { days: 30 }),
     createPastPreset("Past 3 Months", { months: 3 }),
     createPastPreset("Past 6 Months", { months: 6 }),
-    createPastPreset("Past Year", { years: 1 }),
-    createPastPreset("Past 2 Years", { years: 2 }),
     createAllTimePreset("All Past Dates", minDate, DateTime.local().startOf("day"))
   ];
 }
@@ -325,7 +323,7 @@ export function createAllWalksPresetRanges(minDate: DateTime, maxDate: DateTime)
     createPastPreset("Past Year", { years: 1 }),
     createFuturePreset("Next 30 Days", { days: 30 }),
     createFuturePreset("Next 6 Months", { months: 6 }),
-    createAllTimePreset("All Dates", minDate, maxDate)
+    createAllTimePreset("All Time", minDate, maxDate)
   ];
 }
 

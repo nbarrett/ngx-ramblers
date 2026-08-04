@@ -16,6 +16,7 @@ import {
   faExclamationTriangle,
   faGlobe,
   faKey,
+  faPlaneDeparture,
   faPlus,
   faRedo,
   faSpinner,
@@ -26,14 +27,18 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
+import { EnvironmentConfigService } from "../../../services/environment-config.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   EnvironmentStatus,
   ExistingEnvironment,
+  FlyOrgMigrationPhase,
+  FlyOrgMigrationStatus,
   HostnameHealth,
   hostnameHealthLabels,
   HostnameHealthReport,
+  HostnameOrigin,
   hostnameOriginLabels,
   HostnameStatus,
   ManageAction,
@@ -42,11 +47,15 @@ import {
 import { CustomDomainEntry, CustomDomainStatus } from "../../../models/environment-config.model";
 import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
+import { SecretInputComponent } from "../secret-input/secret-input.component";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import { InputSize } from "../../../models/ui-size.model";
+import { ramblersNationalUrl } from "../../../functions/hosts";
 
 @Component({
   selector: "app-environment-management",
   standalone: true,
-  imports: [DatePipe, FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent, TooltipDirective],
+  imports: [DatePipe, FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent, SecretInputComponent, TooltipDirective],
   styles: [`
     :host
       display: block
@@ -118,6 +127,51 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
       white-space: normal
       word-break: normal
       line-height: 1.35
+
+    :host ::ng-deep .resume-steps
+      max-width: 36rem
+
+    :host ::ng-deep .resume-step.form-check
+      padding-right: 0
+
+    :host ::ng-deep .resume-step-label
+      display: flex
+      align-items: center
+      justify-content: space-between
+      width: 100%
+      gap: 1rem
+
+    :host ::ng-deep .resume-step-text
+      flex: 1 1 auto
+      min-width: 0
+
+    .fly-migrate-panels
+      margin-bottom: 0
+
+    .fly-migrate-panels .thumbnail-heading-frame
+      margin-top: 1.75rem
+      margin-bottom: 0.75rem
+      height: calc(100% - 0.75rem)
+
+    .fly-migrate-detect
+      margin-top: 2rem
+
+    .fly-migrate-options
+      clear: both
+      position: relative
+      z-index: 1
+      margin-top: 0.5rem
+
+    .fly-migrate-status .resume-step-label
+      display: flex
+      align-items: center
+      justify-content: space-between
+      width: 100%
+      gap: 1rem
+
+    :host ::ng-deep .resume-step-badge
+      flex: 0 0 4.5rem
+      text-align: center
   `],
   template: `
     @if (!enabled) {
@@ -134,7 +188,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
         </div>
       } @else {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading">Manage Existing Environments</div>
+          <div class="thumbnail-heading">Change existing environment</div>
           <div class="row">
             <div class="col-md-6 mb-3">
               <label for="existing-env">Select Environment</label>
@@ -173,6 +227,10 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                     <span class="text-warning ms-1">Missing</span>
                   }
                 </div>
+                <div class="col-md-3 mb-2">
+                  <strong>Organisation:</strong>
+                  <span class="ms-1">{{ selectedExistingEnv.organisation || "personal" }}</span>
+                </div>
               </div>
             </div>
 
@@ -184,155 +242,21 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
             } @else {
               <div class="row mt-3">
                 <div class="col-md-12">
-                  <strong>Steps to run:</strong>
-                  <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" id="runDbInit"
-                           [(ngModel)]="resumeOptions.runDbInit">
-                    <label class="form-check-label" for="runDbInit">
-                      Initialise database
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.databaseInitialised ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.databaseInitialised ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="runFlyDeployment"
-                           [(ngModel)]="resumeOptions.runFlyDeployment">
-                    <label class="form-check-label" for="runFlyDeployment">
-                      Deploy to Fly.io
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.flyAppDeployed ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.flyAppDeployed ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="copyStandardAssets"
-                           [(ngModel)]="resumeOptions.copyStandardAssets">
-                    <label class="form-check-label" for="copyStandardAssets">
-                      Copy standard assets (icons, logos, backgrounds)
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.standardAssetsPresent ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.standardAssetsPresent ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="setupSubdomain"
-                           [(ngModel)]="resumeOptions.setupSubdomain">
-                    <label class="form-check-label" for="setupSubdomain">
-                      Setup subdomain (DNS + SSL certificate)
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.subdomainConfigured ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.subdomainConfigured ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="includeSamplePages"
-                           [(ngModel)]="resumeOptions.includeSamplePages">
-                    <label class="form-check-label" for="includeSamplePages">
-                      Include sample page content
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.samplePagesPresent ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.samplePagesPresent ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="includeNotificationConfigs"
-                           [(ngModel)]="resumeOptions.includeNotificationConfigs">
-                    <label class="form-check-label" for="includeNotificationConfigs">
-                      Include notification configs
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.notificationConfigsPresent ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.notificationConfigsPresent ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="populateBrevoTemplates"
-                           [(ngModel)]="resumeOptions.populateBrevoTemplates">
-                    <label class="form-check-label" for="populateBrevoTemplates">
-                      Populate Brevo templates
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.brevoTemplatesPresent ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.brevoTemplatesPresent ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="authenticateBrevoDomain"
-                           [(ngModel)]="resumeOptions.authenticateBrevoDomain">
-                    <label class="form-check-label" for="authenticateBrevoDomain">
-                      Authenticate Brevo sending domain
-                      @if (envStatus) {
-                        <span class="ms-1 badge" [class]="envStatus.brevoDomainAuthenticated ? 'bg-success' : 'bg-warning'">
-                          {{ envStatus.brevoDomainAuthenticated ? 'done' : 'needed' }}
-                        </span>
-                      }
-                    </label>
-                  </div>
-                </div>
-              </div>
-              @if (progressMessages.length > 0) {
-                <div class="row mt-3">
-                  <div class="col-md-12">
-                    <app-session-logs [messages]="progressMessages"></app-session-logs>
-                  </div>
-                </div>
-              }
-              @if (setupResult) {
-                <div class="row mt-3">
-                  <div class="col-md-12">
-                    <div class="alert alert-success mb-0">
-                      <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                      <strong>Environment modified successfully!</strong>
-                      @if (setupResult.appUrl) {
-                        <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
-                      }
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (setupError) {
-                <div class="row mt-3">
-                  <div class="col-md-12">
-                    <div class="alert alert-danger mb-0">
-                      <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                      <strong>Error:</strong> {{ setupError }}
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (!selectedExistingEnv.hasApiKey && (resumeOptions.runFlyDeployment || resumeOptions.setupSubdomain)) {
-                <div class="row mt-3">
-                  <div class="col-md-12">
-                    <div class="alert alert-warning mb-0">
-                      <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                      <strong>Fly.io token not configured</strong> for this environment. Deploy and subdomain operations will fail without it.
-                      Configure it in the <strong>Settings</strong> tab under environment configuration.
-                    </div>
-                  </div>
-                </div>
-              }
-              <div class="row mt-3">
-                <div class="col-md-12">
-                  <strong>Action:</strong>
+                  <strong>What do you want to do?</strong>
                   <div class="form-check mt-2">
                     <input class="form-check-input" type="radio" name="manageAction" id="actionModify"
                            [value]="ManageAction.MODIFY" [ngModel]="manageAction"
                            (ngModelChange)="setManageAction($event)">
                     <label class="form-check-label" for="actionModify">
-                      <fa-icon [icon]="faCog" class="me-1"></fa-icon> Modify Environment
+                      <fa-icon [icon]="faCog" class="me-1"></fa-icon> Modify (deploy, subdomain, hostnames, data)
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="manageAction" id="actionMigrateFlyOrg"
+                           [value]="ManageAction.MIGRATE_FLY_ORG" [ngModel]="manageAction"
+                           (ngModelChange)="setManageAction($event)">
+                    <label class="form-check-label" for="actionMigrateFlyOrg">
+                      <fa-icon [icon]="faPlaneDeparture" class="me-1"></fa-icon> Move Fly organisation (cutover to new org token)
                     </label>
                   </div>
                   <div class="form-check">
@@ -340,55 +264,224 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                            [value]="ManageAction.DESTROY" [ngModel]="manageAction"
                            (ngModelChange)="setManageAction($event)">
                     <label class="form-check-label text-danger" for="actionDestroy">
-                      <fa-icon [icon]="faTrash" class="me-1"></fa-icon> Destroy Environment
+                      <fa-icon [icon]="faTrash" class="me-1"></fa-icon> Destroy (permanent removal)
                     </label>
                   </div>
                 </div>
               </div>
               @if (manageAction === ManageAction.MODIFY) {
-                <div class="row thumbnail-heading-frame mt-3">
-                  <div class="thumbnail-heading">Custom Domains</div>
+                <div class="row mt-3">
                   <div class="col-md-12">
-                    <div class="d-flex gap-2 align-items-start flex-wrap">
-                      <input type="text" class="form-control" style="max-width: 320px;"
-                             placeholder="Enter full domain name (apex or subdomain)"
-                             [(ngModel)]="customDomainHostname"
-                             [disabled]="operationBusy || customDomainBusy">
-                      <button class="btn btn-primary" (click)="addCustomDomain()"
-                              [disabled]="operationBusy || customDomainBusy || !customDomainHostname">
-                        @if (customDomainBusy && !removingDomainHostname && !checkingDomainHostname) {
-                          <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
-                        } @else {
-                          <fa-icon [icon]="faPlus" class="me-1"></fa-icon>
-                        }
-                        Add Custom Domain
-                      </button>
-                    </div>
-                    @if (shouldShowAlsoAttachWwwOption()) {
-                      <div class="form-check mt-2">
-                        <input class="form-check-input" type="checkbox" id="alsoAttachWww"
-                               [(ngModel)]="alsoAttachWww"
-                               [disabled]="operationBusy || customDomainBusy">
-                        <label class="form-check-label small" for="alsoAttachWww">
-                          Also attach the <code>www.</code> variant (CNAME to Fly app)
+                    <strong>Steps to run:</strong>
+                    <div class="resume-steps mt-2">
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="runDbInit"
+                               [(ngModel)]="resumeOptions.runDbInit">
+                        <label class="form-check-label resume-step-label" for="runDbInit">
+                          <span class="resume-step-text">Initialise database</span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.databaseInitialised ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.databaseInitialised ? "done" : "needed" }}
+                            </span>
+                          }
                         </label>
                       </div>
-                    }
-                    @if (customDomainError) {
-                      <div class="alert alert-danger mt-3 mb-0">
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="runFlyDeployment"
+                               [(ngModel)]="resumeOptions.runFlyDeployment">
+                        <label class="form-check-label resume-step-label" for="runFlyDeployment">
+                          <span class="resume-step-text">Deploy to Fly.io</span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.flyAppDeployed ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.flyAppDeployed ? "done" : "needed" }}
+                            </span>
+                          }
+                        </label>
+                      </div>
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="copyStandardAssets"
+                               [(ngModel)]="resumeOptions.copyStandardAssets">
+                        <label class="form-check-label resume-step-label" for="copyStandardAssets">
+                          <span class="resume-step-text">Copy standard assets (icons, logos, backgrounds)</span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.standardAssetsPresent ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.standardAssetsPresent ? "done" : "needed" }}
+                            </span>
+                          }
+                        </label>
+                      </div>
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="setupSubdomain"
+                               [(ngModel)]="resumeOptions.setupSubdomain">
+                        <label class="form-check-label resume-step-label" for="setupSubdomain">
+                          <span class="resume-step-text">Setup subdomain (DNS + SSL certificate)</span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.subdomainConfigured ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.subdomainConfigured ? "done" : "needed" }}
+                            </span>
+                          }
+                        </label>
+                      </div>
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="authenticateBrevoDomain"
+                               [(ngModel)]="resumeOptions.authenticateBrevoDomain">
+                        <label class="form-check-label resume-step-label" for="authenticateBrevoDomain">
+                          <span class="resume-step-text">
+                            Authenticate Brevo sending domain
+                            <span class="small text-muted">(after subdomain)</span>
+                          </span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.brevoDomainAuthenticated ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.brevoDomainAuthenticated ? "done" : "needed" }}
+                            </span>
+                          }
+                        </label>
+                      </div>
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="includeSamplePages"
+                               [(ngModel)]="resumeOptions.includeSamplePages">
+                        <label class="form-check-label resume-step-label" for="includeSamplePages">
+                          <span class="resume-step-text">Include sample page content</span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.samplePagesPresent ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.samplePagesPresent ? "done" : "needed" }}
+                            </span>
+                          }
+                        </label>
+                      </div>
+                      <div class="form-check resume-step">
+                        <input class="form-check-input" type="checkbox" id="includeNotificationConfigs"
+                               [(ngModel)]="resumeOptions.includeNotificationConfigs">
+                        <label class="form-check-label resume-step-label" for="includeNotificationConfigs">
+                          <span class="resume-step-text">Include notification configs</span>
+                          @if (envStatus) {
+                            <span class="badge resume-step-badge"
+                                  [class]="envStatus.notificationConfigsPresent ? 'bg-success' : 'bg-warning'">
+                              {{ envStatus.notificationConfigsPresent ? "done" : "needed" }}
+                            </span>
+                          }
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                @if (progressMessages.length > 0) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <app-session-logs [messages]="progressMessages"></app-session-logs>
+                    </div>
+                  </div>
+                }
+                @if (setupResult) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-success mb-0">
+                        <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                        <strong>Environment modified successfully!</strong>
+                        @if (setupResult.appUrl) {
+                          <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (passwordResetResult) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-success mb-0">
+                        <div class="d-flex align-items-start">
+                          <fa-icon [icon]="faKey" class="me-2 mt-1"></fa-icon>
+                          <div>
+                            <strong>Admin sign-in for this environment</strong>
+                            <dl class="row mb-0 mt-2">
+                              <dt class="col-sm-3">Username</dt>
+                              <dd class="col-sm-9"><code>{{ passwordResetResult.userName || passwordResetResult.email }}</code></dd>
+                              <dt class="col-sm-3">Email</dt>
+                              <dd class="col-sm-9">{{ passwordResetResult.email }}</dd>
+                              @if (passwordResetResult.resetUrl) {
+                                <dt class="col-sm-3">Set password</dt>
+                                <dd class="col-sm-9">
+                                  <a [href]="passwordResetResult.resetUrl" target="_blank">{{ passwordResetResult.resetUrl }}</a>
+                                  <div class="small mt-1">Open this once to choose a password, then sign in with the username above. There is no initial password.</div>
+                                </dd>
+                              }
+                              @if (passwordResetResult.flyResetUrl) {
+                                <dt class="col-sm-3">Fly.io set password</dt>
+                                <dd class="col-sm-9">
+                                  <a [href]="passwordResetResult.flyResetUrl" target="_blank">{{ passwordResetResult.flyResetUrl }}</a>
+                                  <div class="small text-muted mt-1">Fallback if the custom host is not ready yet.</div>
+                                </dd>
+                              }
+                            </dl>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (setupWarnings.length > 0) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-warning mb-0">
+                        <div class="d-flex align-items-start">
+                          <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
+                          <div>
+                            <strong>Completed with {{ stringUtils.pluraliseWithCount(setupWarnings.length, "step") }} needing attention</strong>
+                            <p class="mb-1 mt-2">The environment is usable. Finish these later (for Brevo domain auth, the Brevo UI is often required).</p>
+                            <ul class="mb-0">
+                              @for (warning of setupWarnings; track warning) {
+                                <li>{{ warning }}</li>
+                              }
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (setupError) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-danger mb-0">
                         <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                        {{ customDomainError }}
+                        <strong>Error:</strong> {{ setupError }}
                       </div>
-                    }
-                    @if (customDomainMessages.length > 0) {
-                      <div class="mt-3">
-                        <app-session-logs [messages]="customDomainMessages"></app-session-logs>
+                    </div>
+                  </div>
+                }
+                @if (!selectedExistingEnv.hasApiKey && (resumeOptions.runFlyDeployment || resumeOptions.setupSubdomain)) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-warning mb-0">
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        <strong>Fly.io token not configured</strong> for this environment. Deploy and subdomain operations will fail without it.
+                        Configure it in the <strong>Settings</strong> tab under environment configuration.
                       </div>
-                    }
-                    <div class="mt-4">
+                    </div>
+                  </div>
+                }
+                <div class="row thumbnail-heading-frame mt-3">
+                  <div class="thumbnail-heading">Hostnames</div>
+                  <div class="col-md-12">
+                    <div class="hostname-part mb-4">
+                      <div class="fw-bold">Environment subdomain</div>
+                      <p class="small text-muted mb-0">
+                        Free host for this app (e.g. <code>{{ environmentSubdomainHint() }}</code>).
+                        Create it with <strong>Setup subdomain</strong> under Steps to run, not with the boxes below.
+                        It appears in the table as “Environment subdomain”.
+                      </p>
+                    </div>
+
+                    <div class="hostname-part mb-3">
                       <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <div class="fw-bold">Hostname health</div>
-                        <button class="btn btn-sm btn-outline-secondary"
+                        <div class="fw-bold">Site URL</div>
+                        <button class="btn btn-sm btn-quiet"
                                 (click)="refreshHostnameHealth()"
                                 [disabled]="loadingHostnameHealth || operationBusy || customDomainBusy">
                           @if (loadingHostnameHealth) {
@@ -400,32 +493,18 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                         </button>
                       </div>
                       <p class="small text-muted mb-2">
-                        Live state of every hostname this environment answers on, checked against Cloudflare DNS,
-                        redirect rules and an HTTPS request.
+                        Public address stored on the group. Fix it with <strong>Clear Site URL</strong> /
+                        <strong>Use as Site URL</strong> on the table rows, not by typing in the fields below.
                       </p>
                       @if (loadingHostnameHealth) {
                         <div class="small text-muted">Checking hostnames…</div>
                       } @else if (hostnameHealthError) {
-                        <div class="alert alert-warning">
-                          <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                          <strong>The hostname check did not complete.</strong>
-                          <div class="mt-2">{{ hostnameHealthError }}</div>
-                          <div class="mt-2">This says nothing about whether the hostnames are healthy — press Re-check to try again.</div>
-                        </div>
+                        <p class="small text-danger mb-0">
+                          Hostname check did not complete: {{ hostnameHealthError }}. Press Re-check to try again.
+                        </p>
                       } @else if (hostnameStatuses().length === 0) {
                         <div class="small text-muted">No hostnames could be resolved for this environment.</div>
                       } @else {
-                        @if (hostnameProblems().length > 0) {
-                          <div class="alert alert-warning">
-                            <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                            <strong>{{ hostnameProblems().length }} hostname{{ hostnameProblems().length === 1 ? "" : "s" }} need attention.</strong>
-                            <ul class="mb-0 mt-2">
-                              @for (problem of hostnameProblems(); track problem.hostname) {
-                                <li>{{ problem.hostname }} — {{ problem.message }}</li>
-                              }
-                            </ul>
-                          </div>
-                        }
                         <div class="table-responsive">
                           <table class="rounded table styled-table table-hover table-sm align-middle mb-0 hostname-health-table">
                             <thead>
@@ -445,20 +524,66 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                                     <div class="health-line small text-muted">{{ hostnameOriginLabel(hostname) }}</div>
                                   </td>
                                   <td>
-                                    <div class="health-line">
-                                      <span class="badge" [class]="hostnameBadgeClass(hostname)">{{ hostnameHealthLabel(hostname) }}</span>
-                                    </div>
-                                    @if (hostnameDetail(hostname)) {
-                                      <div class="small text-muted mt-1 domain-status-detail">{{ hostnameDetail(hostname) }}</div>
-                                    }
-                                    <div class="health-line small text-muted mt-1">{{ hostnameDnsSummary(hostname) }}</div>
-                                    <div class="health-line small text-muted">HTTPS {{ hostname.httpStatus || "no response" }}</div>
-                                    @if (hostname.redirectRuleTarget) {
-                                      <button class="btn btn-sm btn-outline-secondary mt-2"
-                                              (click)="removeApexRedirect(hostname)"
-                                              [disabled]="apexRedirectBusy || operationBusy || customDomainBusy">
-                                        Remove redirect
-                                      </button>
+                                    @if (hostname.healthy) {
+                                      <div class="health-line">
+                                        <span class="badge" [class]="hostnameBadgeClass(hostname)">{{ hostnameHealthLabel(hostname) }}</span>
+                                      </div>
+                                      @if (hostnameDetail(hostname)) {
+                                        <div class="small text-muted mt-1 domain-status-detail">{{ hostnameDetail(hostname) }}</div>
+                                      }
+                                      <div class="health-line small text-muted mt-1">{{ hostnameDnsSummary(hostname) }}</div>
+                                      <div class="health-line small text-muted">HTTPS {{ hostname.httpStatus || "no response" }}</div>
+                                      @if (hostname.redirectRuleTarget) {
+                                        <button class="btn btn-sm btn-quiet mt-2 me-2"
+                                                (click)="removeApexRedirect(hostname)"
+                                                [disabled]="apexRedirectBusy || operationBusy || customDomainBusy || siteUrlBusy">
+                                          Remove redirect
+                                        </button>
+                                      }
+                                      @if (canUseAsSiteUrl(hostname)) {
+                                        <button class="btn btn-sm btn-quiet mt-2"
+                                                (click)="setSiteUrlFromHostname(hostname)"
+                                                [disabled]="siteUrlBusy || operationBusy || customDomainBusy"
+                                                tooltip="Writes this hostname into the environment system config as group.href">
+                                          @if (siteUrlBusy) {
+                                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                                          }
+                                          Use as Site URL
+                                        </button>
+                                      }
+                                    } @else {
+                                      <div class="small">{{ hostnameActionStatement(hostname) }}</div>
+                                      <div class="mt-2">
+                                        @if (shouldOfferClearSiteUrl(hostname)) {
+                                          <button class="btn btn-sm btn-quiet me-2"
+                                                  (click)="clearSiteUrl()"
+                                                  [disabled]="siteUrlBusy || operationBusy || customDomainBusy">
+                                            @if (siteUrlBusy) {
+                                              <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                                            } @else {
+                                              <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
+                                            }
+                                            Clear Site URL
+                                          </button>
+                                        }
+                                        @if (canUseAsSiteUrl(hostname)) {
+                                          <button class="btn btn-sm btn-quiet me-2"
+                                                  (click)="setSiteUrlFromHostname(hostname)"
+                                                  [disabled]="siteUrlBusy || operationBusy || customDomainBusy">
+                                            @if (siteUrlBusy) {
+                                              <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                                            }
+                                            Use as Site URL
+                                          </button>
+                                        }
+                                        @if (hostname.redirectRuleTarget) {
+                                          <button class="btn btn-sm btn-quiet"
+                                                  (click)="removeApexRedirect(hostname)"
+                                                  [disabled]="apexRedirectBusy || operationBusy || customDomainBusy || siteUrlBusy">
+                                            Remove redirect
+                                          </button>
+                                        }
+                                      </div>
                                     }
                                   </td>
                                 </tr>
@@ -468,84 +593,130 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                         </div>
                       }
                     </div>
-                    @if (customDomains().length > 0) {
-                      <div class="table-responsive mt-3">
-                        <table class="table table-sm align-middle mb-0 custom-domains-table">
-                          <thead>
-                            <tr>
-                              <th scope="col" class="col-hostname">Hostname</th>
-                              <th scope="col" class="col-status">Status</th>
-                              <th scope="col" class="col-added">Added</th>
-                              <th scope="col" class="text-end col-actions">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            @for (domain of customDomains(); track domain.hostname) {
-                              <tr>
-                                <td class="col-hostname">
-                                  <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
-                                  <a [href]="'https://' + domain.hostname" target="_blank">{{ domain.hostname }}</a>
-                                </td>
-                                <td class="col-status">
-                                  <div>
-                                    <span class="badge" [class]="domainBadgeClass(domain.status)">{{ domainStatusLabel(domain.status) }}</span>
-                                  </div>
-                                  @if (domain.message && domain.message !== domain.status) {
-                                    <div class="small text-muted mt-1 domain-status-detail">{{ domain.message }}</div>
-                                  }
-                                </td>
-                                <td class="col-added">{{ domain.addedAt ? (domain.addedAt | date:"short") : "" }}</td>
-                                <td class="text-end col-actions">
-                                  <div class="d-inline-flex gap-1">
-                                    <button class="btn btn-sm btn-outline-secondary icon-only"
-                                            (click)="checkCustomDomain(domain)"
-                                            [disabled]="operationBusy || customDomainBusy"
-                                            tooltip="Check &amp; reconcile DNS/cert"
-                                            container="body"
-                                            aria-label="Check">
-                                      @if (checkingDomainHostname === domain.hostname) {
-                                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
-                                      } @else {
-                                        <fa-icon [icon]="faRedo"></fa-icon>
-                                      }
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger icon-only"
-                                            (click)="removeCustomDomain(domain)"
-                                            [disabled]="operationBusy || customDomainBusy"
-                                            tooltip="Remove custom domain"
-                                            container="body"
-                                            aria-label="Remove">
-                                      @if (removingDomainHostname === domain.hostname) {
-                                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
-                                      } @else {
-                                        <fa-icon [icon]="faTrash"></fa-icon>
-                                      }
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            }
-                          </tbody>
-                        </table>
-                      </div>
-                    }
-                    <div class="mt-4">
-                      <div class="fw-bold">Apex / www redirect</div>
+
+                    <div class="hostname-part mt-4 pt-3 border-top">
+                      <div class="fw-bold">Attach a custom domain</div>
                       <p class="small text-muted mb-2">
-                        Make the bare apex (or <code>www.</code>) variant of a domain redirect to the host the
-                        site is served on. The redirect runs at Cloudflare's edge — enter the hostname the site is
-                        served on and the other variant is pointed at it. Only needed when one variant does not
-                        resolve: if both already work, leave this alone. A 302 is used rather than a 301 so that
-                        removing the redirect takes effect immediately, instead of visitors' browsers caching it
-                        permanently.
+                        Only if the group owns a domain of its own (e.g. <code>www.finchleyandhornsey.org.uk</code>)
+                        that should serve this site. Skip when the free NGX subdomain is enough.
+                        @if (!environmentSubdomainReady()) {
+                          Available after Setup subdomain has run.
+                        }
                       </p>
                       <div class="d-flex gap-2 align-items-start flex-wrap">
                         <input type="text" class="form-control" style="max-width: 320px;"
-                               placeholder="Primary hostname e.g. www.your-group.org.uk"
+                               placeholder="e.g. www.your-group.org.uk"
+                               [(ngModel)]="customDomainHostname"
+                               [disabled]="operationBusy || customDomainBusy || !environmentSubdomainReady()">
+                        <button class="btn btn-primary" (click)="addCustomDomain()"
+                                [disabled]="operationBusy || customDomainBusy || !customDomainHostname || !environmentSubdomainReady()">
+                          @if (customDomainBusy && !removingDomainHostname && !checkingDomainHostname) {
+                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                          } @else {
+                            <fa-icon [icon]="faPlus" class="me-1"></fa-icon>
+                          }
+                          Attach domain
+                        </button>
+                      </div>
+                      @if (shouldShowAlsoAttachWwwOption()) {
+                        <div class="form-check mt-2">
+                          <input class="form-check-input" type="checkbox" id="alsoAttachWww"
+                                 [(ngModel)]="alsoAttachWww"
+                                 [disabled]="operationBusy || customDomainBusy || !environmentSubdomainReady()">
+                          <label class="form-check-label small" for="alsoAttachWww">
+                            Also attach the <code>www.</code> variant so both apex and www serve the site
+                          </label>
+                        </div>
+                      }
+                      @if (customDomainError) {
+                        <p class="small text-danger mt-2 mb-0">{{ customDomainError }}</p>
+                      }
+                      @if (customDomainMessages.length > 0) {
+                        <div class="mt-3">
+                          <app-session-logs [messages]="customDomainMessages"></app-session-logs>
+                        </div>
+                      }
+                      @if (customDomains().length > 0) {
+                        <div class="table-responsive mt-3">
+                          <table class="table table-sm align-middle mb-0 custom-domains-table">
+                            <thead>
+                              <tr>
+                                <th scope="col" class="col-hostname">Hostname</th>
+                                <th scope="col" class="col-status">Status</th>
+                                <th scope="col" class="col-added">Added</th>
+                                <th scope="col" class="text-end col-actions">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (domain of customDomains(); track domain.hostname) {
+                                <tr>
+                                  <td class="col-hostname">
+                                    <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
+                                    <a [href]="'https://' + domain.hostname" target="_blank">{{ domain.hostname }}</a>
+                                  </td>
+                                  <td class="col-status">
+                                    <div>
+                                      <span class="badge" [class]="domainBadgeClass(domain.status)">{{ domainStatusLabel(domain.status) }}</span>
+                                    </div>
+                                    @if (domain.message && domain.message !== domain.status) {
+                                      <div class="small text-muted mt-1 domain-status-detail">{{ domain.message }}</div>
+                                    }
+                                  </td>
+                                  <td class="col-added">{{ domain.addedAt ? (domain.addedAt | date:"short") : "" }}</td>
+                                  <td class="text-end col-actions">
+                                    <div class="d-inline-flex gap-1">
+                                      <button class="btn btn-sm btn-quiet icon-only"
+                                              (click)="checkCustomDomain(domain)"
+                                              [disabled]="operationBusy || customDomainBusy"
+                                              tooltip="Check &amp; reconcile DNS/cert"
+                                              container="body"
+                                              aria-label="Check">
+                                        @if (checkingDomainHostname === domain.hostname) {
+                                          <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                        } @else {
+                                          <fa-icon [icon]="faRedo"></fa-icon>
+                                        }
+                                      </button>
+                                      <button class="btn btn-sm btn-danger icon-only"
+                                              (click)="removeCustomDomain(domain)"
+                                              [disabled]="operationBusy || customDomainBusy"
+                                              tooltip="Remove custom domain"
+                                              container="body"
+                                              aria-label="Remove">
+                                        @if (removingDomainHostname === domain.hostname) {
+                                          <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                        } @else {
+                                          <fa-icon [icon]="faTrash"></fa-icon>
+                                        }
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="hostname-part mt-4 pt-3 border-top">
+                      <div class="fw-bold">Apex / www redirect</div>
+                      <p class="small text-muted mb-2">
+                        Only after a custom domain is attached, and only when one half of a pair (bare apex vs
+                        <code>www.</code>) should send visitors to the other. It does not put the site on a new host.
+                        Enter the hostname that already serves the site. Skip if both variants already serve, or you
+                        have no custom domain.
+                        @if (!canSetupApexRedirect()) {
+                          Available after a custom domain is attached.
+                        }
+                      </p>
+                      <div class="d-flex gap-2 align-items-start flex-wrap">
+                        <input type="text" class="form-control" style="max-width: 320px;"
+                               placeholder="Serving host e.g. www.your-group.org.uk"
                                [(ngModel)]="apexRedirectHostname"
-                               [disabled]="operationBusy || customDomainBusy || apexRedirectBusy">
+                               [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !canSetupApexRedirect()">
                         <button class="btn btn-primary" (click)="setupApexRedirect()"
-                                [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !apexRedirectHostname">
+                                [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !apexRedirectHostname || !canSetupApexRedirect()">
                           @if (apexRedirectBusy) {
                             <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                           } @else {
@@ -555,10 +726,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                         </button>
                       </div>
                       @if (apexRedirectError) {
-                        <div class="alert alert-danger mt-3 mb-0">
-                          <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                          {{ apexRedirectError }}
-                        </div>
+                        <p class="small text-danger mt-2 mb-0">{{ apexRedirectError }}</p>
                       }
                       @if (apexRedirectMessages.length > 0) {
                         <div class="mt-3">
@@ -568,24 +736,6 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                     </div>
                   </div>
                 </div>
-                @if (passwordResetResult) {
-                  <div class="row mt-3">
-                    <div class="col-md-12">
-                      <div class="alert alert-success mb-0">
-                        <fa-icon [icon]="faKey" class="me-2"></fa-icon>
-                        <strong>Admin password reset generated</strong> for {{ passwordResetResult.userName || passwordResetResult.email }}
-                        <div class="mt-2">
-                          <strong>Subdomain URL:</strong>
-                          <a [href]="passwordResetResult.resetUrl" target="_blank">{{ passwordResetResult.resetUrl }}</a>
-                        </div>
-                        <div class="mt-1">
-                          <strong>Fly.io URL:</strong>
-                          <a [href]="passwordResetResult.flyResetUrl" target="_blank">{{ passwordResetResult.flyResetUrl }}</a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                }
                 <div class="row mt-3">
                   <div class="col-md-12 d-flex gap-2 align-items-start flex-wrap">
                     <button class="btn btn-primary" (click)="resumeSetup()"
@@ -593,9 +743,9 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                       @if (resuming) {
                         <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                       }
-                      Modify Environment
+                      Run selected steps
                     </button>
-                    <button class="btn btn-outline-secondary" (click)="generateAdminPasswordReset()"
+                    <button type="button" class="btn btn-quiet" (click)="generateAdminPasswordReset()"
                             [disabled]="operationBusy || generatingPasswordReset">
                       @if (generatingPasswordReset) {
                         <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
@@ -628,11 +778,209 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                       <div class="btn-group btn-group-sm ms-3">
                         <button type="button" class="btn btn-danger" [disabled]="removingNgxSubdomain"
                                 (click)="confirmRemoveNgxSubdomain()">Remove</button>
-                        <button type="button" class="btn btn-outline-secondary"
+                        <button type="button" class="btn btn-quiet"
                                 (click)="cancelRemoveNgxSubdomain()">Cancel</button>
                       </div>
                     </div>
                   }
+                </div>
+              }
+              @if (manageAction === ManageAction.MIGRATE_FLY_ORG) {
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <p class="text-muted small mb-3">
+                      Fly cannot move an app between orgs. Enter the <strong>old</strong> token that owns the app now,
+                      and the <strong>new</strong> org-scoped token for the destination. Cutover creates the app under
+                      the new token, deploys the same image and secrets, re-points custom domain DNS/SSL (from Site URL
+                      and configured custom domains) at the destination app, optionally re-attaches the free NGX
+                      subdomain, then optionally destroys the old app. If a previous run stopped mid-way, status below
+                      shows what is already done so <strong>Resume cutover</strong> only finishes remaining steps.
+                    </p>
+                    <div class="row fly-migrate-panels">
+                      <div class="col-md-6">
+                        <div class="thumbnail-heading-frame">
+                          <div class="thumbnail-heading">Old Fly credentials (source)</div>
+                          <div class="mb-2">
+                            <label class="form-label" for="flyMigrateOldApiKey">API token</label>
+                            <app-secret-input
+                              [(ngModel)]="flyMigrateForm.oldApiKey"
+                              name="flyMigrateOldApiKey"
+                              [size]="InputSize.SM">
+                            </app-secret-input>
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label" for="flyMigrateOldOrg">Organisation</label>
+                            <input type="text" class="form-control form-control-sm" id="flyMigrateOldOrg"
+                                   [(ngModel)]="flyMigrateForm.oldOrganisation" name="flyMigrateOldOrg"
+                                   autocomplete="off" placeholder="personal">
+                          </div>
+                          <div class="mb-0">
+                            <label class="form-label" for="flyMigrateOldApp">App name</label>
+                            <input type="text" class="form-control form-control-sm" id="flyMigrateOldApp"
+                                   [(ngModel)]="flyMigrateForm.oldAppName" name="flyMigrateOldApp"
+                                   autocomplete="off">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="thumbnail-heading-frame">
+                          <div class="thumbnail-heading">New Fly credentials (destination)</div>
+                          <div class="mb-2">
+                            <label class="form-label" for="flyMigrateNewApiKey">API token</label>
+                            <app-secret-input
+                              [(ngModel)]="flyMigrateForm.newApiKey"
+                              name="flyMigrateNewApiKey"
+                              [size]="InputSize.SM">
+                            </app-secret-input>
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label" for="flyMigrateNewOrg">Organisation</label>
+                            <input type="text" class="form-control form-control-sm" id="flyMigrateNewOrg"
+                                   [(ngModel)]="flyMigrateForm.newOrganisation" name="flyMigrateNewOrg"
+                                   autocomplete="off" placeholder="e.g. ramblers">
+                          </div>
+                          <div class="mb-0">
+                            <label class="form-label" for="flyMigrateNewApp">App name</label>
+                            <input type="text" class="form-control form-control-sm" id="flyMigrateNewApp"
+                                   [(ngModel)]="flyMigrateForm.newAppName" name="flyMigrateNewApp"
+                                   autocomplete="off">
+                            <small class="form-text text-muted">Usually the same name as the old app</small>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="fly-migrate-detect d-flex align-items-center gap-2 flex-wrap mb-3">
+                      <button type="button" class="btn btn-quiet d-inline-flex align-items-center"
+                              (click)="probeFlyOrgMigrationStatus()"
+                              [disabled]="operationBusy || loadingFlyMigrationStatus || !canProbeFlyOrgMigration()">
+                        @if (loadingFlyMigrationStatus) {
+                          <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
+                        } @else {
+                          <fa-icon [icon]="faRedo" class="me-2"></fa-icon>
+                        }
+                        Detect cutover state
+                      </button>
+                      @if (flyMigrationStatus) {
+                        <span class="small text-muted">{{ flyMigrationStatus.summary }}</span>
+                      }
+                    </div>
+                    @if (flyMigrationStatusError) {
+                      <div class="alert alert-warning mb-2">
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        {{ flyMigrationStatusError }}
+                      </div>
+                    }
+                    @if (flyMigrationStatus) {
+                      <div class="fly-migrate-status resume-steps mb-3">
+                        <div class="resume-step">
+                          <span class="resume-step-label">
+                            <span class="resume-step-text">Preferred app under destination token</span>
+                            <span class="badge resume-step-badge"
+                                  [class]="flyMigrationStatus.preferredExistsUnderNew ? 'bg-success' : 'bg-warning'">
+                              {{ flyMigrationStatus.preferredExistsUnderNew ? "done" : "needed" }}
+                            </span>
+                          </span>
+                        </div>
+                        <div class="resume-step">
+                          <span class="resume-step-label">
+                            <span class="resume-step-text">Preferred app deployed</span>
+                            <span class="badge resume-step-badge"
+                                  [class]="flyMigrationStatus.preferredDeployedUnderNew ? 'bg-success' : 'bg-warning'">
+                              {{ flyMigrationStatus.preferredDeployedUnderNew ? "done" : "needed" }}
+                            </span>
+                          </span>
+                        </div>
+                        <div class="resume-step">
+                          <span class="resume-step-label">
+                            <span class="resume-step-text">Source app removed</span>
+                            <span class="badge resume-step-badge"
+                                  [class]="!flyMigrationStatus.sourceExistsUnderOld ? 'bg-success' : 'bg-warning'">
+                              {{ !flyMigrationStatus.sourceExistsUnderOld ? "done" : "needed" }}
+                            </span>
+                          </span>
+                        </div>
+                        <div class="resume-step">
+                          <span class="resume-step-label">
+                            <span class="resume-step-text">Temporary cutover app cleaned up</span>
+                            <span class="badge resume-step-badge"
+                                  [class]="!flyMigrationStatus.cutoverExistsUnderNew ? 'bg-success' : 'bg-warning'">
+                              {{ !flyMigrationStatus.cutoverExistsUnderNew ? "done" : "needed" }}
+                            </span>
+                          </span>
+                        </div>
+                        <div class="resume-step">
+                          <span class="resume-step-label">
+                            <span class="resume-step-text">Config points at preferred app</span>
+                            <span class="badge resume-step-badge"
+                                  [class]="flyMigrationStatus.configPointsAtPreferred && !flyMigrationStatus.hasPreviousCredentials ? 'bg-success' : 'bg-warning'">
+                              {{ flyMigrationStatus.configPointsAtPreferred && !flyMigrationStatus.hasPreviousCredentials ? "done" : "needed" }}
+                            </span>
+                          </span>
+                        </div>
+                        <div class="resume-step">
+                          <span class="resume-step-label">
+                            <span class="resume-step-text">
+                              Custom domain DNS/SSL on destination
+                              @if (flyMigrationStatus.customDomainHostnames?.length) {
+                                <span class="text-muted"> ({{ flyMigrationStatus.customDomainHostnames.join(", ") }})</span>
+                              }
+                            </span>
+                            <span class="badge resume-step-badge"
+                                  [class]="!flyMigrationStatus.needsCustomDomainReattach ? 'bg-success' : 'bg-warning'">
+                              {{ !flyMigrationStatus.needsCustomDomainReattach ? "done" : "needed" }}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    }
+                    <div class="fly-migrate-options">
+                      <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="destroyOldFlyAppManage"
+                               [(ngModel)]="flyMigrateOptions.destroyOldApp" name="destroyOldFlyAppManage">
+                        <label class="form-check-label" for="destroyOldFlyAppManage">
+                          Destroy previous Fly app after the new app is healthy
+                        </label>
+                      </div>
+                      <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="reattachSubdomainOnMigrateManage"
+                               [(ngModel)]="flyMigrateOptions.reattachSubdomain" name="reattachSubdomainOnMigrateManage">
+                        <label class="form-check-label" for="reattachSubdomainOnMigrateManage">
+                          Re-attach free NGX subdomain ({{ selectedExistingEnv.name }}.ngx-ramblers.org.uk) DNS/SSL only — leave off if this site uses a custom domain only
+                        </label>
+                      </div>
+                    </div>
+                    @if (progressMessages.length > 0) {
+                      <app-session-logs [messages]="progressMessages"></app-session-logs>
+                    }
+                    @if (flyMigrationComplete && setupResult) {
+                      <div class="alert alert-success mt-3 mb-0">
+                        <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                        <strong>Fly organisation migration completed.</strong>
+                        @if (setupResult.appUrl) {
+                          <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
+                        }
+                        @if (setupResult.appName) {
+                          <br>App name: <code>{{ setupResult.appName }}</code>
+                        }
+                      </div>
+                    }
+                    @if (setupError) {
+                      <div class="alert alert-danger mt-3 mb-0">
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        <strong>Error:</strong> {{ setupError }}
+                      </div>
+                    }
+                    <button class="btn btn-primary mt-3"
+                            (click)="runFlyOrgMigration()"
+                            [disabled]="operationBusy || (flyMigrationStatus?.phase === FlyOrgMigrationPhase.COMPLETE && !flyMigrationStatus?.needsCustomDomainReattach)">
+                      @if (migratingFlyOrg) {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faPlaneDeparture" class="me-1"></fa-icon>
+                      }
+                      {{ flyMigrationPrimaryButtonLabel() }}
+                    </button>
+                  </div>
                 </div>
               }
               @if (manageAction === ManageAction.DESTROY) {
@@ -698,9 +1046,13 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   private logger = this.loggerFactory.createLogger("EnvironmentManagement", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private environmentSetupService = inject(EnvironmentSetupService);
+  private environmentConfigService = inject(EnvironmentConfigService);
   private websocketService = inject(WebSocketClientService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
+  protected stringUtils = inject(StringUtilsService);
+  protected readonly HostnameOrigin = HostnameOrigin;
+  protected readonly InputSize = InputSize;
 
   private subscriptions: Subscription[] = [];
   private notify: AlertInstance;
@@ -724,13 +1076,33 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     setupSubdomain: false,
     includeSamplePages: false,
     includeNotificationConfigs: false,
-    populateBrevoTemplates: false,
     authenticateBrevoDomain: false
   };
+
+  flyMigrateOptions = {
+    destroyOldApp: true,
+    reattachSubdomain: false
+  };
+
+  flyMigrateForm = {
+    oldApiKey: "",
+    oldOrganisation: "",
+    oldAppName: "",
+    newApiKey: "",
+    newOrganisation: "",
+    newAppName: ""
+  };
+
+  flyMigrationStatus: FlyOrgMigrationStatus | null = null;
+  flyMigrationStatusError: string | null = null;
+  loadingFlyMigrationStatus = false;
+  protected readonly FlyOrgMigrationPhase = FlyOrgMigrationPhase;
 
   progressMessages: string[] = [];
   setupResult: { environmentName: string; appName: string; appUrl: string } | null = null;
   setupError: string | null = null;
+  setupWarnings: string[] = [];
+  flyMigrationComplete = false;
 
   destroyProgressMessages: string[] = [];
   destroyComplete = false;
@@ -751,6 +1123,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
   apexRedirectHostname = "";
   apexRedirectBusy = false;
+  siteUrlBusy = false;
   apexRedirectError: string | null = null;
   apexRedirectMessages: string[] = [];
   hostnameHealthReport: HostnameHealthReport | null = null;
@@ -764,6 +1137,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faGlobe = faGlobe;
   protected readonly faKey = faKey;
+  protected readonly faPlaneDeparture = faPlaneDeparture;
   protected readonly faPlus = faPlus;
   protected readonly faRedo = faRedo;
   protected readonly faSpinner = faSpinner;
@@ -777,8 +1151,45 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     return this.operationInProgress === OperationInProgress.DESTROYING;
   }
 
+  get migratingFlyOrg(): boolean {
+    return this.operationInProgress === OperationInProgress.MIGRATING_FLY_ORG;
+  }
+
   get operationBusy(): boolean {
     return this.operationInProgress !== OperationInProgress.NONE;
+  }
+
+  canRunFlyOrgMigration(): boolean {
+    if (!this.selectedExistingEnv) {
+      return false;
+    } else if (this.flyMigrationStatus?.phase === FlyOrgMigrationPhase.COMPLETE && !this.flyMigrationStatus?.needsCustomDomainReattach) {
+      return false;
+    } else if (this.flyMigrationStatus?.resumeAvailable || this.flyMigrationStatus?.needsCustomDomainReattach) {
+      return true;
+    } else {
+      const form = this.flyMigrateForm;
+      const oldReady = !!(form.oldApiKey && form.oldAppName);
+      const newReady = !!(form.newApiKey && form.newAppName);
+      const credentialsDiffer = form.oldApiKey !== form.newApiKey || form.oldOrganisation !== form.newOrganisation;
+      const hasStoredDestinationToken = !!this.selectedExistingEnv.hasApiKey;
+      return !!(oldReady && newReady && credentialsDiffer) || !!(hasStoredDestinationToken && form.newAppName);
+    }
+  }
+
+  canProbeFlyOrgMigration(): boolean {
+    return !!this.selectedExistingEnv;
+  }
+
+  flyMigrationPrimaryButtonLabel(): string {
+    if (this.migratingFlyOrg) {
+      return "Migrating…";
+    } else if (this.flyMigrationStatus?.phase === FlyOrgMigrationPhase.COMPLETE && !this.flyMigrationStatus?.needsCustomDomainReattach) {
+      return "Cutover already complete";
+    } else if (this.flyMigrationStatus?.resumeAvailable || this.flyMigrationStatus?.needsCustomDomainReattach) {
+      return "Resume cutover";
+    } else {
+      return "Move to this Fly organisation";
+    }
   }
 
   async ngOnInit() {
@@ -799,15 +1210,17 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
   private async applyStateFromQueryParams(): Promise<void> {
     const params = this.activatedRoute.snapshot.queryParams;
+    const manageActionParameter = params[StoredValue.MANAGE_ACTION];
+    if (manageActionParameter && values(ManageAction).includes(manageActionParameter)) {
+      this.manageAction = manageActionParameter;
+    }
     const environmentParameter = params[StoredValue.ENVIRONMENT];
     const matched = this.existingEnvironments.find(environment => environment.name === environmentParameter);
     if (matched) {
       this.selectedExistingEnv = matched;
       await this.onExistingEnvironmentSelected(matched);
-    }
-    const manageActionParameter = params[StoredValue.MANAGE_ACTION];
-    if (manageActionParameter && values(ManageAction).includes(manageActionParameter)) {
-      this.manageAction = manageActionParameter;
+    } else if (this.manageAction === ManageAction.MIGRATE_FLY_ORG) {
+      await this.populateFlyMigrateForm();
     }
   }
 
@@ -818,6 +1231,99 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   setManageAction(action: ManageAction): void {
     this.manageAction = action;
     this.updateQueryParams({ [StoredValue.MANAGE_ACTION]: action });
+    if (action === ManageAction.MIGRATE_FLY_ORG) {
+      void this.populateFlyMigrateForm();
+    }
+  }
+
+  private async populateFlyMigrateForm(): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.resetFlyMigrateForm();
+    } else {
+      try {
+        await this.environmentConfigService.refresh();
+        const config = this.environmentConfigService.cachedEnvironmentsConfig();
+        const envConfig = (config?.environments || []).find(item => item.environment === this.selectedExistingEnv.name);
+        const flyio = envConfig?.flyio;
+        const appName = flyio?.appName || this.selectedExistingEnv.appName || "";
+        const preferredAppName = appName.replace(/-cutover$/, "") || appName;
+        const currentOrg = flyio?.organisation || this.selectedExistingEnv.organisation || "personal";
+        const currentApiKey = flyio?.apiKey || "";
+        if (flyio?.previous?.apiKey) {
+          const oldOrganisation = flyio.previous.organisation || currentOrg || "personal";
+          this.flyMigrateForm = {
+            oldApiKey: flyio.previous.apiKey || "",
+            oldOrganisation,
+            oldAppName: flyio.previous.appName || preferredAppName,
+            newApiKey: currentApiKey,
+            newOrganisation: currentOrg || oldOrganisation,
+            newAppName: preferredAppName
+          };
+        } else {
+          this.flyMigrateForm = {
+            oldApiKey: currentApiKey,
+            oldOrganisation: currentOrg,
+            oldAppName: preferredAppName,
+            newApiKey: "",
+            newOrganisation: currentOrg,
+            newAppName: preferredAppName
+          };
+        }
+        await this.probeFlyOrgMigrationStatus();
+      } catch (error) {
+        this.logger.error("Failed to load Fly credentials for migration form:", error);
+        const fallbackOrg = this.selectedExistingEnv.organisation || "personal";
+        this.flyMigrateForm = {
+          oldApiKey: "",
+          oldOrganisation: fallbackOrg,
+          oldAppName: this.selectedExistingEnv.appName || "",
+          newApiKey: "",
+          newOrganisation: fallbackOrg,
+          newAppName: this.selectedExistingEnv.appName || ""
+        };
+      }
+    }
+  }
+
+  private resetFlyMigrateForm(): void {
+    this.flyMigrateForm = {
+      oldApiKey: "",
+      oldOrganisation: "",
+      oldAppName: "",
+      newApiKey: "",
+      newOrganisation: "",
+      newAppName: ""
+    };
+    this.flyMigrationStatus = null;
+    this.flyMigrationStatusError = null;
+  }
+
+  async probeFlyOrgMigrationStatus(): Promise<void> {
+    if (!this.selectedExistingEnv || !this.canProbeFlyOrgMigration()) {
+      this.flyMigrationStatus = null;
+    } else {
+      this.loadingFlyMigrationStatus = true;
+      this.flyMigrationStatusError = null;
+      try {
+        this.flyMigrationStatus = await this.environmentSetupService.flyOrgMigrationStatus(
+          this.selectedExistingEnv.name,
+          {
+            previousApiKey: this.flyMigrateForm.oldApiKey,
+            previousOrganisation: this.flyMigrateForm.oldOrganisation || "personal",
+            previousAppName: this.flyMigrateForm.oldAppName,
+            newApiKey: this.flyMigrateForm.newApiKey,
+            newOrganisation: this.flyMigrateForm.newOrganisation || "personal",
+            newAppName: this.flyMigrateForm.newAppName
+          }
+        );
+      } catch (error) {
+        this.flyMigrationStatus = null;
+        this.flyMigrationStatusError = this.extractErrorDetail(error);
+        this.logger.error("Failed to probe Fly org migration status:", error);
+      } finally {
+        this.loadingFlyMigrationStatus = false;
+      }
+    }
   }
 
   private async connectWebSocket(): Promise<void> {
@@ -841,14 +1347,10 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
             appUrl: data.result.appUrl
           } : null;
           this.progressMessages.push(data?.message || "Completed");
-          if (this.resumeOptions.setupSubdomain && this.selectedExistingEnv) {
-            const subdomainHostname = await this.runSubdomainSetup();
-            if (subdomainHostname && pendingResult) {
-              pendingResult.appUrl = `https://${subdomainHostname}`;
-              this.setupResult = pendingResult;
-            }
-          } else if (pendingResult) {
-            this.setupResult = pendingResult;
+          if (this.operationInProgress === OperationInProgress.MIGRATING_FLY_ORG) {
+            await this.finishFlyOrgMigration(pendingResult);
+          } else {
+            await this.finishResumeAfterDeploy(pendingResult);
           }
           this.operationInProgress = OperationInProgress.NONE;
         }),
@@ -889,11 +1391,16 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   }
 
   async onExistingEnvironmentSelected(env: ExistingEnvironment): Promise<void> {
+    const preservedManageAction = this.manageAction;
     this.clearState();
+    this.manageAction = preservedManageAction;
     this.updateQueryParams({ [StoredValue.ENVIRONMENT]: env?.name || null });
     if (env) {
       await Promise.all([this.probeEnvironmentStatus(env.name), this.probeHostnameHealth(env.name)]);
       this.apexRedirectHostname = this.suggestedApexRedirectHostname(env);
+      if (this.manageAction === ManageAction.MIGRATE_FLY_ORG) {
+        await this.populateFlyMigrateForm();
+      }
     }
   }
 
@@ -919,8 +1426,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   }
 
   hostnameDetail(hostname: HostnameStatus): string {
-    const worthExplaining = !hostname.healthy || hostname.health === HostnameHealth.REDIRECTING;
-    return worthExplaining ? hostname.message : "";
+    return hostname.health === HostnameHealth.REDIRECTING ? hostname.message : "";
   }
 
   hostnameStatuses(): HostnameStatus[] {
@@ -958,9 +1464,110 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     }
   }
 
+  hostnameActionStatement(hostname: HostnameStatus): string {
+    if (hostname.origin === HostnameOrigin.SITE_URL && this.isNationalSiteUrl(hostname)) {
+      return "Wrong Site URL (Ramblers national group page). Clear it, then once the environment subdomain is live use Use as Site URL on that row.";
+    } else if (hostname.origin === HostnameOrigin.SITE_URL && this.isEnvironmentSubdomainHost(hostname)) {
+      return "Site URL is already the free environment host you want. It is not live yet: tick Deploy to Fly.io and Setup subdomain under Steps to run, then Run selected steps. No need to clear this URL.";
+    } else if (hostname.origin === HostnameOrigin.SITE_URL) {
+      return `${hostname.message} If this is not the address you want, Clear Site URL; otherwise bring the host online first.`;
+    } else if (hostname.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN) {
+      return "Not live yet. Use Setup subdomain under Steps to run, then Run selected steps.";
+    } else if (hostname.origin === HostnameOrigin.CUSTOM_DOMAIN) {
+      return `${hostname.message} Check or re-attach the domain in Attach a custom domain below.`;
+    } else if (hostname.origin === HostnameOrigin.SIBLING) {
+      return `${hostname.message} Use Apex / www redirect below if only one variant should serve.`;
+    } else {
+      return hostname.message;
+    }
+  }
+
+  isNationalSiteUrl(hostname: HostnameStatus): boolean {
+    return ramblersNationalUrl(`https://${hostname.hostname}`);
+  }
+
+  isEnvironmentSubdomainHost(hostname: HostnameStatus): boolean {
+    return hostname.hostname === this.environmentSubdomainHint()
+      || hostname.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN;
+  }
+
+  shouldOfferClearSiteUrl(hostname: HostnameStatus): boolean {
+    return hostname.origin === HostnameOrigin.SITE_URL
+      && !this.isEnvironmentSubdomainHost(hostname);
+  }
+
   async refreshHostnameHealth(): Promise<void> {
     if (this.selectedExistingEnv) {
       await this.probeHostnameHealth(this.selectedExistingEnv.name);
+    }
+  }
+
+  canUseAsSiteUrl(hostname: HostnameStatus): boolean {
+    const alreadySite = this.hostnameStatuses().some(status =>
+      status.origin === HostnameOrigin.SITE_URL && status.hostname === hostname.hostname);
+    return !alreadySite
+      && (hostname.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN || hostname.origin === HostnameOrigin.CUSTOM_DOMAIN);
+  }
+
+  environmentSubdomainHint(): string {
+    const fromHealth = this.hostnameStatuses().find(status => status.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
+    if (fromHealth) {
+      return fromHealth.hostname;
+    } else if (this.selectedExistingEnv) {
+      return `${this.selectedExistingEnv.name}.ngx-ramblers.org.uk`;
+    } else {
+      return "your-env.ngx-ramblers.org.uk";
+    }
+  }
+
+  environmentSubdomainReady(): boolean {
+    return this.envStatus?.subdomainConfigured === true
+      || this.hostnameStatuses().some(status =>
+        status.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN && status.healthy);
+  }
+
+  canSetupApexRedirect(): boolean {
+    return this.customDomains().length > 0
+      || this.hostnameStatuses().some(status =>
+        status.origin === HostnameOrigin.CUSTOM_DOMAIN && status.healthy);
+  }
+
+  async clearSiteUrl(): Promise<void> {
+    if (this.selectedExistingEnv) {
+      this.siteUrlBusy = true;
+      try {
+        const result = await this.environmentSetupService.updateSiteUrl(this.selectedExistingEnv.name, null);
+        if (result.success) {
+          this.notify.success({title: "Site URL cleared", message: result.message});
+          await this.probeHostnameHealth(this.selectedExistingEnv.name);
+        } else {
+          this.notify.error({title: "Could not clear Site URL", message: result.message});
+        }
+      } catch (error) {
+        this.notify.error({title: "Could not clear Site URL", message: this.extractErrorDetail(error)});
+      } finally {
+        this.siteUrlBusy = false;
+      }
+    }
+  }
+
+  async setSiteUrlFromHostname(hostname: HostnameStatus): Promise<void> {
+    if (this.selectedExistingEnv) {
+      this.siteUrlBusy = true;
+      try {
+        const siteUrl = `https://${hostname.hostname}`;
+        const result = await this.environmentSetupService.updateSiteUrl(this.selectedExistingEnv.name, siteUrl);
+        if (result.success) {
+          this.notify.success({title: "Site URL updated", message: result.message});
+          await this.probeHostnameHealth(this.selectedExistingEnv.name);
+        } else {
+          this.notify.error({title: "Could not set Site URL", message: result.message});
+        }
+      } catch (error) {
+        this.notify.error({title: "Could not set Site URL", message: this.extractErrorDetail(error)});
+      } finally {
+        this.siteUrlBusy = false;
+      }
     }
   }
 
@@ -976,7 +1583,6 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         setupSubdomain: !this.envStatus.subdomainConfigured,
         includeSamplePages: !this.envStatus.samplePagesPresent,
         includeNotificationConfigs: !this.envStatus.notificationConfigsPresent,
-        populateBrevoTemplates: !this.envStatus.brevoTemplatesPresent,
         authenticateBrevoDomain: !this.envStatus.brevoDomainAuthenticated
       };
       this.logger.info("Environment status:", this.envStatus, "Resume options:", this.resumeOptions);
@@ -989,7 +1595,6 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         setupSubdomain: false,
         includeSamplePages: false,
         includeNotificationConfigs: false,
-        populateBrevoTemplates: false,
         authenticateBrevoDomain: false
       };
     } finally {
@@ -1001,6 +1606,11 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.progressMessages = [];
     this.setupResult = null;
     this.setupError = null;
+    this.setupWarnings = [];
+    this.flyMigrationComplete = false;
+    this.resetFlyMigrateForm();
+    this.flyMigrationStatus = null;
+    this.flyMigrationStatusError = null;
     this.destroyProgressMessages = [];
     this.destroyComplete = false;
     this.destroyError = null;
@@ -1231,6 +1841,86 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     }
   }
 
+  async runFlyOrgMigration(): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.notify.warning({ title: "No Environment Selected", message: "Please select an environment to migrate" });
+    } else if (!this.wsConnected) {
+      this.setupError = "WebSocket not connected — refresh the page and try again";
+      this.progressMessages = [this.setupError];
+    } else {
+      this.operationInProgress = OperationInProgress.MIGRATING_FLY_ORG;
+      this.progressMessages = [];
+      this.setupError = null;
+      this.setupWarnings = [];
+      this.setupResult = null;
+      this.flyMigrationComplete = false;
+      try {
+        await this.probeFlyOrgMigrationStatus();
+        if (this.flyMigrationStatus?.phase === FlyOrgMigrationPhase.COMPLETE && !this.flyMigrationStatus.needsCustomDomainReattach) {
+          this.progressMessages = [this.flyMigrationStatus.summary || "Cutover already complete"];
+          this.flyMigrationComplete = true;
+          this.operationInProgress = OperationInProgress.NONE;
+        } else {
+          this.progressMessages.push(`Starting Fly organisation migration for ${this.selectedExistingEnv.name}`);
+          const payload: {
+            environmentName: string;
+            destroyOldApp: boolean;
+            reattachSubdomain: boolean;
+            previousApiKey?: string;
+            previousOrganisation?: string;
+            previousAppName?: string;
+            newApiKey?: string;
+            newOrganisation?: string;
+            newAppName?: string;
+          } = {
+            environmentName: this.selectedExistingEnv.name,
+            destroyOldApp: this.flyMigrateOptions.destroyOldApp,
+            reattachSubdomain: this.flyMigrateOptions.reattachSubdomain
+          };
+          if (this.flyMigrateForm.oldApiKey) {
+            payload.previousApiKey = this.flyMigrateForm.oldApiKey;
+          }
+          if (this.flyMigrateForm.oldOrganisation) {
+            payload.previousOrganisation = this.flyMigrateForm.oldOrganisation;
+          }
+          if (this.flyMigrateForm.oldAppName) {
+            payload.previousAppName = this.flyMigrateForm.oldAppName;
+          }
+          if (this.flyMigrateForm.newApiKey) {
+            payload.newApiKey = this.flyMigrateForm.newApiKey;
+          }
+          if (this.flyMigrateForm.newOrganisation) {
+            payload.newOrganisation = this.flyMigrateForm.newOrganisation;
+          }
+          if (this.flyMigrateForm.newAppName) {
+            payload.newAppName = this.flyMigrateForm.newAppName;
+          }
+          this.websocketService.sendMessage(EventType.FLY_ORG_MIGRATE, payload);
+        }
+      } catch (error) {
+        this.operationInProgress = OperationInProgress.NONE;
+        this.setupError = this.extractErrorDetail(error);
+        this.progressMessages = [`Error: ${this.setupError}`];
+      }
+    }
+  }
+
+  private async finishFlyOrgMigration(
+    pendingResult: { environmentName: string; appName: string; appUrl: string } | null
+  ): Promise<void> {
+    if (pendingResult) {
+      this.setupResult = pendingResult;
+    }
+    this.flyMigrationComplete = true;
+    await this.refreshSelectedEnvironment();
+    if (this.selectedExistingEnv) {
+      await this.probeEnvironmentStatus(this.selectedExistingEnv.name);
+      await this.probeHostnameHealth(this.selectedExistingEnv.name);
+    }
+    await this.populateFlyMigrateForm();
+    await this.probeFlyOrgMigrationStatus();
+  }
+
   async resumeSetup(): Promise<void> {
     if (!this.selectedExistingEnv) {
       this.notify.warning({ title: "No Environment Selected", message: "Please select an environment to resume" });
@@ -1240,7 +1930,9 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.operationInProgress = OperationInProgress.CREATING;
     this.progressMessages = [];
     this.setupError = null;
+    this.setupWarnings = [];
     this.setupResult = null;
+    this.flyMigrationComplete = false;
 
     this.progressMessages.push(`Modifying environment: ${this.selectedExistingEnv.name}`);
 
@@ -1294,41 +1986,14 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         }
       }
 
-      if (this.resumeOptions.populateBrevoTemplates) {
-        this.progressMessages.push("Populating Brevo templates...");
-        const brevoResponse = await this.environmentSetupService.populateBrevoTemplates(this.selectedExistingEnv.name);
-        if (brevoResponse.success) {
-          this.progressMessages.push(brevoResponse.message);
-        } else {
-          this.setupError = brevoResponse.message;
-          this.progressMessages.push(`Error: ${brevoResponse.message}`);
-          this.operationInProgress = OperationInProgress.NONE;
-          return;
-        }
-      }
-
-      if (this.resumeOptions.authenticateBrevoDomain) {
-        this.progressMessages.push("Authenticating Brevo sending domain...");
-        const authResponse = await this.environmentSetupService.authenticateBrevoDomain(this.selectedExistingEnv.name);
-        if (authResponse.success) {
-          this.progressMessages.push(authResponse.message);
-        } else {
-          this.setupError = authResponse.message;
-          this.progressMessages.push(`Error: ${authResponse.message}`);
-          this.operationInProgress = OperationInProgress.NONE;
-          return;
-        }
-      }
-
       if (this.wsConnected && (this.resumeOptions.runDbInit || this.resumeOptions.runFlyDeployment)) {
         this.websocketService.sendMessage(EventType.ENVIRONMENT_SETUP, {
           environmentName: this.selectedExistingEnv.name,
           runDbInit: this.resumeOptions.runDbInit,
           runFlyDeployment: this.resumeOptions.runFlyDeployment
         });
-
-        if (this.resumeOptions.setupSubdomain) {
-          this.progressMessages.push("Subdomain setup will run after deployment completes...");
+        if (this.resumeOptions.setupSubdomain || this.resumeOptions.authenticateBrevoDomain) {
+          this.progressMessages.push("Subdomain setup and Brevo domain authentication run after deployment completes...");
         }
       } else {
         const response = await this.environmentSetupService.resumeEnvironment(
@@ -1343,15 +2008,8 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
           appUrl: response.result.appUrl
         } : null;
 
-        if (this.resumeOptions.setupSubdomain) {
-          const subdomainHostname = await this.runSubdomainSetup();
-          if (subdomainHostname && pendingResult) {
-            pendingResult.appUrl = `https://${subdomainHostname}`;
-            this.setupResult = pendingResult;
-            this.progressMessages.push("Environment modified successfully!");
-          }
-        } else if (pendingResult) {
-          this.setupResult = pendingResult;
+        await this.finishResumeAfterDeploy(pendingResult);
+        if (!this.setupError) {
           this.progressMessages.push("Environment modified successfully!");
         }
         this.operationInProgress = OperationInProgress.NONE;
@@ -1364,24 +2022,71 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     }
   }
 
+  private async finishResumeAfterDeploy(
+    pendingResult: { environmentName: string; appName: string; appUrl: string } | null
+  ): Promise<void> {
+    const result = pendingResult ? {...pendingResult} : null;
+    if (this.resumeOptions.setupSubdomain) {
+      const subdomainHostname = await this.runSubdomainSetup();
+      if (subdomainHostname && result) {
+        result.appUrl = `https://${subdomainHostname}`;
+      }
+    }
+    if (this.resumeOptions.authenticateBrevoDomain) {
+      await this.runBrevoDomainAuth();
+    }
+    if (result) {
+      this.setupResult = result;
+    }
+    if (!this.setupError) {
+      await this.generateAdminPasswordReset();
+    }
+  }
+
   private async runSubdomainSetup(): Promise<string | null> {
-    if (!this.selectedExistingEnv) return null;
-    this.progressMessages.push("Setting up subdomain...");
-    try {
-      const subdomainResponse = await this.environmentSetupService.setupSubdomain(this.selectedExistingEnv.name);
-      if (subdomainResponse.success) {
-        this.progressMessages.push(`Subdomain configured: ${subdomainResponse.hostname}`);
-        return subdomainResponse.hostname;
-      } else {
-        this.setupError = subdomainResponse.message || "Subdomain setup failed";
+    if (this.selectedExistingEnv) {
+      this.progressMessages.push("Setting up subdomain...");
+      try {
+        const subdomainResponse = await this.environmentSetupService.setupSubdomain(this.selectedExistingEnv.name);
+        if (subdomainResponse.success) {
+          this.progressMessages.push(`Subdomain configured: ${subdomainResponse.hostname}`);
+          return subdomainResponse.hostname;
+        } else {
+          this.setupError = subdomainResponse.message || "Subdomain setup failed";
+          this.progressMessages.push(`Subdomain setup failed: ${this.setupError}`);
+          return null;
+        }
+      } catch (error) {
+        this.setupError = this.extractErrorDetail(error);
         this.progressMessages.push(`Subdomain setup failed: ${this.setupError}`);
+        this.logger.error("Subdomain setup failed:", error);
         return null;
       }
-    } catch (error) {
-      this.setupError = this.extractErrorDetail(error);
-      this.progressMessages.push(`Subdomain setup failed: ${this.setupError}`);
-      this.logger.error("Subdomain setup failed:", error);
+    } else {
       return null;
+    }
+  }
+
+  private async runBrevoDomainAuth(): Promise<void> {
+    if (this.selectedExistingEnv) {
+      this.progressMessages.push("Authenticating Brevo sending domain...");
+      try {
+        const authResponse = await this.environmentSetupService.authenticateBrevoDomain(this.selectedExistingEnv.name);
+        if (authResponse.authenticated) {
+          this.progressMessages.push(authResponse.message);
+        } else {
+          const warning = authResponse.message
+            || "Brevo domain authentication did not complete via API; finish it in the Brevo UI and re-run this step later.";
+          this.setupWarnings = [...this.setupWarnings, `Brevo sending domain: ${warning}`];
+          this.progressMessages.push(`Warning: ${warning}`);
+          this.logger.warn("Brevo domain authentication incomplete:", authResponse);
+        }
+      } catch (error) {
+        const warning = this.extractErrorDetail(error);
+        this.setupWarnings = [...this.setupWarnings, `Brevo sending domain: ${warning}`];
+        this.progressMessages.push(`Warning: ${warning}`);
+        this.logger.warn("Brevo domain authentication failed (non-fatal):", error);
+      }
     }
   }
 
@@ -1468,20 +2173,28 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   }
 
   async generateAdminPasswordReset(): Promise<void> {
-    if (!this.selectedExistingEnv) return;
-    this.generatingPasswordReset = true;
-    this.passwordResetResult = null;
-    try {
-      const response = await this.environmentSetupService.adminPasswordReset(this.selectedExistingEnv.name);
-      if (response.success) {
-        this.passwordResetResult = response;
-      } else {
-        this.notify.error({ title: "Password Reset Failed", message: response.message });
+    if (this.selectedExistingEnv) {
+      this.generatingPasswordReset = true;
+      this.passwordResetResult = null;
+      try {
+        const response = await this.environmentSetupService.adminPasswordReset(this.selectedExistingEnv.name);
+        if (response.success) {
+          this.passwordResetResult = response;
+          this.progressMessages.push(
+            `Admin sign-in ready: username ${response.userName || response.email} - set password via the link shown below`
+          );
+        } else {
+          this.setupWarnings = [...this.setupWarnings, `Admin sign-in: ${response.message}`];
+          this.progressMessages.push(`Warning: could not prepare admin sign-in: ${response.message}`);
+        }
+      } catch (error) {
+        const detail = this.extractErrorDetail(error);
+        this.setupWarnings = [...this.setupWarnings, `Admin sign-in: ${detail}`];
+        this.progressMessages.push(`Warning: could not prepare admin sign-in: ${detail}`);
+        this.logger.error("Admin password reset failed:", error);
+      } finally {
+        this.generatingPasswordReset = false;
       }
-    } catch (error) {
-      this.notify.error({ title: "Password Reset Failed", message: this.extractErrorDetail(error) });
-    } finally {
-      this.generatingPasswordReset = false;
     }
   }
 

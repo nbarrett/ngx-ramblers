@@ -3,6 +3,125 @@
   padding: 0.5rem 0.25rem 0.75rem
   border-bottom: 1px solid rgba(64, 65, 65, 0.08)
 
+.row-equal-style-cards
+  align-items: stretch
+
+  &:not(.g-0):not(.g-1):not(.g-2):not(.g-3):not(.g-4):not(.g-5)
+    --bs-gutter-x: 3rem
+    --bs-gutter-y: 1.5rem
+
+  > [class*="col-"]
+    display: flex
+    flex-direction: column
+    min-width: 0
+    box-sizing: border-box
+    padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5)
+    padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5)
+
+  > [class*="col-"] > app-dynamic-content-view-text-row,
+  > [class*="col-"] > app-dynamic-content-site-edit-text-row
+    display: flex
+    flex-direction: column
+    flex: 1 1 auto
+    width: 100%
+    min-width: 0
+
+    > .row
+      flex: 1 1 auto
+      width: 100%
+      min-width: 0
+      align-items: stretch
+
+      > [class*="col-"]
+        display: flex
+        flex-direction: column
+        flex: 1 1 auto
+        min-width: 0
+
+  > [class*="col-"] > .column-nested-rows
+    display: flex
+    flex-direction: column
+    flex: 1 1 auto
+    width: 100%
+    min-width: 0
+    height: 100%
+    box-sizing: border-box
+
+    > .thumbnail-site-edit
+      display: flex
+      flex-direction: column
+      flex: 1 1 auto
+      width: 100%
+      min-width: 0
+      height: 100%
+      box-sizing: border-box
+      margin-left: 0
+      margin-right: 0
+
+      > .thumbnail-site-edit
+        display: flex
+        flex-direction: column
+        flex: 1 1 auto
+        width: 100%
+        min-width: 0
+        height: 100%
+        box-sizing: border-box
+
+      app-dynamic-content-site-edit-text-row
+        display: flex
+        flex-direction: column
+        flex: 1 1 auto
+        width: 100%
+        min-width: 0
+        height: 100%
+
+  app-content-text-editor
+    display: flex
+    flex-direction: column
+    flex: 1 1 auto
+    width: 100%
+    min-width: 0
+    height: 100%
+
+  .content-text-editor-tiptap,
+  app-tiptap-markdown-editor,
+  .tiptap-editor-shell
+    display: flex
+    flex-direction: column
+    flex: 1 1 auto
+    width: 100%
+    height: 100%
+    min-height: 0
+
+  .tiptap-content,
+  .text-style-cloudy,
+  .text-style-granite,
+  .text-style-mintcake,
+  .text-style-rosycheeks,
+  .text-style-sunrise,
+  .text-style-sunset,
+  .text-style-grey,
+  .background-panel
+    flex: 1 1 auto
+    height: 100%
+    box-sizing: border-box
+
+.column-nested-rows
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  min-width: 0
+  width: 100%
+  height: 100%
+  box-sizing: border-box
+
+  > .thumbnail-site-edit
+    margin-top: 0
+    min-width: 0
+    width: 100%
+    max-width: 100%
+    box-sizing: border-box
+
 .column-input
   width: 44px
   padding-left: 6px
@@ -39,7 +158,8 @@
   visibility: hidden
   cursor: grab
 
-.thumbnail-heading:hover > .drag-handle
+.thumbnail-heading:hover > .drag-handle,
+.thumbnail-heading:hover .drag-handle
   visibility: visible
 
 .thumbnail-heading

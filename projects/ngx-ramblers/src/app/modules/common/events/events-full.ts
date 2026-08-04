@@ -15,7 +15,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation } from "../../../models/system.model";
-import { DisplayedWalk, EventEventField, EventField, GroupEventField, PUBLIC_GROUP_EVENT_SELECT, WalkListView } from "../../../models/walk.model";
+import { DisplayedWalk, EventEventField, EventField, GroupEventField, PUBLIC_GROUP_EVENT_SELECT, WalkListView, WalkViewMode } from "../../../models/walk.model";
 import { EventsData } from "../../../models/group-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -494,7 +494,10 @@ export class EventsFull implements OnInit, OnDestroy {
         }
         this.updatePaginationStatus();
         if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0 && this.walkListView !== WalkListView.TABLE) {
-          this.display.view(this.currentPageWalks[0].walk);
+          const firstWalk = this.currentPageWalks[0].walk;
+          if (this.display.walkDetailsComplete(firstWalk)) {
+            this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
+          }
         }
       }
       this.notify.clearBusy();

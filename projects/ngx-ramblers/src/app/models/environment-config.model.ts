@@ -14,12 +14,20 @@ export interface MongoConfig {
   password?: string;
 }
 
+export interface FlyioPreviousCredentials {
+  apiKey?: string;
+  appName?: string;
+  organisation?: string;
+  capturedAt?: number;
+}
+
 export interface FlyioConfig {
   apiKey?: string;
   appName?: string;
   memory?: string;
   scaleCount?: number;
   organisation?: string;
+  previous?: FlyioPreviousCredentials;
 }
 
 export interface CloudflareConfig {

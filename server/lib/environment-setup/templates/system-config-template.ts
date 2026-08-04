@@ -1,3 +1,4 @@
+import { isString } from "es-toolkit/compat";
 import { LinkStyle, ListStyle } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { AccessLevel } from "../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { RamblersGroupsApiResponse } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -13,16 +14,15 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { WalkListView } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { RamblersApiConfig } from "../types";
+import { ramblersNationalUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { toGroupShortName } from "../database-initialiser";
+import { CopiedAssets, CopiedImage } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 
-export interface CopiedAssets {
-  icons: string[];
-  logos: string[];
-  backgrounds: string[];
-}
+export type { CopiedAssets };
 
 export interface SystemConfigTemplateParams {
   groupData: RamblersGroupsApiResponse;
+  siteUrl: string;
   areaCode: string;
   areaName: string;
   ramblersApiConfig: RamblersApiConfig;
@@ -33,27 +33,51 @@ export interface SystemConfigTemplateParams {
   copiedAssets?: CopiedAssets;
 }
 
-function createImageEntries(fileNames: string[], defaultWidth: number = 150) {
-  if (!fileNames || fileNames.length === 0) {
+function createImageEntries(images: CopiedImage[] | string[] | undefined, defaultWidth: number = 150) {
+  if (!images || images.length === 0) {
     return [{
       padding: 0,
       width: defaultWidth,
       originalFileName: null,
       awsFileName: null
     }];
+  } else {
+    return images.map(image => {
+      if (isString(image)) {
+        return {
+          padding: 0,
+          width: defaultWidth,
+          originalFileName: image,
+          awsFileName: image
+        };
+      } else {
+        return {
+          padding: image.padding ?? 0,
+          width: image.width || defaultWidth,
+          originalFileName: image.originalFileName,
+          awsFileName: image.awsFileName
+        };
+      }
+    });
   }
-  return fileNames.map(fileName => ({
-    padding: 0,
-    width: defaultWidth,
-    originalFileName: fileName,
-    awsFileName: fileName
-  }));
+}
+
+function siteHref(existingHref: string | undefined | null): string {
+  const candidate = (existingHref || "").trim();
+  return candidate && !ramblersNationalUrl(candidate) ? candidate : "";
+}
+
+function ownSiteUrl(siteUrl: string | undefined | null): string {
+  const candidate = (siteUrl || "").trim();
+  return candidate && !ramblersNationalUrl(candidate) ? candidate : "";
 }
 
 export function createSystemConfig(params: SystemConfigTemplateParams): SystemConfig {
-  const { groupData, areaCode, areaName, ramblersApiConfig, googleMapsApiKey, osMapsApiKey, recaptchaSiteKey, recaptchaSecretKey, copiedAssets } = params;
+  const { groupData, siteUrl, areaCode, areaName, ramblersApiConfig, googleMapsApiKey, osMapsApiKey, recaptchaSiteKey, recaptchaSecretKey, copiedAssets } = params;
 
   const groupShortName = toGroupShortName(groupData.name);
+  const logoImages = createImageEntries(copiedAssets?.logos, 300);
+  const selectedLogo = logoImages.find(image => !!image.originalFileName)?.originalFileName || "";
 
   return {
     globalStyles: {
@@ -70,13 +94,13 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
     },
     logos: {
       rootFolder: RootFolder.logos,
-      images: createImageEntries(copiedAssets?.logos, 300)
+      images: logoImages
     },
     header: {
       navigationButtons: [
         { title: "National Ramblers", href: "https://ramblers.org.uk" }
       ],
-      selectedLogo: "",
+      selectedLogo,
       navBar: defaultNavbar,
       headerBar: defaultHeaderBar,
       rightPanel: defaultRightPanel
@@ -108,7 +132,7 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
       allowSwitchWalkView: true,
       socialDetailsPublic: true,
       showSocialOnRamblersLink: true,
-      href: groupData.url || groupData.external_url,
+      href: ownSiteUrl(siteUrl),
       pages: [
         { title: "Home", href: "", accessLevel: AccessLevel.PUBLIC },
         { title: "About Us", href: "about-us", accessLevel: AccessLevel.PUBLIC },
@@ -208,7 +232,7 @@ export function updateSystemConfigWithGroupData(
       longName: groupData.name,
       groupCode: groupData.group_code,
       shortName: toGroupShortName(groupData.name),
-      href: groupData.url || groupData.external_url,
+      href: siteHref(existingConfig.group?.href),
       center: groupData.latitude && groupData.longitude ? [groupData.latitude, groupData.longitude] : existingConfig.group?.center
     },
     area: {

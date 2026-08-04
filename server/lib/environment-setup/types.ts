@@ -18,6 +18,7 @@ export {
   SetupStepStatus,
   SetupProgress,
   SetupSession,
+  SetupWarning,
   EnvironmentSetupResult,
   ValidationResult,
   RamblersAreaLookup,

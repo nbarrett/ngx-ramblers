@@ -39,11 +39,10 @@ import {
 import { configuredBrevo } from "../../brevo/brevo-config";
 import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
 import { findDomainByName } from "../../brevo/domains/domain-management";
-import { listTemplates } from "../../brevo/templates/template-management";
-import { seedBrevoTemplatesFromLocal } from "../../brevo/templates/template-seeding";
 import { hostnameHealth } from "../hostname-health-controllers";
-import { environmentHostnameHealth } from "../hostname-health";
-import { appIpAddresses } from "../../fly/fly-certificates";
+import { environmentHostnameHealth, updateEnvironmentSiteUrl } from "../hostname-health";
+import { appIpAddresses, queryCertificates } from "../../fly/fly-certificates";
+import { probeFlyOrgMigrationStatus } from "../../fly/fly-org-migration";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
@@ -521,44 +520,59 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
       })(),
       (async () => {
         const flyToken = envConfigData.flyio?.apiKey || "";
-        if (!flyToken) return { flyAppDeployed: false };
-        const ips = await appIpAddresses({ apiToken: flyToken, appName });
-        return { flyAppDeployed: !!(ips.ipv4 || ips.ipv6) };
+        if (!flyToken) {
+          return { flyAppDeployed: false };
+        } else {
+          const ips = await appIpAddresses({ apiToken: flyToken, appName });
+          return { flyAppDeployed: !!(ips.ipv4 || ips.ipv6) };
+        }
       })(),
       (async () => {
+        const baseDomain = baseDomainFrom(environmentsConfig);
+        const environmentHostname = `${environmentName}.${baseDomain}`;
         const report = await environmentHostnameHealth(environmentName);
-        const servingHostnames = report.hostnames.filter(hostname => hostname.healthy);
+        const envHostStatus = report.hostnames.find(hostname => hostname.hostname === environmentHostname);
+        const envHostHealthy = envHostStatus?.healthy === true;
+        const envHostHasDns = !!(envHostStatus?.dnsRecordType);
+        const flyToken = envConfigData.flyio?.apiKey || "";
+        const flyCertPresent = flyToken
+          ? (await queryCertificates({ apiToken: flyToken, appName })).some(cert => cert.hostname === environmentHostname)
+          : false;
         return {
-          subdomainConfigured: servingHostnames.length > 0,
+          subdomainConfigured: envHostHealthy || envHostHasDns || flyCertPresent,
           hostnameProblemCount: report.problemCount
         };
       })(),
       (async () => {
         const brevoKey = brevoConfig?.apiKey || "";
-        if (!brevoKey) return { brevoTemplatesPresent: false, brevoDomainAuthenticated: false };
-        return withBrevoApiKey(brevoKey, async () => {
-          const templates = await listTemplates();
-          const baseDomain = baseDomainFrom(environmentsConfig);
-          const domain = await findDomainByName(baseDomain);
-          return {
-            brevoTemplatesPresent: templates.count > 0,
-            brevoDomainAuthenticated: domain?.authenticated === true
-          };
-        });
+        if (!brevoKey) {
+          return {brevoDomainAuthenticated: false};
+        } else {
+          return withBrevoApiKey(brevoKey, async () => {
+            const baseDomain = baseDomainFrom(environmentsConfig);
+            const domain = await findDomainByName(baseDomain);
+            return {
+              brevoDomainAuthenticated: domain?.authenticated === true
+            };
+          });
+        }
       })(),
       (async () => {
         const awsBucket = envConfigData.aws?.bucket || secrets.secrets.AWS_BUCKET || "";
-        if (!awsBucket) return { standardAssetsPresent: false };
-        const { S3Client, ListObjectsV2Command } = await import("@aws-sdk/client-s3");
-        const s3 = new S3Client({
-          region: envConfigData.aws?.region || secrets.secrets.AWS_REGION || "eu-west-2",
-          credentials: {
-            accessKeyId: envConfigData.aws?.accessKeyId || secrets.secrets.AWS_ACCESS_KEY_ID || "",
-            secretAccessKey: envConfigData.aws?.secretAccessKey || secrets.secrets.AWS_SECRET_ACCESS_KEY || ""
-          }
-        });
-        const result = await s3.send(new ListObjectsV2Command({ Bucket: awsBucket, Prefix: "icons/", MaxKeys: 1 }));
-        return { standardAssetsPresent: (result.KeyCount || 0) > 0 };
+        if (!awsBucket) {
+          return { standardAssetsPresent: false };
+        } else {
+          const { S3Client, ListObjectsV2Command } = await import("@aws-sdk/client-s3");
+          const s3 = new S3Client({
+            region: envConfigData.aws?.region || secrets.secrets.AWS_REGION || "eu-west-2",
+            credentials: {
+              accessKeyId: envConfigData.aws?.accessKeyId || secrets.secrets.AWS_ACCESS_KEY_ID || "",
+              secretAccessKey: envConfigData.aws?.secretAccessKey || secrets.secrets.AWS_SECRET_ACCESS_KEY || ""
+            }
+          });
+          const result = await s3.send(new ListObjectsV2Command({ Bucket: awsBucket, Prefix: "icons/", MaxKeys: 1 }));
+          return { standardAssetsPresent: (result.KeyCount || 0) > 0 };
+        }
       })()
     ]);
 
@@ -569,7 +583,6 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
       flyAppDeployed: false,
       standardAssetsPresent: false,
       subdomainConfigured: false,
-      brevoTemplatesPresent: false,
       brevoDomainAuthenticated: false,
       hostnameProblemCount: 0
     };
@@ -594,6 +607,30 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
 
 router.get("/hostname-status/:environmentName", requireSetupAccess, hostnameHealth);
 
+router.post("/site-url/:environmentName", async (req: Request, res: Response) => {
+  if (validateSetupAccess(req, res)) {
+    try {
+      const { environmentName } = req.params;
+      const siteUrl = req.body?.siteUrl === undefined || req.body?.siteUrl === null
+        ? null
+        : String(req.body.siteUrl);
+      debugLog("Update site URL for:", environmentName, siteUrl);
+      const result = await updateEnvironmentSiteUrl(environmentName, siteUrl);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof EnvironmentNotFoundError) {
+        res.status(404).json({ success: false, message: error.message });
+      } else {
+        errorDebugLog("Error updating site URL:", error.message);
+        res.status(error.message?.includes("must be") ? 400 : 500).json({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  }
+});
+
 router.get("/existing-environments", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
@@ -606,6 +643,9 @@ router.get("/existing-environments", async (req: Request, res: Response) => {
       scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
       organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION,
       hasApiKey: Boolean(env.flyio?.apiKey),
+      hasPreviousFlyCredentials: Boolean(env.flyio?.previous?.apiKey),
+      previousOrganisation: env.flyio?.previous?.organisation || null,
+      previousAppName: env.flyio?.previous?.appName || null,
       customDomains: env.customDomains || []
     }));
     debugLog("Returning existing environments from MongoDB:", environments.length);
@@ -613,6 +653,30 @@ router.get("/existing-environments", async (req: Request, res: Response) => {
   } catch (error) {
     errorDebugLog("Error listing existing environments:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/fly-org-migration-status/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) {
+    return;
+  } else {
+    try {
+      const { environmentName } = req.params;
+      debugLog("Fly org migration status for:", environmentName);
+      const status = await probeFlyOrgMigrationStatus({
+        environmentName,
+        previousApiKey: req.body?.previousApiKey,
+        previousOrganisation: req.body?.previousOrganisation,
+        previousAppName: req.body?.previousAppName,
+        newApiKey: req.body?.newApiKey,
+        newOrganisation: req.body?.newOrganisation,
+        newAppName: req.body?.newAppName
+      });
+      res.json(status);
+    } catch (error) {
+      errorDebugLog("Error probing Fly org migration status:", error.message);
+      res.status(error.message?.includes("not found") ? 404 : 500).json({ error: error.message });
+    }
   }
 });
 
@@ -1085,17 +1149,25 @@ router.post("/authenticate-brevo-domain/:environmentName", async (req: Request, 
     const result = await authenticateSendingDomain(hostname);
 
     res.json({
-      success: result.authenticated,
+      success: true,
+      authenticated: result.authenticated,
       message: result.message,
-      hostname: result.domainName || hostname
+      hostname: result.domainName || hostname,
+      brevoDomainsUrl: result.brevoDomainsUrl || null
     });
   } catch (error) {
     if (error instanceof EnvironmentNotFoundError) {
       res.status(404).json({ error: error.message });
-      return;
+    } else {
+      errorDebugLog("Error authenticating Brevo domain:", error.message);
+      res.json({
+        success: true,
+        authenticated: false,
+        message: `Brevo domain authentication could not complete: ${error.message}. Finish authentication in the Brevo UI if DNS was partially configured, then re-run this step later.`,
+        hostname: null,
+        brevoDomainsUrl: "https://app.brevo.com/senders/domain/list"
+      });
     }
-    errorDebugLog("Error authenticating Brevo domain:", error.message);
-    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -1176,39 +1248,6 @@ router.post("/seed-notification-configs/:environmentName", async (req: Request, 
       return;
     }
     errorDebugLog("Error seeding notification configs:", error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post("/populate-brevo-templates/:environmentName", async (req: Request, res: Response) => {
-  if (!validateSetupAccess(req, res)) return;
-
-  try {
-    const { environmentName } = req.params;
-    debugLog("Populate Brevo templates request received for:", environmentName);
-
-    const brevoConfig = await configuredBrevo();
-    const brevoApiKey = brevoConfig?.apiKey;
-
-    if (!brevoApiKey) {
-      res.status(400).json({ error: `No Brevo API key configured for environment ${environmentName}` });
-      return;
-    }
-
-    const seedResult = await withBrevoApiKey(brevoApiKey, () => seedBrevoTemplatesFromLocal());
-    res.json({
-      success: true,
-      message: `Created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount}`,
-      createdCount: seedResult.createdCount,
-      updatedCount: seedResult.updatedCount,
-      skippedCount: seedResult.skippedCount
-    });
-  } catch (error) {
-    if (error instanceof EnvironmentNotFoundError) {
-      res.status(404).json({ error: error.message });
-      return;
-    }
-    errorDebugLog("Error populating Brevo templates:", error.message);
     res.status(500).json({ error: error.message });
   }
 });

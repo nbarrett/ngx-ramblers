@@ -88,8 +88,13 @@ This document explains how database migrations work in NGX‑Ramblers: how they 
     - Deletes previous changelog entry and re-runs the migration
 - Retry all migrations
   - Button in UI calls `POST /api/database/migrations/retry` (auth required)
+  - Re-runs both **pending** and **failed** migrations (failed changelog rows are removed first, then `up` is run again)
   - Endpoint: `server/lib/mongo/routes/migrations.ts`
   - Returns `MigrationRetryResult` with `success`, optional `message`/`error`, and `appliedFiles` array
+- Ignore failed migrations
+  - Button in UI calls `POST /api/database/migrations/clear-failed` (auth required)
+  - Marks every failed changelog row as skipped (`skippedReason: "Ignored by admin after failure"`) and clears `error`
+  - Does not re-run the migration; use Retry if the code has been fixed and you want it to apply
 - View logs
   - Opens `/api/health` in a new tab to see the current status JSON
 - Simulate failure (testing only)
@@ -153,6 +158,8 @@ Notes
 - Migration errors persisted in changelog
   - Failed migrations are recorded with `{ fileName, appliedAt, error }` in `changelog`
   - Use the individual "Retry" button to delete the error entry and re-run
+  - Use **Retry Migrations** to re-run all pending and failed migrations
+  - Use **Ignore Failed** to mark all failed rows as skipped without re-running
   - Or delete manually: `db.changelog.deleteOne({ fileName: "20XX..." })`
 - Migrations show up twice in UI
   - Check for duplicate entries in active changelog collection (should not happen with proper file naming)

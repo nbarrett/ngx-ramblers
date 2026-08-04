@@ -157,15 +157,24 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
     });
     const { client, db } = await connectToDatabase({ uri: mongoUri, database: envConfig.mongo.db });
     try {
-      const newHref = `https://${fullHostname}`;
-      const result = await db.collection("config").updateOne(
-        { key: "system" },
-        { $set: { "value.group.href": newHref } }
-      );
-      if (result.modifiedCount > 0) {
-        log(`   ✓ Updated group.href to ${newHref}`);
+      const freeHostHref = `https://${fullHostname}`;
+      const systemDoc = await db.collection("config").findOne({ key: "system" });
+      const currentHref = String(systemDoc?.value?.group?.href || "").replace(/\/$/, "");
+      const freeHostNormalised = freeHostHref.replace(/\/$/, "");
+      const hrefIsEmpty = !currentHref;
+      const hrefAlreadyFreeHost = currentHref === freeHostNormalised;
+      if (hrefIsEmpty || hrefAlreadyFreeHost) {
+        const result = await db.collection("config").updateOne(
+          { key: "system" },
+          { $set: { "value.group.href": freeHostHref } }
+        );
+        if (result.modifiedCount > 0) {
+          log(`   ✓ Updated group.href to ${freeHostHref}`);
+        } else {
+          log(`   - group.href already set to ${freeHostHref} or system config not found`);
+        }
       } else {
-        log(`   - group.href already set or system config not found`);
+        log(`   - Keeping group.href at ${currentHref} (custom Site URL — free host ${fullHostname} is for DNS/cert only)`);
       }
     } finally {
       await client.close();
