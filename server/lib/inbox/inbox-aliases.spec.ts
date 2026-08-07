@@ -139,10 +139,14 @@ describe("inbox-aliases", () => {
 
   describe("roleMatchesMessageAddresses", () => {
 
-    const identityEmailsByType = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "chair.person@gmail.com"])]]);
+    const identityEmailsByType = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "chair.forward@ekwg.co.uk"])]]);
 
-    it("matches when a message address is one of the role's identity emails", () => {
-      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["chair.person@gmail.com"], identityEmailsByType)).toEqual(true);
+    it("matches when a message address is the role email or a forward address", () => {
+      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["chair.forward@ekwg.co.uk"], identityEmailsByType)).toEqual(true);
+    });
+
+    it("does not match a personal member address that is not a role or forward address", () => {
+      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["nick.barrett@ekwg.co.uk"], identityEmailsByType)).toEqual(false);
     });
 
     it("does not match when no message address belongs to the role", () => {

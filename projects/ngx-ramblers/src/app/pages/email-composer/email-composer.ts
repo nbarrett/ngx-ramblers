@@ -164,6 +164,12 @@ import {
   newestInboxMessage,
   replyAllRecipients
 } from "../../functions/inbox-thread";
+import {
+  extractLeadingTitle,
+  placeForwardedIntroMarkdown,
+  planTitledIntroPaste,
+  shouldRunIntroSmartPaste
+} from "../../functions/email-composer-intro-paste";
 import { InboxAttachment, InboxReplyComposeResponse, InboxReplyOutboundContext } from "../../models/inbox.model";
 import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
@@ -3134,42 +3140,55 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected onIntroRawPaste(event: { text: string; consume: () => void }): void {
-    if (this.state.brandingMode !== BrandingMode.UNBRANDED) return;
-    const titled = this.extractLeadingTitle(event.text);
-    if (titled) {
-      event.consume();
-      this.state.subject = titled.title;
-      this.state.introMarkdown = this.introEditor?.unwrapIfEnabled(titled.body) ?? titled.body;
-      this.state.addresseeType = AddresseeType.NONE;
-      this.pendingForwardedHeaderLines = [];
-      queueMicrotask(() => this.introEditor?.focusAtStart());
-      return;
-    }
-    const parsed = this.parseEmailHeadersFromMarkdown(event.text);
-    if (parsed) {
-      event.consume();
-      const incomingAddresses = [...parsed.to, ...parsed.cc];
-      const existing = new Set(this.state.externalRecipients.map(item => item.email.toLowerCase()));
-      const additions = incomingAddresses
-        .filter(addr => !existing.has(addr.email.toLowerCase()))
-        .map(addr => ({
-          email: addr.email,
-          name: addr.name || this.nameFromEmail(addr.email) || undefined,
-          saveForReuse: true
-        }));
-      if (additions.length > 0) {
-        this.state.externalRecipients = [...this.state.externalRecipients, ...additions];
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      if (shouldRunIntroSmartPaste(true, !!this.inboxReplyContext)) {
+        const existingIntro = this.state.introMarkdown ?? "";
+        const hasExistingIntro = existingIntro.trim().length > 0;
+        const titled = extractLeadingTitle(event.text);
+        if (titled) {
+          const plan = planTitledIntroPaste(event.text, titled, this.state.subject ?? "", hasExistingIntro);
+          if (plan.apply) {
+            event.consume();
+            if (plan.subject) {
+              this.state.subject = plan.subject;
+            }
+            this.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
+            this.state.addresseeType = AddresseeType.NONE;
+            this.pendingForwardedHeaderLines = [];
+            queueMicrotask(() => this.introEditor?.focusAtStart());
+          }
+        } else {
+          const parsed = this.parseEmailHeadersFromMarkdown(event.text);
+          if (parsed) {
+            event.consume();
+            const incomingAddresses = [...parsed.to, ...parsed.cc];
+            const existing = new Set(this.state.externalRecipients.map(item => item.email.toLowerCase()));
+            const additions = incomingAddresses
+              .filter(addr => !existing.has(addr.email.toLowerCase()))
+              .map(addr => ({
+                email: addr.email,
+                name: addr.name || this.nameFromEmail(addr.email) || undefined,
+                saveForReuse: true
+              }));
+            if (additions.length > 0) {
+              this.state.externalRecipients = [...this.state.externalRecipients, ...additions];
+            }
+            if (parsed.subject && !this.state.subject?.trim()) {
+              this.state.subject = parsed.subject;
+            }
+            if (!hasExistingIntro) {
+              this.state.addresseeType = AddresseeType.NONE;
+            }
+            const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
+            const forwardedMarkdown = this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
+            this.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, false);
+            this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
+            queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
+          }
+        }
       }
-      const existingIntro = this.state.introMarkdown ?? "";
-      const hasExistingIntro = existingIntro.trim().length > 0;
-      if (parsed.subject && !this.state.subject?.trim()) this.state.subject = parsed.subject;
-      if (!hasExistingIntro) this.state.addresseeType = AddresseeType.NONE;
-      const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
-      this.state.introMarkdown = existingIntro + this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
-      this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
-      queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
+      this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
     }
-    this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
   }
 
   private buildForwardedIntroMarkdown(headerLines: string[], body: string): string {
@@ -3182,15 +3201,6 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.pendingForwardedHeaderLines = [];
   }
 
-  private extractLeadingTitle(content: string): { title: string; body: string } | null {
-    const lines = content.split(/\r?\n/);
-    const firstNonBlankIdx = lines.findIndex(line => line.trim() !== "");
-    if (firstNonBlankIdx === -1) return null;
-    const match = lines[firstNonBlankIdx].trim().match(/^#{1,2}\s+(.+?)\s*#*\s*$/);
-    if (!match) return null;
-    const body = lines.slice(firstNonBlankIdx + 1).join("\n").replace(/^\n+/, "");
-    return { title: match[1].trim(), body };
-  }
 
   protected onIntroMarkdownChange(value: string): void {
     this.state.introMarkdown = value ?? "";

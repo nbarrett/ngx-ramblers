@@ -1,5 +1,47 @@
+import { isArray } from "es-toolkit/compat";
+
 export function isInternalPaste(html: string): boolean {
   return !!html && html.includes("data-pm-slice");
+}
+
+export function shouldPastePlainTextAsMarkdown(
+  internalPaste: boolean,
+  plainText: string,
+  looksLikeMarkdown: boolean
+): boolean {
+  return !internalPaste && !!plainText && looksLikeMarkdown;
+}
+
+export type PasteJsonNode = {
+  type?: string;
+  text?: string;
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
+  attrs?: Record<string, unknown>;
+  content?: PasteJsonNode[];
+  [key: string]: unknown;
+};
+
+export function stripIncompatibleTextMarks<T extends PasteJsonNode>(node: T): T {
+  const marks = node.marks;
+  const hasCode = isArray(marks) && marks.some(mark => mark.type === "code");
+  const nextMarks = hasCode && marks && marks.length > 1
+    ? marks.filter(mark => mark.type === "code")
+    : marks;
+  const content = isArray(node.content)
+    ? node.content.map(child => stripIncompatibleTextMarks(child))
+    : node.content;
+  const next = {...node} as T;
+  if (nextMarks !== marks) {
+    if (nextMarks && nextMarks.length > 0) {
+      next.marks = nextMarks;
+    } else {
+      delete next.marks;
+    }
+  }
+  if (content !== node.content) {
+    next.content = content;
+  }
+  return next;
 }
 
 const RICH_FORMATTING_SELECTOR = "a[href], strong, b, em, i, u, s, strike, del, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, img";
