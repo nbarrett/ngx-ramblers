@@ -57,29 +57,27 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
                 </div>
               </div>
             }
-            @if (display.walkContactDetailsPublic()) {
-              @if (resolvedEvent()?.fields?.contactDetails?.phone) {
-                <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                  <app-copy-icon [icon]="faPhone" title [value]="resolvedEvent()?.fields?.contactDetails?.phone"
-                                 [elementName]="'mobile number for '+ resolvedEvent()?.fields?.contactDetails?.displayName "/>
-                  <div content>
-                    <app-event-leader-phone-link
-                      [phone]="resolvedEvent()?.fields?.contactDetails?.phone"
-                      [displayName]="resolvedEvent()?.fields?.contactDetails?.displayName"/>
-                  </div>
+            @if (resolvedEvent()?.fields?.contactDetails?.phone) {
+              <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                <app-copy-icon [icon]="faPhone" title [value]="resolvedEvent()?.fields?.contactDetails?.phone"
+                               [elementName]="'mobile number for '+ resolvedEvent()?.fields?.contactDetails?.displayName "/>
+                <div content>
+                  <app-event-leader-phone-link
+                    [phone]="resolvedEvent()?.fields?.contactDetails?.phone"
+                    [displayName]="resolvedEvent()?.fields?.contactDetails?.displayName"/>
                 </div>
-              } @else if (!resolvedEvent()?.fields?.contactDetails?.email) {
-                <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                  <app-copy-icon [icon]="faPersonWalking" title
-                                 [value]="resolvedEvent()?.fields?.contactDetails?.displayName"
-                                 [elementName]="'walk leader '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
-                  <div content>
-                    @for (name of resolvedEvent()?.fields?.contactDetails?.displayName | jointLeaderNames; track $index) {
-                      <span class="d-block">{{ name }}</span>
-                    }
-                  </div>
+              </div>
+            } @else if (!resolvedEvent()?.fields?.contactDetails?.email) {
+              <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                <app-copy-icon [icon]="faPersonWalking" title
+                               [value]="resolvedEvent()?.fields?.contactDetails?.displayName"
+                               [elementName]="'walk leader '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
+                <div content>
+                  @for (name of resolvedEvent()?.fields?.contactDetails?.displayName | jointLeaderNames; track $index) {
+                    <span class="d-block">{{ name }}</span>
+                  }
                 </div>
-              }
+              </div>
             }
           </div>
         </div>

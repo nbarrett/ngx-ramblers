@@ -157,8 +157,8 @@ export class WalkDisplayService {
 
   public hasVisibleLeaderContactDetails(walk: ExtendedGroupEvent): boolean {
     const contactDetails = walk?.fields?.contactDetails;
-    return !!contactDetails?.email
-      || (this.walkContactDetailsPublic() && !!(contactDetails?.phone || contactDetails?.displayName));
+    return this.walkContactDetailsVisible()
+      && !!(contactDetails?.email || contactDetails?.phone || contactDetails?.displayName);
   }
 
   public walkDetailsComplete(walk: ExtendedGroupEvent): boolean {
@@ -619,6 +619,10 @@ export class WalkDisplayService {
 
   walkContactDetailsPublic(): boolean {
     return this.group?.walkContactDetailsPublic;
+  }
+
+  walkContactDetailsVisible(): boolean {
+    return this.walkContactDetailsPublic() || this.loggedIn();
   }
 
   showWalkOnRamblersLink(): boolean {

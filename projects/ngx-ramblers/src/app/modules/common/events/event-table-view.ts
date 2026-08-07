@@ -47,8 +47,8 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
         <th width="25%">Title</th>
         <th class="d-none d-lg-table-cell" width="7%">Distance</th>
         <th class="d-none d-lg-table-cell" width="8%">Postcode</th>
-        <th class="d-none d-lg-table-cell" width="12%">Leader</th>
-        @if (display.walkContactDetailsPublic()) {
+        @if (display.walkContactDetailsVisible()) {
+          <th class="d-none d-lg-table-cell" width="12%">Leader</th>
           <th class="d-none d-lg-table-cell" width="14%">Contact Phone</th>
         }
       </tr>
@@ -95,10 +95,10 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
                  tooltip="Click to locate postcode {{displayedWalk.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
                  placement="left">{{ displayedWalk.walk?.groupEvent?.start_location?.postcode }}</a>
             </td>
-            <td width="12%" class="d-none d-lg-table-cell walk-leader" id="contactEmail-{{index}}">
-              <app-event-leader-contact-link [walk]="displayedWalk.walk"/>
-            </td>
-            @if (display.walkContactDetailsPublic()) {
+            @if (display.walkContactDetailsVisible()) {
+              <td width="12%" class="d-none d-lg-table-cell walk-leader" id="contactEmail-{{index}}">
+                <app-event-leader-contact-link [walk]="displayedWalk.walk"/>
+              </td>
               <td width="14%" class="d-none d-lg-table-cell contact-phone" id="contactPhone-{{index}}" name="contactPhone">
                 <div class="d-flex align-items-start justify-content-between">
                   <app-event-leader-phone-link
@@ -145,12 +145,12 @@ export class EventTableView {
   }
 
   totalColumns(): number {
-    let columns = 7;
+    let columns = 6;
     if ((this.display.walkPopulationLocal() || this.memberLoginService.allowWalkAdminEdits()) && this.memberLoginService.memberLoggedIn()) {
       columns++;
     }
-    if (this.display.walkContactDetailsPublic()) {
-      columns++;
+    if (this.display.walkContactDetailsVisible()) {
+      columns += 2;
     }
     return columns;
   }

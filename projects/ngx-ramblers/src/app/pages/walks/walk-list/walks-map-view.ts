@@ -518,7 +518,9 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
   }
 
   private leaderName(dw: DisplayedWalk): string {
-    return (dw?.walk?.fields?.contactDetails?.displayName || dw?.walk?.groupEvent?.walk_leader?.name)?.replace(/\.$/, "");
+    return this.display.walkContactDetailsVisible()
+      ? ((dw?.walk?.fields?.contactDetails?.displayName || dw?.walk?.groupEvent?.walk_leader?.name)?.replace(/\.$/, "") || "")
+      : "";
   }
 
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
