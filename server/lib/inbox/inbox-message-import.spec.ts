@@ -102,10 +102,19 @@ describe("resolveThreadExternalAddress", () => {
     expect(result.email).toEqual("walker@example.com");
   });
 
-  it("falls back to internal From rather than returning null", () => {
+  it("prefers internal To over internal From for group mail to a committee member", () => {
+    const result = resolveThreadExternalAddress(message({
+      from: address("membership@ekwg.co.uk", "Membership"),
+      to: [address("nick.barrett@ekwg.co.uk", "Nick Barrett")]
+    }), undefined, new Set(["membership@ekwg.co.uk", "nick.barrett@ekwg.co.uk", "chairman@ekwg.co.uk"]));
+    expect(result.email).toEqual("nick.barrett@ekwg.co.uk");
+    expect(result.name).toEqual("Nick Barrett");
+  });
+
+  it("falls back to internal From when there is no To address", () => {
     const result = resolveThreadExternalAddress(message({
       from: address("eastkentwalkinggroup@gmail.com"),
-      to: [address("walks@ekwg.co.uk")]
+      to: []
     }), undefined, internalEmails);
     expect(result.email).toEqual("eastkentwalkinggroup@gmail.com");
   });

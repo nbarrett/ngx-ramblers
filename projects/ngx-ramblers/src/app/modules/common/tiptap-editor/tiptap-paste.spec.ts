@@ -1,4 +1,50 @@
-import { htmlHasRichFormatting, isInternalPaste, sanitiseHtmlForPaste } from "./tiptap-paste";
+import {
+  htmlHasRichFormatting,
+  isInternalPaste,
+  sanitiseHtmlForPaste,
+  shouldPastePlainTextAsMarkdown,
+  stripIncompatibleTextMarks
+} from "./tiptap-paste";
+
+describe("shouldPastePlainTextAsMarkdown", () => {
+
+  it("prefers markdown plain text even when HTML is also on the clipboard", () => {
+    expect(shouldPastePlainTextAsMarkdown(false, "## Background\n\n- item", true)).toBe(true);
+  });
+
+  it("does not take over internal editor cuts or non-markdown plain text", () => {
+    expect(shouldPastePlainTextAsMarkdown(true, "## Background", true)).toBe(false);
+    expect(shouldPastePlainTextAsMarkdown(false, "Hello Tom", false)).toBe(false);
+    expect(shouldPastePlainTextAsMarkdown(false, "", true)).toBe(false);
+  });
+});
+
+describe("stripIncompatibleTextMarks", () => {
+
+  it("keeps code alone when markdown parse also applies bold", () => {
+    const cleaned = stripIncompatibleTextMarks({
+      type: "doc",
+      content: [{
+        type: "paragraph",
+        content: [{
+          type: "text",
+          text: "salesforceId",
+          marks: [{type: "code"}, {type: "bold"}]
+        }]
+      }]
+    });
+    expect(cleaned.content?.[0].content?.[0].marks).toEqual([{type: "code"}]);
+  });
+
+  it("leaves non-conflicting marks alone", () => {
+    const cleaned = stripIncompatibleTextMarks({
+      type: "text",
+      text: "hello",
+      marks: [{type: "bold"}, {type: "italic"}]
+    });
+    expect(cleaned.marks).toEqual([{type: "bold"}, {type: "italic"}]);
+  });
+});
 
 describe("htmlHasRichFormatting", () => {
 

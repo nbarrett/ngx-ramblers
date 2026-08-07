@@ -137,8 +137,8 @@ export function resolveThreadExternalAddress(message: InboxMessage, counterparty
       counterparty,
       isInternal(sender) ? null : sender,
       recipients.find(address => !isInternal(address)),
-      sender,
-      recipients[0]
+      recipients[0],
+      sender
     ].find(address => address?.email);
   return preferred?.email ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
 }

@@ -90,7 +90,7 @@ import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/compat";
-import { htmlHasRichFormatting, isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste } from "./tiptap-paste";
+import { htmlHasRichFormatting, isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste, shouldPastePlainTextAsMarkdown, stripIncompatibleTextMarks } from "./tiptap-paste";
 import { EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
 
@@ -768,15 +768,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
             if (consumed.value) {
               event.preventDefault();
               handled = true;
-            } else if (!internalPaste && !richTextPaste && text && this.looksLikeMarkdown(text)) {
+            } else if (shouldPastePlainTextAsMarkdown(internalPaste, text, this.looksLikeMarkdown(text))) {
               event.preventDefault();
-              const sanitised = this.unwrapIfEnabled(sanitiseMarkdownForPaste(text));
-              try {
-                this.editor?.commands.insertContent(sanitised, {contentType: "markdown"});
-              } catch (error) {
-                this.logger.error("markdown paste failed, falling back to plain text:", error);
-                this.editor?.commands.insertContent(sanitised);
-              }
+              this.insertMarkdownAtCursor(this.unwrapIfEnabled(sanitiseMarkdownForPaste(text)));
               handled = true;
             } else if (!internalPaste && !richTextPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
               event.preventDefault();
@@ -1634,10 +1628,34 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     if (content) {
       if (this.sourceMode) {
         this.onSourceMarkdownChange(`${this.sourceMarkdown}${this.sourceMarkdown.endsWith("\n") ? "" : "\n\n"}${content}\n`);
-      } else {
+      } else if (this.editor) {
         this.enterDetailMode();
-        this.editor?.chain().focus().insertContent(content, {contentType: "markdown"}).run();
+        try {
+          const parsed = this.editor.markdown?.parse(content);
+          if (parsed) {
+            this.editor.chain().focus().insertContent(stripIncompatibleTextMarks(parsed)).run();
+          } else {
+            this.editor.chain().focus().insertContent(content, {contentType: "markdown"}).run();
+          }
+        } catch (error) {
+          this.logger.error("markdown paste insert failed, splicing via setContent:", error);
+          this.spliceMarkdownAtSelection(content);
+        }
       }
+    }
+  }
+
+  private spliceMarkdownAtSelection(markdown: string): void {
+    if (this.editor) {
+      const from = this.editor.state.selection.from;
+      const to = this.editor.state.selection.to;
+      const before = this.serializeMarkdownRange(0, from);
+      const after = this.serializeMarkdownRange(to, this.editor.state.doc.content.size);
+      const joinerBefore = before && !before.endsWith("\n") ? "\n\n" : "";
+      const joinerAfter = after && !after.startsWith("\n") ? "\n\n" : "";
+      const combined = `${before}${joinerBefore}${markdown}${joinerAfter}${after}`;
+      this.editor.commands.setContent(combined, {contentType: "markdown", emitUpdate: true});
+      this.valueChange.emit(this.currentMarkdown());
     }
   }
 
