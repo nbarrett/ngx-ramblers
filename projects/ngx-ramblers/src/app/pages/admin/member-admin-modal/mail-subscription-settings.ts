@@ -178,17 +178,15 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   }
 
   notEmailableReason(): string | null {
-    if (this.blockExcludesFromSend()) {
-      return "They have unsubscribed or been blocked, so they are excluded from any send that respects blocks";
-    }
-    if (this.consentMissing()) {
-      return "Head Office marketing consent has not been given, so they are excluded from any send that respects consent";
-    }
-    return null;
+    return this.blockExcludesFromSend()
+      ? "They have unsubscribed or been blocked, so they are excluded from any send that respects blocks"
+      : this.consentMissing()
+        ? "Head office marketing consent has been withheld, so they will not be emailed. New list subscriptions cannot be turned on; existing ticks can still be cleared"
+        : null;
   }
 
   consentMissing(): boolean {
-    return !!this.member && !this.member.emailMarketingConsent && this.respectsHeadOfficeConsent() && !this.blockExcludesFromSend();
+    return !!this.member && this.member.emailMarketingConsent === false && this.respectsHeadOfficeConsent() && !this.blockExcludesFromSend();
   }
 
   viewConsent(event: Event): void {

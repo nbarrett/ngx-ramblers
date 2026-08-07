@@ -57,7 +57,6 @@ import { AuditStatus } from "../../models/audit";
 import { omit } from "es-toolkit/compat";
 import { first } from "es-toolkit/compat";
 import { MailMessagingService } from "./mail-messaging.service";
-import { SalesforceConfigService } from "../salesforce/salesforce-config.service";
 import { BroadcastService } from "../broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { MessageType, ProgressResponse } from "../../models/websocket.model";
@@ -83,7 +82,6 @@ export class MailListUpdaterService {
   private mailService: MailService = inject(MailService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
   private memberService: MemberService = inject(MemberService);
-  private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
   private broadcastService: BroadcastService<any> = inject(BroadcastService);
   private mailListAuditService: MailListAuditService = inject(MailListAuditService);
   private stringUtils: StringUtilsService = inject(StringUtilsService);
@@ -233,18 +231,11 @@ export class MailListUpdaterService {
     this.logger.info("saved", response?.length, "pendingMailListAudits:", response);
   }
 
-  private respectHeadOfficeConsent(): boolean {
+  public respectHeadOfficeConsent(): boolean {
     return booleanOf(this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent, true);
   }
 
-  private granularConsentEnabled(): boolean {
-    return booleanOf(this.salesforceConfigService.cached()?.enableGranularConsent);
-  }
-
   public brevoConsentWithheld(member: Member): boolean {
-    if (this.granularConsentEnabled() && member?.groupMarketingConsent != null) {
-      return !booleanOf(member.groupMarketingConsent);
-    }
     return this.respectHeadOfficeConsent() && !booleanOf(member?.emailMarketingConsent);
   }
 
@@ -608,7 +599,23 @@ export class MailListUpdaterService {
     return !!this.subscriptionFor(member, listId)?.subscribed;
   }
 
+  public marketingConsentBlocksSubscribe(member: Member): boolean {
+    return this.respectHeadOfficeConsent() && member?.emailMarketingConsent === false;
+  }
+
+  public marketingConsentBlocksSubscribeToList(member: Member, listId: number): boolean {
+    if (member?.emailMarketingConsent !== false) {
+      return false;
+    } else if (this.respectHeadOfficeConsent()) {
+      return true;
+    } else {
+      const listSetting = this.mailMessagingConfig?.mailConfig?.listSettings?.find(setting => setting?.id === listId);
+      return !!listSetting?.requiresMemberEmailMarketingConsent;
+    }
+  }
+
   public setSubscription(member: Member, listId: number, subscribed: boolean): void {
+    const nextSubscribed = subscribed && this.marketingConsentBlocksSubscribeToList(member, listId) ? false : subscribed;
     if (!member.mail) {
       member.mail = {subscriptions: [], email: member.email, id: null};
     }
@@ -617,15 +624,43 @@ export class MailListUpdaterService {
     }
     const existing: MailSubscription = this.subscriptionFor(member, listId);
     const wasSubscribed = !!existing?.subscribed;
-    const subscription: MailSubscription = existing || this.mapIdToSubscription(listId, subscribed);
-    subscription.subscribed = subscribed;
-    if (subscribed) {
+    const subscription: MailSubscription = existing || this.mapIdToSubscription(listId, nextSubscribed);
+    subscription.subscribed = nextSubscribed;
+    if (nextSubscribed) {
       subscription.unsubscribedAt = undefined;
     } else if (wasSubscribed) {
       subscription.unsubscribedAt = this.dateUtils.nowAsValue();
     }
     if (!existing) {
       member.mail.subscriptions.push(subscription);
+    }
+  }
+
+  public unsubscribeFromAllLists(member: Member): boolean {
+    const subscribed: MailSubscription[] = (member?.mail?.subscriptions ?? []).filter(subscription => subscription.subscribed);
+    subscribed.forEach(subscription => this.setSubscription(member, subscription.id, false));
+    return subscribed.length > 0;
+  }
+
+  public applyAutoSubscribeDefaults(member: Member, mailMessagingConfig: MailMessagingConfig): boolean {
+    const lists = mailMessagingConfig?.brevo?.lists?.lists ?? [];
+    const listSettings = mailMessagingConfig?.mailConfig?.listSettings ?? [];
+    if (lists.length === 0) {
+      return false;
+    } else if (!member.mail?.subscriptions?.length) {
+      this.initialiseMailSubscriptionsFromListIds(member, mailMessagingConfig);
+      return (member.mail?.subscriptions ?? []).some(subscription => subscription.subscribed);
+    } else {
+      return lists.reduce((changed, list) => {
+        const listSetting = listSettings.find(setting => setting?.id === list.id);
+        const shouldSubscribe = this.mailMessagingService.subscribed(listSetting, member);
+        if (shouldSubscribe && !this.subscribedToList(member, list.id)) {
+          this.setSubscription(member, list.id, true);
+          return true;
+        } else {
+          return changed;
+        }
+      }, false);
     }
   }
 

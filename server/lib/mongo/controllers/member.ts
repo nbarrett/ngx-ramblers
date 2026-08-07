@@ -12,6 +12,7 @@ import { DeleteDocumentsRequest, Member } from "../../../../projects/ngx-rambler
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { pluraliseWithCount } from "../../shared/string-utils";
 import { auditSubscriptionChanges } from "./member-subscription-audit";
+import { auditMemberFieldChanges } from "./member-field-audit";
 import { writeBackFullOptOuts } from "../../salesforce/member-consent-writeback";
 import { bulkDeleteMembersCascade } from "./member-bulk-delete";
 import { MailSubscription, MemberSubscriptionChange } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -23,7 +24,7 @@ function actingUser(req: Request): string {
   return (req as any).user?.memberId ?? "system";
 }
 
-const CONSENT_FIELDS: (keyof Member)[] = ["emailMarketingConsent", "groupMarketingConsent", "areaMarketingConsent", "otherMarketingConsent"];
+const CONSENT_FIELDS: (keyof Member)[] = ["emailMarketingConsent"];
 
 function normaliseConsentFields(member: Member): Member {
   CONSENT_FIELDS.forEach(field => {
@@ -35,13 +36,17 @@ function normaliseConsentFields(member: Member): Member {
   return member;
 }
 
-async function priorSubscriptionsById(members: Member[]): Promise<Map<string, MailSubscription[]>> {
+async function priorMembersById(members: Member[]): Promise<Map<string, Member>> {
   const ids = members.map(item => item.id).filter(Boolean);
   if (ids.length === 0) {
     return new Map();
   }
-  const existing = await member.find({_id: {$in: ids}}).select("mail.subscriptions").lean().exec();
-  return new Map(existing.map((doc: any) => [doc._id.toString(), doc?.mail?.subscriptions ?? []]));
+  const existing = await member.find({_id: {$in: ids}}).lean().exec();
+  return new Map(existing.map((doc: any) => [doc._id.toString(), {...doc, id: doc._id.toString()} as Member]));
+}
+
+function subscriptionsById(priorMembers: Map<string, Member>): Map<string, MailSubscription[]> {
+  return new Map(Array.from(priorMembers).map(([id, priorMember]) => [id, priorMember?.mail?.subscriptions ?? []]));
 }
 
 const controller = crudController.create<Member>(member);
@@ -75,7 +80,8 @@ export async function createOrUpdateAll(req: Request, res: Response) {
   const members: Member[] = req.body;
   const message = `Create or update of ${pluraliseWithCount(members.length, "member")}`;
   try {
-    const priorById = await priorSubscriptionsById(members);
+    const priorMembers = await priorMembersById(members);
+    const priorById = subscriptionsById(priorMembers);
     const createOrUpdatedMembers = await Promise.all(members.map(async member => {
       const hashedMember: Member = normaliseConsentFields(await updateHashValue(member));
       return member.id
@@ -88,6 +94,11 @@ export async function createOrUpdateAll(req: Request, res: Response) {
       next: saved.mail?.subscriptions
     }));
     await auditSubscriptionChanges(subscriptionChanges, actingUser(req));
+    await auditMemberFieldChanges(createOrUpdatedMembers.map(saved => ({
+      memberId: saved.id,
+      prior: priorMembers.get(saved.id),
+      next: saved
+    })), actingUser(req));
     await writeBackFullOptOuts(createOrUpdatedMembers, priorById, actingUser(req));
     debugLog("createOrUpdateAll:for:", message, "returning:", createOrUpdatedMembers);
     res.status(200).json({
@@ -118,16 +129,29 @@ async function updateHashValue(member: Member) {
   }
 }
 
+function uploadSessionIdFrom(req: Request): string | null {
+  const value = req.query?.uploadSessionId;
+  return isString(value) && value.length > 0 ? value : null;
+}
+
 export async function update(req: Request, res: Response) {
   const updatedRequest: Member = normaliseConsentFields(await updateHashValue(req.body));
   try {
-    const priorById = await priorSubscriptionsById([updatedRequest]);
+    const priorMembers = await priorMembersById([updatedRequest]);
+    const priorById = subscriptionsById(priorMembers);
     const response = await controller.updateDocument({body: updatedRequest});
     await auditSubscriptionChanges([{
       memberId: response.id,
       prior: priorById.get(updatedRequest.id),
       next: response.mail?.subscriptions
     }], actingUser(req));
+    if (!uploadSessionIdFrom(req)) {
+      await auditMemberFieldChanges([{
+        memberId: response.id,
+        prior: priorMembers.get(updatedRequest.id),
+        next: response
+      }], actingUser(req));
+    }
     await writeBackFullOptOuts([response], priorById, actingUser(req));
     res.status(200).json({action: ApiAction.UPDATE, response});
   } catch (error) {
@@ -144,6 +168,9 @@ export async function create(req: Request, res: Response) {
       prior: undefined,
       next: response.mail?.subscriptions
     }], actingUser(req));
+    if (!uploadSessionIdFrom(req)) {
+      await auditMemberFieldChanges([{memberId: response.id, prior: undefined, next: response}], actingUser(req));
+    }
     res.status(201).json({action: ApiAction.CREATE, response});
   } catch (error) {
     res.status(500).json({message: "Creation of member failed", error: transforms.parseError(error)});

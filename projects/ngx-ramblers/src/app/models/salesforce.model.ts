@@ -4,7 +4,6 @@ export interface SalesforceConfig {
   endpointBaseUrl: string;
   apiKeysByGroupCode: Record<string, string>;
   enabled: boolean;
-  enableGranularConsent?: boolean;
   unsubscribeWritebackEnabled?: boolean;
   lastSyncedAt?: number;
   lastSyncCursor?: string | null;

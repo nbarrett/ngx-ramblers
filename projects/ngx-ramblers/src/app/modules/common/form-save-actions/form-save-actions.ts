@@ -1,41 +1,58 @@
-import { Component, Input, output } from "@angular/core";
+import { Component, Input, output, signal } from "@angular/core";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgClass } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
+
+enum FormSaveBusyAction {
+  SAVE = "save",
+  SAVE_AND_EXIT = "saveAndExit",
+  UNDO = "undo"
+}
 
 @Component({
   selector: "app-form-save-actions",
-  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, NgClass, TooltipDirective],
+  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, NgClass, TooltipDirective, FontAwesomeModule],
   template: `
     <div class="form-save-actions d-flex flex-wrap align-items-center gap-2">
       <button type="button"
-              class="btn"
-              [ngClass]="disabled ? 'btn-secondary' : 'btn-success'"
-              [disabled]="disabled"
+              class="btn d-inline-flex align-items-center gap-2"
+              [ngClass]="controlsDisabled() ? 'btn-secondary' : 'btn-success'"
+              [disabled]="controlsDisabled()"
               (click)="runSave()">
+        @if (busyAction() === FormSaveBusyAction.SAVE) {
+          <fa-icon [icon]="faSpinner" animation="spin"/>
+        }
         {{ saveLabel }}
       </button>
       <button type="button"
-              class="btn"
-              [ngClass]="disabled ? 'btn-secondary' : 'btn-quiet'"
-              [disabled]="disabled"
+              class="btn d-inline-flex align-items-center gap-2"
+              [ngClass]="controlsDisabled() ? 'btn-secondary' : 'btn-quiet'"
+              [disabled]="controlsDisabled()"
               (click)="runUndo()">
+        @if (busyAction() === FormSaveBusyAction.UNDO) {
+          <fa-icon [icon]="faSpinner" animation="spin"/>
+        }
         {{ undoLabel }}
       </button>
       <div class="btn-group" dropdown [insideClick]="true">
         <button type="button"
-                class="btn"
-                [ngClass]="disabled ? 'btn-secondary' : 'btn-quiet'"
-                [disabled]="disabled"
+                class="btn d-inline-flex align-items-center gap-2"
+                [ngClass]="controlsDisabled() ? 'btn-secondary' : 'btn-quiet'"
+                [disabled]="controlsDisabled()"
                 [tooltip]="saveAndExitLabel"
                 (click)="runSaveAndExit()">
+          @if (busyAction() === FormSaveBusyAction.SAVE_AND_EXIT) {
+            <fa-icon [icon]="faSpinner" animation="spin"/>
+          }
           {{ exitMenuLabel }}
         </button>
         <button type="button"
                 class="btn dropdown-toggle dropdown-toggle-split"
-                [ngClass]="disabled ? 'btn-secondary' : 'btn-quiet'"
-                [disabled]="disabled"
+                [ngClass]="controlsDisabled() ? 'btn-secondary' : 'btn-quiet'"
+                [disabled]="controlsDisabled()"
                 dropdownToggle
                 aria-haspopup="true"
                 aria-controls="form-save-actions-exit-menu">
@@ -43,12 +60,15 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
         </button>
         <ul *dropdownMenu class="dropdown-menu" id="form-save-actions-exit-menu" role="menu">
           <li role="menuitem">
-            <button type="button" class="dropdown-item" [disabled]="disabled" (click)="runSaveAndExit()">
+            <button type="button" class="dropdown-item d-inline-flex align-items-center gap-2" [disabled]="controlsDisabled()" (click)="runSaveAndExit()">
+              @if (busyAction() === FormSaveBusyAction.SAVE_AND_EXIT) {
+                <fa-icon [icon]="faSpinner" animation="spin"/>
+              }
               {{ saveAndExitLabel }}
             </button>
           </li>
           <li role="menuitem">
-            <button type="button" class="dropdown-item" [disabled]="disabled" (click)="runCancel()">
+            <button type="button" class="dropdown-item" [disabled]="controlsDisabled()" (click)="runCancel()">
               {{ cancelLabel }}
             </button>
           </li>
@@ -79,35 +99,45 @@ export class FormSaveActionsComponent {
   undo = output<void>();
   cancel = output<void>();
 
+  busyAction = signal<FormSaveBusyAction | null>(null);
+  protected readonly faSpinner = faSpinner;
+  protected readonly FormSaveBusyAction = FormSaveBusyAction;
+
+  controlsDisabled(): boolean {
+    return this.disabled || this.busyAction() !== null;
+  }
+
   runSave(): void {
-    if (this.actions) {
-      void this.actions.save();
-    } else {
-      this.save.emit();
-    }
+    void this.runBusyAction(FormSaveBusyAction.SAVE, () => this.actions ? this.actions.save() : this.save.emit());
   }
 
   runSaveAndExit(): void {
-    if (this.actions) {
-      void this.actions.saveAndExit();
-    } else {
-      this.saveAndExit.emit();
-    }
+    void this.runBusyAction(FormSaveBusyAction.SAVE_AND_EXIT, () => this.actions ? this.actions.saveAndExit() : this.saveAndExit.emit());
   }
 
   runUndo(): void {
-    if (this.actions) {
-      void this.actions.undo();
-    } else {
-      this.undo.emit();
-    }
+    void this.runBusyAction(FormSaveBusyAction.UNDO, () => this.actions ? this.actions.undo() : this.undo.emit());
   }
 
   runCancel(): void {
-    if (this.actions) {
+    if (this.controlsDisabled()) {
+      return;
+    } else if (this.actions) {
       void this.actions.cancel();
     } else {
       this.cancel.emit();
+    }
+  }
+
+  private async runBusyAction(action: FormSaveBusyAction, work: () => unknown | Promise<unknown>): Promise<void> {
+    if (!this.controlsDisabled()) {
+      this.busyAction.set(action);
+      try {
+        await Promise.resolve(work());
+      } catch {
+      } finally {
+        this.busyAction.set(null);
+      }
     }
   }
 }

@@ -13,6 +13,7 @@ import { MailProvider, SystemConfig } from "../../models/system.model";
 import { Subscription } from "rxjs";
 import { MailMessagingConfig } from "../../models/mail.model";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
+import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
 import { EmailSubscriptionsMailchimpComponent } from "../admin/profile/email-subscriptions-mailchimp.component";
 import { MailSubscriptionSettingComponent } from "../admin/member-admin-modal/mail-subscription-setting";
 import { FormsModule } from "@angular/forms";
@@ -32,6 +33,7 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private routerHistoryService = inject(RouterHistoryService);
   protected mailMessagingService = inject(MailMessagingService);
+  private mailListUpdaterService = inject(MailListUpdaterService);
   protected bsModalRef = inject(BsModalRef);
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
@@ -41,6 +43,10 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public systemConfig: SystemConfig;
   protected readonly MailProvider = MailProvider;
+
+  marketingConsentBlocksSubscribe(): boolean {
+    return this.mailListUpdaterService.marketingConsentBlocksSubscribe(this.member);
+  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

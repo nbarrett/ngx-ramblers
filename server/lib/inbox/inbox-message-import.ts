@@ -126,13 +126,20 @@ export function resolveThreadExternalAddress(message: InboxMessage, counterparty
     Boolean(address?.email && internalEmails?.has(normaliseEmail(address.email)));
   const sender = replyAddress(message);
   const recipients = [...(message.to ?? []), ...(message.cc ?? [])].filter(address => address?.email);
-  const preferred = [
-    counterparty,
-    isInternal(sender) ? null : sender,
-    recipients.find(address => !isInternal(address)),
-    sender,
-    recipients[0]
-  ].find(address => address?.email);
+  const preferred = message.direction === InboxMessageDirection.OUTBOUND
+    ? [
+      counterparty,
+      recipients.find(address => !isInternal(address)),
+      recipients[0],
+      sender
+    ].find(address => address?.email)
+    : [
+      counterparty,
+      isInternal(sender) ? null : sender,
+      recipients.find(address => !isInternal(address)),
+      sender,
+      recipients[0]
+    ].find(address => address?.email);
   return preferred?.email ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
 }
 

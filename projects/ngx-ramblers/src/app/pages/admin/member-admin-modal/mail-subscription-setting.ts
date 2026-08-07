@@ -16,7 +16,9 @@ import { FormsModule } from "@angular/forms";
       <div class="form-check">
         <input [(ngModel)]="subscription.subscribed"
           (ngModelChange)="subscriptionChange($event)"
-          type="checkbox" class="form-check-input" id="mail-list-{{subscription.id}}-subscription">
+          [disabled]="subscribeLocked()"
+          type="checkbox" class="form-check-input" id="mail-list-{{subscription.id}}-subscription"
+          [attr.title]="subscribeLocked() ? subscribeLockedTitle() : null">
         <label class="form-check-label"
         for="mail-list-{{subscription.id}}-subscription">{{ checkboxTitle() }}</label>
       </div>
@@ -52,8 +54,24 @@ export class MailSubscriptionSettingComponent implements OnInit {
     return `Subscribe to ${this.listNameFor(this.subscription)} emails`;
   }
 
-  subscriptionChange(subscriptionChangedState: any) {
-    this.mailListUpdaterService.setSubscription(this.member, this.subscription.id, subscriptionChangedState);
-    this.logger.info("subscriptionChanged:subscription", this.subscription, "subscriptionChangedState:", subscriptionChangedState);
+  subscribeLocked(): boolean {
+    return !this.subscription?.subscribed
+      && this.mailListUpdaterService.marketingConsentBlocksSubscribeToList(this.member, this.subscription?.id);
+  }
+
+  subscribeLockedTitle(): string {
+    return this.mailListUpdaterService.marketingConsentBlocksSubscribe(this.member)
+      ? "Cannot subscribe while Head office marketing consent is withheld and the site respects that consent. You can still unsubscribe if already subscribed."
+      : "Cannot subscribe to this list while Head office marketing consent is withheld, because this list requires that consent. You can still unsubscribe if already subscribed.";
+  }
+
+  subscriptionChange(subscriptionChangedState: boolean) {
+    if (subscriptionChangedState && this.mailListUpdaterService.marketingConsentBlocksSubscribeToList(this.member, this.subscription?.id)) {
+      this.subscription.subscribed = false;
+      this.logger.info("subscriptionChange blocked: marketing consent withholds subscribe for", this.subscription);
+    } else {
+      this.mailListUpdaterService.setSubscription(this.member, this.subscription.id, subscriptionChangedState);
+      this.logger.info("subscriptionChanged:subscription", this.subscription, "subscriptionChangedState:", subscriptionChangedState);
+    }
   }
 }

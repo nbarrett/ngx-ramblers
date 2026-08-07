@@ -42,7 +42,8 @@ import { ListSubscriptionImportExportComponent } from "./list-subscription-impor
 import { MailSendersListComponent } from "./mail-senders-list";
 import { MailDomainsListComponent } from "./mail-domains-list";
 import { MailUnsubscribesListComponent } from "./mail-unsubscribes-list";
-import { faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { booleanOf } from "../../../../functions/strings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { InputSize } from "../../../../models/ui-size.model";
@@ -106,6 +107,22 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                       <div class="col-sm-12 mb-3">
                         <app-content-text-editor standalone category="admin" name="mail-settings-list-settings"/>
                       </div>
+                      @if (respectHeadOfficeConsent()) {
+                        <div class="col-sm-12 mb-3 px-3">
+                          <div class="alert alert-warning mb-0 d-flex align-items-start">
+                            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                            <div>
+                              <strong class="d-block">Per-list marketing consent option unavailable</strong>
+                              <span>
+                                <a href="#" (click)="$event.preventDefault(); selectTab(MailSettingsTab.MAIL_API_SETTINGS)">Respect Head office marketing consent</a>
+                                is on (API tab), so it already enforces Head office consent site-wide.
+                                The &ldquo;Only auto-subscribe members that have given email marketing consent&rdquo; checkbox on each list is disabled and has no effect.
+                                Turn Respect off if you want granular control per list.
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      }
                       <div class="px-3">
                         <div class="row">
                           <div class="col">
@@ -236,12 +253,22 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                         <div class="form-check mt-2">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.respectHeadOfficeConsent"
                             type="checkbox" class="form-check-input" id="respect-head-office-consent">
-                          <label class="form-check-label" for="respect-head-office-consent">Respect Head Office marketing consent <strong>when sending</strong> (on by default) - in any composer send, members who have <strong>not granted marketing consent</strong> are shown as a disabled group and skipped at send. Separate from the per-list "only auto-subscribe consented members" option, which controls list membership, not sending.</label>
+                          <label class="form-check-label" for="respect-head-office-consent">Respect Head Office marketing consent</label>
+                          <div class="form-text">
+                            On by default. When on, members without Head office marketing consent are removed from all lists on bulk load, disabled in the email composer, and skipped when mail is sent.
+                            When off, those site-wide rules are not applied, and the per-list option on the
+                            <a href="#" (click)="$event.preventDefault(); selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)">Lists</a> tab
+                            (&ldquo;Only auto-subscribe members that have given email marketing consent&rdquo;) can give finer control of who is auto-ticked onto each list.
+                            While Respect is on, that list option is disabled because it has no effect.
+                          </div>
                         </div>
                         <div class="form-check mt-2">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.respectEmailBlocks"
                             type="checkbox" class="form-check-input" id="respect-email-blocks">
-                          <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks (off by default) - members who have <strong>unsubscribed or been blocked</strong> show disabled in the composer picker and are skipped at send. Off by default because saved subscription changes sync to Brevo automatically but silently skip on failure; run Update Brevo Mailing Lists to reconcile before relying on this.</label>
+                          <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks</label>
+                          <div class="form-text">
+                            Off by default. When on, unsubscribed or blocked members are disabled in the composer and skipped at send. Run Update Brevo Mailing Lists first if list changes may not have synced.
+                          </div>
                         </div>
                       </div>
                       <div class="form-group">
@@ -505,6 +532,11 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   protected readonly MailSettingsTab = MailSettingsTab;
   protected readonly InputSize = InputSize;
   protected readonly faSpinner = faSpinner;
+  protected readonly faCircleExclamation = faCircleExclamation;
+
+  respectHeadOfficeConsent(): boolean {
+    return booleanOf(this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent, true);
+  }
   private readonly tabRedirects: Record<string, string> = {
     "built-in-process-mappings": kebabCase(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS),
     "mail-api-settings": kebabCase(MailSettingsTab.MAIL_API_SETTINGS),
@@ -657,14 +689,20 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   save() {
     this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
     this.acceptNextConfigEmission = true;
+    this.notify.setBusy();
     return this.savePendingMembers()
       .then(() => this.systemConfig ? this.systemConfigService.saveConfig(this.systemConfig) : undefined)
       .then(() => this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs))
       .then(response => {
         this.pendingApiKeyValidation = false;
+        this.notify.success({title: "Mail settings", message: "Settings saved"});
         return response;
       })
-      .catch((error) => this.notify.error(error));
+      .catch((error) => {
+        this.notify.error(error);
+        return Promise.reject(error);
+      })
+      .finally(() => this.notify.clearBusy());
   }
 
   private async savePendingMembers(): Promise<void> {
@@ -677,10 +715,11 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   saveAndExit() {
     this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
-    this.save()
+    return this.save()
       .then((response) => {
         this.logger.info("config response:", response);
         this.urlService.navigateTo(["admin"]);
+        return response;
       });
   }
 

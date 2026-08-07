@@ -903,15 +903,26 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   saveAndExit() {
-    this.save()
-      .then(() => this.urlService.navigateTo(["admin"]))
-      .catch((error) => this.logger.error(error));
+    return this.save()
+      .then(() => this.urlService.navigateTo(["admin"]));
   }
 
   save() {
     this.logger.info("saving config", this.migrationConfig);
     const saveEditors = (this.editors?.toArray() || []).map(e => e.save()).filter(p => !!p);
-    return Promise.all(saveEditors as any).then(() => this.migrationConfigService.saveConfig(this.migrationConfig));
+    this.activityNotifier.setBusy();
+    return Promise.all(saveEditors as any)
+      .then(() => this.migrationConfigService.saveConfig(this.migrationConfig))
+      .then(response => {
+        this.activityNotifier.success({title: "Migration settings", message: "Settings saved"});
+        return response;
+      })
+      .catch((error) => {
+        this.logger.error(error);
+        this.activityNotifier.error(error);
+        return Promise.reject(error);
+      })
+      .finally(() => this.activityNotifier.clearBusy());
   }
 
   cancel() {

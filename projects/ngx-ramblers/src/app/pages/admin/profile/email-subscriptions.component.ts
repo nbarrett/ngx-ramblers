@@ -37,6 +37,17 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
               <div class="col-sm-9">
                 <p>You can change your emailing preferences at any time using the subscription checkboxes
                 below:</p>
+                @if (marketingConsentBlocksSubscribe()) {
+                  <div class="alert alert-warning small mb-3">
+                    <strong>Head office marketing consent is not given.</strong>
+                    While this site respects that consent, you cannot turn list subscriptions on. You can still turn off any list you are already subscribed to.
+                  </div>
+                } @else if (member?.emailMarketingConsent === false) {
+                  <div class="alert alert-warning small mb-3">
+                    <strong>Head office marketing consent is not given.</strong>
+                    Lists that require that consent cannot be turned on. Other lists may still be available. You can turn off any list you are already subscribed to.
+                  </div>
+                }
                 @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
                   <app-email-subscriptions-mailchimp [member]="member"/>
                 }
@@ -105,6 +116,10 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 
   protected readonly MailProvider = MailProvider;
 
+  marketingConsentBlocksSubscribe(): boolean {
+    return this.mailListUpdaterService.marketingConsentBlocksSubscribe(this.member);
+  }
+
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -121,7 +136,7 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
   }
 
   undoContactPreferences() {
-    this.profileService.undoChangesTo(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(member => {
+    return this.profileService.undoChangesTo(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(member => {
       this.member = member;
       this.inboxNotifications()?.undo();
     });
@@ -131,10 +146,10 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
     this.profileConfirmationService.confirmProfile(this.member);
     return this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member)
       .then(() => this.inboxNotifications()?.save() ?? Promise.resolve())
-      .then(() => {
-        this.mailListUpdaterService.syncChangedMembersToBrevo(this.notify, [this.member])
-          .catch(error => this.logger.warn("Brevo sync after subscription save failed; will reconcile on next send", error));
-      });
+      .then(() => this.mailListUpdaterService.syncChangedMembersToBrevo(this.notify, [this.member])
+        .catch(error => {
+          this.logger.warn("Brevo sync after subscription save failed; will reconcile on next send", error);
+        }));
   }
 
   saveAndExit(): Promise<void> {

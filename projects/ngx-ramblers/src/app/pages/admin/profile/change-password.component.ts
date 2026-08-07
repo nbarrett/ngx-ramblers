@@ -88,7 +88,7 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
   }
 
   undoLoginDetails() {
-    this.profileService.undoChangesTo(this.notify, ProfileUpdateType.LOGIN_DETAILS, this.member).then(member => {
+    return this.profileService.undoChangesTo(this.notify, ProfileUpdateType.LOGIN_DETAILS, this.member).then(member => {
       this.enteredMemberCredentials.userName = member.userName;
       delete this.enteredMemberCredentials.newPassword;
       delete this.enteredMemberCredentials.newPasswordConfirm;

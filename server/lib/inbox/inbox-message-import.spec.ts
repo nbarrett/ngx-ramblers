@@ -83,6 +83,25 @@ describe("resolveThreadExternalAddress", () => {
     expect(result.email).toEqual("walker@example.com");
   });
 
+  it("uses outbound To even when the recipient is also an internal identity", () => {
+    const result = resolveThreadExternalAddress(message({
+      direction: InboxMessageDirection.OUTBOUND,
+      from: address("walks@ekwg.co.uk", "Walks"),
+      to: [address("eastkentwalkinggroup@gmail.com", "Nick Barrett")]
+    }), undefined, internalEmails);
+    expect(result.email).toEqual("eastkentwalkinggroup@gmail.com");
+    expect(result.name).toEqual("Nick Barrett");
+  });
+
+  it("does not use the outbound From as counterparty when To is present", () => {
+    const result = resolveThreadExternalAddress(message({
+      direction: InboxMessageDirection.OUTBOUND,
+      from: address("walks@ekwg.co.uk", "Walks"),
+      to: [address("walker@example.com", "Walker")]
+    }), undefined, internalEmails);
+    expect(result.email).toEqual("walker@example.com");
+  });
+
   it("falls back to internal From rather than returning null", () => {
     const result = resolveThreadExternalAddress(message({
       from: address("eastkentwalkinggroup@gmail.com"),

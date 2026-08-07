@@ -75,18 +75,15 @@ import { ContentTextUnsavedChangesService } from "../../../services/content-text
   styles: [`
     :host
       display: block
-      height: 100%
 
     .background-panel
       border-radius: 6px
       padding: 16px
       box-sizing: border-box
-      height: 100%
 
     .content-text-editor-tiptap
       margin-top: 0
       margin-bottom: 0
-      height: 100%
 
     .paste-prompt-overlay
       position: fixed
