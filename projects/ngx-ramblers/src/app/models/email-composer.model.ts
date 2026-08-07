@@ -110,7 +110,6 @@ export const BRANDING_MODE_OPTIONS: { key: BrandingMode; label: string; hint: st
   { key: BrandingMode.UNBRANDED, label: "Unbranded", hint: `Plain rich-text${EM_DASH_WITH_SPACES}reads like a personal note, good for committee replies and one-to-few correspondence` }
 ];
 
-export const UNBRANDED_LIST_SEND_WARNING_THRESHOLD = 3;
 export const UNBRANDED_HARD_CAP_RECIPIENTS = 50;
 export const UNBRANDED_LONG_BODY_CHAR_THRESHOLD = 800;
 export const REPLY_OR_FORWARD_SUBJECT_PATTERN = /^\s*(re|fwd?):/i;

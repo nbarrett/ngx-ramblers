@@ -11,6 +11,7 @@ import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
+import { inboxThreadId, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -216,7 +217,8 @@ import { UIDateFormat } from "../../../models/date-format.model";
             <div class="p-2">
               <div class="input-group input-group-sm">
                 <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                <input type="text" class="form-control" [(ngModel)]="conversationSearchTerm"
+                <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
+                       (ngModelChange)="onConversationSearchChange($event)"
                        placeholder="Search conversations...">
               </div>
               @if (!mobile || conversationSearchTerm) {
@@ -393,33 +395,35 @@ import { UIDateFormat } from "../../../models/date-format.model";
                     </button>
                   </div>
                 </div>
-                @if (isMessageExpanded(message)) {
-                  @if (visibleAttachments(message).length) {
-                    <div class="inbox-attachments d-flex flex-wrap gap-2 mb-3">
-                      @for (attachment of visibleAttachments(message); track attachment.s3Key) {
-                        <div class="btn-group" dropdown>
-                          <button dropdownToggle type="button" class="inbox-attachment dropdown-toggle">
-                            <fa-icon [icon]="faPaperclip"/>
-                            <span class="inbox-attachment-name">{{ attachment.filename }}</span>
-                            <span class="text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
-                          </button>
-                          <ul *dropdownMenu class="dropdown-menu" role="menu">
-                            <li role="menuitem">
-                              <button class="dropdown-item" type="button" (click)="attachmentPreview.open({filename: attachment.filename, url: attachmentUrl(attachment), contentType: attachment.contentType})">
-                                <fa-icon [icon]="faEye" class="me-2"/>Preview
-                              </button>
-                            </li>
-                            <li role="menuitem">
-                              <a class="dropdown-item" [href]="attachmentUrl(attachment)" [attr.download]="attachment.filename">
-                                <fa-icon [icon]="faDownload" class="me-2"/>Download
-                              </a>
-                            </li>
-                          </ul>
-                        </div>
-                      }
-                    </div>
-                  }
-                  <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
+                @if (hasOpenedMessage(message)) {
+                  <div class="inbox-message-content" [class.d-none]="!isMessageExpanded(message)">
+                    @if (visibleAttachments(message).length) {
+                      <div class="inbox-attachments d-flex flex-wrap gap-2 mb-3">
+                        @for (attachment of visibleAttachments(message); track attachment.s3Key) {
+                          <div class="btn-group" dropdown>
+                            <button dropdownToggle type="button" class="inbox-attachment dropdown-toggle">
+                              <fa-icon [icon]="faPaperclip"/>
+                              <span class="inbox-attachment-name">{{ attachment.filename }}</span>
+                              <span class="text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
+                            </button>
+                            <ul *dropdownMenu class="dropdown-menu" role="menu">
+                              <li role="menuitem">
+                                <button class="dropdown-item" type="button" (click)="attachmentPreview.open({filename: attachment.filename, url: attachmentUrl(attachment), contentType: attachment.contentType})">
+                                  <fa-icon [icon]="faEye" class="me-2"/>Preview
+                                </button>
+                              </li>
+                              <li role="menuitem">
+                                <a class="dropdown-item" [href]="attachmentUrl(attachment)" [attr.download]="attachment.filename">
+                                  <fa-icon [icon]="faDownload" class="me-2"/>Download
+                                </a>
+                              </li>
+                            </ul>
+                          </div>
+                        }
+                      </div>
+                    }
+                    <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
+                  </div>
                 }
               </div>
             }
@@ -518,17 +522,47 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly ResizerOrientation = ResizerOrientation;
   protected readonly ResizerVariant = ResizerVariant;
   protected readonly isInboxGeneralRoleType = isInboxGeneralRoleType;
+  public displayMessages: InboxMessage[] = [];
+  private messagePreviewById = new Map<string, string>();
+  private visibleAttachmentsById = new Map<string, InboxAttachment[]>();
+  private renderableBodyById = new Map<string, string>();
+  private siblingsByConversationKey = new Map<string, InboxThread[]>();
+  private cachedFilteredThreads: InboxThread[] = [];
+  private filteredThreadsDirty = true;
 
-  get displayMessages(): InboxMessage[] {
-    return [...this.selectedMessages].sort((left, right) => {
+  private clearSelectedMessages(): void {
+    this.selectedMessages = [];
+    this.expandedMessageIds = new Set();
+    this.openedMessageIds = new Set();
+    this.rebuildDisplayMessages();
+  }
+
+  private rebuildDisplayMessages(): void {
+    this.displayMessages = [...this.selectedMessages].sort((left, right) => {
       const leftAt = left.receivedAt ?? left.sentAt ?? 0;
       const rightAt = right.receivedAt ?? right.sentAt ?? 0;
       return this.messageSortDescending ? rightAt - leftAt : leftAt - rightAt;
     });
+    this.messagePreviewById = new Map(
+      this.displayMessages.map(message => [message.messageId, this.buildMessagePreview(message)])
+    );
+    this.visibleAttachmentsById = new Map(
+      this.displayMessages.map(message => [message.messageId, this.buildVisibleAttachments(message)])
+    );
+    this.renderableBodyById = new Map(
+      this.displayMessages.map(message => [message.messageId, this.buildRenderableBody(message)])
+    );
   }
 
   toggleMessageSort(): void {
     this.messageSortDescending = !this.messageSortDescending;
+    this.rebuildDisplayMessages();
+    this.invalidateFilteredThreads();
+  }
+
+  onConversationSearchChange(term: string): void {
+    this.conversationSearchTerm = term;
+    this.invalidateFilteredThreads();
   }
 
   @HostBinding("class.inbox-reading")
@@ -572,7 +606,15 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   public aliases: InboxAliasConfigView[] = [];
   public canReadJunk = false;
-  public threads: InboxThread[] = [];
+  private _threads: InboxThread[] = [];
+  public get threads(): InboxThread[] {
+    return this._threads;
+  }
+  public set threads(value: InboxThread[]) {
+    this._threads = value ?? [];
+    this.reindexSiblings();
+    this.invalidateFilteredThreads();
+  }
   public conversationSearchTerm = "";
   public readFilter: InboxReadFilter = InboxReadFilter.ALL;
   public selectedThreadIds = new Set<string>();
@@ -582,6 +624,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   public selectedThreadId: string | null = null;
   public selectedMessages: InboxMessage[] = [];
   public expandedMessageIds = new Set<string>();
+  public openedMessageIds = new Set<string>();
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
   public busy = false;
@@ -945,7 +988,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   async roleMailboxChanged(): Promise<void> {
     this.selectedThread = null;
     this.selectedThreadId = null;
-    this.selectedMessages = [];
+    this.clearSelectedMessages();
     this.loadingThread = false;
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -980,12 +1023,32 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   threadIdOf(thread: InboxThread): string {
-    return (thread.id ?? (thread as unknown as {_id: {toString(): string}})._id ?? "").toString();
+    return inboxThreadId(thread);
   }
 
   siblingConversationThreads(thread: InboxThread): InboxThread[] {
     const key = thread.conversationKey;
-    return key ? this.threads.filter(candidate => candidate.conversationKey === key) : [thread];
+    return key ? (this.siblingsByConversationKey.get(key) ?? [thread]) : [thread];
+  }
+
+  private reindexSiblings(): void {
+    const byKey = new Map<string, InboxThread[]>();
+    this._threads.forEach(thread => {
+      const key = thread.conversationKey;
+      if (key) {
+        const group = byKey.get(key);
+        if (group) {
+          group.push(thread);
+        } else {
+          byKey.set(key, [thread]);
+        }
+      }
+    });
+    this.siblingsByConversationKey = byKey;
+  }
+
+  private invalidateFilteredThreads(): void {
+    this.filteredThreadsDirty = true;
   }
 
   private representativeThread(threads: InboxThread[]): InboxThread {
@@ -994,17 +1057,18 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private conversationRepresentatives(threads: InboxThread[]): InboxThread[] {
-    const byKey = new Map<string, InboxThread[]>();
-    const singles: InboxThread[] = [];
+    const seenKeys = new Set<string>();
+    const representatives: InboxThread[] = [];
     threads.forEach(thread => {
-      if (thread.conversationKey) {
-        byKey.set(thread.conversationKey, [...(byKey.get(thread.conversationKey) ?? []), thread]);
-      } else {
-        singles.push(thread);
+      const key = thread.conversationKey;
+      if (!key) {
+        representatives.push(thread);
+      } else if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        representatives.push(this.representativeThread(this.siblingsByConversationKey.get(key) ?? [thread]));
       }
     });
-    const grouped = Array.from(byKey.values()).map(group => this.representativeThread(group));
-    return [...grouped, ...singles];
+    return representatives;
   }
 
   conversationUnread(thread: InboxThread): boolean {
@@ -1036,6 +1100,14 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   get filteredThreads(): InboxThread[] {
+    if (this.filteredThreadsDirty) {
+      this.cachedFilteredThreads = this.computeFilteredThreads();
+      this.filteredThreadsDirty = false;
+    }
+    return this.cachedFilteredThreads;
+  }
+
+  private computeFilteredThreads(): InboxThread[] {
     const representatives = this.conversationRepresentatives(this.threads);
     const byReadState = representatives.filter(representative =>
       this.readFilter === InboxReadFilter.ALL
@@ -1044,7 +1116,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const term = this.conversationSearchTerm?.trim().toLowerCase();
     const matched = !term ? byReadState : byReadState.filter(representative =>
       this.siblingConversationThreads(representative).some(candidate => this.conversationMatchesTerm(candidate, term)));
-    return [...matched].sort((left, right) => {
+    return matched.sort((left, right) => {
       const leftAt = left.lastSeenAt ?? left.firstSeenAt ?? 0;
       const rightAt = right.lastSeenAt ?? right.firstSeenAt ?? 0;
       return this.messageSortDescending ? rightAt - leftAt : leftAt - rightAt;
@@ -1053,6 +1125,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   toggleUnreadFilter(): void {
     this.readFilter = this.readFilter === InboxReadFilter.UNREAD ? InboxReadFilter.ALL : InboxReadFilter.UNREAD;
+    this.invalidateFilteredThreads();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {[StoredValue.INBOX_FILTER]: this.readFilter === InboxReadFilter.ALL ? null : this.readFilter},
@@ -1066,6 +1139,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const param = this.route.snapshot.queryParams[StoredValue.INBOX_FILTER] as InboxReadFilter;
     if (param === InboxReadFilter.UNREAD || param === InboxReadFilter.READ) {
       this.readFilter = param;
+      this.invalidateFilteredThreads();
     }
   }
 
@@ -1105,7 +1179,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (this.selectedThreadId && ids.includes(this.selectedThreadId)) {
         this.selectedThread = null;
         this.selectedThreadId = null;
-        this.selectedMessages = [];
+        this.clearSelectedMessages();
         this.loadingThread = false;
       }
       this.selectedThreadIds.clear();
@@ -1149,7 +1223,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (this.selectedThreadId && ids.includes(this.selectedThreadId)) {
         this.selectedThread = null;
         this.selectedThreadId = null;
-        this.selectedMessages = [];
+        this.clearSelectedMessages();
       }
       this.selectedThreadIds.clear();
       await this.refresh();
@@ -1172,7 +1246,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       await this.inboxService.moveThreadToInbox(threadId);
       this.selectedThread = null;
       this.selectedThreadId = null;
-      this.selectedMessages = [];
+      this.clearSelectedMessages();
       this.mobileShowDetail = false;
       await this.refresh();
       this.notify.success({title: "Inbox", message: "Moved out of junk into the inbox"});
@@ -1210,7 +1284,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.selectedThreadIds.delete(threadId);
     this.selectedThread = nextThread;
     this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
-    this.selectedMessages = [];
+    this.clearSelectedMessages();
     this.pendingDelete = {
       threadId,
       removedThreads,
@@ -1330,7 +1404,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedThreadIds.delete(threadId);
       this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
       this.selectedThread = nextThread;
-      this.selectedMessages = [];
+      this.clearSelectedMessages();
       await this.refresh();
       const refreshed = nextThread ? this.filteredThreads.find(thread => this.threadIdOf(thread) === this.threadIdOf(nextThread)) : null;
       if (refreshed) {
@@ -1357,7 +1431,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.openThreadRequestId = requestId;
     this.selectedThreadId = threadId;
     this.selectedThread = representative;
-    this.selectedMessages = [];
+    this.clearSelectedMessages();
     this.loadingThread = true;
     this.syncThreadToUrl(representative);
     try {
@@ -1374,12 +1448,14 @@ export class InboxComponent implements OnInit, OnDestroy {
         }
       });
       this.selectedMessages = this.collapseSends(responses.flatMap(response => response.messages));
+      this.rebuildDisplayMessages();
       this.alignOutboundThreadCounterparty();
       const newestMessage = this.selectedMessages.length
         ? this.selectedMessages.reduce((latest, candidate) =>
           (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest.receivedAt ?? latest.sentAt ?? 0) ? candidate : latest)
         : null;
       this.expandedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
+      this.openedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
       this.loadingThread = false;
       this.markThreadsRead(markRead ? siblings : []);
     } catch (error) {
@@ -1390,12 +1466,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (this.threadNoLongerExists(error)) {
         this.selectedThreadId = null;
         this.selectedThread = null;
-        this.selectedMessages = [];
+        this.clearSelectedMessages();
         this.syncThreadToUrl(null);
-        return;
+      } else {
+        this.notify.error({title: "Open thread", message: (error as Error).message});
+        this.logger.error("Failed to open thread:", error);
       }
-      this.notify.error({title: "Open thread", message: (error as Error).message});
-      this.logger.error("Failed to open thread:", error);
     }
   }
 
@@ -1403,6 +1479,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const unreadThreads = threads.filter(thread => thread.unread);
     if (unreadThreads.length > 0) {
       unreadThreads.forEach(thread => thread.unread = false);
+      this.invalidateFilteredThreads();
       this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
       if (this.readFilter === InboxReadFilter.UNREAD) {
         this.threadListTotalCount = Math.max(0, this.threadListTotalCount - 1);
@@ -1463,6 +1540,10 @@ export class InboxComponent implements OnInit, OnDestroy {
         queryParams: {
           [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
           [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
+          [StoredValue.THREAD]: inboxThreadSlug(this.selectedThread),
+          [StoredValue.MESSAGE]: target.messageId,
+          ...(options.replyAll ? {[StoredValue.REPLY_ALL]: "true"} : {}),
+          ...(options.forward ? {[StoredValue.FORWARD]: "true"} : {}),
           ...(maximised ? {[StoredValue.MAXIMISE]: "true"} : {})
         }
       });
@@ -1473,16 +1554,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private replyAllRecipients(reply: InboxReplyComposeResponse, target: InboxMessage): InboxAddress[] {
-    const excluded = new Set([reply.to.email.toLowerCase(), ...this.aliases.map(alias => alias.roleEmail.toLowerCase())]);
-    const seen = new Set<string>();
-    return [...(reply.cc ?? []), ...(target.to ?? []), ...(target.cc ?? [])].filter(address => {
-      const email = address.email.toLowerCase();
-      if (excluded.has(email) || seen.has(email)) {
-        return false;
-      }
-      seen.add(email);
-      return true;
-    });
+    return replyAllRecipients(reply, target, this.aliases.map(alias => alias.roleEmail));
   }
 
   formatAddresses(addresses: InboxAddress[]): string {
@@ -1501,12 +1573,21 @@ export class InboxComponent implements OnInit, OnDestroy {
     return this.expandedMessageIds.has(message.messageId);
   }
 
+  hasOpenedMessage(message: InboxMessage): boolean {
+    return this.openedMessageIds.has(message.messageId);
+  }
+
   toggleMessage(message: InboxMessage): void {
-    if (this.expandedMessageIds.has(message.messageId)) {
-      this.expandedMessageIds.delete(message.messageId);
+    const nextExpanded = new Set(this.expandedMessageIds);
+    if (nextExpanded.has(message.messageId)) {
+      nextExpanded.delete(message.messageId);
     } else {
-      this.expandedMessageIds.add(message.messageId);
+      nextExpanded.add(message.messageId);
+      if (!this.openedMessageIds.has(message.messageId)) {
+        this.openedMessageIds = new Set(this.openedMessageIds).add(message.messageId);
+      }
     }
+    this.expandedMessageIds = nextExpanded;
   }
 
   private dedupeMessages(messages: InboxMessage[]): InboxMessage[] {
@@ -1558,18 +1639,24 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private collapseSends(messages: InboxMessage[]): InboxMessage[] {
     const windowMs = 5 * 60 * 1000;
-    return this.dedupeMessages(messages).reduce<InboxMessage[]>((groups, message) => {
+    const groups: InboxMessage[] = [];
+    const groupsByKey = new Map<string, InboxMessage[]>();
+    this.dedupeMessages(messages).forEach(message => {
+      const key = `${this.sendKey(message)}|${message.direction}`;
       const at = message.receivedAt ?? message.sentAt ?? 0;
-      const group = groups.find(existing => this.sendKey(existing) === this.sendKey(message)
-        && existing.direction === message.direction
-        && Math.abs((existing.receivedAt ?? existing.sentAt ?? 0) - at) <= windowMs);
+      const candidates = groupsByKey.get(key) ?? [];
+      const group = candidates.find(existing =>
+        Math.abs((existing.receivedAt ?? existing.sentAt ?? 0) - at) <= windowMs);
       if (group) {
         group.to = this.unionAddresses(group.to, message.to);
         group.cc = this.unionAddresses(group.cc, message.cc);
-        return groups;
+      } else {
+        const created = {...message, to: [...(message.to ?? [])], cc: [...(message.cc ?? [])]};
+        groups.push(created);
+        groupsByKey.set(key, [...candidates, created]);
       }
-      return groups.concat({...message, to: [...(message.to ?? [])], cc: [...(message.cc ?? [])]});
-    }, []);
+    });
+    return groups;
   }
 
   private sendKey(message: InboxMessage): string {
@@ -1589,6 +1676,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   messagePreview(message: InboxMessage): string {
+    return this.messagePreviewById.get(message.messageId) ?? this.buildMessagePreview(message);
+  }
+
+  private buildMessagePreview(message: InboxMessage): string {
     const raw = message.bodyHtml?.trim() ? message.bodyHtml : (message.bodyText ?? "");
     const cleaned = raw
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -1635,6 +1726,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   renderableBody(message: InboxMessage): string {
+    return this.renderableBodyById.get(message.messageId) ?? this.buildRenderableBody(message);
+  }
+
+  private buildRenderableBody(message: InboxMessage): string {
     if (message.bodyHtml) {
       return this.resolveInlineImages(message.bodyHtml, message.attachments);
     }
@@ -1645,6 +1740,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   protected visibleAttachments(message: InboxMessage): InboxAttachment[] {
+    return this.visibleAttachmentsById.get(message.messageId) ?? this.buildVisibleAttachments(message);
+  }
+
+  private buildVisibleAttachments(message: InboxMessage): InboxAttachment[] {
     const bodyHtml = (message.bodyHtml || "").toLowerCase();
     return (message.attachments ?? []).filter(attachment => attachment.s3Key
       && !(attachment.contentId && bodyHtml.includes(`cid:${attachment.contentId.trim().toLowerCase()}`)));
