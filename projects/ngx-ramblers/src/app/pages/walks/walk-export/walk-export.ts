@@ -65,6 +65,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
 import { SortDirection } from "../../../models/sort.model";
+import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
 
 const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
   [StoredValue.STATUS]: "status",
@@ -219,7 +220,14 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                                          [icon]="faEnvelope"
                                          class="fa-icon me-1"/>
                                 <a content
-                                   [href]="'mailto:' + walkExport.displayedWalk?.walk?.fields?.contactDetails?.email">{{ walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+                                   [href]="'mailto:' + walkExport.displayedWalk?.walk?.fields?.contactDetails?.email">
+                                    @for (name of walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName | jointLeaderNames; track $index) {
+                                      <span class="d-block">{{ name }}</span>
+                                    }
+                                    @if (!walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName) {
+                                      Contact Via Ramblers
+                                    }
+                                  </a>
                               </div>
                             </div>
                           </dd>
@@ -518,7 +526,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
         max-width: 100% !important
   `],
   styleUrls: ["./walk-export.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe]
 })
 
 export class WalkExport implements OnInit, OnDestroy {
