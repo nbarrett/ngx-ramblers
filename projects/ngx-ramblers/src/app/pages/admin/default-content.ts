@@ -10,6 +10,16 @@ export const MAIL_SETTINGS_UNSUBSCRIBES_HELP: ContentText = {
     "* Full detail in the [release notes for 27 April 2026](https://ngx-ramblers.org.uk/how-to/committee/release-notes/2026-04-27)."
 };
 
+export const MAIL_SETTINGS_LIST_SETTINGS_HELP: ContentText = {
+  name: "mail-settings-list-settings",
+  category: "admin",
+  text:
+    "* Create, rename or delete Brevo lists here. Use separate lists for different audiences (for example all members, walk leaders or committee).\n" +
+    "* **Auto-subscribe new members** – when on, new members (and members whose Head office marketing consent later flips from No to Yes) can be ticked onto this list automatically if they have an email address.\n" +
+    "* **Only auto-subscribe members that have given email marketing consent** – available only when **Respect Head office marketing consent** is **off** on the API tab. Then it gives per-list control: auto-subscribe, No→Yes restore, and manual subscribe (member admin / profile) only allow this list when consent is Yes. Changing it can re-apply to existing members on **this list only**. When Respect is **on**, that site-wide rule already enforces consent for every list, so this checkbox is disabled.\n" +
+    "* **Member-subscribable** – when on, members can opt in or out of this list themselves (where the site exposes that)."
+};
+
 export const RAMBLERS_PUBLISHING_HELP: ContentText = {
   name: "ramblers-publishing-help",
   category: "walks-admin",
@@ -114,6 +124,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
       "* If Brevo cannot complete authentication automatically, follow the provided link to complete the final step in Brevo.",
     category: "admin"
   },
+  MAIL_SETTINGS_LIST_SETTINGS_HELP,
   MAIL_SETTINGS_UNSUBSCRIBES_HELP,
   {
     name: "page-content-navigator",

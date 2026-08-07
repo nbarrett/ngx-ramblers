@@ -1,7 +1,7 @@
 import { AdminPath } from "../../../models/admin-route-paths.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
-import { faEye, faEyeSlash, faPaste } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faEye, faEyeSlash, faPaste, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { omit, values } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -28,6 +28,7 @@ import { MailListUpdaterService } from "../../../services/mail/mail-list-updater
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { ClipboardService } from "../../../services/clipboard.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
@@ -84,6 +85,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private dbUtils = inject(DbUtilsService);
   private deletedMemberService = inject(DeletedMemberService);
   protected dateUtils = inject(DateUtilsService);
+  private clipboardService = inject(ClipboardService);
   bsModalRef = inject(BsModalRef);
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
@@ -112,7 +114,10 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public readonly faPaste = faPaste;
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
+  protected readonly faCopy = faCopy;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
   protected rawMemberDataVisible = false;
+  public auditsLoaded = false;
   protected readonly MailProvider = MailProvider;
   protected readonly InputSize = InputSize;
   protected isLifeMember(): boolean {
@@ -149,6 +154,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.allowCopy = existingRecordEditEnabled;
     this.allowDelete = !!memberId;
     this.memberUpdateAudits = [];
+    this.auditsLoaded = false;
     if (memberId) {
       this.refreshMemberUpdateAuditsForMember(memberId);
       this.refreshMailListAuditsForMember(memberId);
@@ -176,6 +182,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     }).then(memberUpdateAudits => {
       this.logger.debug("MemberUpdateAuditService:", memberUpdateAudits.length, "events", memberUpdateAudits);
       this.memberUpdateAudits = memberUpdateAudits;
+      this.auditsLoaded = true;
       this.findLastLoginTimeForMember();
     });
   }
@@ -378,10 +385,26 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     return member ? this.fullNameWithAliasPipe.transform(member) : null;
   }
 
-  hasGranularConsent(): boolean {
-    return this.member?.groupMarketingConsent !== undefined
-      || this.member?.areaMarketingConsent !== undefined
-      || this.member?.otherMarketingConsent !== undefined;
+  consentGiven(): boolean {
+    return this.member?.emailMarketingConsent === true;
+  }
+
+  consentWithheld(): boolean {
+    return this.member?.emailMarketingConsent === false;
+  }
+
+  consentNotRecorded(): boolean {
+    return this.member?.emailMarketingConsent === undefined || this.member?.emailMarketingConsent === null;
+  }
+
+  everBulkLoaded(): boolean {
+    return this.memberUpdateAudits?.length > 0;
+  }
+
+  copyRawMemberData(): void {
+    this.clipboardService.copyToClipboard(JSON.stringify(this.member, null, 2))
+      .then(() => this.notify.success({title: "Member Raw Data", message: "Copied to clipboard"}))
+      .catch(error => this.notify.error({title: "Member Raw Data", message: error}));
   }
 
   hasHeadOfficeSupporterData(): boolean {

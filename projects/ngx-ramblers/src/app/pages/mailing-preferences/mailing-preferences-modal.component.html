@@ -15,6 +15,17 @@
           <div class="well-subscriptions-confirmation">
             <p class="well-heading">Please select how you want to be <b>emailed</b> by us using the following
               subscription checkboxes below:</p>
+            @if (marketingConsentBlocksSubscribe()) {
+              <div class="alert alert-warning small mb-2">
+                <strong>Head office marketing consent is not given.</strong>
+                While this site respects that consent, you cannot turn list subscriptions on. You can still turn off any list you are already subscribed to.
+              </div>
+            } @else if (member?.emailMarketingConsent === false) {
+              <div class="alert alert-warning small mb-2">
+                <strong>Head office marketing consent is not given.</strong>
+                Lists that require that consent cannot be turned on. Other lists may still be available. You can turn off any list you are already subscribed to.
+              </div>
+            }
             @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
               <app-email-subscriptions-mailchimp [member]="member"
               />

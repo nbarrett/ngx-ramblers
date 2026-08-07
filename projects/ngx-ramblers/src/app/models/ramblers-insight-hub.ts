@@ -52,9 +52,6 @@ export const AUDIT_FIELDS: AuditField[] = [
     type: WriteDataType.DATE,
     dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
   },
-  {fieldName: "groupMarketingConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
-  {fieldName: "areaMarketingConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
-  {fieldName: "otherMarketingConsent", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "salesforceTeamStatus", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
   {
     fieldName: "salesforceTeamRelationshipFrom",

@@ -41,7 +41,7 @@ import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, statedReplyAddress } from "./inbox-message-import";
+import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireCanUpdateInboxRoleNotifications, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
@@ -213,9 +213,30 @@ async function refreshThreadCorrespondent(connection: InboxMailboxConnection, th
     .filter(message => message.direction === InboxMessageDirection.INBOUND && !isAutoReplyMessage(message))
     .reduce<InboxMessage | null>((latest, candidate) =>
       (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest?.receivedAt ?? latest?.sentAt ?? -1) ? candidate : latest, null);
-  const stated = latestInbound ? await hydrateReplyTo(connection, latestInbound) : null;
-  const sender = stated ?? latestInbound?.from ?? null;
-  return sender ? correctThreadExternalAddress(threadId, sender, await internalEmailsForConnection(connection)) : null;
+  if (latestInbound) {
+    const stated = await hydrateReplyTo(connection, latestInbound);
+    const sender = stated ?? latestInbound.from ?? null;
+    return sender ? correctThreadExternalAddress(threadId, sender, await internalEmailsForConnection(connection)) : null;
+  } else {
+    const latestOutbound = messages
+      .filter(message => message.direction === InboxMessageDirection.OUTBOUND)
+      .reduce<InboxMessage | null>((latest, candidate) =>
+        (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest?.receivedAt ?? latest?.sentAt ?? -1) ? candidate : latest, null);
+    if (!latestOutbound) {
+      return null;
+    } else {
+      const internalEmails = await internalEmailsForConnection(connection);
+      const counterparty = resolveThreadExternalAddress(latestOutbound, undefined, internalEmails);
+      const thread = await inboxThreadModel.findById(threadId).lean() as unknown as InboxThread | null;
+      const currentEmail = thread?.externalAddress?.email ? normaliseEmail(thread.externalAddress.email) : null;
+      const nextEmail = normaliseEmail(counterparty.email);
+      if (currentEmail !== nextEmail) {
+        await inboxThreadModel.updateOne({_id: threadId}, {$set: {externalAddress: counterparty}});
+        debugLog(`refreshThreadCorrespondent: outbound externalAddress on ${threadId}: ${currentEmail} -> ${nextEmail}`);
+      }
+      return counterparty;
+    }
+  }
 }
 
 router.get("/mailbox-connections", authConfig.authenticate(), async (req: Request, res: Response) => {

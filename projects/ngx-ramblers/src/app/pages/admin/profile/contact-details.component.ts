@@ -69,7 +69,7 @@ export class ContactDetailsComponent implements OnInit, OnDestroy {
   }
 
   undoPersonalDetails() {
-    this.profileService.undoChangesTo(this.notify, ProfileUpdateType.PERSONAL_DETAILS, this.member).then(member => {
+    return this.profileService.undoChangesTo(this.notify, ProfileUpdateType.PERSONAL_DETAILS, this.member).then(member => {
       this.logger.debug("member:", member);
       this.member = member;
     });

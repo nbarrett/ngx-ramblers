@@ -9,6 +9,7 @@ import { MemberUpdateAuditService } from "./member-update-audit.service";
 import { MemberBulkLoadAuditService } from "./member-bulk-load-audit.service";
 import { MemberService } from "./member.service";
 import { MemberDefaultsService } from "./member-defaults.service";
+import { MemberLoginService } from "./member-login.service";
 import { MemberNamingService } from "./member-naming.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { StringUtilsService } from "../string-utils.service";
@@ -48,7 +49,12 @@ describe("MemberBulkLoadService", () => {
         };
         const memberDefaultsServiceSpy = {
             resetUpdateStatusForMember: vi.fn().mockName("MemberDefaultsService.resetUpdateStatusForMember"),
-            applyDefaultMailSettingsToMember: vi.fn().mockName("MemberDefaultsService.applyDefaultMailSettingsToMember")
+            applyDefaultMailSettingsToMember: vi.fn().mockName("MemberDefaultsService.applyDefaultMailSettingsToMember"),
+            applyConsentWithdrawalToMember: vi.fn().mockName("MemberDefaultsService.applyConsentWithdrawalToMember").mockReturnValue(false),
+            applyConsentRestoreToMember: vi.fn().mockName("MemberDefaultsService.applyConsentRestoreToMember").mockReturnValue(false)
+        };
+        const memberLoginServiceSpy = {
+            loggedInMember: vi.fn().mockName("MemberLoginService.loggedInMember").mockReturnValue({ memberId: "test-member-id" })
         };
         memberNamingServiceSpy = {
             createUniqueDisplayName: vi.fn().mockName("MemberNamingService.createUniqueDisplayName"),
@@ -69,7 +75,8 @@ describe("MemberBulkLoadService", () => {
             info: vi.fn().mockName("Logger.info"),
             warn: vi.fn().mockName("Logger.warn"),
             debug: vi.fn().mockName("Logger.debug"),
-            error: vi.fn().mockName("Logger.error")
+            error: vi.fn().mockName("Logger.error"),
+            off: vi.fn().mockName("Logger.off")
         });
 
         TestBed.configureTestingModule({
@@ -80,6 +87,7 @@ describe("MemberBulkLoadService", () => {
                 { provide: MemberUpdateAuditService, useValue: memberUpdateAuditServiceSpy },
                 { provide: MemberBulkLoadAuditService, useValue: memberBulkLoadAuditServiceSpy },
                 { provide: MemberService, useValue: memberServiceSpy },
+                { provide: MemberLoginService, useValue: memberLoginServiceSpy },
                 { provide: WalkLeaderRematchService, useValue: walkLeaderRematchServiceSpy },
                 { provide: MemberDefaultsService, useValue: memberDefaultsServiceSpy },
                 { provide: MemberNamingService, useValue: memberNamingServiceSpy },

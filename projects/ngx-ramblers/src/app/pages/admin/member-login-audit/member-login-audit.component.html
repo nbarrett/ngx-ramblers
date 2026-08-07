@@ -4,44 +4,39 @@
       <div [ngClass]="{'busy': notifyTarget.busy}" class="admin-frame rounded">
         <div class="admin-header-background rounded">
           <div class="admin-header-container">
-            <div class="d-inline-flex align-items-center flex-wrap gap-2">
-              <div class="form-group mb-0">
+            <div class="rsm-toolbar mb-0">
+              <div class="rsm-toolbar-grow">
                 <div class="input-group">
                   <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                   <input id="quick-search" [(ngModel)]="quickSearch"
                          (ngModelChange)="onSearchChange($event)"
                          name="quickSearch"
-                         class="form-control input-md"
+                         class="form-control"
                          type="text" placeholder="Quick Search">
                 </div>
               </div>
-              <div class="form-group mb-0 d-flex align-items-center gap-2">
+              <div class="d-flex align-items-center gap-2 flex-shrink-0">
                 <label class="form-label mb-0 text-muted text-nowrap" for="filter-audit">Filter logins since</label>
                 <app-date-picker startOfDay id="filter-audit" size="md"
                                  (change)="onFilterDateChange($event)"
                                  [value]="filterDateValue">
                 </app-date-picker>
               </div>
-              <div class="form-group d-flex align-items-center gap-2 flex-wrap">
-                <input type="submit" [disabled]="notifyTarget.busy"
-                       value="Back to admin"
-                       (click)="backToAdmin()"
-                       class="btn btn-secondary">
-              </div>
+              <input type="submit" [disabled]="notifyTarget.busy"
+                     value="Back to admin"
+                     (click)="backToAdmin()"
+                     class="btn btn-secondary flex-shrink-0">
             </div>
-            <div class="row mt-2">
-              @if (notifyTarget.showAlert) {
-                <div class="col-md-12">
-                  <div class="alert {{notifyTarget.alertClass}} mt-8">
-                    <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                    @if (notifyTarget.alertTitle) {
-                      <strong>
-                        {{ notifyTarget.alertTitle }}: </strong>
-                    } {{ notifyTarget.alertMessage }}
-                  </div>
+            @if (notifyTarget.showAlert) {
+              <div class="mt-2">
+                <div class="alert {{notifyTarget.alertClass}} mb-0">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>{{ notifyTarget.alertTitle }}: </strong>
+                  } {{ notifyTarget.alertMessage }}
                 </div>
-              }
-            </div>
+              </div>
+            }
           </div>
           <div class="table-responsive">
             <div class="ngx-data-table-card">
@@ -84,8 +79,8 @@
                   @for (memberAudit of auditFilter.results; track memberAudit.id) {
                     <tr>
                       <td class="nowrap">{{ memberAudit?.loginTime | displayDateAndTime }}</td>
-                      <td>{{ memberAudit?.userName }}</td>
-                      <td>{{ memberAudit?.member | fullNameWithAlias :'' }}</td>
+                      <td class="nowrap">{{ memberAudit?.userName }}</td>
+                      <td class="nowrap">{{ memberAudit?.member | fullNameWithAlias :'' }}</td>
                       <td class="nowrap">
                         @if (memberAudit?.loginResponse?.memberLoggedIn) {
                           <fa-icon [icon]="faCheck" class="text-success"/>

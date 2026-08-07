@@ -21,6 +21,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faSpinner, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { AlertTarget } from "../../../../models/alert-target.model";
+import { booleanOf } from "../../../../functions/strings";
 
 @Component({
     selector: "app-mail-list-settings",
@@ -88,7 +89,7 @@ import { AlertTarget } from "../../../../models/alert-target.model";
             <div class="form-check">
               <input [checked]="requiresMemberEmailMarketingConsent()"
                      (change)="requiresMemberEmailMarketingConsentChange()"
-                     [disabled]="!autoSubscribeNewMembers()"
+                     [disabled]="listConsentGateDisabled()"
                      type="checkbox" class="form-check-input"
                      id="requires-member-email-marketing-consent-{{list.id}}">
               <label class="form-check-label"
@@ -247,6 +248,14 @@ export class MailListSettingsComponent implements OnInit {
     return this.listSetting()?.autoSubscribeNewMembers;
   }
 
+  respectHeadOfficeConsent(): boolean {
+    return booleanOf(this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent, true);
+  }
+
+  listConsentGateDisabled(): boolean {
+    return !this.autoSubscribeNewMembers() || this.respectHeadOfficeConsent();
+  }
+
   requiresMemberEmailMarketingConsent() {
     return this.listSetting()?.requiresMemberEmailMarketingConsent;
   }
@@ -279,9 +288,13 @@ export class MailListSettingsComponent implements OnInit {
   }
 
   requiresMemberEmailMarketingConsentChange() {
-    this.listSetting().requiresMemberEmailMarketingConsent = !this.requiresMemberEmailMarketingConsent();
-    this.persistListSettings();
-    this.offerRetrospectiveApply();
+    if (this.listConsentGateDisabled()) {
+      return;
+    } else {
+      this.listSetting().requiresMemberEmailMarketingConsent = !this.requiresMemberEmailMarketingConsent();
+      this.persistListSettings();
+      this.offerRetrospectiveApply();
+    }
   }
 
   private persistListSettings(): void {

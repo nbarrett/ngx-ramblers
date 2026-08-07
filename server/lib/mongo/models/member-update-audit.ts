@@ -12,7 +12,11 @@ const memberUpdateAuditSchema = new mongoose.Schema({
   fieldChanges: [{fieldName: String, from: String, to: String, resolution: String}],
   memberId: {type: String},
   member: {type: Object},
-  auditErrorMessage: {type: Object}
+  auditErrorMessage: {type: Object},
+  createdBy: {type: String},
+  createdDate: {type: Number},
+  updatedBy: {type: String},
+  updatedDate: {type: Number}
 }, {collection: "memberUpdateAudit"});
 
 memberUpdateAuditSchema.index({memberId: 1});

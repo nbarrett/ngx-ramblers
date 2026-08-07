@@ -1,13 +1,18 @@
-import { Component, Input } from "@angular/core";
+import { Component, inject, Input } from "@angular/core";
 import { startCase } from "es-toolkit/compat";
+import { memberFullName } from "../../../functions/member-names";
+import { AUDIT_FIELDS } from "../../../models/ramblers-insight-hub";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { DateUtilsService } from "../../../services/date-utils.service";
+import { MemberService } from "../../../services/member/member.service";
 import { VisibilityToggleButton } from "../../../shared/components/visibility-toggle-button";
-import { MemberAuditFieldChange, MemberUpdateAudit } from "../../../models/member.model";
+import { Member, MemberAuditFieldChange, MemberUpdateAudit, WriteDataType } from "../../../models/member.model";
 
 interface MemberAuditRow {
   id: string;
   updateTime: number;
   action: string;
+  by: string;
   changes: MemberAuditFieldChange[];
   summary: string;
 }
@@ -29,7 +34,7 @@ interface MemberAuditRow {
 
     .history-column-header
       display: grid
-      grid-template-columns: 28px 200px 120px 1fr
+      grid-template-columns: 28px 180px 140px 100px 1fr
       gap: 12px
       padding: 10px 16px
       background: var(--rsm-table-header-bg)
@@ -50,7 +55,7 @@ interface MemberAuditRow {
 
     .history-header
       display: grid
-      grid-template-columns: 28px 200px 120px 1fr
+      grid-template-columns: 28px 180px 140px 100px 1fr
       gap: 12px
       padding: 12px 16px
       align-items: start
@@ -74,6 +79,10 @@ interface MemberAuditRow {
     .history-date
       font-weight: 500
       color: #495057
+
+    .history-by
+      color: #495057
+      word-break: break-word
 
     .history-action
       color: #495057
@@ -131,6 +140,7 @@ interface MemberAuditRow {
         <div class="history-column-header">
           <div></div>
           <div>Update Time</div>
+          <div>By</div>
           <div>Action</div>
           <div>Changes</div>
         </div>
@@ -144,6 +154,7 @@ interface MemberAuditRow {
                 }
               </div>
               <div class="history-date">{{ row.updateTime | displayDateAndTime }}</div>
+              <div class="history-by">{{ row.by }}</div>
               <div class="history-action">{{ row.action }}</div>
               <div class="history-notes">{{ row.summary }}</div>
             </div>
@@ -162,8 +173,8 @@ interface MemberAuditRow {
                     @for (change of row.changes; track change.fieldName + "-" + change.to) {
                       <tr>
                         <td>{{ humanise(change.fieldName) }}</td>
-                        <td>{{ change.from }}</td>
-                        <td>{{ change.to }}</td>
+                        <td>{{ formatChangeValue(change.fieldName, change.from) }}</td>
+                        <td>{{ formatChangeValue(change.fieldName, change.to) }}</td>
                         <td class="history-resolution">{{ change.resolution }}</td>
                       </tr>
                     }
@@ -180,7 +191,13 @@ interface MemberAuditRow {
   `
 })
 export class MemberAuditHistoryComponent {
+  private memberService = inject(MemberService);
+  private dateUtils = inject(DateUtilsService);
+  private readonly dateFieldNames = new Set(
+    AUDIT_FIELDS.filter(field => field.type === WriteDataType.DATE).map(field => field.fieldName as string)
+  );
   private _audits: MemberUpdateAudit[] = [];
+  private _members: Member[] = [];
   public rows: MemberAuditRow[] = [];
   private expandedIds = new Set<string>();
 
@@ -189,8 +206,25 @@ export class MemberAuditHistoryComponent {
     this.rows = this.buildRows();
   }
 
+  @Input() set members(value: Member[]) {
+    this._members = value || [];
+    this.rows = this.buildRows();
+  }
+
   humanise(fieldName: string): string {
     return startCase(fieldName);
+  }
+
+  formatChangeValue(fieldName: string, value: string): string {
+    const raw = value || "(none)";
+    const asMillis = Number(raw);
+    const isDateField = this.dateFieldNames.has(fieldName)
+      || fieldName.endsWith("Date")
+      || fieldName.endsWith("LastUpdated");
+    const looksLikeMillis = raw !== "(none)" && !Number.isNaN(asMillis) && asMillis > 1e11;
+    return isDateField && looksLikeMillis
+      ? this.dateUtils.displayDate(asMillis)
+      : raw;
   }
 
   toggleDetails(id: string) {
@@ -214,16 +248,30 @@ export class MemberAuditHistoryComponent {
           id: audit.id || `${audit.uploadSessionId}-${audit.rowNumber}-${index}`,
           updateTime: audit.updateTime,
           action: audit.memberAction,
+          by: this.actorLabel(audit),
           changes,
           summary: this.summaryFor(changes)
         };
       });
   }
 
+  private actorLabel(audit: MemberUpdateAudit): string {
+    const who = audit.updatedBy?.trim();
+    const person = who && who !== "system"
+      ? memberFullName(this.memberService.toMember(who, this._members), "Unknown member")
+      : who === "system"
+        ? "System"
+        : null;
+    const bulkLoad = !!audit.uploadSessionId;
+    return person && bulkLoad
+      ? `${person} · Bulk load`
+      : person
+        ?? (bulkLoad ? "Bulk load" : "Not recorded");
+  }
+
   private summaryFor(changes: MemberAuditFieldChange[]): string {
-    if (changes.length === 0) {
-      return "No changes or differences";
-    }
-    return `${changes.length === 1 ? "1 field" : `${changes.length} fields`}: ${changes.map(change => this.humanise(change.fieldName)).join(", ")}`;
+    return changes.length === 0
+      ? "No changes or differences"
+      : `${changes.length === 1 ? "1 field" : `${changes.length} fields`}: ${changes.map(change => this.humanise(change.fieldName)).join(", ")}`;
   }
 }

@@ -46,7 +46,7 @@ import { sortBy } from "../../../../functions/arrays";
 import { extractErrorMessage, toDotCase, toKebabCase } from "../../../../functions/strings";
 import { SortDirection } from "../../../../models/sort.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
-import { AlertInstance } from "../../../../services/notifier.service";
+import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
@@ -811,6 +811,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private inboxService = inject(InboxService);
   private systemConfigService = inject(SystemConfigService);
   private webSocketClientService = inject(WebSocketClientService);
+  private notifierService = inject(NotifierService);
   private subscriptions: Subscription[] = [];
   private pendingEditType: string | null = null;
   private notify: AlertInstance;
@@ -874,6 +875,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   committeeRolesAlertDismissed = false;
 
   ngOnInit() {
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.cloudflareEmailRoutingService.invalidateCache();
     this.committeeConfigService.refreshConfig();
     this.webSocketClientService.connect().catch(() => this.logger.info("WebSocket unavailable for live config updates"));
@@ -1766,9 +1768,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   saveAndExit() {
-    this.save()
-      .then(() => this.urlService.navigateTo(["admin"]))
-      .catch((error) => this.notify.error(error));
+    return this.save()
+      .then(() => this.urlService.navigateTo(["admin"]));
   }
 
   tabActive(tab: string): boolean {
@@ -1783,7 +1784,17 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   save() {
     this.logger.info("saving config", this.committeeConfig);
     this.committeeConfig.fileTypes = [...this.committeeConfig.fileTypes].sort(sortBy("description"));
-    return this.committeeConfigService.saveConfig(this.committeeConfig);
+    this.notify.setBusy();
+    return this.committeeConfigService.saveConfig(this.committeeConfig)
+      .then(response => {
+        this.notify.success({title: "Committee settings", message: "Settings saved"});
+        return response;
+      })
+      .catch((error) => {
+        this.notify.error(error);
+        return Promise.reject(error);
+      })
+      .finally(() => this.notify.clearBusy());
   }
 
   cancel() {

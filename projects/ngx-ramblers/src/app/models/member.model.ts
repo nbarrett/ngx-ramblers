@@ -86,22 +86,8 @@ export interface FirstAndLastName {
   lastName: string;
 }
 
-export enum MarketingConsentField {
-  EMAIL = "emailMarketingConsent",
-  GROUP = "groupMarketingConsent",
-  AREA = "areaMarketingConsent",
-  OTHER = "otherMarketingConsent",
-}
-
-export const GRANULAR_MARKETING_CONSENT_FIELDS: MarketingConsentField[] = [
-  MarketingConsentField.GROUP,
-  MarketingConsentField.AREA,
-  MarketingConsentField.OTHER,
-];
-
 export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Auditable, Identifiable {
   memberId?: string;
-  hideSurname?: boolean;
   expiredPassword?: boolean;
   password?: string;
   nameAlias?: string;
@@ -153,9 +139,6 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   landlineTelephone?: string;
   emailMarketingConsent?: boolean;
   emailPermissionLastUpdated?: number;
-  groupMarketingConsent?: boolean;
-  areaMarketingConsent?: boolean;
-  otherMarketingConsent?: boolean;
   emailBlock?: MemberEmailBlock;
 }
 
@@ -295,9 +278,6 @@ export interface RamblersMember extends HasEmailFirstAndLastName {
   landlineTelephone: string;
   emailMarketingConsent: string;
   emailPermissionLastUpdated: string;
-  groupMarketingConsent?: string;
-  areaMarketingConsent?: string;
-  otherMarketingConsent?: string;
 }
 
 export interface MemberBulkLoadAudit extends Auditable {

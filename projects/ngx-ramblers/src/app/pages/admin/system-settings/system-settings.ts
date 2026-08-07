@@ -527,9 +527,8 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   saveAndExit() {
     this.logger.info("saving config", this.config);
-    this.save()
-      .then((response) => {
-        this.logger.info("config response:", response);
+    return this.save()
+      .then(() => {
         this.urlService.navigateTo(["admin"]);
       });
   }
@@ -575,15 +574,21 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   async save() {
     this.logger.debug("saving config", this.config);
-    await this.systemConfigService.saveConfig(this.config)
-      .catch((error) => this.notify.error({title: "Error saving system config", message: error}));
-    if (this.salesforceConfigService.hasLoaded()) {
-      await this.salesforceConfigService.save(this.salesforceConfigService.cached())
-        .catch((error) => this.notify.error({title: "Error saving Ramblers Team Emails config", message: error}));
-    }
-    if (this.memberSyncPolicyService.hasLoaded()) {
-      await this.memberSyncPolicyService.save(this.memberSyncPolicyService.cached())
-        .catch((error) => this.notify.error({title: "Error saving member sync policy", message: error}));
+    this.notify.setBusy();
+    try {
+      await this.systemConfigService.saveConfig(this.config);
+      if (this.salesforceConfigService.hasLoaded()) {
+        await this.salesforceConfigService.save(this.salesforceConfigService.cached());
+      }
+      if (this.memberSyncPolicyService.hasLoaded()) {
+        await this.memberSyncPolicyService.save(this.memberSyncPolicyService.cached());
+      }
+      this.notify.success({title: "System settings", message: "Settings saved"});
+    } catch (error) {
+      this.notify.error({title: "Error saving system settings", message: error});
+      throw error;
+    } finally {
+      this.notify.clearBusy();
     }
   }
 

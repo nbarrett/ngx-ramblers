@@ -323,7 +323,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                   @if (selectedThreadRecipient(); as sender) {
                     <small class="text-muted d-block">From {{sender}}</small>
                   }
-                  <small class="text-muted d-block">To {{ formatAddress(selectedThread.externalAddress) }}</small>
+                  <small class="text-muted d-block">To {{ outboundThreadRecipientLabel() }}</small>
                 } @else {
                   <small class="text-muted d-block">From {{ formatAddress(selectedThread.externalAddress) }}</small>
                   @if (selectedThreadRecipient(); as recipient) {
@@ -357,6 +357,9 @@ import { UIDateFormat } from "../../../models/date-format.model";
                     <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from Email Composer — " + formatAddress(message.from) : formatAddress(message.from)}}</strong>
                     &middot; {{(message.receivedAt ?? message.sentAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}
                     @if (isMessageExpanded(message)) {
+                      @if (message.to?.length) {
+                        <div>To: {{ formatAddresses(message.to) }}</div>
+                      }
                       @if (message.cc?.length) {
                         <div>Cc: {{ formatAddresses(message.cc) }}</div>
                       }
@@ -1371,6 +1374,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         }
       });
       this.selectedMessages = this.collapseSends(responses.flatMap(response => response.messages));
+      this.alignOutboundThreadCounterparty();
       const newestMessage = this.selectedMessages.length
         ? this.selectedMessages.reduce((latest, candidate) =>
           (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest.receivedAt ?? latest.sentAt ?? 0) ? candidate : latest)
@@ -1522,6 +1526,34 @@ export class InboxComponent implements OnInit, OnDestroy {
       .map(address => address.email?.trim())
       .filter(email => email)
       .join(", ");
+  }
+
+  outboundThreadRecipientLabel(): string {
+    const recipients = this.outboundRecipientAddresses();
+    return recipients.length > 0
+      ? this.formatAddresses(recipients)
+      : this.formatAddress(this.selectedThread?.externalAddress);
+  }
+
+  private outboundRecipientAddresses(): InboxAddress[] {
+    return this.unionAddresses([], this.selectedMessages
+      .filter(message => message.direction === InboxMessageDirection.OUTBOUND)
+      .flatMap(message => [...(message.to ?? []), ...(message.cc ?? [])])
+      .filter(address => address?.email));
+  }
+
+  private alignOutboundThreadCounterparty(): void {
+    if (this.selectedThread && this.selectedThreadOutboundOnly()) {
+      const recipients = this.outboundRecipientAddresses();
+      if (recipients.length > 0) {
+        const counterparty = recipients[0];
+        this.selectedThread.externalAddress = counterparty;
+        const listed = this.threads.find(thread => this.threadIdOf(thread) === this.threadIdOf(this.selectedThread));
+        if (listed) {
+          listed.externalAddress = counterparty;
+        }
+      }
+    }
   }
 
   private collapseSends(messages: InboxMessage[]): InboxMessage[] {

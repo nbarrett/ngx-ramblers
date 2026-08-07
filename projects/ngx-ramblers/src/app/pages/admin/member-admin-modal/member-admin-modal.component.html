@@ -130,15 +130,6 @@
                     ({{member | lastConfirmedDateDisplayed}})
                   </label>
                 </div>
-                <p class="mt-3">Please select how {{member | fullNameWithAlias}} wishes to limit access to
-                  their member data using the checkboxes below:</p>
-                <div class="form-check">
-                  <input [(ngModel)]="member.hideSurname" type="checkbox" class="form-check-input"
-                         id="hide-surname">
-                  <label class="form-check-label"
-                         for="hide-surname">Hide surname from non-logged-in members
-                  </label>
-                </div>
               </div>
             </div>
           </div>
@@ -304,7 +295,15 @@
           <div class="row thumbnail-heading-frame">
             <div class="thumbnail-heading">Membership</div>
             <div class="col-sm-12">
-              <p>The membership information below is populated directly from the Ramblers provided data:</p>
+              @if (auditsLoaded && !everBulkLoaded()) {
+                <div class="alert alert-warning small">
+                  <fa-icon [icon]="faTriangleExclamation" class="me-2"></fa-icon>
+                  <strong>No Ramblers Bulk Load history</strong>
+                  This member was manually created, so any details below were entered here rather than supplied by Ramblers
+                </div>
+              } @else {
+                <p>The membership information below is populated directly from the Ramblers provided data:</p>
+              }
               <div class="row">
                 <div class="col col-sm-6">
                   <div class="form-group">
@@ -373,31 +372,24 @@
           <div class="row thumbnail-heading-frame">
             <div class="thumbnail-heading">Email marketing consent</div>
             <div class="col-sm-12">
-              @if (member.emailMarketingConsent) {
+              @if (consentGiven()) {
                 <p class="mb-2">Email Marketing Consent was provided
                   by {{ member | fullNameWithAlias }} @if (member.emailPermissionLastUpdated) {
                   <span>via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}</span>
                   }.</p>
               }
-              @if (!member.emailMarketingConsent) {
-                <p class="mb-2">Email Marketing Consent has not been given by {{ member | fullNameWithAlias }}.
+              @if (consentWithheld()) {
+                <p class="mb-2">Email Marketing Consent has been withheld by {{ member | fullNameWithAlias }}, so they are excluded from any send that respects Head Office consent.
                   @if (member.emailPermissionLastUpdated) {
                     <span> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span>
                   }</p>
               }
-              @if (hasGranularConsent()) {
-                <p class="mb-1"><strong>Granular consent (Ramblers Team Emails):</strong></p>
-                <ul class="mb-0">
-                  @if (member.groupMarketingConsent !== undefined) {
-                    <li>Local group emails: {{ member.groupMarketingConsent ? "opted in" : "opted out" }}</li>
-                  }
-                  @if (member.areaMarketingConsent !== undefined) {
-                    <li>Area emails: {{ member.areaMarketingConsent ? "opted in" : "opted out" }}</li>
-                  }
-                  @if (member.otherMarketingConsent !== undefined) {
-                    <li>Other groups' emails: {{ member.otherMarketingConsent ? "opted in" : "opted out" }}</li>
-                  }
-                </ul>
+              @if (consentNotRecorded()) {
+                <div class="alert alert-warning small mb-2">
+                  <fa-icon [icon]="faTriangleExclamation" class="me-2"></fa-icon>
+                  <strong>No Email Marketing Consent value recorded.</strong>
+                  Ramblers has not supplied a consent value for {{ member | fullNameWithAlias }}, so there is no recorded objection to email. They are treated as emailable and are included in a send even when it respects Head Office consent.
+                </div>
               }
             </div>
           </div>
@@ -446,77 +438,81 @@
                     </div>
                   </div>
                 </div>
-                <p class="mt-2 mb-2"><strong>Sending permissions and preferences</strong></p>
-                <div class="row">
-                  <div class="col-sm-6">
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Walk Leader</dt>
-                      <dd><app-switch-icon [on]="member.walkLeader"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Wellbeing Walker</dt>
-                      <dd><app-switch-icon [on]="member.wellbeingWalker"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Can Email Members</dt>
-                      <dd><app-switch-icon [on]="member.canEmailMembers"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Can Email Volunteers</dt>
-                      <dd><app-switch-icon [on]="member.canEmailVolunteers"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Can Email Wellbeing Walkers</dt>
-                      <dd><app-switch-icon [on]="member.canEmailWellbeingWalkers"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Can View Member Data</dt>
-                      <dd><app-switch-icon [on]="member.canViewMemberData"/></dd>
-                    </dl>
-                  </div>
-                  <div class="col-sm-6">
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Do Not Email</dt>
-                      <dd><app-switch-icon [on]="member.doNotEmail"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>No Walk Programme</dt>
-                      <dd><app-switch-icon [on]="member.noWalkProgram"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>No Campaigning</dt>
-                      <dd><app-switch-icon [on]="member.noCampaigning"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>No Surveys</dt>
-                      <dd><app-switch-icon [on]="member.noSurveys"/></dd>
-                    </dl>
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Wellbeing Walks Email Consent</dt>
-                      <dd><app-switch-icon [on]="member.emailConsentWellbeingWalks"/></dd>
-                    </dl>
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col col-sm-6">
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Post Consent</dt>
-                      <dd><app-switch-icon [on]="member.postConsent"/>
-                        @if (member.postConsentLastUpdated) {
-                          <span class="ms-2 text-muted">(updated {{ member.postConsentLastUpdated | displayDate }})</span>
-                        }
-                      </dd>
-                    </dl>
-                  </div>
-                  <div class="col col-sm-6">
-                    <dl class="dl-horizontal input-sm">
-                      <dt>Phone Consent</dt>
-                      <dd><app-switch-icon [on]="member.phoneConsent"/>
-                        @if (member.phoneConsentLastUpdated) {
-                          <span class="ms-2 text-muted">(updated {{ member.phoneConsentLastUpdated | displayDate }})</span>
-                        }
-                      </dd>
-                    </dl>
+                <div class="row thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Sending permissions and preferences</div>
+                  <div class="col-sm-12">
+                    <div class="row">
+                      <div class="col-sm-6">
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Walk Leader</dt>
+                          <dd><app-switch-icon [on]="member.walkLeader"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Wellbeing Walker</dt>
+                          <dd><app-switch-icon [on]="member.wellbeingWalker"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Can Email Members</dt>
+                          <dd><app-switch-icon [on]="member.canEmailMembers"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Can Email Volunteers</dt>
+                          <dd><app-switch-icon [on]="member.canEmailVolunteers"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Can Email Wellbeing Walkers</dt>
+                          <dd><app-switch-icon [on]="member.canEmailWellbeingWalkers"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Can View Member Data</dt>
+                          <dd><app-switch-icon [on]="member.canViewMemberData"/></dd>
+                        </dl>
+                      </div>
+                      <div class="col-sm-6">
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Do Not Email</dt>
+                          <dd><app-switch-icon [on]="member.doNotEmail"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>No Walk Programme</dt>
+                          <dd><app-switch-icon [on]="member.noWalkProgram"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>No Campaigning</dt>
+                          <dd><app-switch-icon [on]="member.noCampaigning"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>No Surveys</dt>
+                          <dd><app-switch-icon [on]="member.noSurveys"/></dd>
+                        </dl>
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Wellbeing Walks Email Consent</dt>
+                          <dd><app-switch-icon [on]="member.emailConsentWellbeingWalks"/></dd>
+                        </dl>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="col-sm-6">
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Post Consent</dt>
+                          <dd><app-switch-icon [on]="member.postConsent"/>
+                            @if (member.postConsentLastUpdated) {
+                              <span class="ms-2 text-muted">(updated {{ member.postConsentLastUpdated | displayDate }})</span>
+                            }
+                          </dd>
+                        </dl>
+                      </div>
+                      <div class="col-sm-6">
+                        <dl class="dl-horizontal input-sm">
+                          <dt>Phone Consent</dt>
+                          <dd><app-switch-icon [on]="member.phoneConsent"/>
+                            @if (member.phoneConsentLastUpdated) {
+                              <span class="ms-2 text-muted">(updated {{ member.phoneConsentLastUpdated | displayDate }})</span>
+                            }
+                          </dd>
+                        </dl>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -597,37 +593,45 @@
             </div>
             <div class="row">
               <div class="col col-sm-12">
-                <p>The information below is an audit of all Member bulk loads from the
-                Ramblers provided data for {{member | fullNameWithAlias}}:</p>
+                <p>The information below is an audit of every change to {{member | fullNameWithAlias}}, both
+                from Member bulk loads of the Ramblers provided data and from edits made here:</p>
               </div>
             </div>
             <div class="row">
               <div class="col col-sm-12">
-                <app-member-audit-history [audits]="memberUpdateAudits"/>
+                <app-member-audit-history [audits]="memberUpdateAudits" [members]="members"/>
               </div>
             </div>
           </div>
         </tab>
         <tab [active]="tabActive(MemberAdminModalTab.MEMBER_RAW_DATA)" (selectTab)="selectTab(MemberAdminModalTab.MEMBER_RAW_DATA)" heading="Member Raw Data">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row">
-              <div class="col col-sm-12 d-flex align-items-center mb-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        [tooltip]="rawMemberDataVisible ? 'Hide raw member document' : 'Show raw member document'"
-                        (click)="rawMemberDataVisible = !rawMemberDataVisible">
-                  <fa-icon [icon]="rawMemberDataVisible ? faEyeSlash : faEye"></fa-icon>
-                  <span class="ms-2">{{ rawMemberDataVisible ? 'Hide raw data' : 'Show raw data' }}</span>
-                </button>
-                @if (!rawMemberDataVisible) {
-                  <span class="text-muted small ms-3">
-                    The raw member document is hidden by default — it shows the unfiltered MongoDB record (including non-display fields). Reveal only when needed.
-                  </span>
-                }
-              </div>
+            <div class="d-flex align-items-center mb-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap"
+                      (click)="rawMemberDataVisible = !rawMemberDataVisible">
+                <fa-icon [icon]="rawMemberDataVisible ? faEyeSlash : faEye"></fa-icon>
+                <span class="ms-2">{{ rawMemberDataVisible ? 'Hide raw data' : 'Show raw data' }}</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap ms-2"
+                      (click)="copyRawMemberData()">
+                <fa-icon [icon]="faCopy"></fa-icon>
+                <span class="ms-2">Copy to clipboard</span>
+              </button>
               @if (rawMemberDataVisible) {
-                <pre>{{ member | json }}</pre>
+                <span class="text-muted ms-3">
+                  Showing the unfiltered MongoDB record, including non-display fields.
+                </span>
+              } @else {
+                <span class="text-muted ms-3">
+                  The raw member document is hidden by default — it shows the unfiltered MongoDB record (including non-display fields). Reveal only when needed.
+                </span>
               }
             </div>
+            @if (rawMemberDataVisible) {
+              <div class="raw-data-scroll">
+                <pre class="raw-data-json mb-0">{{ member | json }}</pre>
+              </div>
+            }
           </div>
         </tab>
       </tabset>

@@ -109,6 +109,56 @@ describe("MailListUpdaterService", () => {
         service = TestBed.inject(MailListUpdaterService);
     });
 
+    describe("applyAutoSubscribeDefaults", () => {
+        const mailMessagingConfig = {
+            brevo: {lists: {lists: [allMembers, fridayEmail]}},
+            mailConfig: {
+                listSettings: [
+                    {id: 2, autoSubscribeNewMembers: true, requiresMemberEmailMarketingConsent: false},
+                    {id: 4, autoSubscribeNewMembers: true, requiresMemberEmailMarketingConsent: true}
+                ]
+            }
+        } as any;
+
+        it("subscribes only lists whose create-time defaults say yes", () => {
+            mailMessagingServiceSpy.subscribed.mockImplementation((listSetting: ListSetting) => listSetting?.id === 2);
+            const existing = member({
+                emailMarketingConsent: true,
+                mail: mailWith({id: 2, subscribed: false}, {id: 4, subscribed: false})
+            });
+
+            const changed = service.applyAutoSubscribeDefaults(existing, mailMessagingConfig);
+
+            expect(changed).toBe(true);
+            expect(service.subscriptionFor(existing, 2).subscribed).toBe(true);
+            expect(service.subscriptionFor(existing, 4).subscribed).toBe(false);
+        });
+
+        it("does not turn off lists that are already subscribed", () => {
+            mailMessagingServiceSpy.subscribed.mockReturnValue(false);
+            const existing = member({
+                mail: mailWith({id: 2, subscribed: true}, {id: 4, subscribed: true})
+            });
+
+            const changed = service.applyAutoSubscribeDefaults(existing, mailMessagingConfig);
+
+            expect(changed).toBe(false);
+            expect(service.subscriptionFor(existing, 2).subscribed).toBe(true);
+            expect(service.subscriptionFor(existing, 4).subscribed).toBe(true);
+        });
+
+        it("is a no-op when already matching create-time defaults", () => {
+            mailMessagingServiceSpy.subscribed.mockImplementation((listSetting: ListSetting) => listSetting?.id === 2);
+            const existing = member({
+                mail: mailWith({id: 2, subscribed: true}, {id: 4, subscribed: false})
+            });
+
+            const changed = service.applyAutoSubscribeDefaults(existing, mailMessagingConfig);
+
+            expect(changed).toBe(false);
+        });
+    });
+
     describe("setSubscription", () => {
         it("should record the time of an unsubscribe, as unchecking the member admin checkbox does", () => {
             const existing = member({mail: mailWith({id: 2, subscribed: true})});
@@ -117,6 +167,52 @@ describe("MailListUpdaterService", () => {
 
             expect(service.subscriptionFor(existing, 2).subscribed).toBe(false);
             expect(service.subscriptionFor(existing, 2).unsubscribedAt).toBe(UNSUBSCRIBED_NOW);
+        });
+
+        it("should not turn a subscription on when Head office marketing consent is withheld and respected", () => {
+            service["mailMessagingConfig"] = {mailConfig: {respectHeadOfficeConsent: true}} as any;
+            const existing = member({
+                emailMarketingConsent: false,
+                mail: mailWith({id: 2, subscribed: false})
+            });
+
+            service.setSubscription(existing, 2, true);
+
+            expect(service.subscriptionFor(existing, 2).subscribed).toBe(false);
+        });
+
+        it("should still allow unsubscribe when Head office marketing consent is withheld and respected", () => {
+            service["mailMessagingConfig"] = {mailConfig: {respectHeadOfficeConsent: true}} as any;
+            const existing = member({
+                emailMarketingConsent: false,
+                mail: mailWith({id: 2, subscribed: true})
+            });
+
+            service.setSubscription(existing, 2, false);
+
+            expect(service.subscriptionFor(existing, 2).subscribed).toBe(false);
+        });
+
+        it("should not turn a subscription on for a consent-gated list when Respect is off but list requires consent", () => {
+            service["mailMessagingConfig"] = {
+                mailConfig: {
+                    respectHeadOfficeConsent: false,
+                    listSettings: [
+                        {id: 2, autoSubscribeNewMembers: true, requiresMemberEmailMarketingConsent: false},
+                        {id: 4, autoSubscribeNewMembers: true, requiresMemberEmailMarketingConsent: true}
+                    ]
+                }
+            } as any;
+            const existing = member({
+                emailMarketingConsent: false,
+                mail: mailWith({id: 2, subscribed: false}, {id: 4, subscribed: false})
+            });
+
+            service.setSubscription(existing, 4, true);
+            service.setSubscription(existing, 2, true);
+
+            expect(service.subscriptionFor(existing, 4).subscribed).toBe(false);
+            expect(service.subscriptionFor(existing, 2).subscribed).toBe(true);
         });
 
         it("should clear the unsubscribe time when subscribing again, as re-checking the checkbox does", () => {

@@ -24,6 +24,7 @@ import { MemberBulkLoadAuditService } from "./member-bulk-load-audit.service";
 import { MemberNamingService } from "./member-naming.service";
 import { MemberUpdateAuditService } from "./member-update-audit.service";
 import { MemberService } from "./member.service";
+import { MemberLoginService } from "./member-login.service";
 import { SystemConfig } from "../../models/system.model";
 import { MailMessagingConfig } from "../../models/mail.model";
 import { MemberDefaultsService } from "./member-defaults.service";
@@ -33,7 +34,7 @@ import { AUDIT_FIELDS, AuditField, NO_CHANGES_OR_DIFFERENCES } from "../../model
 import { isString } from "es-toolkit/compat";
 import { isNumber } from "es-toolkit/compat";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
-import { GRANULAR_MARKETING_CONSENT_FIELDS, MarketingConsentField, MemberTerm } from "../../models/member.model";
+import { MemberTerm } from "../../models/member.model";
 import { MemberSyncPolicyService } from "./member-sync-policy.service";
 import { MemberSyncPolicyMode } from "../../models/member-sync-policy.model";
 import { MemberSyncNotificationService } from "./member-sync-notification.service";
@@ -41,8 +42,6 @@ import {
   MemberSyncNotificationContext,
   MemberSyncNotificationResolution
 } from "../../models/member-sync-notification.model";
-import { SalesforceConfigService } from "../salesforce/salesforce-config.service";
-import { booleanOf } from "../../functions/strings";
 import { memberFullName } from "../../functions/member-names";
 import { WalkLeaderRematchService } from "../walks/walk-leader-rematch.service";
 
@@ -56,6 +55,7 @@ export class MemberBulkLoadService {
   private memberUpdateAuditService = inject(MemberUpdateAuditService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
   private memberService = inject(MemberService);
+  private memberLoginService = inject(MemberLoginService);
   private memberDefaultsService = inject(MemberDefaultsService);
   private memberNamingService = inject(MemberNamingService);
   private fullNamePipe = inject(FullNamePipe);
@@ -64,13 +64,12 @@ export class MemberBulkLoadService {
   private numberUtils = inject(NumberUtilsService);
   private memberSyncPolicyService = inject(MemberSyncPolicyService);
   private memberSyncNotificationService = inject(MemberSyncNotificationService);
-  private salesforceConfigService = inject(SalesforceConfigService);
   private walkLeaderRematchService = inject(WalkLeaderRematchService);
 
   public async processResponse(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, memberBulkLoadResponse: MemberBulkLoadAudit, existingMembers: Member[], notify: AlertInstance): Promise<any> {
     notify.setBusy();
     this.logger.info("processResponse:received", memberBulkLoadResponse.members.length, "ramblersMembers");
-    await Promise.all([this.memberSyncPolicyService.refresh(), this.salesforceConfigService.refresh()]);
+    await this.memberSyncPolicyService.refresh();
     const notificationContext: MemberSyncNotificationContext = {candidates: [], processedMemberIds: []};
     const auditResponse: MemberBulkLoadAudit = await this.memberBulkLoadAuditService.create(memberBulkLoadResponse);
     const uploadSessionId = auditResponse.id;
@@ -249,7 +248,9 @@ export class MemberBulkLoadService {
       memberAction,
       rowNumber,
       changes,
-      fieldChanges
+      fieldChanges,
+      updatedBy: this.memberLoginService.loggedInMember()?.memberId || "system",
+      updatedDate: this.dateUtils.nowAsValue()
     };
 
     const summary = this.summariseFieldChanges(fieldChanges);
@@ -352,13 +353,6 @@ export class MemberBulkLoadService {
   private oldDataValueForField(field: AuditField, source: Member): any {
     return source[field.fieldName];
   };
-
-  private activeAuditFields(): AuditField[] {
-    if (booleanOf(this.salesforceConfigService.cached()?.enableGranularConsent)) {
-      return AUDIT_FIELDS;
-    }
-    return AUDIT_FIELDS.filter(field => !GRANULAR_MARKETING_CONSENT_FIELDS.includes(field.fieldName as MarketingConsentField));
-  }
 
   private changeAndAuditMemberField(updateAudit: UpdateAudit, member: Member, ramblersMember: RamblersMember, auditField: AuditField, notificationContext: MemberSyncNotificationContext) {
     const fieldName: string = auditField.fieldName;
@@ -483,13 +477,46 @@ export class MemberBulkLoadService {
     if (!isEmpty(ramblersMember.salesforceId)) {
       bulkLoadMemberAndMatch.member.salesforceId = ramblersMember.salesforceId;
     }
+    const previousEmailMarketingConsent = bulkLoadMemberAndMatch.member.emailMarketingConsent;
     const updateAudit: UpdateAudit = {fieldChanges: [], fieldsChanged: 0, fieldsSkipped: 0};
-    this.activeAuditFields().forEach((field: AuditField) => {
+    AUDIT_FIELDS.forEach((field: AuditField) => {
       this.changeAndAuditMemberField(updateAudit, bulkLoadMemberAndMatch.member, ramblersMember, field, notificationContext);
       if (bulkLoadMemberAndMatch.memberMatch === MemberAction.created) {
         this.memberDefaultsService.applyDefaultMailSettingsToMember(bulkLoadMemberAndMatch.member, systemConfig, mailMessagingConfig);
       }
     });
+    const consentNotGiven = bulkLoadMemberAndMatch.member.emailMarketingConsent === false;
+    const consentRestored = previousEmailMarketingConsent === false
+      && bulkLoadMemberAndMatch.member.emailMarketingConsent === true;
+    const listsClearedForConsent = this.memberDefaultsService.applyConsentWithdrawalToMember(
+      bulkLoadMemberAndMatch.member,
+      systemConfig,
+      consentNotGiven
+    );
+    if (listsClearedForConsent) {
+      updateAudit.fieldsChanged++;
+      updateAudit.fieldChanges.push({
+        fieldName: "mailSubscriptions",
+        from: "subscribed",
+        to: "unsubscribed",
+        resolution: "Head office email marketing consent not given"
+      });
+    }
+    const listsRestoredForConsent = this.memberDefaultsService.applyConsentRestoreToMember(
+      bulkLoadMemberAndMatch.member,
+      systemConfig,
+      mailMessagingConfig,
+      consentRestored
+    );
+    if (listsRestoredForConsent) {
+      updateAudit.fieldsChanged++;
+      updateAudit.fieldChanges.push({
+        fieldName: "mailSubscriptions",
+        from: "unsubscribed",
+        to: "subscribed",
+        resolution: "Head office email marketing consent restored"
+      });
+    }
     if (bulkLoadMemberAndMatch.memberMatch === MemberAction.found && bulkLoadMemberAndMatch.member.id) {
       notificationContext.processedMemberIds.push(bulkLoadMemberAndMatch.member.id);
     }

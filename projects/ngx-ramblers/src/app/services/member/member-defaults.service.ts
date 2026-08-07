@@ -78,6 +78,24 @@ export class MemberDefaultsService {
     }
   }
 
+  public applyConsentWithdrawalToMember(member: Member, systemConfig: SystemConfig, consentNotGiven: boolean): boolean {
+    const shouldUnsubscribe = consentNotGiven
+      && systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO
+      && this.mailListUpdaterService.respectHeadOfficeConsent();
+    return shouldUnsubscribe && this.mailListUpdaterService.unsubscribeFromAllLists(member);
+  }
+
+  public applyConsentRestoreToMember(
+    member: Member,
+    systemConfig: SystemConfig,
+    mailMessagingConfig: MailMessagingConfig,
+    consentRestored: boolean
+  ): boolean {
+    return consentRestored && systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO
+      ? this.mailListUpdaterService.applyAutoSubscribeDefaults(member, mailMessagingConfig)
+      : false;
+  }
+
   public applyDefaultMailSettingsToMember(member: Member, systemConfig: SystemConfig, mailMessagingConfig: MailMessagingConfig) {
     member.groupMember = true;
     switch (systemConfig?.mailDefaults?.mailProvider) {
