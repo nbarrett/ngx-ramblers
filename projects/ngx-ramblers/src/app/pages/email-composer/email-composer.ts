@@ -1,5 +1,5 @@
 import { AdminPath } from "../../models/admin-route-paths.model";
-import { ChangeDetectorRef, Component, ElementRef, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -1935,6 +1935,14 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
   `
 })
 export class EmailComposer implements OnInit, OnDestroy {
+
+  @HostListener("window:beforeunload", ["$event"])
+  warnBeforeBrowserLeave(event: BeforeUnloadEvent): void {
+    if (this.hasUnsavedChanges() && !this.sendInProgress && !this.campaignSendComplete) {
+      event.preventDefault();
+      event.returnValue = true;
+    }
+  }
 
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposer", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
