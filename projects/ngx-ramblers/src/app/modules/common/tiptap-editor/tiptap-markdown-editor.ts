@@ -288,6 +288,11 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       @if (linkHrefMissing) {
         <div class="link-url-hint">This link has no URL stored. Enter a path or address, then Apply.</div>
       }
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="tiptap-link-new-tab"
+               [(ngModel)]="linkOpenInNewTab" name="tiptap-link-new-tab">
+        <label class="form-check-label" for="tiptap-link-new-tab">Open in a new tab</label>
+      </div>
       <div class="link-url-actions">
         <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
         <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
@@ -614,6 +619,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private readonly onTablePickerPointerMove = (event: PointerEvent) => this.updateTablePickerFromPointer(event);
   private readonly onTablePickerPointerUp = (event: PointerEvent) => this.finishTablePickerDrag(event);
   protected linkBarOpen: boolean = false;
+  protected linkOpenInNewTab = false;
   protected imageCropperOpen: boolean = false;
   protected imageSelected: boolean = false;
   protected imageSpacing: ImageSpacing = ImageSpacing.Small;
@@ -1608,6 +1614,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.linkUrl = this.editorLinkHref(domLink);
     this.linkText = this.selectedPlainText();
     this.linkHrefMissing = this.editor?.isActive("link") === true && !this.linkUrl;
+    const existingTarget = domLink?.getAttribute("target")
+      || (this.editor?.getAttributes("link")["target"] as string | undefined)
+      || "";
+    this.linkOpenInNewTab = existingTarget === "_blank";
     this.imageCropperOpen = false;
     this.linkBarOpen = true;
     this.zone.runOutsideAngular(() => {
@@ -1706,11 +1716,18 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.linkUrl = "";
     this.linkText = "";
     this.linkHrefMissing = false;
+    this.linkOpenInNewTab = false;
+  }
+
+  private linkMarkAttrs(url: string): { href: string; target: string | null; rel: string | null } {
+    return this.linkOpenInNewTab
+      ? { href: url, target: "_blank", rel: "noopener noreferrer" }
+      : { href: url, target: null, rel: null };
   }
 
   private applyLinkTextAndHref(url: string, text: string): boolean {
     return this.editor.chain().focus().extendMarkRange("link")
-      .insertContent({type: "text", text, marks: [{type: "link", attrs: {href: url}}]})
+      .insertContent({type: "text", text, marks: [{type: "link", attrs: this.linkMarkAttrs(url)}]})
       .run();
   }
 
@@ -1724,7 +1741,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         const textChanged = !!text && text !== this.selectedPlainText();
         const applied = textChanged
           ? this.applyLinkTextAndHref(url, text)
-          : this.editor.chain().focus().extendMarkRange("link").setLink({href: url}).run();
+          : this.editor.chain().focus().extendMarkRange("link").setLink(this.linkMarkAttrs(url)).run();
         if (!applied) {
           this.logger.warn("link update rejected for href:", url);
         } else {
