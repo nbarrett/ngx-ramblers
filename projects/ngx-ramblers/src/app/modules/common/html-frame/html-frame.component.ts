@@ -26,13 +26,19 @@ export class HtmlFrameComponent implements OnDestroy {
 
   url: SafeResourceUrl | null = null;
   private objectUrl: string | null = null;
+  private lastHtml: string | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private mutationObserver: MutationObserver | null = null;
 
   @Input() set html(value: string) {
-    this.clearObjectUrl();
-    this.objectUrl = URL.createObjectURL(new Blob([this.wrap(value ?? "")], {type: "text/html"}));
-    this.url = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+    const next = value ?? "";
+    const unchanged = next === this.lastHtml && !!this.url;
+    if (!unchanged) {
+      this.lastHtml = next;
+      this.clearObjectUrl();
+      this.objectUrl = URL.createObjectURL(new Blob([this.wrap(next)], {type: "text/html"}));
+      this.url = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+    }
   }
 
   private wrap(html: string): string {

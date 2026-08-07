@@ -477,6 +477,10 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
 export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   @Input() set value(markdown: string) {
+    this.syncValue(markdown);
+  }
+
+  public syncValue(markdown: string): void {
     const incoming = markdown ?? "";
     if (this.sourceMode) {
       this.sourceMarkdown = incoming;
@@ -821,11 +825,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor.on("transaction", () => {
       this.refreshHistoryState();
     });
-    this.editor.on("update", () => {
-      const markdown = this.currentMarkdown();
-      this.valueChange.emit(markdown);
+    this.editor.on("update", ({transaction}) => {
+      const contentChanged = !transaction || transaction.docChanged;
+      if (contentChanged) {
+        const markdown = this.currentMarkdown();
+        this.valueChange.emit(markdown);
+        this.refreshEmojiSuggestions();
+      }
       this.refreshHistoryState();
-      this.refreshEmojiSuggestions();
     });
     this.editor.on("selectionUpdate", () => {
       this.refreshHistoryState();

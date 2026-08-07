@@ -92,7 +92,6 @@ import {
   SectionDividerStyle,
   SendingChannel,
   UNBRANDED_HARD_CAP_RECIPIENTS,
-  UNBRANDED_LIST_SEND_WARNING_THRESHOLD,
   UNBRANDED_LONG_BODY_CHAR_THRESHOLD,
   PriorSendExclusion,
   ValidationError,
@@ -157,7 +156,15 @@ import { AttachmentPreviewComponent } from "../../modules/common/attachment-prev
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { InboxReplyHandoffService } from "../../services/inbox/inbox-reply-handoff.service";
-import { InboxAttachment, InboxReplyOutboundContext } from "../../models/inbox.model";
+import { InboxService } from "../../services/inbox/inbox.service";
+import {
+  inboxMessageMatchingId,
+  inboxThreadId,
+  inboxThreadMatchingSlug,
+  newestInboxMessage,
+  replyAllRecipients
+} from "../../functions/inbox-thread";
+import { InboxAttachment, InboxReplyComposeResponse, InboxReplyOutboundContext } from "../../models/inbox.model";
 import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
@@ -285,74 +292,93 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         </div>
       </div>
       @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
-      @if (notifyTarget.showAlert || postSendActionWarningVisible() || recipientsValidationVisible) {
-        <div class="email-composer-validation-summary">
-          @if (notifyTarget.showAlert) {
-            @if (notifyTarget.alertTitle) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notifyTarget.alertTitle }}</h5>
-            }
+      @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
+      @let composeValidationVisible = stepperActiveTab === EmailComposerStepKey.COMPOSE && (composeUnbrandedNoRecipients || composeStepErrors().length > 0);
+      @if (inboxReplyLoading || notifyTarget.showAlert || postSendActionWarningVisible() || recipientsValidationVisible || composeValidationVisible) {
+        <div class="email-composer-validation-summary" [attr.role]="inboxReplyLoading ? 'status' : null" [attr.aria-live]="inboxReplyLoading ? 'polite' : null">
+          @if (inboxReplyLoading) {
+            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Loading reply…</h5>
             <ul class="list-arrow">
-              <li>{{ notifyTarget.alertMessage }}</li>
+              <li>Fetching the conversation and preparing recipients, subject and quoted message.</li>
             </ul>
-          }
-          @if (bulkDeletionPending()) {
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
-            <ul class="list-arrow">
-              <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its recipients from the database once the email has gone out. This cannot be undone.</li>
-              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after the send.</li>
-            </ul>
-          }
-          @if (memberDisablePending()) {
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow disables its recipients</h5>
-            <ul class="list-arrow">
-              <li>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from the group (unticking Approved Group Member) once the email has gone out.</li>
-              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled after the send.</li>
-            </ul>
-          }
-          @if (recipientsValidationVisible) {
-            @if (recipientsStepErrors().length > 0) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
+          } @else {
+            @if (notifyTarget.showAlert) {
+              @if (notifyTarget.alertTitle) {
+                <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notifyTarget.alertTitle }}</h5>
+              }
               <ul class="list-arrow">
-                @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
+                <li>{{ notifyTarget.alertMessage }}</li>
               </ul>
             }
-            @if (priorSendExclusions.length > 0) {
-              <h5>
-                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-                @if (!includeAlreadySent) {
-                  {{ priorSendExclusions.length }} {{ priorSendExclusions.length === 1 ? "member was" : "members were" }} excluded because they already received this email{{ priorSendDateRangeLabel() }}.
-                } @else {
-                  Including {{ priorSendExclusions.length }} already-sent {{ priorSendExclusions.length === 1 ? "member" : "members" }} in this re-send (originally sent{{ priorSendDateRangeLabel() }}).
-                }
-                <button type="button" class="email-composer-inline-toggle ms-2"
-                        (click)="togglePriorSendDetails()">
-                  {{ priorSendDetailsExpanded ? "Hide who" : "Show who" }}
-                </button>
-              </h5>
-              @if (priorSendDetailsExpanded) {
-                <ul class="list-arrow mt-1">
-                  @for (exclusion of priorSendExclusions; track exclusion.member.id) {
-                    <li>{{ exclusion.member | fullNameWithAlias }} - sent {{ priorSendDateLabel(exclusion.sentAt) }}</li>
-                  }
+            @if (bulkDeletionPending()) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
+              <ul class="list-arrow">
+                <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its recipients from the database once the email has gone out. This cannot be undone.</li>
+                <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after the send.</li>
+              </ul>
+            }
+            @if (memberDisablePending()) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow disables its recipients</h5>
+              <ul class="list-arrow">
+                <li>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from the group (unticking Approved Group Member) once the email has gone out.</li>
+                <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled after the send.</li>
+              </ul>
+            }
+            @if (recipientsValidationVisible) {
+              @if (recipientsStepErrors().length > 0) {
+                <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
+                <ul class="list-arrow">
+                  @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
                 </ul>
               }
-              <div class="form-check mt-2">
-                <input class="form-check-input"
-                       type="checkbox"
-                       id="include-already-sent"
-                       [checked]="includeAlreadySent"
-                       (change)="toggleIncludeAlreadySent()">
-                <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
-              </div>
+              @if (priorSendExclusions.length > 0) {
+                <h5>
+                  <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                  @if (!includeAlreadySent) {
+                    {{ priorSendExclusions.length }} {{ priorSendExclusions.length === 1 ? "member was" : "members were" }} excluded because they already received this email{{ priorSendDateRangeLabel() }}.
+                  } @else {
+                    Including {{ priorSendExclusions.length }} already-sent {{ priorSendExclusions.length === 1 ? "member" : "members" }} in this re-send (originally sent{{ priorSendDateRangeLabel() }}).
+                  }
+                  <button type="button" class="email-composer-inline-toggle ms-2"
+                          (click)="togglePriorSendDetails()">
+                    {{ priorSendDetailsExpanded ? "Hide who" : "Show who" }}
+                  </button>
+                </h5>
+                @if (priorSendDetailsExpanded) {
+                  <ul class="list-arrow mt-1">
+                    @for (exclusion of priorSendExclusions; track exclusion.member.id) {
+                      <li>{{ exclusion.member | fullNameWithAlias }} - sent {{ priorSendDateLabel(exclusion.sentAt) }}</li>
+                    }
+                  </ul>
+                }
+                <div class="form-check mt-2">
+                  <input class="form-check-input"
+                         type="checkbox"
+                         id="include-already-sent"
+                         [checked]="includeAlreadySent"
+                         (change)="toggleIncludeAlreadySent()">
+                  <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
+                </div>
+              }
             }
-          }
-          @if (postSendActionWarningVisible()) {
-            <button type="button" class="btn btn-primary btn-sm mt-2" (click)="dismissPostSendActionWarning()">
-              <fa-icon [icon]="faXmark"/> Dismiss
-            </button>
+            @if (composeValidationVisible) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
+              <ul class="list-arrow">
+                @if (composeUnbrandedNoRecipients) {
+                  <li>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers) into the body below and the addresses and subject will be picked up automatically, or go back to the Recipients step to add them by hand.</li>
+                }
+                @for (error of composeStepErrors(); track error) { <li>{{ error }}</li> }
+              </ul>
+            }
+            @if (postSendActionWarningVisible()) {
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="dismissPostSendActionWarning()">
+                <fa-icon [icon]="faXmark"/> Dismiss
+              </button>
+            }
           }
         </div>
       }
+      @if (!inboxReplyLoading) {
       <div class="row mb-3">
         <div class="col-sm-12">
           <p-stepper [value]="$any(stepperActiveTab)" (valueChange)="onStepperValueChange($event)" [linear]="false">
@@ -577,6 +603,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </div>
       </div>
+      }
       <div class="d-none">
         @for (fragment of state.fragmentOrder ?? []; track fragment.id) {
           @if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) {
@@ -1040,18 +1067,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 </button>
               </div>
             }
-          </div>
-        }
-        @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
-        @if (composeUnbrandedNoRecipients || composeStepErrors().length > 0) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
-            <ul class="list-arrow">
-              @if (composeUnbrandedNoRecipients) {
-                <li>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers) into the body below and the addresses and subject will be picked up automatically, or go back to the Recipients step to add them by hand.</li>
-              }
-              @for (error of composeStepErrors(); track error) { <li>{{ error }}</li> }
-            </ul>
           </div>
         }
         <fieldset class="email-composer-fieldset">
@@ -1935,6 +1950,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private rendering = inject(EmailComposerRenderingService);
   private sendService = inject(EmailComposerSendService);
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
+  private inboxService = inject(InboxService);
   private externalRecipientService = inject(ExternalRecipientService);
   private committeeQueryService = inject(CommitteeQueryService);
   private committeeConfigService = inject(CommitteeConfigService);
@@ -1998,7 +2014,6 @@ export class EmailComposer implements OnInit, OnDestroy {
   private automaticCampaignReleaseTaskEnabled: boolean | null = null;
   protected unbrandedListSendWarningDismissed = false;
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
-  protected readonly UNBRANDED_LIST_SEND_WARNING_THRESHOLD = UNBRANDED_LIST_SEND_WARNING_THRESHOLD;
   protected batchProgress: BatchSendProgress | null = null;
   protected batchSendJobId: string | null = null;
   protected postSendActionWarningDismissed = false;
@@ -2056,6 +2071,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronRight = faChevronRight;
   public inboxReplyContext: InboxReplyOutboundContext | null = null;
+  protected inboxReplyLoading = false;
   private turndownService = new TurndownService({headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced"});
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faPlus = faPlus;
@@ -3495,15 +3511,57 @@ export class EmailComposer implements OnInit, OnDestroy {
       void this.populateGroupEvents();
     }
     this.applyForcedMemberSelection();
-    this.applyInboxReplyHandoffIfAny();
+    this.applyInboxReplyHandoffIfAny(queryParams);
   }
 
-  private applyInboxReplyHandoffIfAny(): void {
+  private applyInboxReplyHandoffIfAny(queryParams: ParamMap): void {
     const reply = this.inboxReplyHandoff.consume();
-    if (!reply) {
-      return;
+    if (reply) {
+      this.applyInboxReply(reply);
+    } else {
+      void this.rebuildInboxReplyFromRoute(queryParams);
     }
-    this.logger.info("Inbox reply handoff consumed:", JSON.stringify({to: reply.to, subject: reply.subject, senderRoleType: reply.senderRoleType, threadId: reply.threadId, inboxMessageId: reply.inboxMessageId, forward: reply.forward}));
+  }
+
+  private async rebuildInboxReplyFromRoute(queryParams: ParamMap): Promise<void> {
+    const slug = queryParams.get(StoredValue.THREAD);
+    if (slug && !this.inboxReplyContext) {
+      this.inboxReplyLoading = true;
+      try {
+        const threadList = await this.inboxService.listThreads();
+        const matched = inboxThreadMatchingSlug(threadList.threads, slug);
+        const threadId = matched ? inboxThreadId(matched) : "";
+        if (threadId) {
+          const forward = queryParams.get(StoredValue.FORWARD) === "true";
+          const replyAll = queryParams.get(StoredValue.REPLY_ALL) === "true";
+          const threadMessages = await this.inboxService.getThread(threadId);
+          const messages = threadMessages.messages ?? [];
+          const messageId = queryParams.get(StoredValue.MESSAGE);
+          const target = inboxMessageMatchingId(messages, messageId) ?? newestInboxMessage(messages);
+          if (target) {
+            const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId, forward});
+            if (replyAll) {
+              const aliases = await this.inboxService.listAliases();
+              reply.cc = replyAllRecipients(reply, target, aliases.map(alias => alias.roleEmail));
+              reply.replyAll = true;
+            }
+            this.applyInboxReply({...reply, forward}, true);
+          } else {
+            this.logger.error("No messages on thread", slug, "so no reply to rebuild");
+          }
+        } else {
+          this.logger.error("No thread matching slug", slug, "so no reply to rebuild");
+        }
+      } catch (error) {
+        this.logger.error("Failed to rebuild inbox reply for thread", slug, error);
+      } finally {
+        this.inboxReplyLoading = false;
+      }
+    }
+  }
+
+  private applyInboxReply(reply: InboxReplyComposeResponse, rebuiltFromRoute: boolean = false): void {
+    this.logger.info(rebuiltFromRoute ? "Inbox reply rebuilt from thread in URL:" : "Inbox reply handoff consumed:", JSON.stringify({to: reply.to, subject: reply.subject, senderRoleType: reply.senderRoleType, threadId: reply.threadId, inboxMessageId: reply.inboxMessageId, forward: reply.forward}));
     if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED);
     }
@@ -3539,7 +3597,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     const quotedMarkdown = this.htmlToReplyMarkdown(reply.quotedHtml);
     const alreadyHasQuote = !!this.inboxReplyContext && this.inboxReplyContext.inboxMessageId === reply.inboxMessageId;
     if (!alreadyHasQuote) {
-      this.state.introMarkdown = existingBody.length > 0 ? existingBody : placeholder + quotedMarkdown;
+      const keepExistingBody = !rebuiltFromRoute && existingBody.length > 0;
+      this.state.introMarkdown = keepExistingBody ? existingBody : placeholder + quotedMarkdown;
     }
     this.inboxReplyContext = {
       threadId: reply.threadId,
@@ -3549,8 +3608,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       inReplyTo: reply.inReplyTo,
       references: reply.references
     };
-    this.logger.info("Inbox reply handoff applied:", JSON.stringify({...this.inboxReplyContext, externalRecipients: this.state.externalRecipients}));
+    this.logger.info("Inbox reply applied:", JSON.stringify({...this.inboxReplyContext, externalRecipients: this.state.externalRecipients}));
     if (this.introEditorRef) {
+      this.introEditorRef.syncValue(this.state.introMarkdown ?? "");
       queueMicrotask(() => this.introEditorRef?.focusAtStart());
     } else {
       this.pendingIntroFocus = true;
@@ -5373,9 +5433,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       && this.totalRecipientCount() > UNBRANDED_HARD_CAP_RECIPIENTS;
   }
 
-  protected unbrandedListSendSignals(): { manyRecipients: boolean; pulledFromList: boolean; notAReply: boolean; longBody: boolean; promotionalLanguage: boolean } {
-    const total = this.totalRecipientCount();
-    const manyRecipients = total > UNBRANDED_LIST_SEND_WARNING_THRESHOLD;
+  protected unbrandedListSendSignals(): { pulledFromList: boolean; notAReply: boolean; longBody: boolean; promotionalLanguage: boolean } {
     const pulledFromList = (this.state.selectedMemberIds?.length ?? 0) > 0
       || !!this.state.preFilterKey
       || !!this.state.narrowListId;
@@ -5388,13 +5446,12 @@ export class EmailComposer implements OnInit, OnDestroy {
     const longBodyRuleEnabled = false;
     const notAReply = notAReplyRuleEnabled && !subjectIsAReplyOrForward;
     const longBody = longBodyRuleEnabled && bodyIsLong;
-    return { manyRecipients, pulledFromList, notAReply, longBody, promotionalLanguage };
+    return { pulledFromList, notAReply, longBody, promotionalLanguage };
   }
 
   protected unbrandedListSendWarningReasons(): string[] {
     const signals = this.unbrandedListSendSignals();
     const reasons: string[] = [];
-    if (signals.manyRecipients) reasons.push(`${this.totalRecipientCount()} recipients - more than the ${UNBRANDED_LIST_SEND_WARNING_THRESHOLD}-recipient threshold for a one-to-few send`);
     if (signals.pulledFromList) {
       if ((this.state.selectedMemberIds?.length ?? 0) > 0) {
         reasons.push(`${this.stringUtils.pluraliseWithCount(this.state.selectedMemberIds.length, "recipient")} picked from the member list rather than typed in by hand`);
@@ -5421,7 +5478,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     const trimmedBody = (this.state.introMarkdown ?? "").trim();
     if (trimmedBody.length < 50) return false;
     const signals = this.unbrandedListSendSignals();
-    const triggered = [signals.manyRecipients, signals.pulledFromList, signals.notAReply, signals.longBody, signals.promotionalLanguage].filter(Boolean).length;
+    const triggered = [signals.pulledFromList, signals.notAReply, signals.longBody, signals.promotionalLanguage].filter(Boolean).length;
     return triggered >= 2;
   }
 
