@@ -243,7 +243,7 @@ function externalRecipientName(recipient: ComposerExternalRecipient): { full: st
 
 interface ResolvedSenderAddresses {
   sender: EmailAddress;
-  replyTo: EmailAddress;
+  replyTo: EmailAddress | null;
   bcc: EmailAddress[];
   senderRoleType: string | null;
 }
@@ -267,13 +267,14 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
     return { sender: fromAddress, replyTo: fromAddress, bcc: [], senderRoleType: role.type ?? null };
   }
   const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
-  const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole;
+  const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole || null;
   const bccRoles = request.bccRolesOverride?.length
     ? request.bccRolesOverride
     : (notifConfig!.bccRoles?.length > 0 ? notifConfig!.bccRoles : notifConfig!.ccRoles ?? []);
+  const replyToAddress = replyToRole ? emailAddressForRole(committeeRoles, replyToRole) : null;
   return {
     sender: emailAddressForRole(committeeRoles, senderRole),
-    replyTo: emailAddressForRole(committeeRoles, replyToRole),
+    replyTo: replyToAddress?.email ? replyToAddress : null,
     bcc: emailAddressesForRoles(committeeRoles, bccRoles),
     senderRoleType: senderRole ?? null
   };
@@ -564,7 +565,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           subject,
           sender,
           to: [{ email: recipientEmail, name: entry.fullName }],
-          replyTo,
+          replyTo: replyTo || undefined,
           cc: ccAddresses.length > 0 ? ccAddresses : undefined,
           bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
           listId: notifConfig?.defaultListId,
@@ -625,7 +626,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           subject: externalSubject,
           sender,
           to: externalRecipients.map(recipient => ({ email: recipient.email, name: externalRecipientName(recipient).full })),
-          replyTo,
+          replyTo: replyTo || undefined,
           cc: ccAddresses.length > 0 ? ccAddresses : undefined,
           bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
           listId: notifConfig?.defaultListId,

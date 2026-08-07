@@ -85,15 +85,17 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
             @if (notificationConfig) {
               <select [(ngModel)]="notificationConfig.replyToRole"
                 (ngModelChange)="rolesChanged.emit()"
-                [class.is-invalid]="!notificationConfig.replyToRole || !roleExists(notificationConfig.replyToRole)"
+                [class.is-invalid]="!!notificationConfig.replyToRole && !roleExists(notificationConfig.replyToRole)"
                 id="reply-to"
                 class="form-control input-sm">
+                <option [ngValue]="null">Same as sender (no separate Reply-To)</option>
                 @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
                   <option
                     [ngValue]="role.type">{{ role.nameAndDescription }}
                   </option>
                 }
               </select>
+              <small class="text-muted d-block">Leave blank so replies go to the From address. Only set this when replies should go to a different role.</small>
               @if (notificationConfig.replyToRole && !roleExists(notificationConfig.replyToRole)) {
                 <div class="text-danger">
                   <small>
@@ -255,9 +257,10 @@ export class SenderRepliesAndSignoff implements OnInit {
   }
 
   clearReplyToRole(): void {
-    if (!this.notificationConfig) return;
-    this.notificationConfig.replyToRole = this.bestRoleMatch(this.notificationConfig.replyToRole);
-    this.rolesChanged.emit();
+    if (this.notificationConfig) {
+      this.notificationConfig.replyToRole = null;
+      this.rolesChanged.emit();
+    }
   }
 
   private bestRoleMatch(badRole: string): string {
@@ -298,6 +301,9 @@ export class SenderRepliesAndSignoff implements OnInit {
 
   private handleNotificationConfigChange() {
     this.senderRoleChanged();
+    if (this.allowSelectAllAsMe) {
+      this.applyCurrentUserDefaultsIfPossible();
+    }
   }
 
   selectAllAsMeDisabled(): boolean {
@@ -322,16 +328,22 @@ export class SenderRepliesAndSignoff implements OnInit {
     this.logger.info("selectAllAsMe:roles:", roles, "primaryRole:", primaryRole);
     if (!primaryRole || !this.notificationConfig) {
       this.logger.info("selectAllAsMe:aborted due to missing primaryRole or notificationConfig");
-      return;
+    } else {
+      this.notificationConfig.senderRole = primaryRole;
+      this.notificationConfig.replyToRole = null;
+      if (!this.omitSignOff) {
+        const signOffRoles = [primaryRole];
+        this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(signOffRoles) : signOffRoles);
+      }
+      this.senderRoleChanged();
+      this.rolesChanged.emit();
     }
-    this.notificationConfig.senderRole = primaryRole;
-    this.notificationConfig.replyToRole = primaryRole;
-    if (!this.omitSignOff) {
-      const signOffRoles = [primaryRole];
-      this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(signOffRoles) : signOffRoles);
+  }
+
+  applyCurrentUserDefaultsIfPossible(): void {
+    if (this.allowSelectAllAsMe && !this.selectAllAsMeDisabled()) {
+      this.selectAllAsMe();
     }
-    this.senderRoleChanged();
-    this.rolesChanged.emit();
   }
 
   private rolesForLoggedInMember(): string[] {

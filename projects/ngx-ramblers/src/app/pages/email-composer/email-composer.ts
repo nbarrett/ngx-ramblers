@@ -922,7 +922,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         @if (state.notificationConfig && state.brandingMode !== BrandingMode.UNBRANDED) {
           <fieldset class="email-composer-fieldset">
             <legend>Sender, reply-to and sign-off</legend>
-            <p class="text-muted small mb-2">Defaults come from the email type. Click <strong>Select All As Me</strong> to use yourself for all three.</p>
+            <p class="text-muted small mb-2">Defaults use your committee roles when available. Reply-To is left blank so replies go to the From address unless you set one. Click <strong>Select All As Me</strong> to re-apply your roles.</p>
             <app-sender-replies-and-sign-off
               [mailMessagingConfig]="mailMessagingConfig"
               [notificationConfig]="state.notificationConfig"
@@ -4472,7 +4472,6 @@ export class EmailComposer implements OnInit, OnDestroy {
       if (!this.state.notificationConfig.templateName) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
       if (!this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender role for this email type is not set up - configure it in ", "Mail Settings"));
       if (!this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
-      if (!this.state.notificationConfig.replyToRole) errors.push("Reply-to is missing from the email type configuration");
       const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
       const roleExists = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role);
       const roleHasEmail = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role && !!member.email);
@@ -5575,7 +5574,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       tag: NGX_BREVO_CAMPAIGN_TAG,
       params,
       recipients: { listIds: [this.state.selectedListId!] },
-      replyTo: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.replyToRole, "email") ?? "",
+      replyTo: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.replyToRole, "email")
+        || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email")
+        || "",
       sender: {
         email: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email") ?? "",
         name: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "fullName") ?? ""
