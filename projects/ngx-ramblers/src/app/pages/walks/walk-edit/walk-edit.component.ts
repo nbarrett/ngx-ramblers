@@ -143,7 +143,7 @@ import {
             [saveInProgress]="saveInProgress"
             [rematchPreviewMessage]="rematchPreviewMessage"
             [rematchPreviewClass]="rematchPreviewClass"
-            (walkLeaderChange)="walkLeaderMemberIdChanged()"
+            (walkLeaderChange)="walkLeaderMemberIdChanged(true)"
             (clearWalkLeaderRequest)="requestClearWalkLeader()"
             (rematchPreviewRequest)="refreshRematchPreview()"
             (rematchWalkLeaderRequest)="rematchWalkLeader()"

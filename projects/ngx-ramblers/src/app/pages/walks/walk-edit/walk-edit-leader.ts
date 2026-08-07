@@ -13,15 +13,18 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { JsonPipe, NgClass } from "@angular/common";
-import { MemberSelector } from "../../../shared/components/member-selector";
 import { InputSource } from "../../../models/group-event.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
+import { NgSelectComponent } from "@ng-select/ng-select";
+import { FullNamePipe } from "../../../pipes/full-name.pipe";
+import { memberFullName } from "../../../functions/member-names";
+import { firstWalkLeaderName, jointWalkLeaderNames, normalisedWalkLeaderName } from "../../../functions/walks/joint-walk-leaders";
 
 @Component({
   selector: "app-walk-edit-leader",
-    imports: [FormsModule, JsonPipe, MemberSelector, NgClass, FontAwesomeModule],
+    imports: [FormsModule, JsonPipe, NgClass, FontAwesomeModule, NgSelectComponent, FullNamePipe],
   styles: `
     .button-bottom-aligned
       margin: 34px 0px 0px 0px
@@ -76,15 +79,30 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
         <div class="row">
           <div class="col-sm-10">
             <div class="form-group">
-              <label for="contact-member">Walk Leader</label>
+              <label for="contact-member">Walk leaders</label>
               @if (allowDetailView) {
-                <app-member-selector
-                  [members]="memberLookup"
-                  [selectedMember]="selectedWalkLeader"
+                <ng-select
+                  id="contact-member"
+                  [items]="memberLookup"
+                  bindLabel="displayName"
+                  [multiple]="true"
+                  [closeOnSelect]="false"
                   [disabled]="inputDisabled"
-                  (selectedMemberChange)="onWalkLeaderChange($event)"
-                  placeholder="(no walk leader selected)">
-                </app-member-selector>
+                  [searchable]="true"
+                  [clearable]="true"
+                  [compareWith]="compareMembers"
+                  placeholder="Select one or more walk leaders — first is primary"
+                  [ngModel]="selectedWalkLeaders"
+                  (ngModelChange)="onWalkLeadersChange($event)">
+                  <ng-template ng-label-tmp let-item="item" let-clear="clear">
+                    <span class="ng-value-label">{{ item | fullName }}</span>
+                    <span class="ng-value-icon right" (click)="clear(item)" aria-hidden="true">×</span>
+                  </ng-template>
+                  <ng-template ng-option-tmp let-item="item">
+                    {{ item | fullName }}
+                  </ng-template>
+                </ng-select>
+                <small class="text-muted">Choose joint leaders together. The first selected leader is the primary contact for email and phone.</small>
               }
             </div>
           </div>
@@ -267,12 +285,20 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "Leader" : "Me";
   }
 
-  get selectedWalkLeader(): Member | null {
-    const memberId = this.displayedWalk?.walk?.fields?.contactDetails?.memberId;
-    if (!memberId) {
-      return null;
-    }
-    return this.display.members.find(member => member.id === memberId) || null;
+  get selectedWalkLeaders(): Member[] {
+    const contactDetails = this.displayedWalk?.walk?.fields?.contactDetails;
+    const members = this.display.members || [];
+    const names = jointWalkLeaderNames(contactDetails?.displayName || "");
+    const matchedByName = names
+      .map(name => members.find(member => this.memberMatchesLeaderName(member, name)))
+      .filter((member): member is Member => !!member);
+    const primary = contactDetails?.memberId
+      ? members.find(member => member.id === contactDetails.memberId)
+      : null;
+    const primaryMissingFromNames = primary && !matchedByName.some(member => member.id === primary.id);
+    return primaryMissingFromNames
+      ? [primary, ...matchedByName]
+      : (matchedByName.length > 0 ? matchedByName : (primary ? [primary] : []));
   }
 
   get hasWalkLeaderContactDetails(): boolean {
@@ -284,29 +310,56 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     return this.displayedWalk?.walk?.fields?.inputSource === InputSource.MANUALLY_CREATED;
   }
 
-  onWalkLeaderChange(member: Member | null) {
-    this.logger.info("onWalkLeaderChange:selectedMember", member, "existingContactDetails", this.displayedWalk?.walk?.fields?.contactDetails);
-    if (member) {
-      this.displayedWalk.walk.fields.contactDetails.memberId = member.id;
-      this.walkLeaderChange.emit();
-    } else {
+  compareMembers(first: Member, second: Member): boolean {
+    return first?.id === second?.id;
+  }
+
+  onWalkLeadersChange(members: Member[] | null) {
+    const selected = (members || []).filter(member => !!member?.id);
+    this.logger.info("onWalkLeadersChange:selected", selected, "existingContactDetails", this.displayedWalk?.walk?.fields?.contactDetails);
+    if (selected.length === 0) {
       this.clearWalkLeaderRequest.emit();
+    } else {
+      this.applyWalkLeaders(selected);
+      this.walkLeaderChange.emit();
     }
   }
 
   clearWalkLeader() {
-    if (!this.display.hasWalkLeader(this.displayedWalk.walk)) {
-      return;
+    if (this.display.hasWalkLeader(this.displayedWalk.walk)) {
+      this.logger.info("clearWalkLeader:requested", this.displayedWalk?.walk?.fields?.contactDetails);
+      this.clearWalkLeaderRequest.emit();
     }
-    this.logger.info("clearWalkLeader:requested", this.displayedWalk?.walk?.fields?.contactDetails);
-    this.clearWalkLeaderRequest.emit();
   }
 
-
   setWalkLeaderToMe() {
-    this.displayedWalk.walk.fields.contactDetails.memberId = this.memberLoginService.loggedInMember().memberId;
-    this.logger.info("setWalkLeaderToMe:memberId", this.displayedWalk.walk.fields.contactDetails.memberId);
-    this.walkLeaderChange.emit();
+    const me = this.display.members.find(member => member.id === this.memberLoginService.loggedInMember().memberId);
+    if (me) {
+      const others = this.selectedWalkLeaders.filter(member => member.id !== me.id);
+      this.applyWalkLeaders([me, ...others]);
+      this.walkLeaderChange.emit();
+    }
+  }
+
+  private applyWalkLeaders(selected: Member[]): void {
+    const primary = selected[0];
+    const displayNames = selected.map(member => member.displayName || memberFullName(member)).filter(name => !!name);
+    const contactNames = selected.map(member => memberFullName(member)).filter(name => !!name);
+    this.displayedWalk.walk.fields.contactDetails.memberId = primary?.id || null;
+    this.displayedWalk.walk.fields.contactDetails.contactId = primary?.contactId ?? null;
+    this.displayedWalk.walk.fields.contactDetails.displayName = normalisedWalkLeaderName(displayNames.join("; "));
+    this.displayedWalk.walk.fields.contactDetails.phone = primary?.mobileNumber || null;
+    this.displayedWalk.walk.fields.contactDetails.email = primary?.email || null;
+    if (this.displayedWalk.walk.fields.publishing?.ramblers) {
+      this.displayedWalk.walk.fields.publishing.ramblers.contactName = contactNames.join("; ") || primary?.contactId || null;
+    }
+  }
+
+  private memberMatchesLeaderName(member: Member, leaderName: string): boolean {
+    const needle = (leaderName || "").trim().toLowerCase();
+    const display = (member.displayName || "").trim().toLowerCase();
+    const full = memberFullName(member).trim().toLowerCase();
+    return !!needle && (display === needle || full === needle || firstWalkLeaderName(display) === needle);
   }
 
   toggleRamblersWalkLeader() {
