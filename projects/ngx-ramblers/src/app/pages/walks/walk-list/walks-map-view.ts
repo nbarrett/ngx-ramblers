@@ -35,6 +35,7 @@ import { MapRecreationService } from "../../../shared/services/map-recreation.se
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { StoredValue } from "../../../models/ui-actions";
 import { ResizerComponent } from "../../../modules/common/resizer/resizer";
+import { jointWalkLeaderNames } from "../../../functions/walks/joint-walk-leaders";
 
 @Component({
   selector: "app-walks-map-view",
@@ -517,10 +518,17 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
     return points;
   }
 
-  private leaderName(dw: DisplayedWalk): string {
-    return this.display.walkContactDetailsVisible()
+  private leaderNames(dw: DisplayedWalk): string[] {
+    const raw = this.display.walkContactDetailsVisible()
       ? ((dw?.walk?.fields?.contactDetails?.displayName || dw?.walk?.groupEvent?.walk_leader?.name)?.replace(/\.$/, "") || "")
       : "";
+    return jointWalkLeaderNames(raw);
+  }
+
+  private groupAndLeadersHtml(groupName: string, dw: DisplayedWalk): string {
+    const leaders = this.leaderNames(dw);
+    const leaderHtml = leaders.map(name => this.escape(name)).join("<br>");
+    return leaderHtml ? `${this.escape(groupName)}<br>${leaderHtml}` : this.escape(groupName);
   }
 
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
@@ -528,8 +536,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
     const start = dw?.walk?.groupEvent?.start_date_time;
     const time = start ? `${this.dateUtils.displayDay(start)}${EM_DASH_WITH_SPACES}${this.dateUtils.displayTime(start)}` : "";
     const group = dw?.walk?.groupEvent?.group_name || "";
-    const leader = this.leaderName(dw);
-    const groupWithLeader = leader ? `${group} (${leader})` : group;
+    const groupWithLeader = this.groupAndLeadersHtml(group, dw);
     const distance = this.distanceValidationService.walkDistances(dw?.walk);
     const postcode = dw?.walk?.groupEvent?.start_location?.postcode || "";
     const extraDetails = this.joinWithEmDash([postcode, distance]);
@@ -545,7 +552,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
            `      <button type=\"button\" class=\"badge bg-primary border-0\" id=\"${linkId}\">view</button>\n`+
            `    </div>\n`+
            `    <div class=\"flex-grow-1\">\n`+
-           `      <div class=\"small text-muted\">${this.escape(groupWithLeader)}</div>\n`+
+           `      <div class=\"small text-muted\">${groupWithLeader}</div>\n`+
            `      <div class=\"small\">${this.escape(time)}</div>\n`+
            `      <div class=\"small\">${this.escape(extraDetails)}</div>\n`+
            `    </div>\n`+
@@ -567,8 +574,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
       const start = dw?.walk?.groupEvent?.start_date_time;
       const time = start ? `${this.dateUtils.displayDay(start)}${EM_DASH_WITH_SPACES}${this.dateUtils.displayTime(start)}` : "";
       const groupName = dw?.walk?.groupEvent?.group_name || "";
-      const leader = this.leaderName(dw);
-      const groupWithLeader = leader ? `${groupName} (${leader})` : groupName;
+      const groupWithLeader = this.groupAndLeadersHtml(groupName, dw);
       const distance = this.distanceValidationService.walkDistances(dw?.walk);
       const postcode = dw?.walk?.groupEvent?.start_location?.postcode || "";
       const extraDetails = this.joinWithEmDash([postcode, distance]);
@@ -587,7 +593,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
         `            <button type=\"button\" class=\"badge bg-primary border-0\" id=\"${linkId}\">view</button>\n` +
         `          </div>\n` +
         `          <div class=\"flex-grow-1\">\n` +
-        `            <div class=\"small text-muted\">${this.escape(groupWithLeader)}</div>\n` +
+        `            <div class=\"small text-muted\">${groupWithLeader}</div>\n` +
         `            <div class=\"small\">${this.escape(time)}</div>\n` +
         `            <div class=\"small\">${this.escape(extraDetails)}</div>\n` +
         `          </div>\n` +
