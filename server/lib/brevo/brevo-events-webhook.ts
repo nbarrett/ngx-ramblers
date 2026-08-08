@@ -4,8 +4,6 @@ import { Request, Response } from "express";
 import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "./common/messages";
 import { envConfig } from "../env-config/env-config";
-import { brevoClient } from "./brevo-config";
-import { scheduleBrevo } from "./common/rate-limiting";
 import { readBrevoEventsWebhookSecret } from "./brevo-events-webhook-config";
 import { member } from "../mongo/models/member";
 import { mailListAudit } from "../mongo/models/mail-list-audit";
@@ -17,6 +15,13 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { AuditStatus } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import { bounceTypeForBrevoEvent, reportSalesforceBounce } from "../salesforce/salesforce-bounce";
+import { writeBackConsentForEmailBlock } from "../salesforce/member-consent-writeback";
+import {
+  isFirstTransitionToEmailBlock,
+  mailSubscriptionsChanged,
+  reasonCodeForBrevoBlockEvent,
+  unsubscribeAllMailSubscriptions
+} from "./contacts/email-block-from-event";
 
 const messageType = "brevo:events-webhook";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -24,22 +29,6 @@ debugLog.enabled = true;
 
 const BLOCK_EVENTS = new Set<string>(["unsubscribed", "blocked", "hard_bounce", "spam", "complaint"]);
 const CLEAR_EVENTS = new Set<string>(["unsubscribe_revoked", "unblocked"]);
-
-function eventToReasonCode(event: string): BlockedContactReasonCode {
-  switch (event) {
-  case "unsubscribed":
-    return BlockedContactReasonCode.UNSUBSCRIBED_VIA_EMAIL;
-  case "blocked":
-    return BlockedContactReasonCode.ADMIN_BLOCKED;
-  case "hard_bounce":
-    return BlockedContactReasonCode.HARD_BOUNCE;
-  case "spam":
-  case "complaint":
-    return BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM;
-  default:
-    return BlockedContactReasonCode.ADMIN_BLOCKED;
-  }
-}
 
 function reasonToAuditStatus(code: BlockedContactReasonCode): AuditStatus {
   if (
@@ -53,98 +42,110 @@ function reasonToAuditStatus(code: BlockedContactReasonCode): AuditStatus {
 }
 
 function tsToMillis(ts: number | string | undefined): number {
+  let result = dateTimeNowAsValue();
   if (isNumber(ts) && Number.isFinite(ts)) {
-    return ts < 1e12 ? ts * 1000 : ts;
-  }
-  if (isString(ts)) {
+    result = ts < 1e12 ? ts * 1000 : ts;
+  } else if (isString(ts)) {
     const parsed = Date.parse(ts);
-    if (Number.isFinite(parsed)) return parsed;
+    if (Number.isFinite(parsed)) {
+      result = parsed;
+    }
   }
-  return dateTimeNowAsValue();
-}
-
-async function fetchListIdsForEmail(email: string): Promise<number[]> {
-  try {
-    const client = await brevoClient();
-    const response = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: email}));
-    return response.listIds ?? [];
-  } catch (error: any) {
-    debugLog("fetchListIdsForEmail:lookup-failed", email, error?.statusCode || error?.message || error);
-    return [];
-  }
+  return result;
 }
 
 async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason?: string; memberId?: string; memberRef?: string; email?: string; eventKey?: string }> {
   const email = String(payload?.email || "").toLowerCase().trim();
-  if (!email) return { applied: false, reason: "missing email" };
-  const event = String(payload?.event || "");
-  const reasonCode = eventToReasonCode(event);
-  const reasonMessage = String(payload?.reason || "").trim() || undefined;
-  const blockedAt = tsToMillis(payload?.ts ?? payload?.ts_event ?? payload?.date);
-  const senderEmail = String(payload?.sending_ip || payload?.from || "").trim() || undefined;
-
-  const matchedMember = await member.findOne(
-    { email },
-    { _id: 1, displayName: 1, salesforceMemberRef: 1 }
-  ).lean().exec() as any;
-  if (!matchedMember) {
-    debugLog("applyBlockEvent:no-member-match", email, event);
-    return { applied: false, reason: "no matching member" };
-  }
-  const memberId = matchedMember.id || matchedMember._id?.toString();
-  const eventIdentifier = String(payload?.["message-id"] || payload?.messageId || payload?.id || payload?.ts_event || payload?.ts || blockedAt);
-  const eventKey = `${event}:${eventIdentifier}:${email}`;
-
-  const listIds = await fetchListIdsForEmail(email);
-  const memberDoc = await member.findById(memberId).lean().exec() as any;
-  const existingSubs: Array<{ id: number; subscribed: boolean; unsubscribedAt?: number }> = memberDoc?.mail?.subscriptions || [];
-  const blockedListIds = new Set(listIds.filter(id => Number.isFinite(id)));
-  const updatedSubs = existingSubs.map(sub =>
-    blockedListIds.has(sub.id) && sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt: blockedAt } : sub
-  );
-
-  const emailBlock = {
-    reasonCode,
-    reasonMessage,
-    senderEmail,
-    blockedAt,
-    syncedAt: dateTimeNowAsValue(),
-    source: MailListAuditSource.BREVO_EVENTS_WEBHOOK
+  let result: { applied: boolean; reason?: string; memberId?: string; memberRef?: string; email?: string; eventKey?: string } = {
+    applied: false,
+    reason: "missing email"
   };
+  if (email) {
+    const event = String(payload?.event || "");
+    const reasonCode = reasonCodeForBrevoBlockEvent(event);
+    const reasonMessage = String(payload?.reason || "").trim() || undefined;
+    const blockedAt = tsToMillis(payload?.ts ?? payload?.ts_event ?? payload?.date);
+    const senderEmail = String(payload?.from || "").trim() || undefined;
 
-  const update: any = { $set: { emailBlock } };
-  if (updatedSubs.length > 0 && JSON.stringify(updatedSubs) !== JSON.stringify(existingSubs)) {
-    update.$set["mail.subscriptions"] = updatedSubs;
-  }
-  await member.updateOne({ _id: memberId }, update);
+    const matchedMember = await member.findOne(
+      { email },
+      { _id: 1, displayName: 1, email: 1, salesforceMemberRef: 1, membershipNumber: 1 }
+    ).lean().exec() as any;
+    if (!matchedMember) {
+      debugLog("applyBlockEvent:no-member-match", email, event);
+      result = { applied: false, reason: "no matching member" };
+    } else {
+      const memberId = matchedMember.id || matchedMember._id?.toString();
+      const eventIdentifier = String(payload?.["message-id"] || payload?.messageId || payload?.id || payload?.ts_event || payload?.ts || blockedAt);
+      const eventKey = `${event}:${eventIdentifier}:${email}`;
 
-  const reasonLabel = BLOCKED_CONTACT_REASON_LABELS[reasonCode] || reasonCode;
-  const auditMessage = senderEmail
-    ? `${reasonLabel} via Brevo webhook (sender: ${senderEmail})`
-    : `${reasonLabel} via Brevo webhook`;
-  const targetListIds = listIds.length > 0 ? listIds : [0];
-  for (const listId of targetListIds) {
-    try {
-      await mailListAudit.updateOne(
-        { memberId, listId, timestamp: blockedAt, createdBy: MailListAuditSource.BREVO_EVENTS_WEBHOOK },
-        {
-          $setOnInsert: {
-            memberId,
-            listId,
-            timestamp: blockedAt,
-            createdBy: MailListAuditSource.BREVO_EVENTS_WEBHOOK,
-            listType: MailListAuditListType.BREVO_BLOCKED,
-            status: reasonToAuditStatus(reasonCode),
-            audit: auditMessage
-          }
-        },
-        { upsert: true }
-      );
-    } catch (error: any) {
-      debugLog("applyBlockEvent:audit-write-failed", memberId, listId, error?.message || error);
+      const memberDoc = await member.findById(memberId).lean().exec() as any;
+      const existingSubs = memberDoc?.mail?.subscriptions || [];
+      const updatedSubs = unsubscribeAllMailSubscriptions(existingSubs, blockedAt);
+      const firstBlock = isFirstTransitionToEmailBlock(memberDoc?.emailBlock);
+
+      const emailBlock = {
+        reasonCode,
+        reasonMessage,
+        senderEmail,
+        blockedAt,
+        syncedAt: dateTimeNowAsValue(),
+        source: MailListAuditSource.BREVO_EVENTS_WEBHOOK
+      };
+
+      const update: any = { $set: { emailBlock } };
+      if (mailSubscriptionsChanged(existingSubs, updatedSubs)) {
+        update.$set["mail.subscriptions"] = updatedSubs;
+      }
+      await member.updateOne({ _id: memberId }, update);
+
+      const reasonLabel = BLOCKED_CONTACT_REASON_LABELS[reasonCode] || reasonCode;
+      const auditMessage = senderEmail
+        ? `${reasonLabel} via Brevo webhook (sender: ${senderEmail})`
+        : `${reasonLabel} via Brevo webhook`;
+      try {
+        await mailListAudit.updateOne(
+          { memberId, listId: 0, timestamp: blockedAt, createdBy: MailListAuditSource.BREVO_EVENTS_WEBHOOK, audit: auditMessage },
+          {
+            $setOnInsert: {
+              memberId,
+              listId: 0,
+              timestamp: blockedAt,
+              createdBy: MailListAuditSource.BREVO_EVENTS_WEBHOOK,
+              listType: MailListAuditListType.BREVO_BLOCKED,
+              status: reasonToAuditStatus(reasonCode),
+              audit: auditMessage
+            }
+          },
+          { upsert: true }
+        );
+      } catch (error: any) {
+        debugLog("applyBlockEvent:audit-write-failed", memberId, error?.message || error);
+      }
+
+      if (firstBlock) {
+        await writeBackConsentForEmailBlock(
+          {
+            id: memberId,
+            email: memberDoc?.email || email,
+            salesforceMemberRef: memberDoc?.salesforceMemberRef || matchedMember.salesforceMemberRef,
+            membershipNumber: memberDoc?.membershipNumber || matchedMember.membershipNumber
+          },
+          reasonCode,
+          MailListAuditSource.BREVO_EVENTS_WEBHOOK
+        );
+      }
+
+      result = {
+        applied: true,
+        memberId,
+        memberRef: matchedMember.salesforceMemberRef,
+        email,
+        eventKey
+      };
     }
   }
-  return { applied: true, memberId, memberRef: matchedMember.salesforceMemberRef, email, eventKey };
+  return result;
 }
 
 async function resolveSoftBounce(payload: any): Promise<{ applied: boolean; reason?: string; memberId?: string; memberRef?: string; email?: string; eventKey?: string }> {

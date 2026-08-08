@@ -685,7 +685,7 @@ export interface ListCreateResponse {
 }
 
 export interface ListInfo {
-  totalBlacklisted: number;
+  totalDenied: number;
   name: string;
   id: number;
   totalSubscribers: number;
@@ -714,11 +714,11 @@ export interface CreateContactRequest {
   id?: number;
   email?: string;
   extId?: string;
-  emailBlacklisted?: boolean;
-  smsBlacklisted?: boolean;
+  emailDenied?: boolean;
+  smsDenied?: boolean;
   listIds?: number[];
   updateEnabled?: boolean;
-  smtpBlacklistSender?: string[];
+  smtpDeniedSenders?: string[];
 }
 
 export interface CreateContactRequestWithAttributes extends CreateContactRequest {
@@ -769,10 +769,10 @@ export interface NamedObjectAttributes {
 export interface Contact extends MailIdentifiers {
   createdAt: string;
   listIds: number[];
-  smsBlacklisted: boolean;
+  smsDenied: boolean;
   listUnsubscribed: boolean;
   modifiedAt: string;
-  emailBlacklisted: boolean;
+  emailDenied: boolean;
   attributes: Attributes;
   extId?: string;
 }
@@ -882,8 +882,8 @@ export interface BrevoContactCampaignStats {
 export interface BrevoContactDetails {
   email: string;
   id: number;
-  emailBlacklisted: boolean;
-  smsBlacklisted: boolean;
+  emailDenied: boolean;
+  smsDenied: boolean;
   createdAt: string;
   modifiedAt: string;
   listIds: number[];

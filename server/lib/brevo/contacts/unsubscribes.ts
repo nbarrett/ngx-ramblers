@@ -28,7 +28,8 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { SortDirection } from "../../../../projects/ngx-ramblers/src/app/models/sort.model";
 import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/audit";
-import { notifySalesforceFullyOptedOut } from "../../salesforce/salesforce-consent";
+import { writeBackConsentForEmailBlock } from "../../salesforce/member-consent-writeback";
+import { unsubscribeAllMailSubscriptions } from "./email-block-from-event";
 
 const messageType = "brevo:unsubscribes";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -464,10 +465,7 @@ async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<voi
       const memberDoc = await member.findById(memberId).lean().exec() as any;
       const existingSubscriptions: Array<{ id: number; subscribed: boolean; unsubscribedAt?: number }> =
         memberDoc?.mail?.subscriptions || [];
-      const blockedListIds = new Set((contact.listIds || []).filter(id => Number.isFinite(id)));
-      const updatedSubscriptions = existingSubscriptions.map(sub =>
-        blockedListIds.has(sub.id) && sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt: blockedAt } : sub
-      );
+      const updatedSubscriptions = unsubscribeAllMailSubscriptions(existingSubscriptions, blockedAt);
       const update: any = { $set: { emailBlock } };
       if (updatedSubscriptions.length > 0
         && JSON.stringify(updatedSubscriptions) !== JSON.stringify(existingSubscriptions)) {
@@ -485,34 +483,16 @@ async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<voi
 }
 
 async function fireSalesforceConsentWriteback(memberDoc: any, reasonCode: string): Promise<void> {
-  const membershipNumber = memberDoc?.membershipNumber;
-  if (!membershipNumber) {
-    return;
-  }
-  const outcome = await notifySalesforceFullyOptedOut({
-    membershipNumber,
-    reason: reasonCode || "unsubscribe-link",
-  });
-  if (!outcome.attempted) {
-    return;
-  }
-  const memberId = memberDoc?._id?.toString() || memberDoc?.id;
-  const auditMessage = outcome.success
-    ? `Salesforce consent writeback succeeded (HTTP ${outcome.status}, ${outcome.latencyMs}ms)`
-    : `Salesforce consent writeback failed: ${outcome.errorCode || "UNKNOWN"} - ${outcome.errorMessage || "no detail"} (HTTP ${outcome.status || "n/a"}, ${outcome.latencyMs}ms)`;
-  try {
-    await mailListAudit.create({
-      memberId,
-      listId: 0,
-      timestamp: dateTimeNowAsValue(),
-      createdBy: MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC,
-      listType: MailListAuditListType.BREVO_BLOCKLIST_SELF_HEALED,
-      status: outcome.success ? AuditStatus.info : AuditStatus.error,
-      audit: auditMessage,
-    });
-  } catch (auditError: any) {
-    debugLog("fireSalesforceConsentWriteback:audit-failed", memberId, auditError?.message || auditError);
-  }
+  await writeBackConsentForEmailBlock(
+    {
+      id: memberDoc?._id?.toString() || memberDoc?.id,
+      email: memberDoc?.email,
+      salesforceMemberRef: memberDoc?.salesforceMemberRef,
+      membershipNumber: memberDoc?.membershipNumber
+    },
+    reasonCode || "unsubscribe-link",
+    MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC
+  );
 }
 
 export async function removeFromBlocklist(req: Request, res: Response): Promise<void> {

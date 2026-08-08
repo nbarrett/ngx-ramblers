@@ -58,14 +58,14 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
               } @else if (state.contactDetails) {
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                   <span class="badge"
-                        [class.bg-success]="!state.contactDetails.emailBlacklisted"
-                        [class.bg-danger]="state.contactDetails.emailBlacklisted">
-                    {{ state.contactDetails.emailBlacklisted ? "Email blacklisted" : "Subscribed" }}
+                        [class.bg-success]="!state.contactDetails.emailDenied"
+                        [class.bg-danger]="state.contactDetails.emailDenied">
+                    {{ state.contactDetails.emailDenied ? "Email denied" : "Subscribed" }}
                   </span>
                   <span class="badge bg-secondary">Email campaigns</span>
                   <span class="badge bg-secondary">Transactional emails</span>
-                  @if (state.contactDetails.smsBlacklisted) {
-                    <span class="badge bg-warning text-dark">SMS blacklisted</span>
+                  @if (state.contactDetails.smsDenied) {
+                    <span class="badge bg-warning text-dark">SMS denied</span>
                   }
                 </div>
                 <dl class="row small mb-0">
