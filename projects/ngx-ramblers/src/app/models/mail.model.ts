@@ -685,7 +685,7 @@ export interface ListCreateResponse {
 }
 
 export interface ListInfo {
-  totalBlacklisted: number;
+  totalDenied: number;
   name: string;
   id: number;
   totalSubscribers: number;
@@ -714,11 +714,11 @@ export interface CreateContactRequest {
   id?: number;
   email?: string;
   extId?: string;
-  emailBlacklisted?: boolean;
-  smsBlacklisted?: boolean;
+  emailDenied?: boolean;
+  smsDenied?: boolean;
   listIds?: number[];
   updateEnabled?: boolean;
-  smtpBlacklistSender?: string[];
+  smtpDeniedSenders?: string[];
 }
 
 export interface CreateContactRequestWithAttributes extends CreateContactRequest {
@@ -769,10 +769,10 @@ export interface NamedObjectAttributes {
 export interface Contact extends MailIdentifiers {
   createdAt: string;
   listIds: number[];
-  smsBlacklisted: boolean;
+  smsDenied: boolean;
   listUnsubscribed: boolean;
   modifiedAt: string;
-  emailBlacklisted: boolean;
+  emailDenied: boolean;
   attributes: Attributes;
   extId?: string;
 }
@@ -807,7 +807,8 @@ export enum BlockedContactReasonCode {
   UNSUBSCRIBED_VIA_API = "unsubscribedViaApi",
   ADMIN_BLOCKED = "adminBlocked",
   HARD_BOUNCE = "hardBounce",
-  CONTACT_FLAGGED_AS_SPAM = "contactFlaggedAsSpam"
+  CONTACT_FLAGGED_AS_SPAM = "contactFlaggedAsSpam",
+  EMAIL_DENIED = "emailDenied"
 }
 
 export const BLOCKED_CONTACT_REASON_LABELS: Record<string, string> = {
@@ -816,7 +817,8 @@ export const BLOCKED_CONTACT_REASON_LABELS: Record<string, string> = {
   [BlockedContactReasonCode.UNSUBSCRIBED_VIA_API]: "Unsubscribed via API",
   [BlockedContactReasonCode.ADMIN_BLOCKED]: "Blocked by admin",
   [BlockedContactReasonCode.HARD_BOUNCE]: "Hard bounce",
-  [BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM]: "Flagged as spam"
+  [BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM]: "Flagged as spam",
+  [BlockedContactReasonCode.EMAIL_DENIED]: "Email denied"
 };
 
 export interface BlockedContactReason {
@@ -851,7 +853,8 @@ export enum MailListAuditSource {
   BRANDED_UNSUBSCRIBE = "branded-unsubscribe",
   BRANDED_UNSUBSCRIBE_FEEDBACK = "branded-unsubscribe-feedback",
   BREVO_UNSUBSCRIBES_SYNC = "brevo-unsubscribes-sync",
-  BREVO_EVENTS_WEBHOOK = "brevo-events-webhook"
+  BREVO_EVENTS_WEBHOOK = "brevo-events-webhook",
+  BREVO_EMAIL_DENIED_SYNC = "brevo-email-denied-sync"
 }
 
 export interface UnsubscribeFeedback {
@@ -882,8 +885,8 @@ export interface BrevoContactCampaignStats {
 export interface BrevoContactDetails {
   email: string;
   id: number;
-  emailBlacklisted: boolean;
-  smsBlacklisted: boolean;
+  emailDenied: boolean;
+  smsDenied: boolean;
   createdAt: string;
   modifiedAt: string;
   listIds: number[];
@@ -957,6 +960,7 @@ export interface CampaignRecipient {
   email: string;
   date: string;
   name?: string;
+  membershipNumber?: string;
   links?: string[];
 }
 
@@ -1106,8 +1110,10 @@ export const BREVO_EVENT_LABELS: Record<string, string> = {
 export interface BlockedContact {
   email: string;
   senderEmail: string;
+  senderName?: string;
   reason: BlockedContactReason;
   blockedAt: string;
+  detail?: string;
   listIds?: number[];
   emailBlocked?: boolean;
   brevoContactId?: number;

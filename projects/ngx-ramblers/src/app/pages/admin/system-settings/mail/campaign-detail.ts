@@ -7,7 +7,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
 import { UIDateFormat } from "../../../../models/date-format.model";
-import { AdminPath } from "../../../../models/admin-route-paths.model";
+import { AdminMembersPath, AdminPath } from "../../../../models/admin-route-paths.model";
 import { BrevoCampaignProgress } from "../../../../models/brevo-campaign-queue.model";
 import { CampaignRecipient, MailPerformanceCard, RecipientSortField } from "../../../../models/mail.model";
 import { EmailPreviewComponent } from "../../../../modules/common/email-preview/email-preview.component";
@@ -15,6 +15,8 @@ import { PageComponent } from "../../../../page/page.component";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
+import { StringUtilsService } from "../../../../services/string-utils.service";
+import { UiActionsService } from "../../../../services/ui-actions.service";
 import { StoredValue } from "../../../../models/ui-actions";
 
 @Component({
@@ -113,7 +115,20 @@ import { StoredValue } from "../../../../models/ui-actions";
                     @for (recipient of sortedRecipients; track $index) {
                       <tr>
                         <td>
-                          @if (recipient.name) {
+                          @if (recipient.membershipNumber) {
+                            <a [routerLink]="['/' + adminMembersMemberAdminPath]"
+                               [queryParams]="memberAdminQueryParams(recipient.membershipNumber)">
+                              @if (recipient.name) {
+                                <div class="fw-semibold">{{ recipient.name }}</div>
+                              } @else {
+                                <div class="fw-semibold">{{ recipient.email }}</div>
+                              }
+                            </a>
+                            @if (recipient.name) {
+                              <div class="text-muted small">{{ recipient.email }}</div>
+                            }
+                            <div class="text-muted small">{{ recipient.membershipNumber }}</div>
+                          } @else if (recipient.name) {
                             <div class="fw-semibold">{{ recipient.name }}</div>
                             <div class="text-muted small">{{ recipient.email }}</div>
                           } @else {
@@ -401,6 +416,8 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   private mailService = inject(MailService);
   private dateUtils = inject(DateUtilsService);
   private activatedRoute = inject(ActivatedRoute);
+  private uiActions = inject(UiActionsService);
+  private stringUtils = inject(StringUtilsService);
   private destroy$ = new Subject<void>();
 
   protected campaign: BrevoCampaignProgress | null = null;
@@ -420,10 +437,13 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   private campaignId: number | null = null;
   protected startDate: string | null = null;
   protected endDate: string | null = null;
+  protected readonly adminMembersMemberAdminPath = AdminMembersPath.MEMBER_ADMIN;
 
   protected backToReportsQueryParams(): Record<string, string | null> {
     return {[StoredValue.CAMPAIGN_START_DATE]: this.startDate, [StoredValue.CAMPAIGN_END_DATE]: this.endDate};
   }
+
+  private readonly eventTypes = ["delivered", "opened", "clicks", "unsubscribed", "hardBounces", "softBounces"];
 
   private readonly eventTypeLabels: Record<string, string> = {
     delivered: "Delivered",
@@ -505,8 +525,13 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
         this.loading = false;
         return;
       }
+      const eventType = this.uiActions.queryValueForAlias(params[StoredValue.CAMPAIGN_EVENT_TYPE] || null, this.eventTypes);
+      const campaignChanged = this.campaignId !== campaignId;
       this.campaignId = campaignId;
-      void this.loadCampaign(campaignId);
+      if (campaignChanged) {
+        void this.loadCampaign(campaignId);
+      }
+      this.applyEventTypeFromUrl(eventType);
     });
   }
 
@@ -516,9 +541,25 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   }
 
   protected closeRecipients(): void {
-    this.selectedEventType = null;
-    this.recipients = [];
-    this.truncated = false;
+    void this.uiActions.updateQueryParameter(StoredValue.CAMPAIGN_EVENT_TYPE, null);
+  }
+
+  protected memberAdminQueryParams(membershipNumber: string): { [key: string]: string } {
+    return {[this.stringUtils.kebabCase(StoredValue.MEMBER_ID)]: membershipNumber};
+  }
+
+  private applyEventTypeFromUrl(eventType: string | null): void {
+    if (eventType !== this.selectedEventType) {
+      if (eventType) {
+        this.selectedEventType = eventType;
+        void this.loadRecipients(eventType);
+      } else {
+        this.selectedEventType = null;
+        this.recipients = [];
+        this.truncated = false;
+        this.loadingRecipients = false;
+      }
+    }
   }
 
   get sortedRecipients(): CampaignRecipient[] {
@@ -577,8 +618,7 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
     if (this.selectedEventType === eventType) {
       this.closeRecipients();
     } else {
-      this.selectedEventType = eventType;
-      void this.loadRecipients(eventType);
+      void this.uiActions.updateQueryParameter(StoredValue.CAMPAIGN_EVENT_TYPE, this.uiActions.queryValueAliasFor(eventType));
     }
   }
 

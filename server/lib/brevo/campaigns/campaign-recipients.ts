@@ -96,16 +96,24 @@ function parseRows(csv: string): RecipientRow[] {
     .filter(row => row.email.length > 0);
 }
 
-async function memberNamesByEmail(emails: string[]): Promise<Map<string, string>> {
+type MemberRecipientInfo = { name?: string; membershipNumber?: string };
+
+async function memberInfoByEmail(emails: string[]): Promise<Map<string, MemberRecipientInfo>> {
   const loweredEmails = [...new Set(emails.map(email => email.toLowerCase()))];
-  const members = await member.find({email: {$in: loweredEmails}}, {email: 1, firstName: 1, lastName: 1, displayName: 1}).lean().exec() as any[];
+  const members = await member.find(
+    {email: {$in: loweredEmails}},
+    {email: 1, firstName: 1, lastName: 1, displayName: 1, membershipNumber: 1}
+  ).lean().exec() as any[];
   return members.reduce((map, memberRecord) => {
-    const fullName = [memberRecord.firstName, memberRecord.lastName].filter(Boolean).join(" ").trim() || memberRecord.displayName || "";
-    if (memberRecord.email && fullName) {
-      map.set(memberRecord.email.toLowerCase(), fullName);
+    if (memberRecord.email) {
+      const fullName = [memberRecord.firstName, memberRecord.lastName].filter(Boolean).join(" ").trim() || memberRecord.displayName || "";
+      map.set(memberRecord.email.toLowerCase(), {
+        name: fullName || undefined,
+        membershipNumber: memberRecord.membershipNumber || undefined
+      });
     }
     return map;
-  }, new Map<string, string>());
+  }, new Map<string, MemberRecipientInfo>());
 }
 
 async function allRecipientRows(campaignId: number): Promise<RecipientRow[] | null> {
@@ -153,13 +161,17 @@ export async function campaignRecipients(req: Request, res: Response): Promise<v
     }
     const matched = rows.filter(selector.select);
     const sliced = matched.slice(0, MAX_RECIPIENTS);
-    const names = await memberNamesByEmail(sliced.map(row => row.email));
-    const recipients: CampaignRecipient[] = sliced.map(row => ({
-      email: row.email,
-      date: selector.date(row),
-      name: names.get(row.email.toLowerCase()),
-      links: selector.links ? selector.links(row) : undefined
-    }));
+    const memberInfo = await memberInfoByEmail(sliced.map(row => row.email));
+    const recipients: CampaignRecipient[] = sliced.map(row => {
+      const info = memberInfo.get(row.email.toLowerCase());
+      return {
+        email: row.email,
+        date: selector.date(row),
+        name: info?.name,
+        membershipNumber: info?.membershipNumber,
+        links: selector.links ? selector.links(row) : undefined
+      };
+    });
     const body: CampaignRecipientsReport = {recipients, truncated: matched.length > MAX_RECIPIENTS};
     successfulResponse({req, res, response: body, messageType, debugLog});
   } catch (error) {

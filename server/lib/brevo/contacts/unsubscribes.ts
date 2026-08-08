@@ -5,7 +5,7 @@ import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
-import { dateTimeFromMillis, dateTimeNowAsValue } from "../../shared/dates";
+import { dateTimeFromMillis, dateTimeNow, dateTimeNowAsValue } from "../../shared/dates";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { clampDateRange } from "../common/date-range";
 import { member } from "../../mongo/models/member";
@@ -28,7 +28,17 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { SortDirection } from "../../../../projects/ngx-ramblers/src/app/models/sort.model";
 import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/audit";
-import { notifySalesforceFullyOptedOut } from "../../salesforce/salesforce-consent";
+import { writeBackConsentForEmailBlock } from "../../salesforce/member-consent-writeback";
+import { unsubscribeAllMailSubscriptions } from "./email-block-from-event";
+import {
+  applyDenialHintToBlockedContact,
+  denialHintFromContactStatistics,
+  denialHintFromTransactionalEvents,
+  fetchEmailDeniedContacts,
+  mergeBlockedContactLists,
+  preferredDenialHint,
+  relatedDenialDetail
+} from "./email-denied-blocks";
 
 const messageType = "brevo:unsubscribes";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -166,28 +176,141 @@ async function enrichWithMemberMatches(contacts: BlockedContact[]): Promise<Bloc
   }
 }
 
+async function campaignDetailsById(
+  client: BrevoClient,
+  campaignIds: number[]
+): Promise<Map<number, {subject?: string; name?: string; senderEmail?: string; senderName?: string}>> {
+  const uniqueIds = [...new Set(campaignIds.filter(id => Number.isFinite(id) && id > 0))];
+  const details = new Map<number, {subject?: string; name?: string; senderEmail?: string; senderName?: string}>();
+  await uniqueIds.reduce(async (previous, campaignId) => {
+    await previous;
+    try {
+      const campaign = await scheduleBrevo(() => client.emailCampaigns.getEmailCampaign({
+        campaignId,
+        statistics: "globalStats",
+        excludeHtmlContent: true
+      }));
+      details.set(campaignId, {
+        subject: campaign?.subject,
+        name: campaign?.name,
+        senderEmail: campaign?.sender?.email,
+        senderName: campaign?.sender?.name
+      });
+    } catch (error: any) {
+      const status = error instanceof BrevoError ? error.statusCode : undefined;
+      debugLog("campaignDetailsById:failed", campaignId, status || error?.message || error);
+    }
+  }, Promise.resolve());
+  return details;
+}
+
+function contactStatsDateRange(): {startDate: string; endDate: string} {
+  const end = dateTimeNow();
+  const start = end.minus({days: 89});
+  return {
+    startDate: start.toISODate() || start.toFormat("yyyy-MM-dd"),
+    endDate: end.toISODate() || end.toFormat("yyyy-MM-dd")
+  };
+}
+
+async function enrichOneContact(
+  client: BrevoClient,
+  contact: BlockedContact
+): Promise<{
+  contact: BlockedContact;
+  hint: ReturnType<typeof denialHintFromContactStatistics>;
+  campaignHint: ReturnType<typeof denialHintFromContactStatistics>;
+  transactionalHint: ReturnType<typeof denialHintFromContactStatistics>;
+  transactionalSubject?: string;
+  transactionalFrom?: string;
+}> {
+  try {
+    if (!contact.email) {
+      return {contact, hint: null, campaignHint: null, transactionalHint: null};
+    } else {
+      const range = contactStatsDateRange();
+      const data = await scheduleBrevo(() => client.contacts.getContactInfo({
+        identifier: contact.email,
+        startDate: range.startDate,
+        endDate: range.endDate
+      }));
+      let campaignStats: any = data.statistics;
+      try {
+        campaignStats = await scheduleBrevo(() => client.contacts.getContactStats({
+          identifier: contact.email,
+          startDate: range.startDate,
+          endDate: range.endDate
+        }));
+      } catch (statsError: any) {
+        debugLog("enrichOneContact:getContactStats-failed", contact.email, statsError?.message || statsError);
+      }
+      let transactionalEvents: any[] = [];
+      try {
+        const report = await scheduleBrevo(() => client.transactionalEmails.getEmailEventReport({
+          email: contact.email,
+          days: 90,
+          limit: 50,
+          sort: "desc"
+        }));
+        transactionalEvents = report?.events || [];
+      } catch (eventsError: any) {
+        debugLog("enrichOneContact:getEmailEventReport-failed", contact.email, eventsError?.message || eventsError);
+      }
+      const base: BlockedContact = {
+        ...contact,
+        listIds: data.listIds ?? contact.listIds ?? [],
+        emailBlocked: !!data.emailBlacklisted || !!contact.emailBlocked,
+        brevoContactId: isNumber(data.id) ? data.id : contact.brevoContactId
+      };
+      const campaignHint = denialHintFromContactStatistics(campaignStats as any)
+        || denialHintFromContactStatistics(data.statistics as any);
+      const transactionalHint = denialHintFromTransactionalEvents(transactionalEvents);
+      const hint = preferredDenialHint(campaignHint, transactionalHint);
+      const matchingTransactional = (transactionalEvents || []).find(event =>
+        !!hint?.eventTime && event?.date === hint.eventTime
+      ) || (transactionalEvents || []).find(event =>
+        !!transactionalHint?.eventTime && event?.date === transactionalHint.eventTime
+      );
+      const shouldApply = base.emailBlocked
+        || !base.reason?.code
+        || base.reason?.code === BlockedContactReasonCode.EMAIL_DENIED;
+      return {
+        contact: base,
+        hint: shouldApply ? hint : null,
+        campaignHint,
+        transactionalHint,
+        transactionalSubject: matchingTransactional?.subject,
+        transactionalFrom: matchingTransactional?.from
+      };
+    }
+  } catch (error: any) {
+    const status = error instanceof BrevoError ? error.statusCode : undefined;
+    debugLog("enrichWithContactInfo:lookup-failed", contact.email, status || error?.message || error);
+    return {contact, hint: null, campaignHint: null, transactionalHint: null};
+  }
+}
+
 async function enrichWithContactInfo(
   client: BrevoClient,
   contacts: BlockedContact[]
 ): Promise<BlockedContact[]> {
-  if (contacts.length === 0) return contacts;
-  const lookups = contacts.map(async (contact) => {
-    if (!contact.email) return contact;
-    try {
-      const data = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: contact.email}));
-      return {
-        ...contact,
-        listIds: data.listIds ?? [],
-        emailBlocked: !!data.emailBlacklisted,
-        brevoContactId: isNumber(data.id) ? data.id : undefined
-      };
-    } catch (error: any) {
-      const status = error instanceof BrevoError ? error.statusCode : undefined;
-      debugLog("enrichWithContactInfo:lookup-failed", contact.email, status || error?.message || error);
-      return contact;
-    }
-  });
-  return Promise.all(lookups);
+  if (contacts.length === 0) {
+    return contacts;
+  } else {
+    const lookups = await Promise.all(contacts.map(contact => enrichOneContact(client, contact)));
+    const campaignIds = lookups
+      .map(item => item.hint?.campaignId)
+      .filter((id): id is number => Number.isFinite(id as number));
+    const campaigns = await campaignDetailsById(client, campaignIds);
+    return lookups.map(({contact, hint, campaignHint, transactionalHint, transactionalSubject, transactionalFrom}) => {
+      const campaign = hint?.campaignId ? campaigns.get(hint.campaignId) || null : null;
+      const campaignOrTransactional = campaign || (transactionalSubject || transactionalFrom
+        ? {subject: transactionalSubject, senderEmail: transactionalFrom}
+        : null);
+      const detail = relatedDenialDetail(hint, campaignHint, transactionalHint);
+      return applyDenialHintToBlockedContact(contact, hint, campaignOrTransactional, detail);
+    });
+  }
 }
 
 function reasonToAuditStatus(code: string | undefined): AuditStatus {
@@ -268,7 +391,8 @@ async function selfHealMemberEmailBlocks(
   contacts: BlockedContact[],
   totalCount: number,
   fetchedCount: number,
-  noFilters: boolean
+  noFilters: boolean,
+  fullEmailDeniedScan: boolean
 ): Promise<{ cleared: number; skipped: boolean }> {
   if (!noFilters) {
     debugLog("selfHealMemberEmailBlocks:skipping - filters in effect");
@@ -281,10 +405,13 @@ async function selfHealMemberEmailBlocks(
   const currentBlockedEmails = new Set(
     contacts.map(c => (c.email || "").toLowerCase()).filter(Boolean)
   );
+  const sources = fullEmailDeniedScan
+    ? [MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC, MailListAuditSource.BREVO_EMAIL_DENIED_SYNC]
+    : [MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC];
   try {
     const candidates = await member.find(
       {
-        "emailBlock.source": MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC,
+        "emailBlock.source": {$in: sources},
         ...(currentBlockedEmails.size > 0
           ? { email: { $nin: Array.from(currentBlockedEmails) } }
           : {})
@@ -446,6 +573,12 @@ function compareBlockedAt(a: BlockedContact, b: BlockedContact, sort: SortDirect
   return sort === SortDirection.ASC ? comparison : -comparison;
 }
 
+function emailBlockSourceFor(contact: BlockedContact): MailListAuditSource {
+  return contact.reason?.code === BlockedContactReasonCode.EMAIL_DENIED
+    ? MailListAuditSource.BREVO_EMAIL_DENIED_SYNC
+    : MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC;
+}
+
 async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<void> {
   const syncedAt = dateTimeNowAsValue();
   for (const contact of contacts) {
@@ -458,16 +591,13 @@ async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<voi
       senderEmail: contact.senderEmail,
       blockedAt,
       syncedAt,
-      source: MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC
+      source: emailBlockSourceFor(contact)
     };
     try {
       const memberDoc = await member.findById(memberId).lean().exec() as any;
       const existingSubscriptions: Array<{ id: number; subscribed: boolean; unsubscribedAt?: number }> =
         memberDoc?.mail?.subscriptions || [];
-      const blockedListIds = new Set((contact.listIds || []).filter(id => Number.isFinite(id)));
-      const updatedSubscriptions = existingSubscriptions.map(sub =>
-        blockedListIds.has(sub.id) && sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt: blockedAt } : sub
-      );
+      const updatedSubscriptions = unsubscribeAllMailSubscriptions(existingSubscriptions, blockedAt);
       const update: any = { $set: { emailBlock } };
       if (updatedSubscriptions.length > 0
         && JSON.stringify(updatedSubscriptions) !== JSON.stringify(existingSubscriptions)) {
@@ -485,34 +615,16 @@ async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<voi
 }
 
 async function fireSalesforceConsentWriteback(memberDoc: any, reasonCode: string): Promise<void> {
-  const membershipNumber = memberDoc?.membershipNumber;
-  if (!membershipNumber) {
-    return;
-  }
-  const outcome = await notifySalesforceFullyOptedOut({
-    membershipNumber,
-    reason: reasonCode || "unsubscribe-link",
-  });
-  if (!outcome.attempted) {
-    return;
-  }
-  const memberId = memberDoc?._id?.toString() || memberDoc?.id;
-  const auditMessage = outcome.success
-    ? `Salesforce consent writeback succeeded (HTTP ${outcome.status}, ${outcome.latencyMs}ms)`
-    : `Salesforce consent writeback failed: ${outcome.errorCode || "UNKNOWN"} - ${outcome.errorMessage || "no detail"} (HTTP ${outcome.status || "n/a"}, ${outcome.latencyMs}ms)`;
-  try {
-    await mailListAudit.create({
-      memberId,
-      listId: 0,
-      timestamp: dateTimeNowAsValue(),
-      createdBy: MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC,
-      listType: MailListAuditListType.BREVO_BLOCKLIST_SELF_HEALED,
-      status: outcome.success ? AuditStatus.info : AuditStatus.error,
-      audit: auditMessage,
-    });
-  } catch (auditError: any) {
-    debugLog("fireSalesforceConsentWriteback:audit-failed", memberId, auditError?.message || auditError);
-  }
+  await writeBackConsentForEmailBlock(
+    {
+      id: memberDoc?._id?.toString() || memberDoc?.id,
+      email: memberDoc?.email,
+      salesforceMemberRef: memberDoc?.salesforceMemberRef,
+      membershipNumber: memberDoc?.membershipNumber
+    },
+    reasonCode || "unsubscribe-link",
+    MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC
+  );
 }
 
 export async function removeFromBlocklist(req: Request, res: Response): Promise<void> {
@@ -665,7 +777,16 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
     startOffset
   );
 
-  const memberEnriched = await enrichWithMemberMatches(aggregated.contacts);
+  const transactionalEmails = new Set<string>(
+    aggregated.contacts.map(contact => (contact.email || "").toLowerCase()).filter(Boolean)
+  );
+  const scanEmailDenied = startOffset === 0 && (!opts.senders || opts.senders.length === 0);
+  const emailDeniedContacts = scanEmailDenied
+    ? await fetchEmailDeniedContacts(client, transactionalEmails, opts.startDate, opts.endDate)
+    : [];
+  const combinedBrevoContacts = mergeBlockedContactLists(aggregated.contacts, emailDeniedContacts);
+
+  const memberEnriched = await enrichWithMemberMatches(combinedBrevoContacts);
   const brevoEnriched = await enrichWithContactInfo(client, memberEnriched);
   const listNamesById = await loadBrevoListNames(client);
   await persistAuditRows(brevoEnriched, listNamesById);
@@ -673,8 +794,9 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
   const selfHealed = await selfHealMemberEmailBlocks(
     brevoEnriched,
     aggregated.totalCount,
-    brevoEnriched.length,
-    noFilters
+    aggregated.contacts.length,
+    noFilters && scanEmailDenied,
+    scanEmailDenied && noFilters
   );
 
   const brevoEmails = new Set<string>(
@@ -693,7 +815,10 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
   const merged = withFeedback.sort((a, b) => compareBlockedAt(a, b, sort));
 
   return {
-    response: { count: aggregated.totalCount + localEnriched.length, contacts: merged },
+    response: {
+      count: aggregated.totalCount + emailDeniedContacts.length + localEnriched.length,
+      contacts: merged
+    },
     selfHealed
   };
 }

@@ -8,6 +8,7 @@ import {
   OptionalRequestOptions,
   ListCreateRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { mapBrevoLists } from "../contacts/map-brevo-fields";
 
 const messageType = "brevo:lists";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -21,7 +22,7 @@ export async function lists(req: Request, res: Response, next: NextFunction): Pr
     const opts: OptionalRequestOptions = {limit: 10, offset: 0};
     const response = await scheduleBrevo(() => client.contacts.getLists({limit: opts.limit, offset: opts.offset, sort: opts.sort}));
     const listsResponse = {
-      lists: response.lists ?? [],
+      lists: mapBrevoLists((response.lists ?? []) as object[]),
       count: response.count ?? 0
     };
     debugLog("returning listsResponse:", listsResponse);

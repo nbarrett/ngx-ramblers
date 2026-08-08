@@ -10,6 +10,7 @@ import { dateTimeNowAsValue } from "../../shared/dates";
 import { member } from "../../mongo/models/member";
 import { brevoContactSnapshot } from "../../mongo/models/brevo-contact-snapshot";
 import { BrevoEmailEvent, NumberOrString } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { mapBrevoContactFields } from "./map-brevo-fields";
 
 const messageType = "brevo:contact-snapshot";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -88,8 +89,19 @@ export async function getBrevoContactSnapshot(req: Request, res: Response): Prom
       res.status(400).json({ error: "identifier is required" });
       return;
     }
-    const snapshot = await brevoContactSnapshot.findOne({ email: identifier }).lean().exec();
-    successfulResponse({ req, res, response: snapshot ?? null, messageType, debugLog });
+    const snapshot = await brevoContactSnapshot.findOne({ email: identifier }).lean().exec() as {
+      contactDetails?: Record<string, unknown> | null;
+      [key: string]: unknown;
+    } | null;
+    const response = snapshot
+      ? {
+          ...snapshot,
+          contactDetails: snapshot.contactDetails
+            ? mapBrevoContactFields(snapshot.contactDetails)
+            : snapshot.contactDetails
+        }
+      : null;
+    successfulResponse({ req, res, response, messageType, debugLog });
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }
