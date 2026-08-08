@@ -18,8 +18,7 @@ import { EditorState } from "@tiptap/pm/state";
 import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import StarterKit from "@tiptap/starter-kit";
 import { ListItem } from "@tiptap/extension-list";
-import { HtmlBold, HtmlItalic, markdownMarksForClipboard } from "./html-marks.extension";
-import Link from "@tiptap/extension-link";
+import { HtmlBold, HtmlItalic, HtmlLink, markdownMarksForClipboard } from "./html-marks.extension";
 import { ImageAlign, ImageSpacing, SpacedImage } from "./spaced-image.extension";
 import { Markdown } from "@tiptap/markdown";
 import { MermaidCodeBlock, refreshMermaidCodeBlockPreviews } from "./mermaid-code-block.extension";
@@ -719,10 +718,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       }),
       HtmlBold,
       HtmlItalic,
-      Link.configure({
+      HtmlLink.configure({
         openOnClick: false,
         enableClickSelection: true,
-        HTMLAttributes: { rel: "noopener noreferrer" },
+        HTMLAttributes: {},
         isAllowedUri: (url, ctx) => this.linkHrefAllowed(url, ctx)
       }),
       SpacedImage.configure({ inline: false, allowBase64: false }),
