@@ -57,6 +57,31 @@ export interface CustomDomainEntry {
   message?: string;
 }
 
+export enum ConsoleAccessService {
+  MONGODB_ATLAS = "mongodbAtlas",
+  FLY_IO = "flyIo",
+  AWS = "aws",
+  CLOUDFLARE = "cloudflare",
+  BREVO = "brevo",
+  GOOGLE_CLOUD = "googleCloud",
+  OS_DATA_HUB = "osDataHub",
+  META = "meta",
+  MEETUP = "meetup",
+  DOCKER_HUB = "dockerHub",
+  GITHUB = "github"
+}
+
+export interface ConsoleAccessLogin {
+  login?: string;
+  password?: string;
+  notes?: string;
+  identifiers?: Record<string, string>;
+}
+
+export type EnvironmentConsoleAccess = {
+  [K in ConsoleAccessService]?: ConsoleAccessLogin;
+};
+
 export interface EnvironmentConfig {
   environment: string;
   aws?: AwsConfig;
@@ -67,6 +92,7 @@ export interface EnvironmentConfig {
   secrets?: Record<string, string>;
   ai?: Ai;
   ngxLite?: boolean;
+  consoleAccess?: EnvironmentConsoleAccess;
 }
 
 export interface UploadWorkerConfig {
@@ -88,6 +114,7 @@ export interface EnvironmentsConfig {
   autoDeployTarget?: string;
   dockerImage?: string;
   region?: string;
+  consoleAccess?: EnvironmentConsoleAccess;
 }
 
 export enum FlyioMemory {

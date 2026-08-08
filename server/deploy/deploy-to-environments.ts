@@ -13,12 +13,15 @@ import {
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { keys } from "es-toolkit/compat";
 import { DeploymentConfig, EnvironmentConfig, FLYIO_DEFAULTS, RuntimeConfig } from "./types";
 import { pluraliseWithCount } from "../lib/shared/string-utils";
 import { envConfig } from "../lib/env-config/env-config";
-import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase } from "../lib/shared/secrets";
+import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase, parseSecretsFile } from "../lib/shared/secrets";
 import { configuredEnvironments } from "../lib/environments/environments-config";
 import { DEPLOYMENT_DEFAULTS, EnvironmentsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { filterSecretsForSiteFlyDeploy } from "../lib/fly/fly-secrets-policy";
+import { pruneDisallowedFlySecrets } from "../lib/fly/fly-secrets-prune";
 
 const debugLog = debug(envConfig.logNamespace("deploy-environments"));
 debugLog.enabled = true;
@@ -87,17 +90,19 @@ async function importSecretsFromDatabase(environmentName: string, appName: strin
   if (!secretsFile) {
     debugLog("No secrets returned from database for environment:", environmentName);
     return false;
-  }
-  const content = buildSecretsContent(secretsFile.secrets);
-  const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${dateTimeNowAsValue()}.env`);
-  try {
-    fs.writeFileSync(tempFile, content, { encoding: "utf-8" });
-    await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${tempFile}`);
-    debugLog("Imported secrets from database for environment:", environmentName);
-    return true;
-  } finally {
-    if (fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
+  } else {
+    const filtered = filterSecretsForSiteFlyDeploy(secretsFile.secrets);
+    const content = buildSecretsContent(filtered);
+    const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${dateTimeNowAsValue()}.env`);
+    try {
+      fs.writeFileSync(tempFile, content, { encoding: "utf-8" });
+      await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${tempFile}`);
+      debugLog("Imported secrets from database for environment:", environmentName, "keys:", keys(filtered).sort().join(", "));
+      return true;
+    } finally {
+      if (fs.existsSync(tempFile)) {
+        fs.unlinkSync(tempFile);
+      }
     }
   }
 }
@@ -105,9 +110,19 @@ async function importSecretsFromDatabase(environmentName: string, appName: strin
 async function importSecretsFromFile(appName: string): Promise<boolean> {
   const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${appName}.env`);
   if (fs.existsSync(secretsFilePath)) {
-    await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${secretsFilePath}`);
-    debugLog("Imported secrets from local file:", secretsFilePath);
-    return true;
+    const filtered = filterSecretsForSiteFlyDeploy(parseSecretsFile(secretsFilePath));
+    const content = buildSecretsContent(filtered);
+    const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${dateTimeNowAsValue()}.env`);
+    try {
+      fs.writeFileSync(tempFile, content, { encoding: "utf-8" });
+      await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${tempFile}`);
+      debugLog("Imported filtered secrets from local file:", secretsFilePath, "keys:", keys(filtered).sort().join(", "));
+      return true;
+    } finally {
+      if (fs.existsSync(tempFile)) {
+        fs.unlinkSync(tempFile);
+      }
+    }
   } else {
     debugLog("Secrets file not found:", secretsFilePath);
     return false;
@@ -164,6 +179,10 @@ async function deployToEnvironments(environmentsFilter: string[]): Promise<void>
     deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     await importSecrets(environmentConfig.name, environmentConfig.appName);
+    const pruneResult = pruneDisallowedFlySecrets(environmentConfig.appName, true, {stage: true});
+    if (pruneResult.removed.length > 0) {
+      debugLog("Pruned disallowed Fly secrets from %s: %s", environmentConfig.appName, pruneResult.removed.join(", "));
+    }
     await waitForImageAvailable(environmentConfig.appName, config.dockerImage);
     await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
     await ensureScale(environmentConfig.appName, environmentConfig.scaleCount, environmentConfig.memory);

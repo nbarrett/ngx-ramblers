@@ -1,0 +1,498 @@
+body.estate-rebuild-full-width .container
+  max-width: none !important
+  width: 100%
+  padding-left: 1.25rem
+  padding-right: 1.25rem
+
+.era-stats
+  display: grid
+  grid-template-columns: repeat(5, minmax(0, 1fr))
+  gap: 0.75rem
+  margin-bottom: 1rem
+
+@media (max-width: 1100px)
+  .era-stats
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+
+@media (max-width: 560px)
+  .era-stats
+    grid-template-columns: 1fr
+
+.era-stat-card
+  background: #fff
+  border: 1px solid rgba(64, 65, 65, 0.12)
+  border-top: 4px solid rgb(249, 177, 4)
+  border-radius: 0.5rem
+  padding: 0.85rem 0.65rem
+  text-align: center
+
+  &:nth-child(2)
+    border-top-color: rgb(155, 200, 171)
+  &:nth-child(3)
+    border-top-color: rgb(240, 128, 80)
+  &:nth-child(4)
+    border-top-color: rgb(246, 176, 157)
+  &:nth-child(5)
+    border-top-color: rgb(99, 134, 110)
+
+.era-stat-value
+  font-size: 1.5rem
+  font-weight: 700
+
+.era-stat-label
+  font-size: 0.8rem
+  font-weight: 600
+  margin-top: 0.2rem
+
+.era-stat-detail
+  font-size: 0.72rem
+  color: #6d7470
+  margin-top: 0.15rem
+
+.era-badge
+  display: inline-block
+  border-radius: 999px
+  padding: 0.12rem 0.5rem
+  font-size: 0.72rem
+  font-weight: 700
+
+.era-badge.present
+  background: rgba(155, 200, 171, 0.35)
+  color: rgb(99, 134, 110)
+
+.era-badge.empty
+  background: rgba(246, 176, 157, 0.35)
+  color: #8a4b3a
+
+.era-badge.error
+  background: rgba(240, 128, 80, 0.28)
+  color: #8a3b1f
+
+.era-count-pill
+  background: rgba(175, 226, 194, 0.55)
+  color: rgb(99, 134, 110)
+  border: 1px solid rgba(99, 134, 110, 0.35)
+  border-radius: 999px
+  padding: 0.4rem 0.75rem
+  font-size: 0.85rem
+  font-weight: 700
+  white-space: nowrap
+  align-self: center
+
+.console-copy-btn
+  padding: 0.15rem 0.35rem
+  min-height: 0
+  line-height: 1
+  height: auto
+
+.system-icon-col
+  width: 3rem
+  min-width: 3rem
+  max-width: 3rem
+  text-align: center
+  padding-left: 0.65rem
+  padding-right: 0.35rem
+  vertical-align: middle
+
+.system-icon-cell
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 2rem
+  height: 1.5rem
+
+.console-field-grid
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr))
+  gap: 1rem 1.25rem
+  align-items: start
+
+.console-field-grid-pair
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+
+@media (max-width: 640px)
+  .console-field-grid-pair
+    grid-template-columns: 1fr
+
+.console-field
+  min-width: 0
+  display: flex
+  flex-direction: column
+
+  .form-label
+    margin-bottom: 0.35rem
+
+  .form-control,
+  app-secret-input
+    width: 100%
+    min-width: 0
+
+.console-table-env
+  display: block
+  font-size: 0.82rem
+  line-height: 1.25
+  word-break: break-word
+  overflow-wrap: anywhere
+
+.console-table-system
+  display: inline-flex
+  align-items: center
+  gap: 0.4rem
+  min-width: 0
+  max-width: 100%
+
+  strong
+    font-size: 0.85rem
+    line-height: 1.2
+    word-break: break-word
+
+.console-table-ids
+  display: grid
+  grid-template-columns: 1fr
+  gap: 0.55rem 0.85rem
+  min-width: 0
+  width: 100%
+
+.console-table-id-row
+  display: flex
+  flex-direction: column
+  gap: 0.2rem
+  min-width: 0
+  margin: 0
+
+.console-table-id-label
+  display: inline-flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.35rem
+  font-size: 0.8rem
+  font-weight: 600
+  color: #6d7470
+  line-height: 1.2
+
+.console-shared-badge
+  display: inline-block
+  font-size: 0.68rem
+  font-weight: 700
+  letter-spacing: 0.02em
+  text-transform: uppercase
+  color: rgb(99, 134, 110)
+  background: rgba(155, 200, 171, 0.35)
+  border: 1px solid rgba(99, 134, 110, 0.3)
+  border-radius: 999px
+  padding: 0.1rem 0.45rem
+
+.console-shared-hint
+  display: block
+  margin-top: 0.15rem
+  font-size: 0.78rem
+  line-height: 1.3
+  color: #6d7470
+
+.console-shared-empty
+  background: rgba(155, 200, 171, 0.08)
+  border-style: dashed
+
+.console-shared-filled
+  border-color: rgba(99, 134, 110, 0.45)
+  background: rgba(155, 200, 171, 0.1)
+
+.console-shared-hint-empty
+  color: rgb(99, 134, 110)
+  font-weight: 600
+
+.console-shared-panel
+  background: rgba(155, 200, 171, 0.12)
+  border: 1px solid rgba(99, 134, 110, 0.28)
+  border-radius: 0.5rem
+  padding: 0.85rem 1rem
+
+.console-shared-panel-title
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.45rem
+  font-size: 0.95rem
+  font-weight: 700
+  margin-bottom: 0.2rem
+
+.console-shared-panel-hint
+  font-size: 0.82rem
+  color: #6d7470
+  line-height: 1.35
+
+.console-shared-panel .form-label
+  display: inline-flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.35rem
+
+.console-shared-panel-groups
+  display: flex
+  flex-direction: column
+  gap: 0.85rem
+
+.console-shared-panel-group-heading
+  display: inline-flex
+  align-items: center
+  gap: 0.4rem
+  margin-bottom: 0.45rem
+
+  strong
+    font-size: 0.9rem
+
+.console-shared-panel-fields
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr))
+  gap: 0.65rem 1rem
+  max-width: 48rem
+
+.console-shared-panel-fields-single
+  max-width: 24rem
+  grid-template-columns: minmax(0, 1fr)
+
+.console-shared-panel .console-field
+  margin-bottom: 0
+
+  .form-label
+    font-size: 0.8rem
+    margin-bottom: 0.25rem
+
+.console-table-links
+  display: flex
+  flex-direction: column
+  gap: 0.35rem
+  min-width: 0
+
+.console-table-link
+  display: inline-flex
+  align-items: center
+  gap: 0.4rem
+  font-size: inherit
+  line-height: 1.35
+  max-width: 100%
+
+.console-table-link-text
+  min-width: 0
+
+.console-access-table .sortable-table-card
+  overflow: auto
+
+.console-access-table .sortable-table
+  table-layout: fixed
+  width: 100%
+
+.console-access-table .sortable-table th,
+.console-access-table .sortable-table td
+  vertical-align: top
+  padding: 0.55rem 0.65rem
+  overflow: hidden
+
+.console-access-table .sortable-table td .form-control,
+.console-access-table .sortable-table td app-secret-input,
+.console-access-table .sortable-table td app-secret-input .form-control
+  width: 100%
+  min-width: 0
+  max-width: 100%
+
+.console-access-table .console-col-env
+  width: 9%
+
+.console-access-table .console-col-system
+  width: 9%
+
+.console-access-table .console-col-ids
+  width: 22%
+
+.console-access-table .console-col-login
+  width: 16%
+
+.console-access-table .console-col-password
+  width: 14%
+
+.console-access-table .console-col-notes
+  width: 16%
+
+.console-access-table .console-col-links
+  width: 11%
+
+.console-access-table .console-col-actions
+  width: 3rem
+  text-align: center
+
+.console-access-table-no-system .console-col-env
+  width: 11%
+
+.console-access-table-no-system .console-col-ids
+  width: 26%
+
+.console-access-table-no-system .console-col-login
+  width: 18%
+
+.console-access-table-no-system .console-col-password
+  width: 16%
+
+.console-access-table-no-system .console-col-notes
+  width: 16%
+
+.console-access-table-no-system .console-col-links
+  width: 10%
+
+.console-access-table-shared-hoisted.console-access-table-no-system .console-col-env
+  width: 10%
+
+.console-access-table-shared-hoisted.console-access-table-no-system .console-col-ids
+  width: 22%
+
+.console-access-table-shared-hoisted.console-access-table-no-system .console-col-login
+  width: 20%
+
+.console-access-table-shared-hoisted.console-access-table-no-system .console-col-password
+  width: 18%
+
+.console-access-table-shared-hoisted.console-access-table-no-system .console-col-notes
+  width: 18%
+
+.console-access-table-shared-hoisted.console-access-table-no-system .console-col-links
+  width: 9%
+
+body.estate-rebuild-full-width .console-access-table .sortable-table th,
+body.estate-rebuild-full-width .console-access-table .sortable-table td
+  padding: 0.65rem 0.85rem
+
+body.estate-rebuild-full-width .console-access-table .console-col-env
+  width: 8%
+
+body.estate-rebuild-full-width .console-access-table .console-col-system
+  width: 8%
+
+body.estate-rebuild-full-width .console-access-table .console-col-ids
+  width: 26%
+
+body.estate-rebuild-full-width .console-access-table .console-col-login
+  width: 16%
+
+body.estate-rebuild-full-width .console-access-table .console-col-password
+  width: 15%
+
+body.estate-rebuild-full-width .console-access-table .console-col-notes
+  width: 15%
+
+body.estate-rebuild-full-width .console-access-table .console-col-links
+  width: 9%
+
+body.estate-rebuild-full-width .console-access-table-no-system .console-col-env
+  width: 10%
+
+body.estate-rebuild-full-width .console-access-table-no-system .console-col-ids
+  width: 24%
+
+body.estate-rebuild-full-width .console-access-table-no-system .console-col-login
+  width: 20%
+
+body.estate-rebuild-full-width .console-access-table-no-system .console-col-password
+  width: 18%
+
+body.estate-rebuild-full-width .console-access-table-no-system .console-col-notes
+  width: 16%
+
+body.estate-rebuild-full-width .console-access-table-no-system .console-col-links
+  width: 9%
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted.console-access-table-no-system .console-col-env
+  width: 9%
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted.console-access-table-no-system .console-col-ids
+  width: 22%
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted.console-access-table-no-system .console-col-login
+  width: 22%
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted.console-access-table-no-system .console-col-password
+  width: 18%
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted.console-access-table-no-system .console-col-notes
+  width: 18%
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted.console-access-table-no-system .console-col-links
+  width: 8%
+
+body.estate-rebuild-full-width .console-table-ids
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 0.65rem 1rem
+
+body.estate-rebuild-full-width .console-table-id-row.console-table-id-shared
+  grid-column: 1 / -1
+
+body.estate-rebuild-full-width .console-access-table-shared-hoisted .console-table-ids
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+
+body.estate-rebuild-full-width .console-table-env
+  font-size: 0.9rem
+
+body.estate-rebuild-full-width .console-table-system strong
+  font-size: 0.95rem
+
+.console-access-cards
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.console-card-frame
+  margin-top: 1.25rem
+  margin-bottom: 0.5rem
+
+.console-card-heading.thumbnail-heading
+  top: -28px
+  width: calc(100% - 12px)
+  max-width: calc(100% - 12px)
+  flex-wrap: wrap
+  row-gap: 0.35rem
+  column-gap: 0.45rem
+
+  > *
+    display: inline-flex
+    align-items: center
+    margin-left: 0 !important
+
+.console-card-env
+  font-size: 0.78rem
+  font-weight: 600
+  color: #6d7470
+  background: rgba(155, 200, 171, 0.22)
+  border-radius: 999px
+  padding: 0.15rem 0.55rem
+
+.console-card-heading-actions
+  display: inline-flex
+  align-items: center
+  gap: 0.25rem
+  margin-left: auto !important
+
+.console-card-ids
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr))
+  gap: 0.65rem 0.85rem
+  margin-bottom: 0.75rem
+
+.console-card-credentials
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 0.65rem 0.85rem
+  margin-bottom: 0.75rem
+
+.console-card-frame .console-field
+  margin-bottom: 0
+
+  .form-label
+    font-size: 0.78rem
+    margin-bottom: 0.25rem
+
+@media (max-width: 640px)
+  .console-card-credentials
+    grid-template-columns: 1fr
+
+  .console-card-heading-actions
+    width: 100%
+    margin-left: 0 !important
+    justify-content: flex-end

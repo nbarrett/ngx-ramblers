@@ -12,12 +12,12 @@ import {
   faExternalLinkAlt,
   faForward,
   faPlus,
-  faRobot,
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { MongoUriInputComponent, MongoUriParseResult } from "../mongo-uri-input/mongo-uri-input";
+import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark.component";
 import { EnvironmentWebAnalyticsSites } from "./environment-web-analytics-sites";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
@@ -46,7 +46,8 @@ import { toKebabCase } from "../../../functions/strings";
     SecretInputComponent,
     SecretsEditor,
     MongoUriInputComponent,
-    EnvironmentWebAnalyticsSites
+    EnvironmentWebAnalyticsSites,
+    VendorBrandMarkComponent
   ],
   styles: [`
     .btn-outline-aws
@@ -186,7 +187,7 @@ import { toKebabCase } from "../../../functions/strings";
         </div>
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-            <img src="assets/icons/aws-logo.svg" alt="AWS" style="height: 26px;">
+            <app-vendor-brand-mark serviceId="aws" [sizePx]="26"/>
             <span>AWS S3 Configuration</span>
             @if (currentEnvironment?.aws?.bucket) {
               <a [href]="'https://s3.console.aws.amazon.com/s3/buckets/' + currentEnvironment.aws.bucket + '?region=' + (currentEnvironment.aws.region || 'eu-west-2')"
@@ -235,7 +236,7 @@ import { toKebabCase } from "../../../functions/strings";
         </div>
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading d-flex align-items-center gap-3">
-            <img src="assets/icons/mongodb-logo.svg" alt="MongoDB" style="height: 30px;">
+            <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="30"/>
             <span>MongoDB Configuration</span>
             @if (currentEnvironment?.mongo?.cluster || currentEnvironment?.mongo?.db) {
               <a href="https://cloud.mongodb.com/"
@@ -286,7 +287,7 @@ import { toKebabCase } from "../../../functions/strings";
         </div>
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading d-flex align-items-center gap-3">
-            <img src="assets/icons/flyio-logo.svg" alt="Fly.io" style="height: 28px;">
+            <app-vendor-brand-mark serviceId="flyIo" [sizePx]="28"/>
             <span>Fly.io Configuration</span>
             @if (currentEnvironment?.flyio?.appName) {
               <a [href]="'https://fly.io/apps/' + currentEnvironment.flyio.appName"
@@ -351,7 +352,7 @@ import { toKebabCase } from "../../../functions/strings";
         </div>
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-            <img src="assets/icons/cloudflare-logo.svg" alt="Cloudflare" style="height: 26px;">
+            <app-vendor-brand-mark serviceId="cloudflare" [sizePx]="26"/>
             <span>Email Routing (Per-Environment)</span>
             @if (perEnvEmailRoutingUrl) {
               <a [href]="perEnvEmailRoutingUrl"
@@ -406,7 +407,7 @@ import { toKebabCase } from "../../../functions/strings";
         </div>
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-            <fa-icon [icon]="faRobot"></fa-icon>
+            <app-vendor-brand-mark systemId="aiTextGeneration" [sizePx]="22"/>
             <span>AI Text Generation (Override)</span>
           </div>
           <small class="form-text text-muted mb-2">
@@ -503,7 +504,7 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   protected readonly faPlus = faPlus;
   protected readonly faTrash = faTrash;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
-  protected readonly faRobot = faRobot;
+
   protected readonly AiProviderType = AiProviderType;
 
   get flyOrgMigrateQueryParams(): Record<string, string> {

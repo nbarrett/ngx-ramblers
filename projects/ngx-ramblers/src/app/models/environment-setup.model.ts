@@ -190,6 +190,197 @@ export interface SetupStatusResponse extends ApiResponse {
   hasLocalSocialEvents: boolean;
 }
 
+export enum EstateRebuildCaptureFormat {
+  XLSX = "xlsx",
+  MARKDOWN = "md",
+  HTML = "html"
+}
+
+export enum EstateRebuildDownloadChoice {
+  ALL = "all",
+  XLSX = EstateRebuildCaptureFormat.XLSX,
+  MARKDOWN = EstateRebuildCaptureFormat.MARKDOWN,
+  HTML = EstateRebuildCaptureFormat.HTML
+}
+
+export interface EstateRebuildCaptureSummary {
+  generatedAtUtc: string;
+  siteCount: number;
+  fieldsPerSite: number;
+  siteCaptureRows: number;
+  platformFieldCount: number;
+  formats: EstateRebuildCaptureFormat[];
+}
+
+export enum EstateRebuildConfigured {
+  PRESENT = "present",
+  EMPTY = "empty",
+  ERROR = "error"
+}
+
+export enum EstateRebuildFieldLayer {
+  RUNTIME = "runtime",
+  APPLICATION = "application",
+  PEOPLE = "people",
+  CONSOLE = "console"
+}
+
+export enum EstateRebuildSystemScope {
+  PER_SITE = "per-site",
+  PLATFORM = "platform",
+  PER_SITE_AND_PLATFORM = "per-site-and-platform"
+}
+
+export enum EstateRebuildAuditSection {
+  SYSTEMS = "systems",
+  SITES = "sites",
+  SITE_FIELDS = "site-fields",
+  PLATFORM = "platform"
+}
+
+export interface EstateRebuildThirdPartySystem {
+  systemId: string;
+  name: string;
+  function: string;
+  informationHeld: string;
+  configPaths: string;
+  scope: EstateRebuildSystemScope | string;
+}
+
+export interface EstateRebuildSiteDirectoryRow {
+  environment: string;
+  group: string;
+  groupCode: string;
+  areaCode: string;
+  siteHref: string;
+  flyAppName: string;
+  mongoCluster: string;
+  mongoDb: string;
+  mongoUsername: string;
+  awsBucket: string;
+  awsRegion: string;
+  customDomains: string;
+  mailProvider: string;
+  chairmanName: string;
+  chairmanEmail: string;
+  webmasterName: string;
+  webmasterEmail: string;
+  siteContactsSummary: string;
+  ngxLite: boolean;
+  probeStatus: string;
+}
+
+export interface EstateRebuildSiteCaptureRow {
+  environment: string;
+  group: string;
+  layer: EstateRebuildFieldLayer | string;
+  category: string;
+  fieldId: string;
+  field: string;
+  configured: EstateRebuildConfigured | string;
+  safeValue: string;
+  whereHeld: string;
+}
+
+export interface EstateRebuildPlatformCaptureRow {
+  category: string;
+  fieldId: string;
+  field: string;
+  configured: EstateRebuildConfigured | string;
+  safeValue: string;
+  whereHeld: string;
+}
+
+export interface EstateRebuildInventory {
+  generatedAtUtc: string;
+  includeSecrets: boolean;
+  siteCount: number;
+  fieldsPerSite: number;
+  siteCaptureRows: number;
+  platformFieldCount: number;
+  thirdPartySystems: EstateRebuildThirdPartySystem[];
+  sites: EstateRebuildSiteDirectoryRow[];
+  siteCapture: EstateRebuildSiteCaptureRow[];
+  platformCapture: EstateRebuildPlatformCaptureRow[];
+}
+
+export interface ConsoleAccessIdentifierInfo {
+  key: string;
+  label: string;
+  placeholder?: string;
+  shared?: boolean;
+  sharedHint?: string;
+}
+
+export interface ConsoleAccessUrlInfo {
+  label: string;
+  urlTemplate: string;
+}
+
+export interface ConsoleAccessResolvedUrlInfo {
+  label: string;
+  url: string;
+}
+
+export interface ConsoleAccessServiceInfo {
+  serviceId: string;
+  name: string;
+  function: string;
+  scope: string;
+  identifiers: ConsoleAccessIdentifierInfo[];
+  urls: ConsoleAccessUrlInfo[];
+  resolvedUrls: ConsoleAccessResolvedUrlInfo[];
+}
+
+export enum ConsoleAccessCredentialField {
+  LOGIN = "login",
+  PASSWORD = "password",
+  NOTES = "notes"
+}
+
+export interface ConsoleAccessLoginView {
+  login?: string;
+  password?: string;
+  notes?: string;
+  identifiers?: Record<string, string>;
+}
+
+export interface ConsoleAccessDocument {
+  scope: string;
+  environment: string | null;
+  consoleAccess: Record<string, ConsoleAccessLoginView>;
+  services: ConsoleAccessServiceInfo[];
+}
+
+export interface ConsoleAccessEnvironmentListItem {
+  environment: string;
+  hasConsoleAccess: boolean;
+}
+
+export interface ConsoleAccessEnvironmentsResponse {
+  platformHasConsoleAccess: boolean;
+  environments: ConsoleAccessEnvironmentListItem[];
+}
+
+export interface ConsoleAccessTableRow {
+  rowId: string;
+  scope: string;
+  environmentLabel: string;
+  serviceId: string;
+  serviceName: string;
+  serviceScope: string;
+  function: string;
+  identifiers: ConsoleAccessIdentifierInfo[];
+  urls: ConsoleAccessUrlInfo[];
+}
+
+export interface ConsoleSharedIdentifierGroup {
+  serviceId: string;
+  serviceName: string;
+  identifiers: ConsoleAccessIdentifierInfo[];
+}
+
+
 export interface NgxLiteAppliedEnvironment {
   environment: string;
   ngxLite: boolean;

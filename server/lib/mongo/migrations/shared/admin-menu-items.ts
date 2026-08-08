@@ -206,6 +206,14 @@ export const ENVIRONMENT_MIGRATION_MENU_ITEM: ActionButtonColumn = {
   contentText: "Move an environment to isolated MongoDB credentials with validation, restore verification, and explicit cutover"
 };
 
+export const ESTATE_REBUILD_CAPTURE_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "environmentAdmin",
+  title: "Platform Configuration Values",
+  icon: "faClipboardList",
+  href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ESTATE_REBUILD,
+  contentText: "View and inventory platform and site configuration values, system logins, and offline export packs"
+};
+
 export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "committee",
@@ -229,6 +237,7 @@ export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
     href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_HEALTH,
     contentText: "Monitor migration status and health across all environments"
   },
+  ESTATE_REBUILD_CAPTURE_MENU_ITEM
 ];
 
 export const ADMIN_CATEGORY_MENU_ITEMS: ActionButtonColumn[] = [

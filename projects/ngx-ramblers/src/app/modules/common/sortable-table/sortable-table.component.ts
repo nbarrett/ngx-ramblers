@@ -211,11 +211,15 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["defaultSortKey"] && this.sortKey === null) {
-      this.sortKey = this.defaultSortKey;
-      this.sortDirection = this.defaultSortDirection;
-    }
-    if (changes["rows"] || changes["columns"]) {
+    if (changes["defaultSortKey"] || changes["defaultSortDirection"]) {
+      if (this.defaultSortKey) {
+        this.sortKey = this.defaultSortKey;
+      }
+      if (this.defaultSortDirection) {
+        this.sortDirection = this.defaultSortDirection;
+      }
+      this.applySort();
+    } else if (changes["rows"] || changes["columns"]) {
       this.applySort();
     }
   }

@@ -5,6 +5,8 @@ import path from "path";
 import os from "os";
 import { flyTomlAbsolutePath, runCommand, runCommandStreaming } from "../../fly/fly-commands";
 import { loadSecretsWithFallback, REQUIRED_SECRETS, writeSecretsFile } from "../../shared/secrets";
+import { cleanDisallowedSecretsFromEnvironmentsConfig, pruneDisallowedFlySecrets } from "../../fly/fly-secrets-prune";
+import { filterSecretsForSiteFlyDeploy, SITE_FLY_SECRET_ALLOWLIST } from "../../fly/fly-secrets-policy";
 import {
   configuredEnvironments,
   findEnvironmentFromDatabase,
@@ -173,9 +175,14 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
 
     const tempSecretsPath = path.join(os.tmpdir(), `secrets-${config.appName}-${Date.now()}.env`);
     try {
-      writeSecretsFile(tempSecretsPath, config.secrets);
+      const filteredSecrets = filterSecretsForSiteFlyDeploy(config.secrets || {});
+      writeSecretsFile(tempSecretsPath, filteredSecrets);
       report("Importing secrets");
       runCommand(`flyctl secrets import --app ${config.appName} < ${tempSecretsPath}`);
+      const pruneResult = pruneDisallowedFlySecrets(config.appName, true, {stage: true});
+      if (pruneResult.removed.length > 0) {
+        report(`Pruned ${pruneResult.removed.length} disallowed Fly secrets`);
+      }
     } finally {
       if (fs.existsSync(tempSecretsPath)) {
         fs.unlinkSync(tempSecretsPath);
@@ -236,7 +243,7 @@ export async function scaleFlyApp(appName: string, count: number, memory?: strin
 export async function setFlySecrets(appName: string, secrets: Record<string, string>): Promise<void> {
   const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${Date.now()}.env`);
   try {
-    writeSecretsFile(tempFile, secrets);
+    writeSecretsFile(tempFile, filterSecretsForSiteFlyDeploy(secrets));
     runCommand(`flyctl secrets import --app ${appName} < ${tempFile}`);
   } finally {
     if (fs.existsSync(tempFile)) {
@@ -316,6 +323,76 @@ export function createFlyCommand(): Command {
         }
 
         log("✓ Scaling completed");
+      } catch (error) {
+        log("Error: %s", error.message);
+        process.exit(1);
+      }
+    });
+
+  fly
+    .command("prune-secrets [name]")
+    .description("Remove Fly secrets that are not on the site-app allowlist (legacy Maps/reCAPTCHA/Brevo env vars, old worker names, Docker Hub, etc.)")
+    .option("--all", "Prune every environment in the platform config")
+    .option("--execute", "Actually unset secrets (default is dry-run)")
+    .option("--stage", "Stage unsets without restarting machines (applied on next deploy)")
+    .option("--clean-config", "Also strip disallowed keys from staging config.environments secrets blocks")
+    .action(async (name: string | undefined, options: {all?: boolean; execute?: boolean; stage?: boolean; cleanConfig?: boolean}) => {
+      try {
+        const execute = options.execute === true;
+        const stage = options.stage === true;
+        if (!name && !options.all) {
+          log("Provide an environment name, or pass --all");
+          log("Allowlist (%d keys): %s", SITE_FLY_SECRET_ALLOWLIST.length, SITE_FLY_SECRET_ALLOWLIST.join(", "));
+          process.exit(1);
+        } else {
+          const environmentsConfig = await configuredEnvironments();
+          const targets = options.all
+            ? (environmentsConfig.environments || [])
+            : (environmentsConfig.environments || []).filter(env => env.environment === name);
+          if (targets.length === 0) {
+            log("No matching environments found");
+            process.exit(1);
+          } else {
+            log(execute ? "Executing Fly secrets prune" : "Dry-run Fly secrets prune (pass --execute to apply)");
+            for (const env of targets) {
+              const appName = env.flyio?.appName || `ngx-ramblers-${env.environment}`;
+              const apiKey = env.flyio?.apiKey;
+              if (!apiKey) {
+                log("  %s (%s): skipped — no Fly API token in config", env.environment, appName);
+              } else {
+                setFlyApiToken(apiKey);
+                const result = pruneDisallowedFlySecrets(appName, execute, {stage});
+                if (result.removed.length === 0) {
+                  log("  %s (%s): clean (%d allowed secrets)", env.environment, appName, result.kept.length);
+                } else if (execute) {
+                  log("  %s (%s): removed %d — %s", env.environment, appName, result.removed.length, result.removed.join(", "));
+                } else {
+                  log("  %s (%s): would remove %d — %s", env.environment, appName, result.removed.length, result.removed.join(", "));
+                }
+              }
+            }
+            if (options.cleanConfig) {
+              const configClean = await cleanDisallowedSecretsFromEnvironmentsConfig(execute);
+              if (configClean.globalRemoved.length === 0 && configClean.perEnvironment.length === 0) {
+                log("Platform config secrets blocks: clean");
+              } else if (execute) {
+                log("Platform config secrets cleaned — global: %s", configClean.globalRemoved.join(", ") || "(none)");
+                configClean.perEnvironment.forEach(entry => {
+                  log("  config %s: removed %s", entry.environment, entry.removed.join(", "));
+                });
+              } else {
+                log("Platform config secrets would clean — global: %s", configClean.globalRemoved.join(", ") || "(none)");
+                configClean.perEnvironment.forEach(entry => {
+                  log("  config %s: would remove %s", entry.environment, entry.removed.join(", "));
+                });
+              }
+            }
+            if (!execute) {
+              log("\nRe-run with --execute to apply. Prefer --stage if a deploy is about to follow.");
+              log("Add --clean-config to also strip legacy keys from staging config.environments secrets blocks.");
+            }
+          }
+        }
       } catch (error) {
         log("Error: %s", error.message);
         process.exit(1);

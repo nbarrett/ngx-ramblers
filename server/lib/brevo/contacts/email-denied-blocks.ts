@@ -261,7 +261,7 @@ export function denialHintFromTransactionalEvents(
         : null;
     })
     .filter((hint): hint is DenialHistoryHint => !!hint);
-  return latestHint(mapped);
+  return preferredDenialHint(...mapped);
 }
 
 export function mergeDenialHints(
