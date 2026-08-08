@@ -21,6 +21,7 @@ const notificationConfigSchema = new mongoose.Schema({
   signOffText: {type: String},
   senderRole: {type: String},
   replyToRole: {type: String},
+  composerRoleDefaults: {type: String},
   bccRoles: [{type: String}],
   ccRoles: [{type: String}],
   contentPreset: {type: String},

@@ -73,6 +73,11 @@ export function defaultComposerDrafting(): ComposerDrafting {
   return {offerDraftedIntro: false, onlyApprovedWalks: true};
 }
 
+export enum ComposerRoleDefaults {
+  EMAIL_TYPE = "email-type",
+  CURRENT_USER = "current-user"
+}
+
 export interface NotificationConfig extends Auditable, Identifiable {
   subject: NotificationSubject;
   bannerId: string;
@@ -89,7 +94,8 @@ export interface NotificationConfig extends Auditable, Identifiable {
   signOffRoles?: string[];
   signOffText?: string;
   senderRole?: string;
-  replyToRole?: string;
+  replyToRole?: string | null;
+  composerRoleDefaults?: ComposerRoleDefaults;
   contentPreset?: string;
   help?: string;
   templateOverrides?: TemplateOverrides;

@@ -1,7 +1,8 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { isString } from "es-toolkit/compat";
 import { LoggerFactory } from "../../../services/logger-factory.service";
-import { MailMessagingConfig, NotificationConfig } from "../../../models/mail.model";
+import { ComposerRoleDefaults, MailMessagingConfig, NotificationConfig } from "../../../models/mail.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CommitteeMember } from "../../../models/committee.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -83,12 +84,12 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
           <div class="form-group">
             <label for="reply-to">Reply To</label>
             @if (notificationConfig) {
-              <select [(ngModel)]="notificationConfig.replyToRole"
-                (ngModelChange)="rolesChanged.emit()"
+              <select [ngModel]="replyToRoleValue()"
+                (ngModelChange)="onReplyToRoleChange($event)"
                 [class.is-invalid]="!!notificationConfig.replyToRole && !roleExists(notificationConfig.replyToRole)"
                 id="reply-to"
                 class="form-control input-sm">
-                <option [ngValue]="null">Same as sender (no separate Reply-To)</option>
+                <option [ngValue]="''">Same as sender (no separate Reply-To)</option>
                 @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
                   <option
                     [ngValue]="role.type">{{ role.nameAndDescription }}
@@ -175,12 +176,31 @@ export class SenderRepliesAndSignoff implements OnInit {
 
   @Input({ required: true })
   set notificationConfig(value: NotificationConfig) {
+    if (value) {
+      value.replyToRole = this.normalisedReplyToRole(value.replyToRole);
+    }
     this.notificationConfigInternal = value;
     this.handleNotificationConfigChange();
   }
 
   get notificationConfig(): NotificationConfig {
     return this.notificationConfigInternal;
+  }
+
+  replyToRoleValue(): string {
+    return this.normalisedReplyToRole(this.notificationConfig?.replyToRole);
+  }
+
+  onReplyToRoleChange(role: string | null | undefined): void {
+    if (this.notificationConfig) {
+      this.notificationConfig.replyToRole = this.normalisedReplyToRole(role);
+      this.rolesChanged.emit();
+    }
+  }
+
+  private normalisedReplyToRole(role: string | null | undefined): string {
+    const trimmed = isString(role) ? role.trim() : "";
+    return trimmed;
   }
 
   @Input() public mailMessagingConfig: MailMessagingConfig;
@@ -258,7 +278,7 @@ export class SenderRepliesAndSignoff implements OnInit {
 
   clearReplyToRole(): void {
     if (this.notificationConfig) {
-      this.notificationConfig.replyToRole = null;
+      this.notificationConfig.replyToRole = "";
       this.rolesChanged.emit();
     }
   }
@@ -301,9 +321,13 @@ export class SenderRepliesAndSignoff implements OnInit {
 
   private handleNotificationConfigChange() {
     this.senderRoleChanged();
-    if (this.allowSelectAllAsMe) {
+    if (this.allowSelectAllAsMe && this.prefersCurrentUserDefaults()) {
       this.applyCurrentUserDefaultsIfPossible();
     }
+  }
+
+  prefersCurrentUserDefaults(): boolean {
+    return this.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER;
   }
 
   selectAllAsMeDisabled(): boolean {
@@ -330,7 +354,7 @@ export class SenderRepliesAndSignoff implements OnInit {
       this.logger.info("selectAllAsMe:aborted due to missing primaryRole or notificationConfig");
     } else {
       this.notificationConfig.senderRole = primaryRole;
-      this.notificationConfig.replyToRole = null;
+      this.notificationConfig.replyToRole = "";
       if (!this.omitSignOff) {
         const signOffRoles = [primaryRole];
         this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(signOffRoles) : signOffRoles);
