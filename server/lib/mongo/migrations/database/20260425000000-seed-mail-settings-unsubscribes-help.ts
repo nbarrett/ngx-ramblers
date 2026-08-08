@@ -16,7 +16,7 @@ const HELP_ENTRY = {
     "* **Sender Email** — the sender against which the block was registered (relevant for transactional events).\n" +
     "* **Reason** — Brevo's classification of the block. Hard bounces and spam flags are highlighted in red; admin and email-link unsubscribes in their own colours.\n" +
     "* **Matched Member** — the local NGX member matched by email (if any), with the membership number for cross-reference.\n" +
-    "* **Lists** — the Brevo list memberships that were active when the block was last synced. \"Blocked from receiving email\" appears below if Brevo has set the contact's global blacklist flag.\n" +
+    "* **Lists** — the Brevo list memberships that were active when the block was last synced. \"Blocked from receiving email\" appears below if Brevo has set the contact's global email-denied flag.\n" +
     "* **Blocked At** — when Brevo recorded the block.\n" +
     "* **Salesforce** — writeback status for the future Ramblers HQ Salesforce consent integration. _Pending_ rows are queued for writeback once the Salesforce consent endpoint is wired.\n\n" +
     "### Side effects of opening this page\n" +

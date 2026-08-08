@@ -4,6 +4,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { mapBrevoContacts } from "./map-brevo-fields";
 
 const messageType = "brevo:contacts-in-list";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -18,7 +19,11 @@ export async function contactsInList(req: Request, res: Response, next: NextFunc
       offset: 0
     };
     const response = await scheduleBrevo(() => client.contacts.getContactsFromList({listId, limit: opts.limit, offset: opts.offset}));
-    successfulResponse({req, res, response, messageType, debugLog});
+    const mapped = {
+      ...response,
+      contacts: mapBrevoContacts((response?.contacts ?? []) as object[])
+    };
+    successfulResponse({req, res, response: mapped, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

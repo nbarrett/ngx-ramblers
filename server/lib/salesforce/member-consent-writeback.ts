@@ -1,6 +1,7 @@
 import debug from "debug";
+import { isString } from "es-toolkit/compat";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { MailListAuditListType, MailSubscription } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { MailListAuditListType, MailListAuditSource, MailSubscription } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { AuditStatus } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import { envConfig } from "../env-config/env-config";
 import { mailListAudit } from "../mongo/models/mail-list-audit";
@@ -11,6 +12,14 @@ const debugLog = debug(envConfig.logNamespace("salesforce:member-consent-writeba
 debugLog.enabled = true;
 
 const FULL_OPT_OUT_REASON = "all-list-subscriptions-removed";
+
+export interface EmailBlockConsentWritebackMember {
+  id?: string;
+  _id?: { toString(): string } | string;
+  email?: string;
+  salesforceMemberRef?: string;
+  membershipNumber?: string;
+}
 
 function activeSubscribedCount(subscriptions: MailSubscription[] | undefined): number {
   return (subscriptions ?? []).filter(subscription => subscription.subscribed).length;
@@ -29,6 +38,46 @@ export async function writeBackFullOptOuts(savedMembers: Member[], priorSubscrip
 export async function writeBackOptOutsForRemovedMembers(removedMembers: Member[], createdBy: string): Promise<void> {
   const optOuts = removedMembers.filter(member => !!member.salesforceMemberRef && !!member.email && activeSubscribedCount(member.mail?.subscriptions) > 0);
   await Promise.all(optOuts.map(member => writeBackOne(member, createdBy)));
+}
+
+export async function writeBackConsentForEmailBlock(
+  memberDoc: EmailBlockConsentWritebackMember,
+  reasonCode: string,
+  createdBy: string = MailListAuditSource.BREVO_EVENTS_WEBHOOK
+): Promise<void> {
+  const memberRef = memberDoc.salesforceMemberRef;
+  const email = memberDoc.email;
+  if (!memberRef || !email) {
+    debugLog("writeBackConsentForEmailBlock:skip-missing-scope", memberDoc.membershipNumber, !!memberRef, !!email);
+  } else {
+    try {
+      const outcome = await notifySalesforceFullyOptedOut({
+        memberRef,
+        email,
+        membershipNumber: memberDoc.membershipNumber,
+        reason: reasonCode || "email-block"
+      });
+      if (!outcome.attempted) {
+        debugLog("writeBackConsentForEmailBlock:not-attempted", memberDoc.membershipNumber, outcome.skippedReason);
+      } else {
+        const memberId = memberDoc.id || (isString(memberDoc._id) ? memberDoc._id : memberDoc._id?.toString());
+        const auditMessage = outcome.success
+          ? `Salesforce consent writeback succeeded after email block (${outcome.latencyMs}ms, reason ${reasonCode})`
+          : `Salesforce consent writeback failed after email block: ${outcome.errorCode || "UNKNOWN"} - ${outcome.errorMessage || "no detail"} (HTTP ${outcome.status || "n/a"}, ${outcome.latencyMs}ms)`;
+        await mailListAudit.create({
+          memberId,
+          listId: 0,
+          timestamp: dateTimeNowAsValue(),
+          createdBy,
+          listType: MailListAuditListType.BREVO_BLOCKED,
+          status: outcome.success ? AuditStatus.info : AuditStatus.error,
+          audit: auditMessage
+        });
+      }
+    } catch (error: any) {
+      debugLog("writeBackConsentForEmailBlock:failed", memberDoc.membershipNumber, error?.message || error);
+    }
+  }
 }
 
 async function writeBackOne(member: Member, createdBy: string): Promise<void> {

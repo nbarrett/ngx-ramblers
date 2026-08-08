@@ -4,6 +4,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { mapBrevoContacts } from "./map-brevo-fields";
 
 const messageType = "brevo:contacts";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -23,7 +24,13 @@ export async function contacts(req: Request, res: Response): Promise<void> {
     const client = await brevoClient();
     const allContacts = await fetchAllContacts(client, 0, []);
     debugLog("fetched", allContacts.length, "Brevo contacts across all pages");
-    successfulResponse({req, res, response: {contacts: allContacts, count: allContacts.length}, messageType, debugLog});
+    successfulResponse({
+      req,
+      res,
+      response: {contacts: mapBrevoContacts(allContacts), count: allContacts.length},
+      messageType,
+      debugLog
+    });
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

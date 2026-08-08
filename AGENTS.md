@@ -8,6 +8,7 @@
 4. **No `console.log()`** - Frontend: use `Logger` via `LoggerFactory`. Backend: use `debug` module
 5. **Interfaces in model files only** - never define inline in components/services
 6. **DRY** - always search for existing implementations before writing new code. Reuse and enhance, never duplicate
+7. **Never write "blacklist" or "whitelist"** (any form) in prose, tickets, commits, UI, or our identifiers. Prefer **deny / denied / deny list**, **allow / allowed / allow list**, or **block / blocked / suppressed** as fits. Third-party/wire API names (e.g. Brevo `emailBlacklisted`, Tagify `whitelist`) only at the mapping call site.
 
 ## Project Overview
 

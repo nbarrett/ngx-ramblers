@@ -73,6 +73,35 @@ const ALL_SENDERS = "all";
       overflow-x: auto
       border: 1px solid #dee2e6
       border-radius: 4px
+    .blocks-table
+      table-layout: fixed
+      width: 100%
+      margin-bottom: 0
+    .blocks-table th,
+    .blocks-table td
+      vertical-align: middle
+      padding-top: 0.55rem
+      padding-bottom: 0.55rem
+    .blocks-table .col-name
+      width: 24%
+    .blocks-table .col-sender
+      width: 18%
+    .blocks-table .col-reason
+      width: 28%
+    .blocks-table .col-lists
+      width: 16%
+    .blocks-table .col-blocked-at
+      width: 14%
+    .reason-detail
+      display: -webkit-box
+      -webkit-line-clamp: 2
+      -webkit-box-orient: vertical
+      overflow: hidden
+      white-space: normal
+      line-height: 1.3
+    .reason-related
+      white-space: normal
+      line-height: 1.3
     th.sortable
       cursor: pointer
       user-select: none
@@ -93,13 +122,16 @@ const ALL_SENDERS = "all";
       padding-top: 0.75rem
       padding-bottom: 0.75rem
     td.truncate
-      max-width: 280px
       white-space: nowrap
       overflow: hidden
       text-overflow: ellipsis
     td.name-cell
       vertical-align: middle
       white-space: nowrap
+    td.lists-cell
+      white-space: nowrap
+      overflow: hidden
+      text-overflow: ellipsis
     tr.no-hover,
     tr.no-hover:hover,
     tr.no-hover > td,
@@ -113,6 +145,7 @@ const ALL_SENDERS = "all";
     .reason-badge
       font-size: 0.75rem
       padding: 0.35em 0.65em
+      white-space: nowrap
     .brevo-link
       display: inline-flex
       align-items: center
@@ -246,29 +279,29 @@ const ALL_SENDERS = "all";
       </div>
       @if (mode === UnsubscribesListMode.Blocks) {
       <div class="table-responsive table-container">
-        <table class="table table-striped table-hover">
+        <table class="table table-striped table-hover blocks-table">
           <thead class="sticky-top">
             <tr>
-              <th class="sortable" [class.sorted]="sortField === UnsubscribeSortField.EMAIL"
+              <th class="col-name sortable" [class.sorted]="sortField === UnsubscribeSortField.EMAIL"
                   (click)="toggleSort(UnsubscribeSortField.EMAIL)">
                 Name
                 <fa-icon [icon]="sortIcon(UnsubscribeSortField.EMAIL)" class="sort-icon"></fa-icon>
               </th>
-              <th class="sortable" [class.sorted]="sortField === UnsubscribeSortField.SENDER_EMAIL"
+              <th class="col-sender sortable" [class.sorted]="sortField === UnsubscribeSortField.SENDER_EMAIL"
                   (click)="toggleSort(UnsubscribeSortField.SENDER_EMAIL)">
                 Sender Email
                 <fa-icon [icon]="sortIcon(UnsubscribeSortField.SENDER_EMAIL)" class="sort-icon"></fa-icon>
               </th>
-              <th class="sortable" [class.sorted]="sortField === UnsubscribeSortField.REASON_CODE"
+              <th class="col-reason sortable" [class.sorted]="sortField === UnsubscribeSortField.REASON_CODE"
                   (click)="toggleSort(UnsubscribeSortField.REASON_CODE)">
                 Reason
                 <fa-icon [icon]="sortIcon(UnsubscribeSortField.REASON_CODE)" class="sort-icon"></fa-icon>
               </th>
-              <th style="width: 220px"
-                  tooltip="Brevo mail lists the contact is associated with at the time of this sync">
+              <th class="col-lists"
+                  tooltip="Brevo mail lists associated with the contact, and whether email is globally denied">
                 Lists
               </th>
-              <th style="width: 150px" class="sortable" [class.sorted]="sortField === UnsubscribeSortField.BLOCKED_AT"
+              <th class="col-blocked-at sortable" [class.sorted]="sortField === UnsubscribeSortField.BLOCKED_AT"
                   (click)="toggleSort(UnsubscribeSortField.BLOCKED_AT)">
                 Blocked At
                 <fa-icon [icon]="sortIcon(UnsubscribeSortField.BLOCKED_AT)" class="sort-icon"></fa-icon>
@@ -295,7 +328,7 @@ const ALL_SENDERS = "all";
             } @else {
               @for (contact of filteredUnsubscribes(); track trackByContact($index, contact)) {
                 <tr>
-                  <td class="name-cell">
+                  <td class="name-cell col-name">
                     @if (contact.brevoContactId) {
                       <a [href]="mailLinkService.contactView(contact.brevoContactId)"
                          target="_blank"
@@ -331,7 +364,7 @@ const ALL_SENDERS = "all";
                         <fa-icon [icon]="faTrash"></fa-icon>
                       </button>
                     }
-                    <span class="d-inline-block align-top">
+                    <span class="d-inline-block align-middle">
                       @if (contact.matchedMember?.membershipNumber) {
                         <a [routerLink]="['/' + adminMembersMemberAdminPath]"
                            [queryParams]="memberAdminQueryParams(contact.matchedMember.membershipNumber)"
@@ -342,8 +375,8 @@ const ALL_SENDERS = "all";
                       }
                     </span>
                   </td>
-                  <td class="truncate" [tooltip]="contact.senderEmail">{{ formatSenderEmail(contact.senderEmail) }}</td>
-                  <td>
+                  <td class="truncate col-sender" [tooltip]="senderTooltip(contact)">{{ senderDisplay(contact) }}</td>
+                  <td class="col-reason">
                     <span class="badge reason-badge"
                           [ngClass]="reasonBadgeClass(contact.reason?.code)"
                           [tooltip]="reasonTooltip(contact)">
@@ -352,25 +385,36 @@ const ALL_SENDERS = "all";
                       }
                       {{ reasonLabel(contact.reason?.code) }}
                     </span>
+                    @if (contact.reason?.message) {
+                      <div class="small mt-1 reason-detail" [tooltip]="contact.reason.message">
+                        <span class="fw-semibold">{{ contact.reason.message }}</span>
+                      </div>
+                    }
+                    @if (contact.detail) {
+                      <div class="text-muted small mt-1 reason-related" [tooltip]="contact.detail">
+                        {{ formatRelatedDetail(contact.detail) }}
+                      </div>
+                    }
                     @if (contact.unsubscribeFeedback) {
-                      <div class="text-muted small mt-1" [tooltip]="feedbackTooltip(contact.unsubscribeFeedback)">
+                      <div class="text-muted small mt-1 text-truncate" [tooltip]="feedbackTooltip(contact.unsubscribeFeedback)">
                         {{ feedbackReasonLabel(contact.unsubscribeFeedback.reason) }}@if (contact.unsubscribeFeedback.comment) { &nbsp;&mdash; &ldquo;{{ contact.unsubscribeFeedback.comment }}&rdquo; }
                       </div>
                     }
                   </td>
-                  <td class="small">
+                  <td class="lists-cell col-lists small"
+                      [tooltip]="listsCellTooltip(contact)">
                     @if (contactListNames(contact); as names) {
                       @if (names.length === 0) {
                         <span class="text-muted">—</span>
                       } @else {
-                        {{ names.join(", ") }}
+                        <span>{{ names.join(", ") }}</span>
                       }
                     }
-                    @if (contact.emailBlocked) {
-                      <div class="text-danger small mt-1">Blocked from receiving email: {{ reasonLabel(contact.reason?.code) }}</div>
+                    @if (showGlobalDenyHint(contact)) {
+                      <span class="text-danger ms-1">· denied</span>
                     }
                   </td>
-                  <td class="small text-nowrap">{{ formatBlockedAt(contact.blockedAt) }}</td>
+                  <td class="small text-nowrap col-blocked-at">{{ formatBlockedAt(contact.blockedAt) }}</td>
                 </tr>
               }
             }
@@ -500,6 +544,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   public dateFilterRange: DateRange | null = null;
   public availableSenders: Sender[] = [];
   protected listNameById = new Map<number, string>();
+  private committeeMembers: {email?: string; description?: string; fullName?: string}[] = [];
 
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly ALL_REASONS = ALL_REASONS;
@@ -566,6 +611,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.mailMessagingService.events().subscribe(async mailMessagingConfig => {
         this.rebuildListNameMap(mailMessagingConfig?.brevo?.lists?.lists);
+        this.committeeMembers = mailMessagingConfig?.committeeReferenceData?.committeeMembers?.() || [];
         if (mailMessagingConfig?.brevo?.accountError) {
           this.logger.info("Brevo account not configured — skipping unsubscribes load");
           this.errorMessage = "Brevo account is not configured. Configure the API key on the Mail API Settings tab first.";
@@ -820,34 +866,46 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   }
 
   reasonIcon(code: string | undefined) {
-    if (!code) return null;
-    if (code === BlockedContactReasonCode.HARD_BOUNCE) {
-      return faExclamationTriangle;
-    }
-    if (code === BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM
-      || code === BlockedContactReasonCode.ADMIN_BLOCKED) {
-      return faBan;
-    }
-    return faEnvelopeOpen;
+    return !code
+      ? null
+      : code === BlockedContactReasonCode.HARD_BOUNCE
+        ? faExclamationTriangle
+        : (code === BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM
+          || code === BlockedContactReasonCode.ADMIN_BLOCKED
+          || code === BlockedContactReasonCode.EMAIL_DENIED)
+          ? faBan
+          : faEnvelopeOpen;
   }
 
   reasonBadgeClass(code: string | undefined): string {
-    if (!code) return "bg-light text-muted border";
-    if (code === BlockedContactReasonCode.HARD_BOUNCE) {
-      return "bg-warning text-dark";
-    }
-    if (code === BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM
-      || code === BlockedContactReasonCode.ADMIN_BLOCKED) {
-      return "bg-danger text-white";
-    }
-    return "bg-info text-white";
+    return !code
+      ? "bg-light text-muted border"
+      : code === BlockedContactReasonCode.HARD_BOUNCE
+        ? "bg-warning text-dark"
+        : (code === BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM
+          || code === BlockedContactReasonCode.ADMIN_BLOCKED
+          || code === BlockedContactReasonCode.EMAIL_DENIED)
+          ? "bg-danger text-white"
+          : "bg-info text-white";
+  }
+
+  showGlobalDenyHint(contact: BlockedContact): boolean {
+    return !!contact.emailBlocked
+      && contact.reason?.code !== BlockedContactReasonCode.EMAIL_DENIED;
+  }
+
+  listsCellTooltip(contact: BlockedContact): string {
+    const names = this.contactListNames(contact);
+    const listPart = names.length > 0 ? names.join(", ") : "No list memberships on this contact";
+    return this.showGlobalDenyHint(contact)
+      ? `${listPart}. Also globally denied for email on the Brevo contact.`
+      : listPart;
   }
 
   reasonTooltip(contact: BlockedContact): string {
-    if (!contact?.reason?.code) {
-      return "Brevo did not return a reason code for this block";
-    }
-    return contact.reason.message || "";
+    return !contact?.reason?.code
+      ? "Brevo did not return a reason code for this block"
+      : contact.reason.message || this.reasonLabel(contact.reason.code);
   }
 
   formatBlockedAt(value: string): string {
@@ -860,6 +918,41 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
     if (!value) return "";
     const angleMatch = value.match(/<([^>]+)>/);
     return (angleMatch ? angleMatch[1] : value).trim();
+  }
+
+  senderDisplay(contact: BlockedContact): string {
+    const email = this.formatSenderEmail(contact.senderEmail);
+    const match = email
+      ? this.committeeMembers.find(member => member.email?.toLowerCase() === email.toLowerCase())
+      : null;
+    return match?.description || match?.fullName || contact.senderName || email || "—";
+  }
+
+  senderTooltip(contact: BlockedContact): string | null {
+    const email = this.formatSenderEmail(contact.senderEmail);
+    const display = this.senderDisplay(contact);
+    return !email
+      ? null
+      : display === email
+        ? email
+        : `${display} · ${email}`;
+  }
+
+  formatRelatedDetail(detail: string): string {
+    return detail
+      .split(" · ")
+      .map(part => {
+        const atIndex = part.lastIndexOf(" at ");
+        const label = atIndex < 0 ? part : part.slice(0, atIndex);
+        const iso = atIndex < 0 ? "" : part.slice(atIndex + 4);
+        const formatted = iso ? this.formatBlockedAt(iso) : "";
+        return atIndex < 0
+          ? part
+          : formatted
+            ? `Also ${label.toLowerCase()} · ${formatted}`
+            : part;
+      })
+      .join(" · ");
   }
 
   memberDisplay(contact: BlockedContact): string {

@@ -4,6 +4,7 @@ import { handleErrorAllowingNotFound, successfulResponse } from "../common/messa
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { mapBrevoContactFields } from "./map-brevo-fields";
 
 const messageType = "brevo:contact-info";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -18,7 +19,7 @@ export async function contactInfo(req: Request, res: Response): Promise<void> {
     }
     const client = await brevoClient();
     const response = await scheduleBrevo(() => client.contacts.getContactInfo({identifier}));
-    successfulResponse({ req, res, response, messageType, debugLog });
+    successfulResponse({ req, res, response: mapBrevoContactFields(response as object), messageType, debugLog });
   } catch (error) {
     handleErrorAllowingNotFound(req, res, messageType, debugLog, error);
   }

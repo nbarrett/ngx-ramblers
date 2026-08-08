@@ -41,6 +41,7 @@ export enum StoredValue {
   BRANDING = "branding",
   BREVO_SECTION = "brevo-section",
   CAMPAIGN_END_DATE = "endDate",
+  CAMPAIGN_EVENT_TYPE = "eventType",
   CAMPAIGN_ID = "campaignId",
   CAMPAIGN_START_DATE = "startDate",
   CALENDAR_COLOUR_BY = "calendar-colour-by",
