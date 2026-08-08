@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { legacyUrlMapping } from "../mongo/models/legacy-url-mapping";
@@ -6,6 +6,7 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import * as configController from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { LegacyRedirectConfig } from "../../../projects/ngx-ramblers/src/app/models/legacy-url-redirect.model";
+import { pathWithTrackingQueryStripped } from "../seo/tracking-query";
 
 const debugLog = debug(envConfig.logNamespace("redirect-middleware"));
 
@@ -134,33 +135,35 @@ export async function initialiseRedirectMiddleware(): Promise<void> {
 export function redirectMiddleware(req: Request, res: Response, next: NextFunction): void {
   if (req.path.startsWith("/api/")) {
     next();
-    return;
+  } else {
+    const trackingTarget = pathWithTrackingQueryStripped(req.path, req.query as Record<string, unknown>);
+    if (trackingTarget) {
+      debugLog(`stripping tracking query ${req.originalUrl} -> ${trackingTarget}`);
+      res.redirect(301, trackingTarget);
+    } else {
+      const now = dateTimeNowAsValue();
+      if (now - cacheLoadedAt > cacheRefreshMs) {
+        loadMappings().catch(error => debugLog("cache refresh error:", error));
+      }
+
+      const hostname = (req.hostname || "").toLowerCase();
+      const isLegacyDomain = legacyDomains.size === 0 || legacyDomains.has(hostname);
+
+      if (!isLegacyDomain && legacyDomains.size > 0) {
+        next();
+      } else {
+        const cacheKey = normalisePath(req.path);
+        const cached = redirectCache.get(cacheKey);
+
+        if (cached && cached.targetPath) {
+          const target = `/${cached.targetPath.replace(/^\/+/, "")}`;
+          debugLog(`redirecting ${req.originalUrl} -> ${target} (${cached.redirectType})`);
+          recordHit(cacheKey);
+          res.redirect(cached.redirectType, target);
+        } else {
+          next();
+        }
+      }
+    }
   }
-
-  const now = dateTimeNowAsValue();
-  if (now - cacheLoadedAt > cacheRefreshMs) {
-    loadMappings().catch(error => debugLog("cache refresh error:", error));
-  }
-
-  const hostname = (req.hostname || "").toLowerCase();
-  const isLegacyDomain = legacyDomains.size === 0 || legacyDomains.has(hostname);
-
-  if (!isLegacyDomain && legacyDomains.size > 0) {
-    next();
-    return;
-  }
-
-  const normalisedPath = normalisePath(req.path);
-  const cacheKey = normalisedPath;
-  const cached = redirectCache.get(cacheKey);
-
-  if (cached && cached.targetPath) {
-    const target = `/${cached.targetPath.replace(/^\/+/, "")}`;
-    debugLog(`redirecting ${req.originalUrl} -> ${target} (${cached.redirectType})`);
-    recordHit(cacheKey);
-    res.redirect(cached.redirectType, target);
-    return;
-  }
-
-  next();
 }

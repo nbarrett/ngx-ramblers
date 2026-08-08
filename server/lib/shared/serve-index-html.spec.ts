@@ -1,7 +1,12 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
-import { withAiDiscoveryLinks, withRepresentationAlternates, withServerContent } from "./serve-index-html";
+import {
+  withAiDiscoveryLinks,
+  withRepresentationAlternates,
+  withRobotsMeta,
+  withServerContent
+} from "./serve-index-html";
 
 describe("serve-index-html", () => {
   const descriptor: PageSeoDescriptor = {
@@ -46,4 +51,15 @@ describe("serve-index-html", () => {
     expect(html).not.toContain("<h1>Release Notes</h1>");
     expect(html).toContain("<h1>CMS heading</h1>");
   });
+
+  it("adds a robots meta tag when the SEO descriptor requests it", () => {
+    const html = withRobotsMeta("<html><head></head></html>", "noindex, follow");
+    expect(html).toContain("<meta name=\"robots\" content=\"noindex, follow\">");
+  });
+
+  it("leaves the head unchanged when no robots directive is supplied", () => {
+    const html = withRobotsMeta("<html><head></head></html>", null);
+    expect(html).toBe("<html><head></head></html>");
+  });
 });
+

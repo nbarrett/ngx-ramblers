@@ -6,7 +6,11 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { pageContent } from "../mongo/models/page-content";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { ContentExport, ContentExportFormat, PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
+import {
+  ContentExport,
+  ContentExportFormat,
+  PageSeoDescriptor
+} from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
 import { EventSource, ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { DocumentField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { values } from "es-toolkit/compat";
@@ -20,6 +24,7 @@ import {
   publicMarkdownFromRows,
   titleFromPath
 } from "./content-export-renderer";
+import { eventShouldNoindex } from "../seo/public-event-indexability";
 
 const debugLog = debug(envConfig.logNamespace("content-export"));
 debugLog.enabled = false;
@@ -148,6 +153,18 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const EVENT_SEO_SELECT = `${GroupEventField.TITLE} ${GroupEventField.DESCRIPTION} ${GroupEventField.STATUS} ${GroupEventField.URL}`;
+const RESERVED_WALK_APP_SEGMENTS = new Set([
+  "add",
+  "admin",
+  "my-walks",
+  "add-walk",
+  "edit",
+  "view",
+  "new",
+  "email-composer"
+]);
+
 async function eventForSlug(slug: string): Promise<ExtendedGroupEvent> {
   const activeFilter = {
     $or: [
@@ -158,14 +175,37 @@ async function eventForSlug(slug: string): Promise<ExtendedGroupEvent> {
   const bySlug = await extendedGroupEvent.findOne({
     ...activeFilter,
     [GroupEventField.URL]: {$regex: `/${escapeRegExp(slug)}$`}
-  }).select(`${GroupEventField.TITLE} ${GroupEventField.DESCRIPTION}`).lean().exec() as ExtendedGroupEvent;
+  }).select(EVENT_SEO_SELECT).lean().exec() as ExtendedGroupEvent;
   if (bySlug) {
     return bySlug;
   } else if (isValidObjectId(slug)) {
-    return await extendedGroupEvent.findById(slug).select(`${GroupEventField.TITLE} ${GroupEventField.DESCRIPTION}`).lean().exec() as ExtendedGroupEvent;
+    return await extendedGroupEvent.findById(slug).select(EVENT_SEO_SELECT).lean().exec() as ExtendedGroupEvent;
   } else {
     return null;
   }
+}
+
+function eventSeoDescriptor(event: ExtendedGroupEvent): PageSeoDescriptor {
+  const eventDescription = event?.groupEvent?.description || "";
+  const descriptor: PageSeoDescriptor = {
+    title: event.groupEvent.title,
+    description: descriptionFromMarkdown(eventDescription),
+    contentHtml: renderMarkdownToHtml(eventDescription)
+  };
+  if (eventShouldNoindex(event)) {
+    descriptor.robots = "noindex, follow";
+  }
+  return descriptor;
+}
+
+function missingWalkSeoDescriptor(): PageSeoDescriptor {
+  return {
+    title: "Page not found",
+    description: "",
+    contentHtml: "",
+    robots: "noindex",
+    httpStatus: 404
+  };
 }
 
 export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeoDescriptor> {
@@ -185,16 +225,25 @@ export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeo
     }
   }
   const pathSegments = path.split("/").filter(segment => segment.length > 0);
-  if (pathSegments.length >= 2) {
-    const event = await eventForSlug(pathSegments[pathSegments.length - 1]);
-    const eventDescription = event?.groupEvent?.description || "";
-    if (event?.groupEvent?.title) {
-      return {
-        title: event.groupEvent.title,
-        description: descriptionFromMarkdown(eventDescription),
-        contentHtml: renderMarkdownToHtml(eventDescription)
-      };
+  if (pathSegments.length === 2 && pathSegments[0] === "walks") {
+    if (RESERVED_WALK_APP_SEGMENTS.has(pathSegments[1])) {
+      return null;
+    } else {
+      const event = await eventForSlug(pathSegments[1]);
+      if (event?.groupEvent?.title) {
+        return eventSeoDescriptor(event);
+      } else {
+        return missingWalkSeoDescriptor();
+      }
     }
+  } else if (pathSegments.length >= 2) {
+    const event = await eventForSlug(pathSegments[pathSegments.length - 1]);
+    if (event?.groupEvent?.title) {
+      return eventSeoDescriptor(event);
+    } else {
+      return null;
+    }
+  } else {
+    return null;
   }
-  return null;
 }
