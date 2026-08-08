@@ -190,6 +190,84 @@ export interface SetupStatusResponse extends ApiResponse {
   hasLocalSocialEvents: boolean;
 }
 
+export enum EstateRebuildCaptureFormat {
+  XLSX = "xlsx",
+  MARKDOWN = "md",
+  HTML = "html"
+}
+
+export enum EstateRebuildDownloadChoice {
+  ALL = "all",
+  XLSX = EstateRebuildCaptureFormat.XLSX,
+  MARKDOWN = EstateRebuildCaptureFormat.MARKDOWN,
+  HTML = EstateRebuildCaptureFormat.HTML
+}
+
+export interface EstateRebuildCaptureSummary {
+  generatedAtUtc: string;
+  siteCount: number;
+  fieldsPerSite: number;
+  siteCaptureRows: number;
+  platformFieldCount: number;
+  formats: EstateRebuildCaptureFormat[];
+}
+
+export interface ConsoleAccessIdentifierInfo {
+  key: string;
+  label: string;
+  placeholder?: string;
+}
+
+export interface ConsoleAccessUrlInfo {
+  label: string;
+  urlTemplate: string;
+}
+
+export interface ConsoleAccessResolvedUrlInfo {
+  label: string;
+  url: string;
+}
+
+export interface ConsoleAccessServiceInfo {
+  serviceId: string;
+  name: string;
+  function: string;
+  scope: string;
+  identifiers: ConsoleAccessIdentifierInfo[];
+  urls: ConsoleAccessUrlInfo[];
+  resolvedUrls: ConsoleAccessResolvedUrlInfo[];
+}
+
+export enum ConsoleAccessCredentialField {
+  LOGIN = "login",
+  PASSWORD = "password",
+  NOTES = "notes"
+}
+
+export interface ConsoleAccessLoginView {
+  login?: string;
+  password?: string;
+  notes?: string;
+  identifiers?: Record<string, string>;
+}
+
+export interface ConsoleAccessDocument {
+  scope: string;
+  environment: string | null;
+  consoleAccess: Record<string, ConsoleAccessLoginView>;
+  services: ConsoleAccessServiceInfo[];
+}
+
+export interface ConsoleAccessEnvironmentListItem {
+  environment: string;
+  hasConsoleAccess: boolean;
+}
+
+export interface ConsoleAccessEnvironmentsResponse {
+  platformHasConsoleAccess: boolean;
+  environments: ConsoleAccessEnvironmentListItem[];
+}
+
 export interface NgxLiteAppliedEnvironment {
   environment: string;
   ngxLite: boolean;

@@ -133,7 +133,7 @@ function buildSecretsConfig(
 ): SecretsConfig {
   const mongoUri = buildMongoUri(request);
 
-  const secrets: SecretsConfig = {
+  return {
     AUTH_SECRET: authSecret,
     AWS_ACCESS_KEY_ID: awsCredentials.accessKeyId,
     AWS_SECRET_ACCESS_KEY: awsCredentials.secretAccessKey,
@@ -143,31 +143,8 @@ function buildSecretsConfig(
     DEBUG: "ngx-ramblers:*",
     DEBUG_COLORS: "true",
     MONGODB_URI: mongoUri,
-    NODE_ENV: "production",
-    RAMBLERS_API_KEY: request.serviceConfigs.ramblers.apiKey,
-    RAMBLERS_AREA_CODE: request.ramblersInfo.areaCode,
-    RAMBLERS_AREA_NAME: request.ramblersInfo.areaName,
-    RAMBLERS_GROUP_CODE: request.ramblersInfo.groupCode,
-    RAMBLERS_GROUP_NAME: request.ramblersInfo.groupName || ""
+    NODE_ENV: "production"
   };
-
-  if (request.serviceConfigs.googleMaps?.apiKey) {
-    secrets.GOOGLE_MAPS_APIKEY = request.serviceConfigs.googleMaps.apiKey;
-  }
-  if (request.serviceConfigs.osMaps?.apiKey) {
-    secrets.OS_MAPS_API_KEY = request.serviceConfigs.osMaps.apiKey;
-  }
-  if (request.serviceConfigs.brevo?.apiKey) {
-    secrets.BREVO_API_KEY = request.serviceConfigs.brevo.apiKey;
-  }
-  if (request.serviceConfigs.recaptcha?.siteKey) {
-    secrets.RECAPTCHA_SITE_KEY = request.serviceConfigs.recaptcha.siteKey;
-  }
-  if (request.serviceConfigs.recaptcha?.secretKey) {
-    secrets.RECAPTCHA_SECRET_KEY = request.serviceConfigs.recaptcha.secretKey;
-  }
-
-  return secrets;
 }
 
 export async function validateSetupRequest(request: EnvironmentSetupRequest): Promise<ValidationResult[]> {

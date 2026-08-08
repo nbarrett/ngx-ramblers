@@ -239,6 +239,12 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
+      path: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ESTATE_REBUILD),
+      loadComponent: () => import("../../pages/admin/estate-rebuild-capture/estate-rebuild-capture.component")
+        .then(m => m.EstateRebuildCaptureComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
       path: rp(AdminPlatformPath.CONTRIBUTOR_ENVIRONMENT),
       loadComponent: () => import("../../pages/admin/contributor-environment/contributor-environment.component")
         .then(m => m.ContributorEnvironmentComponent),
@@ -261,6 +267,7 @@ const rp = adminRelativePath;
     { path: "environment-management/migration", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_MIGRATION), pathMatch: "full" },
     { path: "environment-management/health", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_HEALTH), pathMatch: "full" },
     { path: "environment-management/maintenance", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_MAINTENANCE), pathMatch: "full" },
+    { path: "environment-management/estate-rebuild-capture", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ESTATE_REBUILD), pathMatch: "full" },
     { path: "environment-setup", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP), pathMatch: "full" },
     { path: "backup-and-restore", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_BACKUP), pathMatch: "full" },
     { path: "migration-health", redirectTo: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_HEALTH), pathMatch: "full" },

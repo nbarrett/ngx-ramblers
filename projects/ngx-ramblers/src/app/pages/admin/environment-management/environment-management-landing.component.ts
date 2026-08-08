@@ -4,7 +4,9 @@ import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { BuiltInAnchor, PageContent, PageContentPath, PageContentType } from "../../../models/content-text.model";
+import { AccessLevel } from "../../../models/member-resource.model";
 import { LoginResponse } from "../../../models/member.model";
+import { AdminPlatformPath } from "../../../models/admin-route-paths.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -69,7 +71,43 @@ export class EnvironmentManagementLandingComponent implements OnInit, OnDestroy 
         maxColumns: 3,
         showSwiper: false,
         type: PageContentType.ACTION_BUTTONS,
-        columns: []
+        columns: [
+          {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP,
+            title: "Environment Setup",
+            icon: "faServer",
+            contentText: "Provision new NGX-Ramblers environments for Ramblers groups",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          },
+          {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_BACKUP,
+            title: "Backup & Restore",
+            icon: "faDatabase",
+            contentText: "Backup and restore MongoDB databases across environments",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          },
+          {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_HEALTH,
+            title: "Environments Monitoring",
+            icon: "faHeartbeat",
+            contentText: "Monitor migration status and health across all environments",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          },
+          {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_MIGRATION,
+            title: "Environment Migration",
+            icon: "faExchangeAlt",
+            contentText: "Move an environment to isolated MongoDB credentials with validation, restore verification, and explicit cutover",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          },
+          {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ESTATE_REBUILD,
+            title: "Estate Rebuild Capture",
+            icon: "faClipboardList",
+            contentText: "Generate the private credential inventory for every site (no secret values)",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          }
+        ]
       }]
     };
     if (this.siteEditService.active()) {

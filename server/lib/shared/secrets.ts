@@ -16,6 +16,7 @@ import { parseEnvContent } from "./env-parser";
 import { encryptCloudflareConfig } from "../cloudflare/cloudflare-crypto";
 import { encryptJsonConfig } from "./config-crypto";
 import { FlySecureConfig } from "../fly/fly.model";
+import { filterSecretsForSiteFlyDeploy } from "../fly/fly-secrets-policy";
 
 const debugLog = debug(envConfig.logNamespace("shared:secrets"));
 
@@ -146,12 +147,12 @@ export function buildSecretsFromDatabaseConfig(
     }
   }
 
-  return secrets;
+  return filterSecretsForSiteFlyDeploy(secrets);
 }
 
 export function loadSecretsForEnvironment(appName: string): SecretsFile {
   const filePath = secretsPath(appName);
-  const secrets = parseSecretsFile(filePath);
+  const secrets = filterSecretsForSiteFlyDeploy(parseSecretsFile(filePath));
 
   return {
     path: filePath,

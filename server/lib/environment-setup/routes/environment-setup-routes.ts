@@ -58,6 +58,15 @@ import {
 import AdmZip from "adm-zip";
 import { buildContributorBundle } from "../../contributor-environment/contributor-bundle";
 import { cloneDatabase, databaseHasCollections } from "../../contributor-environment/clone-database";
+import {
+  downloadEstateRebuildCapture,
+  estateRebuildCaptureSummary
+} from "../../ops/estate-rebuild-capture-controllers";
+import {
+  getConsoleAccess,
+  listConsoleAccessEnvironments,
+  saveConsoleAccess
+} from "../../ops/console-access-controllers";
 
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
@@ -1319,6 +1328,12 @@ router.get("/schema-exists", async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+router.get("/estate-rebuild-capture", requireSetupAccess, downloadEstateRebuildCapture);
+router.get("/estate-rebuild-capture/summary", requireSetupAccess, estateRebuildCaptureSummary);
+router.get("/console-access/environments", requireSetupAccess, listConsoleAccessEnvironments);
+router.get("/console-access", requireSetupAccess, getConsoleAccess);
+router.put("/console-access", requireSetupAccess, saveConsoleAccess);
 
 router.post("/contributor-bundle", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
