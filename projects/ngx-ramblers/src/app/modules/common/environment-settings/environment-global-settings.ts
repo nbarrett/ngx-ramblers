@@ -1,10 +1,11 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faExternalLinkAlt, faRobot } from "@fortawesome/free-solid-svg-icons";
+import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { CloudflareUrlInputComponent, CloudflareUrlParseResult } from "../cloudflare-url-input/cloudflare-url-input";
+import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark.component";
 import { createEmptyAiConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
 import { AiProviderType } from "../../../models/system.model";
 import { InputSize } from "../../../models/ui-size.model";
@@ -18,7 +19,8 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
     FontAwesomeModule,
     SecretInputComponent,
     SecretsEditor,
-    CloudflareUrlInputComponent
+    CloudflareUrlInputComponent,
+    VendorBrandMarkComponent
   ],
   styles: [`
     .btn-outline-aws
@@ -42,7 +44,7 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
   template: `
     <div class="row thumbnail-heading-frame mb-5">
       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-        <img src="assets/icons/aws-logo.svg" alt="AWS" style="height: 26px;">
+        <app-vendor-brand-mark serviceId="aws" [sizePx]="26"/>
         <span>Global AWS S3 Configuration</span>
         <a href="https://s3.console.aws.amazon.com/s3/buckets?region=eu-west-2"
            target="_blank"
@@ -90,7 +92,7 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
     </div>
     <div class="row thumbnail-heading-frame mb-5">
       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-        <fa-icon [icon]="faRobot"></fa-icon>
+        <app-vendor-brand-mark systemId="aiTextGeneration" [sizePx]="22"/>
         <span>Global AI Text Generation</span>
       </div>
       <small class="form-text text-muted mb-3">
@@ -142,7 +144,7 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
     </div>
     <div class="row thumbnail-heading-frame mb-5">
       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-        <img src="assets/icons/cloudflare-logo.svg" alt="Cloudflare" style="height: 26px;">
+        <app-vendor-brand-mark serviceId="cloudflare" [sizePx]="26"/>
         <span>Global Cloudflare Configuration</span>
         <a [href]="cloudflareDashboardUrl"
            target="_blank"
@@ -205,7 +207,7 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
     </div>
     <div class="row thumbnail-heading-frame mb-5">
       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
-        <img src="assets/icons/fly-logo.svg" alt="Fly.io" style="height: 26px;" onerror="this.style.display='none'">
+        <app-vendor-brand-mark serviceId="flyIo" [sizePx]="26"/>
         <span>Upload Worker Configuration</span>
         @if (config.uploadWorker?.appName) {
           <a href="https://fly.io/apps/{{ config.uploadWorker.appName }}"
@@ -289,7 +291,6 @@ export class EnvironmentGlobalSettings implements OnInit {
   protected readonly InputSize = InputSize;
   protected readonly AiProviderType = AiProviderType;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
-  protected readonly faRobot = faRobot;
   protected readonly cloudflareDashboardUrl = inject(CloudflareUrlService).dashboard();
   protected readonly cloudflareApiTokensUrl = inject(CloudflareUrlService).apiTokens();
 

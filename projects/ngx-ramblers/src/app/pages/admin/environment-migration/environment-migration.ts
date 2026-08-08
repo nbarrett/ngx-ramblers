@@ -23,6 +23,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
 import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
 import { BackupSelectComponent } from "../../../modules/common/selectors/backup-select";
 import { EnvironmentSelectComponent } from "../../../modules/common/selectors/environment-select";
+import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
 import { PageComponent } from "../../../page/page.component";
 import { BackupAndRestoreService } from "../../../services/backup-and-restore.service";
 import { EnvironmentConfigService } from "../../../services/environment-config.service";
@@ -49,7 +50,8 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
     SortableTableCellDirective,
     SortableTableComponent,
     TabDirective,
-    TabsetComponent
+    TabsetComponent,
+    VendorBrandMarkComponent
   ],
   styles: [`
     .status-pill
@@ -173,7 +175,7 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
                   <div class="col-lg-6 d-flex">
                     <div class="row thumbnail-heading-frame flex-fill">
                       <div class="thumbnail-heading d-flex align-items-center gap-3">
-                        <img src="assets/icons/mongodb-logo.svg" alt="MongoDB" style="height: 30px;">
+                        <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="30"/>
                         <span>Target MongoDB</span>
                       </div>
                       <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>

@@ -11,6 +11,11 @@ import {
   EnvironmentDefaults,
   EnvironmentSetupRequest,
   EnvironmentStatus,
+  ConsoleAccessDocument,
+  ConsoleAccessEnvironmentsResponse,
+  EstateRebuildCaptureFormat,
+  EstateRebuildCaptureSummary,
+  EstateRebuildInventory,
   FlyOrgMigrationStatus,
   HostnameHealthReport,
   ExistingEnvironmentsResponse,
@@ -68,6 +73,58 @@ export class EnvironmentSetupService {
     } catch (error) {
       throw new Error(await this.bundleErrorMessage(error));
     }
+  }
+
+  async estateRebuildCaptureSummary(): Promise<EstateRebuildCaptureSummary> {
+    return firstValueFrom(
+      this.http.get<EstateRebuildCaptureSummary>(`${this.BASE_URL}/estate-rebuild-capture/summary`, this.opts)
+    );
+  }
+
+  async estateRebuildInventory(includeSecrets = false): Promise<EstateRebuildInventory> {
+    return firstValueFrom(
+      this.http.get<EstateRebuildInventory>(`${this.BASE_URL}/estate-rebuild-capture/inventory`, {
+        ...this.opts,
+        params: {includeSecrets: includeSecrets ? "true" : "false"}
+      })
+    );
+  }
+
+  async downloadEstateRebuildCapture(
+    format: EstateRebuildCaptureFormat = EstateRebuildCaptureFormat.XLSX,
+    includeSecrets = true
+  ): Promise<Blob> {
+    const options = {
+      ...this.opts,
+      responseType: "blob" as const,
+      params: {format, includeSecrets: includeSecrets ? "true" : "false"}
+    };
+    try {
+      return await firstValueFrom(this.http.get(`${this.BASE_URL}/estate-rebuild-capture`, options));
+    } catch (error) {
+      throw new Error(await this.bundleErrorMessage(error));
+    }
+  }
+
+  async consoleAccessEnvironments(): Promise<ConsoleAccessEnvironmentsResponse> {
+    return firstValueFrom(
+      this.http.get<ConsoleAccessEnvironmentsResponse>(`${this.BASE_URL}/console-access/environments`, this.opts)
+    );
+  }
+
+  async consoleAccess(scope: string): Promise<ConsoleAccessDocument> {
+    return firstValueFrom(
+      this.http.get<ConsoleAccessDocument>(`${this.BASE_URL}/console-access`, {
+        ...this.opts,
+        params: {scope}
+      })
+    );
+  }
+
+  async saveConsoleAccess(scope: string, consoleAccess: ConsoleAccessDocument["consoleAccess"]): Promise<ConsoleAccessDocument> {
+    return firstValueFrom(
+      this.http.put<ConsoleAccessDocument>(`${this.BASE_URL}/console-access`, {scope, consoleAccess}, this.opts)
+    );
   }
 
   async schemaExists(name: string): Promise<boolean> {

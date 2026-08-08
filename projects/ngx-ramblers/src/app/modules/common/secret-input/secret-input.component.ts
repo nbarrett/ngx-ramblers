@@ -20,6 +20,8 @@ import { InputSize } from "../../../models/ui-size.model";
   styles: [`
     :host
       display: block
+      width: 100%
+      min-width: 0
       flex: 1 1 auto
 
     .secret-input-wrapper
@@ -27,9 +29,12 @@ import { InputSize } from "../../../models/ui-size.model";
       display: flex
       align-items: stretch
       width: 100%
+      min-width: 0
 
     .secret-input
-      flex: 1
+      flex: 1 1 auto
+      min-width: 0
+      width: 100%
       padding-right: 80px
 
     .secret-input.masked

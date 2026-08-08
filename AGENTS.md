@@ -133,6 +133,53 @@ When fixing a problem discovered after committing:
 - **Inline alerts always have an icon and a title**: use `d-flex align-items-start` with a Font Awesome icon (`faCircleExclamation` for warning/danger, `faCircleCheck` for success) and a bold title on its own line (or `strong` before the message). Do not ship bare text-only alert boxes. Prefer the same pattern as NotifierService alerts: icon + **title** + body
 - Template-driven forms with custom validators
 
+### Date and time formatting (mandatory)
+
+Never invent date format strings such as `"yyyy-MM-dd HH:mm"`, `"dd/MM/yyyy"`, or `"yyyyMMdd-HHmm"`. Always use a member of the enums in `projects/ngx-ramblers/src/app/models/date-format.model.ts`:
+
+| Enum | Use for |
+|------|---------|
+| `UIDateFormat` | App UI, admin copy, filenames, logs, API display strings, server-generated documents |
+| `RamblersWalksManagerDateFormat` | Walks Manager CSV/API interchange only |
+| `RamblersInsightHubDateFormat` | Insight Hub / Salesforce date fields only |
+| `BsDatepickerFormat` | Bootstrap datepicker input masks only |
+
+**How to format:**
+
+- **Frontend:** `DateUtilsService` helpers (`displayDate`, `displayDateAndTime`, `displayDateAbbreviatedTime`, …) or `asString(value, inputFormat, UIDateFormat.…)` / pipes such as `displayDateAndTime`
+- **Backend:** `formatDateTime(dateTime, UIDateFormat.…)` from `server/lib/shared/dates.ts`, or `dateTime.toFormat(UIDateFormat.…)`
+- **Default human-readable date+time:** `UIDateFormat.DISPLAY_DATE_AND_TIME` (e.g. `Thursday, 8 August 2026, 1:11:00 pm`)
+- **Default file stamp:** `UIDateFormat.FILE_TIMESTAMP_COMPACT`
+- Zone is **Europe/London** via `dateTimeNow()` / `DateUtilsService` — do not hand-roll `toUTC().toFormat("yyyy-MM-dd …")` for user-visible strings
+
+### Buttons (mandatory — 100% Ramblers theme)
+
+Every button is **filled** with a Ramblers palette colour. Never Bootstrap default blue. Never outline/ghost buttons for ordinary actions. Classes live in `projects/ngx-ramblers/src/app/assets/styles/buttons.sass`.
+
+| Role | Class | Appearance |
+|------|--------|------------|
+| **Default** — normal actions and main CTAs | `btn btn-primary` | Filled sunrise yellow, black text |
+| Not the default — secondary, cancel, refresh, peers next to a primary | `btn btn-quiet` | Filled grey; hover and active go sunrise |
+| Destructive confirm | `btn btn-danger` | Only when the project styles it (verify in `buttons.sass`) |
+| Success confirm | `btn btn-success` | Mintcake filled (already themed) |
+
+**Default is `btn-primary`.** Use `btn-quiet` only when the control is deliberately not the default action (e.g. Cancel next to Save, Refresh next to Download, extra peers in a button row). Do not make every button quiet by habit.
+
+**Banned (do not introduce in new or touched templates):**
+
+- `btn-outline-primary`, `btn-outline-secondary`, `btn-outline-dark`, `btn-outline-light`, and any other `btn-outline-*` except rare existing CMS patterns already in the codebase
+- Raw Bootstrap primary blue (`#0d6efd` or any control that renders blue)
+- `btn-info` as a colour choice (it is remapped to sunrise, but prefer `btn-primary` so intent is clear)
+- `btn-sunset` / `btn-outline-sunset` unless Nick asks for sunset by name
+- Transparent / outline / hover-only buttons for toolbars, download rows, filters, or admin actions
+
+**Rules of thumb:**
+
+1. **Always filled** — solid background in the resting state, not a hollow outline that only fills on hover.
+2. **Default = primary** — reach for `btn-primary` first; use `btn-quiet` only when the button is not the default action in that group.
+3. **If it looks blue, the class is wrong** — fix to `btn-primary` (or `btn-quiet` if non-default) before shipping.
+4. **Copy from a nearby admin screen** that already uses the correct filled classes rather than inventing Bootstrap class combinations.
+
 ## Testing
 
 - **Frontend**: `npm run test` (Karma + Jasmine). Use `provideHttpClientTesting`, `LoggerTestingModule`
