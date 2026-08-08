@@ -8,13 +8,23 @@ import { isQuoted } from "../../../../projects/ngx-ramblers/src/app/functions/st
 import { excerptAround, matches, termOverlap } from "./site-search-matching";
 import { pageContent } from "../models/page-content";
 import { extendedGroupEvent } from "../models/extended-group-event";
-import { BuiltInPath, PageContent, PageContentRow, USER_TEMPLATES_PATH_PREFIX } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import {
+  BuiltInPath,
+  PageContent,
+  PageContentRow,
+  USER_TEMPLATES_PATH_PREFIX
+} from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { AccessLevel } from "../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
-import { SiteSearchRelevance, SiteSearchResult, SiteSearchResultType } from "../../../../projects/ngx-ramblers/src/app/models/site-search.model";
+import {
+  SiteSearchRelevance,
+  SiteSearchResult,
+  SiteSearchResultType
+} from "../../../../projects/ngx-ramblers/src/app/models/site-search.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { eventIsPubliclyIndexable } from "../../seo/public-event-indexability";
 
 const searchLog: debug.Debugger = debug(envConfig.logNamespace("database:site-search"));
 searchLog.enabled = true;
@@ -56,6 +66,7 @@ interface EventEntry {
   haystack: string;
   date: string;
   contactName: string;
+  includeInPublicSitemap: boolean;
 }
 
 interface SearchIndex {
@@ -148,7 +159,8 @@ function toEventEntry(event: ExtendedGroupEvent): EventEntry | null {
       contactName
     ].filter(value => !!value).join(" "),
     date: groupEvent.start_date_time || "",
-    contactName
+    contactName,
+    includeInPublicSitemap: eventIsPubliclyIndexable(event)
   };
 }
 
@@ -170,7 +182,7 @@ async function buildSearchIndex(): Promise<SearchIndex> {
   const [pages, events] = await Promise.all([
     timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).lean().exec() as Promise<PageContent[]>),
     timed("events load", () => extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
-      .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
+      .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.status groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
       .limit(EVENT_INDEX_LIMIT).lean().exec() as Promise<ExtendedGroupEvent[]>)
   ]);
   const includedPages = pages.filter(pathIncluded);
@@ -311,7 +323,7 @@ export async function publicSitePaths(): Promise<string[] | null> {
   }
   const publicLevels = [AccessLevel.PUBLIC];
   const pagePaths = index.pages.filter(entry => pageVisible(entry, publicLevels)).map(entry => entry.path);
-  const eventPaths = index.events.map(entry => entry.path);
+  const eventPaths = index.events.filter(entry => entry.includeInPublicSitemap).map(entry => entry.path);
   return Array.from(new Set(pagePaths.concat(eventPaths)));
 }
 

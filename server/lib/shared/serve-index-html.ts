@@ -4,7 +4,9 @@ import { Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { systemConfig } from "../config/system-config";
 import { dateTimeNowAsValue } from "./dates";
-import { extractGoogleSiteVerificationId } from "../../../projects/ngx-ramblers/src/app/functions/google-search-console";
+import {
+  extractGoogleSiteVerificationId
+} from "../../../projects/ngx-ramblers/src/app/functions/google-search-console";
 import { pageSeoDescriptorForPath } from "../content-export/content-export";
 import { PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
 
@@ -106,6 +108,14 @@ function withMetaDescription(html: string, description: string): string {
   return html.replace("</head>", `  <meta name="description" content="${escapeHtml(description)}">\n</head>`);
 }
 
+export function withRobotsMeta(html: string, robots: string): string {
+  if (!robots) {
+    return html;
+  } else {
+    return html.replace("</head>", `  <meta name="robots" content="${escapeHtml(robots)}">\n</head>`);
+  }
+}
+
 function representationUrl(baseHref: string, exportablePath: string, format: string): string {
   return `${canonicalUrlFor(baseHref, `/${exportablePath}`)}?format=${format}`;
 }
@@ -155,6 +165,7 @@ export async function serveIndexHtml(indexPath: string, res: Response, requestPa
     input => headConfig?.baseHref ? withCanonicalLink(input, headConfig.baseHref, requestPath) : input,
     input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
     input => withMetaDescription(input, seoDescriptor?.description),
+    input => withRobotsMeta(input, seoDescriptor?.robots),
     input => headConfig?.baseHref ? withAiDiscoveryLinks(input, headConfig.baseHref) : input,
     input => headConfig?.baseHref ? withRepresentationAlternates(input, headConfig.baseHref, seoDescriptor) : input,
     input => withServerContent(input, seoDescriptor)
@@ -173,5 +184,8 @@ export async function serveIndexHtml(indexPath: string, res: Response, requestPa
     res.setHeader("Link", discoveryLinks.concat(pageLinks).join(", "));
   }
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  if (seoDescriptor?.httpStatus) {
+    res.status(seoDescriptor.httpStatus);
+  }
   res.type("html").send(transformed);
 }

@@ -17,4 +17,6 @@ export interface PageSeoDescriptor {
   description: string;
   contentHtml: string;
   exportablePath?: string;
+  robots?: string;
+  httpStatus?: number;
 }
