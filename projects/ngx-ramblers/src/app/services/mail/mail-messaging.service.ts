@@ -18,6 +18,7 @@ import {
   MailMessagingConfig,
   MailSubscription,
   MemberMergeFields,
+  ComposerRoleDefaults,
   MemberSelection,
   NOTIFICATION_CONFIG_DEFAULTS,
   NotificationConfig,
@@ -310,12 +311,18 @@ export class MailMessagingService {
     const timeUnit = notificationConfig?.timeUnit || DateRangeUnit.MONTHS;
     const defaultMemberSelection = notificationConfig?.defaultMemberSelection || MemberSelection.RECENTLY_ADDED;
     const bccRoles = notificationConfig?.bccRoles?.length > 0 ? notificationConfig.bccRoles : notificationConfig?.ccRoles || [];
+    const replyToRole = notificationConfig?.replyToRole?.trim() || "";
+    const composerRoleDefaults = notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER
+      ? ComposerRoleDefaults.CURRENT_USER
+      : ComposerRoleDefaults.EMAIL_TYPE;
     return {
       ...notificationConfig,
       bccRoles,
       monthsInPast,
       timeUnit,
-      defaultMemberSelection
+      defaultMemberSelection,
+      replyToRole,
+      composerRoleDefaults
     };
   }
 
@@ -377,7 +384,9 @@ export class MailMessagingService {
   public createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
     const sender: EmailAddress = createSendSmtpEmailRequest.sender || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.senderRole);
     const to: EmailAddress[] = createSendSmtpEmailRequest.to || [this.committeeOutboundOrPersonalAddress(createSendSmtpEmailRequest.member)];
-    const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.replyToRole);
+    const replyToRole = createSendSmtpEmailRequest.notificationConfig.replyToRole?.trim() || null;
+    const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo
+      || (replyToRole ? this.createBrevoAddress(replyToRole) : sender);
     const signoffRoles = createSendSmtpEmailRequest.notificationConfig.signOffRoles ?? [];
     const signoffHtml = signoffRoles.length > 0 ? this.signoffNames(signoffRoles, createSendSmtpEmailRequest.notificationDirective) : "";
     const bodyWithSignoff = signoffHtml

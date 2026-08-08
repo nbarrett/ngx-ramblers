@@ -2,6 +2,7 @@ import { AdminSettingsPath } from "../../../../models/admin-route-paths.model";
 import { values, keys } from "es-toolkit/compat";
 import { Component, EventEmitter, inject, OnDestroy, OnInit, Output } from "@angular/core";
 import {
+  ComposerRoleDefaults,
   MailMessagingConfig,
   MailSettingsTab,
   MemberSelection,
@@ -264,6 +265,19 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                       Skip the Events step - for emails that never attach events (e.g. welcome, expiry).
                     </label>
                   </div>
+                  <div class="mb-3">
+                    <label class="form-label mb-1" for="{{heading | kebabCase}-composer-role-defaults">When composing this email type</label>
+                    <select class="form-control input-sm"
+                            id="{{heading | kebabCase}-composer-role-defaults"
+                            [(ngModel)]="notificationConfig.composerRoleDefaults"
+                            (ngModelChange)="refreshCachedState()">
+                      <option [ngValue]="composerRoleDefaults.EMAIL_TYPE">Use the Sender and Sign-off roles saved below</option>
+                      <option [ngValue]="composerRoleDefaults.CURRENT_USER">Default Sender and Sign-off to the current user</option>
+                    </select>
+                    <small class="text-muted d-block mt-1">
+                      Saved roles still apply to automated and workflow sends. Current-user defaults only affect the Email Composer; Reply-To starts blank so replies go to the From address unless the sender sets one.
+                    </small>
+                  </div>
                 </div>
                 <ng-container>
                   <div class="col-sm-12">
@@ -497,6 +511,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
 export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   adminSettingsBookingsPath = AdminSettingsPath.BOOKINGS;
   private logger: Logger = inject(LoggerFactory).createLogger("MailNotificationTemplateEditor", NgxLoggerLevel.ERROR);
+  protected readonly composerRoleDefaults = ComposerRoleDefaults;
 
   memberSelections: KeyValue<string>[] = [KEY_NULL_VALUE_NONE].concat(enumKeyValues(MemberSelection));
   rangeUnitOptions = NOTIFICATION_TIME_UNIT_OPTIONS;
@@ -677,6 +692,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       senderRole: "membership",
       replyToRole: "membership",
       signOffRoles: ["membership"],
+      composerRoleDefaults: ComposerRoleDefaults.EMAIL_TYPE,
     };
     this.mailMessagingConfig.notificationConfigs.push(this.notificationConfig);
   }
@@ -840,9 +856,6 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     }
     if (!target.senderRole) {
       issues.push("No sender role configured - emails cannot be sent");
-    }
-    if (!target.replyToRole) {
-      issues.push("No reply-to role configured");
     }
     if (!target.signOffRoles?.length) {
       issues.push("No sign-off roles selected");

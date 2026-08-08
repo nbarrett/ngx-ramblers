@@ -6,7 +6,7 @@ import { FormsModule } from "@angular/forms";
 import { firstValueFrom, Subscription, timer } from "rxjs";
 import { HttpClient } from "@angular/common/http";
 import { switchMap } from "rxjs/operators";
-import { isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
+import { cloneDeep, isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   faAddressCard,
@@ -122,6 +122,7 @@ import {
 import { eventsForPurpose } from "../../functions/newsletter-purpose";
 import {
   BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
+  ComposerRoleDefaults,
   CreateCampaignRequest,
   ListInfo,
   MailMessagingConfig,
@@ -922,7 +923,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         @if (state.notificationConfig && state.brandingMode !== BrandingMode.UNBRANDED) {
           <fieldset class="email-composer-fieldset">
             <legend>Sender, reply-to and sign-off</legend>
-            <p class="text-muted small mb-2">Defaults use your committee roles when available. Reply-To is left blank so replies go to the From address unless you set one. Click <strong>Select All As Me</strong> to re-apply your roles.</p>
+            <p class="text-muted small mb-2">{{ composerRoleDefaultsHelp() }}</p>
             <app-sender-replies-and-sign-off
               [mailMessagingConfig]="mailMessagingConfig"
               [notificationConfig]="state.notificationConfig"
@@ -4096,19 +4097,19 @@ export class EmailComposer implements OnInit, OnDestroy {
   onEmailConfigChanged(config: NotificationConfig): void {
     const previousConfigSubject = this.state.notificationConfig?.subject?.text ?? "";
     const userTypedCustomSubject = !!this.state.subject?.trim() && this.state.subject !== previousConfigSubject;
-    this.state.notificationConfig = config;
+    this.state.notificationConfig = config ? cloneDeep(config) : null;
     this.postSendActionWarningDismissed = false;
-    this.state.bannerId = config?.bannerId ?? null;
+    this.state.bannerId = this.state.notificationConfig?.bannerId ?? null;
     if (this.eventsStepOmitted() && this.state.eventInclusion !== EventInclusionMode.NONE) {
       this.setEventInclusionMode(EventInclusionMode.NONE);
     }
     if (!userTypedCustomSubject) {
-      this.state.subject = config?.subject?.text ?? "";
+      this.state.subject = this.state.notificationConfig?.subject?.text ?? "";
     }
-    this.state.signoffRoles = this.validSignoffRolesFor(config?.signOffRoles ?? []);
-    this.applyRecipientDefaultsFrom(config);
+    this.state.signoffRoles = this.validSignoffRolesFor(this.state.notificationConfig?.signOffRoles ?? []);
+    this.applyRecipientDefaultsFrom(this.state.notificationConfig);
     this.syncStateToUrl({
-      [StoredValue.CONFIG_ID]: this.configToSlug(config),
+      [StoredValue.CONFIG_ID]: this.configToSlug(this.state.notificationConfig),
       [StoredValue.LIST_ID]: this.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.state.selectedListId?.toString() ?? null : null,
       [StoredValue.PRE_FILTER]: this.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null,
       [StoredValue.EMAIL_TYPE]: kebabCase(this.state.recipientMode)
@@ -4116,6 +4117,12 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.refreshTemplateContent();
     this.ensureFragmentOrder();
     this.maybeAutoRefreshPreview();
+  }
+
+  protected composerRoleDefaultsHelp(): string {
+    return this.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER
+      ? "This email type defaults Sender and Sign-off to your committee roles when available. Reply-To starts blank so replies go to the From address unless you set one. Click Select All As Me to re-apply your roles."
+      : "This email type uses the Sender, Reply-To and Sign-off roles saved in Mail Settings. Click Select All As Me if you want this send to use your roles instead.";
   }
 
   private applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
