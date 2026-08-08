@@ -161,7 +161,7 @@ export enum CommitteeMemberTab {
                       (ngModelChange)="contactUsTargetChanged()"
                       [disabled]="committeeMember.vacant"
                       id="contact-us-target-{{index}}">
-                      @for (target of contactUsTargets; track target.value) {
+                      @for (target of contactUsTargetsForRole(); track target.value) {
                         <option [ngValue]="target.value">{{ contactUsTargetLabel(target.value) }}</option>
                       }
                     </select>
@@ -203,7 +203,7 @@ export enum CommitteeMemberTab {
                   (ngModelChange)="contactUsTargetChanged()"
                   [disabled]="committeeMember.vacant"
                   id="contact-us-target-{{index}}">
-                  @for (target of contactUsTargets; track target.value) {
+                  @for (target of contactUsTargetsForRole(); track target.value) {
                     <option [ngValue]="target.value">{{ contactUsTargetLabel(target.value) }}</option>
                   }
                 </select>
@@ -490,11 +490,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     const nextTabs: CommitteeMemberTab[] = [
       CommitteeMemberTab.ROLE_DETAILS,
       CommitteeMemberTab.OUTBOUND_EMAIL,
-      CommitteeMemberTab.INBOUND_FORWARDING
+      CommitteeMemberTab.INBOUND_FORWARDING,
+      CommitteeMemberTab.CONTACT_US
     ];
-    if (!this.isContactUsSystemRole()) {
-      nextTabs.push(CommitteeMemberTab.CONTACT_US);
-    }
     if (this.cloudflareEmailRoutingService.emailForwardingAvailable()) {
       nextTabs.push(CommitteeMemberTab.EMAIL_LOGS);
     }
@@ -556,13 +554,22 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     {value: ForwardEmailTarget.NONE, label: "Disable contact-us for this role"}
   ];
 
+  contactUsTargetsForRole(): {value: ForwardEmailTarget; label: string}[] {
+    return this.isContactUsSystemRole()
+      ? this.contactUsTargets.filter(target => target.value !== ForwardEmailTarget.MEMBER_EMAIL)
+      : this.contactUsTargets;
+  }
+
   ngOnInit() {
     this.logger.info("ngOnInit", this.committeeMember);
     if (!this.committeeMember.forwardEmailTarget) {
-      this.committeeMember.forwardEmailTarget = this.isContactUsSystemRole() ? ForwardEmailTarget.NONE : ForwardEmailTarget.MEMBER_EMAIL;
+      this.committeeMember.forwardEmailTarget = this.isContactUsSystemRole() ? ForwardEmailTarget.CATCHALL : ForwardEmailTarget.MEMBER_EMAIL;
     }
     if (this.isContactUsSystemRole() && this.committeeMember.forwardEmailTarget === ForwardEmailTarget.MEMBER_EMAIL) {
-      this.committeeMember.forwardEmailTarget = ForwardEmailTarget.NONE;
+      this.committeeMember.forwardEmailTarget = ForwardEmailTarget.CATCHALL;
+    }
+    if (this.isContactUsSystemRole() && !this.committeeMember.contactUsTarget) {
+      this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
     }
     this.refreshTabs();
     this.subscriptions.push(
@@ -990,7 +997,11 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   private applyContactUsDefaultFromForwarding(): void {
-    if (this.roleForwardsToConnectedInbox()) {
+    if (this.isContactUsSystemRole()) {
+      if (!this.committeeMember?.contactUsTarget) {
+        this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
+      }
+    } else if (this.roleForwardsToConnectedInbox()) {
       this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
     } else if (!this.committeeMember?.contactUsTarget && this.roleHasActiveInboundRule()) {
       this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;

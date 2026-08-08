@@ -40,12 +40,19 @@ export function defaultContactUsLabel(member: CommitteeMember | null, firstNameF
   if (!member) {
     result = "Contact us";
   } else {
-    const fromFullName = member.fullName ? firstNameFromFullName(member.fullName) : null;
-    const name = (fromFullName || member.contactUsLabel || member.description || "us").trim();
-    if (name.toLowerCase().startsWith("contact ")) {
-      result = name;
+    const description = (member.description || "").trim().toLowerCase();
+    const fullName = (member.fullName || "").trim().toLowerCase();
+    const isGenericContactUs = description === "contact us" || fullName === "contact us" || member.type === "contact-us";
+    if (isGenericContactUs && !member.contactUsLabel) {
+      result = "Contact us";
     } else {
-      result = `Contact ${name}`;
+      const fromFullName = member.fullName ? firstNameFromFullName(member.fullName) : null;
+      const name = (fromFullName || member.contactUsLabel || member.description || "us").trim();
+      if (name.toLowerCase().startsWith("contact ")) {
+        result = name;
+      } else {
+        result = `Contact ${name}`;
+      }
     }
   }
   return result;

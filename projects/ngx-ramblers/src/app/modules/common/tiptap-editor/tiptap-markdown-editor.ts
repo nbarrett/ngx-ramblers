@@ -700,7 +700,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.committeeSubscription = this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
-      this.contactRoles = (data?.committeeMembers() || []).filter(member => this.contactButtonRoleAllowed(member));
+      this.contactRoles = (data?.committeeMembers() || [])
+        .filter(member => this.contactButtonRoleAllowed(member))
+        .sort((left, right) => this.contactRoleSortRank(left) - this.contactRoleSortRank(right));
       this.changeDetector.markForCheck();
     });
     const extensions: any[] = [
@@ -1398,10 +1400,11 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const linkText = this.selectedPlainText();
       if (parsed) {
         this.contactUpdatingExisting = true;
-        this.ensureContactRoleOption(parsed.role);
-        this.contactRoleType = parsed.role;
-        this.previousContactRoleType = parsed.role;
-        this.contactLabel = linkText || this.defaultLabelForRole(parsed.role);
+        const roleType = parsed.role === "enquiries" ? CONTACT_US_TYPE : parsed.role;
+        this.ensureContactRoleOption(roleType);
+        this.contactRoleType = roleType;
+        this.previousContactRoleType = roleType;
+        this.contactLabel = linkText || this.defaultLabelForRole(roleType);
       } else {
         this.contactUpdatingExisting = this.editor.isActive("link");
         this.contactRoleType = this.contactRoles[0]?.type || "";
@@ -1440,17 +1443,15 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private previousContactRoleType = "";
 
   private contactButtonRoleAllowed(member: CommitteeMember): boolean {
-    let allowed = true;
-    if (!member?.type || member.vacant) {
-      allowed = false;
-    } else if (member.type === CONTACT_US_TYPE || member.builtInRoleMapping === BuiltInRole.CONTACT_US) {
-      allowed = false;
-    }
-    return allowed;
+    return Boolean(member?.type) && !member.vacant;
+  }
+
+  private contactRoleSortRank(member: CommitteeMember): number {
+    return member.type === CONTACT_US_TYPE || member.builtInRoleMapping === BuiltInRole.CONTACT_US ? 0 : 1;
   }
 
   private ensureContactRoleOption(roleType: string): void {
-    if (roleType && roleType !== CONTACT_US_TYPE && !this.contactRoles.some(member => member.type === roleType)) {
+    if (roleType && !this.contactRoles.some(member => member.type === roleType)) {
       this.contactRoles = [
         ...this.contactRoles,
         {

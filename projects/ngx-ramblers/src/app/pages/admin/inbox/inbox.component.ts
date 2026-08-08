@@ -321,16 +321,11 @@ import { UIDateFormat } from "../../../models/date-format.model";
             <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header" [class.compact]="compactDetailHeader">
               <div class="me-auto">
                 <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
-                @if (selectedThreadOutboundOnly()) {
-                  @if (selectedThreadRecipient(); as sender) {
-                    <small class="text-muted d-block">From {{sender}}</small>
-                  }
-                  <small class="text-muted d-block">To {{ outboundThreadRecipientLabel() }}</small>
-                } @else {
-                  <small class="text-muted d-block">From {{ formatAddress(selectedThread.externalAddress) }}</small>
-                  @if (selectedThreadRecipient(); as recipient) {
-                    <small class="text-muted d-block">To {{recipient}}</small>
-                  }
+                @if (threadFromLabel(); as fromLabel) {
+                  <small class="text-muted d-block">From {{ fromLabel }}</small>
+                }
+                @if (threadToLabel(); as toLabel) {
+                  <small class="text-muted d-block">To {{ toLabel }}</small>
                 }
               </div>
               @if (selectedThread.folder === InboxThreadFolder.JUNK) {
@@ -356,18 +351,18 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 <div class="inbox-message-headers inbox-message-toggle d-flex align-items-start gap-2" (click)="toggleMessage(message)">
                   <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
                   <div class="flex-grow-1 min-w-0">
-                    <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from Email Composer — " + formatAddress(message.from) : formatAddress(message.from)}}</strong>
+                    <strong>{{ messageFromLabel(message) }}</strong>
                     &middot; {{(message.receivedAt ?? message.sentAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}
                     @if (isMessageExpanded(message)) {
-                      @if (message.to?.length) {
-                        <div>To: {{ formatAddresses(message.to) }}</div>
+                      @if (messageToLabel(message); as toLabel) {
+                        <div>To {{ toLabel }}</div>
                       }
                       @if (message.cc?.length) {
-                        <div>Cc: {{ formatAddresses(message.cc) }}</div>
+                        <div>Cc {{ formatAddresses(message.cc) }}</div>
                       }
                     } @else {
-                      @if (message.to?.length || message.cc?.length) {
-                        <div class="inbox-message-preview text-truncate">to {{ recipientSummary(message) }}</div>
+                      @if (messageToLabel(message); as toLabel) {
+                        <div class="inbox-message-preview text-truncate">To {{ toLabel }}</div>
                       }
                       <div class="inbox-message-preview text-truncate">
                         @if (visibleAttachments(message).length) {
@@ -1706,18 +1701,50 @@ export class InboxComponent implements OnInit, OnDestroy {
     return this.selectedMessages.length > 0 && this.selectedMessages.every(message => message.direction === InboxMessageDirection.OUTBOUND);
   }
 
+  threadFromLabel(): string | null {
+    let label: string | null = null;
+    if (this.selectedThread) {
+      label = this.selectedThreadOutboundOnly()
+        ? this.selectedThreadRecipient()
+        : (this.formatAddress(this.selectedThread.externalAddress) || null);
+    }
+    return label;
+  }
+
+  threadToLabel(): string | null {
+    let label: string | null = null;
+    if (this.selectedThread) {
+      label = this.selectedThreadOutboundOnly()
+        ? (this.outboundThreadRecipientLabel() || null)
+        : this.selectedThreadRecipient();
+    }
+    return label;
+  }
+
+  messageFromLabel(message: InboxMessage): string {
+    return message.direction === InboxMessageDirection.OUTBOUND
+      ? "Sent from Email Composer — " + this.formatAddress(message.from)
+      : "From " + this.formatAddress(message.from);
+  }
+
+  messageToLabel(message: InboxMessage): string | null {
+    return message.to?.length
+      ? this.formatAddresses(message.to)
+      : (this.recipientSummary(message) || null);
+  }
+
   selectedThreadRecipient(): string | null {
     if (!this.selectedThread) {
       return null;
-    }
-    const aliasEmail = this.recipientForThread(this.selectedThread);
-    if (aliasEmail) {
-      return aliasEmail;
     }
     const firstInbound = this.selectedMessages.find(message => message.direction === InboxMessageDirection.INBOUND);
     const deliveredTo = firstInbound?.to?.length ? this.formatAddresses(firstInbound.to) : null;
     if (deliveredTo) {
       return deliveredTo;
+    }
+    const aliasEmail = this.recipientForThread(this.selectedThread);
+    if (aliasEmail) {
+      return aliasEmail;
     }
     if (isInboxGeneralRoleType(this.selectedThread.roleType)) {
       return "Other inbox mail";

@@ -29,6 +29,7 @@ import { ContactInteractionService } from "../../services/contact-interaction.se
 import { ContactInteractionStatus } from "../../models/booking.model";
 import { StoredValue } from "../../models/ui-actions";
 import { redirectPathFrom } from "../../functions/redirect-path";
+import { contactUsDeliveryProblem } from "../../functions/contact-us-delivery";
 
 @Component({
     selector: "app-contact-modal",
@@ -137,7 +138,7 @@ import { redirectPathFrom } from "../../functions/redirect-path";
       <div class="d-none">
         <ng-template app-notification-directive></ng-template>
         <div #inboundNotificationContent>
-          <p>A message was been received via the website as follows:</p>
+          <p>A message has been received via the website as follows:</p>
           <dl>
             <dt>
               <b>Time:</b>
@@ -260,7 +261,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.notificationConfig = this.mailMessagingService.queryNotificationConfig(this.notify, mailMessagingConfig, "contactUsNotificationConfigId");
       this.logger.info("initialising with notificationConfig:", this.notificationConfig);
-      this.rejectIfRoleIsSender();
+      this.rejectIfContactDeliveryUnavailable();
     }));
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
@@ -288,22 +289,24 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
 
       this.contactFormDetails.subject = this.queryParams[StoredValue.SUBJECT] || "Website Enquiry";
       this.logger.info("ngOnInit - queryParams:", this.queryParams, "bsModalRef:", this.bsModalRef, "committeeMember:", this.committeeMember);
-      this.rejectIfRoleIsSender();
+      this.rejectIfContactDeliveryUnavailable();
     }));
   }
 
-  private rejectIfRoleIsSender(): void {
-    if (this.committeeMemberOverride || !this.committeeMember || !this.notificationConfig?.senderRole) {
-      return;
+  private rejectIfContactDeliveryUnavailable(): void {
+    if (!this.committeeMemberOverride && this.committeeMember) {
+      const sender = this.notificationConfig?.senderRole
+        ? this.mailMessagingService.createBrevoAddress(this.notificationConfig.senderRole)
+        : null;
+      const problem = contactUsDeliveryProblem(this.committeeMember, sender?.email);
+      if (problem) {
+        this.notify.error({
+          title: "Contact form unavailable",
+          message: problem
+        });
+        this.committeeMember = null;
+      }
     }
-    if (this.committeeMember.type !== this.notificationConfig.senderRole) {
-      return;
-    }
-    this.notify.error({
-      title: "Contact form unavailable",
-      message: `The "${this.committeeMember.fullName}" role is the sender for contact-us emails on this site and can't also be a recipient. Ask the site admin to point this contact link at a different role.`
-    });
-    this.committeeMember = null;
   }
 
   ngAfterViewInit(): void {
@@ -374,24 +377,26 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
 
   sendInboundEmailRequest(): Promise<void> {
     this.logger.info("sendInboundEmailRequest:contactFormDetails:", this.contactFormDetails);
-    const name: FirstAndLastName = this.memberNamingService.firstAndLastNameFrom(this.committeeMember.fullName);
-    this.logger.info("sendInboundEmailRequest:name:", name, "given:", this.committeeMember);
+    const visitorName: FirstAndLastName = this.memberNamingService.firstAndLastNameFrom(this.contactFormDetails.name);
     const email = this.contactFormDetails.anonymous ? `noreply@${this.urlService.baseDomain()}` : this.contactFormDetails.email;
     const replyTo = {email, name: this.contactFormDetails.name};
     const to: EmailAddress[] = this.mailMessagingService.resolveContactRecipients(this.committeeMember);
     if (to.length === 0) {
       return Promise.reject(`No contact recipient is configured for ${this.contactDisplayName()}. Please get in touch via a different committee role.`);
     }
+    const formBodyHtml = this.inboundBodyContent();
     const emailRequest: SendSmtpEmailRequest = this.mailMessagingService.createEmailRequest({
-      member: {email, firstName: name.firstName, lastName: name.lastName},
+      member: {email, firstName: visitorName?.firstName || null, lastName: visitorName?.lastName || null},
       notificationConfig: this.notificationConfig,
       notificationDirective: this.notificationDirective,
       emailSubject: this.contactFormDetails.subject,
-      bodyContent: this.inboundBodyContent(),
+      bodyContent: formBodyHtml,
       sender: this.mailMessagingService.createBrevoAddress(this.notificationConfig.senderRole),
       to,
       replyTo,
     });
+    emailRequest.contactUsRecipientRole = this.committeeMember?.type || null;
+    emailRequest.contactUsFormBodyHtml = formBodyHtml;
     this.logger.info("sendInboundEmailRequest:emailRequest:", emailRequest);
     return this.contactUsService.sendTransactionalMessage(emailRequest);
   }

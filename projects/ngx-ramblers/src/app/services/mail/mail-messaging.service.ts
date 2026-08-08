@@ -31,7 +31,8 @@ import {
   TemplateOverrides,
   TemplateOverrideType
 } from "../../models/mail.model";
-import { CommitteeMember, ForwardEmailTarget } from "../../models/committee.model";
+import { CommitteeMember } from "../../models/committee.model";
+import { resolveContactUsRecipientAddresses } from "../../functions/contact-us-delivery";
 import { resolveAccentColor } from "../../models/email-accent-palette";
 import { NotificationHost } from "../../models/notification-host.model";
 import { DateRangeUnit } from "../../models/search.model";
@@ -453,7 +454,7 @@ export class MailMessagingService {
   }
 
   toSystemMergeFields(member: Member): SystemMergeFields {
-    const appUrl = this.urlService.baseUrl();
+    const appUrl = this.urlService.publicBaseUrl();
     return {
       FACEBOOK_URL: this.mailMessagingConfig?.externalSystems?.facebook?.groupUrl,
       INSTAGRAM_URL: this.mailMessagingConfig?.externalSystems?.instagram?.groupUrl,
@@ -479,29 +480,7 @@ export class MailMessagingService {
   }
 
   public resolveContactRecipients(member: CommitteeMember): EmailAddress[] {
-    if (!member) {
-      return [];
-    }
-    const label = member.contactUsLabel || member.fullName;
-    const named = (email: string): EmailAddress => ({name: label, email});
-    const fallbackToRoleEmail = (): EmailAddress[] => member.email ? [named(member.email)] : [];
-    const target = member.contactUsTarget ?? member.forwardEmailTarget;
-    const custom = member.contactUsCustom ?? member.forwardEmailCustom;
-    const recipients = (member.contactUsRecipients ?? member.forwardEmailRecipients) || [];
-    switch (target) {
-      case ForwardEmailTarget.CUSTOM:
-      case ForwardEmailTarget.CATCHALL:
-        return custom ? [named(custom)] : fallbackToRoleEmail();
-      case ForwardEmailTarget.MULTIPLE: {
-        const filtered = recipients.filter(Boolean);
-        return filtered.length > 0 ? filtered.map(named) : fallbackToRoleEmail();
-      }
-      case ForwardEmailTarget.NONE:
-        return [];
-      case ForwardEmailTarget.MEMBER_EMAIL:
-      default:
-        return fallbackToRoleEmail();
-    }
+    return resolveContactUsRecipientAddresses(member);
   }
 
   public exampleEmailParams(): SendSmtpEmailParams {
@@ -577,7 +556,11 @@ export class MailMessagingService {
   bannerImageSource(notificationConfig: NotificationConfig, absolute: boolean) {
     const selectedBanner = this.mailMessagingConfig?.banners?.find(item => item.id === notificationConfig?.bannerId);
     const relativePath = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, false);
-    const bannerSource = absolute && relativePath ? `${this.urlService.publicBaseUrl()}/${relativePath}` : relativePath;
+    const publicBase = this.urlService.publicBaseUrl().replace(/\/+$/, "");
+    let bannerSource = absolute && relativePath ? `${publicBase}/${relativePath.replace(/^\/+/, "")}` : relativePath;
+    if (bannerSource && this.urlService.isDevHostUrl(bannerSource) && publicBase && !this.urlService.isDevHostUrl(publicBase)) {
+      bannerSource = `${publicBase}/${this.urlService.stripDevHostPrefix(bannerSource)}`;
+    }
     this.logger.debug("notificationConfig.bannerId:", notificationConfig?.bannerId, "bannerSource:", bannerSource);
     return bannerSource;
   }
