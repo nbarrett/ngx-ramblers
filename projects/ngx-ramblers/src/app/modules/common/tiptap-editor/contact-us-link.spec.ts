@@ -53,6 +53,13 @@ describe("contact-us-link", () => {
     };
     expect(defaultContactUsLabel(member, fullName => fullName.split(" ")[0] || null)).toBe("Contact Jon");
     expect(defaultContactUsLabel(null, () => null)).toBe("Contact us");
+    expect(defaultContactUsLabel({
+      type: "contact-us",
+      fullName: "Contact Us",
+      description: "Contact Us",
+      email: "contact-us@example.com",
+      roleType: RoleType.SYSTEM_ROLE
+    }, fullName => fullName.split(" ")[0] || null)).toBe("Contact us");
   });
 
   it("formats role option labels", () => {

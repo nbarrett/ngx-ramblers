@@ -212,6 +212,8 @@ export interface SendSmtpEmailRequest extends EmailRequest {
   replyTo?: EmailAddress;
   listId?: number;
   attachments?: EmailAttachment[];
+  contactUsRecipientRole?: string;
+  contactUsFormBodyHtml?: string;
 }
 
 export interface SendCampaignRequest {
