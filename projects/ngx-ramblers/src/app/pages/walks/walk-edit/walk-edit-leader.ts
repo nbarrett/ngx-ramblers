@@ -18,13 +18,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
-import { FullNamePipe } from "../../../pipes/full-name.pipe";
 import { memberFullName } from "../../../functions/member-names";
 import { firstWalkLeaderName, jointWalkLeaderNames, normalisedWalkLeaderName } from "../../../functions/walks/joint-walk-leaders";
+import { MemberWithLabel } from "../../../models/member.model";
 
 @Component({
   selector: "app-walk-edit-leader",
-    imports: [FormsModule, JsonPipe, NgClass, FontAwesomeModule, NgSelectComponent, FullNamePipe],
+    imports: [FormsModule, JsonPipe, NgClass, FontAwesomeModule, NgSelectComponent],
   styles: `
     .button-bottom-aligned
       margin: 34px 0px 0px 0px
@@ -43,7 +43,8 @@ import { firstWalkLeaderName, jointWalkLeaderNames, normalisedWalkLeaderName } f
                 <input id="showOnlyWalkLeadersTrue" type="radio" class="form-check-input"
                        name="showOnlyWalkLeaders"
                        [disabled]="inputDisabled"
-                       [(ngModel)]="showOnlyWalkLeaders" [value]="true">
+                       [checked]="showOnlyWalkLeaders"
+                       (change)="onShowOnlyWalkLeadersChange(true)">
                 <label class="form-check-label" for="showOnlyWalkLeadersTrue">
                   Show Only Walk Leaders ({{ previousWalkLeaderCount }})</label>
               </div>
@@ -51,7 +52,8 @@ import { firstWalkLeaderName, jointWalkLeaderNames, normalisedWalkLeaderName } f
                 <input id="showOnlyWalkLeadersFalse" type="radio" class="form-check-input"
                        name="showOnlyWalkLeaders"
                        [disabled]="inputDisabled"
-                       [(ngModel)]="showOnlyWalkLeaders" [value]="false">
+                       [checked]="!showOnlyWalkLeaders"
+                       (change)="onShowOnlyWalkLeadersChange(false)">
                 <label class="form-check-label" for="showOnlyWalkLeadersFalse">
                   Show All Members ({{ allMembers.length }})</label>
               </div>
@@ -83,24 +85,17 @@ import { firstWalkLeaderName, jointWalkLeaderNames, normalisedWalkLeaderName } f
               @if (allowDetailView) {
                 <ng-select
                   id="contact-member"
-                  [items]="memberLookup"
-                  bindLabel="displayName"
+                  [items]="memberLookupItems"
+                  bindLabel="ngSelectAttributes.label"
+                  bindValue="id"
                   [multiple]="true"
                   [closeOnSelect]="false"
                   [disabled]="inputDisabled"
                   [searchable]="true"
                   [clearable]="true"
-                  [compareWith]="compareMembers"
-                  placeholder="Select one or more walk leaders — first is primary"
-                  [ngModel]="selectedWalkLeaders"
-                  (ngModelChange)="onWalkLeadersChange($event)">
-                  <ng-template ng-label-tmp let-item="item" let-clear="clear">
-                    <span class="ng-value-label">{{ item | fullName }}</span>
-                    <span class="ng-value-icon right" (click)="clear(item)" aria-hidden="true">×</span>
-                  </ng-template>
-                  <ng-template ng-option-tmp let-item="item">
-                    {{ item | fullName }}
-                  </ng-template>
+                  placeholder="Select one or more walk leaders - first is primary"
+                  [ngModel]="selectedWalkLeaderIds"
+                  (ngModelChange)="onWalkLeaderIdsChange($event)">
                 </ng-select>
                 <small class="text-muted">Choose joint leaders together. The first selected leader is the primary contact for email and phone.</small>
               }
@@ -222,6 +217,8 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   @Input("displayedWalk") set displayedWalkValue(displayedWalk: DisplayedWalk) {
     this.displayedWalk = displayedWalk;
     this.logger.info("displayedWalkValue:displayedWalk:", displayedWalk);
+    this.syncSelectedWalkLeaderIdsFromWalk();
+    this.rebuildMemberLookupItems();
   }
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
@@ -240,10 +237,13 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   previousWalkLeaders: Member[] = [];
   previousWalkLeaderCount = 0;
   allMembers: Member[] = [];
+  memberLookupItems: MemberWithLabel[] = [];
+  selectedWalkLeaderIds: string[] = [];
   walkStatuses: any[] = [];
   myContactId: string;
   walkLeadContactId: string;
   private subscriptions: Subscription[] = [];
+  private applyingWalkLeaders = false;
   protected display = inject(WalkDisplayService);
   private memberLoginService = inject(MemberLoginService);
   private walksAndEventsService = inject(WalksAndEventsService);
@@ -267,14 +267,12 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
       .filter(member => previousWalkLeaderIds?.includes(member.id));
     this.previousWalkLeaderCount = this.previousWalkLeaders.length;
     this.refreshContactIds();
+    this.syncSelectedWalkLeaderIdsFromWalk();
+    this.rebuildMemberLookupItems();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
-
-  get memberLookup(): Member[] {
-    return this.showOnlyWalkLeaders ? this.previousWalkLeaders : this.allMembers;
   }
 
   get allowDetailView(): boolean {
@@ -283,22 +281,6 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
 
   get toggleRamblersWalkLeaderContactName(): string {
     return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "Leader" : "Me";
-  }
-
-  get selectedWalkLeaders(): Member[] {
-    const contactDetails = this.displayedWalk?.walk?.fields?.contactDetails;
-    const members = this.display.members || [];
-    const names = jointWalkLeaderNames(contactDetails?.displayName || "");
-    const matchedByName = names
-      .map(name => members.find(member => this.memberMatchesLeaderName(member, name)))
-      .filter((member): member is Member => !!member);
-    const primary = contactDetails?.memberId
-      ? members.find(member => member.id === contactDetails.memberId)
-      : null;
-    const primaryMissingFromNames = primary && !matchedByName.some(member => member.id === primary.id);
-    return primaryMissingFromNames
-      ? [primary, ...matchedByName]
-      : (matchedByName.length > 0 ? matchedByName : (primary ? [primary] : []));
   }
 
   get hasWalkLeaderContactDetails(): boolean {
@@ -310,41 +292,54 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     return this.displayedWalk?.walk?.fields?.inputSource === InputSource.MANUALLY_CREATED;
   }
 
-  compareMembers(first: Member, second: Member): boolean {
-    return first?.id === second?.id;
+  onShowOnlyWalkLeadersChange(showOnly: boolean): void {
+    this.showOnlyWalkLeaders = showOnly;
+    this.rebuildMemberLookupItems();
   }
 
-  onWalkLeadersChange(members: Member[] | null) {
-    const selected = (members || []).filter(member => !!member?.id);
-    this.logger.info("onWalkLeadersChange:selected", selected, "existingContactDetails", this.displayedWalk?.walk?.fields?.contactDetails);
-    if (selected.length === 0) {
-      this.clearWalkLeaderRequest.emit();
-    } else {
-      this.applyWalkLeaders(selected);
-      this.walkLeaderChange.emit();
+  onWalkLeaderIdsChange(ids: string[] | null) {
+    if (!this.applyingWalkLeaders) {
+      const nextIds = (ids || []).filter(id => !!id);
+      if (!this.sameIdSelection(nextIds, this.selectedWalkLeaderIds)) {
+        if (nextIds.length === 0) {
+          this.selectedWalkLeaderIds = [];
+          this.clearWalkLeaderRequest.emit();
+        } else {
+          const selected = nextIds
+            .map(id => this.allMembers.find(member => member.id === id))
+            .filter((member): member is Member => !!member);
+          this.applyWalkLeaders(selected);
+          this.walkLeaderChange.emit();
+        }
+      }
     }
   }
 
   clearWalkLeader() {
     if (this.display.hasWalkLeader(this.displayedWalk.walk)) {
       this.logger.info("clearWalkLeader:requested", this.displayedWalk?.walk?.fields?.contactDetails);
+      this.selectedWalkLeaderIds = [];
       this.clearWalkLeaderRequest.emit();
     }
   }
 
   setWalkLeaderToMe() {
-    const me = this.display.members.find(member => member.id === this.memberLoginService.loggedInMember().memberId);
+    const meId = this.memberLoginService.loggedInMember().memberId;
+    const me = this.allMembers.find(member => member.id === meId);
     if (me) {
-      const others = this.selectedWalkLeaders.filter(member => member.id !== me.id);
-      this.applyWalkLeaders([me, ...others]);
+      const others = this.selectedWalkLeaderIds.filter(id => id !== me.id);
+      const selected = [me, ...others.map(id => this.allMembers.find(member => member.id === id)).filter((member): member is Member => !!member)];
+      this.applyWalkLeaders(selected);
       this.walkLeaderChange.emit();
     }
   }
 
   private applyWalkLeaders(selected: Member[]): void {
+    this.applyingWalkLeaders = true;
     const primary = selected[0];
     const displayNames = selected.map(member => member.displayName || memberFullName(member)).filter(name => !!name);
     const contactNames = selected.map(member => memberFullName(member)).filter(name => !!name);
+    this.selectedWalkLeaderIds = selected.map(member => member.id);
     this.displayedWalk.walk.fields.contactDetails.memberId = primary?.id || null;
     this.displayedWalk.walk.fields.contactDetails.contactId = primary?.contactId ?? null;
     this.displayedWalk.walk.fields.contactDetails.displayName = normalisedWalkLeaderName(displayNames.join("; "));
@@ -353,6 +348,51 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     if (this.displayedWalk.walk.fields.publishing?.ramblers) {
       this.displayedWalk.walk.fields.publishing.ramblers.contactName = contactNames.join("; ") || primary?.contactId || null;
     }
+    this.rebuildMemberLookupItems();
+    this.applyingWalkLeaders = false;
+  }
+
+  private syncSelectedWalkLeaderIdsFromWalk(): void {
+    if (!this.applyingWalkLeaders && this.displayedWalk?.walk?.fields?.contactDetails) {
+      const contactDetails = this.displayedWalk.walk.fields.contactDetails;
+      const members = this.allMembers.length > 0 ? this.allMembers : (this.display.members || []);
+      const names = jointWalkLeaderNames(contactDetails.displayName || "");
+      const matchedByName = names
+        .map(name => members.find(member => this.memberMatchesLeaderName(member, name)))
+        .filter((member): member is Member => !!member);
+      const primary = contactDetails.memberId
+        ? members.find(member => member.id === contactDetails.memberId)
+        : null;
+      const ordered = primary && !matchedByName.some(member => member.id === primary.id)
+        ? [primary, ...matchedByName]
+        : (matchedByName.length > 0 ? matchedByName : (primary ? [primary] : []));
+      const nextIds = ordered.map(member => member.id);
+      if (!this.sameIdSelection(nextIds, this.selectedWalkLeaderIds)) {
+        this.selectedWalkLeaderIds = nextIds.slice();
+      }
+    }
+  }
+
+  private rebuildMemberLookupItems(): void {
+    const base = this.showOnlyWalkLeaders ? this.previousWalkLeaders : this.allMembers;
+    const byId = new Map<string, Member>();
+    base.forEach(member => byId.set(member.id, member));
+    this.selectedWalkLeaderIds.forEach(id => {
+      const selected = this.allMembers.find(member => member.id === id) || this.display.members.find(member => member.id === id);
+      if (selected) {
+        byId.set(selected.id, selected);
+      }
+    });
+    this.memberLookupItems = Array.from(byId.values())
+      .sort(sortBy("firstName", "lastName"))
+      .map(member => ({
+        ...member,
+        ngSelectAttributes: { label: member.displayName || memberFullName(member) }
+      }));
+  }
+
+  private sameIdSelection(left: string[], right: string[]): boolean {
+    return left.length === right.length && left.every((id, index) => id === right[index]);
   }
 
   private memberMatchesLeaderName(member: Member, leaderName: string): boolean {
