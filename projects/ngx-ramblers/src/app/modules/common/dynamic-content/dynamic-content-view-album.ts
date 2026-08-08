@@ -21,6 +21,7 @@ import { faChevronDown, faChevronUp, faShareNodes } from "@fortawesome/free-soli
 import { BroadcastService } from "../../../services/broadcast-service";
 import { EventSlugResolverService } from "../../../services/walks-and-events/event-slug-resolver.service";
 import { NamedEventType } from "../../../models/broadcast.model";
+import { SocialPublishService } from "../../../services/social/social-publish.service";
 
 @Component({
   selector: "app-dynamic-content-view-album",
@@ -118,7 +119,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
             </h3>
           </div>
         }
-        @if (canShareAlbum || showSocialPostLinks()) {
+        @if (shareBarVisible()) {
           <div class="col-sm-12">
             <div class="share-toggle-bar">
               @if (canShareAlbum) {
@@ -134,7 +135,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
                   <fa-icon [icon]="shareExpanded ? faChevronUp : faChevronDown"/>
                 </button>
               }
-              @if (showSocialPostLinks() && !shareExpanded) {
+              @if (hasSocialPostLinks && !shareExpanded) {
                 <app-social-post-links [albumName]="row.carousel?.name"/>
               }
             </div>
@@ -183,10 +184,12 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   public shareAlbumContentMetadata: ContentMetadata = null;
   public canShareAlbum = false;
   public shareExpanded = false;
+  public hasSocialPostLinks = false;
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
   public urlService: UrlService = inject(UrlService);
   private memberLoginService = inject(MemberLoginService);
+  private socialPublishService = inject(SocialPublishService);
   private eventSlugResolver = inject(EventSlugResolverService);
   private broadcastService = inject(BroadcastService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -201,6 +204,7 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   ngOnInit() {
     this.logger.info("ngOnInit for", this.row.carousel?.name);
     this.refreshShareAccess();
+    this.loadSocialPostLinkPresence();
     this.subscriptions.push(
       this.broadcastService.on(NamedEventType.MEMBER_LOGIN_COMPLETE, () => this.refreshShareAccess()),
       this.broadcastService.on(NamedEventType.MEMBER_LOGOUT_COMPLETE, () => this.refreshShareAccess())
@@ -249,10 +253,35 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
     return this.eventSlugResolver.slugOrId(this.row?.carousel?.eventId);
   }
 
-  showSocialPostLinks(): boolean {
+  shareBarVisible(): boolean {
+    return this.canShareAlbum || this.hasSocialPostLinks;
+  }
+
+  showSocialPostLinksConfigured(): boolean {
     return !!this.row?.carousel?.name
       && this.row?.carousel?.albumView !== AlbumView.BACKGROUNDS
       && this.row?.carousel?.showSocialPostLinks !== false;
+  }
+
+  private loadSocialPostLinkPresence(): void {
+    if (!this.showSocialPostLinksConfigured()) {
+      this.hasSocialPostLinks = false;
+    } else {
+      const albumName = this.row?.carousel?.name;
+      if (!albumName) {
+        this.hasSocialPostLinks = false;
+      } else {
+        this.socialPublishService.publicationsForAlbum(albumName)
+          .then(publications => {
+            this.hasSocialPostLinks = (publications || []).some(publication => !!publication.permalink);
+            this.logger.info("loadSocialPostLinkPresence:", albumName, "hasSocialPostLinks:", this.hasSocialPostLinks);
+          })
+          .catch(error => {
+            this.hasSocialPostLinks = false;
+            this.logger.error("loadSocialPostLinkPresence failed for", albumName, error);
+          });
+      }
+    }
   }
 
   shareAlbumCaption(): string {

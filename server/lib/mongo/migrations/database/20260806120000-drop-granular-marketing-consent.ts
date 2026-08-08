@@ -13,7 +13,10 @@ export async function up(db: Db) {
   debugLog("cleared granular marketing consent from %d members", memberResult.modifiedCount);
 
   const auditResult = await db.collection("memberBulkLoadAudit")
-    .updateMany({}, {$unset: Object.fromEntries(GRANULAR_CONSENT_FIELDS.map(field => [`members.$[].${field}`, ""]))});
+    .updateMany(
+      {members: {$exists: true, $type: "array"}},
+      {$unset: Object.fromEntries(GRANULAR_CONSENT_FIELDS.map(field => [`members.$[].${field}`, ""]))}
+    );
   debugLog("cleared granular marketing consent from %d bulk load audits", auditResult.modifiedCount);
 
   const notificationResult = await db.collection("memberSyncNotifications")
