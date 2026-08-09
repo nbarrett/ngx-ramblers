@@ -277,6 +277,7 @@ export interface EstateRebuildSiteCaptureRow {
   category: string;
   fieldId: string;
   field: string;
+  systemId?: string | null;
   configured: EstateRebuildConfigured | string;
   safeValue: string;
   whereHeld: string;
@@ -312,14 +313,37 @@ export interface ConsoleAccessIdentifierInfo {
   sharedHint?: string;
 }
 
+export enum ConsoleAccessUrlIconKey {
+  OVERVIEW = "overview",
+  NETWORK = "network",
+  USERS = "users",
+  DASHBOARD = "dashboard",
+  METRICS = "metrics",
+  SECRETS = "secrets",
+  ORGANISATION = "organisation",
+  CONSOLE = "console",
+  BUCKET = "bucket",
+  ACCOUNT = "account",
+  ZONE = "zone",
+  DNS = "dns",
+  APIS = "apis",
+  CREDENTIALS = "credentials",
+  BUSINESS = "business",
+  REPOSITORIES = "repositories",
+  ACTIONS = "actions",
+  HOME = "home"
+}
+
 export interface ConsoleAccessUrlInfo {
   label: string;
   urlTemplate: string;
+  iconKey?: ConsoleAccessUrlIconKey;
 }
 
 export interface ConsoleAccessResolvedUrlInfo {
   label: string;
   url: string;
+  iconKey?: ConsoleAccessUrlIconKey | null;
 }
 
 export interface ConsoleAccessServiceInfo {
@@ -327,6 +351,7 @@ export interface ConsoleAccessServiceInfo {
   name: string;
   function: string;
   scope: string;
+  sharedCredentials?: boolean;
   identifiers: ConsoleAccessIdentifierInfo[];
   urls: ConsoleAccessUrlInfo[];
   resolvedUrls: ConsoleAccessResolvedUrlInfo[];
@@ -378,6 +403,7 @@ export interface ConsoleSharedIdentifierGroup {
   serviceId: string;
   serviceName: string;
   identifiers: ConsoleAccessIdentifierInfo[];
+  sharedCredentials: boolean;
 }
 
 

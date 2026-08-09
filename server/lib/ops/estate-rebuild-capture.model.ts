@@ -29,6 +29,7 @@ export interface EstateRebuildSiteFieldDefinition {
   whereHeld: string;
   source: EstateRebuildFieldSource;
   layer: EstateRebuildFieldLayer;
+  systemId?: string;
 }
 
 export interface EstateRebuildPlatformFieldDefinition {
@@ -168,6 +169,7 @@ export interface EstateRebuildCaptureRow {
   category: string;
   fieldId: string;
   field: string;
+  systemId?: string | null;
   configured: EstateRebuildConfigured;
   safeValue: string;
   whereHeld: string;

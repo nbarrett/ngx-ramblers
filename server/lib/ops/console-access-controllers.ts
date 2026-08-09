@@ -1,4 +1,5 @@
 import debug from "debug";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { Request, Response } from "express";
 import { isObject, isString, keys } from "es-toolkit/compat";
 import {
@@ -21,6 +22,115 @@ const debugLog = debug(envConfig.logNamespace("ops:console-access-controllers"))
 debugLog.enabled = true;
 
 const PLATFORM_SCOPE = "platform";
+
+function firstSiteLoginValue(
+  environmentsConfig: EnvironmentsConfig,
+  serviceId: ConsoleAccessService,
+  pick: (login: ConsoleAccessLogin) => string | undefined
+): string {
+  const environments = environmentsConfig.environments || [];
+  const match = environments
+    .map(env => (pick(env.consoleAccess?.[serviceId] || {}) || "").trim())
+    .find(value => !!value);
+  return match || "";
+}
+
+async function resolveAwsAccountIdFromSts(environmentsConfig: EnvironmentsConfig): Promise<string> {
+  const aws = environmentsConfig.aws;
+  if (!aws?.accessKeyId || !aws?.secretAccessKey) {
+    return "";
+  } else {
+    try {
+      const client = new STSClient({
+        region: aws.region || "eu-west-1",
+        credentials: {
+          accessKeyId: aws.accessKeyId,
+          secretAccessKey: aws.secretAccessKey
+        }
+      });
+      const response = await client.send(new GetCallerIdentityCommand({}));
+      return response.Account || "";
+    } catch (error) {
+      debugLog("Could not resolve AWS account id via STS: %s", error?.message || error);
+      return "";
+    }
+  }
+}
+
+async function enrichPlatformConsoleAccess(
+  consoleAccess: EnvironmentConsoleAccess,
+  environmentsConfig: EnvironmentsConfig
+): Promise<EnvironmentConsoleAccess> {
+  const next: EnvironmentConsoleAccess = {...consoleAccess};
+  CONSOLE_ACCESS_SERVICES.forEach(service => {
+    const current = {...(next[service.serviceId] || {})};
+    const identifiers = {...(current.identifiers || {})};
+    const progress = {changed: false};
+    (service.identifiers || []).filter(item => item.shared).forEach(item => {
+      if (!(identifiers[item.key] || "").trim()) {
+        const fromSite = firstSiteLoginValue(
+          environmentsConfig,
+          service.serviceId,
+          login => login.identifiers?.[item.key]
+        );
+        if (fromSite) {
+          identifiers[item.key] = fromSite;
+          progress.changed = true;
+        }
+      }
+    });
+    if (service.serviceId === ConsoleAccessService.CLOUDFLARE && !(identifiers.accountId || "").trim()) {
+      const fromConfig = (environmentsConfig.cloudflare?.accountId || "").trim();
+      if (fromConfig) {
+        identifiers.accountId = fromConfig;
+        progress.changed = true;
+      }
+    }
+    if (service.sharedCredentials) {
+      if (!(current.login || "").trim()) {
+        const fromSite = firstSiteLoginValue(environmentsConfig, service.serviceId, login => login.login);
+        if (fromSite) {
+          current.login = fromSite;
+          progress.changed = true;
+        }
+      }
+      if (!(current.password || "").trim()) {
+        const fromSite = firstSiteLoginValue(environmentsConfig, service.serviceId, login => login.password);
+        if (fromSite) {
+          current.password = fromSite;
+          progress.changed = true;
+        }
+      }
+      if (!(current.notes || "").trim()) {
+        const fromSite = firstSiteLoginValue(environmentsConfig, service.serviceId, login => login.notes);
+        if (fromSite) {
+          current.notes = fromSite;
+          progress.changed = true;
+        }
+      }
+    }
+    if (progress.changed || keys(identifiers).length > 0) {
+      next[service.serviceId] = {
+        ...current,
+        identifiers: keys(identifiers).length > 0 ? identifiers : current.identifiers
+      };
+    }
+  });
+  const awsEntry = next[ConsoleAccessService.AWS] || {};
+  const awsIdentifiers = {...(awsEntry.identifiers || {})};
+  if (!(awsIdentifiers.accountId || "").trim()) {
+    const accountId = await resolveAwsAccountIdFromSts(environmentsConfig);
+    if (accountId) {
+      awsIdentifiers.accountId = accountId;
+      next[ConsoleAccessService.AWS] = {
+        ...awsEntry,
+        identifiers: awsIdentifiers
+      };
+      debugLog("Seeded platform AWS account id from STS");
+    }
+  }
+  return next;
+}
 
 export interface ConsoleAccessDocument {
   scope: string;
@@ -104,6 +214,7 @@ function serviceCatalogue(consoleAccess: EnvironmentConsoleAccess) {
     name: service.name,
     function: service.function,
     scope: service.scope,
+    sharedCredentials: !!service.sharedCredentials,
     identifiers: service.identifiers,
     urls: service.urls,
     resolvedUrls: resolveConsoleUrls(service, consoleAccess[service.serviceId]?.identifiers)
@@ -115,7 +226,10 @@ export async function getConsoleAccess(req: Request, res: Response): Promise<voi
     const scope = isString(req.query?.scope) ? req.query.scope : PLATFORM_SCOPE;
     const environmentsConfig = await loadEnvironmentsConfig();
     if (scope === PLATFORM_SCOPE) {
-      const consoleAccess = environmentsConfig.consoleAccess || {};
+      const consoleAccess = await enrichPlatformConsoleAccess(
+        environmentsConfig.consoleAccess || {},
+        environmentsConfig
+      );
       res.json({
         scope: PLATFORM_SCOPE,
         environment: null,

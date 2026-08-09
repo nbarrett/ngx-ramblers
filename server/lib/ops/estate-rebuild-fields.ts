@@ -136,6 +136,88 @@ export const PLATFORM_FIELDS: EstateRebuildPlatformFieldDefinition[] = [
   ...consoleAccessPlatformFields()
 ];
 
+const SITE_FIELD_SYSTEM_BY_FIELD_ID: Record<string, string> = {
+  mongoCluster: "mongodbAtlas",
+  mongoDb: "mongodbAtlas",
+  mongoUsername: "mongodbAtlas",
+  mongoPassword: "mongodbAtlas",
+  awsBucket: "awsS3",
+  awsRegion: "awsS3",
+  awsAccessKeyId: "awsS3",
+  awsSecretAccessKey: "awsS3",
+  flyAppName: "flyIo",
+  flyOrganisation: "flyIo",
+  flyApiToken: "flyIo",
+  flyMemory: "flyIo",
+  flyScaleCount: "flyIo",
+  cloudflareZoneId: "cloudflare",
+  cloudflareAccountId: "cloudflare",
+  cloudflareApiToken: "cloudflare",
+  cloudflareWebAnalyticsToken: "cloudflare",
+  googleMapsApiKey: "googleMaps",
+  osMapsApiKey: "osDataHub",
+  recaptchaSiteKey: "recaptcha",
+  recaptchaSecretKey: "recaptcha",
+  brevoApiKey: "brevo",
+  wmApiKey: "walksManager",
+  wmUsername: "walksManager",
+  wmPassword: "walksManager",
+  facebookAppId: "metaFacebookInstagram",
+  facebookAppSecret: "metaFacebookInstagram",
+  facebookPageId: "metaFacebookInstagram",
+  facebookPageAccessToken: "metaFacebookInstagram",
+  facebookPagesUrl: "metaFacebookInstagram",
+  facebookPublishingEnabled: "metaFacebookInstagram",
+  instagramUserId: "metaFacebookInstagram",
+  instagramGroupName: "metaFacebookInstagram",
+  meetupClientId: "meetup",
+  meetupClientSecret: "meetup",
+  meetupAccessToken: "meetup",
+  meetupRefreshToken: "meetup",
+  meetupApiKey: "meetup",
+  meetupGroupName: "meetup",
+  salesforceEnabled: "salesforce",
+  salesforceEndpoint: "salesforce",
+  salesforceApiKeys: "salesforce",
+  googleAnalyticsId: "googleAnalytics",
+  googleSearchConsoleVerification: "googleSearchConsole",
+  gmailClientId: "gmailInbox",
+  gmailClientSecret: "gmailInbox",
+  gmailRedirectUri: "gmailInbox",
+  gmailPubsubProject: "gmailInbox",
+  vapidPublicKey: "webPush",
+  vapidPrivateKey: "webPush",
+  vapidSubject: "webPush",
+  flickrApiKey: "flickr",
+  youtubeUrl: "youtube",
+  twitterUrl: "twitter"
+};
+
+const CONSOLE_SERVICE_TO_SYSTEM_ID: Record<string, string> = {
+  mongodbAtlas: "mongodbAtlas",
+  flyIo: "flyIo",
+  aws: "awsS3",
+  cloudflare: "cloudflare",
+  brevo: "brevo",
+  googleCloud: "googleMaps",
+  osDataHub: "osDataHub",
+  meta: "metaFacebookInstagram",
+  meetup: "meetup"
+};
+
+export function systemIdForSiteField(field: EstateRebuildSiteFieldDefinition): string | null {
+  if (field.systemId) {
+    return field.systemId;
+  } else if (SITE_FIELD_SYSTEM_BY_FIELD_ID[field.fieldId]) {
+    return SITE_FIELD_SYSTEM_BY_FIELD_ID[field.fieldId];
+  } else if (field.fieldId.startsWith("consoleAccess.")) {
+    const serviceId = field.fieldId.split(".")[1];
+    return CONSOLE_SERVICE_TO_SYSTEM_ID[serviceId] || serviceId || null;
+  } else {
+    return null;
+  }
+}
+
 export const THIRD_PARTY_SYSTEMS: EstateRebuildThirdPartySystem[] = [
   {
     systemId: "mongodbAtlas",

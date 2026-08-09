@@ -4,15 +4,33 @@ import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { keys } from "es-toolkit/compat";
+import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
+  faBoxArchive,
+  faBriefcase,
+  faBuilding,
+  faChartLine,
   faCheck,
   faCircleCheck,
   faCircleExclamation,
   faCopy,
+  faDesktop,
   faDownload,
   faExternalLinkAlt,
+  faFolderOpen,
+  faGlobe,
+  faHouse,
+  faIdCard,
+  faKey,
+  faPlay,
+  faPlug,
   faRotate,
-  faSave
+  faSave,
+  faServer,
+  faShieldHalved,
+  faTableList,
+  faUser,
+  faUserLock
 } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -20,12 +38,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import {
   ConsoleAccessCredentialField,
-  ConsoleAccessDocument,
   ConsoleAccessEnvironmentListItem,
   ConsoleAccessIdentifierInfo,
   ConsoleAccessLoginView,
+  ConsoleAccessResolvedUrlInfo,
   ConsoleAccessServiceInfo,
   ConsoleAccessTableRow,
+  ConsoleAccessUrlIconKey,
   ConsoleSharedIdentifierGroup,
   EstateRebuildCaptureFormat,
   EstateRebuildCaptureSummary,
@@ -50,10 +69,15 @@ import { LoginRequiredComponent } from "../../../modules/common/login-required/l
 import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
-import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
+import {
+  SortableTableColumn,
+  SortableTableSortState
+} from "../../../modules/common/sortable-table/sortable-table.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
-import { VendorSystemSelectComponent } from "../../../modules/common/vendor-system-select/vendor-system-select.component";
+import {
+  VendorSystemSelectComponent
+} from "../../../modules/common/vendor-system-select/vendor-system-select.component";
 
 const PLATFORM_SCOPE = "platform";
 const CONSOLE_SCOPE_ALL = "all";
@@ -227,6 +251,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                     <h3 class="h5 mb-2">Third-party systems</h3>
                     <p class="text-muted mb-3">
                       One row per integrated system: what it does, what is held, and where it lives in config.
+                      Open site values for a system to compare API keys and config across every environment.
                     </p>
                     <app-sortable-table
                       [columns]="systemsColumns"
@@ -247,6 +272,15 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                       </ng-template>
                       <ng-template appSortableTableCell="configPaths" let-row>
                         <code>{{ row.configPaths }}</code>
+                      </ng-template>
+                      <ng-template appSortableTableCell="actions" let-row>
+                        <button type="button"
+                                class="btn btn-quiet btn-sm console-copy-btn"
+                                (click)="openSiteValuesForSystem(row.systemId)"
+                                tooltip="Site values for this system"
+                                container="body">
+                          <fa-icon [icon]="faTableList" size="xs"></fa-icon>
+                        </button>
                       </ng-template>
                     </app-sortable-table>
                   }
@@ -310,10 +344,20 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                   @if (auditSectionTab === auditTabFields) {
                     <h3 class="h5 mb-2">Site values</h3>
                     <p class="text-muted mb-3">
-                      Runtime, application, people and console fields for every site. Filter to find gaps.
+                      Runtime, application, people and console fields for every site.
+                      Pick a third-party system to compare API keys and related config across environments.
                     </p>
                     <div class="row g-2 mb-3 align-items-end">
                       <div class="col-md-3">
+                        <app-vendor-system-select
+                          id="filter-system"
+                          name="filterSystem"
+                          label="System"
+                          [items]="inventorySystemFilterItems"
+                          [value]="filterSystem"
+                          (valueChange)="setInventorySystemFilter($event)"/>
+                      </div>
+                      <div class="col-md-2">
                         <label class="form-label" for="filter-env">Environment</label>
                         <select id="filter-env"
                                 class="form-select"
@@ -353,7 +397,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                           <option [value]="errorStatus">error</option>
                         </select>
                       </div>
-                      <div class="col-md-3">
+                      <div class="col-md-2">
                         <label class="form-label" for="filter-search">Search</label>
                         <input id="filter-search"
                                type="search"
@@ -363,8 +407,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                name="filterSearch"
                                placeholder="Field, category, value…">
                       </div>
-                      <div class="col-md-2 d-flex align-items-end">
-                        <span class="era-count-pill">{{ filteredSiteCapture().length }} / {{ inventory.siteCapture.length }}</span>
+                      <div class="col-md-1 d-flex align-items-end">
+                        <span class="era-count-pill">{{ filteredSiteCapture().length }}</span>
                       </div>
                     </div>
                     <app-sortable-table
@@ -488,17 +532,18 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                   </div>
                 </div>
 
-                @if (hoistedSharedIdentifierGroups().length) {
+              @if (hoistedSharedGroups().length) {
                   <div class="console-shared-panel mb-3">
                     <div class="console-shared-panel-title">
                       Shared across all environments
                       <span class="console-shared-badge">Shared</span>
                     </div>
                     <p class="console-shared-panel-hint mb-2">
-                      Parent account values are not missing from each site row - each is stored once here and applies to every environment below.
+                      Parent account and console login values are not missing from each site row - each is stored once
+                      here and applies to every environment below.
                     </p>
                     <div class="console-shared-panel-groups">
-                      @for (group of hoistedSharedIdentifierGroups(); track group.serviceId) {
+                      @for (group of hoistedSharedGroups(); track group.serviceId) {
                         <div class="console-shared-panel-group">
                           @if (showSharedGroupHeading()) {
                             <div class="console-shared-panel-group-heading">
@@ -507,7 +552,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                             </div>
                           }
                           <div class="console-shared-panel-fields"
-                               [class.console-shared-panel-fields-single]="group.identifiers.length === 1">
+                               [class.console-shared-panel-fields-wide]="group.sharedCredentials || group.identifiers.length > 1">
                             @for (identifier of group.identifiers; track identifier.key) {
                               <label class="console-field">
                                 <span class="form-label">
@@ -529,6 +574,49 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                 </span>
                               </label>
                             }
+                            @if (group.sharedCredentials) {
+                              <label class="console-field">
+                                <span class="form-label">
+                                  Username
+                                  <span class="console-shared-badge">Once for all sites</span>
+                                </span>
+                                <input type="text"
+                                       class="form-control"
+                                       [class.console-shared-filled]="!!loginFieldValue(platformScope, group.serviceId, loginField)"
+                                       [ngModel]="loginFieldValue(platformScope, group.serviceId, loginField)"
+                                       (ngModelChange)="setLoginField(platformScope, group.serviceId, loginField, $event)"
+                                       [name]="'login-shared-' + group.serviceId"
+                                       autocomplete="off">
+                              </label>
+                              <label class="console-field console-shared-panel-password">
+                                <span class="form-label">
+                                  Password
+                                  <span class="console-shared-badge">Once for all sites</span>
+                                </span>
+                                <app-secret-input
+                                  [id]="'password-shared-' + group.serviceId"
+                                  [ngModel]="loginFieldValue(platformScope, group.serviceId, passwordField)"
+                                  (ngModelChange)="setLoginField(platformScope, group.serviceId, passwordField, $event)"
+                                  [name]="'password-shared-' + group.serviceId">
+                                </app-secret-input>
+                              </label>
+                              <label class="console-field console-shared-panel-notes">
+                                <span class="form-label">
+                                  Notes
+                                  <span class="console-shared-badge">Once for all sites</span>
+                                </span>
+                                <input type="text"
+                                       class="form-control"
+                                       [class.console-shared-filled]="!!loginFieldValue(platformScope, group.serviceId, notesField)"
+                                       [ngModel]="loginFieldValue(platformScope, group.serviceId, notesField)"
+                                       (ngModelChange)="setLoginField(platformScope, group.serviceId, notesField, $event)"
+                                       [name]="'notes-shared-' + group.serviceId"
+                                       autocomplete="off">
+                                <span class="console-shared-hint">
+                                  Same parent console login for every site - not missing; stored once as platform shared
+                                </span>
+                              </label>
+                            }
                           </div>
                         </div>
                       }
@@ -539,7 +627,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                 @if (layoutWidth === layoutWidthWide) {
                   <div class="console-access-table"
                        [class.console-access-table-no-system]="!consoleSystemColumnVisible()"
-                       [class.console-access-table-shared-hoisted]="hoistedSharedIdentifierGroups().length > 0">
+                       [class.console-access-table-shared-hoisted]="hoistedSharedGroups().length > 0"
+                       [class.console-access-table-no-credentials]="hideCredentialColumns()">
                     <app-sortable-table
                       [columns]="consoleTableColumns()"
                       [rows]="consoleTableRows()"
@@ -590,28 +679,49 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                         </div>
                       </ng-template>
                       <ng-template appSortableTableCell="login" let-row>
-                        <input type="text"
-                               class="form-control"
-                               [ngModel]="loginFor(row.scope, row.serviceId).login"
-                               (ngModelChange)="setLoginField(row.scope, row.serviceId, loginField, $event)"
-                               [name]="'login-wide-' + row.rowId"
-                               autocomplete="off">
+                        @if (credentialsHoistedForRow(row)) {
+                          <span class="console-shared-cell-note">
+                            <span class="console-shared-badge">Shared</span>
+                            above
+                          </span>
+                        } @else {
+                          <input type="text"
+                                 class="form-control"
+                                 [ngModel]="loginFieldValue(row.scope, row.serviceId, loginField)"
+                                 (ngModelChange)="setLoginField(row.scope, row.serviceId, loginField, $event)"
+                                 [name]="'login-wide-' + row.rowId"
+                                 autocomplete="off">
+                        }
                       </ng-template>
                       <ng-template appSortableTableCell="password" let-row>
-                        <app-secret-input
-                          [id]="'password-wide-' + row.rowId"
-                          [ngModel]="loginFor(row.scope, row.serviceId).password"
-                          (ngModelChange)="setLoginField(row.scope, row.serviceId, passwordField, $event)"
-                          [name]="'password-wide-' + row.rowId">
-                        </app-secret-input>
+                        @if (credentialsHoistedForRow(row)) {
+                          <span class="console-shared-cell-note">
+                            <span class="console-shared-badge">Shared</span>
+                            above
+                          </span>
+                        } @else {
+                          <app-secret-input
+                            [id]="'password-wide-' + row.rowId"
+                            [ngModel]="loginFieldValue(row.scope, row.serviceId, passwordField)"
+                            (ngModelChange)="setLoginField(row.scope, row.serviceId, passwordField, $event)"
+                            [name]="'password-wide-' + row.rowId">
+                          </app-secret-input>
+                        }
                       </ng-template>
                       <ng-template appSortableTableCell="notes" let-row>
-                        <input type="text"
-                               class="form-control"
-                               [ngModel]="loginFor(row.scope, row.serviceId).notes"
-                               (ngModelChange)="setLoginField(row.scope, row.serviceId, notesField, $event)"
-                               [name]="'notes-wide-' + row.rowId"
-                               autocomplete="off">
+                        @if (credentialsHoistedForRow(row)) {
+                          <span class="console-shared-cell-note">
+                            <span class="console-shared-badge">Shared</span>
+                            above
+                          </span>
+                        } @else {
+                          <input type="text"
+                                 class="form-control"
+                                 [ngModel]="loginFieldValue(row.scope, row.serviceId, notesField)"
+                                 (ngModelChange)="setLoginField(row.scope, row.serviceId, notesField, $event)"
+                                 [name]="'notes-wide-' + row.rowId"
+                                 autocomplete="off">
+                        }
                       </ng-template>
                       <ng-template appSortableTableCell="links" let-row>
                         <div class="console-table-links">
@@ -622,7 +732,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                class="console-table-link"
                                [tooltip]="link.label"
                                container="body">
-                              <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+                              <fa-icon [icon]="linkIcon(link)"></fa-icon>
                               <span class="console-table-link-text">{{ link.label }}</span>
                             </a>
                           }
@@ -661,13 +771,13 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                  class="btn btn-quiet btn-sm console-copy-btn"
                                  [tooltip]="link.label"
                                  container="body">
-                                <fa-icon [icon]="faExternalLinkAlt" size="xs"></fa-icon>
+                                <fa-icon [icon]="linkIcon(link)" size="xs"></fa-icon>
                               </a>
                             }
                             <button type="button"
                                     class="btn btn-quiet btn-sm console-copy-btn"
                                     (click)="copyAllForRow(row)"
-                                    [tooltip]="copiedServiceId === row.rowId ? 'Copied' : 'Copy'"
+                                    [tooltip]="copiedServiceId === row.rowId ? 'Copied credentials' : 'Copy credentials'"
                                     container="body">
                               <fa-icon [icon]="copiedServiceId === row.rowId ? faCheck : faCopy" size="xs"></fa-icon>
                             </button>
@@ -702,35 +812,42 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               }
                             </div>
                           }
-                          <div class="console-card-credentials">
+                          @if (!credentialsHoistedForRow(row)) {
+                            <div class="console-card-credentials">
+                              <label class="console-field">
+                                <span class="form-label">Username</span>
+                                <input type="text"
+                                       class="form-control"
+                                       [ngModel]="loginFieldValue(row.scope, row.serviceId, loginField)"
+                                       (ngModelChange)="setLoginField(row.scope, row.serviceId, loginField, $event)"
+                                       [name]="'login-card-' + row.rowId"
+                                       autocomplete="off">
+                              </label>
+                              <label class="console-field">
+                                <span class="form-label">Password</span>
+                                <app-secret-input
+                                  [id]="'password-card-' + row.rowId"
+                                  [ngModel]="loginFieldValue(row.scope, row.serviceId, passwordField)"
+                                  (ngModelChange)="setLoginField(row.scope, row.serviceId, passwordField, $event)"
+                                  [name]="'password-card-' + row.rowId">
+                                </app-secret-input>
+                              </label>
+                            </div>
                             <label class="console-field">
-                              <span class="form-label">Username</span>
+                              <span class="form-label">Notes</span>
                               <input type="text"
                                      class="form-control"
-                                     [ngModel]="loginFor(row.scope, row.serviceId).login"
-                                     (ngModelChange)="setLoginField(row.scope, row.serviceId, loginField, $event)"
-                                     [name]="'login-card-' + row.rowId"
+                                     [ngModel]="loginFieldValue(row.scope, row.serviceId, notesField)"
+                                     (ngModelChange)="setLoginField(row.scope, row.serviceId, notesField, $event)"
+                                     [name]="'notes-card-' + row.rowId"
                                      autocomplete="off">
                             </label>
-                            <label class="console-field">
-                              <span class="form-label">Password</span>
-                              <app-secret-input
-                                [id]="'password-card-' + row.rowId"
-                                [ngModel]="loginFor(row.scope, row.serviceId).password"
-                                (ngModelChange)="setLoginField(row.scope, row.serviceId, passwordField, $event)"
-                                [name]="'password-card-' + row.rowId">
-                              </app-secret-input>
-                            </label>
-                          </div>
-                          <label class="console-field">
-                            <span class="form-label">Notes</span>
-                            <input type="text"
-                                   class="form-control"
-                                   [ngModel]="loginFor(row.scope, row.serviceId).notes"
-                                   (ngModelChange)="setLoginField(row.scope, row.serviceId, notesField, $event)"
-                                   [name]="'notes-card-' + row.rowId"
-                                   autocomplete="off">
-                          </label>
+                          } @else {
+                            <p class="console-card-shared-credentials-note mb-0">
+                              <span class="console-shared-badge">Shared</span>
+                              Username, password and notes are edited once above.
+                            </p>
+                          }
                         </div>
                       </div>
                     }
@@ -850,6 +967,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     {value: PageMode.OFFLINE_EXPORT, label: "Offline export"}
   ];
   filterEnvironment = "";
+  filterSystem = "all";
   filterLayer = "";
   filterConfigured = "";
   filterSearch = "";
@@ -863,6 +981,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   consoleEnvironments: ConsoleAccessEnvironmentListItem[] = [];
   consoleServices: ConsoleAccessServiceInfo[] = [];
   consoleSystemFilterItems: VendorSystemSelectItem[] = [{value: "all", label: "All systems"}];
+  inventorySystemFilterItems: VendorSystemSelectItem[] = [{value: "all", label: "All systems"}];
   consoleAccessByScope: Record<string, Record<string, ConsoleAccessLoginView>> = {};
   copiedServiceId: string = null;
   copiedScopeKey: string = null;
@@ -888,7 +1007,8 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     {key: "function", label: "Function", sortKey: "function"},
     {key: "informationHeld", label: "Information held", sortKey: "informationHeld"},
     {key: "configPaths", label: "Config paths", sortKey: "configPaths"},
-    {key: "scope", label: "Scope", sortKey: "scope", cellGetter: row => row.scope}
+    {key: "scope", label: "Scope", sortKey: "scope", cellGetter: row => row.scope},
+    {key: "actions", label: "", cellClass: "console-col-actions", headerClass: "console-col-actions"}
   ];
 
   sitesColumns: SortableTableColumn[] = [
@@ -956,7 +1076,28 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   protected readonly faCopy = faCopy;
   protected readonly faCheck = faCheck;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
+  protected readonly faTableList = faTableList;
   protected readonly faCircleCheck = faCircleCheck;
+  private readonly consoleLinkIcons: Record<ConsoleAccessUrlIconKey, IconDefinition> = {
+    [ConsoleAccessUrlIconKey.OVERVIEW]: faFolderOpen,
+    [ConsoleAccessUrlIconKey.NETWORK]: faShieldHalved,
+    [ConsoleAccessUrlIconKey.USERS]: faUserLock,
+    [ConsoleAccessUrlIconKey.DASHBOARD]: faDesktop,
+    [ConsoleAccessUrlIconKey.METRICS]: faChartLine,
+    [ConsoleAccessUrlIconKey.SECRETS]: faKey,
+    [ConsoleAccessUrlIconKey.ORGANISATION]: faBuilding,
+    [ConsoleAccessUrlIconKey.CONSOLE]: faDesktop,
+    [ConsoleAccessUrlIconKey.BUCKET]: faBoxArchive,
+    [ConsoleAccessUrlIconKey.ACCOUNT]: faUser,
+    [ConsoleAccessUrlIconKey.ZONE]: faGlobe,
+    [ConsoleAccessUrlIconKey.DNS]: faServer,
+    [ConsoleAccessUrlIconKey.APIS]: faPlug,
+    [ConsoleAccessUrlIconKey.CREDENTIALS]: faIdCard,
+    [ConsoleAccessUrlIconKey.BUSINESS]: faBriefcase,
+    [ConsoleAccessUrlIconKey.REPOSITORIES]: faBoxArchive,
+    [ConsoleAccessUrlIconKey.ACTIONS]: faPlay,
+    [ConsoleAccessUrlIconKey.HOME]: faHouse
+  };
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly allChoice = EstateRebuildDownloadChoice.ALL;
   protected readonly xlsxChoice = EstateRebuildDownloadChoice.XLSX;
@@ -1053,6 +1194,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     this.consoleSortKey = this.resolveConsoleSortKey(params.get(StoredValue.CONSOLE_SORT));
     this.consoleSortDirection = this.resolveSortDirection(params.get(StoredValue.CONSOLE_SORT_ORDER));
     this.consoleServiceFilter = this.resolveConsoleServiceFilter(params.get(StoredValue.SYSTEM));
+    this.filterSystem = this.resolveInventorySystemFilter(params.get(StoredValue.SYSTEM));
     this.consoleFilledOnly = this.resolveBooleanParam(params.get(StoredValue.FILLED_ONLY));
     this.filterEnvironment = params.get(StoredValue.FILTER) || "";
     this.filterLayer = params.get(StoredValue.LAYER) || "";
@@ -1198,6 +1340,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
           EstateRebuildCaptureFormat.HTML
         ]
       };
+      this.refreshInventorySystemFilterItems();
     } catch (error) {
       this.logger.error("Failed to load platform configuration inventory:", error);
       this.notify.error({
@@ -1210,6 +1353,46 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     }
   }
 
+  private refreshInventorySystemFilterItems(): void {
+    const systems = (this.inventory?.thirdPartySystems || []).map(system => ({
+      value: system.systemId,
+      label: system.name,
+      systemId: system.systemId,
+      brandKey: system.systemId
+    }));
+    this.inventorySystemFilterItems = [{value: "all", label: "All systems"}, ...systems];
+    this.filterSystem = this.resolveInventorySystemFilter(this.filterSystem === "all" ? null : this.filterSystem);
+  }
+
+  setInventorySystemFilter(systemId: string): void {
+    const next = systemId || "all";
+    if (next !== this.filterSystem) {
+      this.filterSystem = next;
+      this.writePageStateToUrl();
+    }
+  }
+
+  openSiteValuesForSystem(systemId: string): void {
+    this.auditSectionTab = AuditSectionTab.FIELDS;
+    this.filterSystem = systemId || "all";
+    this.auditSortKey = AUDIT_SECTION_DEFAULT_SORT[AuditSectionTab.FIELDS];
+    this.writePageStateToUrl();
+  }
+
+  private siteCaptureMatchesSystem(row: EstateRebuildSiteCaptureRow, systemId: string): boolean {
+    if (!systemId || systemId === "all") {
+      return true;
+    } else if (row.systemId) {
+      return row.systemId === systemId;
+    } else {
+      const haystack = [row.fieldId, row.category, row.field, row.whereHeld].join(" ").toLowerCase();
+      return haystack.includes(systemId.toLowerCase())
+        || (systemId === "awsS3" && (haystack.includes("aws") || haystack.includes("s3")))
+        || (systemId === "metaFacebookInstagram" && (haystack.includes("facebook") || haystack.includes("instagram") || haystack.includes("meta")))
+        || (systemId === "walksManager" && (haystack.includes("walks manager") || haystack.includes("wmapi") || haystack.includes("wm")));
+    }
+  }
+
   filteredSiteCapture(): EstateRebuildSiteCaptureRow[] {
     if (!this.inventory) {
       return [];
@@ -1217,6 +1400,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       const search = (this.filterSearch || "").trim().toLowerCase();
       return this.inventory.siteCapture.filter(row => {
         const envOk = !this.filterEnvironment || row.environment === this.filterEnvironment;
+        const systemOk = this.siteCaptureMatchesSystem(row, this.filterSystem);
         const layerOk = !this.filterLayer || row.layer === this.filterLayer;
         const configuredOk = !this.filterConfigured || row.configured === this.filterConfigured;
         const searchOk = !search
@@ -1224,7 +1408,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
             .join(" ")
             .toLowerCase()
             .includes(search);
-        return envOk && layerOk && configuredOk && searchOk;
+        return envOk && systemOk && layerOk && configuredOk && searchOk;
       });
     }
   }
@@ -1275,6 +1459,47 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     }
   }
 
+  private resolveInventorySystemFilter(candidate: string | null): string {
+    if (!candidate || candidate === "all") {
+      return "all";
+    } else {
+      const kebabCandidate = toKebabCase(candidate);
+      const systems = this.inventory?.thirdPartySystems || [];
+      const matched = systems.find(system =>
+        system.systemId === candidate
+        || toKebabCase(system.systemId) === kebabCandidate
+        || toKebabCase(system.name) === kebabCandidate
+      );
+      if (matched) {
+        return matched.systemId;
+      } else if (candidate === "aws" || kebabCandidate === "aws" || kebabCandidate === "s3") {
+        return "awsS3";
+      } else if (candidate === "meta" || kebabCandidate === "meta") {
+        return "metaFacebookInstagram";
+      } else {
+        return candidate;
+      }
+    }
+  }
+
+  private systemQueryParam(): string | null {
+    if (this.pageMode === PageMode.SYSTEM_LOGINS) {
+      if (this.consoleServiceFilter === "all" || !this.consoleServiceFilter) {
+        return null;
+      } else {
+        return this.queryIdentifier(this.consoleServiceFilter);
+      }
+    } else if (this.pageMode === PageMode.INVENTORY) {
+      if (this.filterSystem === "all" || !this.filterSystem) {
+        return null;
+      } else {
+        return this.queryIdentifier(this.filterSystem);
+      }
+    } else {
+      return null;
+    }
+  }
+
   private writePageStateToUrl(): void {
     const queryParams = {
       [StoredValue.TAB]: this.pageMode,
@@ -1285,9 +1510,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       [StoredValue.SORT_ORDER]: this.sortDirectionParam(this.auditSortDirection),
       [StoredValue.CONSOLE_SORT]: this.queryIdentifier(this.consoleSortKey),
       [StoredValue.CONSOLE_SORT_ORDER]: this.sortDirectionParam(this.consoleSortDirection),
-      [StoredValue.SYSTEM]: this.consoleServiceFilter === "all"
-        ? null
-        : this.queryIdentifier(this.consoleServiceFilter),
+      [StoredValue.SYSTEM]: this.systemQueryParam(),
       [StoredValue.FILLED_ONLY]: this.consoleFilledOnly ? this.queryTrue : null,
       [StoredValue.FILTER]: this.filterEnvironment || null,
       [StoredValue.LAYER]: this.filterLayer || null,
@@ -1350,46 +1573,69 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     return this.consoleServiceFilter === "all" || !this.consoleServiceFilter;
   }
 
-  consoleTableColumns(): SortableTableColumn[] {
-    if (this.consoleSystemColumnVisible()) {
-      return this.consoleColumnsAll;
-    } else {
-      return this.consoleColumnsAll.filter(column => column.key !== "system");
-    }
+  serviceHasSharedCredentials(serviceId: string): boolean {
+    return !!(this.consoleServices.find(service => service.serviceId === serviceId)?.sharedCredentials);
   }
 
-  shouldHoistSharedIdentifiers(): boolean {
+  shouldHoistSharedValues(): boolean {
     return this.consoleScope === CONSOLE_SCOPE_ALL;
+  }
+
+  credentialsHoistedForRow(row: ConsoleAccessTableRow): boolean {
+    return this.shouldHoistSharedValues() && this.serviceHasSharedCredentials(row.serviceId);
+  }
+
+  hideCredentialColumns(): boolean {
+    return this.shouldHoistSharedValues()
+      && !this.consoleSystemColumnVisible()
+      && this.serviceHasSharedCredentials(this.consoleServiceFilter);
+  }
+
+  consoleTableColumns(): SortableTableColumn[] {
+    const withoutSystem = this.consoleSystemColumnVisible()
+      ? this.consoleColumnsAll
+      : this.consoleColumnsAll.filter(column => column.key !== "system");
+    if (this.hideCredentialColumns()) {
+      return withoutSystem.filter(column =>
+        column.key !== "login" && column.key !== "password" && column.key !== "notes"
+      );
+    } else {
+      return withoutSystem;
+    }
   }
 
   showSharedGroupHeading(): boolean {
     return this.consoleSystemColumnVisible();
   }
 
-  hoistedSharedIdentifierGroups(): ConsoleSharedIdentifierGroup[] {
-    if (!this.shouldHoistSharedIdentifiers()) {
+  private filteredConsoleServices(): ConsoleAccessServiceInfo[] {
+    return this.consoleServiceFilterOptions().filter(service => {
+      if (this.consoleServiceFilter === "all" || !this.consoleServiceFilter) {
+        return true;
+      } else {
+        return service.serviceId === this.consoleServiceFilter;
+      }
+    });
+  }
+
+  hoistedSharedGroups(): ConsoleSharedIdentifierGroup[] {
+    if (!this.shouldHoistSharedValues()) {
       return [];
     } else {
-      const services = this.consoleServiceFilterOptions().filter(service => {
-        if (this.consoleServiceFilter === "all" || !this.consoleServiceFilter) {
-          return true;
-        } else {
-          return service.serviceId === this.consoleServiceFilter;
-        }
-      });
-      return services
+      return this.filteredConsoleServices()
         .map(service => ({
           serviceId: service.serviceId,
           serviceName: this.serviceFilterLabel(service.name),
-          identifiers: (service.identifiers || []).filter(item => item.shared)
+          identifiers: (service.identifiers || []).filter(item => item.shared),
+          sharedCredentials: !!service.sharedCredentials
         }))
-        .filter(group => group.identifiers.length > 0);
+        .filter(group => group.identifiers.length > 0 || group.sharedCredentials);
     }
   }
 
   rowSiteIdentifiers(row: ConsoleAccessTableRow): ConsoleAccessIdentifierInfo[] {
     const identifiers = row.identifiers || [];
-    if (this.shouldHoistSharedIdentifiers()) {
+    if (this.shouldHoistSharedValues()) {
       return identifiers.filter(item => !item.shared);
     } else {
       return identifiers;
@@ -1427,9 +1673,13 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   }
 
   private rowHasContent(row: ConsoleAccessTableRow): boolean {
-    const entry = this.loginFor(row.scope, row.serviceId);
-    const hasIdentifiers = (row.identifiers || []).some(item => !!(entry.identifiers?.[item.key] || "").trim());
-    return !!(entry.login || entry.password || entry.notes || hasIdentifiers);
+    const hasLogin = !!this.loginFieldValue(row.scope, row.serviceId, ConsoleAccessCredentialField.LOGIN);
+    const hasPassword = !!this.loginFieldValue(row.scope, row.serviceId, ConsoleAccessCredentialField.PASSWORD);
+    const hasNotes = !!this.loginFieldValue(row.scope, row.serviceId, ConsoleAccessCredentialField.NOTES);
+    const hasIdentifiers = (row.identifiers || []).some(item =>
+      !!(this.identifierValue(row.scope, row.serviceId, item.key) || "").trim()
+    );
+    return !!(hasLogin || hasPassword || hasNotes || hasIdentifiers);
   }
 
   setConsoleServiceFilter(serviceId: string): void {
@@ -1475,15 +1725,82 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     return this.consoleAccessByScope[scope][serviceId];
   }
 
+  private credentialTargetScope(scope: string, serviceId: string): string {
+    if (this.serviceHasSharedCredentials(serviceId)) {
+      return PLATFORM_SCOPE;
+    } else {
+      return scope;
+    }
+  }
+
+  loginFieldValue(scope: string, serviceId: string, field: ConsoleAccessCredentialField): string {
+    if (this.serviceHasSharedCredentials(serviceId)) {
+      const platformValue = (this.loginFor(PLATFORM_SCOPE, serviceId)[field] || "").trim();
+      if (platformValue) {
+        return this.loginFor(PLATFORM_SCOPE, serviceId)[field] || "";
+      } else {
+        const siteValue = (this.loginFor(scope, serviceId)[field] || "").trim();
+        if (siteValue) {
+          return this.loginFor(scope, serviceId)[field] || "";
+        } else {
+          return this.firstSiteLoginField(serviceId, field);
+        }
+      }
+    } else {
+      return this.loginFor(scope, serviceId)[field] || "";
+    }
+  }
+
   setLoginField(scope: string, serviceId: string, field: ConsoleAccessCredentialField, value: string): void {
-    const current = this.loginFor(scope, serviceId);
+    const targetScope = this.credentialTargetScope(scope, serviceId);
+    const current = this.loginFor(targetScope, serviceId);
     this.consoleAccessByScope = {
       ...this.consoleAccessByScope,
-      [scope]: {
-        ...this.consoleAccessByScope[scope],
+      [targetScope]: {
+        ...this.consoleAccessByScope[targetScope],
         [serviceId]: {...current, [field]: value}
       }
     };
+  }
+
+  private firstSiteLoginField(serviceId: string, field: ConsoleAccessCredentialField): string {
+    return this.consoleEnvironments
+      .map(env => (this.loginFor(env.environment, serviceId)[field] || "").trim())
+      .find(value => !!value) || "";
+  }
+
+  private firstSiteIdentifier(serviceId: string, key: string): string {
+    return this.consoleEnvironments
+      .map(env => (this.loginFor(env.environment, serviceId).identifiers?.[key] || "").trim())
+      .find(value => !!value) || "";
+  }
+
+  private promoteSharedValuesFromSites(): void {
+    this.consoleServices.forEach(service => {
+      (service.identifiers || []).filter(item => item.shared).forEach(item => {
+        if (!(this.platformIdentifierValue(service.serviceId, item.key) || "").trim()) {
+          const fromSite = this.firstSiteIdentifier(service.serviceId, item.key);
+          if (fromSite) {
+            this.setIdentifier(PLATFORM_SCOPE, service.serviceId, item.key, fromSite);
+          }
+        }
+      });
+      if (service.sharedCredentials) {
+        const credentialFields = [
+          ConsoleAccessCredentialField.LOGIN,
+          ConsoleAccessCredentialField.PASSWORD,
+          ConsoleAccessCredentialField.NOTES
+        ];
+        credentialFields.forEach(field => {
+          if (!(this.loginFor(PLATFORM_SCOPE, service.serviceId)[field] || "").trim()) {
+            const fromSite = this.firstSiteLoginField(service.serviceId, field);
+            if (fromSite) {
+              this.setLoginField(PLATFORM_SCOPE, service.serviceId, field, fromSite);
+            }
+          }
+        });
+      }
+    });
   }
 
   private identifierDefinition(serviceId: string, key: string): ConsoleAccessIdentifierInfo | null {
@@ -1505,8 +1822,13 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       return local;
     } else {
       const definition = this.identifierDefinition(serviceId, key);
-      if (definition?.shared && scope !== PLATFORM_SCOPE) {
-        return this.platformIdentifierValue(serviceId, key);
+      if (definition?.shared) {
+        const platformValue = this.platformIdentifierValue(serviceId, key);
+        if (platformValue) {
+          return platformValue;
+        } else {
+          return this.firstSiteIdentifier(serviceId, key);
+        }
       } else {
         return "";
       }
@@ -1565,26 +1887,35 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     }, {} as Record<string, string>);
   }
 
-  resolvedUrlsFor(row: ConsoleAccessTableRow): Array<{label: string; url: string}> {
+  resolvedUrlsFor(row: ConsoleAccessTableRow): ConsoleAccessResolvedUrlInfo[] {
     const identifiers = this.effectiveIdentifiers(row.scope, row.serviceId, row.identifiers || []);
-    return (row.urls || [])
-      .map(template => {
-        const placeholders: string[] = template.urlTemplate.match(/\{([a-zA-Z0-9_]+)\}/g) || [];
-        const missing = placeholders.some(token => {
+    return (row.urls || []).reduce((acc: ConsoleAccessResolvedUrlInfo[], template) => {
+      const placeholders: string[] = template.urlTemplate.match(/\{([a-zA-Z0-9_]+)\}/g) || [];
+      const missing = placeholders.some(token => {
+        const key = token.slice(1, -1);
+        return !identifiers[key];
+      });
+      if (!(missing && placeholders.length > 0)) {
+        const url = placeholders.reduce((current: string, token: string) => {
           const key = token.slice(1, -1);
-          return !identifiers[key];
+          return current.split(token).join(encodeURIComponent(identifiers[key]));
+        }, template.urlTemplate);
+        acc.push({
+          label: template.label,
+          url,
+          iconKey: template.iconKey || null
         });
-        if (missing && placeholders.length > 0) {
-          return null;
-        } else {
-          const url = placeholders.reduce((current: string, token: string) => {
-            const key = token.slice(1, -1);
-            return current.split(token).join(encodeURIComponent(identifiers[key]));
-          }, template.urlTemplate);
-          return {label: template.label, url};
-        }
-      })
-      .filter((item): item is {label: string; url: string} => item !== null);
+      }
+      return acc;
+    }, []);
+  }
+
+  linkIcon(link: ConsoleAccessResolvedUrlInfo): IconDefinition {
+    if (link.iconKey && this.consoleLinkIcons[link.iconKey]) {
+      return this.consoleLinkIcons[link.iconKey];
+    } else {
+      return faExternalLinkAlt;
+    }
   }
 
   copyAllForRow(row: ConsoleAccessTableRow): void {
@@ -1622,10 +1953,9 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   }
 
   private formatRowCredentials(row: ConsoleAccessTableRow): string {
-    const entry = this.loginFor(row.scope, row.serviceId);
-    const username = entry.login || "";
-    const password = entry.password || "";
-    const notes = entry.notes || "";
+    const username = this.loginFieldValue(row.scope, row.serviceId, ConsoleAccessCredentialField.LOGIN);
+    const password = this.loginFieldValue(row.scope, row.serviceId, ConsoleAccessCredentialField.PASSWORD);
+    const notes = this.loginFieldValue(row.scope, row.serviceId, ConsoleAccessCredentialField.NOTES);
     const identifierLines = (row.identifiers || []).map(identifier =>
       `${identifier.label}: ${this.identifierValue(row.scope, row.serviceId, identifier.key)}`
     );
@@ -1704,6 +2034,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       });
       this.consoleAccessByScope = byScope;
       this.consoleScope = scope;
+      this.promoteSharedValuesFromSites();
       this.refreshConsoleSystemFilterItems();
     } catch (error) {
       this.logger.error("Failed to load system logins:", error);
@@ -1727,7 +2058,9 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       const identifiers = entry.identifiers || {};
       const allowedIdentifiers = scope === PLATFORM_SCOPE && service.scope === "per-site"
         ? (service.identifiers || []).filter(item => item.shared)
-        : (service.identifiers || []);
+        : scope !== PLATFORM_SCOPE
+          ? (service.identifiers || []).filter(item => !item.shared)
+          : (service.identifiers || []);
       const cleanedIdentifiers: Record<string, string> = {};
       allowedIdentifiers.forEach(item => {
         const value = (identifiers[item.key] || "").trim();
@@ -1736,7 +2069,10 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
         }
       });
       const hasIdentifiers = keys(cleanedIdentifiers).length > 0;
-      const includeCredentials = scope !== PLATFORM_SCOPE || service.scope !== "per-site";
+      const sharedCredentials = !!service.sharedCredentials;
+      const includeCredentials = scope === PLATFORM_SCOPE
+        ? service.scope !== "per-site" || sharedCredentials
+        : !sharedCredentials;
       if (includeCredentials && (entry.login || entry.password || entry.notes || hasIdentifiers)) {
         cleaned[service.serviceId] = {
           login: entry.login || "",
@@ -1757,6 +2093,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     this.consoleBusy = true;
     this.notify.hide();
     try {
+      this.promoteSharedValuesFromSites();
       const scopes = [...new Set([...this.scopesToShow(), PLATFORM_SCOPE])];
       const documents = await Promise.all(
         scopes.map(scope =>

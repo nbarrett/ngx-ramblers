@@ -9,6 +9,7 @@
 5. **Interfaces in model files only** - never define inline in components/services
 6. **DRY** - always search for existing implementations before writing new code. Reuse and enhance, never duplicate
 7. **Never write "blacklist" or "whitelist"** (any form) in prose, tickets, commits, UI, or our identifiers. Prefer **deny / denied / deny list**, **allow / allowed / allow list**, or **block / blocked / suppressed** as fits. Third-party/wire API names (e.g. Brevo `emailBlacklisted`, Tagify `whitelist`) only at the mapping call site.
+8. **No stringly typed closed sets** - do not use string union types (`type X = "a" | "b"`) for fixed domain values (icons keys, modes, statuses, scopes, filters, layers, and similar). Use a **string enum** in a model file (`export enum X { A = "a", B = "b" }`) and reference `X.A` at call sites. One enum definition only; import it from models (including shared frontend models from the server). Exception: true open-ended user/API free text, or third-party wire types we cannot own.
 
 ## Project Overview
 
@@ -31,6 +32,7 @@
 - **Structured branching** - `if` / `else if` / `else` or one expression; no early-return / guard-clause style (enforced by `ngx/no-early-return`)
 - **UK English** in commits and docs ("centralised", "colour", "behaviour")
 - **Minimal changes** - keep patches targeted and scoped
+- **Closed value sets are enums** - string enums in model files, not string union aliases. See Critical Rule 8.
 
 ## ESLint-Enforced Bans
 
@@ -57,7 +59,8 @@ Existing early-return sites are listed in `.eslint-baselines/no-early-return.jso
 - **Commit bodies are Markdown** for every feat/fix/perf commit (release notes are generated from them via `npm run release-notes`, so write them for members reading the site's Release Notes pages). Use this exact structure, with a blank line after each heading and before each list:
   - `## What's new` - a plain-English narrative paragraph of what changed and why it matters
   - `## At a glance` - user-facing bullet points, one behaviour change each
-  - `## Technical changes` - implementation bullets for developers
+  - `## Technical changes` - short implementation bullets for developers
+- **Keep commit bodies light on technical detail** - release notes are for members, not a design dump. Prefer outcomes and behaviour over architecture, file lists, type names, and implementation steps. Put most of the weight in **What's new** and **At a glance**. **Technical changes** stays brief (a handful of bullets); do not restate the user-facing story in developer jargon, and do not catalogue every module, helper, or API touched. Identifiers in backticks only where a member-facing note still needs a concrete name (a setting, path, or command).
 - **Markdown formatting in commit bodies**: wrap code identifiers, filenames, paths, commands, endpoints, configuration keys and literal technical values in backticks. Use `-` for unordered lists. Do not flatten headings into plain text.
 - **Verify the stored message after every commit, amend or rebase** with `git log -1 --format=%B`. Git's default editor cleanup can remove Markdown headings beginning with `#`; when an editor is involved, use a cleanup mode that preserves them or commit from a message file, then confirm all three headings remain in the stored message.
 - **Trunk-based development** - all work directly on main. Never create branches or worktrees unilaterally. The only exception is Claude Swarm, which creates worktrees as part of a multi-ticket session.

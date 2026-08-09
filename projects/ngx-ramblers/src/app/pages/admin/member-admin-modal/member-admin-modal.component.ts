@@ -31,7 +31,13 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { ClipboardService } from "../../../services/clipboard.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
+import {
+  MailListAudit,
+  MailMessagingConfig,
+  MailSettingsTab,
+  MemberAdminModalTab,
+  UnsubscribesListMode
+} from "../../../models/mail.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -277,7 +283,13 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   goToUnsubscribesPage() {
     this.bsModalRef.hide();
-    this.router.navigate(["/" + AdminPath.MAIL_SETTINGS], { queryParams: { [StoredValue.TAB]: "unsubscribes" } });
+    this.router.navigate(["/" + AdminPath.MAIL_SETTINGS], {
+      queryParams: {
+        [StoredValue.TAB]: this.stringUtils.kebabCase(MailSettingsTab.UNSUBSCRIBES),
+        [StoredValue.SUB_TAB]: UnsubscribesListMode.Blocks,
+        [StoredValue.SEARCH]: this.member?.email || null
+      }
+    });
   }
 
   onMembershipDateChange(dateValue: DateValue) {

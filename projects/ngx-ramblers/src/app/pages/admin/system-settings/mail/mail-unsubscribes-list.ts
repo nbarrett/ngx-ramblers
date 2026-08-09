@@ -22,7 +22,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgClass } from "@angular/common";
-import { AdminMembersPath, AdminPath } from "../../../../models/admin-route-paths.model";
+import { AdminMembersPath } from "../../../../models/admin-route-paths.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
@@ -545,6 +545,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   public availableSenders: Sender[] = [];
   protected listNameById = new Map<number, string>();
   private committeeMembers: {email?: string; description?: string; fullName?: string}[] = [];
+  private configLoaded = false;
 
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly ALL_REASONS = ALL_REASONS;
@@ -581,8 +582,8 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
         const startDate = params[StoredValue.START_DATE];
         const endDate = params[StoredValue.END_DATE];
         const sender = params[StoredValue.SENDER];
-        if (search && !this.searchTerm) {
-          this.searchTerm = search;
+        if (search !== undefined && search !== null) {
+          this.searchTerm = search || "";
         }
         if (sort) {
           this.sortField = sort as UnsubscribeSortField;
@@ -594,7 +595,15 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
           this.reasonFilter = status;
         }
         if (subTab === UnsubscribesListMode.Blocks || subTab === UnsubscribesListMode.Unsubscribes) {
+          const previousMode = this.mode;
           this.mode = subTab as UnsubscribesListMode;
+          if (previousMode !== this.mode && this.configLoaded) {
+            if (this.mode === UnsubscribesListMode.Unsubscribes) {
+              void this.loadActivity();
+            } else {
+              void this.loadUnsubscribes();
+            }
+          }
         }
         if (startDate || endDate) {
           const fromMs = startDate ? this.dateUtils.asDateTime(startDate).startOf("day").toMillis() : this.dateFilterRange?.from;
@@ -616,10 +625,16 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
           this.logger.info("Brevo account not configured — skipping unsubscribes load");
           this.errorMessage = "Brevo account is not configured. Configure the API key on the Mail API Settings tab first.";
           this.loading = false;
-          return;
+          this.configLoaded = false;
+        } else {
+          this.configLoaded = true;
+          await this.loadAvailableSenders();
+          if (this.mode === UnsubscribesListMode.Unsubscribes) {
+            await this.loadActivity();
+          } else {
+            await this.loadUnsubscribes();
+          }
         }
-        await this.loadAvailableSenders();
-        await this.loadUnsubscribes();
       })
     );
   }

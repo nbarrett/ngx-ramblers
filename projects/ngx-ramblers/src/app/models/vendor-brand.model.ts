@@ -9,7 +9,7 @@ import {
   faXTwitter,
   faYoutube
 } from "@fortawesome/free-brands-svg-icons";
-import { faEnvelope, faRobot } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faEnvelope, faRobot } from "@fortawesome/free-solid-svg-icons";
 
 export interface VendorBrandMark {
   alt: string;
@@ -19,41 +19,54 @@ export interface VendorBrandMark {
   iconColor?: string;
 }
 
-const CONSOLE_SERVICE_BRANDS: Record<string, VendorBrandMark> = {
-  mongodbAtlas: {alt: "MongoDB", logoSrc: "assets/icons/mongodb-logo.svg", logoHeightPx: 30},
+const MARKS = {
+  mongodb: {alt: "MongoDB", logoSrc: "assets/icons/mongodb-logo.svg", logoHeightPx: 30},
   flyIo: {alt: "Fly.io", logoSrc: "assets/icons/flyio-logo.svg", logoHeightPx: 28},
   aws: {alt: "AWS", logoSrc: "assets/icons/aws-logo.svg", logoHeightPx: 26},
   cloudflare: {alt: "Cloudflare", logoSrc: "assets/icons/cloudflare-logo.svg", logoHeightPx: 26},
   brevo: {alt: "Brevo", logoSrc: "assets/images/local/brevo.ico", logoHeightPx: 22},
-  googleCloud: {alt: "Google Cloud", icon: faGoogle},
+  google: {alt: "Google", icon: faGoogle},
   osDataHub: {alt: "OS Data Hub", logoSrc: "assets/images/local/ordnance-survey.png", logoHeightPx: 26},
-  meta: {alt: "Meta", icon: faFacebook},
+  meta: {alt: "Meta", icon: faFacebook, iconColor: "#1877F2"},
   meetup: {alt: "Meetup", logoSrc: "assets/images/local/meetup.svg", logoHeightPx: 22},
-  dockerHub: {alt: "Docker Hub", icon: faDocker},
-  github: {alt: "GitHub", icon: faGithub}
-};
-
-const THIRD_PARTY_SYSTEM_BRANDS: Record<string, VendorBrandMark> = {
-  mongodbAtlas: CONSOLE_SERVICE_BRANDS.mongodbAtlas,
-  awsS3: CONSOLE_SERVICE_BRANDS.aws,
-  flyIo: CONSOLE_SERVICE_BRANDS.flyIo,
-  cloudflare: CONSOLE_SERVICE_BRANDS.cloudflare,
-  googleMaps: {alt: "Google Maps", icon: faGoogle},
-  osDataHub: CONSOLE_SERVICE_BRANDS.osDataHub,
-  recaptcha: {alt: "reCAPTCHA", icon: faGoogle},
-  brevo: CONSOLE_SERVICE_BRANDS.brevo,
-  walksManager: {alt: "Ramblers", logoSrc: "/favicon.svg", logoHeightPx: 24},
-  metaFacebookInstagram: CONSOLE_SERVICE_BRANDS.meta,
-  meetup: CONSOLE_SERVICE_BRANDS.meetup,
-  salesforce: {alt: "Salesforce", icon: faSalesforce},
-  googleAnalytics: {alt: "Google Analytics", icon: faGoogle},
-  googleSearchConsole: {alt: "Google Search Console", icon: faGoogle},
-  gmailInbox: {alt: "Gmail", icon: faEnvelope},
-  webPush: {alt: "Web Push", icon: faEnvelope},
-  flickr: {alt: "Flickr", icon: faFlickr},
+  docker: {alt: "Docker Hub", icon: faDocker, iconColor: "#2496ED"},
+  github: {alt: "GitHub", icon: faGithub},
+  ramblers: {alt: "Ramblers", logoSrc: "assets/images/local/favicon.ico", logoHeightPx: 22},
+  salesforce: {alt: "Salesforce", icon: faSalesforce, iconColor: "#00A1E0"},
+  gmail: {alt: "Gmail", icon: faEnvelope, iconColor: "#EA4335"},
+  webPush: {alt: "Web Push", icon: faBell, iconColor: "#6d7470"},
+  flickr: {alt: "Flickr", icon: faFlickr, iconColor: "#FF0084"},
   youtube: {alt: "YouTube", icon: faYoutube, iconColor: "#FF0000"},
   twitter: {alt: "X", icon: faXTwitter},
-  aiTextGeneration: {alt: "AI", icon: faRobot}
+  ai: {alt: "AI", icon: faRobot, iconColor: "#6366f1"}
+} as const satisfies Record<string, VendorBrandMark>;
+
+const BRAND_BY_KEY: Record<string, VendorBrandMark> = {
+  mongodbAtlas: MARKS.mongodb,
+  flyIo: MARKS.flyIo,
+  aws: MARKS.aws,
+  awsS3: MARKS.aws,
+  cloudflare: MARKS.cloudflare,
+  brevo: MARKS.brevo,
+  googleCloud: MARKS.google,
+  googleMaps: MARKS.google,
+  recaptcha: MARKS.google,
+  googleAnalytics: MARKS.google,
+  googleSearchConsole: MARKS.google,
+  osDataHub: MARKS.osDataHub,
+  meta: MARKS.meta,
+  metaFacebookInstagram: MARKS.meta,
+  meetup: MARKS.meetup,
+  dockerHub: MARKS.docker,
+  github: MARKS.github,
+  walksManager: MARKS.ramblers,
+  salesforce: MARKS.salesforce,
+  gmailInbox: MARKS.gmail,
+  webPush: MARKS.webPush,
+  flickr: MARKS.flickr,
+  youtube: MARKS.youtube,
+  twitter: MARKS.twitter,
+  aiTextGeneration: MARKS.ai
 };
 
 export interface VendorSystemSelectItem {
@@ -63,14 +76,25 @@ export interface VendorSystemSelectItem {
   systemId?: string;
 }
 
-export function vendorBrandForConsoleService(serviceId: string): VendorBrandMark | null {
-  return CONSOLE_SERVICE_BRANDS[serviceId] || null;
+export function vendorBrandByKey(key: string | null | undefined): VendorBrandMark | null {
+  if (!key) {
+    return null;
+  } else {
+    return BRAND_BY_KEY[key] || null;
+  }
 }
 
-export function vendorBrandForThirdPartySystem(systemId: string): VendorBrandMark | null {
-  return THIRD_PARTY_SYSTEM_BRANDS[systemId] || null;
-}
-
-export function vendorBrandByKey(key: string): VendorBrandMark | null {
-  return CONSOLE_SERVICE_BRANDS[key] || THIRD_PARTY_SYSTEM_BRANDS[key] || null;
+export function resolveVendorBrand(options: {
+  brand?: VendorBrandMark | null;
+  brandKey?: string | null;
+  serviceId?: string | null;
+  systemId?: string | null;
+}): VendorBrandMark | null {
+  if (options.brand) {
+    return options.brand;
+  } else {
+    return vendorBrandByKey(options.brandKey)
+      || vendorBrandByKey(options.serviceId)
+      || vendorBrandByKey(options.systemId);
+  }
 }

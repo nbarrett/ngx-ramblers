@@ -31,30 +31,27 @@ import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark
                [appendTo]="'body'"
                [dropdownPosition]="'bottom'"
                [disabled]="disabled"
-               [(ngModel)]="selectedValue"
+               [ngModel]="selectedValue"
                (ngModelChange)="onValueChange($event)"
-               [name]="name">
-      <ng-template ng-label-tmp>
-        @if (selectedItem(); as selected) {
-          <div class="vendor-system-option">
-            @if (selected.value === allValue) {
-              <fa-icon [icon]="faGrip" class="vendor-system-option-fallback"></fa-icon>
-            } @else {
-              <app-vendor-brand-mark [serviceId]="selected.brandKey || selected.value"
-                                     [systemId]="selected.systemId || null"
-                                     [inline]="true"/>
-            }
-            <span>{{ selected.label }}</span>
-          </div>
-        }
+               [name]="name"
+               appearance="outline">
+      <ng-template ng-label-tmp let-item="item">
+        <div class="vendor-system-option">
+          @if (item?.value === allValue) {
+            <fa-icon [icon]="faGrip" class="vendor-system-option-fallback"></fa-icon>
+          } @else {
+            <app-vendor-brand-mark [brandKey]="brandKeyFor(item)"
+                                   [inline]="true"/>
+          }
+          <span>{{ item?.label }}</span>
+        </div>
       </ng-template>
       <ng-template ng-option-tmp let-item="item">
         <div class="vendor-system-option">
           @if (item.value === allValue) {
             <fa-icon [icon]="faGrip" class="vendor-system-option-fallback"></fa-icon>
           } @else {
-            <app-vendor-brand-mark [serviceId]="item.brandKey || item.value"
-                                   [systemId]="item.systemId || null"
+            <app-vendor-brand-mark [brandKey]="brandKeyFor(item)"
                                    [inline]="true"/>
           }
           <span>{{ item.label }}</span>
@@ -77,6 +74,7 @@ import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark
       gap: 0.5rem
       min-width: 0
       line-height: 1.2
+      pointer-events: none
 
     .vendor-system-option-fallback
       width: 1.15rem
@@ -93,7 +91,7 @@ export class VendorSystemSelectComponent {
   @Input() allValue = "all";
   @Input() disabled = false;
   @Input() clearable = false;
-  @Input() searchable = false;
+  @Input() searchable = true;
   @Output() valueChange = new EventEmitter<string>();
 
   protected readonly faGrip = faGrip;
@@ -101,26 +99,31 @@ export class VendorSystemSelectComponent {
 
   @Input()
   set value(next: string) {
-    this.selectedValue = next || this.allValue;
+    const resolved = next || this.allValue;
+    if (resolved !== this.selectedValue) {
+      this.selectedValue = resolved;
+    }
   }
 
   get value(): string {
     return this.selectedValue;
   }
 
-  selectedItem(): VendorSystemSelectItem | null {
-    const match = (this.items || []).find(item => item.value === this.selectedValue);
-    if (match) {
-      return match;
-    } else if ((this.items || []).length > 0) {
-      return this.items[0];
+  brandKeyFor(item: VendorSystemSelectItem | null | undefined): string {
+    if (!item) {
+      return "";
     } else {
-      return null;
+      return item.brandKey || item.systemId || item.value;
     }
   }
 
   onValueChange(next: string): void {
-    this.selectedValue = next || this.allValue;
-    this.valueChange.emit(this.selectedValue);
+    const resolved = next || this.allValue;
+    if (resolved !== this.selectedValue) {
+      this.selectedValue = resolved;
+      this.valueChange.emit(this.selectedValue);
+    } else {
+      this.valueChange.emit(this.selectedValue);
+    }
   }
 }

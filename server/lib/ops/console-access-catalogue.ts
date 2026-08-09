@@ -4,6 +4,7 @@ import {
   ConsoleAccessService,
   EnvironmentConsoleAccess
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ConsoleAccessUrlIconKey } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import {
   EstateRebuildFieldLayer,
   EstateRebuildFieldSource,
@@ -29,11 +30,13 @@ export interface ConsoleAccessIdentifierDefinition {
 export interface ConsoleAccessUrlTemplate {
   label: string;
   urlTemplate: string;
+  iconKey?: ConsoleAccessUrlIconKey;
 }
 
 export interface ConsoleAccessResolvedUrl {
   label: string;
   url: string;
+  iconKey?: ConsoleAccessUrlIconKey | null;
 }
 
 export interface ConsoleAccessServiceDefinition {
@@ -41,6 +44,7 @@ export interface ConsoleAccessServiceDefinition {
   name: string;
   function: string;
   scope: EstateRebuildSystemScope;
+  sharedCredentials?: boolean;
   identifiers: ConsoleAccessIdentifierDefinition[];
   urls: ConsoleAccessUrlTemplate[];
 }
@@ -57,15 +61,18 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     urls: [
       {
         label: "Project overview",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/overview?automateSecurity=true"
+        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/overview?automateSecurity=true",
+        iconKey: ConsoleAccessUrlIconKey.OVERVIEW
       },
       {
         label: "Network access list",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/network/accessList"
+        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/network/accessList",
+        iconKey: ConsoleAccessUrlIconKey.NETWORK
       },
       {
         label: "Database users",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/database/users"
+        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/database/users",
+        iconKey: ConsoleAccessUrlIconKey.USERS
       }
     ]
   },
@@ -79,17 +86,18 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "organisation", label: "Organisation", placeholder: "e.g. personal"}
     ],
     urls: [
-      {label: "App dashboard", urlTemplate: "https://fly.io/apps/{appName}"},
-      {label: "App metrics", urlTemplate: "https://fly.io/apps/{appName}/metrics"},
-      {label: "App secrets", urlTemplate: "https://fly.io/apps/{appName}/secrets"},
-      {label: "Organisation dashboard", urlTemplate: "https://fly.io/dashboard/{organisation}"}
+      {label: "App dashboard", urlTemplate: "https://fly.io/apps/{appName}", iconKey: ConsoleAccessUrlIconKey.DASHBOARD},
+      {label: "App metrics", urlTemplate: "https://fly.io/apps/{appName}/metrics", iconKey: ConsoleAccessUrlIconKey.METRICS},
+      {label: "App secrets", urlTemplate: "https://fly.io/apps/{appName}/secrets", iconKey: ConsoleAccessUrlIconKey.SECRETS},
+      {label: "Organisation dashboard", urlTemplate: "https://fly.io/dashboard/{organisation}", iconKey: ConsoleAccessUrlIconKey.ORGANISATION}
     ]
   },
   {
     serviceId: ConsoleAccessService.AWS,
     name: "S3 console",
-    function: "Human login to the AWS account used for this site’s bucket — not the runtime IAM keys. Per environment.",
+    function: "Human login to the shared AWS parent account (not the runtime IAM keys). Bucket and region are per site; account id and console login are platform shared.",
     scope: EstateRebuildSystemScope.PER_SITE,
+    sharedCredentials: true,
     identifiers: [
       {
         key: "accountId",
@@ -102,15 +110,16 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "bucket", label: "S3 bucket", placeholder: "bucket name"}
     ],
     urls: [
-      {label: "Console home", urlTemplate: "https://{accountId}.signin.aws.amazon.com/console"},
-      {label: "S3 bucket", urlTemplate: "https://s3.console.aws.amazon.com/s3/buckets/{bucket}?region={region}"}
+      {label: "Console home", urlTemplate: "https://{accountId}.signin.aws.amazon.com/console", iconKey: ConsoleAccessUrlIconKey.CONSOLE},
+      {label: "S3 bucket", urlTemplate: "https://s3.console.aws.amazon.com/s3/buckets/{bucket}?region={region}", iconKey: ConsoleAccessUrlIconKey.BUCKET}
     ]
   },
   {
     serviceId: ConsoleAccessService.CLOUDFLARE,
     name: "Cloudflare website",
-    function: "Human login for DNS and zones for this site — not the API token. Per environment.",
+    function: "Human login for the shared Cloudflare parent account (not the API token). Zone is per site; account id and console login are platform shared.",
     scope: EstateRebuildSystemScope.PER_SITE,
+    sharedCredentials: true,
     identifiers: [
       {
         key: "accountId",
@@ -122,9 +131,9 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "zoneId", label: "Zone ID", placeholder: "zone id for the site domain"}
     ],
     urls: [
-      {label: "Account home", urlTemplate: "https://dash.cloudflare.com/{accountId}"},
-      {label: "Zone overview", urlTemplate: "https://dash.cloudflare.com/{accountId}/{zoneId}"},
-      {label: "Zone DNS", urlTemplate: "https://dash.cloudflare.com/{accountId}/{zoneId}/dns/records"}
+      {label: "Account home", urlTemplate: "https://dash.cloudflare.com/{accountId}", iconKey: ConsoleAccessUrlIconKey.ACCOUNT},
+      {label: "Zone overview", urlTemplate: "https://dash.cloudflare.com/{accountId}/{zoneId}", iconKey: ConsoleAccessUrlIconKey.ZONE},
+      {label: "Zone DNS", urlTemplate: "https://dash.cloudflare.com/{accountId}/{zoneId}/dns/records", iconKey: ConsoleAccessUrlIconKey.DNS}
     ]
   },
   {
@@ -134,7 +143,7 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     scope: EstateRebuildSystemScope.PER_SITE,
     identifiers: [],
     urls: [
-      {label: "Brevo dashboard", urlTemplate: "https://app.brevo.com/"}
+      {label: "Brevo dashboard", urlTemplate: "https://app.brevo.com/", iconKey: ConsoleAccessUrlIconKey.DASHBOARD}
     ]
   },
   {
@@ -146,9 +155,9 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "projectId", label: "Project ID", placeholder: "GCP project id"}
     ],
     urls: [
-      {label: "Project dashboard", urlTemplate: "https://console.cloud.google.com/home/dashboard?project={projectId}"},
-      {label: "APIs & services", urlTemplate: "https://console.cloud.google.com/apis/dashboard?project={projectId}"},
-      {label: "Credentials", urlTemplate: "https://console.cloud.google.com/apis/credentials?project={projectId}"}
+      {label: "Project dashboard", urlTemplate: "https://console.cloud.google.com/home/dashboard?project={projectId}", iconKey: ConsoleAccessUrlIconKey.DASHBOARD},
+      {label: "APIs & services", urlTemplate: "https://console.cloud.google.com/apis/dashboard?project={projectId}", iconKey: ConsoleAccessUrlIconKey.APIS},
+      {label: "Credentials", urlTemplate: "https://console.cloud.google.com/apis/credentials?project={projectId}", iconKey: ConsoleAccessUrlIconKey.CREDENTIALS}
     ]
   },
   {
@@ -158,7 +167,7 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     scope: EstateRebuildSystemScope.PER_SITE,
     identifiers: [],
     urls: [
-      {label: "OS Data Hub", urlTemplate: "https://osdatahub.os.uk/"}
+      {label: "OS Data Hub", urlTemplate: "https://osdatahub.os.uk/", iconKey: ConsoleAccessUrlIconKey.HOME}
     ]
   },
   {
@@ -170,8 +179,8 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "appId", label: "App ID", placeholder: "Meta app id"}
     ],
     urls: [
-      {label: "App dashboard", urlTemplate: "https://developers.facebook.com/apps/{appId}/dashboard/"},
-      {label: "Business settings", urlTemplate: "https://business.facebook.com/settings"}
+      {label: "App dashboard", urlTemplate: "https://developers.facebook.com/apps/{appId}/dashboard/", iconKey: ConsoleAccessUrlIconKey.DASHBOARD},
+      {label: "Business settings", urlTemplate: "https://business.facebook.com/settings", iconKey: ConsoleAccessUrlIconKey.BUSINESS}
     ]
   },
   {
@@ -181,7 +190,7 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     scope: EstateRebuildSystemScope.PER_SITE,
     identifiers: [],
     urls: [
-      {label: "Meetup pro admin", urlTemplate: "https://www.meetup.com/"}
+      {label: "Meetup pro admin", urlTemplate: "https://www.meetup.com/", iconKey: ConsoleAccessUrlIconKey.HOME}
     ]
   },
   {
@@ -193,8 +202,8 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "username", label: "Username / org", placeholder: "e.g. nbarrett36"}
     ],
     urls: [
-      {label: "Account / org", urlTemplate: "https://hub.docker.com/u/{username}"},
-      {label: "Repositories", urlTemplate: "https://hub.docker.com/repositories/{username}"}
+      {label: "Account / org", urlTemplate: "https://hub.docker.com/u/{username}", iconKey: ConsoleAccessUrlIconKey.ACCOUNT},
+      {label: "Repositories", urlTemplate: "https://hub.docker.com/repositories/{username}", iconKey: ConsoleAccessUrlIconKey.REPOSITORIES}
     ]
   },
   {
@@ -207,9 +216,9 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
       {key: "repo", label: "Repository", placeholder: "e.g. ngx-ramblers"}
     ],
     urls: [
-      {label: "Repository", urlTemplate: "https://github.com/{owner}/{repo}"},
-      {label: "Actions", urlTemplate: "https://github.com/{owner}/{repo}/actions"},
-      {label: "Secrets", urlTemplate: "https://github.com/{owner}/{repo}/settings/secrets/actions"}
+      {label: "Repository", urlTemplate: "https://github.com/{owner}/{repo}", iconKey: ConsoleAccessUrlIconKey.REPOSITORIES},
+      {label: "Actions", urlTemplate: "https://github.com/{owner}/{repo}/actions", iconKey: ConsoleAccessUrlIconKey.ACTIONS},
+      {label: "Secrets", urlTemplate: "https://github.com/{owner}/{repo}/settings/secrets/actions", iconKey: ConsoleAccessUrlIconKey.SECRETS}
     ]
   }
 ];
@@ -265,16 +274,17 @@ export function resolveConsoleUrls(
   identifiers: Record<string, string> | undefined
 ): ConsoleAccessResolvedUrl[] {
   const values = identifiers || {};
-  return service.urls
-    .map(template => {
-      const url = templateFullyResolved(template.urlTemplate, values);
-      if (!url) {
-        return null;
-      } else {
-        return {label: template.label, url};
-      }
-    })
-    .filter((item): item is ConsoleAccessResolvedUrl => item !== null);
+  return service.urls.reduce((acc: ConsoleAccessResolvedUrl[], template) => {
+    const url = templateFullyResolved(template.urlTemplate, values);
+    if (url) {
+      acc.push({
+        label: template.label,
+        url,
+        iconKey: template.iconKey || null
+      });
+    }
+    return acc;
+  }, []);
 }
 
 export function consoleAccessSiteFields(): EstateRebuildSiteFieldDefinition[] {
@@ -348,10 +358,6 @@ export function consoleAccessIdentifierValue(
 
 export function isConsoleAccessPasswordField(fieldId: string): boolean {
   return fieldId.endsWith(`.${ConsoleAccessFieldKind.PASSWORD}`);
-}
-
-export function consoleAccessServiceById(serviceId: string): ConsoleAccessServiceDefinition | null {
-  return CONSOLE_ACCESS_SERVICES.find(service => service.serviceId === serviceId) || null;
 }
 
 export function loginHasContent(entry: ConsoleAccessLogin | undefined): boolean {

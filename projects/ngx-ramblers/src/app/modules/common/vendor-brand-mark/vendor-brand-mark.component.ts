@@ -1,10 +1,6 @@
 import { Component, Input } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import {
-  VendorBrandMark,
-  vendorBrandForConsoleService,
-  vendorBrandForThirdPartySystem
-} from "../../../models/vendor-brand.model";
+import { resolveVendorBrand, VendorBrandMark } from "../../../models/vendor-brand.model";
 
 @Component({
   selector: "app-vendor-brand-mark",
@@ -35,6 +31,8 @@ import {
       flex: 0 0 auto
       line-height: 0
       vertical-align: middle
+      min-width: 1.15rem
+      min-height: 1.15rem
 
     .vendor-brand-mark
       display: block
@@ -59,21 +57,19 @@ import {
 })
 export class VendorBrandMarkComponent {
   @Input() brand: VendorBrandMark | null = null;
+  @Input() brandKey: string | null = null;
   @Input() serviceId: string | null = null;
   @Input() systemId: string | null = null;
   @Input() sizePx: number | null = null;
   @Input() inline = false;
 
   resolvedBrand(): VendorBrandMark | null {
-    if (this.brand) {
-      return this.brand;
-    } else if (this.serviceId) {
-      return vendorBrandForConsoleService(this.serviceId);
-    } else if (this.systemId) {
-      return vendorBrandForThirdPartySystem(this.systemId);
-    } else {
-      return null;
-    }
+    return resolveVendorBrand({
+      brand: this.brand,
+      brandKey: this.brandKey,
+      serviceId: this.serviceId,
+      systemId: this.systemId
+    });
   }
 
   markHeightPx(brand: VendorBrandMark): number {
