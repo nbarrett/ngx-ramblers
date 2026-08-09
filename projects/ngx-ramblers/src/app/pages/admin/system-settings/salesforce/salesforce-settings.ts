@@ -73,23 +73,22 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
             @for (code of availableGroupCodes; track code) {
               <div class="d-flex gap-2 align-items-center mb-2">
                 <strong class="flex-shrink-0" style="min-width: 4rem">{{ code }}</strong>
-                <div class="input-group flex-grow-1">
-                  <app-secret-input
-                    [id]="'ramblers-team-emails-api-key-' + code"
-                    [name]="'ramblers-team-emails-api-key-' + code"
-                    [ngModel]="config.apiKeysByGroupCode?.[code] ?? ''"
-                    (ngModelChange)="setTokenFor(code, $event)"
-                    [size]="InputSize.SM"
-                    placeholder="API key for {{ code }}">
-                  </app-secret-input>
-                  <button type="button"
-                          class="btn btn-quiet btn-text"
-                          [disabled]="testingByCode[code] || !config.endpointBaseUrl || !(config.apiKeysByGroupCode?.[code])"
-                          (click)="testConnectionFor(code)">
-                    <fa-icon [icon]="faPlug"/>
-                    {{ testingByCode[code] ? "Testing..." : "Test" }}
-                  </button>
-                </div>
+                <app-secret-input
+                  class="flex-grow-1"
+                  [id]="'ramblers-team-emails-api-key-' + code"
+                  [name]="'ramblers-team-emails-api-key-' + code"
+                  [ngModel]="config.apiKeysByGroupCode?.[code] ?? ''"
+                  (ngModelChange)="setTokenFor(code, $event)"
+                  [size]="InputSize.SM"
+                  placeholder="API key for {{ code }}">
+                </app-secret-input>
+                <button type="button"
+                        class="btn btn-primary flex-shrink-0"
+                        [disabled]="testingByCode[code] || !config.endpointBaseUrl || !(config.apiKeysByGroupCode?.[code])"
+                        (click)="testConnectionFor(code)">
+                  <fa-icon [icon]="faPlug"/>
+                  {{ testingByCode[code] ? "Testing..." : "Test" }}
+                </button>
               </div>
             }
           }

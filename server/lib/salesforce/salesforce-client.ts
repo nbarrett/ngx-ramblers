@@ -18,7 +18,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { parseGroupCodes } from "./salesforce-config";
+import { parseGroupCodes, salesforceEndpointBaseUrl } from "./salesforce-config";
 import {
   SalesforceClientResult,
   SalesforceListOptions,
@@ -28,11 +28,12 @@ const debugLog = debug(envConfig.logNamespace("salesforce-client"));
 debugLog.enabled = false;
 
 export function buildSalesforceClient(endpointBaseUrl: string): AxiosInstance {
-  if (!endpointBaseUrl) {
+  const baseURL = salesforceEndpointBaseUrl(endpointBaseUrl);
+  if (!baseURL) {
     throw new Error("Salesforce endpointBaseUrl is not configured");
   }
   return axios.create({
-    baseURL: endpointBaseUrl.replace(/\/+$/, ""),
+    baseURL,
     timeout: 60_000,
     validateStatus: () => true,
   });
