@@ -81,6 +81,29 @@ export class EventContactService {
     return this.contactMethodFor(event) === EventLeaderContactMethod.CONTACT_US;
   }
 
+  contactLinkAvailable(event: ExtendedGroupEvent): boolean {
+    if (this.isRamblersWebsiteContact(event)) {
+      return true;
+    } else if (this.isContactUsContact(event)) {
+      return true;
+    } else if (this.isMailtoContact(event)) {
+      const email = event?.fields?.contactDetails?.email;
+      return !!email && !!this.contactEmailHref(email);
+    } else {
+      return false;
+    }
+  }
+
+  contactLinkFallbackLabel(event: ExtendedGroupEvent): string {
+    if (this.isRamblersWebsiteContact(event)) {
+      return "Contact Via Ramblers";
+    } else if (this.isMailtoContact(event)) {
+      return event?.fields?.contactDetails?.email || "Contact";
+    } else {
+      return "Contact Us";
+    }
+  }
+
   eventLeaderContactTooltip(event: ExtendedGroupEvent): string {
     const displayName = event?.fields?.contactDetails?.displayName;
     const email = event?.fields?.contactDetails?.email;

@@ -32,6 +32,8 @@ import { cloneDeep, isEqual, isNil, isString } from "es-toolkit/compat";
 import { WalkListView } from "../../models/walk.model";
 import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
 import { HasStyles, LinkStyle, ListStyle } from "../../models/content-text.model";
+import { AccessLevel } from "../../models/member-resource.model";
+import { migrateAllContactAccessLevels } from "../../functions/contact-details-access-level";
 
 @Injectable({
   providedIn: "root"
@@ -157,6 +159,8 @@ export class SystemConfigService {
       config.externalSystems.osMaps = {apiKey: null};
       this.logger.info("config.externalSystems.osMaps initialised as:", config.externalSystems.osMaps);
     }
+    migrateAllContactAccessLevels(config.group);
+    migrateAllContactAccessLevels(config.area);
     if (!config?.national?.mainSite) {
       config.national = defaultRamblersConfig;
       this.logger.info("config.national.mainSite initialised as:", config.national);
@@ -251,11 +255,15 @@ export class SystemConfigService {
     return {
       defaultWalkListView: WalkListView.CARDS,
       allowSwitchWalkView: false,
-      walkContactDetailsPublic: true,
+      walkContactNameAccessLevel: AccessLevel.PUBLIC,
+      walkContactPhoneAccessLevel: AccessLevel.PUBLIC,
+      walkContactEmailAccessLevel: AccessLevel.PUBLIC,
       showWalkOnRamblersLink: true,
       showWalkRelatedLinks: true,
       showWalkShareInHeader: false,
-      socialDetailsPublic: true,
+      socialContactNameAccessLevel: AccessLevel.PUBLIC,
+      socialContactPhoneAccessLevel: AccessLevel.PUBLIC,
+      socialContactEmailAccessLevel: AccessLevel.PUBLIC,
       showSocialOnRamblersLink: true,
       showSocialRelatedLinks: true,
       mapOutlierMaxDistanceMiles: 800,

@@ -18,6 +18,7 @@ import {
   Organisation,
   SystemConfig
 } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { WalkListView } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { DateFormat, RamblersGroupsApiResponse } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -888,10 +889,14 @@ export async function configureAreaGroups(req: Request, res: Response) {
         defaultWalkListView: WalkListView.TABLE,
         walkPopulation: EventPopulation.LOCAL,
         socialEventPopulation: EventPopulation.LOCAL,
-        walkContactDetailsPublic: false,
+        walkContactNameAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
+        walkContactPhoneAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
+        walkContactEmailAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
         showWalkOnRamblersLink: true,
         allowSwitchWalkView: false,
-        socialDetailsPublic: false,
+        socialContactNameAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
+        socialContactPhoneAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
+        socialContactEmailAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
         showSocialOnRamblersLink: true,
         pages: [],
         groups: processedGroups

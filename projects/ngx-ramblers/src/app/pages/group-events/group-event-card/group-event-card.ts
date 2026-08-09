@@ -29,10 +29,12 @@ import { EventLeaderContactLinkComponent } from "../../walks/walk-view/event-lea
           </h4>
           <div>{{ groupEvent?.groupEvent | eventDatesAndTimes }}</div>
           <app-event-group [displayedWalk]="displayedWalk" [groupEvent]="groupEvent" compact="true"/>
-          @if (displayedWalk?.walk?.fields?.contactDetails?.displayName) {
+          @if ((walksDisplay.contactNameVisible(groupEvent) && displayedWalk?.walk?.fields?.contactDetails?.displayName)
+            || walksDisplay.hasContactLink(groupEvent)) {
             <div class="mt-1">
               <span class="font-weight-bold me-1">Coordinator:</span>
-              <app-event-leader-contact-link [walk]="displayedWalk.walk"/>
+              <app-event-leader-contact-link [walk]="displayedWalk.walk"
+                                             [fallbackLabel]="walksDisplay.contactLinkFallbackLabel(groupEvent)"/>
             </div>
           }
         </div>
