@@ -324,22 +324,24 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     this.logger.info("loadFilesFromFirstActionButton:found", childPages.length, "child pages");
     const targetPage = first(childPages);
     if (!targetPage?.rows) {
-      this.logger.info("loadFilesFromFirstActionButton:no child pages found for:", currentPath);
-      return;
-    }
-    this.pageTitle = last(targetPage.path.split("/"));
-    this.documentsSourcePath = targetPage.path;
-    this.refreshHeading();
-    this.logger.info("loadFilesFromFirstActionButton:using most recent child page:", targetPage.path);
-    const committeeDocsRow = targetPage.rows.find(row => this.actions.isCommitteeDocuments(row));
-    if (committeeDocsRow?.committeeDocuments) {
-      if (committeeDocsRow.committeeDocuments.imageSource) {
-        this.imageSource = committeeDocsRow.committeeDocuments.imageSource;
-        this.logger.info("loadFilesFromFirstActionButton:resolved imageSource from target page:", this.imageSource);
-      }
-      if (committeeDocsRow.committeeDocuments.fileIds?.length > 0) {
-        this.logger.info("loadFilesFromFirstActionButton:found", committeeDocsRow.committeeDocuments.fileIds.length, "file IDs from", targetPage.path);
+      this.logger.info("loadFilesFromFirstActionButton:no child pages found for:", currentPath, "- falling back to this page fileIds");
+      this.loadFilesByIds(this.committeeDocumentsConfig?.fileIds);
+    } else {
+      this.pageTitle = last(targetPage.path.split("/"));
+      this.documentsSourcePath = targetPage.path;
+      this.refreshHeading();
+      this.logger.info("loadFilesFromFirstActionButton:using most recent child page:", targetPage.path);
+      const committeeDocsRow = targetPage.rows.find(row => this.actions.isCommitteeDocuments(row));
+      if (committeeDocsRow?.committeeDocuments) {
+        if (committeeDocsRow.committeeDocuments.imageSource) {
+          this.imageSource = committeeDocsRow.committeeDocuments.imageSource;
+          this.logger.info("loadFilesFromFirstActionButton:resolved imageSource from target page:", this.imageSource);
+        }
+        this.logger.info("loadFilesFromFirstActionButton:found", committeeDocsRow.committeeDocuments.fileIds?.length || 0, "file IDs from", targetPage.path);
         this.loadFilesByIds(committeeDocsRow.committeeDocuments.fileIds);
+      } else {
+        this.logger.info("loadFilesFromFirstActionButton:child page has no committee documents row - falling back to this page fileIds");
+        this.loadFilesByIds(this.committeeDocumentsConfig?.fileIds);
       }
     }
   }
