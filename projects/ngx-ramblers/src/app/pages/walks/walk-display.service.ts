@@ -53,6 +53,13 @@ import { validEmail } from "../../functions/strings";
 import { eventSlug } from "../../functions/walks/event-slug";
 import { PageService } from "../../services/page.service";
 import { StoredValue } from "../../models/ui-actions";
+import {
+  ContactAccessField,
+  ContactAccessLevelFieldKeys,
+  organisationContactFieldAccessLevel,
+  SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS,
+  WALK_CONTACT_ACCESS_LEVEL_FIELDS
+} from "../../functions/contact-details-access-level";
 
 @Injectable({
   providedIn: "root"
@@ -157,8 +164,17 @@ export class WalkDisplayService {
 
   public hasVisibleLeaderContactDetails(walk: ExtendedGroupEvent): boolean {
     const contactDetails = walk?.fields?.contactDetails;
-    return this.walkContactDetailsVisible()
-      && !!(contactDetails?.email || contactDetails?.phone || contactDetails?.displayName);
+    return !!(this.contactNameVisible(walk) && contactDetails?.displayName)
+      || !!(this.contactPhoneVisible(walk) && contactDetails?.phone)
+      || this.hasContactLink(walk);
+  }
+
+  public visibleLeaderDisplayName(walk: ExtendedGroupEvent): string {
+    if (this.contactNameVisible(walk)) {
+      return walk?.fields?.contactDetails?.displayName || "";
+    } else {
+      return "";
+    }
   }
 
   public walkDetailsComplete(walk: ExtendedGroupEvent): boolean {
@@ -617,12 +633,74 @@ export class WalkDisplayService {
     return location?.grid_reference_10 || location?.grid_reference_8 || location?.grid_reference_6 || "";
   }
 
-  walkContactDetailsPublic(): boolean {
-    return this.group?.walkContactDetailsPublic;
+  contactAccessLevelFieldsFor(event?: ExtendedGroupEvent): ContactAccessLevelFieldKeys {
+    if (this.isWalk(event)) {
+      return WALK_CONTACT_ACCESS_LEVEL_FIELDS;
+    } else {
+      return SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS;
+    }
   }
 
-  walkContactDetailsVisible(): boolean {
-    return this.walkContactDetailsPublic() || this.loggedIn();
+  contactNameAccessLevel(event?: ExtendedGroupEvent): AccessLevel {
+    return organisationContactFieldAccessLevel(this.group, this.contactAccessLevelFieldsFor(event), ContactAccessField.NAME);
+  }
+
+  contactPhoneAccessLevel(event?: ExtendedGroupEvent): AccessLevel {
+    return organisationContactFieldAccessLevel(this.group, this.contactAccessLevelFieldsFor(event), ContactAccessField.PHONE);
+  }
+
+  contactLinkAccessLevel(event?: ExtendedGroupEvent): AccessLevel {
+    return organisationContactFieldAccessLevel(this.group, this.contactAccessLevelFieldsFor(event), ContactAccessField.CONTACT);
+  }
+
+  contactNameVisible(event?: ExtendedGroupEvent): boolean {
+    return !!this.memberResourcesReferenceData.accessLevelFor(this.contactNameAccessLevel(event))?.filter();
+  }
+
+  contactPhoneVisible(event?: ExtendedGroupEvent): boolean {
+    return !!this.memberResourcesReferenceData.accessLevelFor(this.contactPhoneAccessLevel(event))?.filter();
+  }
+
+  contactLinkVisible(event?: ExtendedGroupEvent): boolean {
+    return !!this.memberResourcesReferenceData.accessLevelFor(this.contactLinkAccessLevel(event))?.filter();
+  }
+
+  hasContactLink(event?: ExtendedGroupEvent): boolean {
+    return this.contactLinkVisible(event) && this.eventContactService.contactLinkAvailable(event);
+  }
+
+  showMailtoEmail(event?: ExtendedGroupEvent): boolean {
+    return this.contactLinkVisible(event)
+      && this.eventContactService.isMailtoContact(event)
+      && !!event?.fields?.contactDetails?.email;
+  }
+
+  contactLinkFallbackLabel(event?: ExtendedGroupEvent): string {
+    return this.eventContactService.contactLinkFallbackLabel(event);
+  }
+
+  isMailtoContact(event?: ExtendedGroupEvent): boolean {
+    return this.eventContactService.isMailtoContact(event);
+  }
+
+  isRamblersWebsiteContact(event?: ExtendedGroupEvent): boolean {
+    return this.eventContactService.isRamblersWebsiteContact(event);
+  }
+
+  contactDetailsVisible(event?: ExtendedGroupEvent): boolean {
+    return this.contactNameVisible(event) || this.contactPhoneVisible(event) || this.contactLinkVisible(event);
+  }
+
+  walkContactNameVisible(event?: ExtendedGroupEvent): boolean {
+    return this.contactNameVisible(event);
+  }
+
+  walkContactPhoneVisible(event?: ExtendedGroupEvent): boolean {
+    return this.contactPhoneVisible(event);
+  }
+
+  walkContactDetailsVisible(event?: ExtendedGroupEvent): boolean {
+    return this.contactDetailsVisible(event);
   }
 
   showWalkOnRamblersLink(): boolean {

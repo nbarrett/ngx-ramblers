@@ -129,23 +129,29 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       this.notifyRestrictedAccess();
       this.queryCompleted = true;
       this.pageContent = null;
-      return;
-    }
-    this.pageContentService.findByPath(queryPath)
-      .then(pageContent => {
-        if (pageContent) {
-          this.logger.info("findByPath", queryPath, "returned:", pageContent);
-          this.pageContentReceived(pageContent);
-        } else {
-          this.notify.warning({
-            title: `Page not found`,
-            message: `The ${queryPath} page content was not found`
-          });
-          this.logger.info("Page content not found for", queryPath, "redirecting to", this.contentPath);
+    } else {
+      this.pageContentService.findByPath(queryPath)
+        .then(pageContent => {
+          if (queryPath !== (this.contentPath || anchorPath)) {
+            this.logger.info("Ignoring stale page content for", queryPath, "current:", this.contentPath);
+          } else if (pageContent) {
+            this.logger.info("findByPath", queryPath, "returned:", pageContent);
+            this.pageContentReceived(pageContent);
+          } else {
+            this.notify.warning({
+              title: `Page not found`,
+              message: `The ${queryPath} page content was not found`
+            });
+            this.logger.info("Page content not found for", queryPath, "redirecting to", this.contentPath);
+          }
+        }).catch(error => {
+        this.logger.info("Page content error found for", queryPath, error);
+      }).finally(() => {
+        if (queryPath === (this.contentPath || anchorPath)) {
+          this.queryCompleted = true;
         }
-      }).catch(error => {
-      this.logger.info("Page content error found for", queryPath, error);
-    }).finally(() => this.queryCompleted = true);
+      });
+    }
   }
 
   private pageContentReceived(pageContent: PageContent) {

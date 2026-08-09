@@ -99,30 +99,32 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
               <dt class="font-weight-bold me-2">Leader:</dt>
               <dd>
                 <div class="row g-0">
-                  @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
+                  @if (display.hasContactLink(displayedWalk.walk)) {
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
                       <app-copy-icon [icon]="faEnvelope" title
-                                     [disabled]="display.isContactUsContact(displayedWalk?.walk)"
-                                     [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
-                                     [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                                     [disabled]="!display.showMailtoEmail(displayedWalk.walk)"
+                                     [value]="display.showMailtoEmail(displayedWalk.walk) ? displayedWalk?.walk?.fields?.contactDetails?.email : null"
+                                     [elementName]="'email address for '+ (display.visibleLeaderDisplayName(displayedWalk.walk) || 'walk leader')"/>
                       <div content>
-                        <app-event-leader-contact-link [walk]="displayedWalk.walk" fallbackLabel="Contact Via Ramblers"/>
+                        <app-event-leader-contact-link [walk]="displayedWalk.walk"
+                                                       [fallbackLabel]="display.contactLinkFallbackLabel(displayedWalk.walk)"/>
                       </div>
                     </div>
                   }
-                  @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
+                  @if (display.contactPhoneVisible(displayedWalk.walk) && displayedWalk?.walk?.fields?.contactDetails?.phone) {
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                          class="col-sm-6 col-md-12">
                       <app-copy-icon [icon]="faPhone" title
                                      [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
-                                     [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
+                                     [elementName]="'mobile number for '+ (display.visibleLeaderDisplayName(displayedWalk.walk) || 'walk leader')"/>
                       <div content>
                         <app-event-leader-phone-link
                           [phone]="displayedWalk?.walk?.fields?.contactDetails?.phone"
-                          [displayName]="displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                          [displayName]="display.visibleLeaderDisplayName(displayedWalk.walk)"/>
                       </div>
                     </div>
-                  } @else if (!displayedWalk?.walk?.fields?.contactDetails?.email) {
+                  } @else if (display.contactNameVisible(displayedWalk.walk) && displayedWalk?.walk?.fields?.contactDetails?.displayName
+                    && !display.hasContactLink(displayedWalk.walk)) {
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                       <app-copy-icon [icon]="faPersonWalking" title
                                      [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"

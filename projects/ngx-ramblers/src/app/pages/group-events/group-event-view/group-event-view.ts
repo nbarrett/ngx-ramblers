@@ -243,7 +243,7 @@ export class GroupEventView implements OnInit {
   }
 
   showSensitiveDetailsAlert() {
-    return !this.display.loggedIn() && !this.systemConfigService?.systemConfig()?.group?.socialDetailsPublic;
+    return false;
   }
 
 

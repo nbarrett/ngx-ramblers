@@ -25,7 +25,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
     selector: "app-dynamic-content-view",
     template: `
       @if (forceView || !siteEditService.active()) {
-        @for (row of viewablePageContent?.rows || []; let rowIndex = $index; track rowIndex) {
+        @for (row of viewablePageContent?.rows || []; let rowIndex = $index; track trackRowKey(row, rowIndex)) {
           @if (false) {
             {{ 'row ' + (rowIndex + 1) + ' ' + row.type + ' of ' + viewablePageContent.rows.length }}
           }
@@ -133,6 +133,11 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(() => {
       this.filterAndSet(this.pageContentRawData);
     }));
+  }
+
+  trackRowKey(row: PageContentRow, rowIndex: number): string {
+    const eventTypes = row?.events?.eventTypes?.join(",") || "";
+    return `${this.contentPath || ""}:${rowIndex}:${row?.type || ""}:${eventTypes}`;
   }
 
   ngOnDestroy(): void {

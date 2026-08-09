@@ -1,19 +1,24 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { isString } from "es-toolkit/compat";
-import { NgxLoggerLevel } from "ngx-logger";
 import { EventLeaderContactMethod, EventPopulation, Organisation, SystemConfig } from "../../../../models/system.model";
-import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
-import { enumKeyValues, KeyValue } from "../../../../functions/enums";
+import { enumKeyValues, enumValues, KeyValue } from "../../../../functions/enums";
 import { RamblersEventType } from "../../../../models/ramblers-walks-manager";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
 import { CommitteeReferenceData } from "../../../../services/committee/committee-reference-data";
+import { AccessLevel } from "../../../../models/member-resource.model";
+import {
+  ContactAccessLevelFieldKeys,
+  migrateContactAccessLevels,
+  SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS,
+  WALK_CONTACT_ACCESS_LEVEL_FIELDS
+} from "../../../../functions/contact-details-access-level";
 
 interface EventTypeFieldMapping {
   population: keyof Organisation;
-  detailsPublic: keyof Organisation;
+  contactAccessLevels: ContactAccessLevelFieldKeys;
   showOnRamblersLink: keyof Organisation;
   showRelatedLinks: keyof Organisation;
   photoAlbumBasePath: keyof Organisation;
@@ -28,7 +33,7 @@ interface EventTypeFieldMapping {
 const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
   [RamblersEventType.GROUP_WALK]: {
     population: "walkPopulation",
-    detailsPublic: "walkContactDetailsPublic",
+    contactAccessLevels: WALK_CONTACT_ACCESS_LEVEL_FIELDS,
     showOnRamblersLink: "showWalkOnRamblersLink",
     showRelatedLinks: "showWalkRelatedLinks",
     photoAlbumBasePath: "walkPhotoAlbumBasePath",
@@ -41,7 +46,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
   },
   [RamblersEventType.GROUP_EVENT]: {
     population: "socialEventPopulation",
-    detailsPublic: "socialDetailsPublic",
+    contactAccessLevels: SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS,
     showOnRamblersLink: "showSocialOnRamblersLink",
     showRelatedLinks: "showSocialRelatedLinks",
     photoAlbumBasePath: "socialPhotoAlbumBasePath",
@@ -60,20 +65,42 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     <div class="form-group">
       <label [for]="idFor('population')">{{ eventTypeTitle }} Population</label>
       <select [(ngModel)]="group[fields.population]"
-              class="form-control" [id]="idFor('population')">
+              class="form-control input-sm" [id]="idFor('population')">
         @for (method of populationMethods; track method.key) {
           <option [ngValue]="method.value">{{ stringUtils.asTitle(method.value) }}</option>
         }
       </select>
     </div>
     <div class="form-group">
-      <div class="form-check">
-        <input [(ngModel)]="group[fields.detailsPublic]"
-               type="checkbox" class="form-check-input"
-               [id]="idFor('details-public')">
-        <label class="form-check-label"
-               [for]="idFor('details-public')">{{ eventTypeTitle }} Contact Details Public Viewable</label>
-      </div>
+      <label [for]="idFor('name-access-level')">{{ eventTypeTitle }} leader name - who can see it</label>
+      <select [(ngModel)]="group[fields.contactAccessLevels.name]"
+              class="form-control input-sm" [id]="idFor('name-access-level')">
+        @for (level of accessLevels; track level) {
+          <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-group">
+      <label [for]="idFor('phone-access-level')">{{ eventTypeTitle }} leader mobile - who can see it</label>
+      <select [(ngModel)]="group[fields.contactAccessLevels.phone]"
+              class="form-control input-sm" [id]="idFor('phone-access-level')">
+        @for (level of accessLevels; track level) {
+          <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-group">
+      <label [for]="idFor('contact-link-access-level')">{{ eventTypeTitle }} Contact Us link - who can see it</label>
+      <select [(ngModel)]="group[fields.contactAccessLevels.contact]"
+              class="form-control input-sm" [id]="idFor('contact-link-access-level')">
+        @for (level of accessLevels; track level) {
+          <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+        }
+      </select>
+      <small class="form-text text-muted d-block">
+        Controls who can see the contact link. The form of that link (Contact Us form, Ramblers website, or email)
+        is set by Contact Method below. The raw email address is only shown when Contact Method is Mailto.
+      </small>
     </div>
     <div class="form-group">
       <div class="form-check">
@@ -133,7 +160,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
       <div class="form-group">
         <label [for]="idFor('contact-role')">Fallback Committee Role ({{ eventTypeTitle }}s)</label>
         <select [(ngModel)]="group[fields.contactRole]"
-                class="form-control" [id]="idFor('contact-role')">
+                class="form-control input-sm" [id]="idFor('contact-role')">
           <option [ngValue]="null">None</option>
           @for (role of committeeRoles; track role.type) {
             <option [ngValue]="role.type">{{ role.description }}</option>
@@ -161,7 +188,6 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
 })
 export class EventTypeSettingsComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("EventTypeSettingsComponent", NgxLoggerLevel.ERROR);
   private committeeConfig = inject(CommitteeConfigService);
   stringUtils = inject(StringUtilsService);
   populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
@@ -169,6 +195,14 @@ export class EventTypeSettingsComponent implements OnInit {
   contactUsValue = EventLeaderContactMethod.CONTACT_US;
   protected readonly RamblersEventType = RamblersEventType;
   committeeRoles: CommitteeMember[] = [];
+  accessLevels: AccessLevel[] = enumValues(AccessLevel);
+  accessLevelDescriptions: Record<AccessLevel, string> = {
+    [AccessLevel.HIDDEN]: "No access",
+    [AccessLevel.ENVIRONMENT_ADMIN]: "Environment admin",
+    [AccessLevel.COMMITTEE]: "Committee",
+    [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
+    [AccessLevel.PUBLIC]: "Public"
+  };
 
   @Input() config: SystemConfig;
   @Input() eventType: RamblersEventType;
@@ -194,6 +228,7 @@ export class EventTypeSettingsComponent implements OnInit {
   }
 
   private applyDefaults() {
+    migrateContactAccessLevels(this.group, this.fields.contactAccessLevels);
     if (!this.group[this.fields.contactMethod]) {
       (this.group as any)[this.fields.contactMethod] = this.group[this.fields.legacyContactMethod] ?? EventLeaderContactMethod.CONTACT_US;
     }

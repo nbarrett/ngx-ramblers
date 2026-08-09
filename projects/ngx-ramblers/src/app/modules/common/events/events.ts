@@ -89,22 +89,37 @@ export class Events implements OnInit, OnDestroy {
   public currentPageFilteredEvents: ExtendedGroupEvent[] = this.filteredExtendedGroupEvents;
   public walksConfig: WalksConfig;
   @Input() rowIndex: number;
-  @Input() eventsData: EventsData;
+  public eventsData: EventsData;
+  private appliedEventsDataKey: string = null;
+  private eventsInitialised = false;
+
+  @Input("eventsData") set acceptEventsData(eventsData: EventsData) {
+    this.eventsData = eventsData;
+    const nextKey = this.eventsDataKey(eventsData);
+    if (nextKey !== this.appliedEventsDataKey) {
+      this.appliedEventsDataKey = nextKey;
+      this.logger.info("eventsData changed:", nextKey, "eventsInitialised:", this.eventsInitialised);
+      if (this.eventsInitialised) {
+        this.pageNumber = 1;
+        this.refreshEvents();
+      }
+    }
+  }
 
   ngOnInit() {
     this.logger.info("ngOnInit started");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.systemConfigService.events().subscribe(item => {
+    this.subscriptions.push(this.systemConfigService.events().subscribe(() => {
       this.notify.success({
         title: "Events",
         message: "Querying for data"
       });
       this.refreshEvents();
-    });
+    }));
     this.walksConfig = this.walksConfigService.walksConfig() ?? this.walksConfigService.default();
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
-    this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents());
-    this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToGroupEvents(searchTerm));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents()));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToGroupEvents(searchTerm)));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const groupEventId = paramMap.get("relativePath");
       this.logger.info("groupEventId from route params:", paramMap, groupEventId);
@@ -113,10 +128,31 @@ export class Events implements OnInit, OnDestroy {
       }
       this.pageService.setTitle("Home");
     }));
+    this.eventsInitialised = true;
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private eventsDataKey(eventsData: EventsData): string {
+    if (!eventsData) {
+      return "none";
+    } else {
+      const eventTypes = (eventsData.eventTypes || []).join(",");
+      const eventIds = (eventsData.eventIds || []).join(",");
+      const tagsAny = (eventsData.tagsAny || []).join(",");
+      const tagsExclude = (eventsData.tagsExclude || []).join(",");
+      return [
+        eventTypes,
+        eventsData.filterCriteria || "",
+        eventsData.sortOrder || "",
+        eventIds,
+        tagsAny,
+        tagsExclude,
+        eventsData.allow?.viewSelector ? "selector" : "list"
+      ].join("|");
+    }
   }
 
   public refreshEvents() {

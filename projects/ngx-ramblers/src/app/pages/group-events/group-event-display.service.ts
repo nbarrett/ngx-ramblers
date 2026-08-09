@@ -117,9 +117,8 @@ export class GroupEventDisplayService {
   }
 
   applyAllows() {
-    const detailViewAllowed = this.group?.socialDetailsPublic;
-    this.allow.detailView = detailViewAllowed;
-    this.allow.summaryView = this.memberLoginService.allowSocialAdminEdits() || !detailViewAllowed;
+    this.allow.detailView = true;
+    this.allow.summaryView = this.memberLoginService.allowSocialAdminEdits();
     this.allow.edits = this.memberLoginService.allowSocialAdminEdits();
     this.allow.copy = this.memberLoginService.allowSocialAdminEdits();
     this.allow.contentEdits = this.siteEditService.active() && this.memberLoginService.allowContentEdits();

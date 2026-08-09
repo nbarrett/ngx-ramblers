@@ -519,7 +519,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
   }
 
   private leaderNames(dw: DisplayedWalk): string[] {
-    const raw = this.display.walkContactDetailsVisible()
+    const raw = this.display.contactNameVisible(dw?.walk)
       ? ((dw?.walk?.fields?.contactDetails?.displayName || dw?.walk?.groupEvent?.walk_leader?.name)?.replace(/\.$/, "") || "")
       : "";
     return jointWalkLeaderNames(raw);

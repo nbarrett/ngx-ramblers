@@ -47,8 +47,10 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
         <th width="25%">Title</th>
         <th class="d-none d-lg-table-cell" width="7%">Distance</th>
         <th class="d-none d-lg-table-cell" width="8%">Postcode</th>
-        @if (display.walkContactDetailsVisible()) {
+        @if (display.contactNameVisible() || display.contactLinkVisible()) {
           <th class="d-none d-lg-table-cell" width="12%">Leader</th>
+        }
+        @if (display.contactPhoneVisible()) {
           <th class="d-none d-lg-table-cell" width="14%">Contact Phone</th>
         }
       </tr>
@@ -95,15 +97,23 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
                  tooltip="Click to locate postcode {{displayedWalk.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
                  placement="left">{{ displayedWalk.walk?.groupEvent?.start_location?.postcode }}</a>
             </td>
-            @if (display.walkContactDetailsVisible()) {
+            @if (display.contactNameVisible(displayedWalk.walk) || display.hasContactLink(displayedWalk.walk)) {
               <td width="12%" class="d-none d-lg-table-cell walk-leader" id="contactEmail-{{index}}">
-                <app-event-leader-contact-link [walk]="displayedWalk.walk"/>
+                <div class="d-flex align-items-start justify-content-between">
+                  <app-event-leader-contact-link [walk]="displayedWalk.walk"
+                                                 [fallbackLabel]="display.contactLinkFallbackLabel(displayedWalk.walk)"/>
+                  @if (!display.contactPhoneVisible(displayedWalk.walk)) {
+                    <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="true"/>
+                  }
+                </div>
               </td>
+            }
+            @if (display.contactPhoneVisible(displayedWalk.walk)) {
               <td width="14%" class="d-none d-lg-table-cell contact-phone" id="contactPhone-{{index}}" name="contactPhone">
                 <div class="d-flex align-items-start justify-content-between">
                   <app-event-leader-phone-link
                     [phone]="displayedWalk.walk?.fields?.contactDetails?.phone"
-                    [displayName]="displayedWalk.walk?.fields?.contactDetails?.displayName"/>
+                    [displayName]="display.visibleLeaderDisplayName(displayedWalk.walk)"/>
                   <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="true"/>
                 </div>
               </td>
@@ -149,8 +159,11 @@ export class EventTableView {
     if ((this.display.walkPopulationLocal() || this.memberLoginService.allowWalkAdminEdits()) && this.memberLoginService.memberLoggedIn()) {
       columns++;
     }
-    if (this.display.walkContactDetailsVisible()) {
-      columns += 2;
+    if (this.display.contactNameVisible() || this.display.contactLinkVisible()) {
+      columns++;
+    }
+    if (this.display.contactPhoneVisible()) {
+      columns++;
     }
     return columns;
   }

@@ -173,7 +173,23 @@ export class EventsFull implements OnInit, OnDestroy {
   protected readonly WalkListView = WalkListView;
   protected readonly production = environment.production;
 
-  @Input() eventsData: EventsData;
+  public eventsData: EventsData;
+  private appliedEventsDataKey: string = null;
+  private eventsInitialised = false;
+
+  @Input("eventsData") set acceptEventsData(eventsData: EventsData) {
+    this.eventsData = eventsData;
+    const nextKey = this.eventsDataKey(eventsData);
+    if (nextKey !== this.appliedEventsDataKey) {
+      this.appliedEventsDataKey = nextKey;
+      this.logger.info("eventsData changed:", nextKey, "eventsInitialised:", this.eventsInitialised);
+      this.applyEventsDataConfig();
+      if (this.eventsInitialised) {
+        this.pageNumber = 1;
+        this.performServerSideSearch();
+      }
+    }
+  }
 
   public filteredWalks: DisplayedWalk[] = [];
   public currentPageWalks: DisplayedWalk[] = [];
@@ -205,7 +221,7 @@ export class EventsFull implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.pageSize = 10;
     this.pageNumber = 1;
-    this.route.queryParamMap.subscribe(params => {
+    this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
       const q = params.get(this.stringUtils.kebabCase(StoredValue.SEARCH));
       const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE));
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
@@ -260,18 +276,18 @@ export class EventsFull implements OnInit, OnDestroy {
         }
       }
       this.performServerSideSearch();
-    });
+    }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.defaultWalkListView = systemConfig.group.defaultWalkListView;
       this.updateViewAndPagination(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, systemConfig.group.defaultWalkListView) as WalkListView);
     }));
     this.walksConfig = this.walksConfigService.walksConfig() ?? this.walksConfigService.default();
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
-    this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, () => this.refreshEvents(NamedEventType.SYSTEM_CONFIG_LOADED));
-    this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshEvents(NamedEventType.WALK_SLOTS_CREATED));
-    this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents(NamedEventType.REFRESH));
-    this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilter(searchTerm));
-    this.broadcastService.on(NamedEventType.WALK_SAVED, () => this.refreshEvents(NamedEventType.WALK_SAVED));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, () => this.refreshEvents(NamedEventType.SYSTEM_CONFIG_LOADED)));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshEvents(NamedEventType.WALK_SLOTS_CREATED)));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents(NamedEventType.REFRESH)));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilter(searchTerm)));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.WALK_SAVED, () => this.refreshEvents(NamedEventType.WALK_SAVED)));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.logger.debug("route paramMap:", paramMap);
     }));
@@ -280,6 +296,34 @@ export class EventsFull implements OnInit, OnDestroy {
       this.display.closeAllExpanded();
       this.refreshEvents(loginResponse);
     }));
+    this.applyEventsDataConfig();
+    this.eventsInitialised = true;
+    setTimeout(() => {
+      this.isInitializing = false;
+    }, 100);
+  }
+
+  private eventsDataKey(eventsData: EventsData): string {
+    if (!eventsData) {
+      return "none";
+    } else {
+      const eventTypes = (eventsData.eventTypes || []).join(",");
+      const eventIds = (eventsData.eventIds || []).join(",");
+      const tagsAny = (eventsData.tagsAny || []).join(",");
+      const tagsExclude = (eventsData.tagsExclude || []).join(",");
+      return [
+        eventTypes,
+        eventsData.filterCriteria || "",
+        eventsData.sortOrder || "",
+        eventIds,
+        tagsAny,
+        tagsExclude,
+        eventsData.allow?.viewSelector ? "selector" : "list"
+      ].join("|");
+    }
+  }
+
+  private applyEventsDataConfig() {
     if (this.eventsData) {
       if (this.eventsData.filterCriteria) {
         this.filterParameters.selectType = this.eventsData.filterCriteria;
@@ -291,13 +335,13 @@ export class EventsFull implements OnInit, OnDestroy {
       if (savedCriteria) {
         this.storedAdvancedSearchCriteria = savedCriteria;
         this.advancedSearchCriteria = this.advancedSearchAllowed() ? savedCriteria : null;
+      } else if (!this.queryParamsActive) {
+        this.storedAdvancedSearchCriteria = null;
+        this.advancedSearchCriteria = null;
       }
       this.selectedPresetLabel = this.eventsData.savedCriteria?.presetLabel;
-      this.logger.info("ngOnInit: applied eventsData config, filterParameters:", this.filterParameters, "savedCriteria:", savedCriteria);
+      this.logger.info("applyEventsDataConfig: filterParameters:", this.filterParameters, "savedCriteria:", savedCriteria);
     }
-    setTimeout(() => {
-      this.isInitializing = false;
-    }, 100);
   }
 
   ngOnDestroy(): void {

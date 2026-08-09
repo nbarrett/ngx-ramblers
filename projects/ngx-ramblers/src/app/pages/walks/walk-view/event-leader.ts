@@ -46,28 +46,30 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
         <div class="col-md-6">
           <h1>{{ heading() }}</h1>
           <div class="row">
-            @if (resolvedEvent()?.fields?.contactDetails?.email) {
+            @if (display.hasContactLink(resolvedEvent())) {
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                 <app-copy-icon [icon]="faEnvelope" title
-                               [disabled]="display.isContactUsContact(resolvedEvent())"
-                               [value]="resolvedEvent()?.fields?.contactDetails?.email"
-                               [elementName]="'email address for '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
+                               [disabled]="!display.showMailtoEmail(resolvedEvent())"
+                               [value]="display.showMailtoEmail(resolvedEvent()) ? resolvedEvent()?.fields?.contactDetails?.email : null"
+                               [elementName]="'email address for '+ (display.visibleLeaderDisplayName(resolvedEvent()) || 'event leader')"/>
                 <div content>
-                  <app-event-leader-contact-link [walk]="resolvedEvent()" fallbackLabel="Contact Via Ramblers"/>
+                  <app-event-leader-contact-link [walk]="resolvedEvent()"
+                                                 [fallbackLabel]="display.contactLinkFallbackLabel(resolvedEvent())"/>
                 </div>
               </div>
             }
-            @if (resolvedEvent()?.fields?.contactDetails?.phone) {
+            @if (display.contactPhoneVisible(resolvedEvent()) && resolvedEvent()?.fields?.contactDetails?.phone) {
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                 <app-copy-icon [icon]="faPhone" title [value]="resolvedEvent()?.fields?.contactDetails?.phone"
-                               [elementName]="'mobile number for '+ resolvedEvent()?.fields?.contactDetails?.displayName "/>
+                               [elementName]="'mobile number for '+ (display.visibleLeaderDisplayName(resolvedEvent()) || 'event leader')"/>
                 <div content>
                   <app-event-leader-phone-link
                     [phone]="resolvedEvent()?.fields?.contactDetails?.phone"
-                    [displayName]="resolvedEvent()?.fields?.contactDetails?.displayName"/>
+                    [displayName]="display.visibleLeaderDisplayName(resolvedEvent())"/>
                 </div>
               </div>
-            } @else if (!resolvedEvent()?.fields?.contactDetails?.email) {
+            } @else if (display.contactNameVisible(resolvedEvent()) && resolvedEvent()?.fields?.contactDetails?.displayName
+              && !display.hasContactLink(resolvedEvent())) {
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                 <app-copy-icon [icon]="faPersonWalking" title
                                [value]="resolvedEvent()?.fields?.contactDetails?.displayName"
