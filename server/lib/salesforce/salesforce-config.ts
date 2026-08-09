@@ -20,6 +20,10 @@ export function persistSalesforceConfig(value: SalesforceConfig): Promise<Config
   return config.createOrUpdateKey(ConfigKey.SALESFORCE, value);
 }
 
+export function salesforceEndpointBaseUrl(value: string | null | undefined): string {
+  return (value || "").trim().replace(/\/+$/, "");
+}
+
 export function parseGroupCodes(raw: string | null | undefined): string[] {
   if (!raw) return [];
   return raw.split(",").map(code => code.trim()).filter(code => code.length > 0);

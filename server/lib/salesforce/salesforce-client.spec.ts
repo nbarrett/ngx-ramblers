@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { SalesforceConfig } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
-import { activeGroupCodeWithToken, pushSalesforceBounce, pushSalesforceConsent } from "./salesforce-client";
+import { activeGroupCodeWithToken, buildSalesforceClient, pushSalesforceBounce, pushSalesforceConsent } from "./salesforce-client";
 
 function configWith(apiKeysByGroupCode: Record<string, string>): SalesforceConfig {
   return {
@@ -36,6 +36,14 @@ describe("activeGroupCodeWithToken", () => {
   it("ignores an active group whose token is an empty string", () => {
     const config = configWith({ KT51: "" });
     expect(activeGroupCodeWithToken(config, "KT51")).toBeNull();
+  });
+});
+
+describe("buildSalesforceClient", () => {
+  it("trims whitespace and trailing slashes from the endpoint base URL", () => {
+    const client = buildSalesforceClient("  https://example.test///  ");
+
+    expect(client.defaults.baseURL).toBe("https://example.test");
   });
 });
 
