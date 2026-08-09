@@ -8,6 +8,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Member, MemberEmailBlock } from "../../../models/member.model";
 import {
   BLOCKED_CONTACT_REASON_LABELS,
+  BrevoTabSubTab,
   ListInfo,
   ListSetting,
   MailListAudit,
@@ -29,7 +30,6 @@ import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
-import { BrevoTabSubTab } from "../../../models/mail.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { DESCENDING } from "../../../models/table-filtering.model";
 
@@ -42,7 +42,7 @@ import { DESCENDING } from "../../../models/table-filtering.model";
           <fa-icon [icon]="faBan" class="me-2"></fa-icon>
           <span>
             <strong>{{ blockedTitle() }}</strong> &mdash; {{ blockReasonLabel(block) }}, {{ formatBlockDate(block.blockedAt) }}.
-            Re-enable via <a href="javascript:void(0)" (click)="goToUnsubscribes($event)">Mail Settings &rarr; Unsubscribes</a>.
+            Re-enable via <a href="javascript:void(0)" (click)="goToUnsubscribes($event)">Mail Settings &rarr; Unsubscribes &rarr; Blocks</a>.
           </span>
         </div>
       }

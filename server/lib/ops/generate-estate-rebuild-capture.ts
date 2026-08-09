@@ -38,7 +38,7 @@ import {
   consoleAccessValue,
   isConsoleAccessPasswordField
 } from "./console-access-catalogue";
-import { PLATFORM_FIELDS, SITE_FIELDS, THIRD_PARTY_SYSTEMS } from "./estate-rebuild-fields";
+import { PLATFORM_FIELDS, SITE_FIELDS, systemIdForSiteField, THIRD_PARTY_SYSTEMS } from "./estate-rebuild-fields";
 
 const debugLog = debug(envConfig.logNamespace("ops:estate-rebuild-capture"));
 debugLog.enabled = true;
@@ -688,6 +688,7 @@ function buildCaptureRows(
       category: field.category,
       fieldId: field.fieldId,
       field: field.label,
+      systemId: systemIdForSiteField(field),
       configured: configuredFor(field.fieldId, infra, site, includeSecrets),
       safeValue: safeValueFor(field.fieldId, infra, site, includeSecrets),
       whereHeld: field.whereHeld
