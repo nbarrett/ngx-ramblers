@@ -108,6 +108,41 @@ function derivedStatusStages(): any[] {
         __isCancelled: {$eq: [{$toLower: {$ifNull: [`$${GroupEventField.STATUS}`, ""]}}, ProgrammeOverviewStatus.CANCELLED]},
         __isRamblersDraft: {$eq: [{$toLower: {$ifNull: [`$${GroupEventField.STATUS}`, ""]}}, ProgrammeOverviewStatus.DRAFT]},
         __isWalksManagerSourced: {$eq: [{$ifNull: [`$${DocumentField.SOURCE}`, null]}, EventSource.WALKS_MANAGER]},
+        __hasRamblersPublicationIdentity: {
+          $and: [
+            {$gt: [{$strLenCP: {$trim: {input: {$ifNull: [`$${GroupEventField.ID}`, ""]}}}}, 0]},
+            {
+              $or: [
+                {
+                  $regexMatch: {
+                    input: {$ifNull: [`$${GroupEventField.URL}`, ""]},
+                    regex: "^https?://(?:www\\.)?ramblers\\.org\\.uk/",
+                    options: "i"
+                  }
+                },
+                {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: {$ifNull: ["$fields.links", []]},
+                          as: "link",
+                          cond: {
+                            $and: [
+                              {$eq: ["$$link.source", "ramblers"]},
+                              {$gt: [{$strLenCP: {$trim: {input: {$ifNull: ["$$link.href", ""]}}}}, 0]}
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    0
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         __publishedAfterStatus: {
           $and: [
             {$ne: ["$__latestPublishedDate", null]},
@@ -122,7 +157,7 @@ function derivedStatusStages(): any[] {
           $switch: {
             branches: [
               {case: "$__isCancelled", then: ProgrammeOverviewStatus.CANCELLED},
-              {case: "$__publishedAfterStatus", then: EventType.PUBLISHED_TO_RAMBLERS},
+              {case: {$or: ["$__publishedAfterStatus", "$__hasRamblersPublicationIdentity"]}, then: EventType.PUBLISHED_TO_RAMBLERS},
               {case: {$and: ["$__isWalksManagerSourced", "$__isRamblersDraft"]}, then: ProgrammeOverviewStatus.DRAFT},
               {case: "$__isWalksManagerSourced", then: EventType.PUBLISHED_TO_RAMBLERS}
             ],

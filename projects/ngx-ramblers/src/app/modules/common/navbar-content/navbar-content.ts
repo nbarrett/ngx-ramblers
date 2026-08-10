@@ -11,13 +11,13 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 @Component({
     selector: "app-navbar-content",
     template: `
-      <div>
+      <div class="navbar-content-shell">
         <div [class]="'ramblers-list-' + (systemConfig?.header?.navBar?.class || '') + ' ' + containerClasses()">
           <ul [class]="listClasses()">
             <app-page-navigator/>
           </ul>
         </div>
-        <div class="bg-dark px-3 pt-4 pb-2 d-lg-none">
+        <div class="mobile-header-actions bg-dark px-3 pt-4 pb-2 d-lg-none">
           <div class="d-block d-sm-flex align-items-center justify-content-center gap-3">
             @if (systemConfig?.header?.headerBar?.showNavigationButtons) {
               <app-header-buttons/>

@@ -138,17 +138,17 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
                   <span class="status-badge" [style.background-color]="descriptorFor(row.status).colour"
                         [style.color]="descriptorFor(row.status).textColour">{{ descriptorFor(row.status).title }}</span>
                 </div>
-                <div class="walk-row-actions">
-                  <button type="button" class="btn btn-sm btn-quiet" (click)="openWalk(row)"
+                <div class="walk-row-actions d-flex flex-column flex-md-row align-items-stretch justify-content-end gap-2">
+                  <button type="button" class="btn btn-sm btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-fill" (click)="openWalk(row)"
                           [title]="'View ' + (row.title || 'this walk') + ' as it appears on the website'">
                     <fa-icon [icon]="faArrowRightToBracket"/>
-                    <span class="ms-1">Open</span>
+                    <span>Open</span>
                   </button>
                   @if (allowEdit()) {
-                    <button type="button" class="btn btn-sm btn-quiet" [title]="actionTooltip(row)"
+                    <button type="button" class="btn btn-sm btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-fill" [title]="actionTooltip(row)"
                             (click)="editWalk(row); $event.stopPropagation()">
                       <fa-icon [icon]="faPenToSquare"/>
-                      <span class="ms-1">{{ actionLabel(row) }}</span>
+                      <span>{{ actionLabel(row) }}</span>
                     </button>
                   }
                 </div>

@@ -25,19 +25,14 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
   changeDetection: ChangeDetectionStrategy.Default,
   imports: [PageComponent, NgTemplateOutlet, FontAwesomeModule, WalkProgrammeViewSelector],
   styleUrls: ["./walk-leader-dashboard.sass"],
-  styles: [`
-    .my-walks-back
-      position: absolute
-      top: 0
-      right: 0
-      z-index: 6
-  `],
   template: `
     <app-page autoTitle>
-      <button type="button" class="btn pager-btn rounded my-walks-back" (click)="goBack()">
-        <fa-icon [icon]="faArrowLeft" class="me-2"/>{{ display.returnToPreviousViewLabel() }}
-      </button>
-      <app-walk-programme-view-selector/>
+      <div class="leader-navigation">
+        <app-walk-programme-view-selector/>
+        <button type="button" class="btn pager-btn rounded my-walks-back" (click)="goBack()">
+          <fa-icon [icon]="faArrowLeft" class="me-2"/>{{ display.returnToPreviousViewLabel() }}
+        </button>
+      </div>
       <div class="leader">
         <div class="leader-intro">
           <p>Your walks in one place: what you are leading, anything still needing detail or approval, and slots you can

@@ -135,3 +135,24 @@
   .facebook-skeleton-thumb,
   .facebook-skeleton-line
     animation: none
+
+@media (max-width: 768px)
+  .facebook-post-list
+    display: grid
+    grid-template-columns: repeat(3, minmax(0, 1fr))
+    gap: var(--space-2)
+  .facebook-post,
+  .facebook-post-skeleton
+    display: block
+    padding: 0
+  .facebook-post-thumb,
+  .facebook-skeleton-thumb
+    display: flex
+    width: 100%
+    height: auto
+    min-height: 0
+    max-height: none
+    aspect-ratio: 1
+  .facebook-post-copy,
+  .facebook-skeleton-lines
+    display: none

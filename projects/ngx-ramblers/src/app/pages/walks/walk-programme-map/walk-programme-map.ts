@@ -51,7 +51,7 @@ const ALL_STATUSES = "all-statuses";
       <div class="programme-map">
         <app-date-range-selector [minDate]="minDate" [maxDate]="maxDate" [direction]="dateRangeDirection"
                                  [range]="range" (rangeChange)="onRangeChange($event)"/>
-        <app-section-toggle [tabs]="statusTabs()" [selectedTab]="status || ALL_STATUSES"
+        <app-section-toggle stackOnMobile [tabs]="statusTabs()" [selectedTab]="status || ALL_STATUSES"
                             (selectedTabChange)="selectStatusTab($event)"/>
 
         @if (!loading && filteredWalks.length === 0) {

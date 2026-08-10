@@ -80,11 +80,11 @@ const LEADER_GRADE_PALETTE: string[] = [
             <span class="calendar-title">{{ periodTitle() }}</span>
           </div>
           <div class="calendar-controls">
-            <app-section-toggle [tabs]="viewModeTabs" [selectedTab]="viewMode"
+            <app-section-toggle stackOnMobile [tabs]="viewModeTabs" [selectedTab]="viewMode"
                                 (selectedTabChange)="setViewMode($event)"/>
             <div class="control-field">
               <label id="calendar-colour-by-label">Colour by</label>
-              <app-section-toggle [tabs]="colourByTabs" [selectedTab]="colourBy"
+              <app-section-toggle stackOnMobile [tabs]="colourByTabs" [selectedTab]="colourBy"
                                   (selectedTabChange)="setColourBy($event)"/>
             </div>
             @if (!display.walkPopulationWalksManager()) {

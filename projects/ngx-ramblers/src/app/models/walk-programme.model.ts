@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { EventSource, ExtendedGroupEvent } from "./group-event.model";
 import { WalksAdminSegment, WALKS_LEADER_SEGMENT } from "./walks-route-paths.model";
+import { LinkSource } from "./walk.model";
 
 export enum ProgrammeOverviewStatus {
   AWAITING_LEADER = "awaitingLeader",
@@ -181,12 +182,20 @@ export function programmeStatusDescriptorsFor(walksManagerPopulation: boolean): 
 
 export const GROUP_EVENT_CALENDAR_COLOUR = "rgb(133, 173, 146)";
 
+export function hasRamblersPublicationIdentity(extendedGroupEvent: ExtendedGroupEvent): boolean {
+  const ramblersId = extendedGroupEvent?.groupEvent?.id?.trim();
+  const eventUrl = extendedGroupEvent?.groupEvent?.url?.trim();
+  const hasRamblersUrl = /^https?:\/\/(?:www\.)?ramblers\.org\.uk\//i.test(eventUrl || "")
+    || (extendedGroupEvent?.fields?.links || []).some(link => link.source === LinkSource.RAMBLERS && !!link.href?.trim());
+  return !!ramblersId && hasRamblersUrl;
+}
+
 export function displayedWalkProgrammeStatus(extendedGroupEvent: ExtendedGroupEvent, derivedEventStatus: string): ProgrammeOverviewStatus {
   const ramblersStatus = (extendedGroupEvent?.groupEvent?.status || "").toLowerCase();
   const walksManagerSourced = extendedGroupEvent?.source === EventSource.WALKS_MANAGER;
   if (ramblersStatus === ProgrammeOverviewStatus.CANCELLED) {
     return ProgrammeOverviewStatus.CANCELLED;
-  } else if (derivedEventStatus === ProgrammeOverviewStatus.PUBLISHED) {
+  } else if (derivedEventStatus === ProgrammeOverviewStatus.PUBLISHED || hasRamblersPublicationIdentity(extendedGroupEvent)) {
     return ProgrammeOverviewStatus.PUBLISHED;
   } else if (walksManagerSourced && ramblersStatus === ProgrammeOverviewStatus.DRAFT) {
     return ProgrammeOverviewStatus.DRAFT;
