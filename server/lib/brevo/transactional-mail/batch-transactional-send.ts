@@ -33,6 +33,19 @@ import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/b
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as transforms from "../../mongo/controllers/transforms";
+import { volunteerAssignment } from "../../mongo/models/volunteer-assignment";
+import { volunteerParish } from "../../mongo/models/volunteer-parish";
+import {
+  VolunteerAssignment,
+  VolunteerAssignmentStatus,
+  VolunteerParish,
+  VolunteerSupporterIdentity
+} from "../../../../projects/ngx-ramblers/src/app/models/volunteer-management.model";
+import { volunteerMergeFieldsFor } from "../../../../projects/ngx-ramblers/src/app/functions/volunteer-management";
+
+function formatVolunteerDate(value: number): string {
+  return dateTimeFromMillis(value).toFormat(UIDateFormat.DISPLAY_DATE);
+}
 import * as config from "../../mongo/controllers/config";
 import { notificationConfig as notificationConfigModel } from "../../mongo/models/notification-config";
 import { banner } from "../../mongo/models/banner";
@@ -300,6 +313,33 @@ function contentHasMemberMergeFields(request: BatchTransactionalSendRequest): bo
     .some(value => String(value).includes("memberMergeFields"));
 }
 
+function contentHasVolunteerMergeFields(request: BatchTransactionalSendRequest): boolean {
+  return [request.subject, request.htmlBody, request.htmlBodyTop, request.htmlBodyBottom]
+    .filter(Boolean)
+    .some(value => String(value).includes("volunteerMergeFields"));
+}
+
+async function volunteerMergeFieldSource(request: BatchTransactionalSendRequest): Promise<{assignments: VolunteerAssignment[]; parishes: VolunteerParish[]; supporters: VolunteerSupporterIdentity[]} | null> {
+  if (contentHasVolunteerMergeFields(request)) {
+    try {
+      const [assignmentDocuments, parishDocuments, memberDocuments] = await Promise.all([
+        volunteerAssignment.find({status: VolunteerAssignmentStatus.ACTIVE}).exec(),
+        volunteerParish.find({}).exec(),
+        memberModel.find({}, {firstName: 1, lastName: 1, displayName: 1, email: 1}).exec()
+      ]);
+      return {
+        assignments: assignmentDocuments.map(document => transforms.toObjectWithId(document)) as VolunteerAssignment[],
+        parishes: parishDocuments.map(document => transforms.toObjectWithId(document)) as VolunteerParish[],
+        supporters: memberDocuments.map(document => transforms.toObjectWithId(document)) as VolunteerSupporterIdentity[]
+      };
+    } catch (error) {
+      return null;
+    }
+  } else {
+    return null;
+  }
+}
+
 async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger, senderRoleType: string | null): Promise<void> {
   const context = request.inboxReplyContext;
   const writebackRoleType = context?.aliasId ?? senderRoleType;
@@ -467,6 +507,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const { sender, replyTo, bcc, senderRoleType } = addresses;
     const bannerImageSrc = bannerSourceFor(allBanners, request.bannerId, groupHref);
     const accountFields = await accountMergeFieldsFor();
+    const volunteerSource = await volunteerMergeFieldSource(request);
     const externalRecipients = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
     const ccAddresses: EmailAddress[] = (request.ccRecipients ?? []).filter(item => !!item?.email?.trim())
       .map(item => ({email: item.email, name: externalRecipientName(item).full}));
@@ -553,7 +594,10 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           },
           memberMergeFields: memberMergeFieldsValue,
           systemMergeFields: systemMergeFields(systemCfg, groupHref, item.kind === "member" ? passwordResetLinkFor(item.memberRecord, groupHref) : ""),
-          accountMergeFields: accountFields
+          accountMergeFields: accountFields,
+          volunteerMergeFields: volunteerSource && item.kind === "member"
+            ? volunteerMergeFieldsFor(item.memberRecord.id, volunteerSource.assignments, volunteerSource.parishes, volunteerSource.supporters, formatVolunteerDate)
+            : undefined
         };
         const subject = notifConfig ? buildSubject(notifConfig, request.subject, params) : request.subject;
         params.messageMergeFields.subject = subject;

@@ -16,17 +16,19 @@
             </div>
             <div class="d-flex align-items-center gap-2 rsm-toolbar-grow">
               <label class="spaced-label mb-0" for="filter-members">Filter:</label>
-              <select class="form-control"
-                      [(ngModel)]="memberFilter.selectedFilter"
-                      (ngModelChange)="refreshMembers($event)"
-                      id="filter-members">
-                @for (tableFilterItem of memberFilter?.availableFilters; track tableFilterItem.title) {
-                  <option
-                    [ngValue]="tableFilterItem"
-                    [textContent]="tableFilterItem.title">
-                  </option>
-                }
-              </select>
+              <ng-select id="filter-members"
+                         class="filter-select flex-grow-1"
+                         [items]="memberFilter?.availableFilters"
+                         bindLabel="title"
+                         groupBy="group"
+                         [clearable]="false"
+                         [searchable]="true"
+                         [(ngModel)]="memberFilter.selectedFilter"
+                         (ngModelChange)="refreshMembers($event)">
+                <ng-template ng-optgroup-tmp let-item="item">
+                  <span style="font-weight: 700; color: #000;">{{ item.group }}</span>
+                </ng-template>
+              </ng-select>
             </div>
             <p class="rsm-muted mb-0">
               Showing {{ stringUtilsService.pluraliseWithCount(memberFilter.results.length, 'member') }}
@@ -119,6 +121,9 @@
                 <th (click)="sortMembersBy('createdDate')"><span class="nowrap">Created Date
                   @if (showMembersColumn('createdDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
+                <th (click)="sortMembersBy('updatedDate')"><span class="nowrap">Last Updated
+                  @if (showMembersColumn('updatedDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                </span></th>
                 <th (click)="sortMembersBy('membershipExpiryDate')"><span class="nowrap">Expiry Date
                   @if (showMembersColumn('membershipExpiryDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
@@ -188,23 +193,27 @@
                                  [ngClass]="markedForDelete(member.id)?'member-delete-confirm':'member-delete'"></fa-icon>
                       </td>
                     }
-                    <td data-label="Member Name" class="nowrap">
+                    <td data-label="Member Name">
                       @if (member.email) {
-                        <app-contact-action-dropdown [actions]="emailActionsFor(member.email, member | fullNameWithAlias, member.id)">
-                          {{ member | fullNameWithAlias }}
+                        <app-contact-action-dropdown [actions]="emailActionsFor(member.email, memberLabel(member), member.id)">
+                          {{ memberLabel(member) }}
                         </app-contact-action-dropdown>
                       } @else {
-                        {{ member | fullNameWithAlias }}
+                        {{ memberLabel(member) }}
+                      }
+                      @if (memberAlias(member); as alias) {
+                        <div class="member-alias text-muted small">{{ alias }}</div>
                       }
                     </td>
                     <td data-label="Mobile">
                       @if (member.mobileNumber) {
-                        <app-contact-action-dropdown [actions]="phoneActionsFor(member.mobileNumber, member | fullNameWithAlias)">
+                        <app-contact-action-dropdown [actions]="phoneActionsFor(member.mobileNumber, memberLabel(member))">
                           {{ member.mobileNumber }}
                         </app-contact-action-dropdown>
                       }
                     </td>
                     <td data-label="Created" class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
+                    <td data-label="Last Updated" class="nowrap">{{ member.updatedDate | displayDateNoDay }}</td>
                     <td data-label="Expiry" class="nowrap">
                       @if (member.memberTerm === MemberTerm.LIFE) {
                         Lifetime

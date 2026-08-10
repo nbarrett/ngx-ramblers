@@ -236,6 +236,13 @@
                 </label>
               </div>
               <div class="form-check">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.volunteerAdmin"
+                       type="checkbox" class="form-check-input" id="is-volunteer-admin">
+                <label name="volunteerAdmin" class="form-check-label"
+                       for="is-volunteer-admin">Volunteer Admin
+                </label>
+              </div>
+              <div class="form-check">
                 <input [disabled]="!allowEdits"
                        [(ngModel)]="member.walkChangeNotifications" type="checkbox"
                        class="form-check-input"
@@ -417,7 +424,7 @@
                   <div class="col col-sm-4">
                     <div class="form-group">
                       <label for="ho-volunteer-roles">Volunteer Roles</label>
-                      <input disabled [value]="member.volunteerRoles || '—'" type="text"
+                      <input disabled [value]="volunteerRolesText()" type="text"
                              class="form-control input-sm" id="ho-volunteer-roles">
                     </div>
                   </div>

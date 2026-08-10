@@ -4,6 +4,11 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { firstValueFrom, Subscription, timer } from "rxjs";
+import { VolunteerManagementService } from "../../services/volunteer-management.service";
+import { volunteerAudience } from "../../functions/volunteer-audiences";
+import { VolunteerAudience, VolunteerAudienceType, VolunteerManagementSnapshot } from "../../models/volunteer-management.model";
+import { volunteerLetterSeed } from "../../functions/volunteer-letters";
+import { volunteerMergeFieldsFor } from "../../functions/volunteer-management";
 import { HttpClient } from "@angular/common/http";
 import { switchMap } from "rxjs/operators";
 import { cloneDeep, isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
@@ -95,7 +100,10 @@ import {
   UNBRANDED_LONG_BODY_CHAR_THRESHOLD,
   PriorSendExclusion,
   ValidationError,
-  ValidationErrorWithLink
+  ValidationErrorWithLink,
+  MergeFieldGroup,
+  MERGE_FIELD_CATALOGUE,
+  VOLUNTEER_MERGE_FIELD_CATALOGUE
 } from "../../models/email-composer.model";
 import {
   buildDefaultFragmentOrder,
@@ -1297,13 +1305,15 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                                                 (rawPaste)="onIntroRawPaste($event)"
                                                 placeholder="Write your message here…"
                                                 stickyToolbar
-                                                [showMergeFields]="true"/>
+                                                [showMergeFields]="true"
+                                                [mergeFieldCatalogue]="composerMergeFieldCatalogue"/>
                   }
                   @case (ComposerFragmentKind.SIGNOFF) {
                     <app-tiptap-markdown-editor [value]="state.signoffTextMarkdown"
                                                 (valueChange)="state.signoffTextMarkdown = $event"
                                                 placeholder="Sign off…"
-                                                [showMergeFields]="true"/>
+                                                [showMergeFields]="true"
+                                                [mergeFieldCatalogue]="composerMergeFieldCatalogue"/>
                   }
                   @case (ComposerFragmentKind.ARTICLE) {
                     @let block = findArticleBlock(fragment.id);
@@ -1946,6 +1956,15 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposer", NgxLoggerLevel.ERROR);
+  private volunteerManagementService = inject(VolunteerManagementService);
+  protected volunteerAudienceSummary: VolunteerAudience | null = null;
+  private volunteerSnapshot: VolunteerManagementSnapshot | null = null;
+
+  protected get composerMergeFieldCatalogue(): MergeFieldGroup[] {
+    return this.state.context?.source === EmailComposerContextSource.VOLUNTEER
+      ? [...MERGE_FIELD_CATALOGUE, ...VOLUNTEER_MERGE_FIELD_CATALOGUE]
+      : MERGE_FIELD_CATALOGUE;
+  }
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private location = inject(Location);
@@ -2136,6 +2155,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     }));
     await identityAndSalesforceConfig;
     this.allMembers = await this.memberService.privilegedFields();
+    await this.applyVolunteerAudience();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     try {
       this.memberBulkLoadDateMap = await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
@@ -2190,9 +2210,64 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.ensureGroupEventsFilter();
         await this.populateGroupEvents();
       }
+    } else if (queryParams.get(StoredValue.AUDIENCE)) {
+      this.state.context = {
+        source: EmailComposerContextSource.VOLUNTEER,
+        volunteerAudience: {
+          audienceType: queryParams.get(StoredValue.AUDIENCE) as VolunteerAudienceType,
+          localAuthorityCode: queryParams.get(StoredValue.AUTHORITY),
+          sectorCode: queryParams.get(StoredValue.SECTOR),
+          rightsOfWayGroupCode: queryParams.get(StoredValue.GROUP)
+        }
+      };
+      this.state.eventInclusion = EventInclusionMode.NONE;
+      const letterSeed = volunteerLetterSeed(queryParams.get(StoredValue.LETTER));
+      if (letterSeed) {
+        this.state.subject = letterSeed.subject;
+        this.state.introMarkdown = letterSeed.introMarkdown;
+      }
     } else {
       this.state.context = { source: EmailComposerContextSource.ADMIN };
       this.state.eventInclusion = EventInclusionMode.NONE;
+    }
+  }
+
+  private async ensureVolunteerSnapshot(): Promise<void> {
+    if (!this.volunteerSnapshot) {
+      const groupCode = this.systemConfig?.group?.groupCode ?? "";
+      try {
+        this.volunteerSnapshot = await firstValueFrom(this.volunteerManagementService.snapshot(groupCode));
+      } catch (error) {
+        this.logger.error("ensureVolunteerSnapshot failed", error);
+      }
+    }
+  }
+
+  private async applyVolunteerAudience(): Promise<void> {
+    const criteria = this.state.context?.volunteerAudience;
+    if (criteria?.audienceType) {
+      try {
+        const groupCode = this.systemConfig?.group?.groupCode ?? "";
+        const [snapshot, contacts] = await Promise.all([
+          firstValueFrom(this.volunteerManagementService.snapshot(groupCode)),
+          this.externalRecipientService.list()
+        ]);
+        const audience = volunteerAudience(criteria, {
+          parishes: snapshot.parishes,
+          assignments: snapshot.assignments,
+          members: this.allMembers,
+          contacts
+        });
+        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        this.state.selectedMemberIds = audience.supporterIds;
+        this.state.externalRecipients = audience.externalRecipients.map(recipient => ({email: recipient.email, name: recipient.name}));
+        this.volunteerAudienceSummary = audience;
+        this.volunteerSnapshot = snapshot;
+        this.logger.info("applyVolunteerAudience:", audience.title, "members:", audience.supporterIds.length, "contacts:", audience.externalRecipients.length, "excluded:", audience.excluded.length);
+      } catch (error) {
+        this.logger.error("applyVolunteerAudience failed", error);
+        this.notify.error({title: "Volunteer audience could not be loaded", message: this.stringUtils.stringifyObject(error)});
+      }
     }
   }
 
@@ -5276,13 +5351,19 @@ export class EmailComposer implements OnInit, OnDestroy {
       top,
       bottom
     );
+    if ((combined || "").includes("volunteerMergeFields")) {
+      await this.ensureVolunteerSnapshot();
+    }
+    if (this.volunteerSnapshot) {
+      params.volunteerMergeFields = volunteerMergeFieldsFor(memberId, this.volunteerSnapshot.assignments, this.volunteerSnapshot.parishes, this.allMembers, value => this.dateUtils.displayDate(value));
+    }
     params.messageMergeFields.subject = isUnbranded ? this.state.subject : this.applySubjectAffixes(this.state.subject, params);
     const request: TemplateRenderRequest = isUnbranded
       ? { htmlContent: combined, params, brandingMode: BrandingMode.UNBRANDED }
       : {
         templateName: this.state.notificationConfig!.templateName,
         templateOverrides: this.state.notificationConfig!.templateOverrides,
-        body: this.state.notificationConfig!.body,
+        body: this.state.context?.source === EmailComposerContextSource.VOLUNTEER ? "" : this.state.notificationConfig!.body,
         htmlContent: combined,
         params
       };

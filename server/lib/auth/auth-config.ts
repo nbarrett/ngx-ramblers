@@ -66,7 +66,7 @@ export function authenticate() {
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const user = req.user as Partial<Member>;
   const isAdmin = !!(user?.memberAdmin || user?.contentAdmin || user?.fileAdmin ||
-    user?.walkAdmin || user?.socialAdmin || user?.treasuryAdmin || user?.financeAdmin);
+    user?.walkAdmin || user?.volunteerAdmin || user?.socialAdmin || user?.treasuryAdmin || user?.financeAdmin);
   if (!isAdmin) {
     res.status(403).json({error: "Admin access required"});
     return;

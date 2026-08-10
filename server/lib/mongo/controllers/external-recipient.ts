@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import debug from "debug";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
-import { isString } from "es-toolkit/compat";
+import { isArray, isString, values } from "es-toolkit/compat";
+import { ExternalContactType } from "../../../../projects/ngx-ramblers/src/app/models/external-recipient.model";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { externalRecipient, ExternalRecipientDocument } from "../models/external-recipient";
@@ -64,6 +65,7 @@ export async function create(req: AuthenticatedRequest, res: Response): Promise<
     const doc = await externalRecipient.create({
       email,
       name: req.body?.name?.toString().trim() || undefined,
+      ...contactDetailFrom(req.body),
       createdBy: memberId,
       createdAt: dateTimeNowAsValue()
     } as ExternalRecipientDocument);
@@ -71,6 +73,67 @@ export async function create(req: AuthenticatedRequest, res: Response): Promise<
   } catch (error) {
     errorDebugLog("create error:", error);
     res.status(500).json({ message: "external-recipient create failed", error: transforms.parseError(error) });
+  }
+}
+
+function trimmedOrUndefined(value: any): string | undefined {
+  const trimmed = isString(value) ? value.trim() : "";
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function codeListFrom(value: any): string[] {
+  return isArray(value) ? value.map(entry => trimmedOrUndefined(entry)).filter(entry => entry) : [];
+}
+
+function contactDetailFrom(body: any): Partial<ExternalRecipientDocument> {
+  return {
+    organisationName: trimmedOrUndefined(body?.organisationName),
+    contactName: trimmedOrUndefined(body?.contactName),
+    roleTitle: trimmedOrUndefined(body?.roleTitle),
+    telephone: trimmedOrUndefined(body?.telephone),
+    postalAddress: trimmedOrUndefined(body?.postalAddress),
+    contactType: values(ExternalContactType).includes(body?.contactType) ? body.contactType : undefined,
+    parishCodes: codeListFrom(body?.parishCodes),
+    localAuthorityCodes: codeListFrom(body?.localAuthorityCodes),
+    sectorCodes: codeListFrom(body?.sectorCodes),
+    rightsOfWayGroupCodes: codeListFrom(body?.rightsOfWayGroupCodes),
+    supporterId: trimmedOrUndefined(body?.supporterId) ?? null,
+    notes: trimmedOrUndefined(body?.notes)
+  };
+}
+
+export async function update(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const memberId = memberIdFrom(req);
+  if (memberId) {
+    try {
+      const email = normalisedEmail(req.body?.email);
+      const emailInUse = email ? await externalRecipient.findOne({ email, _id: { $ne: req.params.id } }).exec() : null;
+      if (!email) {
+        res.status(400).json({ message: "email is required" });
+      } else if (emailInUse) {
+        res.status(409).json({ message: "Another contact already uses this email address", request: email });
+      } else {
+        const document = await externalRecipient.findByIdAndUpdate(req.params.id, {
+          $set: {
+            email,
+            name: trimmedOrUndefined(req.body?.name),
+            ...contactDetailFrom(req.body),
+            updatedAt: dateTimeNowAsValue(),
+            updatedBy: memberId
+          }
+        }, { new: true, runValidators: true }).exec();
+        if (document) {
+          res.status(200).json({ action: ApiAction.UPDATE, response: transforms.toObjectWithId(document) });
+        } else {
+          res.status(404).json({ message: "External recipient not found", request: req.params.id });
+        }
+      }
+    } catch (error) {
+      errorDebugLog("update error:", error);
+      res.status(500).json({ message: "external-recipient update failed", error: transforms.parseError(error) });
+    }
+  } else {
+    res.status(401).json({ message: "Authentication required" });
   }
 }
 

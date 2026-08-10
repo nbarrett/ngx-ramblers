@@ -195,6 +195,7 @@ export interface AreaMapData {
   legendPosition?: LegendPosition;
   sharedDistrictStyle?: SharedDistrictStyle;
   showAreas?: boolean;
+  showGroupLabels?: boolean;
   showParishes?: boolean;
   parishAllocatedColor?: string;
   parishVacantColor?: string;
@@ -667,11 +668,16 @@ export interface NamedIconColour {
 
 export enum PaletteColor {
   DARK_GRAY = "#3f3f3f",
+  SLATE = "#5c6b7a",
+  BLUE = "#2e54a6",
   PURPLE = "#5a45c6",
-  ROSE = "#c21d4b",
+  TEAL = "#2a8a8a",
   GREEN = "#4c6c3e",
-  ORANGE = "#bf8630",
-  BLUE = "#2e54a6"
+  MOSS = "#4a8c3f",
+  AMBER = "#bf8630",
+  ORANGE = "#d2611f",
+  ROSE = "#c21d4b",
+  RED = "#cc0000"
 }
 
 export interface EditorState {

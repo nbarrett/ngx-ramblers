@@ -44,6 +44,7 @@ export interface EnteredMemberCredentials {
 export interface MemberCookie {
   memberId: string;
   walkAdmin: boolean;
+  volunteerAdmin?: boolean;
   socialAdmin: boolean;
   socialMember: boolean;
   contentAdmin: boolean;
@@ -199,6 +200,7 @@ export interface MemberPrivileges {
   socialMember?: boolean;
   userAdmin?: boolean;
   walkAdmin?: boolean;
+  volunteerAdmin?: boolean;
   revoked?: boolean;
   contentAdmin?: boolean;
   financeAdmin?: boolean;
@@ -409,6 +411,19 @@ export interface DeletedMember {
   deletedBy: string;
   memberId: string;
   membershipNumber: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  email?: string;
+  mobileNumber?: string;
+  postcode?: string;
+  userName?: string;
+  contactId?: string;
+  salesforceId?: string;
+  salesforceMemberRef?: string;
+  brevoContactId?: number | string;
+  membershipExpiryDate?: number;
+  createdDate?: number;
 }
 
 export interface DeletedMemberApiResponse extends ApiResponse {

@@ -20,6 +20,7 @@ export class MailConfigService {
       backupNotificationConfigId: null,
       bookingNotificationConfigId: null,
       memberSyncNotificationConfigId: null,
+      volunteerNotificationConfigId: null,
       allowUpdateLists: false,
       apiKey: null,
       allowSendCampaign: true,

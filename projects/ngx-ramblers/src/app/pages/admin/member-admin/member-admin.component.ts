@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { cloneDeep } from "es-toolkit/compat";
 import { sortBy } from "es-toolkit/compat";
 import { isNull } from "es-toolkit/compat";
+import { isString } from "es-toolkit/compat";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -50,7 +51,8 @@ import { FormsModule } from "@angular/forms";
 import { NgClass, TitleCasePipe } from "@angular/common";
 import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
 import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
-import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
+import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
+import { meaningfulAlias, memberFullName, memberNameCounts, trimmedNamePart } from "../../../functions/member-names";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ActivatedRoute, Router } from "@angular/router";
 import { UrlService } from "../../../services/url.service";
@@ -65,7 +67,7 @@ import { WebSocketClientService } from "../../../services/websockets/websocket-c
     selector: "app-member-admin",
     templateUrl: "./member-admin.component.html",
     styleUrls: ["./member-admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, FullNameWithAliasPipe, ContactActionDropdownComponent]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, ContactActionDropdownComponent, NgSelectComponent, NgOptgroupTemplateDirective]
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
 
@@ -103,6 +105,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   private today: number;
   public members: Member[] = [];
+  private resultsNameCountsCache: {results: Member[]; counts: Map<string, number>} | null = null;
   public bulkDeleteMarkedMemberIds: string[] = [];
   private unsubscribeHistoryByMemberId = new Map<string, Set<number>>();
   public quickSearch = "";
@@ -261,6 +264,29 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       },
       {
         title: "Walk Admin", group: "Administrators", filter: (member: Member) => member.walkAdmin
+      },
+      {
+        title: "Volunteer Admin", group: "Administrators", filter: (member: Member) => member.volunteerAdmin
+      },
+      {
+        title: "Rights of Way Volunteer (any role)", group: "Rights of Way Volunteers",
+        filter: (member: Member) => this.hasAnyVolunteerRole(member)
+      },
+      {
+        title: "Local Footpath Officer", group: "Rights of Way Volunteers",
+        filter: (member: Member) => this.hasVolunteerRole(member, "Local Footpath Officer")
+      },
+      {
+        title: "Parish Footpath Observer", group: "Rights of Way Volunteers",
+        filter: (member: Member) => this.hasVolunteerRole(member, "Parish Footpath Observer")
+      },
+      {
+        title: "Group Coordinator", group: "Rights of Way Volunteers",
+        filter: (member: Member) => this.hasVolunteerRole(member, "Group Coordinator")
+      },
+      {
+        title: "Rights of Way Contact (organisation)", group: "Rights of Way Volunteers",
+        filter: (member: Member) => this.hasVolunteerRole(member, "Rights of Way Contact")
       },
       {
         title: "Walk Change Notifications",
@@ -621,6 +647,47 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
 
   receivedInLastBulkLoad(member: Member): boolean {
     return this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit);
+  }
+
+  private volunteerRolesOf(member: Member): string {
+    const roles = member.volunteerRoles;
+    return isString(roles) && roles !== "[object Object]" ? roles : "";
+  }
+
+  hasVolunteerRole(member: Member, role: string): boolean {
+    return this.volunteerRolesOf(member).includes(role);
+  }
+
+  hasAnyVolunteerRole(member: Member): boolean {
+    return !!this.volunteerRolesOf(member);
+  }
+
+  memberLabel(member: Member): string {
+    return memberFullName(member);
+  }
+
+  memberAlias(member: Member): string {
+    if (meaningfulAlias(member.nameAlias)) {
+      return trimmedNamePart(member.nameAlias);
+    } else {
+      const fullName = memberFullName(member);
+      const duplicatedName = (this.resultsNameCounts().get(fullName.toLowerCase()) ?? 0) > 1;
+      if (!duplicatedName) {
+        return "";
+      } else {
+        const displayName = trimmedNamePart(member.displayName);
+        const distinctDisplayName = displayName && displayName.toLowerCase() !== fullName.toLowerCase() ? displayName : "";
+        return [distinctDisplayName, member.membershipNumber, member.postcode].filter(part => !!part).join(" · ");
+      }
+    }
+  }
+
+  private resultsNameCounts(): Map<string, number> {
+    const results = this.memberFilter?.results ?? [];
+    if (!this.resultsNameCountsCache || this.resultsNameCountsCache.results !== results) {
+      this.resultsNameCountsCache = {results, counts: memberNameCounts(results)};
+    }
+    return this.resultsNameCountsCache.counts;
   }
 
   private subscribedToLists(): TableFilterItem[] {

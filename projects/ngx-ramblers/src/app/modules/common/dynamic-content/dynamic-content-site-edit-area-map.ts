@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LegendPosition, PageContent, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -18,6 +18,7 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
 import { SharedDistrictStyle } from "../../../models/system.model";
 import { SharedDistrictStyleSelectorComponent } from "../../../shared/components/shared-district-style-selector";
 import { LegendPositionSelectorComponent } from "../../../shared/components/legend-position-selector";
+import { ColourSwatchSelectorComponent } from "../../../shared/components/colour-swatch-selector";
 
 interface RegionOption extends KeyValue<string> {}
 
@@ -122,36 +123,41 @@ interface RegionOption extends KeyValue<string> {}
       </div>
       @if (row.areaMap.showParishes) {
         <div class="row mb-2">
-          <div class="col-md-3">
+          <div class="col-md-6">
             <div class="form-group">
-              <label for="parish-allocated-{{id}}">Allocated Colour</label>
-              <input type="color" class="form-control form-control-sm" id="parish-allocated-{{id}}"
-                     [ngModel]="row.areaMap.parishAllocatedColor || '#4a8c3f'"
-                     (ngModelChange)="row.areaMap.parishAllocatedColor = $event; onParishSettingChange()">
+              <label>Allocated Colour</label>
+              <app-colour-swatch-selector
+                [value]="row.areaMap.parishAllocatedColor || '#4a8c3f'"
+                (valueChange)="row.areaMap.parishAllocatedColor = $event; onParishStyleChange()">
+              </app-colour-swatch-selector>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-6">
             <div class="form-group">
-              <label for="parish-vacant-{{id}}">Vacant Colour</label>
-              <input type="color" class="form-control form-control-sm" id="parish-vacant-{{id}}"
-                     [ngModel]="row.areaMap.parishVacantColor || '#cc0000'"
-                     (ngModelChange)="row.areaMap.parishVacantColor = $event; onParishSettingChange()">
+              <label>Vacant Colour</label>
+              <app-colour-swatch-selector
+                [value]="row.areaMap.parishVacantColor || '#cc0000'"
+                (valueChange)="row.areaMap.parishVacantColor = $event; onParishStyleChange()">
+              </app-colour-swatch-selector>
             </div>
           </div>
-          <div class="col-md-3">
+        </div>
+        <div class="row mb-2">
+          <div class="col-md-6">
             <div class="form-group">
-              <label for="parish-border-{{id}}">Border Colour</label>
-              <input type="color" class="form-control form-control-sm" id="parish-border-{{id}}"
-                     [ngModel]="row.areaMap.parishBorderColor || '#333333'"
-                     (ngModelChange)="row.areaMap.parishBorderColor = $event; onParishSettingChange()">
+              <label>Border Colour</label>
+              <app-colour-swatch-selector
+                [value]="row.areaMap.parishBorderColor || '#3f3f3f'"
+                (valueChange)="row.areaMap.parishBorderColor = $event; onParishStyleChange()">
+              </app-colour-swatch-selector>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-6">
             <div class="form-group">
               <label for="parish-opacity-{{id}}">Fill Opacity</label>
               <input type="range" class="form-range" id="parish-opacity-{{id}}" min="0" max="1" step="0.05"
                      [ngModel]="row.areaMap.parishFillOpacity ?? 0.7"
-                     (ngModelChange)="row.areaMap.parishFillOpacity = $event; onParishSettingChange()">
+                     (ngModelChange)="row.areaMap.parishFillOpacity = $event; onParishStyleChange()">
               <small class="form-text text-muted">{{ (row.areaMap.parishFillOpacity ?? 0.7) | number:'1.2-2' }}</small>
             </div>
           </div>
@@ -160,7 +166,10 @@ interface RegionOption extends KeyValue<string> {}
 
       <div class="row mb-3">
         <div class="col-12">
-          <h6>Live Preview</h6>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="mb-0">Live Preview</h6>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="autoFit()">Auto-fit to content</button>
+          </div>
           @if (showAreaMap) {
             <app-area-map [row]="row" [pageContent]="pageContent"/>
           }
@@ -168,7 +177,7 @@ interface RegionOption extends KeyValue<string> {}
       </div>
     }
   `,
-  imports: [DecimalPipe, FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent]
+  imports: [DecimalPipe, FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent, ColourSwatchSelectorComponent]
 })
 export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAreaMapComponent", NgxLoggerLevel.OFF);
@@ -180,6 +189,7 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   @Input() id!: string;
   @Input() pageContent?: PageContent;
 
+  @ViewChild(AreaMap) areaMapComponent?: AreaMap;
   public regionOptions: RegionOption[] = [];
   public availableGroups: string[] = [];
   public showAreaMap = true;
@@ -278,6 +288,14 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   onParishSettingChange() {
     this.broadcastChange();
     this.recreateAreaMap();
+  }
+
+  onParishStyleChange() {
+    this.broadcastChange();
+  }
+
+  autoFit() {
+    this.areaMapComponent?.fitToContent();
   }
 
   private recreateAreaMap() {

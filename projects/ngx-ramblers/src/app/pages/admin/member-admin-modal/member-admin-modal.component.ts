@@ -2,7 +2,7 @@ import { AdminPath } from "../../../models/admin-route-paths.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCopy, faEye, faEyeSlash, faPaste, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
-import { omit, values } from "es-toolkit/compat";
+import { omit, trim, values } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -109,6 +109,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public allowConfirmDelete = false;
   public saveInProgress: boolean;
   public member: Member;
+
+  public volunteerRolesText(): string {
+    const roles = trim(this.member?.volunteerRoles);
+    return (!roles || roles === "[object Object]") ? "—" : roles;
+  }
+
   public pendingSyncNotificationCount = 0;
   public receivedInLastBulkLoad: boolean;
   public lastBulkLoadDate: number;
@@ -261,7 +267,20 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
           deletedAt,
           deletedBy,
           memberId: this.member.id,
-          membershipNumber: this.member.membershipNumber
+          membershipNumber: this.member.membershipNumber,
+          firstName: this.member.firstName,
+          lastName: this.member.lastName,
+          displayName: this.member.displayName,
+          email: this.member.email,
+          mobileNumber: this.member.mobileNumber,
+          postcode: this.member.postcode,
+          userName: this.member.userName,
+          contactId: this.member.contactId,
+          salesforceId: this.member.salesforceId,
+          salesforceMemberRef: this.member.salesforceMemberRef,
+          brevoContactId: this.member.mail?.id,
+          membershipExpiryDate: this.member.membershipExpiryDate,
+          createdDate: this.member.createdDate
         });
       } else {
         this.logger.warn("confirmDeleteMemberDetails: no logged in member id available for deletedMember record");

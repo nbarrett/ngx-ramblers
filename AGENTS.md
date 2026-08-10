@@ -93,6 +93,9 @@ When the user asks to commit and push, use this domain language to determine dep
 - **Worktrees**: When used, cherry-pick the result onto `main` and clean up the worktree/branch
 - **Never use `EnterWorktree` in `@annix/claude-swarm` worktrees**: If `@annix/claude-swarm` has already placed this session in a worktree (branch starts with `claude/`), never use the `EnterWorktree` tool — just work directly on the current branch. `@annix/claude-swarm` manages the worktree lifecycle; creating a nested worktree puts commits on the wrong branch.
 
+### Database migrations
+- **While a migration in `server/lib/mongo/migrations/database/` is still un-pushed, edit that migration in place — don't add a new migration file.** A new file is only for changes made after the migration has been pushed. Keep the migration idempotent, and fold in-place edits into its un-pushed commit with `git commit --amend --no-edit` (pre-authorised — don't ask).
+
 
 ## Amend vs New Commit
 
@@ -135,6 +138,20 @@ When fixing a problem discovered after committing:
 - Alert types: `alert-danger` (errors), `alert-warning` (missing config/action needed), `alert-success` (confirmations). Never use `alert-info`
 - **Inline alerts always have an icon and a title**: use `d-flex align-items-start` with a Font Awesome icon (`faCircleExclamation` for warning/danger, `faCircleCheck` for success) and a bold title on its own line (or `strong` before the message). Do not ship bare text-only alert boxes. Prefer the same pattern as NotifierService alerts: icon + **title** + body
 - Template-driven forms with custom validators
+
+### Standard building blocks (mandatory — never hand-roll a bespoke version)
+
+Do not invent custom panels, headings, file inputs or layout wrappers. Every screen must be built from the components/patterns already used in hundreds of places. Before styling anything, copy the markup from a nearby admin screen. In particular:
+
+| Need | Use this — the house standard | Never do this |
+|------|-------------------------------|---------------|
+| A titled framed section | `<div class="thumbnail-heading-frame"><div class="thumbnail-heading">Title</div>…</div>` (153+ uses; classes in `assets/styles/frames.sass`). Use `thumbnail-heading-frame-compact` for a tighter frame | A custom `.panel`/`.card` with bespoke `border`/`background`/`padding` and an `<h2>` title |
+| A file upload | `ng2-file-upload`: `FileUploader` (with `itemAlias` matching the multer field, `autoUpload: true`, `authToken: 'Bearer ' + authService.authToken()`), a hidden `<input ng2FileSelect [uploader]="fileUploader">` triggered by a filled themed button, plus an `ng2FileDrop` drop-zone. Copy from `member-bulk-load.component.ts` (Insight Hub Import). The file is read/uploaded the moment it is chosen — no separate "read"/"upload" click | A raw `<input type="file">` and a separate submit button |
+| Destructive/admin data actions (clear-down, delete) | Provide a **UI control** the user runs themselves, with an `alert-warning` confirm step. Never run a clear-down/delete from a script or DB shell on the user's behalf | Doing the deletion yourself, or shipping a backend endpoint with no button to reach it |
+| A multi-step / sequential flow (import, setup wizard) | PrimeNG `p-stepper` (`StepperModule`) with a `{key,label}[]` step list, `canAccessStep`/`goToStep` gating and `stepper-nav` Back/Next buttons; shared styles live in `assets/styles/stepper.sass` (already global). Copy from `walk-import.ts` or `volunteer-import-view.ts` | Stacking independent panels the user can click in any order, or a bespoke stepper |
+| Page shell, tabs, tables, buttons, dates | `<app-page>`, `tabset.custom-tabset`, `app-sortable-table`, the `buttons.sass` filled classes, the date enums above | Bootstrap defaults or bespoke equivalents |
+
+**Rule of thumb:** if you are writing new CSS for a border, a heading bar, or a file picker, stop — a standard component already exists. Match the surrounding screens.
 
 ### Date and time formatting (mandatory)
 

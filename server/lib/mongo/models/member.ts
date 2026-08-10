@@ -61,6 +61,7 @@ const memberSchema = new mongoose.Schema({
   socialMember: {type: Boolean},
   userAdmin: {type: Boolean},
   walkAdmin: {type: Boolean},
+  volunteerAdmin: {type: Boolean},
   mailchimpLists: {
     walks: MailchimpSubscription,
     socialEvents: MailchimpSubscription,

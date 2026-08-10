@@ -53,7 +53,8 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../../models/section-toggle.model";
 import { ParishMapService } from "../../../../services/parish-map.service";
-import { ParishAllocation, ParishSortField } from "../../../../models/parish-map.model";
+import { VolunteerAssignmentStatus, VolunteerCoverageStatus, VolunteerParishCoverageRow, VolunteerParishSortField, VolunteerRoleType } from "../../../../models/volunteer-management.model";
+import { VolunteerManagementService } from "../../../../services/volunteer-management.service";
 import { AreaGroupSortField } from "../../../../models/group-area.model";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { NgClass } from "@angular/common";
@@ -670,27 +671,27 @@ interface GroupBoundaryUploadResult {
                                   <table class="table table-sm table-striped table-sticky-header">
                                       <thead>
                                       <tr>
-                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.ParishName)">
+                                          <th class="sortable-header" (click)="onParishSortChange(VolunteerParishSortField.PARISH_NAME)">
                                               Parish Name
-                                              @if (parishSortField === ParishSortField.ParishName) {
+                                              @if (parishSortField === VolunteerParishSortField.PARISH_NAME) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
-                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.ParishCode)">
+                                          <th class="sortable-header" (click)="onParishSortChange(VolunteerParishSortField.PARISH_CODE)">
                                               Parish Code
-                                              @if (parishSortField === ParishSortField.ParishCode) {
+                                              @if (parishSortField === VolunteerParishSortField.PARISH_CODE) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
-                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.Status)">
+                                          <th class="sortable-header" (click)="onParishSortChange(VolunteerParishSortField.STATUS)">
                                               Status
-                                              @if (parishSortField === ParishSortField.Status) {
+                                              @if (parishSortField === VolunteerParishSortField.STATUS) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
-                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.Assignee)">
+                                          <th class="sortable-header" (click)="onParishSortChange(VolunteerParishSortField.ASSIGNEE)">
                                               Assignee
-                                              @if (parishSortField === ParishSortField.Assignee) {
+                                              @if (parishSortField === VolunteerParishSortField.ASSIGNEE) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
@@ -702,7 +703,7 @@ interface GroupBoundaryUploadResult {
                                                   <td>{{ alloc.parishName }}</td>
                                                   <td class="text-muted small">{{ alloc.parishCode }}</td>
                                                   <td>
-                                                      <span class="badge" [class.bg-success]="alloc.status === 'allocated'" [class.bg-danger]="alloc.status === 'vacant'">
+                                                      <span class="badge" [class.bg-success]="alloc.status === VolunteerCoverageStatus.COVERED" [class.bg-danger]="alloc.status === VolunteerCoverageStatus.VACANT">
                                                           {{ alloc.status }}
                                                       </span>
                                                   </td>
@@ -737,6 +738,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   private ramblersService = inject(RamblersWalksAndEventsService);
   private systemConfigService = inject(SystemConfigService);
   private parishMapService = inject(ParishMapService);
+  private volunteerManagementService = inject(VolunteerManagementService);
   private memberLoginService = inject(MemberLoginService);
   stringUtils = inject(StringUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("SystemAreaMapSyncComponent", NgxLoggerLevel.ERROR);
@@ -752,7 +754,8 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
   protected readonly MapsSubTab = MapsSubTab;
   protected readonly AreaGroupSortField = AreaGroupSortField;
-  protected readonly ParishSortField = ParishSortField;
+  protected readonly VolunteerParishSortField = VolunteerParishSortField;
+  protected readonly VolunteerCoverageStatus = VolunteerCoverageStatus;
   groupsTableHeight = asNumber(this.uiActionsService.initialValueFor(StoredValue.GROUPS_TABLE_HEIGHT, 500));
   parishTableHeight = asNumber(this.uiActionsService.initialValueFor(StoredValue.PARISH_TABLE_HEIGHT, 400));
   mapsSubTab: MapsSubTab = MapsSubTab.ALL;
@@ -800,9 +803,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
   csvImporting = false;
   csvImportResult: { created: number; updated: number; errors: number; total: number; errorDetails?: string[] } | null = null;
   csvErrorMessage: string | null = null;
-  parishAllocations: ParishAllocation[] = [];
+  parishAllocations: VolunteerParishCoverageRow[] = [];
   parishFilterText = "";
-  parishSortField: ParishSortField = ParishSortField.ParishName;
+  parishSortField: VolunteerParishSortField = VolunteerParishSortField.PARISH_NAME;
   parishSortAsc = true;
   clearingAllocations = false;
 
@@ -983,7 +986,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.uiActionsService.saveValueFor(StoredValue.PARISH_TABLE_HEIGHT, height);
   }
 
-  get filteredParishAllocations(): ParishAllocation[] {
+  get filteredParishAllocations(): VolunteerParishCoverageRow[] {
     let allocations = this.parishAllocations;
     if (this.parishFilterText) {
       const filter = this.parishFilterText.toLowerCase();
@@ -1002,7 +1005,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     });
   }
 
-  onParishSortChange(field: ParishSortField) {
+  onParishSortChange(field: VolunteerParishSortField) {
     if (this.parishSortField === field) {
       this.parishSortAsc = !this.parishSortAsc;
     } else {
@@ -1016,13 +1019,21 @@ export class SystemAreaMapSyncComponent implements OnInit {
     if (!groupCode) {
       return;
     }
-    this.parishMapService.allocationsByGroupCode(groupCode).subscribe({
-      next: (allocations) => {
-        this.parishAllocations = allocations.sort((a, b) => (a.parishName || "").localeCompare(b.parishName || ""));
-        this.logger.info(`Loaded ${allocations.length} parish allocations`);
+    this.volunteerManagementService.snapshot(groupCode).subscribe({
+      next: snapshot => {
+        this.parishAllocations = snapshot.parishes.map(parish => {
+          const assignment = snapshot.assignments.find(item => item.parishCode === parish.parishCode && item.roleType === VolunteerRoleType.PARISH_FOOTPATH_OBSERVER && item.status === VolunteerAssignmentStatus.ACTIVE);
+          return {
+            parishName: parish.parishName,
+            parishCode: parish.parishCode,
+            status: assignment ? VolunteerCoverageStatus.COVERED : VolunteerCoverageStatus.VACANT,
+            assignee: assignment?.unresolvedName || (assignment?.supporterId ? "Linked supporter" : "")
+          };
+        }).sort((a, b) => a.parishName.localeCompare(b.parishName));
+        this.logger.info(`Loaded ${this.parishAllocations.length} volunteer parishes`);
       },
       error: (error) => {
-        this.logger.error("Failed to load parish allocations:", error);
+        this.logger.error("Failed to load volunteer parishes:", error);
       }
     });
   }
@@ -1096,7 +1107,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       return;
     }
     this.clearingAllocations = true;
-    this.parishMapService.deleteAllByGroupCode(groupCode).subscribe({
+    this.volunteerManagementService.deleteGroupData(groupCode).subscribe({
       next: (result) => {
         this.logger.info("Cleared allocations:", result);
         this.clearingAllocations = false;

@@ -1,5 +1,6 @@
 import { Member, MemberFilterSelection } from "./member.model";
 import { BrandingMode, EmailAttachment, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
+import { VolunteerAudienceCriteria } from "./volunteer-management.model";
 import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
 import { ExtendedGroupEvent } from "./group-event.model";
@@ -225,7 +226,8 @@ export interface PriorSendExclusion {
 export enum EmailComposerContextSource {
   COMMITTEE = "committee",
   GROUP_EVENT = "group-event",
-  ADMIN = "admin"
+  ADMIN = "admin",
+  VOLUNTEER = "volunteer"
 }
 
 export interface EmailComposerContext {
@@ -236,6 +238,7 @@ export interface EmailComposerContext {
   groupEventId?: string;
   prefilledTitle?: string;
   prefilledBody?: string;
+  volunteerAudience?: VolunteerAudienceCriteria;
 }
 
 export interface EmailComposerState {
@@ -498,6 +501,24 @@ export const MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
       { token: "{{params.systemMergeFields.FACEBOOK_URL}}", label: "Facebook page" },
       { token: "{{params.systemMergeFields.TWITTER_URL}}", label: "Twitter / X page" },
       { token: "{{params.systemMergeFields.INSTAGRAM_URL}}", label: "Instagram page" }
+    ]
+  }
+];
+
+export const VOLUNTEER_MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
+  {
+    group: "Volunteer assignments",
+    fields: [
+      { token: "{{params.volunteerMergeFields.ROLES}}", label: "Roles held" },
+      { token: "{{params.volunteerMergeFields.PARISH_COUNT}}", label: "Number of parishes" },
+      { token: "{{params.volunteerMergeFields.PARISH_NAMES}}", label: "Parish names" },
+      { token: "{{params.volunteerMergeFields.PARISH_TABLE}}", label: "Assigned parishes table" },
+      { token: "{{params.volunteerMergeFields.COUNTERPART_TABLE}}", label: "Counterpart officers table" },
+      { token: "{{params.volunteerMergeFields.AUTHORITIES}}", label: "Local authorities" },
+      { token: "{{params.volunteerMergeFields.SECTORS}}", label: "Sectors" },
+      { token: "{{params.volunteerMergeFields.ROW_GROUPS}}", label: "Rights-of-way groups" },
+      { token: "{{params.volunteerMergeFields.COVER}}", label: "Cover type" },
+      { token: "{{params.volunteerMergeFields.EARLIEST_START}}", label: "Earliest assignment start date" }
     ]
   }
 ];

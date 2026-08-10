@@ -74,3 +74,10 @@
   max-width: 460px
   text-align: left
   white-space: normal
+
+// Walks list pages only: reserve space so the first intro paragraph wraps before the
+// absolutely-positioned "My Walks" button. Scoped to the intro text-row paragraph alone
+// (never headings or walk-view labels), and only where the button is actually present.
+@media (min-width: 992px)
+  main:has(.my-walks-action) app-dynamic-content-view-text-row:first-of-type p
+    padding-right: 230px

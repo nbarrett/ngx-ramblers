@@ -52,7 +52,11 @@ import {
             }
             @if (!groupCollapsed(group.key)) {
             @for (row of group.rows; track trackRow($index, row)) {
-              <tr>
+              <tr [class.selectable]="rowSelect.observed"
+                  [attr.role]="rowSelect.observed ? 'button' : null"
+                  [attr.tabindex]="rowSelect.observed ? 0 : null"
+                  (click)="selectRow(row)"
+                  (keydown.enter)="selectRow(row)">
                 @for (column of columns; track column.key) {
                   <td [class]="cellClassFor(column)">
                     @if (templateFor(column.key); as cellTemplate) {
@@ -90,6 +94,7 @@ import {
 
     .sortable-table-card.scrollable
       overflow: auto
+      overscroll-behavior: contain
 
     .sortable-table-card.scrollable thead th
       position: sticky
@@ -111,6 +116,9 @@ import {
       padding: 12px 16px
       border-bottom: 2px solid rgba(155, 200, 171, 0.4)
       font-size: 0.85rem
+      white-space: nowrap
+    .sortable-table td.nowrap
+      white-space: nowrap
 
     .sortable-table th.sortable
       cursor: pointer
@@ -144,6 +152,9 @@ import {
 
     .sortable-table tbody tr:hover
       background-color: rgba(155, 200, 171, 0.1)
+
+    .sortable-table tbody tr.selectable
+      cursor: pointer
 
     .sortable-table tbody tr.sortable-table-group-row td
       background: linear-gradient(to bottom, rgba(155, 200, 171, 0.25), rgba(155, 200, 171, 0.12))
@@ -181,6 +192,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   @Input() collapsibleGroups = false;
   @Input() expandedWhen: (row: any) => boolean = () => false;
   @Output() sortChange = new EventEmitter<SortableTableSortState>();
+  @Output() rowSelect = new EventEmitter<any>();
 
   @ContentChildren(SortableTableCellDirective) protected cellTemplates!: QueryList<SortableTableCellDirective>;
   @ContentChild(SortableTableGroupHeaderDirective) protected groupHeaderTemplate: SortableTableGroupHeaderDirective | null = null;
@@ -250,6 +262,12 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
 
   protected trackRow(index: number, row: any): any {
     return this.trackBy ? this.trackBy(index, row) : index;
+  }
+
+  protected selectRow(row: any): void {
+    if (this.rowSelect.observed) {
+      this.rowSelect.emit(row);
+    }
   }
 
   protected headerClassFor(column: SortableTableColumn): string {

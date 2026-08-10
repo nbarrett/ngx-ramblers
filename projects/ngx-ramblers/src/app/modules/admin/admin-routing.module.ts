@@ -5,7 +5,7 @@ import { hasDynamicPath, hasEmailComposerPath, hasSendNotificationPath } from ".
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { EmailComposerAuthGuard } from "../../guards/email-composer-auth-guard";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
-import { AdminAuthGuard, MemberAdminAuthGuard } from "../../guards/admin-auth-guard";
+import { AdminAuthGuard, MemberAdminAuthGuard, VolunteerAdminAuthGuard } from "../../guards/admin-auth-guard";
 import { EnvironmentAdminGuard } from "../../guards/environment-admin-guard";
 import { MaintenanceGuard } from "../../guards/maintenance-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
@@ -105,6 +105,24 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: rp(AdminMembersPath.MEMBER_DELETIONS),
+      loadComponent: () => import("../../pages/admin/deleted-members/deleted-members.component")
+        .then(m => m.DeletedMembersComponent),
+      canActivate: [SystemHealthyGuard, MemberAdminAuthGuard]
+    },
+    {
+      path: rp(AdminMembersPath.VOLUNTEERS),
+      loadComponent: () => import("../../pages/admin/volunteers/volunteer-management")
+        .then(m => m.VolunteerManagementComponent),
+      canActivate: [SystemHealthyGuard, VolunteerAdminAuthGuard]
+    },
+    {
+      path: rp(AdminMembersPath.MY_VOLUNTEER_INFORMATION),
+      loadComponent: () => import("../../pages/admin/volunteers/my-volunteer-information")
+        .then(m => m.MyVolunteerInformationComponent),
+      canActivate: [SystemHealthyGuard, LoggedInGuard]
+    },
+    {
       path: rp(AdminMembersPath.ROOT), loadComponent: () => import("../../pages/admin/members/members-landing.component")
         .then(m => m.MembersLandingComponent),
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
@@ -115,6 +133,8 @@ const rp = adminRelativePath;
     { path: "member-login-audit", redirectTo: rp(AdminMembersPath.MEMBER_LOGIN_AUDIT), pathMatch: "full" },
     { path: "agm-stats", redirectTo: rp(AdminMembersPath.AGM_STATS), pathMatch: "full" },
     { path: "member-sync-notifications", redirectTo: rp(AdminMembersPath.MEMBER_SYNC_NOTIFICATIONS), pathMatch: "full" },
+    { path: "member-deletions", redirectTo: rp(AdminMembersPath.MEMBER_DELETIONS), pathMatch: "full" },
+    { path: "my-volunteer-information", redirectTo: rp(AdminMembersPath.MY_VOLUNTEER_INFORMATION), pathMatch: "full" },
 
     {
       path: rp(AdminContentPath.CAROUSEL_EDITOR),

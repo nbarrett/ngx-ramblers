@@ -7,6 +7,19 @@ const deletedMemberSchema = new mongoose.Schema({
   deletedBy: {type: String},
   memberId: {type: String},
   membershipNumber: {type: String},
+  firstName: {type: String},
+  lastName: {type: String},
+  displayName: {type: String},
+  email: {type: String},
+  mobileNumber: {type: String},
+  postcode: {type: String},
+  userName: {type: String},
+  contactId: {type: String},
+  salesforceId: {type: String},
+  salesforceMemberRef: {type: String},
+  brevoContactId: {type: mongoose.Schema.Types.Mixed},
+  membershipExpiryDate: {type: Number},
+  createdDate: {type: Number},
 }, {collection: "deletedMembers"});
 
 deletedMemberSchema.index({deletedAt: 1});

@@ -5,6 +5,7 @@ import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { MemberService } from "../../services/member/member.service";
 import { Member, MemberWithLabel } from "../../models/member.model";
 import { sortBy } from "../../functions/arrays";
+import { memberDisambiguatedLabel } from "../../functions/member-names";
 
 @Component({
   selector: "app-member-selector",
@@ -17,7 +18,8 @@ import { sortBy } from "../../functions/arrays";
       [searchable]="true"
       [clearable]="true"
       [compareWith]="compareMembers"
-      dropdownPosition="bottom"
+      dropdownPosition="auto"
+      [appendTo]="'body'"
       [placeholder]="placeholder"
       [(ngModel)]="selectedMember"
       (ngModelChange)="onMemberChange($event)">
@@ -32,7 +34,6 @@ import { sortBy } from "../../functions/arrays";
 })
 export class MemberSelector implements OnInit {
   private memberService = inject(MemberService);
-  private fullNamePipe = inject(FullNamePipe);
 
   @Input() selectedMember: Member | null = null;
   @Input() placeholder = "Select member";
@@ -55,7 +56,7 @@ export class MemberSelector implements OnInit {
   private refreshMembers(members: Member[]): void {
     this.membersWithLabel = members.map(member => ({
       ...member,
-      ngSelectAttributes: {label: this.fullNamePipe.transform(member)}
+      ngSelectAttributes: {label: memberDisambiguatedLabel(member)}
     })).sort(sortBy("ngSelectAttributes.label"));
   }
 

@@ -73,4 +73,20 @@ describe("salesforce-member-mapper", () => {
     expect(mapSalesforceMemberToRamblersMember(supporter()).emailMarketingConsent).toEqual("true");
     expect(mapSalesforceMemberToRamblersMember(supporter({ doNotEmail: true })).emailMarketingConsent).toEqual("false");
   });
+
+  it("maps volunteer roles to their names rather than stringifying the objects", () => {
+    const mapped = mapSalesforceMemberToRamblersMember(supporter({
+      volunteerRoles: [
+        {roleName: "Local Footpath Officer", startDate: "2020-01-01", displayName: null, walkLeaderStatus: null, wellbeingWalksRole: false},
+        {roleName: "Parish Footpath Observer", startDate: "2021-01-01", displayName: "Observer, Chartham", walkLeaderStatus: null, wellbeingWalksRole: false}
+      ]
+    }));
+
+    expect(mapped.volunteerRoles).toEqual("Local Footpath Officer, Observer, Chartham");
+    expect(mapped.volunteerRoles).not.toContain("[object Object]");
+  });
+
+  it("leaves volunteer roles empty when a supporter holds none", () => {
+    expect(mapSalesforceMemberToRamblersMember(supporter({volunteerRoles: []})).volunteerRoles).toEqual(null);
+  });
 });
