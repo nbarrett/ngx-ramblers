@@ -24,6 +24,7 @@ export enum EditMode {
 export enum StoredValue {
   ACCESSIBILITY = "accessibility",
   ADD_PHOTOS = "add-photos",
+  ALBUM_COPY_DESTINATIONS = "album-copy-destinations",
   ADVANCED_SEARCH = "advanced-search",
   ALBUM_TAB = "album-tab",
   ALBUM_VIEW = "album-view",

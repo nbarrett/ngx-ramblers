@@ -14,6 +14,7 @@ import {
   SocialPublishResult
 } from "../../../projects/ngx-ramblers/src/app/models/social-publish.model";
 import { delay, graphApiRequest } from "../social/graph-api";
+import { prepareInstagramAlbumImages } from "./instagram-image";
 
 const debugLog = debug(envConfig.logNamespace("instagram:publish"));
 debugLog.enabled = true;
@@ -124,24 +125,25 @@ export async function publishAlbumToInstagram(
   if (images.length < INSTAGRAM_MIN_CAROUSEL_IMAGES || images.length > INSTAGRAM_MAX_CAROUSEL_IMAGES) {
     throw new Error(`Instagram carousels need between ${INSTAGRAM_MIN_CAROUSEL_IMAGES} and ${INSTAGRAM_MAX_CAROUSEL_IMAGES} images (${images.length} selected)`);
   }
+  const preparedImages = await prepareInstagramAlbumImages(images);
   const igUserId = instagram.igUserId;
   const children: string[] = [];
-  const totalSteps = images.length + 2;
-  debugLog("publish starting: imageCount:", images.length, "urls:", images.map(image => image.url));
+  const totalSteps = preparedImages.length + 2;
+  debugLog("publish starting: imageCount:", preparedImages.length, "urls:", preparedImages.map(image => image.url));
   reportProgress(onProgress, {
     network: SocialNetwork.INSTAGRAM,
     phase: "prepare",
-    message: `Preparing ${images.length} Instagram images`,
+    message: `Preparing ${preparedImages.length} Instagram images`,
     completed: 0,
     total: totalSteps,
     percent: 0
   });
-  for (const image of images) {
+  for (const image of preparedImages) {
     const imageIndex = children.length + 1;
     reportProgress(onProgress, {
       network: SocialNetwork.INSTAGRAM,
       phase: "upload-image",
-      message: `Uploading image ${imageIndex} of ${images.length} to Instagram`,
+      message: `Uploading image ${imageIndex} of ${preparedImages.length} to Instagram`,
       completed: children.length,
       total: totalSteps,
       percent: Math.round((children.length / totalSteps) * 100)
@@ -164,7 +166,7 @@ export async function publishAlbumToInstagram(
     await waitForContainerReady(container.id, accessToken, onProgress, {
       network: SocialNetwork.INSTAGRAM,
       phase: "process-image",
-      message: `Waiting for Instagram to process image ${imageIndex} of ${images.length}`,
+      message: `Waiting for Instagram to process image ${imageIndex} of ${preparedImages.length}`,
       completed: children.length,
       total: totalSteps,
       percent: Math.round((children.length / totalSteps) * 100)
@@ -173,7 +175,7 @@ export async function publishAlbumToInstagram(
     reportProgress(onProgress, {
       network: SocialNetwork.INSTAGRAM,
       phase: "image-ready",
-      message: `Image ${imageIndex} of ${images.length} ready`,
+      message: `Image ${imageIndex} of ${preparedImages.length} ready`,
       completed: children.length,
       total: totalSteps,
       percent: Math.round((children.length / totalSteps) * 100)
@@ -183,9 +185,9 @@ export async function publishAlbumToInstagram(
     network: SocialNetwork.INSTAGRAM,
     phase: "create-carousel",
     message: "Creating Instagram carousel",
-    completed: images.length,
+    completed: preparedImages.length,
     total: totalSteps,
-    percent: Math.round((images.length / totalSteps) * 100)
+    percent: Math.round((preparedImages.length / totalSteps) * 100)
   });
   debugLog("creating carousel parent: childCount:", children.length);
   const carousel = await graphApiRequest({
@@ -207,17 +209,17 @@ export async function publishAlbumToInstagram(
     network: SocialNetwork.INSTAGRAM,
     phase: "process-carousel",
     message: "Waiting for Instagram to process the carousel",
-    completed: images.length + 1,
+    completed: preparedImages.length + 1,
     total: totalSteps,
-    percent: Math.round(((images.length + 1) / totalSteps) * 100)
+    percent: Math.round(((preparedImages.length + 1) / totalSteps) * 100)
   });
   reportProgress(onProgress, {
     network: SocialNetwork.INSTAGRAM,
     phase: "publish",
     message: "Publishing Instagram carousel",
-    completed: images.length + 1,
+    completed: preparedImages.length + 1,
     total: totalSteps,
-    percent: Math.round(((images.length + 1) / totalSteps) * 100)
+    percent: Math.round(((preparedImages.length + 1) / totalSteps) * 100)
   });
   debugLog("publishing carousel:", carousel.id);
   const published = await graphApiRequest({

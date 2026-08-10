@@ -3,6 +3,38 @@
   padding: 0.5rem 0.25rem 0.75rem
   border-bottom: 1px solid rgba(64, 65, 65, 0.08)
 
+.album-view-switch
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  justify-content: space-between
+  gap: var(--space-3, 12px)
+  padding: var(--space-3, 12px)
+  border: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
+  border-radius: var(--radius-2, 6px)
+  background: var(--rsm-row-stripe, #f8f9fa)
+
+.album-view-switch-copy
+  display: flex
+  flex: 1 1 280px
+  flex-direction: column
+  min-width: 0
+
+  span
+    color: var(--rsm-muted, rgb(110, 112, 115))
+    font-size: 0.85rem
+
+.album-view-switch-button
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: var(--space-2, 8px)
+  flex: 0 0 auto
+
+@media (max-width: 575.98px)
+  .album-view-switch-button
+    width: 100%
+
 .row-equal-style-cards
   align-items: stretch
 

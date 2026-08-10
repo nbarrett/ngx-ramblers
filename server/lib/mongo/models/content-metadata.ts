@@ -3,6 +3,13 @@ import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { ContentMetadata } from "../../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
+const imageCropperPosition = new mongoose.Schema({
+  x1: {type: Number},
+  y1: {type: Number},
+  x2: {type: Number},
+  y2: {type: Number}
+}, {_id: false});
+
 const contentMetadataItem = new mongoose.Schema({
   eventId: {type: String},
   dateSource: {type: String},
@@ -11,7 +18,8 @@ const contentMetadataItem = new mongoose.Schema({
   youtubeId: {type: String},
   originalFileName: {type: String},
   text: {type: String},
-  tags: [{type: Number}]
+  tags: [{type: Number}],
+  cropperPosition: {type: imageCropperPosition, default: null}
 });
 
 const imageTag = new mongoose.Schema({

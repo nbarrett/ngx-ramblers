@@ -57,7 +57,9 @@ import { UIDateFormat } from "../../../models/date-format.model";
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
-      <app-maximisable-panel #panel="maximisablePanel" class="inbox-scroll-contained" [showToggleButton]="false">
+      <app-maximisable-panel #panel="maximisablePanel" class="inbox-scroll-contained"
+                             [showHeader]="!readingOnMobile || !compactDetailHeader"
+                             [showToggleButton]="false">
       <div panelControls class="d-flex gap-2 align-items-center flex-grow-1 inbox-toolbar">
           @if (!readingOnMobile) {
             <div class="d-flex align-items-center gap-2 flex-shrink-0 inbox-toolbar-brand">

@@ -159,6 +159,19 @@ export interface ContentMetadataResizeRequest {
   };
 }
 
+export interface ContentMetadataCopyImageRequest {
+  sourceAlbumName: string;
+  destinationAlbumName: string;
+  sourceImage: string;
+}
+
+export interface ContentMetadataCopySourceContext {
+  date?: number;
+  dateSource?: string;
+  eventId?: string;
+  text?: string;
+}
+
 export interface S3Metadata {
   key: string;
   lastModified: number;

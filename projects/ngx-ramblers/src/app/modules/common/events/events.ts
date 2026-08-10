@@ -30,12 +30,12 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DateFilterParameters } from "../../../models/search.model";
 import { MongoSort } from "../../../models/mongo-models";
-import { EventField, GroupEventField, ID } from "../../../models/walk.model";
+import {GroupEventField} from "../../../models/walk.model";
 import { tagCriteriaClauses } from "../../../functions/walks/event-tag-filter";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { enumValues } from "../../../functions/enums";
-import { isMongoId } from "../../../services/mongo-utils";
+import {groupEventIdsCriteria} from "../../../functions/group-event-id-criteria";
 
 @Component({
     selector: "app-events",
@@ -264,14 +264,7 @@ export class Events implements OnInit, OnDestroy {
   }
 
   private eventIdsCriteria(eventIds: string[]) {
-    const validObjectIds = eventIds.filter(isMongoId);
-    return {
-      $or: [
-        ...(validObjectIds.length > 0 ? [{[ID]: {$in: validObjectIds}}] : []),
-        {[GroupEventField.ID]: {$in: eventIds}},
-        {[EventField.MIGRATED_FROM_ID]: {$in: eventIds}}
-      ]
-    };
+    return groupEventIdsCriteria(eventIds);
   }
 
   sort() {

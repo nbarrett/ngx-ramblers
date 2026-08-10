@@ -49,6 +49,7 @@ import { RangeSliderComponent } from "../../../components/range-slider";
 import { ZoomSliderComponent } from "../zoom-slider/zoom-slider";
 import { PageContentService } from "../../../services/page-content.service";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
+import { SiteEditService } from "../../../site-edit/site-edit.service";
 
 function scaleOptions(...entries: [number, string][]): { value: number; label: string }[] {
   return entries.map(([value, name]) => ({value, label: `${name} (${value}x)`}));
@@ -676,6 +677,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   urlService = inject(UrlService);
   private pageContentService = inject(PageContentService);
   private createWalkAlbumService = inject(CreateWalkAlbumService);
+  private siteEditService = inject(SiteEditService);
   public row: PageContentRow;
   public albumWorkflow = false;
   public workflowReportExpanded = true;
@@ -842,8 +844,12 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
       await this.saveWorkflowPageContent();
       this.createWalkAlbumService.clearPendingAlbum(saved.name || albumName);
     }
-    if (await this.createWalkAlbumService.navigateBackToWalkIfNeeded(albumName)) {
-      return;
+    const returnedToWalk = await this.createWalkAlbumService.navigateBackToWalkIfNeeded(albumName);
+    if (!returnedToWalk) {
+      if (this.siteEditService.active()) {
+        this.siteEditService.toggle(false);
+      }
+      this.location.back();
     }
   }
 
