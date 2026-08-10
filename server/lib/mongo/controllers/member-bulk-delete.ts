@@ -88,12 +88,28 @@ export async function bulkDeleteMembersCascade(memberIds: string[], deletedBy: s
   const deletionResponses: DeletionResponse[] = memberIds.map(id => ({id, deleted: existingById.has(id)}));
   const deletedIds = deletionResponses.filter(response => response.deleted).map(response => response.id);
   const deletedAt = dateTimeNow().toMillis();
-  const deletedMemberRows: DeletedMember[] = deletedIds.map(id => ({
-    deletedAt,
-    deletedBy,
-    memberId: id,
-    membershipNumber: existingById.get(id)?.membershipNumber ?? ""
-  }));
+  const deletedMemberRows: DeletedMember[] = deletedIds.map(id => {
+    const source: any = existingById.get(id) ?? {};
+    return {
+      deletedAt,
+      deletedBy,
+      memberId: id,
+      membershipNumber: source.membershipNumber ?? "",
+      firstName: source.firstName,
+      lastName: source.lastName,
+      displayName: source.displayName,
+      email: source.email,
+      mobileNumber: source.mobileNumber,
+      postcode: source.postcode,
+      userName: source.userName,
+      contactId: source.contactId,
+      salesforceId: source.salesforceId,
+      salesforceMemberRef: source.salesforceMemberRef,
+      brevoContactId: source.mail?.id,
+      membershipExpiryDate: source.membershipExpiryDate,
+      createdDate: source.createdDate
+    };
+  });
   if (deletedMemberRows.length > 0) {
     await deletedMemberModel.insertMany(deletedMemberRows);
   }

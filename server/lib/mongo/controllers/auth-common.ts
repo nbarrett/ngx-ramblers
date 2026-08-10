@@ -145,6 +145,7 @@ export function toMemberCookie(member: Member): MemberCookie {
   const memberCookie = {
     memberId: member?.id,
     walkAdmin: member?.walkAdmin,
+    volunteerAdmin: member?.volunteerAdmin,
     socialAdmin: member?.socialAdmin,
     socialMember: member?.socialMember,
     contentAdmin: member?.contentAdmin,

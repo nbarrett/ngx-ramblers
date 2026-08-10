@@ -3,12 +3,14 @@ import {
   BOOKING_MERGE_FIELD_CATALOGUE,
   LINK_DESTINATIONS,
   MemberMergeFieldHint,
-  MERGE_FIELD_CATALOGUE
+  MERGE_FIELD_CATALOGUE,
+  VOLUNTEER_MERGE_FIELD_CATALOGUE
 } from "../models/email-composer.model";
 
 const FIELD_LABEL_BY_TOKEN: Record<string, string> = {};
 MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
 BOOKING_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
+VOLUNTEER_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
 LINK_DESTINATIONS.forEach(destination => FIELD_LABEL_BY_TOKEN[destination.token] = destination.label);
 
 export function registerLinkDestinations(extras: MemberMergeFieldHint[]): void {

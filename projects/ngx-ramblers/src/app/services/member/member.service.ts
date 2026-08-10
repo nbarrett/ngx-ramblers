@@ -67,6 +67,7 @@ export class MemberService {
       socialMember: 1,
       treasuryAdmin: 1,
       walkAdmin: 1,
+      volunteerAdmin: 1,
       walkChangeNotifications: 1,
     }
   };

@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.get("", authConfig.authenticate(), externalRecipient.list);
 router.post("", authConfig.authenticate(), externalRecipient.create);
+router.put("/:id", authConfig.authenticate(), externalRecipient.update);
 router.delete("/:id", authConfig.authenticate(), externalRecipient.deleteOne);
 
 export const externalRecipientRoutes = router;

@@ -101,6 +101,20 @@ import { FormsModule } from "@angular/forms";
             </select>
           </div>
         </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="process-mapping-volunteer-notification">Rights of Way Volunteer Correspondence Uses Email Configuration</label>
+            <select [(ngModel)]="mailMessagingConfig.mailConfig.volunteerNotificationConfigId"
+              id="process-mapping-volunteer-notification"
+              class="form-control input-sm">
+              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
+                <option
+                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
       </div>
     }
     `,

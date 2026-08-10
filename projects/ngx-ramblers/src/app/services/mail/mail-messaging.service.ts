@@ -422,9 +422,9 @@ export class MailMessagingService {
     return emailRequest;
   }
 
-  public createSendSmtpEmailParams(member: Member, notificationConfig: NotificationConfig, bodyContent: string, subject?: string, addresseeType?: string, bodyContentTop?: string, bodyContentBottom?: string) {
+  public createSendSmtpEmailParams(member: Member, notificationConfig: NotificationConfig, bodyContent: string, subject?: string, addresseeType?: string, bodyContentTop?: string, bodyContentBottom?: string): SendSmtpEmailParams {
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member);
-    const params = {
+    const params: SendSmtpEmailParams = {
       messageMergeFields: {
         subject,
         BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),

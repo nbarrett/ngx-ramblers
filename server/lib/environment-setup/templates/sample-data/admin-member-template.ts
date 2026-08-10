@@ -34,6 +34,7 @@ export function createAdminMember(params: AdminMemberParams): AdminMemberResult 
       socialMember: true,
       userAdmin: true,
       walkAdmin: true,
+      volunteerAdmin: true,
       contentAdmin: true,
       financeAdmin: true,
       treasuryAdmin: true,

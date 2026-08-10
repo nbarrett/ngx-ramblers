@@ -9,6 +9,7 @@ const authSchema = new mongoose.Schema({
   userName: {type: String, required: true, unique: true},
   password: {type: String},
   walkAdmin: {type: Boolean},
+  volunteerAdmin: {type: Boolean},
   socialAdmin: {type: Boolean},
   socialMember: {type: Boolean},
   contentAdmin: {type: Boolean},

@@ -5,6 +5,7 @@ import { AuthService } from "../../auth/auth.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
 import { MemberCookie } from "../../models/member.model";
+import { volunteerAdminAllowed } from "../../functions/volunteer-management";
 
 @Injectable({
   providedIn: "root"
@@ -60,6 +61,10 @@ export class MemberLoginService {
     return this.loggedInMember().walkAdmin;
   }
 
+  allowVolunteerAdminEdits(): boolean {
+    return volunteerAdminAllowed(this.loggedInMember());
+  }
+
   allowSocialAdminEdits() {
     return this.loggedInMember().socialAdmin;
   }
@@ -72,6 +77,7 @@ export class MemberLoginService {
       this.allowTreasuryAdmin() ||
       this.allowFileAdmin() ||
       this.allowWalkAdminEdits() ||
+      this.allowVolunteerAdminEdits() ||
       this.allowSocialAdminEdits();
   }
 

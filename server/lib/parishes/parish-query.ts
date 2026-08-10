@@ -8,7 +8,7 @@ import { ParishCacheEntry } from "../../../projects/ngx-ramblers/src/app/models/
 const debugLog = debug(envConfig.logNamespace("parish-query"));
 debugLog.enabled = true;
 
-const ONS_PARISH_URL = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Parishes_and_Non_Civil_Parished_Areas_December_2024_Boundaries_EW_BGC/FeatureServer/0/query";
+const ONS_PARISH_URL = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Parishes_and_Non_Civil_Parished_Areas_December_2024_Boundaries_EW_BFC/FeatureServer/0/query";
 const MAX_RECORDS_PER_REQUEST = 2000;
 const MAX_BBOX_DEGREES = 3;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;

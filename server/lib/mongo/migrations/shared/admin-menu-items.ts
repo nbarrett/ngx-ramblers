@@ -335,6 +335,20 @@ export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [
 export const MEMBERS_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "committee",
+    title: "Volunteer Management",
+    icon: "faUsersCog",
+    href: AdminMembersPath.VOLUNTEERS,
+    contentText: "Manage rights-of-way volunteers, parish coverage, vacancies and temporary assignments"
+  },
+  {
+    accessLevel: "loggedInMember",
+    title: "My Volunteer Information",
+    icon: "faPersonHiking",
+    href: AdminMembersPath.MY_VOLUNTEER_INFORMATION,
+    contentText: "See the rights-of-way parishes you cover, the officers alongside you, and each parish's council contacts"
+  },
+  {
+    accessLevel: "committee",
     title: "Member Admin",
     icon: "faUsersCog",
     href: AdminMembersPath.MEMBER_ADMIN,

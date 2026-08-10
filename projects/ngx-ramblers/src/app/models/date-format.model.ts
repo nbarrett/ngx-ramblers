@@ -48,7 +48,7 @@ export enum UIDateFormat {
 }
 
 export enum BsDatepickerFormat {
-  DATE_INPUT = "dddd, D MMMM YYYY"
+  DATE_INPUT = "D MMM YYYY"
 }
 
 export const TYPED_DATE_INPUT_FORMATS: UIDateFormat[] = [

@@ -42,6 +42,9 @@ export enum AdminMembersPath {
   MEMBER_LOGIN_AUDIT = "admin/members/member-login-audit",
   AGM_STATS = "admin/members/agm-stats",
   MEMBER_SYNC_NOTIFICATIONS = "admin/members/member-sync-notifications",
+  MEMBER_DELETIONS = "admin/members/member-deletions",
+  VOLUNTEERS = "admin/members/volunteers",
+  MY_VOLUNTEER_INFORMATION = "admin/members/my-volunteer-information",
 }
 
 export enum AdminContentPath {

@@ -46,6 +46,7 @@ import { ImageSettings } from "./images/image-settings";
 import { GlobalStyles } from "./styles/global-styles";
 import { InstagramSettings } from "./external/system-instagram-settings";
 import { RamblersSettings } from "./external/ramblers-settings";
+import { VolunteerSettings } from "./volunteers/volunteer-settings";
 import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
 import { FlickrSettings } from "./external/system-flickr-settings";
@@ -338,7 +339,12 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                     <app-area-map-sync-settings [config]="config" [tabActive]="tabActive(SystemSettingsTab.MAPS)" (busyChange)="areaMapSyncBusy=$event"/>
                   }
                 </tab>
-                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.VOLUNTEERS)}}"
+                     [active]="tabActive(SystemSettingsTab.VOLUNTEERS)"
+                     (selectTab)="selectTab(SystemSettingsTab.VOLUNTEERS)">
+                  <app-volunteer-settings [config]="config"/>
+                </tab>
+                <tab heading="External"
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"
                      (selectTab)="selectTab(SystemSettingsTab.EXTERNAL_SYSTEMS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
@@ -378,7 +384,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                     }
                   </div>
                 </tab>
-                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.SCHEDULED_TASKS)}}"
+                <tab heading="Tasks"
                      [active]="tabActive(SystemSettingsTab.SCHEDULED_TASKS)"
                      (selectTab)="selectTab(SystemSettingsTab.SCHEDULED_TASKS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
@@ -416,7 +422,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

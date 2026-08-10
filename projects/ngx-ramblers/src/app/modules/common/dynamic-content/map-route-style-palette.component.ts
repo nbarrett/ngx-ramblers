@@ -4,11 +4,12 @@ import { FormsModule } from "@angular/forms";
 import { MapRoute, PaletteColor } from "../../../models/content-text.model";
 import { isUndefined } from "es-toolkit/compat";
 import { enumValues } from "../../../functions/enums";
+import { ColourSwatchSelectorComponent } from "../../../shared/components/colour-swatch-selector";
 
 @Component({
   selector: "app-map-route-style-palette",
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, ColourSwatchSelectorComponent],
   styles: [`
     :host
       display: inline-block
@@ -50,22 +51,9 @@ import { enumValues } from "../../../functions/enums";
       font-weight: 600
       margin-bottom: 0.35rem
 
-    .color-options
-      display: flex
-      gap: 0.4rem
+    app-colour-swatch-selector
+      display: block
       margin-bottom: 0.75rem
-      flex-wrap: nowrap
-      justify-content: space-between
-
-    .color-swatch
-      width: 28px
-      height: 28px
-      border-radius: 50%
-      border: 2px solid transparent
-      padding: 0
-
-    .color-swatch.selected
-      border-color: var(--bs-primary)
 
     .color-dot
       width: 14px
@@ -137,16 +125,11 @@ import { enumValues } from "../../../functions/enums";
                   aria-label="Close style palette">
           </button>
           <div class="palette-heading">Line Colour</div>
-          <div class="color-options">
-            @for (color of paletteColors; track color) {
-              <button type="button"
-                      class="color-swatch"
-                      [style.backgroundColor]="color"
-                      [class.selected]="route?.color === color"
-                      (click)="selectColor(color)">
-              </button>
-            }
-          </div>
+          <app-colour-swatch-selector
+            [value]="route?.color || paletteColors[0]"
+            [colours]="paletteColors"
+            (valueChange)="selectColor($event)">
+          </app-colour-swatch-selector>
           <div class="palette-heading">Line Thickness</div>
           <div class="thickness-options">
             @for (line of thicknessOptions; track line) {

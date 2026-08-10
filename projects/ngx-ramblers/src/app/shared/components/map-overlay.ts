@@ -4,11 +4,18 @@ import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 
+export enum MapOverlayPosition {
+  TOP_RIGHT = "top-right",
+  TOP_LEFT = "top-left",
+  BOTTOM_RIGHT = "bottom-right"
+}
+
 @Component({
   selector: "app-map-overlay",
   template: `
     @if (allowToggle || allowWaypointsToggle) {
-      <div class="map-overlay top-right" [style.top]="showControls ? '20px' : '8px'">
+      <div class="map-overlay" [class.top-right]="position === MapOverlayPosition.TOP_RIGHT" [class.top-left]="position === MapOverlayPosition.TOP_LEFT"
+           [class.bottom-right]="position === MapOverlayPosition.BOTTOM_RIGHT" [style.top]="offsetTop || (showControls ? '20px' : '8px')">
         <div class="overlay-content">
           <div class="d-flex flex-column gap-2">
             @if (allowToggle) {
@@ -40,6 +47,10 @@ import { NgxLoggerLevel } from "ngx-logger";
       top: 8px
       right: 8px
 
+    .map-overlay.top-left
+      top: 8px
+      left: 8px
+
     .map-overlay.bottom-right
       bottom: 8px
       right: 8px
@@ -47,6 +58,9 @@ import { NgxLoggerLevel } from "ngx-logger";
   imports: [FontAwesomeModule]
 })
 export class MapOverlay {
+  @Input() position: MapOverlayPosition = MapOverlayPosition.TOP_RIGHT;
+  @Input() offsetTop: string | null = null;
+  protected readonly MapOverlayPosition = MapOverlayPosition;
   @Input() showControls = true;
   @Input() allowToggle = true;
   @Input() showWaypoints = true;

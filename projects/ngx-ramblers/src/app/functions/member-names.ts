@@ -22,6 +22,28 @@ export function memberFullName(member: MemberNameParts | null, defaultValue = ""
   return fullName || displayName || defaultValue;
 }
 
+export interface MemberDisambiguationParts extends MemberNameParts {
+  nameAlias?: string | null;
+  email?: string | null;
+}
+
+export function memberNameCounts(members: MemberDisambiguationParts[]): Map<string, number> {
+  return members.reduce((counts: Map<string, number>, member) => {
+    const key = memberFullName(member).toLowerCase();
+    return counts.set(key, (counts.get(key) ?? 0) + 1);
+  }, new Map<string, number>());
+}
+
+export function meaningfulAlias(nameAlias: string): boolean {
+  const alias = trimmedNamePart(nameAlias);
+  return !!alias && !/^\d+$/.test(alias);
+}
+
+export function memberDisambiguatedLabel(member: MemberDisambiguationParts): string {
+  const fullName = memberFullName(member);
+  return meaningfulAlias(member.nameAlias) ? `${fullName} (${trimmedNamePart(member.nameAlias)})` : fullName;
+}
+
 export function abbreviatedWalksManagerContactName(contactName: string): boolean {
   const tokens = (contactName || "").trim().split(/\s+/).filter(token => !!token);
   if (tokens.length !== 2) {

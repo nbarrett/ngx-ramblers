@@ -250,6 +250,20 @@ export interface SendSmtpEmailParams {
   systemMergeFields: SystemMergeFields;
   accountMergeFields: AccountMergeFields;
   bookingMergeFields?: BookingMergeFields;
+  volunteerMergeFields?: VolunteerMergeFields;
+}
+
+export interface VolunteerMergeFields {
+  ROLES: string;
+  PARISH_COUNT: string;
+  PARISH_NAMES: string;
+  PARISH_TABLE: string;
+  COUNTERPART_TABLE: string;
+  AUTHORITIES: string;
+  SECTORS: string;
+  ROW_GROUPS: string;
+  COVER: string;
+  EARLIEST_START: string;
 }
 
 export interface BookingMergeFields {
@@ -338,6 +352,7 @@ export interface BuiltInProcessMappings {
   backupNotificationConfigId: string;
   bookingNotificationConfigId: string;
   memberSyncNotificationConfigId: string;
+  volunteerNotificationConfigId: string;
 }
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
@@ -346,8 +361,11 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   expenseNotificationConfigId: "Expense Notification",
   contactUsNotificationConfigId: "Contact Us",
   bookingNotificationConfigId: "Booking Notification",
-  memberSyncNotificationConfigId: "Member Sync Notification"
+  memberSyncNotificationConfigId: "Member Sync Notification",
+  volunteerNotificationConfigId: "Rights of Way Volunteer Correspondence"
 };
+
+export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {
   request: any;
@@ -674,6 +692,21 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT,
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    templateName: "fully-automated-text-body",
+    senderRole: "secretary",
+    replyToRole: "secretary",
+    signOffRoles: ["secretary"],
     bannerId: null
   }
 ];

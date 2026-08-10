@@ -21,6 +21,7 @@ export enum SystemSettingsTab {
   WEBSITE_HEADER = "Header",
   WEBSITE_FOOTER = "Footer",
   EXTERNAL_SYSTEMS = "External Systems",
+  VOLUNTEERS = "Volunteers",
   SCHEDULED_TASKS = "Scheduled Tasks",
   DIAGNOSTICS = "Diagnostics",
 }
@@ -420,7 +421,14 @@ export interface SystemConfig {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
   }
+  volunteers?: VolunteerSettingsConfig;
   activeChangelogCollection?: string;
+}
+
+export interface VolunteerSettingsConfig {
+  supporterEmailDomain?: string;
+  supporterReferencePrefix?: string;
+  contactRetentionDays?: number;
 }
 
 export interface GoogleAnalyticsConfig {

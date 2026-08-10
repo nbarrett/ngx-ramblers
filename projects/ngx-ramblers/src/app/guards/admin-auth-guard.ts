@@ -23,3 +23,14 @@ export function MemberAdminAuthGuard(): boolean {
   }
   return allowed;
 }
+
+export function VolunteerAdminAuthGuard(): boolean {
+  const memberLoginService: MemberLoginService = inject(MemberLoginService);
+  const router: Router = inject(Router);
+
+  const allowed = memberLoginService.allowVolunteerAdminEdits();
+  if (!allowed) {
+    router.navigate(["/"]);
+  }
+  return allowed;
+}

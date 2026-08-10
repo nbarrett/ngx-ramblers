@@ -72,7 +72,7 @@ import { integrationWorkerResizeCallbackRoutes } from "./ramblers/integration-wo
 import { geoJsonRoutes } from "./geojson/geojson-routes";
 import { regions } from "./geojson/regions";
 import { parishRoutes } from "./parishes/parish-routes";
-import { parishAllocationRoutes } from "./mongo/routes/parish-allocation";
+import { volunteerManagementRoutes } from "./volunteers/volunteer-management-routes";
 import { migrationRunner } from "./mongo/migrations/migrations-runner";
 import { resolveClientPath } from "./shared/path-utils";
 import { serveIndexHtml } from "./shared/serve-index-html";
@@ -230,7 +230,7 @@ app.use("/api/database/page-content", pageContentRoutes);
 app.use("/api/database/search", siteSearchRoutes);
 app.use("/api/database/content-metadata", contentMetadataRoutes);
 app.use("/api/database/booking", bookingRoutes);
-app.use("/api/database/parish-allocation", parishAllocationRoutes);
+app.use("/api/database/volunteer-management", volunteerManagementRoutes);
 app.use("/api/database/contact-interaction", contactInteractionRoutes);
 app.use("/api/database/expense-claim", expenseClaimRoutes);
 app.use("/api/database/committee-file", committeeFile);

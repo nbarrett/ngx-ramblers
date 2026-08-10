@@ -31,6 +31,11 @@ export class ExternalRecipientService {
     return apiResponse.response;
   }
 
+  async update(id: string, input: CreateExternalRecipientRequest): Promise<ExternalRecipient> {
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<SingleResponse>(`${this.BASE_URL}/${encodeURIComponent(id)}`, input));
+    return apiResponse.response;
+  }
+
   async delete(id: string): Promise<void> {
     await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/${encodeURIComponent(id)}`));
   }

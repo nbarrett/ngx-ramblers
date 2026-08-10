@@ -48,6 +48,6 @@ export function mapSalesforceMemberToRamblersMember(supporter: SalesforceMember)
     phoneConsent: supporter.phoneConsent,
     phoneConsentLastUpdated: formatIsoDateAs(supporter.phoneConsentLastUpdated, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
     emailConsentWellbeingWalks: supporter.emailConsentWellbeingWalks,
-    volunteerRoles: supporter.volunteerRoles?.length ? supporter.volunteerRoles.join(", ") : null,
+    volunteerRoles: supporter.volunteerRoles?.length ? supporter.volunteerRoles.map(role => role.displayName || role.roleName).filter(name => name).join(", ") : null,
   } as RamblersMember;
 }
