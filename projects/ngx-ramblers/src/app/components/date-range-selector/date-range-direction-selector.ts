@@ -11,10 +11,14 @@ import { SectionToggle } from "../../shared/components/section-toggle";
   imports: [SectionToggle],
   template: `
     @if (applicable()) {
-      <app-section-toggle [tabs]="directionTabs" [selectedTab]="direction"
+      <app-section-toggle stackOnMobile [tabs]="directionTabs" [selectedTab]="direction"
                           (selectedTabChange)="onDirectionChange($event)"/>
     }
-  `
+  `,
+  styles: [`
+    :host
+      display: block
+  `]
 })
 export class DateRangeDirectionSelector {
 

@@ -74,6 +74,9 @@ export interface DateRange {
     </div>
   `,
   styles: [`
+    :host
+      display: block
+      width: 100%
     .date-range-slider
       .date-label
         font-weight: 600
@@ -179,6 +182,31 @@ export interface DateRange {
       .range-slider::-webkit-slider-thumb:hover,
       .range-slider::-moz-range-thumb:hover
         background: var(--ramblers-colour-sunrise-hover-background)
+
+    @media (max-width: 768px)
+      .date-range-slider
+        width: 100%
+        > .mb-1 > .d-flex
+          flex-direction: column
+          align-items: stretch !important
+          gap: var(--space-1)
+        .range-label.text-end
+          text-align: left !important
+        .range-slider-row
+          display: grid
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
+          gap: var(--space-2)
+          width: 100%
+        .range-edge
+          flex: none
+          width: auto
+        .range-edge.text-end
+          justify-self: end
+        .slider-wrapper
+          grid-column: 1 / -1
+          grid-row: 2
+          width: 100%
+          margin: var(--space-2) 0
 
   `]
 })

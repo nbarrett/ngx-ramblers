@@ -10,6 +10,18 @@
   gap: var(--space-2)
 
 @media (max-width: 768px)
+  .view-row
+    flex-direction: column
+    align-items: stretch
+    app-walk-programme-view-selector,
+    app-date-range-direction-selector
+      width: 100%
+    app-date-range-direction-selector
+      margin-left: 0
+  .programme-map
+    app-date-range-selector,
+    app-section-toggle
+      width: 100%
   .status-filter
     overflow-x: auto
     flex-wrap: nowrap

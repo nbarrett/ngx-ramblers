@@ -28,7 +28,7 @@ const CUSTOM_PRESET_LABEL = "Custom";
       <app-date-range-slider [minDate]="scaledMinDate" [maxDate]="scaledMaxDate" [range]="range"
                              (rangeChange)="onSliderChange($event)"/>
       <div class="custom-range-row">
-        <app-section-toggle class="preset-toggle" fullWidth [tabs]="presetTabs" [selectedTab]="selectedPresetTab()"
+        <app-section-toggle class="preset-toggle" fullWidth stackOnMobile [tabs]="presetTabs" [selectedTab]="selectedPresetTab()"
                             (selectedTabChange)="selectPresetTab($event)"/>
         <div class="custom-range-inputs">
           <label class="visually-hidden" for="date-range-custom-amount">Range amount</label>
@@ -70,6 +70,18 @@ const CUSTOM_PRESET_LABEL = "Custom";
         width: 84px
       .custom-range-select
         width: 110px
+    @media (max-width: 768px)
+      .custom-range-row
+        flex-direction: column
+        align-items: stretch
+        overflow-x: visible
+      .custom-range-inputs
+        display: grid
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
+        width: 100%
+        .custom-range-input,
+        .custom-range-select
+          width: 100%
   `]
 })
 export class DateRangeSelector {

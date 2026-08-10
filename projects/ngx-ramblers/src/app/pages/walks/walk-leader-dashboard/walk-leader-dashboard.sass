@@ -1,5 +1,14 @@
 @import "../../../assets/styles/colours"
 
+.leader-navigation
+  position: relative
+
+.my-walks-back
+  position: absolute
+  top: 0
+  right: 0
+  z-index: 6
+
 .leader
   display: flex
   flex-direction: column
@@ -101,6 +110,14 @@
   flex-wrap: wrap
 
 @media (max-width: 768px)
+  .leader-navigation
+    display: flex
+    flex-direction: column
+    gap: var(--space-3)
+  .my-walks-back
+    position: static
+    order: -1
+    width: 100%
   .walk-row
     grid-template-columns: 68px 1fr
     grid-template-areas: "date main" "actions actions"

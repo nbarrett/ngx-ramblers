@@ -22,10 +22,12 @@
         }Forgot Password</a>
     </div>
   }
-  @if (allowEdits()) {
-    <app-site-edit class="d-inline-flex align-items-center flex-wrap"/>
-  }
   @if (memberLoggedIn()) {
-    <app-inbox-notification-badge/>
+    <div class="editing-controls d-flex align-items-center justify-content-center gap-3">
+      @if (allowEdits()) {
+        <app-site-edit class="d-inline-flex align-items-center flex-wrap"/>
+      }
+      <app-inbox-notification-badge/>
+    </div>
   }
 </div>

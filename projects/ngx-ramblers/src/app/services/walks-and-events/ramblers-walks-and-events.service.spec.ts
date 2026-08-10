@@ -771,6 +771,28 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.publishStatus.messages.some(message => message.includes("starting location details"))).toBe(true);
     });
 
+    it("does not replace the walk when Ramblers encodes the starting location and recalculates nearby coordinates", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk(
+        {start_location: {
+          latitude: 50.915085,
+          longitude: 0.966574,
+          postcode: "TN29 9NA",
+          description: "RH&DR Dungerness Station"
+        }},
+        {start_location: {
+          latitude: 50.915095786775,
+          longitude: 0.96653914126656,
+          postcode: "TN29 9NA",
+          description: "RH&amp;DR Dungerness Station"
+        }}
+      ) as any);
+
+      expect(walkExport.locationChanged).toBe(false);
+      expect(walkExport.selected).toBe(false);
+      expect(walkExport.publishStatus.messages.some(message => message.includes("starting location details"))).toBe(false);
+    });
+
 
 
     it("ignores a website link that differs only by the site it was generated from", () => {

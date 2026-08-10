@@ -20,8 +20,13 @@ const PROGRAMME_VIEW_ICONS = {
   changeDetection: ChangeDetectionStrategy.Default,
   imports: [SectionToggle],
   template: `
-    <app-section-toggle [tabs]="tabs" [selectedTab]="currentSegment()" (selectedTabChange)="openView($event)"/>
-  `
+    <app-section-toggle stackOnMobile [tabs]="tabs" [selectedTab]="currentSegment()"
+                        (selectedTabChange)="openView($event)"/>
+  `,
+  styles: [`
+    :host
+      display: block
+  `]
 })
 export class WalkProgrammeViewSelector {
 

@@ -759,8 +759,8 @@ export class RamblersWalksAndEventsService {
   }
 
   private comparableTextChanged(localValue: string, ramblersValue: string): boolean {
-    const local = this.normalisedFieldValue(localValue);
-    const ramblers = this.normalisedFieldValue(ramblersValue);
+    const local = this.normalisedFieldValue(this.stringUtilsService.htmlToPlainText(localValue));
+    const ramblers = this.normalisedFieldValue(this.stringUtilsService.htmlToPlainText(ramblersValue));
     return !!local && !!ramblers && local !== ramblers;
   }
 
