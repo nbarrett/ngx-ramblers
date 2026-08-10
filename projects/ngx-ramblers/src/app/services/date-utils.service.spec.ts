@@ -138,8 +138,11 @@ describe("DateUtilsService", () => {
     describe("nowAsValue", () => {
         it("should return a millisecond timestamp value as of now", () => {
             const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+            const before = dateUtils.nowAsValue();
             const nowIso = dateUtils.isoDateTimeNow();
-            expect(dateUtils.nowAsValue() - Date.parse(nowIso)).toBeLessThan(2);
+            const after = dateUtils.nowAsValue();
+            expect(Date.parse(nowIso)).toBeGreaterThanOrEqual(before);
+            expect(Date.parse(nowIso)).toBeLessThanOrEqual(after);
         });
     });
 
