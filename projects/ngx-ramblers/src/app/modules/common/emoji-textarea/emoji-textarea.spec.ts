@@ -1,5 +1,6 @@
 import { CdkTextareaAutosize } from "@angular/cdk/text-field";
 import { TestBed } from "@angular/core/testing";
+import { vi } from "vitest";
 import { EmojiTextareaComponent } from "./emoji-textarea";
 
 describe("EmojiTextareaComponent", () => {
@@ -16,7 +17,7 @@ describe("EmojiTextareaComponent", () => {
     expect(resize).toHaveBeenCalled();
   });
 
-  it("keeps emoji shortcode suggestions and selection", () => {
+  it("keeps emoji shortcode suggestions and selection", async () => {
     const fixture = TestBed.createComponent(EmojiTextareaComponent);
     fixture.detectChanges();
     const textarea: HTMLTextAreaElement = fixture.nativeElement.querySelector("textarea");
@@ -25,12 +26,14 @@ describe("EmojiTextareaComponent", () => {
     textarea.dispatchEvent(new Event("input", {bubbles: true}));
     fixture.detectChanges();
 
-    expect(document.querySelector('[role="listbox"]')).not.toBeNull();
+    await vi.waitFor(() => expect(textarea.ownerDocument.querySelector('[role="listbox"]')).not.toBeNull());
 
     textarea.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
     fixture.detectChanges();
 
-    expect(textarea.value).not.toContain(":sun");
-    expect(textarea.value.trim().length).toBeGreaterThan(0);
+    await vi.waitFor(() => {
+      expect(textarea.value).not.toContain(":sun");
+      expect(textarea.value.trim().length).toBeGreaterThan(0);
+    });
   });
 });

@@ -3,6 +3,7 @@ import { PageContentActionsService } from "./page-content-actions.service";
 import { PageContent, PageContentRow, PageContentType } from "../models/content-text.model";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { UrlService } from "./url.service";
+import { MapDefaultsService } from "./maps/map-defaults.service";
 
 describe("PageContentActionsService", () => {
     let service: PageContentActionsService;
@@ -11,7 +12,8 @@ describe("PageContentActionsService", () => {
         TestBed.configureTestingModule({
             imports: [LoggerTestingModule],
             providers: [
-                { provide: UrlService, useValue: { pathOnlyFrom: (s: string) => s } }
+                { provide: UrlService, useValue: { pathOnlyFrom: (s: string) => s } },
+                { provide: MapDefaultsService, useValue: { center: () => [51.5, -1.5], zoom: () => 6 } }
             ]
         });
         service = TestBed.inject(PageContentActionsService);
