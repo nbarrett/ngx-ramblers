@@ -22,8 +22,6 @@ import { WalksAndEventsService } from "../walks-and-events/walks-and-events.serv
 import { CommitteeConfigService } from "./commitee-config.service";
 import { CommitteeFileService } from "./committee-file.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
-import { toMongoIds } from "../mongo-utils";
-import { isNumericRamblersId } from "../path-matchers";
 import { MediaQueryService } from "./media-query.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
@@ -35,6 +33,7 @@ import { GroupEventField } from "../../models/walk.model";
 import { SystemConfigService } from "../system/system-config.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { validEmail } from "../../functions/strings";
+import {groupEventIdsCriteria} from "../../functions/group-event-id-criteria";
 
 @Injectable({
   providedIn: "root"
@@ -76,8 +75,7 @@ export class CommitteeQueryService {
     const events: GroupEventSummary[] = [];
     const promises = [];
     const committeeContactDetails: CommitteeMember = first(this.committeeReferenceData?.committeeMembersForRole("secretary"));
-    const mongoIds = this.mongoOrRawIdsFrom(groupEventsFilter);
-    const idBasedCriteria = mongoIds?.length > 0 ? {_id: {$in: mongoIds}} : null;
+    const idBasedCriteria = groupEventIdsCriteria(groupEventsFilter.eventIds);
     const regex = {
       $regex: groupEventsFilter.search,
       $options: "i"
@@ -182,19 +180,6 @@ export class CommitteeQueryService {
       return normalised;
     } else {
       return null;
-    }
-  }
-
-  private mongoOrRawIdsFrom(groupEventsFilter: GroupEventsFilter): string[] {
-    const idsWithoutNumericsRamblersValues: string[] = groupEventsFilter?.eventIds?.filter(item => !isNumericRamblersId(item));
-    this.logger.info("mongoOrRawIdsFrom:groupEventsFilter.eventIds:", groupEventsFilter?.eventIds, "idsWithoutNumericsRamblersValues:", idsWithoutNumericsRamblersValues);
-    if (groupEventsFilter?.eventIds?.length > 0 && idsWithoutNumericsRamblersValues?.length === 0) {
-      this.logger.info("mongoOrRawIdsFrom:returning raw eventIds:", idsWithoutNumericsRamblersValues);
-      return groupEventsFilter?.eventIds || [];
-    } else {
-      const objectIds = toMongoIds(groupEventsFilter.eventIds);
-      this.logger.info("mongoOrRawIdsFrom:returning mongo ids:", objectIds);
-      return objectIds;
     }
   }
 

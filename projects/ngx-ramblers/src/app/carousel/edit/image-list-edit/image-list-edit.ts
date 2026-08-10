@@ -1,7 +1,6 @@
 import { NgTemplateOutlet } from "@angular/common";
 import { HttpClient, HttpErrorResponse, HttpStatusCode } from "@angular/common/http";
 import {
-  AfterViewInit,
   ChangeDetectorRef,
   Component,
   ElementRef,
@@ -15,16 +14,19 @@ import {
   ViewChild
 } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { isEmpty, keys, min } from "es-toolkit/compat";
+import { isEmpty, isString, keys, min } from "es-toolkit/compat";
 import { range } from "es-toolkit";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
+import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   faAdd,
+  faArrowsUpDown,
+  faBookOpen,
   faCamera,
   faCircleCheck,
   faCircleInfo,
@@ -49,6 +51,7 @@ import {
   Base64File,
   CheckedImage,
   ContentMetadata,
+  ContentMetadataCopyImageRequest,
   ContentMetadataItem,
   ContentMetadataResizeRequest,
   DuplicateImages,
@@ -100,6 +103,7 @@ import { WebSocketClientService } from "../../../services/websockets/websocket-c
 import { ApiResponse } from "../../../models/api-response.model";
 import { isArray } from "es-toolkit/compat";
 import { EventType, MessageType, ProgressResponse } from "../../../models/websocket.model";
+import { uploadGroupEventType } from "../../../models/committee.model";
 
 @Component({
   selector: "app-image-list-edit",
@@ -305,11 +309,196 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       margin-top: 1rem
       margin-bottom: 0.75rem
 
+    .sticky-toolbar
+      isolation: isolate
+      padding-left: var(--space-2, 8px)
+      padding-right: var(--space-2, 8px)
+      background: var(--rsm-panel-bg, rgb(255, 255, 255))
+
     .image-list-pagination-alert
       width: 100%
       min-width: 0
       line-height: 1.35
       margin: 0
+
+    .reorder-view-switch
+      display: flex
+      flex-wrap: wrap
+      align-items: center
+      gap: var(--space-3, 12px)
+      margin: 0 0 var(--space-3, 12px)
+
+    .reorder-view-switch span
+      color: var(--rsm-muted, rgb(110, 112, 115))
+      font-size: 0.85rem
+
+    .copy-image-backdrop
+      position: fixed
+      inset: 0
+      z-index: 1050
+      display: flex
+      align-items: center
+      justify-content: center
+      padding: var(--space-3, 12px)
+      background: rgba(15, 23, 42, 0.48)
+
+    .copy-image-panel
+      width: min(720px, 100%)
+      max-height: calc(100vh - 24px)
+      overflow-y: auto
+      padding: var(--space-3, 12px)
+      border: 1px solid var(--ramblers-colour-mintcake, rgb(155, 200, 171))
+      border-radius: var(--radius-3, 8px)
+      background: rgb(255, 255, 255)
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28)
+
+    .copy-image-introduction
+      display: grid
+      grid-template-columns: minmax(0, 120px) minmax(0, 1fr)
+      gap: var(--space-3, 12px)
+      align-items: start
+
+    .copy-image-introduction img
+      width: 100%
+      aspect-ratio: 4 / 3
+      object-fit: cover
+      border-radius: var(--radius-2, 6px)
+
+    .copy-image-form
+      margin-top: var(--space-3, 12px)
+
+    .copy-image-actions
+      display: flex
+      flex-wrap: wrap
+      gap: var(--space-2, 8px)
+      margin-top: var(--space-2, 8px)
+
+    .image-reorder-workspace
+      display: grid
+      gap: var(--space-4, 16px)
+      margin-bottom: var(--space-4, 16px)
+
+    .image-reorder-pagination
+      margin: 0
+
+    .image-reorder-boundary
+      display: flex
+      align-items: center
+      justify-content: center
+      min-height: 52px
+      padding: var(--space-2, 8px)
+      border: 2px dashed var(--ramblers-colour-mintcake, rgb(155, 200, 171))
+      border-radius: var(--radius-2, 6px)
+      background: rgba(155, 200, 171, 0.12)
+      color: rgb(33, 37, 41)
+      font-weight: 700
+
+    .image-reorder-boundary.cdk-drop-list-dragging
+      background: rgba(155, 200, 171, 0.3)
+
+    .cover-drop-zone
+      display: grid
+      grid-template-columns: minmax(0, 180px) minmax(0, 1fr)
+      align-items: center
+      gap: var(--space-3, 12px)
+      min-height: 150px
+      padding: var(--space-3, 12px)
+      border: 2px dashed var(--ramblers-colour-sunrise, rgb(249, 177, 4))
+      border-radius: var(--radius-3, 8px)
+      background: rgba(249, 177, 4, 0.08)
+
+    .cover-drop-zone.cdk-drop-list-dragging
+      background: rgba(249, 177, 4, 0.2)
+
+    .cover-drop-preview
+      width: 100%
+      aspect-ratio: 16 / 9
+      border-radius: var(--radius-2, 6px)
+      overflow: hidden
+      background: rgba(15, 23, 42, 0.08)
+
+    .cover-drop-preview img
+      width: 100%
+      height: 100%
+      object-fit: cover
+
+    .cover-drop-placeholder
+      display: flex
+      align-items: center
+      justify-content: center
+      height: 100%
+      color: var(--rsm-muted, rgb(110, 112, 115))
+      font-size: 2rem
+
+    .cover-drop-copy
+      min-width: 0
+
+    .cover-drop-copy p
+      margin: 0.25rem 0 0.75rem
+      color: var(--rsm-muted, rgb(110, 112, 115))
+
+    .album-compact-action
+      width: fit-content
+      min-height: 40px
+      padding: 0 0.65rem
+      font-size: 0.85rem
+
+    .image-reorder-grid
+      display: grid
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))
+      gap: var(--space-3, 12px)
+
+    .image-reorder-item
+      position: relative
+      min-width: 0
+      border: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
+      border-radius: var(--radius-2, 6px)
+      background: var(--rsm-panel-bg, #fff)
+      overflow: hidden
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12)
+      cursor: grab
+      touch-action: none
+
+    .image-reorder-item:active
+      cursor: grabbing
+
+    .image-reorder-item.cdk-drag-placeholder
+      opacity: 0.25
+
+    .image-reorder-item img
+      display: block
+      width: 100%
+      aspect-ratio: 4 / 3
+      object-fit: cover
+
+    .image-reorder-details
+      display: flex
+      align-items: center
+      gap: var(--space-2, 8px)
+      min-height: 40px
+      padding: 4px 8px
+
+    .image-reorder-name
+      min-width: 0
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+      font-size: 0.8rem
+      font-weight: 600
+
+    .image-reorder-cover-badge
+      position: absolute
+      top: 6px
+      right: 6px
+      display: inline-flex
+      align-items: center
+      gap: 4px
+      padding: 3px 6px
+      border-radius: 999px
+      background: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
+      color: rgb(33, 37, 41)
+      font-size: 0.7rem
+      font-weight: 700
 
     :host ::ng-deep .image-list-pagination
       pagination, .pagination
@@ -389,6 +578,19 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
 
         .page-link
           width: auto
+
+    @media (max-width: 575.98px)
+      .copy-image-introduction
+        grid-template-columns: 1fr
+
+      .copy-image-introduction img
+        width: 120px
+
+      .cover-drop-zone
+        grid-template-columns: 1fr
+
+      .image-reorder-grid
+        grid-template-columns: repeat(2, minmax(0, 1fr))
   `],
   template: `
     @if (allow.edit && contentMetadata) {
@@ -613,6 +815,146 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
           }
         </div>
       </div>
+      @if (imagesExist()) {
+        <div class="reorder-view-switch">
+          <button type="button" class="btn btn-quiet album-compact-action"
+                  [disabled]="disabled() || photosWorking()"
+                  (click)="toggleReorderMode()">
+            <fa-icon [icon]="reorderMode ? faPencil : faArrowsUpDown"/>
+            {{ reorderMode ? "Return to image details" : "Reorder images" }}
+          </button>
+          <span>{{ reorderMode ? "Drag photos into order or onto the album cover area." : "Use a visual drag-and-drop view to arrange the whole album." }}</span>
+        </div>
+      }
+      @if (copySourceItem) {
+        <div class="copy-image-backdrop" role="presentation">
+          <section class="copy-image-panel" role="dialog" aria-modal="true" aria-labelledby="copy-image-title">
+            <div class="copy-image-introduction">
+              <img [src]="urlService.imageSourceFor(copySourceItem, contentMetadata)" [alt]="copySourceItem.text || copySourceItem.image">
+              <div>
+                <strong id="copy-image-title" class="d-block">Add a copy to another album</strong>
+                <p class="mb-0">The original photo and this album will not be changed. The destination receives its own image file and a copy of the title, date, event link and matching tags.</p>
+              </div>
+            </div>
+            <div class="copy-image-form">
+              @if (copyCompleted) {
+                <div class="alert alert-success d-flex align-items-start" role="status">
+                  <fa-icon class="me-2" [icon]="faCircleCheck"/>
+                  <div>
+                    <strong class="d-block">Copy added</strong>
+                    A separate copy was added to {{ contentMetadataService.contentMetadataName({name: copyDestinationAlbumName}) }}.
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary" (click)="cancelCopyToAlbum()">
+                  <fa-icon [icon]="faRemove"/>
+                  Close
+                </button>
+              } @else {
+                <label for="copy-destination-album">Destination album</label>
+                <select id="copy-destination-album" class="form-control" [(ngModel)]="copyDestinationAlbumName"
+                        [disabled]="copyInProgress || copyDestinationAlbums.length === 0">
+                  <option [ngValue]="null">{{ copyDestinationAlbumsLoading ? "Loading albums…" : "Choose an album" }}</option>
+                  @for (album of copyDestinationAlbums; track album.name) {
+                    <option [ngValue]="album.name">{{ contentMetadataService.contentMetadataName(album) }}</option>
+                  }
+                </select>
+                <small class="text-muted d-block mt-1">Any fixed shape on the destination is applied by that album’s presentation. The copied file keeps the source pixels intact.</small>
+                <div class="copy-image-actions">
+                  <button type="button" class="btn btn-primary" [disabled]="!copyDestinationAlbumName || copyInProgress"
+                          (click)="confirmCopyToAlbum()">
+                    <fa-icon [icon]="copyInProgress ? faSpinner : faAdd" [animation]="copyInProgress ? 'spin' : null"/>
+                    {{ copyInProgress ? "Adding copy" : "Add copy" }}
+                  </button>
+                  <button type="button" class="btn btn-quiet" [disabled]="copyInProgress" (click)="cancelCopyToAlbum()">
+                    <fa-icon [icon]="faRemove"/>
+                    Cancel
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        </div>
+      }
+      @if (reorderMode) {
+        <div class="image-reorder-workspace" cdkDropListGroup>
+          <div class="sticky-toolbar image-reorder-pagination">
+            <pagination class="pagination rounded" [boundaryLinks]="true" [directionLinks]="true" [rotate]="true"
+                        [maxSize]="5"
+                        [itemsPerPage]="reorderPageSize"
+                        [totalItems]="contentMetadata.files.length"
+                        [(ngModel)]="reorderPageNumber"
+                        [disabled]="disabled()"
+                        (pageChanged)="reorderPageChanged($event)"/>
+            <span>{{ reorderRangeDescription() }}</span>
+          </div>
+          <section class="cover-drop-zone"
+                   cdkDropList
+                   [cdkDropListData]="coverDropItems"
+                   [cdkDropListSortingDisabled]="true"
+                   (cdkDropListDropped)="coverImageDropped($event)">
+            <div class="cover-drop-preview">
+              @if (coverImageItem(); as coverImage) {
+                <img [src]="urlService.imageSourceFor(coverImage, contentMetadata)" [alt]="coverImage.text || 'Album cover'">
+              } @else {
+                <div class="cover-drop-placeholder"><fa-icon [icon]="faBookOpen"/></div>
+              }
+            </div>
+            <div class="cover-drop-copy">
+              <strong class="d-block">Album cover</strong>
+              <p>Drag any photo here to use it as the album cover. It will remain in the album order below.</p>
+              @if (contentMetadata.coverImage) {
+                <button type="button" class="btn btn-quiet album-compact-action" (click)="clearCoverImage()">
+                  <fa-icon [icon]="faRemove"/>
+                  Clear cover
+                </button>
+              }
+            </div>
+          </section>
+          @if (reorderPageNumber > 1) {
+            <div class="image-reorder-boundary"
+                 cdkDropList
+                 [cdkDropListData]="reorderBoundaryDropItems"
+                 [cdkDropListSortingDisabled]="true"
+                 (cdkDropListDropped)="moveImageToStart($event)">
+              Drag here to move a photo to the beginning
+            </div>
+            <div class="image-reorder-boundary"
+                 cdkDropList
+                 [cdkDropListData]="reorderBoundaryDropItems"
+                 [cdkDropListSortingDisabled]="true"
+                 (cdkDropListDropped)="moveImageToPreviousReorderPage($event)">
+              Drag here to move a photo to the previous section
+            </div>
+          }
+          <div class="image-reorder-grid"
+               cdkDropList
+               cdkDropListOrientation="mixed"
+               [cdkDropListData]="reorderPageImages"
+               (cdkDropListDropped)="imageOrderDropped($event)">
+            @for (item of reorderPageImages; track metadataItemTracker($index, item); let index = $index) {
+              <article class="image-reorder-item" cdkDrag [cdkDragData]="item"
+                       [attr.aria-label]="'Drag image ' + reorderImageNumber(index)">
+                <img [src]="urlService.imageSourceFor(item, contentMetadata)" [alt]="item.text || item.image">
+                @if (item.image === contentMetadata.coverImage) {
+                  <span class="image-reorder-cover-badge"><fa-icon [icon]="faBookOpen"/> Cover</span>
+                }
+                <div class="image-reorder-details">
+                  <span class="image-reorder-name">Image {{ reorderImageNumber(index) }}{{ item.text ? " — " + item.text : "" }}</span>
+                </div>
+              </article>
+            }
+          </div>
+          @if (reorderPageNumber < reorderPageCount()) {
+            <div class="image-reorder-boundary"
+                 cdkDropList
+                 [cdkDropListData]="reorderBoundaryDropItems"
+                 [cdkDropListSortingDisabled]="true"
+                 (cdkDropListDropped)="moveImageToNextReorderPage($event)">
+              Drag here to move a photo to the next section
+            </div>
+          }
+        </div>
+      } @else {
       @if (!workflowMode) {
         @if (manageTags) {
           <div class="row mb-2">
@@ -688,7 +1030,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         </div>
         <h6>Pagination</h6>
       }
-      <div #topPaginationAnchor>
+      <div class="sticky-toolbar">
         <ng-container *ngTemplateOutlet="imageListPagination"/>
       </div>
       @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
@@ -706,11 +1048,10 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
                         (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
                         (delete)="delete($event)"
                         (moveUp)="moveUp($event)"
-                        (moveDown)="moveDown($event)">
+                        (moveDown)="moveDown($event)"
+                        (copyToAlbum)="startCopyToAlbum($event)">
         </app-image-edit>
       }
-      @if (showBottomPagination) {
-        <ng-container *ngTemplateOutlet="imageListPagination"/>
       }
       @if (workflowMode) {
         <div class="album-sticky-bar workflow">
@@ -759,33 +1100,33 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         </div>
       }
       <ng-template #imageListPagination>
-        <div class="row">
-          <div class="col-12 image-list-pagination">
-            <pagination class="pagination rounded" [boundaryLinks]="true" [directionLinks]="true" [rotate]="true"
-                        [maxSize]="maxSize()"
-                        [itemsPerPage]="pageSize"
-                        [totalItems]="filteredFiles.length"
-                        [(ngModel)]="pageNumber"
-                        [disabled]="disabled()"
-                        (pageChanged)="pageChanged($event)"></pagination>
-            @if (notifyTarget.showAlert) {
-              <div class="image-list-pagination-alert alert {{notifyTarget.alertClass}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"/>
-                @if (notifyTarget.alertTitle) {
-                  <strong>
-                    {{ notifyTarget.alertTitle }}: </strong>
-                } {{ notifyTarget.alertMessage }}
-              </div>
-            }
-          </div>
+        <div class="image-list-pagination">
+          <pagination class="pagination rounded" [boundaryLinks]="true" [directionLinks]="true" [rotate]="true"
+                      [maxSize]="maxSize()"
+                      [itemsPerPage]="pageSize"
+                      [totalItems]="filteredFiles.length"
+                      [(ngModel)]="pageNumber"
+                      [disabled]="disabled()"
+                      (pageChanged)="pageChanged($event)"></pagination>
+          @if (notifyTarget.showAlert) {
+            <div class="image-list-pagination-alert alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"/>
+              @if (notifyTarget.alertTitle) {
+                <strong>
+                  {{ notifyTarget.alertTitle }}: </strong>
+              } {{ notifyTarget.alertMessage }}
+            </div>
+          }
         </div>
       </ng-template>
     }`,
   imports: [FileUploadModule, BadgeButtonComponent, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent,
     FormsModule, PaginationComponent, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent,
-    BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FileSizeSelectorComponent, NgTemplateOutlet]
+    BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FileSizeSelectorComponent, NgTemplateOutlet,
+    CdkDropListGroup, CdkDropList, CdkDrag]
 })
-export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit {
+export class ImageListEditComponent implements OnInit, OnDestroy {
+  private changeDetectorRef = inject(ChangeDetectorRef);
 
   private static readonly EDIT_WORKING_MAX_WIDTH = 2400;
 
@@ -799,10 +1140,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
     return this.workflowMode;
   }
   @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
-  @ViewChild("topPaginationAnchor") topPaginationAnchor: ElementRef<HTMLElement>;
-
   private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditComponent", NgxLoggerLevel.ERROR);
-  private changeDetectorRef = inject(ChangeDetectorRef);
   public notifyTarget: AlertTarget = {};
   private notifierService: NotifierService = inject(NotifierService);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
@@ -815,12 +1153,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
   public numberUtils: NumberUtilsService = inject(NumberUtilsService);
   public fileUtils: FileUtilsService = inject(FileUtilsService);
   private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
-  private contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
+  protected contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   private route: ActivatedRoute = inject(ActivatedRoute);
   private fileUploadService: FileUploadService = inject(FileUploadService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
-  private urlService: UrlService = inject(UrlService);
+  protected urlService: UrlService = inject(UrlService);
   private http: HttpClient = inject(HttpClient);
   public name: string;
   public pageUsages: string[] = [];
@@ -849,13 +1187,23 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
   public hasFileOver = false;
   public exitAfterSave = false;
   public currentImageIndex: number;
+  protected reorderMode = false;
+  protected coverDropItems: ContentMetadataItem[] = [];
+  protected reorderBoundaryDropItems: ContentMetadataItem[] = [];
+  protected reorderPageImages: ContentMetadataItem[] = [];
+  protected reorderPageNumber = 1;
+  protected readonly reorderPageSize = 40;
+  protected copySourceItem: ContentMetadataItem = null;
+  protected copyDestinationAlbums: ContentMetadata[] = [];
+  protected copyDestinationAlbumName: string = null;
+  protected copyInProgress = false;
+  protected copyCompleted = false;
+  protected copyDestinationAlbumsLoading = false;
   private searchChangeObservable = new Subject<string>();
   public pageNumber = 1;
   private pageCount: number;
   protected pageSize = 10;
   private pages: number[];
-  public showBottomPagination = false;
-  private topPaginationObserver: IntersectionObserver;
   private subscriptions: Subscription[] = [];
   public tags: number[];
   public manageTags: boolean;
@@ -867,6 +1215,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
   protected readonly faSortNumericDown = faSortNumericDown;
   protected readonly faSortNumericUp = faSortNumericUp;
   protected readonly faAdd = faAdd;
+  protected readonly faArrowsUpDown = faArrowsUpDown;
+  protected readonly faBookOpen = faBookOpen;
   protected readonly faTags = faTags;
   protected readonly faFile = faFile;
   protected readonly faTableCells = faTableCells;
@@ -941,6 +1291,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
     this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
       .subscribe(() => this.applyFilter());
+    this.contentMetadataService.albumCatalogue()
+      .catch(error => this.logger.debug("Album catalogue prefetch failed", error));
   }
 
   private clearBusy() {
@@ -1117,29 +1469,9 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
     this.goToPage(event.page);
   }
 
-  ngAfterViewInit(): void {
-    this.observeTopPagination();
-  }
-
   ngOnDestroy(): void {
-    this.topPaginationObserver?.disconnect();
     this.stopResizePolling();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
-
-  private observeTopPagination(): void {
-    this.topPaginationObserver?.disconnect();
-    const element = this.topPaginationAnchor?.nativeElement;
-    if (!element || isUndefined(IntersectionObserver)) {
-      this.showBottomPagination = true;
-      return;
-    }
-    this.topPaginationObserver = new IntersectionObserver(entries => {
-      const topVisible = entries.some(entry => entry.isIntersecting);
-      this.showBottomPagination = !topVisible;
-      this.changeDetectorRef.detectChanges();
-    }, {threshold: 0, rootMargin: "0px"});
-    this.topPaginationObserver.observe(element);
   }
 
   insertToEmptyList() {
@@ -1173,7 +1505,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
       const toNumber = min([offset + this.pageSize - 1, filteredImageCount]);
       this.notify.progress(`${pageIndicator}  — showing ${offset} to ${toNumber} of ${this.stringUtils.pluraliseWithCount(filteredImageCount, "image")}`);
     }
-    setTimeout(() => this.observeTopPagination());
   }
 
   onSearchChange(searchEntry: string) {
@@ -1225,7 +1556,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
         this.logger.info("metadata query complete for:", this.name);
         this.postMetadataRetrieveMapping();
       })
-      .catch(response => this.notify.error({title: "Failed to refresh images", message: response}));
+      .catch(response => this.notify.error({title: "Failed to refresh images", message: response}))
+      .finally(() => this.clearBusy());
   }
 
   private refreshS3Metadata() {
@@ -1268,7 +1600,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
     this.logger.debug("refreshImageMetaData:name", this.name, "returning", this.contentMetadata?.files?.length, "ContentMetadataItem items");
     this.base64Files = [];
     this.applyFilter();
-    this.clearBusy();
   }
 
   fileDate(file: ContentMetadataItem): number {
@@ -1409,6 +1740,188 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
     this.notify.success(`${this.stringUtils.pluraliseWithCount(this.contentMetadata?.files?.length, "image")} ${this.stringUtils.pluralise(this.contentMetadata?.files?.length, "was", "were")} saved successfully`);
   }
 
+  protected toggleReorderMode(): void {
+    this.reorderMode = !this.reorderMode;
+    if (this.reorderMode) {
+      const currentImageOffset = Math.max(0, (this.pageNumber - 1) * this.pageSize);
+      this.reorderPageNumber = Math.floor(currentImageOffset / this.reorderPageSize) + 1;
+      this.applyReorderPage();
+    }
+  }
+
+  protected reorderPageChanged(event: PageChangedEvent): void {
+    this.reorderPageNumber = event.page;
+    this.applyReorderPage();
+  }
+
+  protected reorderPageCount(): number {
+    return Math.ceil((this.contentMetadata?.files?.length || 0) / this.reorderPageSize);
+  }
+
+  protected reorderImageNumber(index: number): number {
+    return (this.reorderPageNumber - 1) * this.reorderPageSize + index + 1;
+  }
+
+  protected reorderRangeDescription(): string {
+    const totalImages = this.contentMetadata?.files?.length || 0;
+    const firstImage = totalImages === 0 ? 0 : (this.reorderPageNumber - 1) * this.reorderPageSize + 1;
+    const lastImage = Math.min(this.reorderPageNumber * this.reorderPageSize, totalImages);
+    return `Section ${this.reorderPageNumber} of ${this.reorderPageCount()} — images ${firstImage} to ${lastImage} of ${totalImages}`;
+  }
+
+  protected imageOrderDropped(event: CdkDragDrop<ContentMetadataItem[]>): void {
+    if (event.previousContainer === event.container && event.previousIndex !== event.currentIndex) {
+      const pageOffset = (this.reorderPageNumber - 1) * this.reorderPageSize;
+      move(this.contentMetadata.files, pageOffset + event.previousIndex, pageOffset + event.currentIndex);
+      this.applyFilter();
+      this.applyReorderPage();
+    }
+  }
+
+  protected coverImageItem(): ContentMetadataItem | null {
+    return this.contentMetadata?.files?.find(item => item.image === this.contentMetadata.coverImage) || null;
+  }
+
+  protected coverImageDropped(event: CdkDragDrop<ContentMetadataItem[]>): void {
+    const item = event.item.data as ContentMetadataItem;
+    if (item?.image) {
+      this.contentMetadata.coverImage = item.image;
+      this.applyReorderPage();
+    }
+  }
+
+  protected clearCoverImage(): void {
+    this.contentMetadata.coverImage = null;
+  }
+
+  protected moveImageToPreviousReorderPage(event: CdkDragDrop<ContentMetadataItem[]>): void {
+    const item = event.item.data as ContentMetadataItem;
+    const sourceIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
+    if (sourceIndex >= 0 && this.reorderPageNumber > 1) {
+      const previousPageLastIndex = (this.reorderPageNumber - 1) * this.reorderPageSize - 1;
+      move(this.contentMetadata.files, sourceIndex, previousPageLastIndex);
+      this.reorderPageNumber -= 1;
+      this.applyFilter();
+      this.applyReorderPage();
+    }
+  }
+
+  protected moveImageToStart(event: CdkDragDrop<ContentMetadataItem[]>): void {
+    const item = event.item.data as ContentMetadataItem;
+    const sourceIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
+    if (sourceIndex > 0) {
+      move(this.contentMetadata.files, sourceIndex, 0);
+      this.reorderPageNumber = 1;
+      this.applyFilter();
+      this.applyReorderPage();
+    }
+  }
+
+  protected moveImageToNextReorderPage(event: CdkDragDrop<ContentMetadataItem[]>): void {
+    const item = event.item.data as ContentMetadataItem;
+    const sourceIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
+    if (sourceIndex >= 0 && this.reorderPageNumber < this.reorderPageCount()) {
+      const nextPageFirstIndex = Math.min(this.reorderPageNumber * this.reorderPageSize, this.contentMetadata.files.length - 1);
+      move(this.contentMetadata.files, sourceIndex, nextPageFirstIndex);
+      this.reorderPageNumber += 1;
+      this.applyFilter();
+      this.applyReorderPage();
+    }
+  }
+
+  private applyReorderPage(): void {
+    const maximumPage = Math.max(this.reorderPageCount(), 1);
+    this.reorderPageNumber = Math.min(Math.max(this.reorderPageNumber, 1), maximumPage);
+    this.reorderPageImages = this.paginate(this.contentMetadata?.files || [], this.reorderPageSize, this.reorderPageNumber);
+  }
+
+  protected startCopyToAlbum(item: ContentMetadataItem): void {
+    this.copySourceItem = item;
+    this.copyDestinationAlbumName = null;
+    this.copyDestinationAlbums = [];
+    this.copyCompleted = false;
+    this.copyDestinationAlbumsLoading = true;
+    this.contentMetadataService.albumCatalogue()
+      .then(albums => {
+        const recentAlbumNames = this.recentCopyDestinationAlbumNames();
+        this.copyDestinationAlbums = albums
+          .filter(album => album.rootFolder === RootFolder.carousels && album.name !== this.contentMetadata.name)
+          .sort((firstAlbum, secondAlbum) => this.compareCopyDestinationAlbums(firstAlbum, secondAlbum, recentAlbumNames));
+        this.copyDestinationAlbumName = recentAlbumNames.find(name => this.copyDestinationAlbums.some(album => album.name === name)) || null;
+      })
+      .catch(error => {
+        this.copySourceItem = null;
+        this.notify.error({title: "Album list unavailable", message: error});
+      })
+      .finally(() => {
+        this.copyDestinationAlbumsLoading = false;
+        this.changeDetectorRef.markForCheck();
+      });
+  }
+
+  protected cancelCopyToAlbum(): void {
+    this.copySourceItem = null;
+    this.copyDestinationAlbumName = null;
+    this.copyDestinationAlbums = [];
+    this.copyCompleted = false;
+    this.copyDestinationAlbumsLoading = false;
+  }
+
+  protected async confirmCopyToAlbum(): Promise<void> {
+    if (this.copySourceItem?.image && this.copyDestinationAlbumName) {
+      this.copyInProgress = true;
+      const request: ContentMetadataCopyImageRequest = {
+        sourceAlbumName: this.contentMetadata.name,
+        destinationAlbumName: this.copyDestinationAlbumName,
+        sourceImage: this.copySourceItem.image
+      };
+      try {
+        await this.contentMetadataService.copyImageToAlbum(request);
+        this.rememberCopyDestinationAlbum(this.copyDestinationAlbumName);
+        this.notify.success({
+          title: "Image copied",
+          message: `A separate copy was added to ${this.contentMetadataService.contentMetadataName({name: this.copyDestinationAlbumName} as ContentMetadata)}. The original image was not changed.`
+        });
+        this.copyCompleted = true;
+      } catch (error) {
+        this.notify.error({title: "Image copy failed", message: error});
+      } finally {
+        this.copyInProgress = false;
+      }
+    }
+  }
+
+  private compareCopyDestinationAlbums(firstAlbum: ContentMetadata, secondAlbum: ContentMetadata, recentAlbumNames: string[]): number {
+    const firstRecentIndex = recentAlbumNames.indexOf(firstAlbum.name);
+    const secondRecentIndex = recentAlbumNames.indexOf(secondAlbum.name);
+    if (firstRecentIndex >= 0 && secondRecentIndex >= 0) {
+      return firstRecentIndex - secondRecentIndex;
+    } else if (firstRecentIndex >= 0) {
+      return -1;
+    } else if (secondRecentIndex >= 0) {
+      return 1;
+    } else {
+      return firstAlbum.name.localeCompare(secondAlbum.name);
+    }
+  }
+
+  private recentCopyDestinationAlbumNames(): string[] {
+    const storedValue = localStorage.getItem(StoredValue.ALBUM_COPY_DESTINATIONS);
+    try {
+      const parsedValue = storedValue ? JSON.parse(storedValue) : [];
+      return isArray(parsedValue) ? parsedValue.filter(isString) : [];
+    } catch (error) {
+      this.logger.warn("failed to read recent album copy destinations", error);
+      return [];
+    }
+  }
+
+  private rememberCopyDestinationAlbum(albumName: string): void {
+    const recentAlbumNames = this.recentCopyDestinationAlbumNames();
+    const updatedAlbumNames = [albumName, ...recentAlbumNames.filter(name => name !== albumName)].slice(0, 5);
+    localStorage.setItem(StoredValue.ALBUM_COPY_DESTINATIONS, JSON.stringify(updatedAlbumNames));
+  }
+
   moveUp(item: ContentMetadataItem) {
     const currentIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
     if (this.contentMetadataService.canMoveUp(this.contentMetadata.files, item)) {
@@ -1473,16 +1986,21 @@ export class ImageListEditComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   imageInsert(...items: ContentMetadataItem[]) {
-    this.logger.info("insert:new items", items, "before:", this.contentMetadata.files);
+    const defaultDateSource = this.contentMetadataService.defaultDateSourceFor(this.contentMetadata.files);
+    const initialisedItems = items.map(item => ({
+      ...item,
+      dateSource: !item.dateSource || item.dateSource === uploadGroupEventType.area ? defaultDateSource : item.dateSource
+    }));
+    this.logger.info("insert:new items", initialisedItems, "before:", this.contentMetadata.files);
     if (this.contentMetadata.files) {
-      this.contentMetadata.files.splice(0, 0, ...items);
+      this.contentMetadata.files.splice(0, 0, ...initialisedItems);
     } else {
-      this.contentMetadata.files = items;
+      this.contentMetadata.files = initialisedItems;
     }
 
-    this.logger.info("insert:new items", items, "after:", this.contentMetadata.files);
-    this.addToChangedItems(...items);
-    this.downscaleUnsavedImagesForEditing(items);
+    this.logger.info("insert:new items", initialisedItems, "after:", this.contentMetadata.files);
+    this.addToChangedItems(...initialisedItems);
+    this.downscaleUnsavedImagesForEditing(initialisedItems);
   }
 
   alertWarnings() {

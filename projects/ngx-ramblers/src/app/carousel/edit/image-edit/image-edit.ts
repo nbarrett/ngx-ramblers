@@ -31,6 +31,8 @@ import {
   faAngleDown,
   faAngleUp,
   faBook,
+  faCopy,
+  faCropSimple,
   faImage,
   faLink,
   faLinkSlash,
@@ -145,6 +147,16 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                                     [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
                                     [active]="item.image && item.image===contentMetadata.coverImage"
                                     (click)="coverImageSet()"/>
+                </div>
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive || !item.image || !!item.youtubeId"
+                                    [icon]="faCopy" caption="Add to another album"
+                                    (click)="copyToAlbum.emit(item)"/>
+                </div>
+                <div class="col-6 col-lg-4">
+                  <app-badge-button fullWidth noRightMargin [disabled]="editActive || !item.cropperPosition"
+                                    [icon]="faCropSimple" caption="Clear crop"
+                                    (click)="clearCrop()"/>
                 </div>
                 <div class="col-12 col-lg-4">
                   <app-badge-button fullWidth noRightMargin [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
@@ -340,9 +352,11 @@ export class ImageEditComponent implements OnInit {
   @Output() delete: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() imageInsert: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() copyToAlbum: EventEmitter<ContentMetadataItem> = new EventEmitter();
 
   private noImageSave: boolean;
   private nonDestructive = true;
+  private cropperPositionBeforeEdit: ImageCropperPosition = null;
   public duplicateImages: DuplicateImages;
   public groupEventType: GroupEventType;
   public contentMetadataImageTags: ImageTag[];
@@ -363,6 +377,8 @@ export class ImageEditComponent implements OnInit {
   protected readonly faPencil = faPencil;
   protected readonly faAngleDown = faAngleDown;
   protected readonly faBook = faBook;
+  protected readonly faCopy = faCopy;
+  protected readonly faCropSimple = faCropSimple;
   protected readonly faLink = faLink;
   protected readonly faLinkSlash = faLinkSlash;
 
@@ -414,6 +430,11 @@ export class ImageEditComponent implements OnInit {
     this.imageInsert.emit(newItem);
   }
 
+  clearCrop(): void {
+    this.item.cropperPosition = null;
+    this.callImageChange();
+  }
+
   checkDuplicates(item: ContentMetadataItem) {
     if (this.imageDuplicatesService.duplicatedContentMetadataItems(item, this.duplicateImages).length > 0) {
       this.notify.error({
@@ -462,7 +483,9 @@ export class ImageEditComponent implements OnInit {
     this.editActive = false;
     if (this.awsFileDataFromEdit) {
       this.item.base64Content = this.awsFileDataFromEdit.image;
+      this.item.cropperPosition = null;
     }
+    this.cropperPositionBeforeEdit = null;
     this.callImageChange();
     this.imagedSavedOrReverted.next(this.item);
   }
@@ -470,6 +493,8 @@ export class ImageEditComponent implements OnInit {
   imageEditQuit() {
     this.editActive = false;
     this.awsFileDataFromEdit = null;
+    this.item.cropperPosition = this.cropperPositionBeforeEdit;
+    this.cropperPositionBeforeEdit = null;
     if (this.item.base64Content && this.item.image) {
       delete this.item.base64Content;
     }
@@ -508,6 +533,7 @@ export class ImageEditComponent implements OnInit {
 
 
   editImage() {
+    this.cropperPositionBeforeEdit = this.item.cropperPosition ? {...this.item.cropperPosition} : null;
     this.editActive = true;
     this.imageEdit.emit(this.item);
   }

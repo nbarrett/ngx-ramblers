@@ -130,6 +130,39 @@ interface DateRangePreset {
             overflow: hidden
             text-overflow: ellipsis
 
+      @media (max-width: 991.98px)
+        :host
+          display: contents
+
+        .walk-search-toolbar
+          display: contents
+
+        .walk-search-pagination
+          position: sticky
+          top: 0
+          z-index: 1030
+          isolation: isolate
+          width: calc(100% + var(--bs-gutter-x, 1.5rem))
+          margin-right: calc(var(--bs-gutter-x, 1.5rem) * -0.5)
+          margin-left: calc(var(--bs-gutter-x, 1.5rem) * -0.5)
+          padding-top: var(--space-2, 8px)
+          padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5)
+          padding-bottom: var(--space-2, 8px)
+          padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5)
+          background: var(--rsm-panel-bg, rgb(255, 255, 255))
+
+      @media (max-width: 575.98px)
+        .my-walks-action
+          width: 44px
+          padding-right: 0
+          padding-left: 0
+
+        .my-walks-icon
+          margin-right: 0 !important
+
+        .my-walks-label
+          display: none
+
       ::ng-deep .ng-select
         .ng-select-container
           font-size: 1rem
@@ -162,11 +195,12 @@ interface DateRangePreset {
     template: `
     @if (!currentWalkId) {
       @if (showMyWalks()) {
-        <a class="btn pager-btn-primary rounded my-walks-action" [routerLink]="myWalksLink()">
-          <fa-icon [icon]="faPersonHiking" class="me-2"/>My Walks
+        <a class="btn pager-btn-primary rounded my-walks-action" [routerLink]="myWalksLink()"
+           aria-label="My Walks" title="My Walks">
+          <fa-icon [icon]="faPersonHiking" class="me-2 my-walks-icon"/><span class="my-walks-label">My Walks</span>
         </a>
       }
-      <div class="sticky-toolbar">
+      <div class="sticky-toolbar walk-search-toolbar">
       <div class="d-lg-flex pb-0 pb-lg-2 align-items-lg-center gap-lg-3">
         <div class="mb-2 mb-lg-0 flex-lg-fill">
           <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
@@ -224,7 +258,7 @@ interface DateRangePreset {
         }
       </div>
       @if (showPagination || !alertInline()) {
-        <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
+        <div class="d-flex full-width-pagination walk-search-pagination align-items-center gap-2 flex-wrap mt-1">
           @if (showPagination) {
             <ng-content/>
           }

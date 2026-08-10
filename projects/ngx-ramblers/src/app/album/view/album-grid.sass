@@ -121,10 +121,14 @@
     &.cols-6
       column-count: 6
 
-    .card
+    > div
       break-inside: avoid
       margin-bottom: var(--masonry-gap)
-      display: inline-block
+      display: block
+
+    .card
+      display: block
+      margin-bottom: 0
       width: 100%
 
     .album-media

@@ -8,6 +8,7 @@ import {
   faCopy,
   faExternalLinkAlt,
   faEye,
+  faImages,
   faPaste,
   faPencil,
   faRemove,
@@ -70,8 +71,8 @@ import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgClass, NgTemplateOutlet } from "@angular/common";
-import { RouterLink } from "@angular/router";
+import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
 import { FragmentSelectorComponent } from "./fragment-selector.component";
@@ -130,6 +131,23 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
         <div class="card mb-2">
           <div class="card-body">
             <div class="page-content-edit-sticky-scope">
+            @if (pageHasAlbum()) {
+              <div class="album-view-switch mb-3">
+                <div class="album-view-switch-copy">
+                  <strong>{{ albumWorkflow ? "Guided photo workflow" : "Full album editor" }}</strong>
+                  <span>
+                    {{ albumWorkflow
+                      ? "A focused view for reviewing the walk report and adding photos."
+                      : "All album settings and image-management tools are available." }}
+                  </span>
+                </div>
+                <button type="button" class="btn btn-quiet album-view-switch-button"
+                        (click)="toggleAlbumWorkflow()">
+                  <fa-icon [icon]="albumWorkflow ? faPencil : faImages"/>
+                  {{ albumWorkflow ? "Open full album editor" : "Use guided photo workflow" }}
+                </button>
+              </div>
+            }
             @if (albumWorkflow) {
               <h4 class="card-title mb-1 d-none d-md-block">Walk photo album</h4>
               <p class="text-muted small mb-3 d-none d-md-block">{{ pageContent.path }}</p>
@@ -840,6 +858,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   @ViewChild(TemplateSelectorComponent) templateSelector: TemplateSelectorComponent;
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
+  private activatedRoute = inject(ActivatedRoute);
+  private router = inject(Router);
+  private location = inject(Location);
   private systemConfigService = inject(SystemConfigService);
   protected pageContentRowService = inject(PageContentRowService);
   protected siteEditService = inject(SiteEditService);
@@ -1004,6 +1025,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public editAlbumName: boolean;
   protected readonly faEye = faEye;
+  protected readonly faImages = faImages;
   protected readonly last = last;
   protected readonly Action = Action;
   private rowDragTargetIndex: number = null;
@@ -1054,6 +1076,21 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         }
       }
     }));
+  }
+
+  protected pageHasAlbum(): boolean {
+    return this.pageContent?.rows?.some(row => this.actions.isAlbum(row)) || false;
+  }
+
+  protected toggleAlbumWorkflow(): void {
+    this.albumWorkflow = !this.albumWorkflow;
+    const urlTree = this.router.createUrlTree([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {[StoredValue.ALBUM_WORKFLOW]: this.albumWorkflow ? "1" : null},
+      queryParamsHandling: "merge",
+      fragment: this.activatedRoute.snapshot.fragment
+    });
+    this.location.replaceState(this.router.serializeUrl(urlTree));
   }
 
   deriveInsertableData() {

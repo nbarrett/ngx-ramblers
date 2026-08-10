@@ -1,11 +1,9 @@
 import {
-  AfterViewChecked,
   Component,
-  ElementRef,
   forwardRef,
-  Input,
-  ViewChild
+  Input
 } from "@angular/core";
+import { CdkTextareaAutosize } from "@angular/cdk/text-field";
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from "@angular/forms";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { EmojiShortcodesDirective } from "./emoji-shortcodes.directive";
@@ -14,47 +12,47 @@ import { EmojiShortcodesDirective } from "./emoji-shortcodes.directive";
   selector: "app-emoji-textarea",
   styles: [`
     :host
-      display: block
+      display: flex
 
     .caption-input
       border-radius: var(--radius-2, 6px)
-      min-height: 110px
+      box-sizing: content-box
+      flex: 1 1 auto
+      min-width: 0
       max-height: none
       resize: none
       overflow: hidden
-      field-sizing: content
       line-height: 1.45
-      width: 100%
+      width: 0
   `],
   template: `
-    <textarea #field
-              appEmojiShortcodes
+    <textarea appEmojiShortcodes
+              cdkTextareaAutosize
               class="form-control caption-input"
               [attr.id]="inputId || null"
               [rows]="rows"
+              [cdkAutosizeMinRows]="rows"
               [placeholder]="placeholder"
               [disabled]="disabled"
               [ngModel]="value"
               (ngModelChange)="onModelChange($event)"
               (input)="onInput()"></textarea>
   `,
-  imports: [FormsModule, EmojiShortcodesDirective],
+  imports: [FormsModule, EmojiShortcodesDirective, CdkTextareaAutosize],
   providers: [{
     provide: NG_VALUE_ACCESSOR,
     useExisting: forwardRef(() => EmojiTextareaComponent),
     multi: true
   }]
 })
-export class EmojiTextareaComponent implements ControlValueAccessor, AfterViewChecked {
+export class EmojiTextareaComponent implements ControlValueAccessor {
 
-  @ViewChild("field") private fieldRef: ElementRef<HTMLTextAreaElement>;
   @Input() rows = 3;
   @Input() placeholder = "";
   @Input() inputId = "";
 
   protected value = "";
   protected disabled = false;
-  private autosizePending = true;
   private onChange: (value: string) => void = () => undefined;
   private onTouched: () => void = () => undefined;
 
@@ -62,16 +60,8 @@ export class EmojiTextareaComponent implements ControlValueAccessor, AfterViewCh
     this.disabled = coerceBooleanProperty(value);
   }
 
-  ngAfterViewChecked(): void {
-    if (this.autosizePending) {
-      this.autosizePending = false;
-      this.resizeField();
-    }
-  }
-
   writeValue(value: string): void {
     this.value = value || "";
-    this.autosizePending = true;
   }
 
   registerOnChange(fn: (value: string) => void): void {
@@ -89,19 +79,9 @@ export class EmojiTextareaComponent implements ControlValueAccessor, AfterViewCh
   onModelChange(value: string): void {
     this.value = value || "";
     this.onChange(this.value);
-    this.autosizePending = true;
   }
 
   onInput(): void {
-    this.resizeField();
     this.onTouched();
-  }
-
-  private resizeField(): void {
-    const field = this.fieldRef?.nativeElement;
-    if (field) {
-      field.style.height = "auto";
-      field.style.height = `${Math.max(field.scrollHeight, 110)}px`;
-    }
   }
 }

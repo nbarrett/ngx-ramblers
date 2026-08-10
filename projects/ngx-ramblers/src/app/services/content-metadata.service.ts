@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { last } from "es-toolkit/compat";
+import { keys, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../models/api-request.model";
@@ -9,6 +9,7 @@ import {
   ContentMetadata,
   ContentMetadataApiResponse,
   ContentMetadataApiResponses,
+  ContentMetadataCopyImageRequest,
   ContentMetadataItem,
   DuplicateImages,
   ImageFilterType,
@@ -32,6 +33,7 @@ import { first } from "es-toolkit/compat";
 import { MemberLoginService } from "./member/member-login.service";
 import { take } from "es-toolkit/compat";
 import { UrlService } from "./url.service";
+import { uploadGroupEventType } from "../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -53,6 +55,7 @@ export class ContentMetadataService {
   private contentMetadataSubject = new Subject<ContentMetadataApiResponse>();
   private contentMetadataSubjects = new Subject<ContentMetadataApiResponses>();
   private s3MetadataSubject = new Subject<S3MetadataApiResponse>();
+  private albumCataloguePromise: Promise<ContentMetadata[]> = null;
   public carousels: string[];
 
   contentMetadataNotifications(): Observable<ContentMetadataApiResponses> {
@@ -83,10 +86,10 @@ export class ContentMetadataService {
 
   private transformFileNames(contentMetadataApiResponse: ContentMetadata) {
     return contentMetadataApiResponse?.files
-      .map(item => ({
+      ?.map(item => ({
         ...item, 
         image: item?.image ? this.truncatePathFromName(item.image) : undefined
-      }));
+      })) || [];
   }
 
   public truncatePathFromName(imagePath: string) {
@@ -109,6 +112,7 @@ export class ContentMetadataService {
     const apiResponse = await this.http.delete<{
       response: ContentMetadata
     }>(this.BASE_URL + "/" + contentMetadata.id).toPromise();
+    this.albumCataloguePromise = null;
     this.logger.debug("delete", contentMetadata, "- received", apiResponse);
     return Promise.resolve(apiResponse);
   }
@@ -116,6 +120,7 @@ export class ContentMetadataService {
   async create(contentMetaData: ContentMetadata): Promise<ContentMetadata> {
     this.logger.debug("creating", contentMetaData);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<ContentMetadataApiResponse>(this.BASE_URL, contentMetaData), this.contentMetadataSubject);
+    this.albumCataloguePromise = null;
     this.logger.debug("created", contentMetaData, "- received", apiResponse);
     return apiResponse.response;
   }
@@ -123,6 +128,7 @@ export class ContentMetadataService {
   async update(contentMetaData: ContentMetadata): Promise<ContentMetadata> {
     this.logger.debug("updating", contentMetaData);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<ContentMetadataApiResponse>(this.BASE_URL + "/" + contentMetaData.id, contentMetaData), this.contentMetadataSubject);
+    this.albumCataloguePromise = null;
     this.logger.debug("updated", contentMetaData, "- received", apiResponse);
     return apiResponse.response;
   }
@@ -135,11 +141,36 @@ export class ContentMetadataService {
     }
   }
 
+  async copyImageToAlbum(request: ContentMetadataCopyImageRequest): Promise<ContentMetadata> {
+    const apiResponse = await this.commonDataService.responseFrom(this.logger,
+      this.http.post<ContentMetadataApiResponse>(`${this.BASE_URL}/copy-image`, request), this.contentMetadataSubject);
+    return apiResponse.response;
+  }
+
   async all(dataQueryOptions?: DataQueryOptions): Promise<ContentMetadata[]> {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponses>(`${this.BASE_URL}/all`, {params}), this.contentMetadataSubjects);
     return apiResponse.response.map(item => this.optionallyMigrate(item, item.rootFolder || RootFolder.carousels, item.name)) as ContentMetadata[];
+  }
+
+  albumCatalogue(): Promise<ContentMetadata[]> {
+    if (!this.albumCataloguePromise) {
+      const options: DataQueryOptions = {
+        criteria: {rootFolder: RootFolder.carousels},
+        select: {name: 1, rootFolder: 1, aspectRatio: 1, maxImageSize: 1}
+      };
+      const params = this.commonDataService.toHttpParams(options);
+      this.albumCataloguePromise = this.commonDataService.responseFrom(this.logger,
+        this.http.get<ContentMetadataApiResponses>(`${this.BASE_URL}/all`, {params}))
+        .then(apiResponse => apiResponse.response
+          .map(item => this.optionallyMigrate(item, item.rootFolder || RootFolder.carousels, item.name)) as ContentMetadata[])
+        .catch(error => {
+          this.albumCataloguePromise = null;
+          throw error;
+        });
+    }
+    return this.albumCataloguePromise;
   }
 
   async items(rootFolder: RootFolder, name: string): Promise<ContentMetadata> {
@@ -246,6 +277,15 @@ export class ContentMetadataService {
 
   contentMetadataName(contentMetadata: ContentMetadata): string {
     return this.stringUtils.asTitle(this.stringUtils.asWords(contentMetadata?.name));
+  }
+
+  defaultDateSourceFor(files: ContentMetadataItem[]): string {
+    const sourceCounts = (files || [])
+      .filter(item => item.dateSource && item.dateSource !== uploadGroupEventType.area)
+      .reduce((counts, item) => ({...counts, [item.dateSource]: (counts[item.dateSource] || 0) + 1}), {} as Record<string, number>);
+    return keys(sourceCounts).reduce((mostUsedSource, source) => {
+      return !mostUsedSource || sourceCounts[source] > sourceCounts[mostUsedSource] ? source : mostUsedSource;
+    }, null as string) || uploadGroupEventType.area;
   }
 
   refreshLookups() {

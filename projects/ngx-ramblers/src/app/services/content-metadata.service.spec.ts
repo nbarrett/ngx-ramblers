@@ -1,4 +1,4 @@
-import { provideHttpClientTesting } from "@angular/common/http/testing";
+import {HttpTestingController, provideHttpClientTesting} from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { ActivatedRoute } from "@angular/router";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -68,5 +68,43 @@ describe("ContentMetadataService", () => {
   it("should transform ContentMetadataApiResponse with incorrect image paths to correct ones of type ContentMetadata", () => {
     const service: ContentMetadataService = TestBed.inject(ContentMetadataService);
     expect(service.optionallyMigrate(input, RootFolder.carousels, "imagesHome")).toEqual(output);
+  });
+
+  it("should support projected album summaries without files", () => {
+    const service: ContentMetadataService = TestBed.inject(ContentMetadataService);
+    const summary = {id: "album-id", rootFolder: RootFolder.carousels, name: "imagesHome"} as ContentMetadata;
+
+    expect(service.optionallyMigrate(summary, RootFolder.carousels, "imagesHome")).toEqual({...summary, files: []});
+  });
+
+  it("should use the album's prevailing event source for new images", () => {
+    const service: ContentMetadataService = TestBed.inject(ContentMetadataService);
+
+    expect(service.defaultDateSourceFor([
+      {dateSource: "upload"},
+      {dateSource: "walks"},
+      {dateSource: "social"},
+      {dateSource: "walks"}
+    ])).toEqual("walks");
+    expect(service.defaultDateSourceFor([{dateSource: "upload"}])).toEqual("upload");
+  });
+
+  it("should fetch and reuse a lightweight carousel album catalogue", async () => {
+    const service: ContentMetadataService = TestBed.inject(ContentMetadataService);
+    const httpTesting = TestBed.inject(HttpTestingController);
+    const summary = {id: "album-id", rootFolder: RootFolder.carousels, name: "imagesHome"} as ContentMetadata;
+    const notifications: any[] = [];
+    service.contentMetadataNotifications().subscribe(notification => notifications.push(notification));
+    const firstRequest = service.albumCatalogue();
+    const secondRequest = service.albumCatalogue();
+    const request = httpTesting.expectOne(req => req.url === "api/database/content-metadata/all");
+
+    expect(JSON.parse(request.request.params.get("criteria"))).toEqual({rootFolder: RootFolder.carousels});
+    expect(JSON.parse(request.request.params.get("select"))).toEqual({name: 1, rootFolder: 1, aspectRatio: 1, maxImageSize: 1});
+    request.flush({response: [summary]});
+
+    expect(await firstRequest).toEqual([{...summary, files: []}]);
+    expect(await secondRequest).toEqual([{...summary, files: []}]);
+    expect(notifications).toEqual([]);
   });
 });

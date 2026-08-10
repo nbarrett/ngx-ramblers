@@ -3,11 +3,13 @@ import * as authConfig from "../../auth/auth-config";
 import { contentMetadata } from "../models/content-metadata";
 import * as crudController from "../controllers/crud-controller";
 import { ContentMetadata } from "../../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import {copyImageToAlbum} from "../controllers/content-metadata-copy";
 
 const controller = crudController.create<ContentMetadata>(contentMetadata);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
+router.post("/copy-image", authConfig.authenticate(), copyImageToAlbum);
 router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("", controller.findByConditions);
 router.get("/all", controller.all);

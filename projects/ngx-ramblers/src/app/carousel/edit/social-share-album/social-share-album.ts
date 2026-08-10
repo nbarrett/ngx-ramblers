@@ -7,12 +7,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import {
   faCheck,
+  faCheckDouble,
   faCircleCheck,
   faCircleExclamation,
   faImages,
   faShareNodes,
   faSpinner,
-  faWandMagicSparkles
+  faWandMagicSparkles,
+  faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
 import {
@@ -195,7 +197,7 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
 
     .section-label
       display: flex
-      align-items: baseline
+      align-items: center
       justify-content: space-between
       gap: var(--space-3, 12px)
       margin-bottom: var(--space-2, 8px)
@@ -210,15 +212,29 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
 
     .selection-actions
       display: flex
-      gap: var(--space-3, 12px)
+      flex-wrap: wrap
+      justify-content: flex-end
+      gap: var(--space-2, 8px)
 
-    .selection-actions button
-      border: none
-      background: none
-      padding: 0
-      font-size: 0.8rem
-      font-weight: 600
+    .selection-actions .btn + .btn
+      margin-left: 0
+
+    .utility-action
+      min-height: 40px
+      padding: 0 7px
+      border-radius: var(--radius-2, 6px)
+      font-family: inherit
+      font-size: 0.75rem
+      font-weight: 700
+      line-height: 1.1
       cursor: pointer
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      gap: 4px
+
+    .utility-action fa-icon
+      font-size: 0.7rem
 
     .image-grid
       display: flex
@@ -358,24 +374,6 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       font-size: 0.85rem
       color: var(--rsm-muted, rgb(110, 112, 115))
 
-    .regenerate-captions
-      border: none
-      background: none
-      padding: 0
-      font-size: 0.8rem
-      font-weight: 600
-      cursor: pointer
-      display: inline-flex
-      align-items: center
-      gap: 6px
-
-    .regenerate-captions:disabled
-      opacity: 0.55
-      cursor: not-allowed
-
-    .auto-choose-btn
-      min-height: 40px
-      font-weight: 700
   `],
   template: `
     <div class="share-panel">
@@ -529,7 +527,7 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                 </div>
               } @else if (hasCaptionTargets()) {
                 <div class="mb-3">
-                  <button type="button" class="regenerate-captions rams-text-decoration-pink"
+                  <button type="button" class="btn btn-quiet utility-action"
                           [disabled]="!caption?.trim() || generatingCaptions"
                           (click)="generateNetworkCaptions()">
                     <fa-icon [icon]="faWandMagicSparkles"/>
@@ -573,10 +571,17 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                   <span><fa-icon [icon]="faInstagram" class="me-1 icon-instagram"/> Instagram photos
                     <span class="section-meta">({{ selectedCount() }} of {{ images.length }} selected)</span></span>
                   <div class="selection-actions">
-                    <button type="button" class="rams-text-decoration-pink" (click)="selectAll()">Select all</button>
-                    <button type="button" class="rams-text-decoration-pink" (click)="selectNone()">Clear</button>
+                    <button type="button" class="btn btn-quiet utility-action" (click)="selectAll()">
+                      <fa-icon [icon]="faCheckDouble"/>
+                      Select all
+                    </button>
+                    <button type="button" class="btn btn-quiet utility-action" (click)="selectNone()">
+                      <fa-icon [icon]="faXmark"/>
+                      Clear
+                    </button>
                     @if (!instagramCountValid()) {
-                      <button type="button" class="rams-text-decoration-pink" (click)="autoChooseForInstagram()">
+                      <button type="button" class="btn btn-quiet utility-action" (click)="autoChooseForInstagram()">
+                        <fa-icon [icon]="faImages"/>
                         Auto-choose for Instagram
                       </button>
                     }
@@ -594,39 +599,42 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                       Select between {{ INSTAGRAM_MIN_CAROUSEL_IMAGES }} and {{ INSTAGRAM_MAX_CAROUSEL_IMAGES }} images
                       (currently {{ selectedCount() }}).
                       <div class="mt-2">
-                        <button type="button" class="btn btn-primary btn-sm auto-choose-btn"
+                        <button type="button" class="btn btn-quiet utility-action"
                                 (click)="autoChooseForInstagram()">
+                          <fa-icon [icon]="faImages"/>
                           Auto-choose for Instagram
                         </button>
                       </div>
                     }
                   </div>
                 </div>
-                <div class="alert {{ imagesOutsideInstagramRatio() === 0 ? 'alert-success' : 'alert-warning' }} d-flex align-items-start mb-2">
-                  <fa-icon [icon]="imagesOutsideInstagramRatio() === 0 ? faCircleCheck : faCircleExclamation"
-                           class="flex-shrink-0 mt-1 me-2"/>
-                  <div>
-                    <strong class="d-block">Instagram aspect ratio</strong>
-                    @if (imagesOutsideInstagramRatio() === 0) {
-                      All selected images are within Instagram's 4:5 to 1.91:1 range.
-                    } @else {
-                      {{ stringUtils.pluraliseWithCount(imagesOutsideInstagramRatio(), "selected image") }}
-                      outside Instagram's 4:5 to 1.91:1 range may be cropped or rejected.
-                      Marked with a brown warning badge on the photo grid.
-                    }
+                @if (imagesOutsideInstagramRatio() === 0 || !instagramCountValid()) {
+                  <div class="alert {{ imagesOutsideInstagramRatio() === 0 ? 'alert-success' : 'alert-warning' }} d-flex align-items-start mb-2">
+                    <fa-icon [icon]="imagesOutsideInstagramRatio() === 0 ? faCircleCheck : faCircleExclamation"
+                             class="flex-shrink-0 mt-1 me-2"/>
+                    <div>
+                      <strong class="d-block">Instagram aspect ratio</strong>
+                      @if (imagesOutsideInstagramRatio() === 0) {
+                        All selected images are within Instagram's 4:5 to 1.91:1 range.
+                      } @else {
+                        {{ stringUtils.pluraliseWithCount(imagesOutsideInstagramRatio(), "selected image") }}
+                        outside Instagram's 4:5 to 1.91:1 range will be intelligently cropped to the nearest supported shape before publishing.
+                        The album originals will not be changed. Adapted photos are marked on the grid.
+                      }
+                    </div>
                   </div>
-                </div>
+                }
                 <div class="image-grid">
                   @for (item of images; track item.image) {
                   <div class="image-tile"
                        [class.selected]="isSelected(item)"
                        [class.ratio-warning]="showInstagramRatioWarning(item)"
-                       [attr.title]="showInstagramRatioWarning(item) ? 'Outside Instagram aspect ratio range' : null"
+                       [attr.title]="showInstagramRatioWarning(item) ? 'Will be intelligently cropped for Instagram' : null"
                        (click)="toggle(item)" role="checkbox" [attr.aria-checked]="isSelected(item)">
                     <img [src]="urlService.imageSourceFor(item, contentMetadata)" alt=""
                          (load)="onImageLoad(item, $event)">
                     @if (showInstagramRatioWarning(item)) {
-                      <span class="image-ratio-warning" aria-label="Outside Instagram aspect ratio range">
+                      <span class="image-ratio-warning" aria-label="Will be intelligently cropped for Instagram">
                         <fa-icon [icon]="faCircleExclamation"/>
                       </span>
                     }
@@ -750,10 +758,12 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
   protected readonly faShareNodes = faShareNodes;
   protected readonly faImages = faImages;
   protected readonly faCheck = faCheck;
+  protected readonly faCheckDouble = faCheckDouble;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faSpinner = faSpinner;
   protected readonly faWandMagicSparkles = faWandMagicSparkles;
+  protected readonly faXmark = faXmark;
   protected readonly INSTAGRAM_MIN_CAROUSEL_IMAGES = INSTAGRAM_MIN_CAROUSEL_IMAGES;
   protected readonly INSTAGRAM_MAX_CAROUSEL_IMAGES = INSTAGRAM_MAX_CAROUSEL_IMAGES;
 
@@ -1022,16 +1032,13 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
         message: `Instagram needs at least ${INSTAGRAM_MIN_CAROUSEL_IMAGES} images in the album`
       });
     } else {
-      const inRatio = this.images.filter(item => !this.ratioOutsideInstagramRange(item.image));
-      const outsideRatio = this.images.filter(item => this.ratioOutsideInstagramRange(item.image));
-      const ordered = [...inRatio, ...outsideRatio];
-      const chosen = ordered.slice(0, limit);
+      const chosen = this.images.slice(0, limit);
       this.selected = new Set(chosen.map(item => item.image));
       const outsideCount = chosen.filter(item => this.ratioOutsideInstagramRange(item.image)).length;
       if (outsideCount > 0) {
-        this.notify.warning({
+        this.notify.success({
           title: "Instagram selection ready",
-          message: `Chose ${this.stringUtils.pluraliseWithCount(chosen.length, "photo")}, preferring good aspect ratios. ${this.stringUtils.pluraliseWithCount(outsideCount, "photo")} may still be cropped.`
+          message: `Chose the first ${this.stringUtils.pluraliseWithCount(chosen.length, "photo")}. ${this.stringUtils.pluraliseWithCount(outsideCount, "photo")} will be intelligently cropped to Instagram's nearest supported shape.`
         });
       } else {
         this.notify.success({
