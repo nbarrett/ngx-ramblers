@@ -18,7 +18,7 @@ import { memberDisambiguatedLabel } from "../../functions/member-names";
       [searchable]="true"
       [clearable]="true"
       [compareWith]="compareMembers"
-      dropdownPosition="auto"
+      dropdownPosition="bottom"
       [appendTo]="'body'"
       [placeholder]="placeholder"
       [(ngModel)]="selectedMember"
