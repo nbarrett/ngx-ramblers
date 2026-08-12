@@ -22,10 +22,11 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { MemberSelector } from "../../../shared/components/member-selector";
 import { DatePicker } from "../../../date-and-time/date-picker";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-volunteer-assignment-editor",
-  imports: [FormsModule, FontAwesomeModule, MemberSelector, DatePicker],
+  imports: [FormsModule, FontAwesomeModule, MemberSelector, DatePicker, TooltipModule],
   template: `
     <section class="assignment-editor" aria-labelledby="assignment-editor-heading">
       <div class="assignment-editor-heading">
@@ -69,16 +70,16 @@ import { DatePicker } from "../../../date-and-time/date-picker";
                   </select>
                 </td>
                 <td data-label="Effective from">
-                  <app-date-picker [value]="row.effectiveFrom" [disabled]="saving || row.removed" [startOfDay]="true" placeholder="not recorded" (change)="row.effectiveFrom = $event?.value ?? null"/>
+                  <app-date-picker [value]="row.effectiveFrom" [disabled]="saving || row.removed" [startOfDay]="true" placeholder="" (change)="row.effectiveFrom = $event?.value ?? null"/>
                 </td>
                 <td data-label="Effective to">
-                  <app-date-picker [value]="row.effectiveTo" [disabled]="saving || row.removed" [startOfDay]="true" placeholder="no end date" (change)="row.effectiveTo = $event?.value ?? null"/>
+                  <app-date-picker [value]="row.effectiveTo" [disabled]="saving || row.removed" [startOfDay]="true" placeholder="" (change)="row.effectiveTo = $event?.value ?? null"/>
                 </td>
                 <td class="actions-col">
                   @if (!isNew) {
                     <button type="button" class="btn btn-quiet btn-icon" (click)="row.removed = !row.removed" [disabled]="saving"
                             [attr.aria-label]="row.removed ? 'Restore assignment' : 'End assignment'"
-                            [attr.title]="row.removed ? 'Restore this assignment' : 'End this assignment on save'">
+                            container="body" [tooltip]="row.removed ? 'Restore this assignment' : 'End this assignment on save'">
                       <fa-icon [icon]="row.removed ? faRotateLeft : faTrash"/>
                     </button>
                   }
@@ -168,21 +169,24 @@ import { DatePicker } from "../../../date-and-time/date-picker";
     .assignment-table .actions-col
       text-align: right
       white-space: nowrap
-    .assignment-table tr.removed-row td
+    .assignment-table tr.removed-row td:not(.actions-col)
       opacity: .5
     @media (min-width: 992px)
       .assignment-table
         min-width: 0
         table-layout: fixed
+        max-width: 1120px
       .assignment-table th:nth-child(1)
-        width: 160px
+        width: 150px
+      .assignment-table th:nth-child(2)
+        width: 230px
       .assignment-table th:nth-child(3)
-        width: 120px
+        width: 160px
       .assignment-table th:nth-child(4),
       .assignment-table th:nth-child(5)
         width: 165px
       .assignment-table th:nth-child(6)
-        width: 52px
+        width: 50px
       .assignment-table tr.notes-row td
         padding-top: 0
       .assignment-table tr.notes-row:not(.new-row) td
