@@ -35,6 +35,7 @@ import { ColourSelectorComponent } from "../../banner/colour-selector";
 import { SystemMeetupSettingsComponent } from "./external/system-meetup-settings";
 import { SystemRecaptchaSettingsComponent } from "./external/system-recaptcha-settings";
 import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-analytics-settings";
+import { SystemVideoMeetingsSettings } from "./video-meetings/system-video-meetings-settings";
 import { SystemGoogleSearchConsoleSettings } from "./google-search-console/system-google-search-console-settings";
 import { SystemOsMapsSettings } from "./os-maps/system-os-maps-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -391,6 +392,13 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                     <app-scheduled-tasks/>
                   </div>
                 </tab>
+                <tab heading="Video"
+                     [active]="tabActive(SystemSettingsTab.VIDEO_MEETINGS)"
+                     (selectTab)="selectTab(SystemSettingsTab.VIDEO_MEETINGS)">
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <app-system-video-meetings-settings [config]="config"/>
+                  </div>
+                </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.DIAGNOSTICS)}}"
                      [active]="tabActive(SystemSettingsTab.DIAGNOSTICS)"
                      (selectTab)="selectTab(SystemSettingsTab.DIAGNOSTICS)">
@@ -422,7 +430,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings, SystemVideoMeetingsSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

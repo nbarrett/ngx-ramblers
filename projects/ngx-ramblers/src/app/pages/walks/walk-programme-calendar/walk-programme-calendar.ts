@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
+import { Location } from "@angular/common";
 import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faChevronLeft, faChevronRight, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faChevronLeft, faChevronRight, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { chunk, first, last, uniq } from "es-toolkit/compat";
@@ -18,6 +19,7 @@ import {
   CalendarEntry,
   CalendarViewMode,
   CalendarWeek,
+  COMMITTEE_EVENT_CALENDAR_COLOUR,
   displayedWalkProgrammeStatus,
   GROUP_EVENT_CALENDAR_COLOUR,
   programmeStatusDescriptor,
@@ -44,6 +46,9 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NotifierService, AlertInstance } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { CommitteeFileService } from "../../../services/committee/committee-file.service";
+import { CommitteeDisplayService } from "../../committee/committee-display.service";
+import { CommitteeFile } from "../../../models/committee.model";
 
 const UNASSIGNED_CALENDAR_COLOUR = "rgb(153, 153, 153)";
 
@@ -65,7 +70,15 @@ const LEADER_GRADE_PALETTE: string[] = [
   styleUrls: ["./walk-programme-calendar.sass"],
   template: `
     <app-page autoTitle>
-      <app-walk-programme-view-selector/>
+      @if (!selectMode) {
+        <app-walk-programme-view-selector/>
+      } @else {
+        <div class="select-mode-nav">
+          <button type="button" class="btn pager-btn rounded" (click)="goBackFromSelect()">
+            <fa-icon [icon]="faArrowLeft" class="me-2"/>Back
+          </button>
+        </div>
+      }
       <div class="calendar">
         <div class="calendar-sticky sticky-toolbar">
         <div class="calendar-toolbar">
@@ -126,14 +139,16 @@ const LEADER_GRADE_PALETTE: string[] = [
             <div class="calendar-grid">
               @for (day of week.days; track day.value) {
                 <div class="calendar-cell" [class.outside]="!day.inCurrentPeriod" [class.today]="day.isToday"
-                     [class.weekend]="day.isWeekend" cdkDropList [cdkDropListData]="day"
+                     [class.suggested]="day.value === suggestedDate"
+                     [class.weekend]="day.isWeekend" [class.selectable]="selectMode" (click)="onCellClick(day)"
+                     cdkDropList [cdkDropListData]="day"
                      [cdkDropListDisabled]="!dragEnabled()" (cdkDropListDropped)="onDrop($event)">
                   <div class="cell-date">{{ day.dayOfMonth }}</div>
                   <div class="cell-mobile-date">{{ mobileDayLabel(day.value) }}</div>
                   <div class="cell-entries">
                     @for (entry of day.entries; track entry.id) {
-                      <div class="calendar-entry" cdkDrag [cdkDragData]="entry" [cdkDragDisabled]="!dragEnabled() || entry.isGroupEvent"
-                           [class.group-event]="entry.isGroupEvent" [style.--entry-colour]="entry.colour"
+                      <div class="calendar-entry" cdkDrag [cdkDragData]="entry" [cdkDragDisabled]="!dragEnabled() || entry.isGroupEvent || entry.isCommitteeEvent"
+                           [class.group-event]="entry.isGroupEvent || entry.isCommitteeEvent" [style.--entry-colour]="entry.colour"
                            (click)="openEntry(entry)">
                         <span class="entry-time">{{ entry.time }}</span>
                         <span class="entry-title">{{ entry.title }}</span>
@@ -159,7 +174,12 @@ const LEADER_GRADE_PALETTE: string[] = [
 })
 export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
 
+  @Input() selectMode = false;
+  @Input() includeCommitteeEvents = false;
+  @Output() dateSelected = new EventEmitter<number>();
+
   private logger: Logger = inject(LoggerFactory).createLogger("WalkProgrammeCalendarComponent", NgxLoggerLevel.ERROR);
+  private elementRef = inject(ElementRef);
   private walkProgrammeService = inject(WalkProgrammeService);
   private scrollPosition = inject(ScrollPositionService);
   private walksAndEventsService = inject(WalksAndEventsService);
@@ -167,17 +187,21 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private uiActions = inject(UiActionsService);
   private urlService = inject(UrlService);
+  private location = inject(Location);
   private memberLoginService = inject(MemberLoginService);
   private systemConfigService = inject(SystemConfigService);
   private walksConfigService = inject(WalksConfigService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent>>(BroadcastService);
   private notifierService = inject(NotifierService);
+  private committeeFileService = inject(CommitteeFileService);
+  private committeeDisplayService = inject(CommitteeDisplayService);
   private route = inject(ActivatedRoute);
   private subscriptions: Subscription[] = [];
   private notify: AlertInstance;
 
   protected notifyTarget: AlertTarget = {};
   protected anchor = this.dateUtils.dateTimeNowNoTime().valueOf();
+  protected suggestedDate: number | null = null;
   protected viewMode: CalendarViewMode = CalendarViewMode.MONTH;
   protected colourBy: CalendarColourBy = CalendarColourBy.STATUS;
   protected walksOnly = false;
@@ -198,6 +222,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
   ];
   protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
+  protected readonly faArrowLeft = faArrowLeft;
   protected readonly faTriangleExclamation = faTriangleExclamation;
 
   ngOnInit() {
@@ -251,20 +276,29 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
         dateTo: end.endOf("day").valueOf(),
         walksOnly: this.walksOnly || this.display.walkPopulationWalksManager()
       });
-      this.buildDays(start.valueOf(), end.valueOf(), events);
+      const committeeFiles = await this.committeeFilesInRange(start.valueOf(), end.endOf("day").valueOf());
+      this.buildDays(start.valueOf(), end.valueOf(), events, committeeFiles);
     } catch (error) {
       this.logger.error("reload:error", error);
-      this.buildDays(start.valueOf(), end.valueOf(), []);
+      this.buildDays(start.valueOf(), end.valueOf(), [], []);
     }
     this.scrollPosition.restore();
+    this.scrollSuggestedIntoView();
   }
 
+  private async committeeFilesInRange(fromValue: number, toValue: number): Promise<CommitteeFile[]> {
+    if (this.includeCommitteeEvents) {
+      return this.committeeFileService.filesInDateRange(fromValue, toValue);
+    } else {
+      return [];
+    }
+  }
 
-
-  private buildDays(startValue: number, endValue: number, events: ExtendedGroupEvent[]) {
+  private buildDays(startValue: number, endValue: number, events: ExtendedGroupEvent[], committeeFiles: CommitteeFile[]) {
     const anchorMonth = this.dateUtils.asDateTime(this.anchor).month;
     const todayValue = this.dateUtils.dateTimeNowNoTime().valueOf();
     const entriesByDay = this.entriesByDay(events);
+    this.mergeCommitteeEntries(entriesByDay, committeeFiles);
     this.days = this.dateUtils.inclusiveDayRange(startValue, endValue).map(dayValue => {
       const dayDateTime = this.dateUtils.asDateTime(dayValue);
       return {
@@ -280,7 +314,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
   }
 
   private toWeek(days: CalendarDay[]): CalendarWeek {
-    const walkCount = days.flatMap(day => day.entries).filter(entry => !entry.isGroupEvent).length;
+    const walkCount = days.flatMap(day => day.entries).filter(entry => !entry.isGroupEvent && !entry.isCommitteeEvent).length;
     return {label: this.weekLabel(days), walkCount, days};
   }
 
@@ -313,6 +347,28 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     });
     entriesByDay.forEach(entries => entries.sort((left, right) => left.dateValue - right.dateValue));
     return entriesByDay;
+  }
+
+  private mergeCommitteeEntries(entriesByDay: Map<number, CalendarEntry[]>, committeeFiles: CommitteeFile[]): void {
+    committeeFiles.forEach(committeeFile => {
+      const dayValue = this.dateUtils.asValueNoTime(committeeFile.eventDate);
+      const existing = entriesByDay.get(dayValue) || [];
+      existing.push(this.committeeEntry(committeeFile));
+      existing.sort((left, right) => left.dateValue - right.dateValue);
+      entriesByDay.set(dayValue, existing);
+    });
+  }
+
+  private committeeEntry(committeeFile: CommitteeFile): CalendarEntry {
+    return {
+      id: committeeFile.id,
+      isGroupEvent: false,
+      isCommitteeEvent: true,
+      colour: COMMITTEE_EVENT_CALENDAR_COLOUR,
+      title: this.committeeDisplayService.fileTitle(committeeFile),
+      time: this.dateUtils.displayTime(committeeFile.eventDate),
+      dateValue: this.dateUtils.asValue(committeeFile.eventDate)
+    };
   }
 
   private toEntry(event: ExtendedGroupEvent): CalendarEntry {
@@ -364,7 +420,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
   }
 
   private walkEntriesInPeriod(): CalendarEntry[] {
-    return (this.days || []).flatMap(day => day.entries || []).filter(entry => !entry.isGroupEvent);
+    return (this.days || []).flatMap(day => day.entries || []).filter(entry => !entry.isGroupEvent && !entry.isCommitteeEvent);
   }
 
   private keyedLegendItems(): { label: string; colour: string }[] {
@@ -386,12 +442,15 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     const groupEventLegend = this.walksOnly || this.display.walkPopulationWalksManager()
       ? []
       : [{label: "Group event", colour: GROUP_EVENT_CALENDAR_COLOUR}];
+    const committeeLegend = this.includeCommitteeEvents
+      ? [{label: "Committee event", colour: COMMITTEE_EVENT_CALENDAR_COLOUR}]
+      : [];
     if (this.colourBy === CalendarColourBy.STATUS) {
       const statusLegend = programmeStatusDescriptorsFor(this.display.walkPopulationWalksManager())
         .map(descriptor => ({label: descriptor.title, colour: descriptor.colour}));
-      return [...statusLegend, ...groupEventLegend];
+      return [...statusLegend, ...groupEventLegend, ...committeeLegend];
     } else {
-      return [...this.keyedLegendItems(), ...groupEventLegend];
+      return [...this.keyedLegendItems(), ...groupEventLegend, ...committeeLegend];
     }
   }
 
@@ -438,11 +497,23 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
   }
 
   openEntry(entry: CalendarEntry) {
-    if (entry.isGroupEvent) {
-      this.display.openGroupEventView(entry.displayedWalk?.walk);
-    } else {
-      this.display.openWalkView(entry.displayedWalk?.walk);
+    if (!this.selectMode && !entry.isCommitteeEvent) {
+      if (entry.isGroupEvent) {
+        this.display.openGroupEventView(entry.displayedWalk?.walk);
+      } else {
+        this.display.openWalkView(entry.displayedWalk?.walk);
+      }
     }
+  }
+
+  onCellClick(day: CalendarDay) {
+    if (this.selectMode) {
+      this.dateSelected.emit(day.value);
+    }
+  }
+
+  goBackFromSelect() {
+    this.location.back();
   }
 
   mobileDayLabel(dayValue: number): string {
@@ -470,11 +541,31 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     this.storeAnchor(this.dateUtils.dateTimeNowNoTime().valueOf());
   }
 
-  private storeAnchor(value: number) {
+  showDate(value: number): void {
+    this.suggestedDate = this.dateUtils.asValueNoTime(value);
+    const sameMonth = this.dateUtils.asDateTime(this.anchor).hasSame(this.dateUtils.asDateTime(this.suggestedDate), "month");
+    this.storeAnchor(this.suggestedDate);
+    if (sameMonth) {
+      this.scrollSuggestedIntoView();
+    }
+  }
+
+  private storeAnchor(value: number): Promise<boolean> {
     this.scrollPosition.retain();
-    this.uiActions.updateQueryParameters({
+    return this.uiActions.updateQueryParameters({
       [StoredValue.CALENDAR_DATE]: this.dateUtils.asString(value, null, this.dateUtils.formats.yearMonthDayWithDashes)
     });
+  }
+
+  private scrollSuggestedIntoView(): void {
+    if (this.suggestedDate) {
+      requestAnimationFrame(() => {
+        const cell = this.elementRef.nativeElement.querySelector(".calendar-cell.suggested");
+        if (cell) {
+          cell.scrollIntoView({behavior: "smooth", block: "center"});
+        }
+      });
+    }
   }
 
   setViewMode(viewMode: CalendarViewMode) {

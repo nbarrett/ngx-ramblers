@@ -330,6 +330,10 @@ export class MailMessagingService {
     return this.subject.asObservable();
   }
 
+  public currentConfig(): MailMessagingConfig {
+    return this.mailMessagingConfig;
+  }
+
   private async refreshTemplates() {
     const configType = "Mail Templates";
     try {

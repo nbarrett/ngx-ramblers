@@ -328,6 +328,25 @@ const rp = adminRelativePath;
     },
 
     {
+      path: rp(AdminPath.VIDEO_MEETING_ROOM) + "/:room",
+      loadComponent: () => import("../../pages/video-meetings/video-meeting-room")
+        .then(m => m.VideoMeetingRoomComponent),
+      canActivate: [SystemHealthyGuard, LoggedInGuard]
+    },
+    {
+      path: rp(AdminPath.VIDEO_MEETING_PLAN),
+      loadComponent: () => import("../../pages/video-meetings/video-meeting-plan")
+        .then(m => m.VideoMeetingPlanComponent),
+      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
+    },
+    {
+      path: rp(AdminPath.VIDEO_MEETINGS),
+      loadComponent: () => import("../../pages/video-meetings/video-meetings-page")
+        .then(m => m.VideoMeetingsPageComponent),
+      canActivate: [SystemHealthyGuard, LoggedInGuard]
+    },
+
+    {
       matcher: hasSendNotificationPath,
       loadComponent: () => import("../../pages/email-composer/email-composer")
         .then(m => m.EmailComposer),

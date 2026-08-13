@@ -7,9 +7,14 @@ import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { icalDocument } from "./ical";
+import { icalDocument, meetingIcalDocument } from "./ical";
 import { publicImageBaseUrl } from "../social/public-base-url";
 import { dateTimeNow } from "../shared/dates";
+import { videoMeeting } from "../mongo/models/video-meeting";
+import { queryKey } from "../mongo/controllers/config";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { VideoMeeting } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 const debugLog = debug(envConfig.logNamespace("calendar"));
 debugLog.enabled = false;
@@ -56,6 +61,54 @@ export async function eventCalendar(req: Request, res: Response): Promise<void> 
     }
   } catch (error) {
     errorDebugLog("eventCalendar failed for", eventId, "error:", error);
+    res.status(500).json({message: "Calendar generation failed"});
+  }
+}
+
+function committeeSecretaryEmail(committeeConfig: CommitteeConfig | null): { name?: string; email?: string } {
+  const roles = committeeConfig?.roles || [];
+  const secretary = roles.find(role => role.type === "secretary") || roles.find(role => /secretary/i.test(role.description || ""));
+  const withEmail = secretary?.email ? secretary : roles.find(role => !!role.email);
+  return {name: withEmail?.fullName || withEmail?.description, email: withEmail?.email};
+}
+
+export async function meetingCalendarFile(roomName: string, req: Request): Promise<{document: string; fileName: string} | null> {
+  const room = (roomName || "").replace(/\.ics$/i, "");
+  const meeting = await videoMeeting.findOne({room}).lean().exec() as VideoMeeting;
+  if (!meeting) {
+    return null;
+  } else {
+    const config: SystemConfig = await systemConfig();
+    const baseUrl = publicImageBaseUrl(req, config).replace(/\/+$/, "");
+    const committeeConfigDoc = await queryKey(ConfigKey.COMMITTEE);
+    const organiser = committeeSecretaryEmail(committeeConfigDoc?.value as CommitteeConfig || null);
+    const joinLink = `${baseUrl}/video-meetings/guest/${encodeURIComponent(room)}`;
+    const host = baseUrl.replace(/^https?:\/\//, "") || "ngx-ramblers";
+    const document = meetingIcalDocument({
+      uid: `meeting-${room}@${host}`,
+      title: meeting.title || "Ramblers meeting",
+      startTime: meeting.startTime,
+      durationMinutes: meeting.durationMinutes,
+      description: `Join the meeting: ${joinLink}`,
+      url: joinLink,
+      organiserName: organiser.name,
+      organiserEmail: organiser.email
+    }, calendarNameFor(config));
+    return {document, fileName: `${room}.ics`};
+  }
+}
+
+export async function meetingInviteCalendar(req: Request, res: Response): Promise<void> {
+  const room = req.params.room?.replace(/\.ics$/i, "");
+  try {
+    const file = await meetingCalendarFile(room, req);
+    if (file) {
+      sendCalendar(res, file.document, file.fileName);
+    } else {
+      res.status(404).json({message: `No meeting found for room ${room}`});
+    }
+  } catch (error) {
+    errorDebugLog("meetingInviteCalendar failed for", room, "error:", error);
     res.status(500).json({message: "Calendar generation failed"});
   }
 }

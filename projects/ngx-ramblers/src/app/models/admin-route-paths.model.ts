@@ -19,6 +19,9 @@ export enum AdminPath {
   MAILING_PREFERENCES = "admin/mailing-preferences",
   EMAIL_COMPOSER = "admin/email-composer",
   SEND_NOTIFICATION = "admin/send-notification",
+  VIDEO_MEETINGS = "admin/video-meetings",
+  VIDEO_MEETING_ROOM = "admin/video-meetings/room",
+  VIDEO_MEETING_PLAN = "admin/video-meetings/plan",
   MAINTENANCE = "admin/maintenance",
   SET_PASSWORD = "admin/set-password",
 }

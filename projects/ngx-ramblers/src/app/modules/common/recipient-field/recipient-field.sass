@@ -2,6 +2,25 @@
   border: 1px solid #dee2e6
   border-radius: 8px
   padding: 4px 12px 12px
+  &.is-plain
+    border: none
+    border-radius: 0
+    padding: 0
+    .recipient-line
+      padding: 0
+      border-bottom: none
+    .recipient-input
+      height: var(--btn-min-height)
+      padding: 0 12px
+      border: 1px solid #ced4da
+      border-radius: 6px
+      background: #fff
+    .recipient-suggestions
+      left: 0
+    .recipient-editor
+      left: 0
+    .recipient-error
+      margin-left: 0
 
 .recipient-line
   position: relative
@@ -199,14 +218,18 @@
   border-radius: 8px
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12)
 
-.recipient-editor-address
-  margin-bottom: 10px
-  padding-bottom: 10px
-  border-bottom: 1px solid #f0f1f3
+.recipient-editor-input.is-invalid
+  border-color: #dc3545
+
+.recipient-editor-error
+  margin: -4px 0 10px 48px
   font-size: 13px
-  font-weight: 500
-  color: #343a40
-  word-break: break-all
+  color: #dc3545
+
+.recipient-editor-prompt
+  margin: -4px 0 10px 48px
+  font-size: 13px
+  color: #6c757d
 
 .recipient-editor-row
   display: flex

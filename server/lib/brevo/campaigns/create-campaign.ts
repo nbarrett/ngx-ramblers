@@ -21,6 +21,7 @@ import { ngxBrevoCampaign } from "../../mongo/models/ngx-brevo-campaign";
 import { systemConfig } from "../../config/system-config";
 import { contactUsParentSegment } from "../contacts/unsubscribe-token";
 import { fetchBrevoAccount } from "../account/account";
+import { publicCampaignAttachmentUrl } from "./campaign-attachment";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -102,7 +103,7 @@ export async function createCampaign(req: Request, res: Response): Promise<void>
       debugLog("Email campaign preparation scheduling at:", scheduledAt);
       createEmailCampaign.scheduledAt = scheduledAt;
     }
-    createEmailCampaign.attachmentUrl = createCampaignRequest.attachmentUrl;
+    createEmailCampaign.attachmentUrl = await publicCampaignAttachmentUrl(createCampaignRequest.attachmentUrl, req);
     createEmailCampaign.header = "If you are not able to see this mail, click {here}";
     createEmailCampaign.footer = "<!--[if !mso]><!--><span style=\"display:none;visibility:hidden;font-size:0;line-height:0;color:transparent;height:0;width:0;overflow:hidden\" aria-hidden=\"true\">{unsubscribe}</span><!--<![endif]-->";
     createEmailCampaign.inlineImageActivation = createCampaignRequest.inlineImageActivation;

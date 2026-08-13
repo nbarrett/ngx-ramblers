@@ -148,6 +148,7 @@ export enum StoredValue {
   OAUTH_ERROR = "oauthError",
   PAGE = "page",
   PARISH_TABLE_HEIGHT = "parish-table-height",
+  PLAN_DATE = "plan-date",
   PRE_FILTER = "pre-filter",
   PRINT = "print",
   PROXIMITY_LAT = "proximity-lat",

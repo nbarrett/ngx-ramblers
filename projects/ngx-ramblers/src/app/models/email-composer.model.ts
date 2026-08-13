@@ -329,6 +329,24 @@ export interface ComposerExternalRecipient {
   saveForReuse?: boolean;
 }
 
+export interface ParsedMailbox {
+  name: string;
+  email: string;
+}
+
+export enum RecipientDraftOutcomeKind {
+  EMPTY = "empty",
+  INVALID = "invalid",
+  PENDING_NAME = "pending-name",
+  ADD = "add"
+}
+
+export type RecipientDraftOutcome =
+  | {kind: RecipientDraftOutcomeKind.EMPTY}
+  | {kind: RecipientDraftOutcomeKind.INVALID}
+  | {kind: RecipientDraftOutcomeKind.PENDING_NAME; name: string; email: string}
+  | {kind: RecipientDraftOutcomeKind.ADD; mailboxes: ParsedMailbox[]};
+
 export enum RecipientField {
   TO = "to",
   CC = "cc",

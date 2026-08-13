@@ -49,6 +49,13 @@ const routes: Routes = [
     canActivate: [SystemHealthyGuard]
   },
   {
+    path: "video-meetings/guest/:room",
+    loadComponent: () => import("./pages/video-meetings/video-meeting-room")
+      .then(m => m.VideoMeetingRoomComponent),
+    data: {guest: true},
+    canActivate: [SystemHealthyGuard]
+  },
+  {
     path: "how-to/committee/email-archives/:subject",
     loadComponent: () => import("./pages/how-to/subject-listing/subject-listing")
       .then(m => m.HowToSubjectListingComponent),

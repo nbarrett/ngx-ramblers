@@ -165,6 +165,7 @@ import { AttachmentPreviewComponent } from "../../modules/common/attachment-prev
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { InboxReplyHandoffService } from "../../services/inbox/inbox-reply-handoff.service";
+import { VideoMeetingInviteHandoffService } from "../../services/video-meetings/video-meeting-invite-handoff.service";
 import { InboxService } from "../../services/inbox/inbox.service";
 import {
   inboxMessageMatchingId,
@@ -179,6 +180,7 @@ import {
   planTitledIntroPaste,
   shouldRunIntroSmartPaste
 } from "../../functions/email-composer-intro-paste";
+import { parseEmailAddressList } from "../../functions/email-addresses";
 import { InboxAttachment, InboxReplyComposeResponse, InboxReplyOutboundContext } from "../../models/inbox.model";
 import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
@@ -1984,6 +1986,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private rendering = inject(EmailComposerRenderingService);
   private sendService = inject(EmailComposerSendService);
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
+  private videoMeetingInviteHandoff = inject(VideoMeetingInviteHandoffService);
   private inboxService = inject(InboxService);
   private externalRecipientService = inject(ExternalRecipientService);
   private committeeQueryService = inject(CommitteeQueryService);
@@ -3314,8 +3317,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     const forwardedHeaderLines = lines.slice(firstHeaderIdx, headerEndIdx)
       .map(line => this.stripMarkdownDecorations(line))
       .filter(line => line !== "");
-    const toList = this.parseEmailAddressList(headers.to ?? "");
-    const fromList = this.parseEmailAddressList(headers.from ?? "");
+    const toList = parseEmailAddressList(headers.to ?? "");
+    const fromList = parseEmailAddressList(headers.from ?? "");
     const seenEmails = new Set<string>();
     const combinedRecipients = [...toList, ...fromList].filter(item => {
       const key = item.email.toLowerCase();
@@ -3325,7 +3328,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     });
     return {
       to: combinedRecipients,
-      cc: this.parseEmailAddressList(headers.cc ?? ""),
+      cc: parseEmailAddressList(headers.cc ?? ""),
       subject: headers.subject ?? null,
       body,
       forwardedHeaderLines
@@ -3362,36 +3365,6 @@ export class EmailComposer implements OnInit, OnDestroy {
       .replace(/^[\s>*_`#-]+/, "")
       .replace(/[*_`]+$/g, "")
       .trim();
-  }
-
-  private parseEmailAddressList(input: string): { name: string; email: string }[] {
-    if (!input) return [];
-    const normalised = input.replace(/\[([^\]]+)\]\(mailto:([^)]+)\)/gi, (_match, text: string, email: string) => {
-      const cleanedText = text.trim();
-      const cleanedEmail = email.trim();
-      return cleanedText.toLowerCase() === cleanedEmail.toLowerCase() ? `<${cleanedEmail}>` : `${cleanedText} <${cleanedEmail}>`;
-    });
-    return normalised
-      .split(/[,;]/)
-      .map(part => this.parseEmailAddress(part))
-      .filter((item): item is { name: string; email: string } => !!item);
-  }
-
-  private parseEmailAddress(input: string): { name: string; email: string } | null {
-    const trimmed = input.trim();
-    if (!trimmed) return null;
-    const bracket = trimmed.match(/^(.*?)<\s*([^>\s]+@[^>\s]+)\s*>\s*$/);
-    if (bracket) {
-      const name = bracket[1].replace(/[*_`"']/g, "").trim();
-      return { name, email: bracket[2].trim() };
-    }
-    const inlineEmail = trimmed.match(/([^\s<>"',]+@[^\s<>"',]+)/);
-    if (inlineEmail) {
-      const email = inlineEmail[1].replace(/^[<\[]+|[>\]]+$/g, "");
-      const name = trimmed.replace(inlineEmail[0], "").replace(/[*_`"'<>\[\]()]/g, "").trim();
-      return { name, email };
-    }
-    return null;
   }
 
   private autoSelectNotificationConfig(): void {
@@ -3606,6 +3579,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
     this.applyForcedMemberSelection();
     this.applyInboxReplyHandoffIfAny(queryParams);
+    this.applyVideoMeetingInviteHandoffIfAny();
   }
 
   private applyInboxReplyHandoffIfAny(queryParams: ParamMap): void {
@@ -3614,6 +3588,31 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.applyInboxReply(reply);
     } else {
       void this.rebuildInboxReplyFromRoute(queryParams);
+    }
+  }
+
+  private applyVideoMeetingInviteHandoffIfAny(): void {
+    const invite = this.videoMeetingInviteHandoff.consume();
+    if (invite) {
+      this.state.subject = invite.subject;
+      this.state.introMarkdown = invite.body;
+      if (invite.selectedListId != null) {
+        this.state.recipientMode = RecipientMode.ENTIRE_LIST;
+        this.state.selectedListId = invite.selectedListId;
+        this.state.sendingChannel = SendingChannel.CAMPAIGN;
+      }
+      if (invite.externalRecipients?.length) {
+        this.state.externalRecipients = invite.externalRecipients.map(recipient => ({email: recipient.email, name: recipient.name}));
+        if (invite.selectedListId == null) {
+          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+        }
+      }
+      if (invite.attachments?.length) {
+        const existingUrls = new Set((this.state.attachments ?? []).map(attachment => attachment.url));
+        const additions = invite.attachments.filter(attachment => !existingUrls.has(attachment.url));
+        this.state.attachments = [...(this.state.attachments ?? []), ...additions];
+      }
     }
   }
 
@@ -4211,7 +4210,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.state.recipientMode = RecipientMode.ENTIRE_LIST;
         this.state.sendingChannel = SendingChannel.CAMPAIGN;
         this.state.preFilterKey = null;
-        if (isNumber(config.defaultListId)) {
+        if (this.state.selectedListId == null && isNumber(config.defaultListId)) {
           this.state.selectedListId = config.defaultListId;
         }
         this.state.selectedMemberIds = [];

@@ -1,0 +1,171 @@
+// Mobile-first: the meeting fills the screen, panels are bottom sheets.
+.meeting-shell
+  display: flex
+  flex-direction: column
+  height: calc(100dvh - 150px)
+  min-height: 420px
+  background: #1a1a1a
+  color: #fff
+  border-radius: 10px
+  overflow: hidden
+  margin-bottom: 1rem
+
+.meeting-shell.fullscreen
+  position: fixed
+  inset: 0
+  z-index: 1050
+  height: 100dvh
+  min-height: 0
+  border-radius: 0
+  margin-bottom: 0
+  padding-top: env(safe-area-inset-top)
+  padding-bottom: env(safe-area-inset-bottom)
+
+.meeting-message
+  padding: 0.75rem
+
+.meeting-bar
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  padding: 0.5rem 0.75rem
+  min-height: 52px
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1)
+
+.meeting-bar-room
+  font-weight: 600
+  font-size: 0.9rem
+  max-width: 38vw
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.meeting-bar-spacer
+  flex: 1 1 auto
+
+.meeting-bar-btn
+  display: inline-flex
+  align-items: center
+  gap: 0.4rem
+  min-height: 44px
+  padding: 0 0.8rem
+  border: none
+  border-radius: 8px
+  background: rgba(255, 255, 255, 0.12)
+  color: #fff
+  cursor: pointer
+  font-size: 0.9rem
+
+  &.active
+    background: rgba(255, 255, 255, 0.32)
+
+  &.leave
+    background: transparent
+
+// Labels collapse to icons on the narrowest screens.
+.meeting-bar-label
+  display: none
+
+.meeting-body
+  position: relative
+  flex: 1 1 auto
+  min-height: 0
+  display: flex
+
+.meeting-frame
+  position: relative
+  flex: 1 1 auto
+  min-width: 0
+  height: 100%
+  &.cover-host-branding::after
+    content: ""
+    position: absolute
+    top: 10px
+    left: 10px
+    width: 72px
+    height: 72px
+    background: #1a1a1a
+    z-index: 3
+
+
+.meeting-connecting
+  position: absolute
+  inset: 0
+  z-index: 5
+  pointer-events: none
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  background: #1a1a1a
+  color: #fff
+
+.meeting-connecting-spinner
+  width: 40px
+  height: 40px
+  border: 3px solid rgba(255, 255, 255, 0.25)
+  border-top-color: #fff
+  border-radius: 50%
+  animation: meeting-spin 0.8s linear infinite
+
+@keyframes meeting-spin
+  to
+    transform: rotate(360deg)
+
+.meeting-dialog-scrim
+  position: absolute
+  inset: 0
+  z-index: 25
+  background: rgba(0, 0, 0, 0.5)
+
+.meeting-dialog
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, -50%)
+  z-index: 30
+  width: min(420px, calc(100% - 2rem))
+  max-height: calc(100% - 1.5rem)
+  display: flex
+  flex-direction: column
+  overflow: hidden
+  background: #fff
+  color: #222
+  border-radius: 12px
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45)
+
+.meeting-dialog.notes
+  height: min(70%, 480px)
+
+.meeting-dialog-head
+  display: flex
+  align-items: center
+  justify-content: space-between
+  padding: 0.85rem 1rem
+  font-weight: 600
+  border-bottom: 1px solid #eee
+
+.meeting-dialog-body
+  padding: 1rem
+  overflow-y: auto
+
+.meeting-dialog-close
+  border: none
+  background: transparent
+  color: #555
+  cursor: pointer
+  min-height: 40px
+  min-width: 40px
+  font-size: 1.1rem
+
+  &.floating
+    position: absolute
+    top: 0.4rem
+    right: 0.4rem
+    z-index: 2
+
+// Tablet / desktop
+@media (min-width: 769px)
+  .meeting-bar-label
+    display: inline

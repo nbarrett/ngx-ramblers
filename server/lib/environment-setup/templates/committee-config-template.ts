@@ -3,6 +3,7 @@ import {
   CommitteeConfig,
   CommitteeMember,
   DEFAULT_COST_PER_MILE,
+  defaultCommitteeMeetingTypes,
   RoleType
 } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
@@ -46,6 +47,16 @@ export function createCommitteeConfig(params: CommitteeConfigTemplateParams): Co
   const roleByType = (type: string): CommitteeMember =>
     roles.find(r => r.type === type) || createCommitteeRole(type, type, RoleType.COMMITTEE_MEMBER);
 
+  const fileTypes = [
+    { description: "AGM Agenda", public: true },
+    { description: "AGM Minutes", public: true },
+    { description: "Committee Agenda", public: false },
+    { description: "Committee Minutes", public: false },
+    { description: "Annual Report", public: true },
+    { description: "Financial Statement", public: false },
+    { description: "Walks Programme", public: true }
+  ];
+
   return {
     roles,
     contactUs: {
@@ -57,15 +68,8 @@ export function createCommitteeConfig(params: CommitteeConfigTemplateParams): Co
       walks: roleByType("walks"),
       support: roleByType("support")
     },
-    fileTypes: [
-      { description: "AGM Agenda", public: true },
-      { description: "AGM Minutes", public: true },
-      { description: "Committee Agenda", public: false },
-      { description: "Committee Minutes", public: false },
-      { description: "Annual Report", public: true },
-      { description: "Financial Statement", public: false },
-      { description: "Walks Programme", public: true }
-    ],
+    fileTypes,
+    meetingTypes: defaultCommitteeMeetingTypes(fileTypes),
     expenses: {
       costPerMile: DEFAULT_COST_PER_MILE
     }

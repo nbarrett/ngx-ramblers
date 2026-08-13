@@ -1,25 +1,35 @@
-import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
+import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild } from "@angular/core";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { ComposerExternalRecipient, RecipientField, RecipientFieldConfig } from "../../../models/email-composer.model";
+import {
+  ComposerExternalRecipient,
+  ParsedMailbox,
+  RecipientDraftOutcomeKind,
+  RecipientField,
+  RecipientFieldConfig
+} from "../../../models/email-composer.model";
 import { ExternalRecipient } from "../../../models/external-recipient.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 
 @Component({
   selector: "app-recipient-field",
   imports: [FormsModule, FontAwesomeModule, TooltipDirective],
   styleUrl: "./recipient-field.sass",
   template: `
-    <div class="recipient-field">
+    <div class="recipient-field" [class.is-plain]="plain">
       @for (field of fields; track field.key) {
         @if (isVisible(field.key)) {
           <div class="recipient-line"
                [class.is-active]="activeField === field.key"
                (dragover)="onDragOver($event)"
                (drop)="onDrop(field.key, $event)">
-            <span class="recipient-line-label">{{ field.label }}</span>
+            @if (!plain) {
+              <span class="recipient-line-label">{{ field.label }}</span>
+            }
             <div class="recipient-line-tokens">
               @for (recipient of valueFor(field.key); track recipient.email; let idx = $index) {
                 <span class="recipient-chip"
@@ -37,10 +47,23 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                   </button>
                 </span>
               }
-              <input type="email"
+              @if (pending?.field === field.key) {
+                <span class="recipient-chip is-editing">
+                  <button type="button" class="recipient-chip-label">{{ pending?.name }}</button>
+                  <button type="button" class="recipient-chip-remove"
+                          (click)="discardPending(); $event.stopPropagation()"
+                          [attr.aria-label]="'Remove ' + pending?.name">
+                    <fa-icon [icon]="faXmark"/>
+                  </button>
+                </span>
+              }
+              <input type="text"
                      class="recipient-input"
+                     autocomplete="email"
+                     inputmode="email"
                      [ngModel]="draft[field.key]"
                      (ngModelChange)="onDraftChange(field.key, $event)"
+                     (paste)="onPaste(field.key, $event)"
                      (keydown.enter)="onEnter(field.key, $event)"
                      (keydown.arrowdown)="onSuggestionNav(field.key, 1, $event)"
                      (keydown.arrowup)="onSuggestionNav(field.key, -1, $event)"
@@ -49,10 +72,9 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                      (blur)="onBlur(field.key)"
                      [placeholder]="valueFor(field.key).length ? 'Add…' : 'Add people…'">
             </div>
-            @if (editing?.field === field.key && editingRecipient(); as edited) {
+            @if (editorField() === field.key && editorSubject(); as edited) {
               <div class="recipient-editor-backdrop" (click)="closeEditor()"></div>
               <div class="recipient-editor">
-                <div class="recipient-editor-address">{{ edited.email }}</div>
                 <label class="recipient-editor-row">
                   <span class="recipient-editor-caption">Name</span>
                   <input type="text" class="recipient-editor-input"
@@ -60,30 +82,48 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                          (ngModelChange)="renameEditing($event)"
                          placeholder="Display name">
                 </label>
-                <div class="recipient-editor-row">
-                  <span class="recipient-editor-caption">Field</span>
-                  <div class="recipient-editor-switch">
-                    @for (target of fields; track target.key) {
-                      <button type="button"
-                              [class.is-current]="editing?.field === target.key"
-                              (click)="moveEditingTo(target.key)">{{ target.label }}</button>
-                    }
+                <label class="recipient-editor-row">
+                  <span class="recipient-editor-caption">Email</span>
+                  <input #editorEmailInput type="text" class="recipient-editor-input"
+                         [class.is-invalid]="!!editorError"
+                         [ngModel]="edited.email || ''"
+                         (ngModelChange)="changeEditingEmail($event)"
+                         (keydown.enter)="confirmEditingEmail($event)"
+                         placeholder="Email address"
+                         autocomplete="email"
+                         inputmode="email">
+                </label>
+                @if (editorError) {
+                  <p class="recipient-editor-error">{{ editorError }}</p>
+                } @else if (pending?.field === field.key && !edited.email) {
+                  <p class="recipient-editor-prompt">Enter an email address for {{ edited.name }}</p>
+                }
+                @if (!plain) {
+                  <div class="recipient-editor-row">
+                    <span class="recipient-editor-caption">Field</span>
+                    <div class="recipient-editor-switch">
+                      @for (target of fields; track target.key) {
+                        <button type="button"
+                                [class.is-current]="editorField() === target.key"
+                                (click)="moveEditingTo(target.key)">{{ target.label }}</button>
+                      }
+                    </div>
                   </div>
-                </div>
+                }
                 @if (isSavedContact(edited)) {
                   <p class="recipient-editor-saved"><fa-icon [icon]="faCheck"/> Already in your saved addresses</p>
-                } @else {
+                } @else if (!plain) {
                   <label class="recipient-editor-check">
                     <input type="checkbox" class="form-check-input" [ngModel]="edited.saveForReuse" (ngModelChange)="toggleEditingSave($event)">
                     Save this address for re-use
                   </label>
                 }
                 <button type="button" class="recipient-editor-remove" (click)="removeEditing()">
-                  <fa-icon [icon]="faXmark"/> Remove from this email
+                  <fa-icon [icon]="faXmark"/> {{ pending ? "Cancel" : "Remove from this email" }}
                 </button>
               </div>
             }
-            @if (field.key === RecipientField.TO) {
+            @if (!plain && field.key === RecipientField.TO) {
               <div class="recipient-line-aux">
                 @if (!isVisible(RecipientField.CC)) {
                   <button type="button" class="recipient-reveal" (click)="revealCc()">Cc</button>
@@ -121,24 +161,32 @@ import { DateUtilsService } from "../../../services/date-utils.service";
           }
         }
       }
-      <label class="recipient-save">
-        <input type="checkbox" class="form-check-input"
-               [ngModel]="saveForReuse"
-               (ngModelChange)="onSaveForReuseChange($event)">
-        Save new addresses for re-use in future sends
-      </label>
+      @if (!plain) {
+        <label class="recipient-save">
+          <input type="checkbox" class="form-check-input"
+                 [ngModel]="saveForReuse"
+                 (ngModelChange)="onSaveForReuseChange($event)">
+          Save new addresses for re-use in future sends
+        </label>
+      }
     </div>
   `
 })
 export class RecipientFieldComponent {
 
   private dateUtils = inject(DateUtilsService);
+  @ViewChild("editorEmailInput") private editorEmailInput: ElementRef<HTMLInputElement>;
 
   @Input() to: ComposerExternalRecipient[] = [];
   @Input() cc: ComposerExternalRecipient[] = [];
   @Input() bcc: ComposerExternalRecipient[] = [];
   @Input() savedRecipients: ExternalRecipient[] = [];
   @Input() saveForReuse = true;
+  plain = false;
+
+  @Input("plain") set plainValue(value: boolean) {
+    this.plain = coerceBooleanProperty(value);
+  }
 
   @Output() toChange = new EventEmitter<ComposerExternalRecipient[]>();
   @Output() ccChange = new EventEmitter<ComposerExternalRecipient[]>();
@@ -163,6 +211,8 @@ export class RecipientFieldComponent {
   protected activeSuggestionIndex = -1;
   private suggestionsSuppressed = false;
   protected editing: { field: RecipientField; index: number } | null = null;
+  protected pending: { field: RecipientField; name: string; email: string; saveForReuse: boolean } | null = null;
+  protected editorError: string | null = null;
   private dragItem: ComposerExternalRecipient | null = null;
   private dragFrom: RecipientField | null = null;
 
@@ -199,26 +249,41 @@ export class RecipientFieldComponent {
   }
 
   protected add(field: RecipientField): void {
-    const email = (this.draft[field] || "").trim().toLowerCase();
-    if (!email) {
+    const outcome = interpretRecipientDraft(this.draft[field], this.savedRecipients);
+    if (outcome.kind === RecipientDraftOutcomeKind.EMPTY) {
       this.error[field] = "Enter an email address";
-      return;
-    }
-    if (!this.isValidEmail(email)) {
+    } else if (outcome.kind === RecipientDraftOutcomeKind.INVALID) {
       this.error[field] = "Enter a valid email address";
-      return;
+    } else if (outcome.kind === RecipientDraftOutcomeKind.PENDING_NAME) {
+      this.openPendingEditor(field, outcome.name, outcome.email);
+    } else {
+      const existing = new Set(this.valueFor(field).map(item => item.email.toLowerCase()));
+      const additions = outcome.mailboxes.reduce<ComposerExternalRecipient[]>((acc, item) => {
+        const email = item.email.toLowerCase();
+        if (existing.has(email)) {
+          return acc;
+        } else {
+          existing.add(email);
+          return [...acc, this.entryFor(item)];
+        }
+      }, []);
+      if (additions.length === 0) {
+        this.error[field] = "This address is already in the list";
+      } else {
+        this.emit(field, [...this.valueFor(field), ...additions]);
+        this.draft[field] = "";
+        this.error[field] = null;
+      }
     }
-    if (this.valueFor(field).some(item => item.email.toLowerCase() === email)) {
-      this.error[field] = "This address is already in the list";
-      return;
+  }
+
+  protected onPaste(field: RecipientField, event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData("text/plain") || event.clipboardData?.getData("text") || "";
+    if (text.trim()) {
+      event.preventDefault();
+      this.draft[field] = text;
+      this.add(field);
     }
-    const matched = this.savedRecipients.find(item => item.email.toLowerCase() === email);
-    const entry: ComposerExternalRecipient = matched
-      ? { email: matched.email, name: matched.name || this.nameFromEmail(email), existingId: matched.id, saveForReuse: false }
-      : { email, name: this.nameFromEmail(email) || undefined, saveForReuse: this.saveForReuse };
-    this.emit(field, [...this.valueFor(field), entry]);
-    this.draft[field] = "";
-    this.error[field] = null;
   }
 
   protected remove(field: RecipientField, index: number): void {
@@ -232,69 +297,144 @@ export class RecipientFieldComponent {
     return !!this.editing && this.editing.field === field && this.editing.index === index;
   }
 
+  protected editorField(): RecipientField | null {
+    return this.pending?.field || this.editing?.field || null;
+  }
+
+  protected editorSubject(): ComposerExternalRecipient | null {
+    if (this.pending) {
+      return {email: this.pending.email, name: this.pending.name, saveForReuse: this.pending.saveForReuse};
+    } else if (this.editing) {
+      return this.valueFor(this.editing.field)[this.editing.index] ?? null;
+    } else {
+      return null;
+    }
+  }
+
   protected openEditor(field: RecipientField, index: number): void {
+    this.pending = null;
+    this.editorError = null;
     this.editing = this.isEditing(field, index) ? null : { field, index };
   }
 
   protected closeEditor(): void {
-    this.editing = null;
+    if (this.pending && isValidEmailAddress(this.pending.email)) {
+      this.commitPending();
+    } else {
+      this.pending = null;
+      this.editing = null;
+      this.editorError = null;
+    }
   }
 
-  protected editingRecipient(): ComposerExternalRecipient | null {
-    return this.editing ? this.valueFor(this.editing.field)[this.editing.index] ?? null : null;
+  protected discardPending(): void {
+    this.pending = null;
+    this.editorError = null;
   }
 
   protected renameEditing(name: string): void {
-    const trimmed = (name || "").trim();
-    this.updateEditing({ name: trimmed || undefined });
+    const capitalised = capitalisePersonName(name);
+    if (this.pending) {
+      this.pending = {...this.pending, name: capitalised};
+    } else {
+      this.updateEditing({ name: capitalised || undefined });
+    }
+  }
+
+  protected changeEditingEmail(email: string): void {
+    this.editorError = null;
+    if (this.pending) {
+      this.pending = {...this.pending, email: (email || "").trim()};
+    } else {
+      this.updateEditing({ email: (email || "").trim() });
+    }
+  }
+
+  protected confirmEditingEmail(event: Event): void {
+    event.preventDefault();
+    if (this.pending) {
+      this.commitPending();
+    }
   }
 
   protected toggleEditingSave(value: boolean): void {
-    this.updateEditing({ saveForReuse: value });
+    if (this.pending) {
+      this.pending = {...this.pending, saveForReuse: value};
+    } else {
+      this.updateEditing({ saveForReuse: value });
+    }
+  }
+
+  private openPendingEditor(field: RecipientField, name: string, email: string): void {
+    this.pending = {field, name, email, saveForReuse: this.reuseNewAddresses()};
+    this.editing = null;
+    this.editorError = null;
+    this.draft[field] = "";
+    this.error[field] = null;
+    setTimeout(() => this.editorEmailInput?.nativeElement.focus());
+  }
+
+  private commitPending(): void {
+    const pending = this.pending;
+    if (pending && isValidEmailAddress(pending.email)) {
+      const email = pending.email.toLowerCase();
+      const alreadyPresent = this.valueFor(pending.field).some(item => item.email.toLowerCase() === email);
+      if (!alreadyPresent) {
+        this.emit(pending.field, [...this.valueFor(pending.field), this.entryFor({name: pending.name, email: pending.email})]);
+      }
+      this.pending = null;
+      this.editorError = null;
+      this.error[pending.field] = null;
+    } else if (pending) {
+      this.editorError = "Enter a valid email address";
+    }
   }
 
   private updateEditing(patch: Partial<ComposerExternalRecipient>): void {
-    if (!this.editing) {
-      return;
+    if (this.editing) {
+      const { field, index } = this.editing;
+      this.emit(field, this.valueFor(field).map((item, idx) => idx === index ? { ...item, ...patch } : item));
     }
-    const { field, index } = this.editing;
-    this.emit(field, this.valueFor(field).map((item, idx) => idx === index ? { ...item, ...patch } : item));
   }
 
   protected moveEditingTo(target: RecipientField): void {
-    if (!this.editing || this.editing.field === target) {
-      return;
-    }
-    const recipient = this.editingRecipient();
-    if (!recipient) {
-      return;
-    }
-    const { field: from, index } = this.editing;
-    if (target === RecipientField.CC) {
-      this.showCc = true;
-    }
-    if (target === RecipientField.BCC) {
-      this.showBcc = true;
-    }
-    this.emit(from, this.valueFor(from).filter((_, idx) => idx !== index));
-    const alreadyPresent = this.valueFor(target).some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
-    if (alreadyPresent) {
-      this.editing = null;
-    } else {
-      this.emit(target, [...this.valueFor(target), recipient]);
-      this.editing = { field: target, index: this.valueFor(target).length - 1 };
+    if (this.editorField() !== target) {
+      if (target === RecipientField.CC) {
+        this.showCc = true;
+      }
+      if (target === RecipientField.BCC) {
+        this.showBcc = true;
+      }
+      if (this.pending) {
+        this.pending = {...this.pending, field: target};
+      } else if (this.editing) {
+        const recipient = this.editorSubject();
+        const { field: from, index } = this.editing;
+        if (recipient) {
+          this.emit(from, this.valueFor(from).filter((_, idx) => idx !== index));
+          const alreadyPresent = this.valueFor(target).some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
+          if (alreadyPresent) {
+            this.editing = null;
+          } else {
+            this.emit(target, [...this.valueFor(target), recipient]);
+            this.editing = { field: target, index: this.valueFor(target).length - 1 };
+          }
+        }
+      }
     }
   }
 
   protected removeEditing(): void {
-    if (this.editing) {
+    if (this.pending) {
+      this.discardPending();
+    } else if (this.editing) {
       this.remove(this.editing.field, this.editing.index);
     }
   }
 
   protected isSavedContact(recipient: ComposerExternalRecipient): boolean {
-    return !!recipient.existingId
-      || this.savedRecipients.some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
+    return !!recipient.email && (!!recipient.existingId
+      || this.savedRecipients.some(item => item.email.toLowerCase() === recipient.email.toLowerCase()));
   }
 
   protected onDraftChange(field: RecipientField, value: string): void {
@@ -319,7 +459,7 @@ export class RecipientFieldComponent {
   }
 
   protected showSuggestions(field: RecipientField): boolean {
-    return this.activeField === field && !this.suggestionsSuppressed && this.suggestions(field).length > 0;
+    return this.activeField === field && !this.pending && !this.suggestionsSuppressed && this.suggestions(field).length > 0;
   }
 
   protected onSuggestionNav(field: RecipientField, delta: number, event: Event): void {
@@ -415,8 +555,17 @@ export class RecipientFieldComponent {
     }
   }
 
-  private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  private reuseNewAddresses(): boolean {
+    return !this.plain && this.saveForReuse;
+  }
+
+  private entryFor(parsed: ParsedMailbox): ComposerExternalRecipient {
+    const email = parsed.email.toLowerCase();
+    const matched = this.savedRecipients.find(item => item.email.toLowerCase() === email);
+    const name = parsed.name || matched?.name || this.nameFromEmail(email);
+    return matched
+      ? {email: matched.email, name: name || undefined, existingId: matched.id, saveForReuse: false}
+      : {email, name: name || undefined, saveForReuse: this.reuseNewAddresses()};
   }
 
   private nameFromEmail(email: string): string {

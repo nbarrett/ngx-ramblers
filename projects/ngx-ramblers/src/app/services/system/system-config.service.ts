@@ -34,6 +34,7 @@ import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
 import { HasStyles, LinkStyle, ListStyle } from "../../models/content-text.model";
 import { AccessLevel } from "../../models/member-resource.model";
 import { migrateAllContactAccessLevels } from "../../functions/contact-details-access-level";
+import { VideoMeetingsConfig } from "../../models/video-meeting.model";
 
 @Injectable({
   providedIn: "root"
@@ -164,6 +165,10 @@ export class SystemConfigService {
     if (!config?.national?.mainSite) {
       config.national = defaultRamblersConfig;
       this.logger.info("config.national.mainSite initialised as:", config.national);
+    }
+    if (!config.videoMeetings) {
+      config.videoMeetings = this.videoMeetingsDefaults();
+      this.logger.info("config.videoMeetings initialised as:", config.videoMeetings);
     }
     if (!config?.header?.navBar) {
       config.header.navBar = defaultNavbar;
@@ -332,9 +337,23 @@ export class SystemConfigService {
       externalSystems: this.externalSystemsDefaults(),
       area: this.emptyOrganisation(), group: this.emptyOrganisation(), national: defaultRamblersConfig,
       header: this.headerDefaults(),
-      footer: this.footerDefaults()
+      footer: this.footerDefaults(),
+      videoMeetings: this.videoMeetingsDefaults()
     };
   };
+
+  public videoMeetingsDefaults(): VideoMeetingsConfig {
+    return {
+      enabled: true,
+      hostUrl: null,
+      roomPrefix: "ngx",
+      brandName: "Ramblers Video Meetings",
+      startWithAudioMuted: false,
+      startWithVideoMuted: false,
+      enableNotes: true,
+      enableLobby: false
+    };
+  }
 
   public recaptchaDefaults() {
     return {siteKey: null, secretKey: null};

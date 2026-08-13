@@ -15,6 +15,7 @@
 
 # dependencies
 /node_modules
+/projects/ngx-ramblers/node_modules/
 
 # profiling files
 chrome-profiler-events.json

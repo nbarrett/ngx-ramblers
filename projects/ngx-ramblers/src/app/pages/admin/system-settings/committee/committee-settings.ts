@@ -18,6 +18,7 @@ import {
   BuiltInRole,
   CommitteeConfig,
   CommitteeFileType,
+  CommitteeMeetingType,
   CommitteeMember,
   DEFAULT_COST_PER_MILE,
   EmailDerivation,
@@ -25,6 +26,7 @@ import {
   Notification,
   RoleType
 } from "../../../../models/committee.model";
+import { RANGE_UNIT_OPTIONS } from "../../../../models/search.model";
 import { Member } from "../../../../models/member.model";
 import {
   CatchAllAction,
@@ -76,6 +78,8 @@ import { FormsModule } from "@angular/forms";
 import { AsyncPipe } from "@angular/common";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { EnvironmentSetupService } from "../../../../services/environment-setup/environment-setup.service";
+import { ThumbnailHeadingFrameComponent } from "../../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
+import { DurationPickerComponent } from "../../../../modules/common/duration-picker/duration-picker";
 
 @Component({
     selector: "app-committee-settings",
@@ -697,8 +701,8 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                     }
                 </div>
               </tab>
-              <tab heading="File Types" [active]="tabActive('file-types')" (selectTab)="selectTab('file-types')">
-                <div class="img-thumbnail thumbnail-admin-edit">
+              <tab heading="Configuration" [active]="tabActive('configuration')" (selectTab)="selectTab('configuration')">
+                <app-thumbnail-heading-frame heading="File Types" class="mb-3">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
                       <app-content-text-editor standalone category="admin" name="committee-file-types-help"
@@ -739,10 +743,71 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       </div>
                     </div>
                   }
-                </div>
-              </tab>
-              <tab heading="Expenses" [active]="tabActive('expenses')" (selectTab)="selectTab('expenses')">
-                <div class="img-thumbnail thumbnail-admin-edit">
+                </app-thumbnail-heading-frame>
+
+                <app-thumbnail-heading-frame heading="Meeting Types" class="mb-3">
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <p class="text-muted mb-2">The kinds of meeting you can plan from Video Meetings. Link an agenda
+                        file type if choosing that meeting should also create a committee event.</p>
+                    </div>
+                  </div>
+                  <div class="badge-button mb-3" (click)="addMeetingType()"
+                       delay=500 tooltip="Add new meeting type">
+                    <fa-icon [icon]="faAdd"></fa-icon>
+                    Add new meeting type
+                  </div>
+                  @for (meetingType of committeeConfig.meetingTypes; track $index; let meetingTypeIndex = $index) {
+                    <div class="row">
+                      <div class="col-sm-5">
+                        <div class="form-group">
+                          <label [for]="stringUtils.kebabCase('meeting-type', meetingTypeIndex)">Meeting Type</label>
+                          <input [id]="stringUtils.kebabCase('meeting-type', meetingTypeIndex)" type="text"
+                                 class="form-control input-sm"
+                                 placeholder="Enter meeting type" [(ngModel)]="meetingType.description">
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="form-group">
+                          <label [for]="stringUtils.kebabCase('meeting-type-agenda', meetingTypeIndex)">Agenda file type</label>
+                          <select [id]="stringUtils.kebabCase('meeting-type-agenda', meetingTypeIndex)"
+                                  class="form-select"
+                                  [(ngModel)]="meetingType.agendaFileType">
+                            <option [ngValue]="null">None</option>
+                            @for (fileType of committeeConfig.fileTypes; track fileType.description) {
+                              <option [ngValue]="fileType.description">{{ fileType.description }}</option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col-sm-1 mt-5">
+                        <div class="badge-button" (click)="deleteMeetingType(meetingType)"
+                             delay=500 tooltip="Delete meeting type">
+                          <fa-icon [icon]="faClose"></fa-icon>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </app-thumbnail-heading-frame>
+
+                <app-thumbnail-heading-frame heading="Meeting Frequency" class="mb-3">
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <p class="text-muted mb-2">How often does your committee meet? When you plan a meeting from the
+                        Video Meetings page, the next date is suggested this far after the last committee meeting.</p>
+                    </div>
+                    <div class="col-sm-12">
+                      <app-duration-picker [(amount)]="committeeConfig.meetingFrequencyAmount"
+                                           [unit]="committeeConfig.meetingFrequencyUnit"
+                                           (unitChange)="committeeConfig.meetingFrequencyUnit = $any($event)"
+                                           [units]="meetingFrequencyUnitOptions"
+                                           amountLabel="Meets every" unitLabel="Period"
+                                           idPrefix="meeting-frequency"/>
+                    </div>
+                  </div>
+                </app-thumbnail-heading-frame>
+
+                <app-thumbnail-heading-frame heading="Expenses" class="mb-3">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
                       <app-content-text-editor standalone category="admin" name="committee-expenses-help"
@@ -760,7 +825,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       }
                     </div>
                   </div>
-                </div>
+                </app-thumbnail-heading-frame>
               </tab>
             </tabset>
           }
@@ -785,7 +850,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
@@ -819,6 +884,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   public notification: Notification;
   public committeeConfig: CommitteeConfig;
   protected selectedTab = "committee-members";
+  protected readonly meetingFrequencyUnitOptions = RANGE_UNIT_OPTIONS;
   protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly EmailForwardStatus = EmailForwardStatus;
@@ -927,7 +993,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         }
         const tab = params[StoredValue.TAB];
         if (tab) {
-          this.selectedTab = tab;
+          this.selectedTab = (tab === "expenses" || tab === "file-types") ? "configuration" : tab;
         }
         if (editType && this.committeeConfig) {
           this.openEditorForType(editType);
@@ -939,6 +1005,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.committeeConfig = committeeConfig;
         if (!this.committeeConfig?.expenses) {
           this.committeeConfig.expenses = {costPerMile: DEFAULT_COST_PER_MILE};
+        }
+        if (!this.committeeConfig.meetingTypes) {
+          this.committeeConfig.meetingTypes = [];
         }
         if (this.pendingEditType) {
           this.openEditorForType(this.pendingEditType);
@@ -1812,6 +1881,17 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   addFileType() {
     this.committeeConfig.fileTypes = [...this.committeeConfig.fileTypes, {description: "(Enter new file type)"}];
+  }
+
+  deleteMeetingType(meetingType: CommitteeMeetingType) {
+    this.committeeConfig.meetingTypes = this.committeeConfig.meetingTypes.filter(item => item !== meetingType);
+  }
+
+  addMeetingType() {
+    this.committeeConfig.meetingTypes = [...(this.committeeConfig.meetingTypes || []), {
+      description: "(Enter new meeting type)",
+      agendaFileType: null
+    }];
   }
 
   undoChanges() {
