@@ -153,6 +153,30 @@ Do not invent custom panels, headings, file inputs or layout wrappers. Every scr
 
 **Rule of thumb:** if you are writing new CSS for a border, a heading bar, or a file picker, stop — a standard component already exists. Match the surrounding screens.
 
+### Standard building blocks carry their full behaviour (mandatory)
+
+Reaching for an established project component or visual style means inheriting **everything users already expect of it**, not just its appearance. Shipping the look without the behaviour is a defect, not a smaller first step. Do not wait to be asked for any of the following.
+
+**Tables.** Use `app-sortable-table` (`modules/common/sortable-table/`). A hand-rolled `<table>` is only acceptable for a fixed, non-tabular layout with no rows a user would ever want ordered. Every table inherits:
+
+- **Sortable column headings** on every column holding a sortable value — set `sortKey` on the `SortableTableColumn`. A column with no `sortKey` should be a deliberate decision (an actions or checkbox column), not an oversight
+- **Sort state reflected in the URL** via `StoredValue` query params, so a sorted view can be bookmarked and sent to somebody. Subscribe to `sortChange` and write the params; read them back on init to restore the sort
+- **A sensible default sort** through `defaultSortKey` / `defaultSortDirection` — never rely on the order the API happened to return
+- **An empty message** through `emptyMessage`, never a bare empty table
+- Row expansion, grouping and row selection through the existing directives (`appSortableTableCell`, `appSortableTableExpandedRow`, `appSortableTableGroupHeader`) rather than a parallel implementation
+
+**Date ranges.** Use `app-date-range-slider` for a from/to range, and `app-date-picker` for a single date. Native `<input type="date">` is banned and ESLint-enforced (`ngx/no-native-date-input`). Two date pickers side by side is not a date range — use the slider.
+
+- **A date range needs a preset control, and exactly one of them.** The slider has one built in via `showPresets`, drawing on `DATE_RANGE_SLIDER_PRESETS` in `date.model.ts`. Before enabling it, **check what the screen already has** — most existing screens solved this their own way (a `Quick range:` select, an `app-section-toggle` of `presetLabels`, a `date-range-preset` query param, or the toggle group inside `app-date-range-selector`). Turning the built-in one on next to an existing control gives the user two dropdowns doing the same job. `showPresets` therefore defaults to **off**: switch it on for a new date range that has no preset control of its own, and never rebuild a preset list in a page when the component can provide it
+- Selecting a preset must **rescale the slider** to the chosen range, not merely move the handles within the previous scale. Both `app-date-range-slider` and the toggle group in `app-date-range-selector` do this
+- Never add a bare boolean attribute to a component input without `coerceBooleanProperty` on the setter — `showPresets` as an attribute passes the empty string, which is falsy, and the feature silently does not appear
+
+**Filters and view state generally.** Anything a user chooses that changes what they are looking at — sort, date range, status filter, selected tab — belongs in the URL as a `StoredValue` query param, camelCase. See `feedback_query_params_camelcase`.
+
+**Buttons.** Icon-only actions use the existing `btn-icon` class (32×32, no padding) with an `ngx-bootstrap` `tooltip` carrying the label. Do not put text on a toolbar or table-row button where an icon and tooltip will do, and do not hand-roll padding overrides to shrink a button — `--btn-min-height` in `tokens.sass` sets the floor and `btn-icon` is the way under it.
+
+**Checkboxes and radios** are styled globally in `checkboxes.sass` / `radios.sass` and work on bare `<input type="checkbox">` as well as `.form-check-input`. Do not restyle them per page.
+
 ### Date and time formatting (mandatory)
 
 Never invent date format strings such as `"yyyy-MM-dd HH:mm"`, `"dd/MM/yyyy"`, or `"yyyyMMdd-HHmm"`. Always use a member of the enums in `projects/ngx-ramblers/src/app/models/date-format.model.ts`:

@@ -211,20 +211,23 @@ export enum ProgrammeViewKey {
   OVERVIEW = "overview",
   CALENDAR = "calendar",
   MAP = "map",
-  LEADER = "leader"
+  LEADER = "leader",
+  EXPORT = "export"
 }
 
 export interface ProgrammeView {
   view: ProgrammeViewKey;
   segment: string;
   label: string;
+  localPopulationOnly?: boolean;
 }
 
 export const PROGRAMME_VIEWS: ProgrammeView[] = [
   {view: ProgrammeViewKey.OVERVIEW, segment: WalksAdminSegment.PROGRAMME, label: "Overview"},
   {view: ProgrammeViewKey.CALENDAR, segment: WalksAdminSegment.CALENDAR, label: "Calendar"},
   {view: ProgrammeViewKey.MAP, segment: WalksAdminSegment.MAP, label: "Map"},
-  {view: ProgrammeViewKey.LEADER, segment: WALKS_LEADER_SEGMENT, label: "My Walks"}
+  {view: ProgrammeViewKey.LEADER, segment: WALKS_LEADER_SEGMENT, label: "My Walks"},
+  {view: ProgrammeViewKey.EXPORT, segment: WalksAdminSegment.EXPORT, label: "Export", localPopulationOnly: true}
 ];
 
 export interface DateRangeBounds {

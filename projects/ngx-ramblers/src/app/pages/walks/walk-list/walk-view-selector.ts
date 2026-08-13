@@ -41,7 +41,7 @@ import { StoredValue } from "../../../models/ui-actions";
       @if (groupEvent?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
         <app-group-event-view-page [groupEvent]="groupEvent"/>
       } @else {
-        <app-walk-view [displayedWalk]="displayedWalk"/>
+        <app-walk-view ownsPageUrl [displayedWalk]="displayedWalk"/>
       }
     } @else if (eventView?.eventView === EventViewDispatch.LIST) {
       <app-dynamic-content-page/>

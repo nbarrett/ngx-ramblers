@@ -4,6 +4,8 @@ import { Facebook } from "../../../projects/ngx-ramblers/src/app/models/system.m
 import {
   GraphApiMethod,
   FacebookPageOption,
+  FacebookPagePostRequest,
+  FacebookPostStyle,
   ResolvedAlbumImage,
   SocialConnectionStatus,
   SocialNetwork,
@@ -61,36 +63,26 @@ export async function facebookConnectionStatus(facebook: Facebook): Promise<Soci
   return status;
 }
 
-export async function publishAlbumToFacebook(
-  facebook: Facebook,
-  images: ResolvedAlbumImage[],
-  caption: string,
-  onProgress: SocialProgressCallback = null
-): Promise<SocialPublishResult> {
+function assertPublishable(facebook: Facebook): void {
   if (!facebook?.publishingEnabled) {
     throw new Error("Facebook publishing is disabled in System Settings");
-  }
-  if (!facebook?.pageId || !facebook?.pageAccessToken) {
+  } else if (!facebook?.pageId || !facebook?.pageAccessToken) {
     throw new Error("Facebook publishing is not configured: a Page ID and Page access token are required");
   }
-  const accessToken = facebook.pageAccessToken;
-  const totalSteps = images.length + 1;
-  debugLog("publish starting: pageId:", facebook.pageId, "imageCount:", images.length, "urls:", images.map(image => image.url));
-  reportProgress(onProgress, {
-    network: SocialNetwork.FACEBOOK,
-    phase: "prepare",
-    message: `Preparing ${images.length} Facebook photos`,
-    completed: 0,
-    total: totalSteps,
-    percent: 0
-  });
+}
+
+async function uploadUnpublishedPhotos(
+  facebook: Facebook,
+  images: ResolvedAlbumImage[],
+  totalSteps: number,
+  onProgress: SocialProgressCallback
+): Promise<any[]> {
   const uploaded = [];
   for (const image of images) {
-    const imageIndex = uploaded.length + 1;
     reportProgress(onProgress, {
       network: SocialNetwork.FACEBOOK,
       phase: "upload-image",
-      message: `Uploading photo ${imageIndex} of ${images.length} to Facebook`,
+      message: `Uploading photo ${uploaded.length + 1} of ${images.length} to Facebook`,
       completed: uploaded.length,
       total: totalSteps,
       percent: Math.round((uploaded.length / totalSteps) * 100)
@@ -98,27 +90,54 @@ export async function publishAlbumToFacebook(
     const photo = await graphApiRequest({
       method: GraphApiMethod.POST,
       path: `/${facebook.pageId}/photos`,
-      params: {url: image.url, published: false, access_token: accessToken},
+      params: {url: image.url, published: false, access_token: facebook.pageAccessToken},
       debug: debugLog
     });
     uploaded.push(photo);
   }
+  return uploaded;
+}
+
+export async function publishToFacebookPage(
+  facebook: Facebook,
+  {images, caption, link, postStyle}: FacebookPagePostRequest,
+  onProgress: SocialProgressCallback = null
+): Promise<SocialPublishResult> {
+  assertPublishable(facebook);
+  const asLinkPost = postStyle === FacebookPostStyle.LINK_PREVIEW || images.length === 0;
+  const imagesToUpload = asLinkPost ? [] : images;
+  const totalSteps = imagesToUpload.length + 1;
+  debugLog("publish starting: pageId:", facebook.pageId, "imageCount:", imagesToUpload.length, "linkPost:", asLinkPost, "urls:", imagesToUpload.map(image => image.url));
+  reportProgress(onProgress, {
+    network: SocialNetwork.FACEBOOK,
+    phase: "prepare",
+    message: asLinkPost ? "Preparing Facebook post" : `Preparing ${imagesToUpload.length} Facebook photos`,
+    completed: 0,
+    total: totalSteps,
+    percent: 0
+  });
+  const uploaded = await uploadUnpublishedPhotos(facebook, imagesToUpload, totalSteps, onProgress);
   reportProgress(onProgress, {
     network: SocialNetwork.FACEBOOK,
     phase: "publish",
     message: "Publishing Facebook post",
-    completed: images.length,
+    completed: imagesToUpload.length,
     total: totalSteps,
-    percent: Math.round((images.length / totalSteps) * 100)
+    percent: Math.round((imagesToUpload.length / totalSteps) * 100)
   });
   const attachedMedia = uploaded.map(photo => ({media_fbid: photo.id}));
   const post = await graphApiRequest({
     method: GraphApiMethod.POST,
     path: `/${facebook.pageId}/feed`,
-    params: {message: caption, attached_media: JSON.stringify(attachedMedia), access_token: accessToken},
+    params: {
+      message: caption,
+      link: asLinkPost ? link : null,
+      attached_media: attachedMedia.length > 0 ? JSON.stringify(attachedMedia) : null,
+      access_token: facebook.pageAccessToken
+    },
     debug: debugLog
   });
-  debugLog("publish complete: postId:", post.id, "imageCount:", images.length);
+  debugLog("publish complete: postId:", post.id, "imageCount:", imagesToUpload.length);
   reportProgress(onProgress, {
     network: SocialNetwork.FACEBOOK,
     phase: "complete",
@@ -132,6 +151,15 @@ export async function publishAlbumToFacebook(
     success: true,
     postId: post.id,
     permalink: `https://www.facebook.com/${post.id}`,
-    imageCount: images.length
+    imageCount: imagesToUpload.length
   };
+}
+
+export async function publishAlbumToFacebook(
+  facebook: Facebook,
+  images: ResolvedAlbumImage[],
+  caption: string,
+  onProgress: SocialProgressCallback = null
+): Promise<SocialPublishResult> {
+  return publishToFacebookPage(facebook, {images, caption, postStyle: FacebookPostStyle.PHOTO_WITH_LINK}, onProgress);
 }

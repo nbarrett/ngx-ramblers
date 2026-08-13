@@ -10,6 +10,7 @@ import { ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { DisplayedWalk, EventType, MapDisplay, WalkExportTab } from "../../../models/walk.model";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -27,6 +28,11 @@ import { ExtendedGroupEventQueryService } from "../../../services/walks-and-even
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+import { BsModalService } from "ngx-bootstrap/modal";
+import {
+  EventSocialPublishModalComponent
+} from "../../../modules/common/social-publish/event-social-publish-modal";
 import { MarkdownComponent } from "ngx-markdown";
 import { EventLeaderComponent } from "./event-leader";
 import { WalkFeaturesComponent } from "./walk-features";
@@ -36,6 +42,7 @@ import {
   faEye,
   faImages,
   faPencil,
+  faShareNodes,
   faPersonWalking
 } from "@fortawesome/free-solid-svg-icons";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
@@ -274,8 +281,8 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                       <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
                     </button>
                   }
-                  @if (showPublishToRamblers) {
-                    @if (publishBlockedUntilApproved()) {
+                  @if (showPublishToRamblers || showSocialPublishing()) {
+                    @if (showPublishToRamblers && publishBlockedUntilApproved() && !showSocialPublishing()) {
                       <span class="walk-view-action-disabled-wrap" [tooltip]="publishBlockedTooltip" container="body">
                         <button type="button" disabled
                                 class="btn btn-primary btn-sm walk-view-action">
@@ -284,13 +291,41 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                         </button>
                       </span>
                     } @else {
-                      <a [routerLink]="publishExportLink"
-                         [queryParams]="publishExportQueryParams"
-                         [tooltip]="publishTooltip"
-                         class="btn btn-primary btn-sm walk-view-action">
-                        <fa-icon [icon]="faCloudArrowUp"/>
-                        <span>Publish</span>
-                      </a>
+                      <div class="btn-group" dropdown container="body">
+                        <button type="button" dropdownToggle
+                                class="btn btn-primary btn-sm walk-view-action dropdown-toggle"
+                                aria-label="Publish this walk">
+                          <fa-icon [icon]="faCloudArrowUp"/>
+                          <span>Publish</span>
+                        </button>
+                        <ul *dropdownMenu class="dropdown-menu">
+                          @if (showPublishToRamblers) {
+                            <li>
+                              @if (publishBlockedUntilApproved()) {
+                                <span class="dropdown-item disabled" [tooltip]="publishBlockedTooltip"
+                                      placement="left" container="body">
+                                  <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
+                                </span>
+                              } @else {
+                                <a class="dropdown-item" [routerLink]="publishExportLink"
+                                   [queryParams]="publishExportQueryParams" [tooltip]="publishTooltip"
+                                   placement="left" container="body">
+                                  <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
+                                </a>
+                              }
+                            </li>
+                          }
+                          @if (showSocialPublishing()) {
+                            <li>
+                              <a class="dropdown-item" role="button" (click)="openSocialPublish()"
+                                 tooltip="Preview and post this walk to Facebook or Instagram"
+                                 placement="left" container="body">
+                                <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
+                              </a>
+                            </li>
+                          }
+                        </ul>
+                      </div>
                     }
                   }
                   @if (displayedWalk?.walkAccessMode?.walkWritable) {
@@ -352,12 +387,14 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
   private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
   public walkInjected = false;
+  private ownsPageUrl = false;
+  private configuredMapProvider: WalkDetailsMapProvider = WalkDetailsMapProvider.OS_MAPS;
   public walkIdOrPath: string;
   public displayedWalk: DisplayedWalk;
   public displayLinks: boolean;
@@ -381,6 +418,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected urlService = inject(UrlService);
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
+  private modalService: BsModalService = inject(BsModalService);
   private walksConfigService = inject(WalksConfigService);
   private notifierService = inject(NotifierService);
   private createWalkAlbumService = inject(CreateWalkAlbumService);
@@ -399,6 +437,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected walkDetailsMapHeight = 380;
   protected mapFullScreen = false;
   private mapProviderTouched = false;
+  private mapDisplayTouched = false;
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
@@ -407,6 +446,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly faImages = faImages;
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faPencil = faPencil;
+  protected readonly faShareNodes = faShareNodes;
   protected readonly faPersonWalking = faPersonWalking;
   public showPublishToRamblers = false;
   public publishTooltip = "Open Walks export to publish changes to Ramblers";
@@ -434,6 +474,23 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   public readonly publishBlockedTooltip = "Cannot be published until it's approved.";
+
+  showSocialPublishing(): boolean {
+    const externalSystems = this.systemConfigService.systemConfig()?.externalSystems;
+    return !!this.allowWalkAdminEdits
+      && (!!externalSystems?.facebook?.eventPublishingEnabled || !!externalSystems?.instagram?.eventPublishingEnabled);
+  }
+
+  openSocialPublish(): void {
+    this.modalService.show(EventSocialPublishModalComponent, {
+      animated: false,
+      class: "modal-lg",
+      initialState: {
+        eventId: this.displayedWalk?.walk?.id,
+        eventTypeLabel: this.display.eventTypeTitle(this.displayedWalk?.walk).toLowerCase()
+      }
+    });
+  }
 
   publishBlockedUntilApproved(): boolean {
     return this.display.walkPopulationLocal()
@@ -545,6 +602,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.applyWalk(displayedWalk);
   }
 
+  @Input("ownsPageUrl") set ownsPageUrlValue(value: boolean) {
+    this.ownsPageUrl = coerceBooleanProperty(value);
+  }
+
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
     this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
@@ -567,6 +628,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
       this.walkDetailsMapHeight = walksConfig?.walkDetailsMapHeight || 380;
+      this.configuredMapProvider = walksConfig?.walkDetailsMapProvider || WalkDetailsMapProvider.OS_MAPS;
       if (!this.mapProviderTouched) {
         const defaultToGoogleMaps = walksConfig?.walkDetailsMapProvider === WalkDetailsMapProvider.GOOGLE_MAPS;
         if (defaultToGoogleMaps !== this.showGoogleMapsView) {
@@ -601,8 +663,20 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  linearWalk(): boolean {
+    return !!this.displayedWalk?.walk?.groupEvent?.end_location?.postcode;
+  }
+
+  defaultMapDisplayForLinearWalk() {
+    if (!this.mapDisplayTouched && !this.showGoogleMapsView && this.linearWalk()) {
+      this.mapDisplay = MapDisplay.SHOW_START_AND_END_POINT;
+      this.logger.info("defaultMapDisplayForLinearWalk:defaulted to:", this.mapDisplay);
+    }
+  }
+
   configureMapDisplay() {
     this.logger.info("configureMapDisplay:showGoogleMapsView:", this.showGoogleMapsView, "mapDisplay initial value:", this.mapDisplay);
+    this.defaultMapDisplayForLinearWalk();
     if (!this.showGoogleMapsView && this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
       this.mapDisplay = MapDisplay.SHOW_START_POINT;
       this.logger.info("configureMapDisplay:mapDisplay changed to:", this.mapDisplay);
@@ -659,6 +733,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.walkInjected = true;
       this.logger.info("applyWalk:", displayedWalk);
       this.displayedWalk = displayedWalk;
+      this.defaultMapDisplayForLinearWalk();
       this.pageService.setTitle();
       this.displayLinks = displayedWalk?.walk?.fields?.links?.length > 0;
       this.resolveWalkAlbumPath(displayedWalk.walk);
@@ -725,6 +800,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   changeMapView(newValue: MapDisplay) {
     this.logger.info("changeShowDrivingDirections:", newValue);
+    this.mapDisplayTouched = true;
     this.mapDisplay = newValue;
     this.syncMapOptionsToUrl();
     if (this.showGoogleMapsView && newValue === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
@@ -782,18 +858,31 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  private defaultMapDisplay(): MapDisplay {
+    return !this.showGoogleMapsView && this.linearWalk() ? MapDisplay.SHOW_START_AND_END_POINT : MapDisplay.SHOW_START_POINT;
+  }
+
+  private homePostcode(): string {
+    return this.memberLoginService.memberLoggedIn() ? this.memberLoginService.loggedInMember().postcode : "";
+  }
+
+  private currentMapProvider(): WalkDetailsMapProvider {
+    return this.showGoogleMapsView ? WalkDetailsMapProvider.GOOGLE_MAPS : WalkDetailsMapProvider.OS_MAPS;
+  }
+
   private syncMapOptionsToUrl() {
     if (this.mapOptionsFollowUrl) {
+      const postcodeDiffersFromHome = this.validFromPostcodeEntered() && this.fromPostcode !== this.homePostcode();
       this.uiActions.updateQueryParameters({
-        [StoredValue.MAP_DISPLAY]: this.mapDisplay === MapDisplay.SHOW_START_POINT ? null : this.mapDisplay,
-        [StoredValue.FROM_POSTCODE]: this.validFromPostcodeEntered() ? this.fromPostcode : null,
-        [StoredValue.MAP_PROVIDER]: this.showGoogleMapsView ? WalkDetailsMapProvider.GOOGLE_MAPS : WalkDetailsMapProvider.OS_MAPS
+        [StoredValue.MAP_DISPLAY]: this.mapDisplay === this.defaultMapDisplay() ? null : this.mapDisplay,
+        [StoredValue.FROM_POSTCODE]: postcodeDiffersFromHome ? this.fromPostcode : null,
+        [StoredValue.MAP_PROVIDER]: this.currentMapProvider() === this.configuredMapProvider ? null : this.currentMapProvider()
       });
     }
   }
 
   protected get mapOptionsFollowUrl(): boolean {
-    return !this.walkInjected;
+    return this.ownsPageUrl || !this.walkInjected;
   }
 
   onMapSizeChange(state: MaximisableMapState) {

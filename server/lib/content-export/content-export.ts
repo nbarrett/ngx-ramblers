@@ -9,6 +9,7 @@ import { PageContent } from "../../../projects/ngx-ramblers/src/app/models/conte
 import {
   ContentExport,
   ContentExportFormat,
+  OpenGraphType,
   PageSeoDescriptor
 } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
 import { EventSource, ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
@@ -25,6 +26,9 @@ import {
   titleFromPath
 } from "./content-export-renderer";
 import { eventShouldNoindex } from "../seo/public-event-indexability";
+import { eventStructuredData } from "../seo/event-structured-data";
+import { eventImages, fallbackImageUrl } from "../shared/event-images";
+import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("content-export"));
 debugLog.enabled = false;
@@ -153,7 +157,20 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const EVENT_SEO_SELECT = `${GroupEventField.TITLE} ${GroupEventField.DESCRIPTION} ${GroupEventField.STATUS} ${GroupEventField.URL}`;
+const EVENT_SEO_SELECT = [
+  GroupEventField.TITLE,
+  GroupEventField.DESCRIPTION,
+  GroupEventField.STATUS,
+  GroupEventField.URL,
+  GroupEventField.ITEM_TYPE,
+  GroupEventField.START_DATE,
+  GroupEventField.END_DATE_TIME,
+  GroupEventField.START_LOCATION,
+  GroupEventField.LOCATION,
+  GroupEventField.MEDIA,
+  GroupEventField.GROUP_NAME,
+  "fields.contactDetails.displayName"
+].join(" ");
 const RESERVED_WALK_APP_SEGMENTS = new Set([
   "add",
   "admin",
@@ -185,12 +202,18 @@ async function eventForSlug(slug: string): Promise<ExtendedGroupEvent> {
   }
 }
 
-function eventSeoDescriptor(event: ExtendedGroupEvent): PageSeoDescriptor {
+async function eventSeoDescriptor(event: ExtendedGroupEvent): Promise<PageSeoDescriptor> {
   const eventDescription = event?.groupEvent?.description || "";
+  const baseUrl = await siteBaseUrl();
+  const config = await systemConfig();
+  const images = eventImages(event, baseUrl);
   const descriptor: PageSeoDescriptor = {
     title: event.groupEvent.title,
     description: descriptionFromMarkdown(eventDescription),
-    contentHtml: renderMarkdownToHtml(eventDescription)
+    contentHtml: renderMarkdownToHtml(eventDescription),
+    imageUrl: images[0]?.url || fallbackImageUrl(config, baseUrl),
+    openGraphType: OpenGraphType.EVENT,
+    structuredData: eventStructuredData(event, config, baseUrl, images.map(image => image.url))
   };
   if (eventShouldNoindex(event)) {
     descriptor.robots = "noindex, follow";
@@ -214,11 +237,14 @@ export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeo
   if (page) {
     const contentMarkdown = publicMarkdownFromRows(page.rows);
     if (contentMarkdown.trim()) {
+      const baseUrl = await siteBaseUrl();
       return {
         title: titleFromPath(page.path),
         description: descriptionFromMarkdown(contentMarkdown),
-        contentHtml: renderMarkdownToHtml(absolutiseMarkdownLinks(contentMarkdown, await siteBaseUrl())),
-        exportablePath: page.path
+        contentHtml: renderMarkdownToHtml(absolutiseMarkdownLinks(contentMarkdown, baseUrl)),
+        exportablePath: page.path,
+        openGraphType: OpenGraphType.WEBSITE,
+        imageUrl: fallbackImageUrl(await systemConfig(), baseUrl)
       };
     } else {
       return null;
@@ -231,7 +257,7 @@ export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeo
     } else {
       const event = await eventForSlug(pathSegments[1]);
       if (event?.groupEvent?.title) {
-        return eventSeoDescriptor(event);
+        return await eventSeoDescriptor(event);
       } else {
         return missingWalkSeoDescriptor();
       }
@@ -239,7 +265,7 @@ export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeo
   } else if (pathSegments.length >= 2) {
     const event = await eventForSlug(pathSegments[pathSegments.length - 1]);
     if (event?.groupEvent?.title) {
-      return eventSeoDescriptor(event);
+      return await eventSeoDescriptor(event);
     } else {
       return null;
     }

@@ -80,6 +80,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [WalksAuthGuard]
     },
     {
+      path: "admin/social-publishing",
+      loadComponent: () => import("../../pages/walks/walk-admin/event-social-publishing")
+        .then(m => m.EventSocialPublishingComponent),
+      canActivate: [WalksAuthGuard]
+    },
+    {
       path: "admin/event-data-management",
       loadComponent: () => import("../../pages/walks/walk-admin/event-data-management")
         .then(m => m.EventDataManagement),

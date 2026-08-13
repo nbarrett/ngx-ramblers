@@ -22,6 +22,34 @@ describe("walk leader field accessors", () => {
     expect(walksManagerWalkLeaderNameFromGroupEvent(walk.groupEvent)).toBe("Kerry O'Grady");
   });
 
+  it("credits the locally held walk leader for album thanks rather than the Ramblers contact name", () => {
+    const walk = {
+      fields: {
+        contactDetails: {displayName: "Kerry O'Grady"},
+        publishing: {ramblers: {contactName: "Someone Else", publish: true}}
+      }
+    } as any;
+
+    expect(walkLeaderFirstNameForAlbumThanks(walk)).toBe("Kerry");
+  });
+
+  it("falls back to the Ramblers contact name only when nothing is held locally", () => {
+    const walk = {
+      fields: {
+        contactDetails: {displayName: ""},
+        publishing: {ramblers: {contactName: "Kerry O'Grady", publish: true}}
+      }
+    } as any;
+
+    expect(walkLeaderFirstNameForAlbumThanks(walk)).toBe("Kerry");
+  });
+
+  it("returns nothing to credit when neither source holds a leader", () => {
+    const walk = {fields: {contactDetails: {displayName: ""}, publishing: {ramblers: {contactName: null}}}} as any;
+
+    expect(walkLeaderFirstNameForAlbumThanks(walk)).toBe("");
+  });
+
   it("uses first name from Walks Manager contact name for album thanks, not jammed display names", () => {
     const walk = {
       fields: {

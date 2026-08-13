@@ -18,6 +18,10 @@ import { DateTime } from "luxon";
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 import { UIDateFormat } from "../../models/date-format.model";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { PresetSelect } from "../../modules/common/preset-select/preset-select";
+import { DATE_RANGE_SLIDER_PRESETS, DateRangeSliderPreset } from "../../models/date.model";
+import { DateDirection } from "../../models/search.model";
 
 export interface DateRange {
   from: number;
@@ -27,11 +31,17 @@ export interface DateRange {
 @Component({
   selector: "app-date-range-slider",
   standalone: true,
-  imports: [FormsModule, FontAwesomeModule],
+  imports: [FormsModule, FontAwesomeModule, PresetSelect],
   template: `
-    <div class="date-range-slider">
-      <div class="mb-1">
-        <div class="d-flex justify-content-between align-items-center mb-1">
+    <div class="date-range-slider" [class.with-presets]="showPresets">
+      @if (showPresets) {
+        <div class="date-range-preset-wrapper">
+          <app-preset-select [items]="presets" [selected]="selectedPreset"
+                             placeholder="Custom range" (selectedChange)="applyPreset($event)"/>
+        </div>
+      }
+      <div class="date-range-slider-body">
+        <div class="d-flex justify-content-between align-items-center mb-1 gap-2 flex-wrap">
           <div class="range-label">
             <fa-icon [icon]="faCalendar" class="me-2"/>
             <span class="date-label">Date Range</span>
@@ -77,6 +87,20 @@ export interface DateRange {
     :host
       display: block
       width: 100%
+
+    .date-range-slider.with-presets
+      display: flex
+      align-items: center
+      gap: var(--space-3, 12px)
+
+    .date-range-preset-wrapper
+      flex: 0 0 auto
+      min-width: 150px
+
+    .date-range-slider-body
+      flex: 1 1 auto
+      min-width: 0
+
     .date-range-slider
       .date-label
         font-weight: 600
@@ -231,6 +255,14 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     }
   }
   @Output() rangeChange = new EventEmitter<DateRange>();
+  showPresets = false;
+
+  @Input("showPresets") set showPresetsValue(value: boolean) {
+    this.showPresets = coerceBooleanProperty(value);
+  }
+
+  @Input() presets: DateRangeSliderPreset[] = DATE_RANGE_SLIDER_PRESETS;
+  selectedPreset: DateRangeSliderPreset = null;
 
   faCalendar = faCalendar;
 
@@ -325,6 +357,23 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     this.toValue = this.maxValue;
     if (emit) {
       this.emitChange();
+    }
+  }
+
+  applyPreset(preset: DateRangeSliderPreset): void {
+    this.selectedPreset = preset;
+    if (preset) {
+      const today = this.dateUtils.dateTimeNow().startOf("day");
+      const offset = preset.relativeDateRange.duration;
+      const bounds = preset.relativeDateRange.direction === DateDirection.FUTURE
+        ? {from: today, to: today.plus(offset)}
+        : {from: today.minus(offset), to: today};
+      this.minDate = bounds.from;
+      this.maxDate = bounds.to;
+      this.configureBounds();
+      this.fromValue = 0;
+      this.toValue = this.maxValue;
+      this.rangeChange.emit({from: bounds.from.toMillis(), to: bounds.to.toMillis()});
     }
   }
 

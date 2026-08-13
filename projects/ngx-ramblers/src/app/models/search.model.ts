@@ -86,6 +86,20 @@ export enum DateDirection {
   PAST = "past"
 }
 
+export interface SelectablePreset {
+  label: string;
+  groupLabel?: string;
+}
+
+export interface DateRangePreset extends SelectablePreset {
+  id: string;
+  filterType?: FilterCriteria;
+  preset?: AdvancedSearchPreset;
+  dateRange?: RelativeDateRange;
+  adminOnly?: boolean;
+  localWalkPopulationOnly?: boolean;
+}
+
 export interface RelativeDateRange {
   direction: DateDirection;
   duration: { days?: number; months?: number; years?: number };

@@ -10,6 +10,43 @@ export enum GraphApiMethod {
   POST = "post"
 }
 
+export enum FacebookPostStyle {
+  LINK_PREVIEW = "link-preview",
+  PHOTO_WITH_LINK = "photo-with-link"
+}
+
+export enum EventPublishOutcome {
+  PUBLISHED = "published",
+  REPUBLISHED = "republished",
+  ALREADY_PUBLISHED = "already-published",
+  UNCHANGED = "unchanged",
+  FAILED = "failed"
+}
+
+export enum EventCaptionToken {
+  TITLE = "title",
+  DESCRIPTION = "description",
+  DATE = "date",
+  TIME = "time",
+  START_LOCATION = "startLocation",
+  DISTANCE = "distance",
+  GRADE = "grade",
+  LEADER = "leader",
+  URL = "url"
+}
+
+export const DEFAULT_EVENT_CAPTION_TEMPLATE = [
+  "{title}",
+  "",
+  "{date} at {time}",
+  "Starting from {startLocation}",
+  "{distance} · {grade}",
+  "",
+  "{description}",
+  "",
+  "Full details: {url}"
+].join("\n");
+
 export const INSTAGRAM_MIN_CAROUSEL_IMAGES = 2;
 export const INSTAGRAM_MAX_CAROUSEL_IMAGES = 10;
 export const INSTAGRAM_MIN_ASPECT_RATIO = 0.8;
@@ -43,6 +80,7 @@ export interface SocialPublishJobRequest {
   imageNames: string[];
   imageNamesByNetwork?: Partial<Record<SocialNetwork, string[]>>;
   publicBaseUrl?: string;
+  albumUrl?: string;
 }
 
 export interface SocialPublishJobResult {
@@ -53,6 +91,13 @@ export interface SocialPublishJobResult {
 export interface ResolvedAlbumImage {
   image: string;
   url: string;
+}
+
+export interface FacebookPagePostRequest {
+  images: ResolvedAlbumImage[];
+  caption: string;
+  link?: string;
+  postStyle?: FacebookPostStyle;
 }
 
 export interface SocialPublishResult {
@@ -118,7 +163,10 @@ export interface SocialConnectionStatusApiResponse extends ApiResponse {
 
 export interface SocialPublication {
   id?: string;
-  albumName: string;
+  albumName?: string;
+  eventId?: string;
+  eventTitle?: string;
+  captionFingerprint?: string;
   network: SocialNetwork;
   postId?: string;
   permalink?: string;
@@ -130,4 +178,79 @@ export interface SocialPublication {
 
 export interface SocialPublicationsApiResponse extends ApiResponse {
   response?: SocialPublication[];
+}
+
+export interface EventCaptionInput {
+  title: string;
+  description?: string;
+  date?: string;
+  time?: string;
+  startLocation?: string;
+  distance?: string;
+  grade?: string;
+  leader?: string;
+  url?: string;
+}
+
+export interface EventPublishRequest {
+  eventIds: string[];
+  networks?: SocialNetwork[];
+  republishChanged?: boolean;
+  publicBaseUrl?: string;
+}
+
+export interface EventPublishResult {
+  eventId: string;
+  eventTitle?: string;
+  network: SocialNetwork;
+  outcome: EventPublishOutcome;
+  postId?: string;
+  permalink?: string;
+  caption?: string;
+  error?: string;
+}
+
+export interface EventPublishApiResponse extends ApiResponse {
+  request: any;
+  response?: EventPublishResult[];
+}
+
+export interface PublishableEvent {
+  eventId: string;
+  title: string;
+  startDateTime: string;
+  itemType: string;
+  cancelled: boolean;
+  imageCount: number;
+  imageUrl?: string;
+  imageUrls?: string[];
+  url?: string;
+  caption?: string;
+  postStyle?: FacebookPostStyle;
+  publication?: SocialPublication;
+  captionChanged?: boolean;
+}
+
+export enum PublishedState {
+  PUBLISHED = "Published",
+  CHANGED_SINCE_PUBLISHING = "Changed since publishing",
+  NOT_PUBLISHED = "Not published"
+}
+
+export interface PublishableEventRow extends PublishableEvent {
+  publishedState: PublishedState;
+}
+
+export interface EventImageAttachRequest {
+  eventId: string;
+  awsFileName: string;
+}
+
+export interface EventImageAttachApiResponse extends ApiResponse {
+  request: any;
+  response?: PublishableEvent;
+}
+
+export interface PublishableEventsApiResponse extends ApiResponse {
+  response?: PublishableEvent[];
 }

@@ -38,6 +38,7 @@ export interface WalksConfig {
   relatedLinkShowWhat3words?: boolean;
   relatedLinkShowVenue?: boolean;
   relatedLinkShowGpx?: boolean;
+  relatedLinkShowCalendar?: boolean;
   regularWalkDay?: number;
   walkCreationAccessLevel?: AccessLevel;
   hideAwaitingLeaderFromPublic?: boolean;

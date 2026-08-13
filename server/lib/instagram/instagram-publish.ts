@@ -109,6 +109,107 @@ export async function instagramConnectionStatus(instagram: Instagram, accessToke
   return status;
 }
 
+function assertInstagramConfigured(instagram: Instagram, accessToken: string): void {
+  if (!instagram?.publishingEnabled) {
+    throw new Error("Instagram publishing is disabled in System Settings");
+  } else if (!instagram?.igUserId || !accessToken) {
+    throw new Error("Instagram publishing is not configured: connect a Facebook Page with a linked Instagram account");
+  }
+}
+
+export async function publishSingleImageToInstagram(
+  instagram: Instagram,
+  accessToken: string,
+  images: ResolvedAlbumImage[],
+  caption: string,
+  onProgress: SocialProgressCallback = null
+): Promise<SocialPublishResult> {
+  assertInstagramConfigured(instagram, accessToken);
+  if (images.length === 0) {
+    throw new Error("Instagram needs an image to post - add one to this event first");
+  }
+  const preparedImages = await prepareInstagramAlbumImages(images.slice(0, 1));
+  const igUserId = instagram.igUserId;
+  const totalSteps = 3;
+  debugLog("single image publish starting: url:", preparedImages[0]?.url);
+  reportProgress(onProgress, {
+    network: SocialNetwork.INSTAGRAM,
+    phase: "upload-image",
+    message: "Uploading the image to Instagram",
+    completed: 0,
+    total: totalSteps,
+    percent: 0
+  });
+  const container = await graphApiRequest({
+    method: GraphApiMethod.POST,
+    path: `/${igUserId}/media`,
+    params: {image_url: preparedImages[0].url, caption, access_token: accessToken},
+    debug: debugLog
+  });
+  if (!container?.id) {
+    throw new Error("Instagram did not return a media container id");
+  }
+  await waitForContainerReady(container.id, accessToken, onProgress, {
+    network: SocialNetwork.INSTAGRAM,
+    phase: "process-image",
+    message: "Waiting for Instagram to process the image",
+    completed: 1,
+    total: totalSteps,
+    percent: Math.round((1 / totalSteps) * 100)
+  });
+  reportProgress(onProgress, {
+    network: SocialNetwork.INSTAGRAM,
+    phase: "publish",
+    message: "Publishing to Instagram",
+    completed: 2,
+    total: totalSteps,
+    percent: Math.round((2 / totalSteps) * 100)
+  });
+  const published = await graphApiRequest({
+    method: GraphApiMethod.POST,
+    path: `/${igUserId}/media_publish`,
+    params: {creation_id: container.id, access_token: accessToken},
+    debug: debugLog
+  });
+  const permalinkResponse = await graphApiRequest({
+    method: GraphApiMethod.GET,
+    path: `/${published.id}`,
+    params: {fields: "permalink", access_token: accessToken},
+    debug: debugLog
+  }).catch(error => {
+    debugLog("permalink lookup failed:", error);
+    return null;
+  });
+  debugLog("single image publish complete: postId:", published.id);
+  reportProgress(onProgress, {
+    network: SocialNetwork.INSTAGRAM,
+    phase: "complete",
+    message: "Instagram publish complete",
+    completed: totalSteps,
+    total: totalSteps,
+    percent: 100
+  });
+  return {
+    network: SocialNetwork.INSTAGRAM,
+    success: true,
+    postId: published.id,
+    permalink: permalinkResponse?.permalink,
+    imageCount: 1
+  };
+}
+
+export async function publishEventToInstagram(
+  instagram: Instagram,
+  accessToken: string,
+  images: ResolvedAlbumImage[],
+  caption: string,
+  onProgress: SocialProgressCallback = null
+): Promise<SocialPublishResult> {
+  return images.length >= INSTAGRAM_MIN_CAROUSEL_IMAGES
+    ? publishAlbumToInstagram(instagram, accessToken, images, caption, onProgress)
+    : publishSingleImageToInstagram(instagram, accessToken, images, caption, onProgress);
+}
+
 export async function publishAlbumToInstagram(
   instagram: Instagram,
   accessToken: string,

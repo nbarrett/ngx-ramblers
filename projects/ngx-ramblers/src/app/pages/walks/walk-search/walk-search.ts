@@ -46,17 +46,8 @@ import { FilterCriteria } from "../../../models/api-request.model";
 import { DateTime } from "luxon";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
-
-interface DateRangePreset {
-  id: string;
-  label: string;
-  filterType?: FilterCriteria;
-  preset?: AdvancedSearchPreset;
-  dateRange?: RelativeDateRange;
-  groupLabel?: string;
-  adminOnly?: boolean;
-  localWalkPopulationOnly?: boolean;
-}
+import { DateRangePreset } from "../../../models/search.model";
+import { PresetSelect } from "../../../modules/common/preset-select/preset-select";
 
 @Component({
     selector: "app-walks-search",
@@ -210,22 +201,9 @@ interface DateRangePreset {
             type="text" placeholder="Quick Search">
         </div>
         <div class="mb-2 mb-lg-0 flex-lg-fill">
-          <ng-select
-            [items]="dateRangePresets"
-            [(ngModel)]="selectedDateRangePreset"
-            bindLabel="label"
-            groupBy="groupLabel"
-            [clearable]="false"
-            [searchable]="false"
-            dropdownPosition="bottom"
-            (change)="onDateRangePresetChange($event)"
-            class="rounded w-100">
-            <ng-template ng-label-tmp let-item="item">
-              <span [title]="(item.groupLabel ? item.groupLabel + ' - ' : '') + item.label">
-                {{ item.label }}
-              </span>
-            </ng-template>
-          </ng-select>
+          <app-preset-select [items]="dateRangePresets" [selected]="selectedDateRangePreset"
+                             (selectedChange)="selectedDateRangePreset = $event"
+                             (change)="onDateRangePresetChange($event)"/>
         </div>
         <div class="mb-2 mb-lg-0 flex-lg-fill">
           <ng-select
@@ -294,7 +272,7 @@ interface DateRangePreset {
           (searchCriteriaChange)="onAdvancedSearchChange($event)"/>
       }
     }`,
-  imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule, RouterLink, NgTemplateOutlet],
+  imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule, RouterLink, NgTemplateOutlet, PresetSelect],
     standalone: true
 })
 export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {

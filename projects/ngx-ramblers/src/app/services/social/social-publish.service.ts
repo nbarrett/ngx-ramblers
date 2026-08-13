@@ -4,13 +4,21 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, Subject, Subscription } from "rxjs";
 import { filter, take } from "rxjs/operators";
 import {
+  EventImageAttachApiResponse,
+  EventImageAttachRequest,
+  EventPublishApiResponse,
+  EventPublishRequest,
+  EventPublishResult,
   FacebookOAuthUrl,
   FacebookOAuthUrlApiResponse,
   FacebookPageOption,
+  PublishableEvent,
+  PublishableEventsApiResponse,
   FacebookPagesApiResponse,
   FacebookTokenHealth,
   FacebookTokenHealthApiResponse,
   SocialConnectionStatus,
+  SocialNetwork,
   SocialConnectionStatusApiResponse,
   SocialPublication,
   SocialPublicationsApiResponse,
@@ -49,7 +57,8 @@ export class SocialPublishService {
     await this.webSocketClientService.connect();
     const jobId = `social-publish-${this.numberUtils.generateUid()}`;
     const publicBaseUrl = request.publicBaseUrl || this.systemConfigService.systemConfig()?.group?.href || this.urlService.publicBaseUrl();
-    const payload: SocialPublishJobRequest = {...request, jobId, publicBaseUrl};
+    const albumUrl = request.albumUrl || this.currentPageUrlFrom(publicBaseUrl);
+    const payload: SocialPublishJobRequest = {...request, jobId, publicBaseUrl, albumUrl};
     const progressSub: Subscription = this.webSocketClientService.receiveMessages<SocialPublishProgress>(MessageType.PROGRESS)
       .pipe(filter(progress => progress?.jobId === jobId))
       .subscribe(progress => {
@@ -93,6 +102,16 @@ export class SocialPublishService {
     }
   }
 
+  private currentPageUrlFrom(publicBaseUrl: string): string {
+    try {
+      const path = new URL(this.urlService.absoluteUrl()).pathname;
+      return publicBaseUrl && path && path !== "/" ? `${publicBaseUrl.replace(/\/+$/, "")}${path}` : null;
+    } catch (error) {
+      this.logger.warn("could not derive the album page url:", error);
+      return null;
+    }
+  }
+
   async facebookStatus(): Promise<SocialConnectionStatus> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<SocialConnectionStatusApiResponse>(`${this.BASE_URL}/facebook/status`));
     return response.response as SocialConnectionStatus;
@@ -128,5 +147,28 @@ export class SocialPublishService {
     const params = new HttpParams().set("albumName", albumName);
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<SocialPublicationsApiResponse>(`${this.BASE_URL}/publications`, {params}));
     return (response.response as SocialPublication[]) || [];
+  }
+
+  async publishEvents(eventIds: string[], networks: SocialNetwork[], republishChanged: boolean): Promise<EventPublishResult[]> {
+    const request: EventPublishRequest = {eventIds, networks, republishChanged};
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<EventPublishApiResponse>(`${this.BASE_URL}/facebook/publish-events`, request));
+    return (response.response as EventPublishResult[]) || [];
+  }
+
+  async attachEventImage(eventId: string, awsFileName: string): Promise<PublishableEvent> {
+    const request: EventImageAttachRequest = {eventId, awsFileName};
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<EventImageAttachApiResponse>(`${this.BASE_URL}/facebook/event-image`, request));
+    return response.response as PublishableEvent;
+  }
+
+  async publishableEvent(eventId: string): Promise<PublishableEvent> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<PublishableEventsApiResponse>(`${this.BASE_URL}/facebook/publishable-event/${eventId}`));
+    return response.response as unknown as PublishableEvent;
+  }
+
+  async publishableEvents(fromDate: number, toDate: number): Promise<PublishableEvent[]> {
+    const params = new HttpParams().set("fromDate", fromDate).set("toDate", toDate);
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<PublishableEventsApiResponse>(`${this.BASE_URL}/facebook/publishable-events`, {params}));
+    return (response.response as PublishableEvent[]) || [];
   }
 }

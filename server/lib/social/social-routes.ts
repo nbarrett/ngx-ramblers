@@ -13,38 +13,18 @@ import { recentMedia } from "../instagram/recent-media";
 import { recentPosts } from "../facebook/recent-posts";
 import { socialPublication } from "../mongo/models/social-publication";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { publicImageBaseUrl } from "./public-base-url";
+import {
+  attachEventImage,
+  publishableEvent,
+  publishableEvents,
+  publishEvents
+} from "./event-publish-controllers";
 
 const debugLog = debug(envConfig.logNamespace("social:publish"));
 debugLog.enabled = true;
 
 const router = express.Router();
-
-function requestBaseUrl(req: Request): string {
-  const protocol = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
-  return `${protocol}://${req.get("host")}`;
-}
-
-function isLocalHost(hostname: string): boolean {
-  const host = (hostname || "").toLowerCase().split(":")[0];
-  return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.endsWith(".local");
-}
-
-function publicImageBaseUrl(req: Request, config: SystemConfig): string {
-  const fromRequest = requestBaseUrl(req);
-  const configured = (config?.group?.href || "").trim().replace(/\/+$/, "");
-  let hostname = "";
-  try {
-    hostname = new URL(fromRequest).hostname;
-  } catch {
-    hostname = req.get("host") || "";
-  }
-  let baseUrl = fromRequest;
-  if (configured && isLocalHost(hostname)) {
-    debugLog("using group.href for public image base URL:", configured, "instead of:", fromRequest);
-    baseUrl = configured;
-  }
-  return baseUrl;
-}
 
 async function publish(req: Request, res: Response, network: SocialNetwork, publisher: (config: SystemConfig, images: ResolvedAlbumImage[], caption: string) => Promise<SocialPublishResult>) {
   const request: SocialPublishRequest = req.body;
@@ -154,5 +134,13 @@ router.get("/publications", async (req: Request, res: Response) => {
     .sort({publishedAt: -1}).lean().exec();
   res.json({request: {albumName}, response});
 });
+
+router.post("/facebook/publish-events", authConfig.authenticate(), publishEvents);
+
+router.get("/facebook/publishable-events", authConfig.authenticate(), publishableEvents);
+
+router.post("/facebook/event-image", authConfig.authenticate(), attachEventImage);
+
+router.get("/facebook/publishable-event/:eventId", authConfig.authenticate(), publishableEvent);
 
 export const socialRoutes = router;

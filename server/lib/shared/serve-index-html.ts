@@ -8,7 +8,7 @@ import {
   extractGoogleSiteVerificationId
 } from "../../../projects/ngx-ramblers/src/app/functions/google-search-console";
 import { pageSeoDescriptorForPath } from "../content-export/content-export";
-import { PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
+import { OpenGraphType, PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
 
 const debugLog = debug(envConfig.logNamespace("serve-index-html"));
 debugLog.enabled = false;
@@ -108,6 +108,36 @@ function withMetaDescription(html: string, description: string): string {
   return html.replace("</head>", `  <meta name="description" content="${escapeHtml(description)}">\n</head>`);
 }
 
+export function withOpenGraphTags(html: string, baseHref: string, siteName: string, descriptor: PageSeoDescriptor, requestPath: string): string {
+  const title = [siteName, descriptor?.title].filter(part => part && part.trim().length > 0).join(" — ");
+  const tags = [
+    {property: "og:type", content: descriptor?.openGraphType || OpenGraphType.WEBSITE},
+    {property: "og:title", content: title},
+    {property: "og:description", content: descriptor?.description},
+    {property: "og:url", content: baseHref ? canonicalUrlFor(baseHref, requestPath) : null},
+    {property: "og:site_name", content: siteName},
+    {property: "og:image", content: descriptor?.imageUrl},
+    {property: "twitter:card", content: descriptor?.imageUrl ? "summary_large_image" : "summary"}
+  ].filter(tag => tag.content);
+  if (tags.length === 0) {
+    return html;
+  } else {
+    const rendered = tags
+      .map(tag => `  <meta property="${tag.property}" content="${escapeHtml(tag.content)}">`)
+      .join("\n");
+    return html.replace("</head>", `${rendered}\n</head>`);
+  }
+}
+
+export function withStructuredData(html: string, descriptor: PageSeoDescriptor): string {
+  if (descriptor?.structuredData) {
+    const json = JSON.stringify(descriptor.structuredData).replace(/</g, "\\u003c");
+    return html.replace("</head>", `  <script type="application/ld+json">${json}</script>\n</head>`);
+  } else {
+    return html;
+  }
+}
+
 export function withRobotsMeta(html: string, robots: string): string {
   if (!robots) {
     return html;
@@ -166,6 +196,8 @@ export async function serveIndexHtml(indexPath: string, res: Response, requestPa
     input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
     input => withMetaDescription(input, seoDescriptor?.description),
     input => withRobotsMeta(input, seoDescriptor?.robots),
+    input => withOpenGraphTags(input, headConfig?.baseHref, headConfig?.siteName, seoDescriptor, requestPath),
+    input => withStructuredData(input, seoDescriptor),
     input => headConfig?.baseHref ? withAiDiscoveryLinks(input, headConfig.baseHref) : input,
     input => headConfig?.baseHref ? withRepresentationAlternates(input, headConfig.baseHref, seoDescriptor) : input,
     input => withServerContent(input, seoDescriptor)
