@@ -17,7 +17,7 @@ describe("EmojiTextareaComponent", () => {
     expect(resize).toHaveBeenCalled();
   });
 
-  it("keeps emoji shortcode suggestions and selection", async () => {
+  it("keeps emoji shortcode suggestions and selection", () => {
     const fixture = TestBed.createComponent(EmojiTextareaComponent);
     fixture.detectChanges();
     const textarea: HTMLTextAreaElement = fixture.nativeElement.querySelector("textarea");
@@ -26,14 +26,12 @@ describe("EmojiTextareaComponent", () => {
     textarea.dispatchEvent(new Event("input", {bubbles: true}));
     fixture.detectChanges();
 
-    await vi.waitFor(() => expect(textarea.ownerDocument.querySelector('[role="listbox"]')).not.toBeNull());
+    expect(textarea.ownerDocument.querySelector('[role="listbox"]')).not.toBeNull();
 
     textarea.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
     fixture.detectChanges();
 
-    await vi.waitFor(() => {
-      expect(textarea.value).not.toContain(":sun");
-      expect(textarea.value.trim().length).toBeGreaterThan(0);
-    });
+    expect(textarea.value).not.toContain(":sun");
+    expect(textarea.value.trim().length).toBeGreaterThan(0);
   });
 });
