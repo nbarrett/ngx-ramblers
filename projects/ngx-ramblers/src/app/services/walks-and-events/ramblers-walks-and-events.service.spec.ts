@@ -190,7 +190,7 @@ describe("RamblersWalksAndEventsService", () => {
       expect(service.walkImageUploads([selectedWalk] as any)).toEqual([{
         date: "15/07/2026",
         fieldChanges: [],
-        imagesChanged: false,
+        imagesChanged: true,
         images: [{
           alternativeText: "A woodland path",
           fileName: "path.jpeg",
