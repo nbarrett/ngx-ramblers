@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, isArray, isEmpty, isEqual, isNaN, isNumber, isString, isUndefined, keys, without } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isNaN, isNumber, isString, isUndefined, keys, without } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -841,7 +841,7 @@ export class RamblersWalksAndEventsService {
         walk: walkExport.displayedWalk.walk,
         walkId: walkExport.editInPlace ? walkExport.ramblersUrl : null,
         fieldChanges: walkExport.editInPlace ? walkExport.fieldChanges || [] : [],
-        imagesChanged: walkExport.editInPlace ? !!walkExport.imageMismatch : false
+        imagesChanged: walkExport.editInPlace ? !!walkExport.imageMismatch : this.localWalkImages(walkExport.displayedWalk.walk).length > 0
       }))
       .filter(item => !!item.walk?.fields?.publishing?.ramblers?.publish)
       .filter(item => item.walk?.groupEvent?.status !== WalkStatus.CANCELLED)
@@ -1349,7 +1349,7 @@ export class RamblersWalksAndEventsService {
   }
 
   walkFinishPostcode(extendedGroupEvent: ExtendedGroupEvent): string {
-    return this.walkDisplayService.gridReferenceFrom(extendedGroupEvent?.groupEvent?.end_location) ? "" : extendedGroupEvent?.groupEvent?.end_location?.postcode || "";
+    return extendedGroupEvent?.groupEvent?.end_location?.postcode || "";
   }
 
   walkDate(extendedGroupEvent: ExtendedGroupEvent, format: string): string {
