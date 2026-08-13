@@ -260,7 +260,6 @@ export class SystemConfigService {
       walkContactEmailAccessLevel: AccessLevel.PUBLIC,
       showWalkOnRamblersLink: true,
       showWalkRelatedLinks: true,
-      showWalkShareInHeader: false,
       socialContactNameAccessLevel: AccessLevel.PUBLIC,
       socialContactPhoneAccessLevel: AccessLevel.PUBLIC,
       socialContactEmailAccessLevel: AccessLevel.PUBLIC,

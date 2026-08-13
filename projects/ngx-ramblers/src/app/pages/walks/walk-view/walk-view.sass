@@ -1,3 +1,33 @@
+@import "../../../assets/styles/colours"
+
+.walk-view-split:hover > .btn.btn-quiet
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+
+.walk-view-split.show > .btn.btn-quiet
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise-hover-border
+  border-color: $ramblers-colour-sunrise-hover-border
+
+.walk-view-split:hover > .btn.btn-primary,
+.walk-view-split.show > .btn.btn-primary
+  background-color: $ramblers-colour-sunrise-hover-background
+  border-color: $ramblers-colour-sunrise-hover-border
+
+.link-copied-confirmation
+  display: inline-flex
+  align-items: center
+  color: $ramblers-colour-black
+  font-weight: 600
+  animation: link-copied-fade 0.2s ease-in
+
+@keyframes link-copied-fade
+  from
+    opacity: 0
+  to
+    opacity: 1
+
 .span-margin
   margin-left: 5px
 

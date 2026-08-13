@@ -85,6 +85,23 @@ describe("event-caption-builder", () => {
     expect(input.startLocation).toEqual("Dover seafront, CT16 1LW");
   });
 
+  it("omits distance and grade for a social event even if a difficulty is present", () => {
+    const event = {
+      groupEvent: {
+        title: "Summer barbecue",
+        item_type: "group-event",
+        start_date_time: "2026-08-15T18:00:00+01:00",
+        distance_miles: 3,
+        difficulty: {code: "moderate", description: "Moderate"},
+        location: {description: "The Anchor", postcode: "ME4 4TZ"}
+      }
+    } as unknown as ExtendedGroupEvent;
+    const input = eventCaptionInputFrom(event, "https://example.org/social/summer-barbecue");
+    expect(input.distance).toEqual("");
+    expect(input.grade).toEqual("");
+    expect(input.startLocation).toEqual("The Anchor, ME4 4TZ");
+  });
+
   it("omits the distance when the event has none", () => {
     const event = {groupEvent: {title: "Pub social", start_date_time: "2026-08-15T19:30:00+01:00"}} as unknown as ExtendedGroupEvent;
     const input = eventCaptionInputFrom(event, "https://example.org/social/pub-social");

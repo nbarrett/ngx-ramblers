@@ -4,7 +4,6 @@ import { isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-html-frame",
-  standalone: true,
   imports: [],
   template: `
     @if (url) {

@@ -9,7 +9,6 @@ import { UnsubscribeState } from "../../models/mail.model";
 
 @Component({
   selector: "app-unsubscribe",
-  standalone: true,
   imports: [FormsModule],
   styles: [`
     .unsubscribe-card

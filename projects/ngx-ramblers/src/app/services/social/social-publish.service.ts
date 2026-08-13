@@ -149,8 +149,8 @@ export class SocialPublishService {
     return (response.response as SocialPublication[]) || [];
   }
 
-  async publishEvents(eventIds: string[], networks: SocialNetwork[], republishChanged: boolean): Promise<EventPublishResult[]> {
-    const request: EventPublishRequest = {eventIds, networks, republishChanged};
+  async publishEvents(eventIds: string[], networks: SocialNetwork[], republishChanged: boolean, captions?: Partial<Record<SocialNetwork, string>>): Promise<EventPublishResult[]> {
+    const request: EventPublishRequest = {eventIds, networks, republishChanged, captions};
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<EventPublishApiResponse>(`${this.BASE_URL}/facebook/publish-events`, request));
     return (response.response as EventPublishResult[]) || [];
   }

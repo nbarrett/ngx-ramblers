@@ -1,23 +1,29 @@
 import { toPairs, values } from "es-toolkit/compat";
 import {
-  DEFAULT_EVENT_CAPTION_TEMPLATE,
+  DEFAULT_SOCIAL_EVENT_CAPTION_TEMPLATE,
+  DEFAULT_WALK_CAPTION_TEMPLATE,
   EventCaptionInput,
   EventCaptionToken
 } from "../../../projects/ngx-ramblers/src/app/models/social-publish.model";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeFromIsoWithZone, formatDateTime } from "../shared/dates";
 import { withLink } from "./caption-builder";
 
 const TOKEN_PATTERN = /\{([a-zA-Z]+)}/g;
 
+function isWalk(event: ExtendedGroupEvent): boolean {
+  return event?.groupEvent?.item_type !== RamblersEventType.GROUP_EVENT;
+}
+
 function distanceDescription(event: ExtendedGroupEvent): string {
   const miles = event?.groupEvent?.distance_miles;
-  return miles > 0 ? `${Number(miles.toFixed(1))} miles` : "";
+  return isWalk(event) && miles > 0 ? `${Number(miles.toFixed(1))} miles` : "";
 }
 
 function gradeDescription(event: ExtendedGroupEvent): string {
-  return event?.groupEvent?.difficulty?.description || "";
+  return isWalk(event) ? (event?.groupEvent?.difficulty?.description || "") : "";
 }
 
 function leaderDescription(event: ExtendedGroupEvent): string {
@@ -36,6 +42,10 @@ function plainTextDescription(event: ExtendedGroupEvent): string {
     .replace(/[*_`>#]/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+export function defaultTemplateForEvent(event: ExtendedGroupEvent): string {
+  return isWalk(event) ? DEFAULT_WALK_CAPTION_TEMPLATE : DEFAULT_SOCIAL_EVENT_CAPTION_TEMPLATE;
 }
 
 export function eventCaptionInputFrom(event: ExtendedGroupEvent, eventUrl: string): EventCaptionInput {
@@ -72,7 +82,7 @@ function substituteLine(line: string, input: EventCaptionInput): string | null {
 }
 
 export function buildEventCaption(input: EventCaptionInput, template?: string): string {
-  const lines = (template?.trim() ? template : DEFAULT_EVENT_CAPTION_TEMPLATE).split("\n");
+  const lines = (template?.trim() ? template : DEFAULT_WALK_CAPTION_TEMPLATE).split("\n");
   const caption = lines
     .map(line => substituteLine(line, input))
     .filter(line => line !== null)

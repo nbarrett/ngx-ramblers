@@ -16,7 +16,6 @@ interface InboxNotifyBaseline {
 
 @Component({
   selector: "app-profile-inbox-notifications",
-  standalone: true,
   template: `
     @if (aliases.length > 0) {
       <div class="row thumbnail-heading-frame">

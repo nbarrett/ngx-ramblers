@@ -34,7 +34,6 @@ export enum VenueLookupMode {
 
 @Component({
   selector: "app-venue-lookup",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule, VenueAutocompleteComponent, VenueMapSelectorComponent, SectionToggle, RouterLink],
   template: `
     <div class="venue-lookup-content">

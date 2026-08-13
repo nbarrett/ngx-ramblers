@@ -19,7 +19,6 @@ import {
 
 @Component({
   selector: "app-system-inbox-mailbox-connections",
-  standalone: true,
   imports: [CommonModule, FormsModule, FontAwesomeModule, DatePipe],
   template: `
     <div class="mt-4">

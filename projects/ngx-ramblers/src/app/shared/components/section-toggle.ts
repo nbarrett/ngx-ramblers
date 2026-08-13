@@ -8,7 +8,6 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
 
 @Component({
   selector: "app-section-toggle",
-  standalone: true,
   imports: [FontAwesomeModule],
   host: {
     "[class.full-width-host]": "fullWidth"

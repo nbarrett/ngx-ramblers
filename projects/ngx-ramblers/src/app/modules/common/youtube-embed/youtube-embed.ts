@@ -42,7 +42,6 @@ function loadYouTubeApiScript(): void {
 
 @Component({
     selector: "app-youtube-embed",
-    standalone: true,
     template: `
       @if (youtubeId) {
         <div #playerContainer class="video-container"></div>

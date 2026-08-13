@@ -9,7 +9,6 @@ import { debounceTime } from "rxjs/operators";
 
 @Component({
   selector: "app-distance-range-slider",
-  standalone: true,
   imports: [FormsModule],
   template: `
     <div class="distance-range-slider">

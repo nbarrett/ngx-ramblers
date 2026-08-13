@@ -3,7 +3,6 @@ import { CdkDrag, CdkDragHandle } from "@angular/cdk/drag-drop";
 
 @Component({
   selector: "app-draggable-modal",
-  standalone: true,
   imports: [CdkDrag, CdkDragHandle],
   styleUrls: ["./draggable-modal.sass"],
   template: `

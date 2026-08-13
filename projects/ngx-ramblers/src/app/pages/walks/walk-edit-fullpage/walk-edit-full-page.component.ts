@@ -40,18 +40,24 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
     this.logger.debug("ngOnInit");
     await this.display.refreshCachedData();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-      if (paramMap.has("add")) {
+      if (paramMap.get(RouteParam.WALK_ID) === "add") {
+        const pendingWalk = this.display.pendingNewWalkEvent;
+        this.display.pendingNewWalkEvent = null;
+        const walk = pendingWalk || this.eventDefaultsService.createDefault({
+          fields: {
+            inputSource: InputSource.MANUALLY_CREATED
+          },
+          groupEvent: {
+            start_date_time: this.dateUtils.isoDateTimeStartOfDay()
+          }
+        });
+        if (!walk.groupEvent.start_date_time) {
+          walk.groupEvent.start_date_time = this.dateUtils.isoDateTimeStartOfDay();
+        }
         this.displayedWalk = {
           hasFeatures: false,
           walkAccessMode: WalksReferenceService.walkAccessModes.add,
-          walk: this.eventDefaultsService.createDefault({
-            fields: {
-              inputSource: InputSource.MANUALLY_CREATED
-            },
-            groupEvent: {
-              start_date_time: this.dateUtils.isoDateTimeStartOfDay()
-            }
-          }),
+          walk,
           status: EventType.AWAITING_LEADER,
           showEndpoint: false
         };

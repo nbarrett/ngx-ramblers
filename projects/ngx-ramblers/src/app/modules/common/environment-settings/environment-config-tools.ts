@@ -9,7 +9,6 @@ import { AlertTarget } from "../../../models/alert-target.model";
 
 @Component({
   selector: "app-environment-config-tools",
-  standalone: true,
   imports: [FormsModule],
   template: `
     <div class="row thumbnail-heading-frame">

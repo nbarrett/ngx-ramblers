@@ -56,7 +56,6 @@ export interface TemplateSelectEvent {
     }
   `,
   imports: [FormsModule, FontAwesomeModule, BadgeButtonComponent],
-  standalone: true
 })
 export class TemplateSelectorComponent implements OnInit {
 

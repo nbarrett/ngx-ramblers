@@ -34,7 +34,6 @@ function pageLabel(path: string): string {
 
 @Component({
   selector: "app-email-body-editor",
-  standalone: true,
   imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
   template: `
     <div class="col-sm-12 mt-2">

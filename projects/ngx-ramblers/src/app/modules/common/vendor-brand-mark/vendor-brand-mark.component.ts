@@ -4,7 +4,6 @@ import { resolveVendorBrand, VendorBrandMark } from "../../../models/vendor-bran
 
 @Component({
   selector: "app-vendor-brand-mark",
-  standalone: true,
   imports: [FontAwesomeModule],
   template: `
     @if (resolvedBrand(); as brand) {

@@ -200,7 +200,6 @@ export interface Organisation extends Group {
   walkContactDetailsPublic?: boolean;
   showWalkOnRamblersLink: boolean;
   showWalkRelatedLinks?: boolean;
-  showWalkShareInHeader?: boolean;
   walkPhotoAlbumBasePath?: string;
   allowSwitchWalkView: boolean;
   socialContactNameAccessLevel?: AccessLevel;

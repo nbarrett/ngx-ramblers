@@ -8,7 +8,6 @@ import { ColourSwatchSelectorComponent } from "../../../shared/components/colour
 
 @Component({
   selector: "app-map-route-style-palette",
-  standalone: true,
   imports: [FormsModule, ColourSwatchSelectorComponent],
   styles: [`
     :host

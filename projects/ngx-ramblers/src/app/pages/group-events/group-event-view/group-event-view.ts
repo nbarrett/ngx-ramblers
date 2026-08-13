@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
 import { faFile, faHouse, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -14,7 +14,6 @@ import { MarkdownComponent } from "ngx-markdown";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { BsModalService } from "ngx-bootstrap/modal";
 import { faCloudArrowUp, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import {
@@ -35,6 +34,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
 @Component({
   selector: "app-group-event-view",
   template: `
+    <app-event-social-publish-modal #socialPublish/>
     <div class="card mb-3">
       <div class="wrapper w-100 position-relative">
         <img class="h-100 w-100 position-absolute" (error)="imageError($event)" (load)="imageLoad($event)"
@@ -188,7 +188,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent]
 })
 export class GroupEventView implements OnInit {
 
@@ -200,7 +200,7 @@ export class GroupEventView implements OnInit {
   linksService = inject(LinksService);
   urlService = inject(UrlService);
   private systemConfigService = inject(SystemConfigService);
-  private modalService: BsModalService = inject(BsModalService);
+  @ViewChild("socialPublish") private socialPublish: EventSocialPublishModalComponent;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faCloudArrowUp = faCloudArrowUp;
   private walksAndEventsService = inject(WalksAndEventsService);
@@ -261,11 +261,7 @@ export class GroupEventView implements OnInit {
   }
 
   openSocialPublish(): void {
-    this.modalService.show(EventSocialPublishModalComponent, {
-      animated: false,
-      class: "modal-lg",
-      initialState: {eventId: this.groupEvent?.id, eventTypeLabel: "event"}
-    });
+    void this.socialPublish.openFor(this.groupEvent?.id, "event");
   }
 
   editGroupEvent() {

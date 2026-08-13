@@ -36,7 +36,6 @@ Chart.register(...registerables);
 
 @Component({
   selector: "app-agm-stats",
-  standalone: true,
   imports: [FormsModule, DatePicker, FontAwesomeModule, TabsetComponent, TabDirective, AGMWalksTabComponent, AGMSocialsTabComponent, AGMExpensesTabComponent, AGMMembershipTabComponent, PageComponent],
   styleUrls: ["./agm-stats.sass"],
   template: `

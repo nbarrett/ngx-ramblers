@@ -12,7 +12,6 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 
 @Component({
   selector: "app-recipient-multi-select",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent],
   template: `
     <ng-select

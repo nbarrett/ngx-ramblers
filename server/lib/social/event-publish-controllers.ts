@@ -29,7 +29,7 @@ export async function publishEvents(req: Request, res: Response): Promise<void> 
     const eventIds = request.eventIds || [];
     debugLog("publish events request: count:", eventIds.length, "networks:", request.networks, "republishChanged:", request.republishChanged);
     const networks = request.networks?.length ? request.networks : [SocialNetwork.FACEBOOK];
-    const response = await publishEventsToNetworks(eventIds, networks, config, baseUrl, !!request.republishChanged);
+    const response = await publishEventsToNetworks(eventIds, networks, config, baseUrl, !!request.republishChanged, request.captions);
     res.json({request, response});
   } catch (error) {
     debugLog("publish events error:", error);

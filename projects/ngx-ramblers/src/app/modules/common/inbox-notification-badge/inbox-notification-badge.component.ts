@@ -11,7 +11,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-inbox-notification-badge",
-  standalone: true,
   imports: [CommonModule, AsyncPipe, RouterLink, FontAwesomeModule, TooltipDirective],
   template: `
     @if ((inboxNotificationService.total$ | async); as total) {

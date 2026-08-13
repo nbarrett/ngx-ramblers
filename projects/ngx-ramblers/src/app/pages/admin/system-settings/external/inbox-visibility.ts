@@ -10,7 +10,6 @@ import { LoggerFactory } from "../../../../services/logger-factory.service";
 
 @Component({
   selector: "app-inbox-visibility",
-  standalone: true,
   imports: [CommonModule, FormsModule, FontAwesomeModule, TooltipDirective],
   styles: [`
     .inbox-visibility-matrix

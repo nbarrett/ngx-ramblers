@@ -62,7 +62,6 @@ function ensureContentBlockOverrides(notificationConfig: NotificationConfig): Te
 
 @Component({
   selector: "app-content-block-editor",
-  standalone: true,
   imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle, NgTemplateOutlet],
   template: `
     @if (blockKeys.length > 0) {

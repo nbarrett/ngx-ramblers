@@ -35,12 +35,13 @@ export class WalkShareService {
     await this.writeLinkToClipboard(url, notify);
   }
 
-  async copyLink(displayedWalk: DisplayedWalk, notify?: AlertInstance): Promise<void> {
+  async copyLink(displayedWalk: DisplayedWalk, notify?: AlertInstance): Promise<boolean> {
     const url = this.absoluteWalkUrl(displayedWalk);
-    if (!url) {
-      return;
+    if (url) {
+      return this.writeLinkToClipboard(url, notify);
+    } else {
+      return false;
     }
-    await this.writeLinkToClipboard(url, notify);
   }
 
   absoluteWalkUrl(displayedWalk: DisplayedWalk): string {
@@ -59,13 +60,15 @@ export class WalkShareService {
     }
   }
 
-  private async writeLinkToClipboard(url: string, notify?: AlertInstance): Promise<void> {
+  private async writeLinkToClipboard(url: string, notify?: AlertInstance): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(url);
       notify?.success({title: "Link copied", message: url});
+      return true;
     } catch (err) {
       this.logger.error("writeLinkToClipboard failed:", err);
       notify?.error({title: "Unable to copy link", message: url});
+      return false;
     }
   }
 }

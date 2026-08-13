@@ -38,7 +38,6 @@ import { toKebabCase } from "../../../functions/strings";
 
 @Component({
   selector: "app-environment-per-env-settings",
-  standalone: true,
   imports: [
     FormsModule,
     RouterLink,

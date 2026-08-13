@@ -32,7 +32,6 @@ import { UrlService } from "../../services/url.service";
 import { GroupEventService } from "../../services/walks-and-events/group-event.service";
 import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../../services/event-defaults.service";
-import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { WalksConfigService } from "../../services/system/walks-config.service";
 import { DEFAULT_REGULAR_WALK_DAY } from "../../models/walks-config.model";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
@@ -88,12 +87,12 @@ export class WalkDisplayService {
   private pageService = inject(PageService);
   private eventContactService = inject(EventContactService);
   private eventDefaultsService = inject(EventDefaultsService);
-  private walksAndEventsService = inject(WalksAndEventsService);
   private walksConfigService = inject(WalksConfigService);
   private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
+  public pendingNewWalkEvent: ExtendedGroupEvent = null;
   public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkStartDateByGroupCode: Record<string, number> = {};
   private nextWalkStartDatesRequested = false;
@@ -347,8 +346,9 @@ export class WalkDisplayService {
       phone: null
     };
     walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingWalkDetails.eventType, "Walk created by leader")];
-    const saved = await this.walksAndEventsService.createOrUpdate(walk);
-    await this.editFullScreen(saved);
+    this.pendingNewWalkEvent = walk;
+    this.viewReturnUrl = this.location.path();
+    await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, "add"]);
   }
 
   toggleExpandedViewFor(walk: ExtendedGroupEvent, toggleTo: WalkViewMode): ExpandedWalk {
@@ -709,10 +709,6 @@ export class WalkDisplayService {
 
   showWalkRelatedLinks(): boolean {
     return this.group?.showWalkRelatedLinks !== false;
-  }
-
-  showWalkShareInHeader(): boolean {
-    return this.group?.showWalkShareInHeader === true;
   }
 
   isContactUsContact(event?: ExtendedGroupEvent): boolean {

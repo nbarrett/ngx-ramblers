@@ -14,7 +14,6 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-venue-editor",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule, VenueLookupComponent, VenueTypeSelect, TooltipDirective],
   template: `
     <div class="row thumbnail-heading-frame">

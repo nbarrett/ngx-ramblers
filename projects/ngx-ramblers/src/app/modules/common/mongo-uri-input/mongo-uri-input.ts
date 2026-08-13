@@ -14,7 +14,6 @@ export interface MongoUriParseResult {
 
 @Component({
   selector: "app-mongo-uri-input",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule],
   template: `
     <div class="row mb-2">

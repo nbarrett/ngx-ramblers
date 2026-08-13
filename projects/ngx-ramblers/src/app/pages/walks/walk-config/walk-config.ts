@@ -311,12 +311,6 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                         <label class="form-check-label" for="related-link-show-on-ramblers">On Ramblers</label>
                       </div>
                       <div class="form-check mb-2">
-                        <input [(ngModel)]="walksConfig.relatedLinkShowThisWalk"
-                               type="checkbox" class="form-check-input"
-                               id="related-link-show-this-walk">
-                        <label class="form-check-label" for="related-link-show-this-walk">This walk (view, share, copy link)</label>
-                      </div>
-                      <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowMeetup"
                                type="checkbox" class="form-check-input"
                                id="related-link-show-meetup">

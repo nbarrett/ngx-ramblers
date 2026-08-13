@@ -30,7 +30,6 @@ export interface DateRange {
 
 @Component({
   selector: "app-date-range-slider",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule, PresetSelect],
   template: `
     <div class="date-range-slider" [class.with-presets]="showPresets">

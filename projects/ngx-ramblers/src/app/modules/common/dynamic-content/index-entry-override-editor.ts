@@ -248,7 +248,6 @@ interface ExpandedEntry {
       min-width: 0
   `],
   imports: [NgStyle, FocalPointPickerComponent, BadgeButtonComponent, FontAwesomeModule],
-  standalone: true
 })
 export class IndexEntryOverrideEditor {
   @Input() row: PageContentRow;

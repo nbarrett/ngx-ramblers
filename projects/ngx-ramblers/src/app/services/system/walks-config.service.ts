@@ -76,7 +76,6 @@ export class WalksConfigService {
       matchWalkLeadersOnWalksManagerSync: true,
       rematchWalkLeadersOnMemberChange: true,
       relatedLinkShowOnRamblers: true,
-      relatedLinkShowThisWalk: true,
       relatedLinkShowMeetup: true,
       relatedLinkShowOsMaps: true,
       relatedLinkShowWhat3words: true,

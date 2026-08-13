@@ -55,7 +55,6 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
 
 @Component({
   selector: "app-system-gmail-inbox-settings",
-  standalone: true,
   template: `
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Inbox</div>

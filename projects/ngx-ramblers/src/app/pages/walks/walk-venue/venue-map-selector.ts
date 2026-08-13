@@ -19,7 +19,6 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-venue-map-selector",
-  standalone: true,
   imports: [LeafletModule, FormsModule, FontAwesomeModule, ResizerComponent],
   template: `
     <div class="venue-map-container">

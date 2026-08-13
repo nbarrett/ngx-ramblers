@@ -50,7 +50,6 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Component({
   selector: "app-legacy-redirects",
-  standalone: true,
   imports: [
     PageComponent,
     TabsetComponent,

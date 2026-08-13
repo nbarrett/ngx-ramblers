@@ -10,7 +10,6 @@ import { DOCUMENT } from "@angular/common";
 
 @Component({
   selector: "app-maximisable-panel",
-  standalone: true,
   exportAs: "maximisablePanel",
   imports: [FontAwesomeModule, TooltipDirective, SiteLogoComponent],
   styles: [`

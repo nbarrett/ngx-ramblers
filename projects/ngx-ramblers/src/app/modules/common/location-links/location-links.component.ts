@@ -9,7 +9,6 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 
 @Component({
   selector: "app-location-links",
-  standalone: true,
   imports: [RelatedLinkComponent, CopyIconComponent, TooltipDirective],
   template: `
     @if (location) {

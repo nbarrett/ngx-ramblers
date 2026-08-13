@@ -14,7 +14,6 @@ import { DraggableModalComponent } from "../draggable-modal/draggable-modal";
 
 @Component({
   selector: "app-attachment-preview",
-  standalone: true,
   imports: [CommonModule, FontAwesomeModule, DraggableModalComponent],
   styleUrls: ["./attachment-preview.sass"],
   template: `

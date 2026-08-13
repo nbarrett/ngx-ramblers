@@ -10,7 +10,6 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
 import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import { WalkShareRowComponent } from "./walk-share-row";
 import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
 
 @Component({
@@ -84,18 +83,9 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
           </div>
         </div>
         }
-        @if (display.showWalkShareInHeader() && displayedWalk?.walkLink) {
-          <div class="col-md-6">
-            <h1>Sharing</h1>
-            <div class="row">
-              <app-walk-share-row [displayedWalk]="displayedWalk"
-                                  [label]="'Share this ' + display.eventTypeTitle(resolvedEvent())"/>
-            </div>
-          </div>
-        }
       </div>
     </div>`,
-  imports: [EventGroupComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, WalkShareRowComponent, JointLeaderNamesPipe]
+  imports: [EventGroupComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, JointLeaderNamesPipe]
 })
 
 export class EventLeaderComponent {

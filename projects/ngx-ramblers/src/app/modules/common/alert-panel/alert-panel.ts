@@ -6,7 +6,6 @@ import { AlertPanelVariant } from "../../../models/alert-panel.model";
 
 @Component({
   selector: "app-alert-panel",
-  standalone: true,
   imports: [FontAwesomeModule],
   styleUrl: "./alert-panel.sass",
   template: `
