@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { BuiltInRole, CommitteeConfig, CommitteeMember, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, RoleType } from "../../models/committee.model";
+import { BuiltInRole, CommitteeConfig, CommitteeMember, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, defaultCommitteeMeetingTypes, RoleType } from "../../models/committee.model";
 import { ConfigKey } from "../../models/config.model";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -48,6 +48,7 @@ export class CommitteeConfigService {
         support: this.emptyCommitteeMember()
       },
       fileTypes: [],
+      meetingTypes: defaultCommitteeMeetingTypes([]),
       expenses: {costPerMile: DEFAULT_COST_PER_MILE}
     }).then((queriedConfig: CommitteeConfig) => {
       const committeeConfig = this.applyNameAndDescription(this.migrateConfig(queriedConfig));
@@ -58,17 +59,23 @@ export class CommitteeConfigService {
   }
 
   private migrateConfig(queriedConfig: CommitteeConfig) {
-    if (!queriedConfig.roles) {
-      const committeeConfig: CommitteeConfig = {
+    const withRoles = !queriedConfig.roles
+      ? {
         roles: this.toCommitteeMembers(queriedConfig),
         fileTypes: queriedConfig.fileTypes,
         expenses: queriedConfig.expenses
+      }
+      : queriedConfig;
+    if (!queriedConfig.roles) {
+      this.logger.info("migrating old contactUs data structure:", queriedConfig, "to roles:", withRoles);
+    }
+    if (!withRoles.meetingTypes) {
+      return {
+        ...withRoles,
+        meetingTypes: defaultCommitteeMeetingTypes(withRoles.fileTypes)
       };
-      this.logger.info("migrating old contactUs data structure:", queriedConfig, "to roles:", committeeConfig);
-      return committeeConfig;
     } else {
-      this.logger.info("no migration required for:", queriedConfig);
-      return queriedConfig;
+      return withRoles;
     }
   }
 

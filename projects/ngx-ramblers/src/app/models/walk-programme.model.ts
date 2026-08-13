@@ -94,8 +94,9 @@ export interface CalendarWeek {
 
 export interface CalendarEntry {
   id: string;
-  displayedWalk: import("./walk.model").DisplayedWalk;
+  displayedWalk?: import("./walk.model").DisplayedWalk;
   isGroupEvent: boolean;
+  isCommitteeEvent?: boolean;
   colour: string;
   title: string;
   time: string;
@@ -181,6 +182,7 @@ export function programmeStatusDescriptorsFor(walksManagerPopulation: boolean): 
 }
 
 export const GROUP_EVENT_CALENDAR_COLOUR = "rgb(133, 173, 146)";
+export const COMMITTEE_EVENT_CALENDAR_COLOUR = "rgb(120, 144, 197)";
 
 export function hasRamblersPublicationIdentity(extendedGroupEvent: ExtendedGroupEvent): boolean {
   const ramblersId = extendedGroupEvent?.groupEvent?.id?.trim();

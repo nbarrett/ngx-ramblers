@@ -73,6 +73,21 @@ import {
               </div>
             </div>
           }
+          @if (instagramEnabled && event.imageCount === 0) {
+            <div class="alert alert-warning d-flex align-items-start">
+              <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
+              <div class="flex-grow-1">
+                <strong>Add a photo to post to Instagram</strong>
+                <div>This {{ eventTypeLabel }} has no image, so Instagram can't be posted to. Add one to unlock
+                  Instagram — Facebook will still post with a link preview.
+                </div>
+                <button type="button" class="btn btn-primary btn-sm mt-2"
+                        [disabled]="uploadingImage" (click)="chooseImage()">
+                  <fa-icon [icon]="uploadingImage ? faSpinner : faUpload" class="me-1"/>{{ uploadingImage ? "Uploading" : "Add an image" }}
+                </button>
+              </div>
+            </div>
+          }
           <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="modal-publish-facebook"
@@ -88,14 +103,11 @@ import {
                      (change)="toggle(SocialNetwork.INSTAGRAM)">
               <label class="form-check-label" for="modal-publish-instagram">
                 <fa-icon [icon]="faInstagram" class="me-1 icon-instagram"/>Instagram
+                @if (instagramEnabled && !instagramAvailable) {
+                  <span class="text-muted">(needs an image)</span>
+                }
               </label>
             </div>
-            @if (instagramEnabled && event.imageCount === 0) {
-              <button type="button" class="btn btn-quiet btn-sm"
-                      [disabled]="uploadingImage" (click)="chooseImage()">
-                <fa-icon [icon]="uploadingImage ? faSpinner : faUpload" class="me-1"/>{{ uploadingImage ? "Uploading" : "Add an image" }}
-              </button>
-            }
           </div>
           <input #imageFileInput class="d-none" type="file" accept="image/*"
                  ng2FileSelect (onFileSelected)="onImageSelected($event)" [uploader]="uploader"/>
@@ -104,23 +116,25 @@ import {
               <strong>This is what will be posted</strong> — edit it if you like
             </div>
             <div class="post-preview-body">
-              @if (!separateCaptions) {
+              @if (!separateCaptions || !separateCaptionsAvailable) {
                 <app-emoji-textarea [(ngModel)]="caption" inputId="event-caption" [rows]="8"
                                     placeholder="Write the post caption. Type :sun for emojis"/>
               }
-              <div class="form-check mt-2 mb-1">
-                <input type="checkbox" class="form-check-input" id="event-separate-captions"
-                       [(ngModel)]="separateCaptions" (ngModelChange)="onSeparateCaptionsChange()">
-                <label class="form-check-label" for="event-separate-captions">Use a different caption per
-                  network</label>
-              </div>
-              @if (separateCaptions) {
+              @if (separateCaptionsAvailable) {
+                <div class="form-check mt-2 mb-1">
+                  <input type="checkbox" class="form-check-input" id="event-separate-captions"
+                         [(ngModel)]="separateCaptions" (ngModelChange)="onSeparateCaptionsChange()">
+                  <label class="form-check-label" for="event-separate-captions">Use a different caption per
+                    network</label>
+                </div>
+              }
+              @if (separateCaptions && separateCaptionsAvailable) {
                 @if (facebookEnabled) {
                   <label class="mt-2 fw-bold"><fa-icon [icon]="faFacebook" class="me-1 icon-facebook"/>Facebook
                     caption</label>
                   <app-emoji-textarea [(ngModel)]="captionFacebook" inputId="event-caption-facebook" [rows]="8"/>
                 }
-                @if (instagramEnabled) {
+                @if (instagramAvailable) {
                   <label class="mt-2 fw-bold"><fa-icon [icon]="faInstagram" class="me-1 icon-instagram"/>Instagram
                     caption</label>
                   <app-emoji-textarea [(ngModel)]="captionInstagram" inputId="event-caption-instagram" [rows]="8"/>
@@ -294,6 +308,10 @@ export class EventSocialPublishModalComponent implements OnDestroy {
     return this.instagramEnabled && this.event?.imageCount > 0;
   }
 
+  get separateCaptionsAvailable(): boolean {
+    return this.facebookEnabled && this.instagramAvailable;
+  }
+
   get alreadyPublished(): boolean {
     return !!this.event?.publication?.permalink;
   }
@@ -332,6 +350,9 @@ export class EventSocialPublishModalComponent implements OnDestroy {
       if (awsFileName && this.eventId) {
         await this.socialPublishService.attachEventImage(this.eventId, awsFileName);
         this.event = await this.socialPublishService.publishableEvent(this.eventId);
+        if (this.instagramAvailable && !this.isSelected(SocialNetwork.INSTAGRAM)) {
+          this.toggle(SocialNetwork.INSTAGRAM);
+        }
         this.notify.success({title: "Image added", message: "The image is now on the event, so Instagram is available"});
       } else {
         this.notify.warning({title: "Image not added", message: "The upload did not return a file name"});

@@ -7,6 +7,7 @@ import { HasStyles } from "./content-text.model";
 import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { Tag } from "./tag.model";
 import { FacebookPostStyle } from "./social-publish.model";
+import { VideoMeetingsConfig } from "./video-meeting.model";
 
 export { GoogleMapsConfig };
 
@@ -24,6 +25,7 @@ export enum SystemSettingsTab {
   EXTERNAL_SYSTEMS = "External Systems",
   VOLUNTEERS = "Volunteers",
   SCHEDULED_TASKS = "Scheduled Tasks",
+  VIDEO_MEETINGS = "Video Meetings",
   DIAGNOSTICS = "Diagnostics",
 }
 
@@ -429,6 +431,7 @@ export interface SystemConfig {
     autoSubscribeNewMembers: boolean;
   }
   volunteers?: VolunteerSettingsConfig;
+  videoMeetings?: VideoMeetingsConfig;
   activeChangelogCollection?: string;
 }
 

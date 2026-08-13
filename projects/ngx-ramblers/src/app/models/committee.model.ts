@@ -1,4 +1,5 @@
 import { map } from "es-toolkit/compat";
+import { DateRangeUnit } from "./search.model";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { DateValue } from "./date.model";
@@ -181,6 +182,22 @@ export interface CommitteeFileType {
   public?: boolean;
 }
 
+export interface CommitteeMeetingType {
+  description: string;
+  agendaFileType?: string;
+}
+
+export function defaultCommitteeMeetingTypes(fileTypes: CommitteeFileType[]): CommitteeMeetingType[] {
+  const types = fileTypes || [];
+  const agmAgenda = types.find(fileType => /agm/i.test(fileType.description) && /agenda/i.test(fileType.description));
+  const committeeAgenda = types.find(fileType => /committee/i.test(fileType.description) && /agenda/i.test(fileType.description));
+  return [
+    {description: "AGM", agendaFileType: agmAgenda?.description ?? null},
+    {description: "Committee Meeting", agendaFileType: committeeAgenda?.description ?? null},
+    {description: "Other", agendaFileType: null}
+  ];
+}
+
 export interface ExpensesConfig {
   costPerMile: number;
 }
@@ -197,7 +214,10 @@ export interface CommitteeConfig {
     support: CommitteeMember;
   };
   fileTypes: CommitteeFileType [];
+  meetingTypes?: CommitteeMeetingType[];
   expenses: ExpensesConfig;
+  meetingFrequencyAmount?: number;
+  meetingFrequencyUnit?: DateRangeUnit;
 }
 
 export interface GroupEventsFilter {

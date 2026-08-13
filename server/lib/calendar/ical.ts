@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -90,6 +91,58 @@ export function vEventFor(event: ExtendedGroupEvent, config: SystemConfig, baseU
     `SEQUENCE:${sequenceFor(event)}`,
     "END:VEVENT"
   ].filter(Boolean);
+}
+
+export interface MeetingInvite {
+  uid: string;
+  title: string;
+  startTime: number;
+  durationMinutes?: number;
+  description?: string;
+  url?: string;
+  organiserName?: string;
+  organiserEmail?: string;
+}
+
+const DEFAULT_MEETING_DURATION_MINUTES = 60;
+
+function icalTimestampFromMillis(millis: number): string {
+  const dateTime = millis ? DateTime.fromMillis(millis) : null;
+  return dateTime?.isValid ? formatDateTime(dateTime.toUTC(), UIDateFormat.ICAL_UTC_TIMESTAMP) : null;
+}
+
+export function meetingIcalDocument(meeting: MeetingInvite, calendarName: string): string {
+  const stamp = formatDateTime(dateTimeNow().toUTC(), UIDateFormat.ICAL_UTC_TIMESTAMP);
+  const durationMinutes = meeting.durationMinutes || DEFAULT_MEETING_DURATION_MINUTES;
+  const start = icalTimestampFromMillis(meeting.startTime);
+  const end = icalTimestampFromMillis(meeting.startTime + durationMinutes * 60000);
+  const organiserLabel = escapeIcalText(meeting.organiserName || meeting.organiserEmail);
+  const organiser = meeting.organiserEmail ? `ORGANIZER;CN=${organiserLabel}:mailto:${meeting.organiserEmail}` : null;
+  const attendee = meeting.organiserEmail ? `ATTENDEE;CN=${organiserLabel};RSVP=FALSE:mailto:${meeting.organiserEmail}` : null;
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//NGX Ramblers//Video Meetings//EN",
+    "CALSCALE:GREGORIAN",
+    `METHOD:${meeting.organiserEmail ? "REQUEST" : "PUBLISH"}`,
+    `X-WR-CALNAME:${escapeIcalText(calendarName)}`,
+    "BEGIN:VEVENT",
+    `UID:${escapeIcalText(meeting.uid)}`,
+    `DTSTAMP:${stamp}`,
+    start ? `DTSTART:${start}` : null,
+    end ? `DTEND:${end}` : null,
+    `SUMMARY:${escapeIcalText(meeting.title)}`,
+    meeting.description ? `DESCRIPTION:${escapeIcalText(meeting.description)}` : null,
+    meeting.url ? `LOCATION:${escapeIcalText(meeting.url)}` : null,
+    meeting.url ? `URL:${escapeIcalText(meeting.url)}` : null,
+    organiser,
+    attendee,
+    "STATUS:CONFIRMED",
+    "SEQUENCE:0",
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].filter(Boolean);
+  return lines.map(foldIcalLine).join("\r\n") + "\r\n";
 }
 
 export function icalDocument(events: ExtendedGroupEvent[], config: SystemConfig, baseUrl: string, calendarName: string): string {

@@ -123,6 +123,13 @@
       background: $ramblers-colour-sunrise
       color: #fff
       border-radius: 999px
+  &.suggested:not(.today)
+    border-color: $ramblers-colour-sunset
+    box-shadow: inset 0 0 0 1px $ramblers-colour-sunset
+    .cell-date
+      outline: 2px dashed $ramblers-colour-sunset
+      outline-offset: 1px
+      border-radius: 999px
   &.cdk-drop-list-dragging
     background: rgba(249, 177, 4, 0.12)
 
@@ -274,3 +281,16 @@
   .calendar-toolbar
     flex-direction: column
     align-items: stretch
+
+.select-mode-nav
+  display: flex
+  justify-content: flex-end
+  align-items: flex-start
+  position: relative
+  z-index: 6
+  margin-top: -3.25rem
+  margin-bottom: 1rem
+  pointer-events: none
+
+  > *
+    pointer-events: auto

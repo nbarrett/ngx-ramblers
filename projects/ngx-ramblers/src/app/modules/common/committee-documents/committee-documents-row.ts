@@ -26,6 +26,8 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { sortBy } from "../../../functions/arrays";
 import { CommitteeFileEditor } from "../../../pages/committee/edit/committee-file-editor";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { DateUtilsService } from "../../../services/date-utils.service";
+import { UIDateFormat } from "../../../models/date-format.model";
 
 @Component({
   selector: "app-committee-documents-row",
@@ -226,6 +228,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   actions = inject(PageContentActionsService);
   private committeeFileService = inject(CommitteeFileService);
+  private dateUtils = inject(DateUtilsService);
   private documentConversionService = inject(DocumentConversionService);
   private pageContentService = inject(PageContentService);
   private pageService = inject(PageService);
@@ -293,25 +296,55 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     if (this.committeeDocumentsConfig?.autoFromFirstActionButton) {
       this.loadFilesFromFirstActionButton();
     } else {
-      this.loadFilesByIds(this.committeeDocumentsConfig?.fileIds);
+      this.loadFilesForPath(this.documentsSourcePath || this.urlService.urlPath(), this.committeeDocumentsConfig?.fileIds);
     }
+  }
+
+  private yearFromPath(path: string): string | null {
+    const match = (path || "").match(/(?:^|\/)(\d{4})$/);
+    return match ? match[1] : null;
+  }
+
+  private loadFilesForPath(path: string, fileIds: string[]): void {
+    const year = this.yearFromPath(path);
+    if (year) {
+      this.loadFilesForYear(year, fileIds);
+    } else {
+      this.loadFilesByIds(fileIds);
+    }
+  }
+
+  private async loadFilesForYear(year: string, extraIds: string[] = []): Promise<void> {
+    const yearDate = this.dateUtils.asDateTime(year, UIDateFormat.YEAR);
+    const byYear = await this.committeeFileService.filesInDateRange(
+      yearDate.startOf("year").toMillis(),
+      yearDate.endOf("year").toMillis()
+    );
+    const present = new Set(byYear.map(file => file.id));
+    const missingIds = (extraIds || []).filter(id => id && !present.has(id));
+    const extras = missingIds.length > 0
+      ? await this.committeeFileService.all({criteria: {_id: {$in: missingIds}}})
+      : [];
+    this.applyVisibleFiles([...byYear, ...extras]);
   }
 
   private loadFilesByIds(fileIds: string[]): void {
     if (fileIds?.length > 0) {
-      const sortPrefix = this.committeeDocumentsConfig?.sortDirection === SortDirection.ASC ? "" : "-";
       this.committeeFileService.all({criteria: {_id: {$in: fileIds}}})
-        .then(files => {
-          this.committeeFiles = files
-            .filter(file => this.display.committeeReferenceData?.isPublic(file.fileType)
-              || this.memberLoginService.allowCommittee()
-              || this.memberLoginService.allowFileAdmin())
-            .sort(sortBy(`${sortPrefix}eventDate`));
-          this.logger.info("loadFiles:loaded", this.committeeFiles.length, "visible files of", files.length, "total for", fileIds.length, "IDs");
-        });
+        .then(files => this.applyVisibleFiles(files));
     } else {
       this.committeeFiles = [];
     }
+  }
+
+  private applyVisibleFiles(files: CommitteeFile[]): void {
+    const sortPrefix = this.committeeDocumentsConfig?.sortDirection === SortDirection.ASC ? "" : "-";
+    this.committeeFiles = files
+      .filter(file => this.display.committeeReferenceData?.isPublic(file.fileType)
+        || this.memberLoginService.allowCommittee()
+        || this.memberLoginService.allowFileAdmin())
+      .sort(sortBy(`${sortPrefix}eventDate`));
+    this.logger.info("loadFiles:loaded", this.committeeFiles.length, "visible files of", files.length, "total");
   }
 
   private async loadFilesFromFirstActionButton(): Promise<void> {
@@ -325,7 +358,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     const targetPage = first(childPages);
     if (!targetPage?.rows) {
       this.logger.info("loadFilesFromFirstActionButton:no child pages found for:", currentPath, "- falling back to this page fileIds");
-      this.loadFilesByIds(this.committeeDocumentsConfig?.fileIds);
+      this.loadFilesForPath(currentPath, this.committeeDocumentsConfig?.fileIds);
     } else {
       this.pageTitle = last(targetPage.path.split("/"));
       this.documentsSourcePath = targetPage.path;
@@ -337,11 +370,11 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
           this.imageSource = committeeDocsRow.committeeDocuments.imageSource;
           this.logger.info("loadFilesFromFirstActionButton:resolved imageSource from target page:", this.imageSource);
         }
-        this.logger.info("loadFilesFromFirstActionButton:found", committeeDocsRow.committeeDocuments.fileIds?.length || 0, "file IDs from", targetPage.path);
-        this.loadFilesByIds(committeeDocsRow.committeeDocuments.fileIds);
+        this.logger.info("loadFilesFromFirstActionButton:loading events for", targetPage.path);
+        this.loadFilesForPath(targetPage.path, committeeDocsRow.committeeDocuments.fileIds);
       } else {
         this.logger.info("loadFilesFromFirstActionButton:child page has no committee documents row - falling back to this page fileIds");
-        this.loadFilesByIds(this.committeeDocumentsConfig?.fileIds);
+        this.loadFilesForPath(currentPath, this.committeeDocumentsConfig?.fileIds);
       }
     }
   }
@@ -435,14 +468,10 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     const pageContent = await this.resolveTargetPageContent();
     if (!pageContent) {
       this.logger.info("addFileIdToPageContent:no target page content found");
-      return;
-    }
-    const committeeDocsRow = pageContent.rows?.find(row => this.actions.isCommitteeDocuments(row));
-    if (committeeDocsRow?.committeeDocuments) {
-      committeeDocsRow.committeeDocuments.fileIds = [...(committeeDocsRow.committeeDocuments.fileIds || []), fileId];
-      await this.pageContentService.createOrUpdate(pageContent);
-      this.syncRowFileIds(committeeDocsRow.committeeDocuments.fileIds);
-      this.logger.info("addFileIdToPageContent:added fileId:", fileId, "to page:", pageContent.path, "total fileIds:", committeeDocsRow.committeeDocuments.fileIds.length);
+    } else {
+      await this.committeeFileService.addFileIdToPage(pageContent, fileId);
+      const ids = pageContent.rows?.find(row => this.actions.isCommitteeDocuments(row))?.committeeDocuments?.fileIds || [];
+      this.syncRowFileIds(ids);
     }
   }
 

@@ -1,0 +1,132 @@
+# Self-hosted Jitsi Meet stack for NGX-Ramblers video meetings.
+#
+# This is the standard docker-jitsi-meet four-container topology (web, prosody,
+# jicofo, jvb), wired for JWT authentication so that NGX is the only thing that
+# can issue a valid meeting token. See README.md for setup and how it maps onto
+# the local-vs-remote host toggle in NGX.
+#
+# Local dev:   PUBLIC_URL=https://localhost:8443 and point the NGX video-meetings
+#              host config at the same URL.
+# Self-host:   deploy the equivalent as the ngx-ramblers-jitsi Fly app (see
+#              ../fly.jitsi.toml) with PUBLIC_URL set to the app's public host.
+
+services:
+  web:
+    image: jitsi/web:stable
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT}:80"
+      - "${HTTPS_PORT}:443"
+    volumes:
+      - ${CONFIG}/web:/config:Z
+      - ${CONFIG}/web/crontabs:/var/spool/cron/crontabs:Z
+      - ${CONFIG}/transcripts:/usr/share/jitsi-meet/transcripts:Z
+    environment:
+      - ENABLE_AUTH
+      - ENABLE_GUESTS
+      - AUTH_TYPE
+      - JWT_APP_ID
+      - JWT_APP_SECRET
+      - JWT_ACCEPTED_ISSUERS
+      - JWT_ACCEPTED_AUDIENCES
+      - PUBLIC_URL
+      - TZ
+      - XMPP_DOMAIN
+      - XMPP_AUTH_DOMAIN
+      - XMPP_BOSH_URL_BASE
+      - XMPP_GUEST_DOMAIN
+      - XMPP_MUC_DOMAIN
+      - XMPP_RECORDER_DOMAIN
+      - ENABLE_XMPP_WEBSOCKET
+    depends_on:
+      - prosody
+    networks:
+      meet.jitsi:
+
+  prosody:
+    image: jitsi/prosody:stable
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5347"
+      - "5280"
+    volumes:
+      - ${CONFIG}/prosody/config:/config:Z
+      - ${CONFIG}/prosody/prosody-plugins-custom:/prosody-plugins-custom:Z
+    environment:
+      - AUTH_TYPE
+      - ENABLE_AUTH
+      - ENABLE_GUESTS
+      - JWT_APP_ID
+      - JWT_APP_SECRET
+      - JWT_ACCEPTED_ISSUERS
+      - JWT_ACCEPTED_AUDIENCES
+      - JICOFO_COMPONENT_SECRET
+      - JICOFO_AUTH_USER
+      - JICOFO_AUTH_PASSWORD
+      - JVB_AUTH_USER
+      - JVB_AUTH_PASSWORD
+      - PUBLIC_URL
+      - TZ
+      - XMPP_DOMAIN
+      - XMPP_AUTH_DOMAIN
+      - XMPP_GUEST_DOMAIN
+      - XMPP_MUC_DOMAIN
+      - XMPP_INTERNAL_MUC_DOMAIN
+      - XMPP_RECORDER_DOMAIN
+    networks:
+      meet.jitsi:
+        aliases:
+          - ${XMPP_SERVER}
+
+  jicofo:
+    image: jitsi/jicofo:stable
+    restart: unless-stopped
+    volumes:
+      - ${CONFIG}/jicofo:/config:Z
+    environment:
+      - AUTH_TYPE
+      - ENABLE_AUTH
+      - JICOFO_COMPONENT_SECRET
+      - JICOFO_AUTH_USER
+      - JICOFO_AUTH_PASSWORD
+      - JVB_BREWERY_MUC
+      - TZ
+      - XMPP_DOMAIN
+      - XMPP_AUTH_DOMAIN
+      - XMPP_INTERNAL_MUC_DOMAIN
+      - XMPP_MUC_DOMAIN
+      - XMPP_SERVER
+    depends_on:
+      - prosody
+    networks:
+      meet.jitsi:
+
+  jvb:
+    image: jitsi/jvb:stable
+    restart: unless-stopped
+    ports:
+      - "${JVB_PORT}:${JVB_PORT}/udp"
+    volumes:
+      - ${CONFIG}/jvb:/config:Z
+    environment:
+      - DOCKER_HOST_ADDRESS
+      - JVB_ADVERTISE_IPS
+      - JVB_AUTH_USER
+      - JVB_AUTH_PASSWORD
+      - JVB_BREWERY_MUC
+      - JVB_PORT
+      - JVB_STUN_SERVERS
+      - JICOFO_AUTH_USER
+      - PUBLIC_URL
+      - TZ
+      - XMPP_AUTH_DOMAIN
+      - XMPP_INTERNAL_MUC_DOMAIN
+      - XMPP_SERVER
+    depends_on:
+      - prosody
+    networks:
+      meet.jitsi:
+
+networks:
+  meet.jitsi:

@@ -1,0 +1,44 @@
+# Scaffold Fly config for a dedicated self-hosted Jitsi app (ngx-ramblers-jitsi).
+#
+# STATUS: starting point, not a finished deploy. Jitsi is a four-container stack; Fly runs one
+# container per machine. A real deployment needs a combined image (or Fly process groups) built
+# from jitsi/docker-compose.yml, plus a dedicated IPv4 and UDP 10000 for the video bridge (JVB).
+# See jitsi/README.md. The proven route today is jitsi/docker-compose.yml on any Docker host.
+
+app = "ngx-ramblers-jitsi"
+primary_region = "lhr"
+
+[build]
+  # Point this at a combined docker-jitsi-meet image once built (see jitsi/README.md).
+  image = "jitsi/web:stable"
+
+[env]
+  PUBLIC_URL = "https://ngx-ramblers-jitsi.fly.dev"
+  HTTP_PORT = "8000"
+  HTTPS_PORT = "8443"
+  TZ = "Europe/London"
+  ENABLE_AUTH = "1"
+  ENABLE_GUESTS = "0"
+  AUTH_TYPE = "jwt"
+
+# HTTPS web front end.
+[http_service]
+  internal_port = 8443
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = true
+  min_machines_running = 0
+
+# JVB media bridge — UDP. Requires a dedicated IPv4 (fly ips allocate-v4) and
+# JVB_ADVERTISE_IPS set to that address.
+[[services]]
+  protocol = "udp"
+  internal_port = 10000
+
+  [[services.ports]]
+    port = 10000
+
+# Jitsi's video bridge is not an M0-class workload — give it real CPU and RAM.
+[[vm]]
+  size = "performance-2x"
+  memory = "4gb"

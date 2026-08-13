@@ -63,6 +63,8 @@ import { BOOKING_EMAIL_BLOCK_KEYS, DEFAULT_BOOKING_EMAIL_BLOCKS } from "../../..
 import { BOOKING_MERGE_FIELD_CATALOGUE } from "../../../../models/email-composer.model";
 import { toKebabCase } from "../../../../functions/strings";
 import { ImageActionsDropdownComponent } from "../../../../modules/common/dynamic-content/image-actions-dropdown";
+import { ThumbnailHeadingFrameComponent } from "../../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
+import { DurationPickerComponent } from "../../../../modules/common/duration-picker/duration-picker";
 
 @Component({
     selector: "app-mail-notification-template-mapping-editor",
@@ -378,8 +380,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                   <app-email-body-editor [notificationConfig]="notificationConfig" [isBuiltInProcess]="isWorkflowConfig"/>
                 }
               </div>
-              <div class="thumbnail-heading-frame">
-                <div class="thumbnail-heading">Member Selection And Actions</div>
+              <app-thumbnail-heading-frame heading="Member Selection And Actions">
                 @if (isWorkflowConfig) {
                   <div class="row"
                   >
@@ -410,31 +411,12 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                     </div>
                     <div class="col-sm-6">
                       @if (notificationConfig.defaultMemberSelection !== MemberSelection.MAILING_LIST && notificationConfig.defaultMemberSelection !== MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS) {
-                        <div class="row">
-                          @if (notificationConfig.timeUnit !== NO_DATE_FILTER) {
-                            <div class="col-sm-6">
-                              <div class="form-group">
-                                <label for="campaign-time-amount-filter">Filter Window Amount</label>
-                                <input [(ngModel)]="notificationConfig.monthsInPast"
-                                       type="number" id="campaign-time-amount-filter"
-                                       class="form-control input-sm">
-                              </div>
-                            </div>
-                          }
-                          <div [class.col-sm-6]="notificationConfig.timeUnit !== NO_DATE_FILTER"
-                               [class.col-sm-12]="notificationConfig.timeUnit === NO_DATE_FILTER">
-                            <div class="form-group">
-                              <label for="campaign-time-unit-filter">Filter Window Unit</label>
-                              <select [(ngModel)]="notificationConfig.timeUnit"
-                                      id="campaign-time-unit-filter"
-                                      class="form-control input-sm">
-                                @for (option of rangeUnitOptions; track option.value) {
-                                  <option [ngValue]="option.value">{{ option.label }}</option>
-                                }
-                              </select>
-                            </div>
-                          </div>
-                        </div>
+                        <app-duration-picker [(amount)]="notificationConfig.monthsInPast"
+                                             [unit]="notificationConfig.timeUnit"
+                                             (unitChange)="notificationConfig.timeUnit = $any($event)"
+                                             [units]="rangeUnitOptions" [noAmountValue]="NO_DATE_FILTER"
+                                             amountLabel="Filter Window Amount" unitLabel="Filter Window Unit"
+                                             idPrefix="campaign-time-filter"/>
                       }
                       @if (notificationConfig.defaultMemberSelection === MemberSelection.MAILING_LIST) {
                         <div
@@ -499,13 +481,13 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                     </div>
                   </div>
                 }
-              </div>
+              </app-thumbnail-heading-frame>
             </div>
           }
         </div>
       }
     `,
-    imports: [FormsModule, ContentTextEditor, BadgeButtonComponent, SenderRepliesAndSignoff, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent, RouterLink]
+    imports: [FormsModule, ContentTextEditor, BadgeButtonComponent, SenderRepliesAndSignoff, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent, RouterLink, ThumbnailHeadingFrameComponent, DurationPickerComponent]
 })
 
 export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
