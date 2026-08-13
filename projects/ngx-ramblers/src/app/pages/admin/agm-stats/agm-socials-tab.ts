@@ -21,7 +21,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 
 @Component({
   selector: "[app-agm-socials-tab]",
-  standalone: true,
   imports: [CommonModule, FontAwesomeModule, BaseChartDirective, AGMSummaryTableComponent],
   styleUrls: ["./agm-stats.sass"],
   template: `

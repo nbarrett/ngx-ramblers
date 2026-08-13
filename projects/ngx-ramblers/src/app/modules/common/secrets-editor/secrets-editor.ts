@@ -10,7 +10,6 @@ import { SecretEntry } from "../../../models/backup-session.model";
 
 @Component({
   selector: "app-secrets-editor",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule, SecretInputComponent],
   styles: [`
     :host

@@ -6,7 +6,6 @@ export const TIPTAP_TOOLBAR_OFFSET_VAR = "--tiptap-toolbar-offset";
 
 @Directive({
   selector: "[appStickyControls]",
-  standalone: true
 })
 export class StickyControlsDirective implements AfterViewInit, OnDestroy {
 

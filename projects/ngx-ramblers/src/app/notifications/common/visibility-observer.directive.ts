@@ -5,7 +5,6 @@ import { isBrowser, isString } from "es-toolkit";
 
 @Directive({
   selector: "[app-visibility-observer]",
-  standalone: true
 })
 export class VisibilityObserverDirective implements AfterViewInit {
   @Output() visible = new EventEmitter<void>();

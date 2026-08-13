@@ -4,7 +4,6 @@ import { PaletteColor } from "../../models/content-text.model";
 
 @Component({
   selector: "app-colour-swatch-selector",
-  standalone: true,
   template: `
     <div class="colour-options">
       @for (colour of colours; track colour) {

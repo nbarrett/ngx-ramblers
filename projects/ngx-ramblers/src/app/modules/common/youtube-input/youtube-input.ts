@@ -5,7 +5,6 @@ import { YouTubeQuality } from "../../../models/youtube.model";
 
 @Component({
   selector: "app-youtube-input",
-  standalone: true,
   imports: [FormsModule],
   template: `
     <div class="youtube-input-container">

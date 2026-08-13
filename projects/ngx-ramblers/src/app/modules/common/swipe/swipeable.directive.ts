@@ -2,7 +2,6 @@ import { Directive, ElementRef, EventEmitter, HostListener, inject, OnDestroy, O
 
 @Directive({
   selector: "[appSwipeable]",
-  standalone: true
 })
 export class SwipeableDirective implements OnInit, OnDestroy {
 

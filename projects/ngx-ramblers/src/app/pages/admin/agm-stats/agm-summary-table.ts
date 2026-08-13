@@ -12,7 +12,6 @@ import {
 
 @Component({
   selector: "[app-agm-summary-table]",
-  standalone: true,
   imports: [CommonModule, FontAwesomeModule],
   template: `
     <div class="ngx-data-table-card">

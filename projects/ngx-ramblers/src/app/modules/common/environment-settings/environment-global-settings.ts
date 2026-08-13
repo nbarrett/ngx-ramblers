@@ -13,7 +13,6 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
 
 @Component({
   selector: "app-environment-global-settings",
-  standalone: true,
   imports: [
     FormsModule,
     FontAwesomeModule,

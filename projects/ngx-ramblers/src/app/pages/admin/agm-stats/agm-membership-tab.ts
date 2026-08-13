@@ -18,7 +18,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 
 @Component({
   selector: "[app-agm-membership-tab]",
-  standalone: true,
   imports: [CommonModule, BaseChartDirective, FontAwesomeModule, AGMSummaryTableComponent],
   styleUrls: ["./agm-stats.sass"],
   template: `

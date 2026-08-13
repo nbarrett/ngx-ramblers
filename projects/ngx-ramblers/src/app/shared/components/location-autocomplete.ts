@@ -21,7 +21,6 @@ export interface LocationSuggestion {
 
 @Component({
   selector: "app-location-autocomplete",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent, NgOptionTemplateDirective, AsyncPipe],
   template: `
     <ng-select

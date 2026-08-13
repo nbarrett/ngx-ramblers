@@ -32,7 +32,6 @@ export interface WalksConfig {
   matchWalkLeadersOnWalksManagerSync?: boolean;
   rematchWalkLeadersOnMemberChange?: boolean;
   relatedLinkShowOnRamblers?: boolean;
-  relatedLinkShowThisWalk?: boolean;
   relatedLinkShowMeetup?: boolean;
   relatedLinkShowOsMaps?: boolean;
   relatedLinkShowWhat3words?: boolean;

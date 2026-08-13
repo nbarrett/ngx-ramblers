@@ -35,12 +35,23 @@ export enum EventCaptionToken {
   URL = "url"
 }
 
-export const DEFAULT_EVENT_CAPTION_TEMPLATE = [
+export const DEFAULT_WALK_CAPTION_TEMPLATE = [
   "{title}",
   "",
   "{date} at {time}",
   "Starting from {startLocation}",
   "{distance} · {grade}",
+  "",
+  "{description}",
+  "",
+  "Full details: {url}"
+].join("\n");
+
+export const DEFAULT_SOCIAL_EVENT_CAPTION_TEMPLATE = [
+  "{title}",
+  "",
+  "{date} at {time}",
+  "Where: {startLocation}",
   "",
   "{description}",
   "",
@@ -197,6 +208,7 @@ export interface EventPublishRequest {
   networks?: SocialNetwork[];
   republishChanged?: boolean;
   publicBaseUrl?: string;
+  captions?: Partial<Record<SocialNetwork, string>>;
 }
 
 export interface EventPublishResult {

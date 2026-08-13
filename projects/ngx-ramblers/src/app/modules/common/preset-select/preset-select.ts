@@ -5,7 +5,6 @@ import { SelectablePreset } from "../../../models/search.model";
 
 @Component({
   selector: "app-preset-select",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent, NgLabelTemplateDirective],
   template: `
     <ng-select

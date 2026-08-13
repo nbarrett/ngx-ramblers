@@ -9,7 +9,6 @@ import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
   selector: "app-system-google-maps-settings",
-  standalone: true,
   template: `
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Google Maps</div>

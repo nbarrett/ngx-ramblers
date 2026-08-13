@@ -3,7 +3,6 @@ import { NgControl } from "@angular/forms";
 
 @Directive({
   selector: "input[appLowercaseInput]",
-  standalone: true
 })
 export class LowercaseInputDirective {
 

@@ -54,7 +54,6 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
 
 @Component({
   selector: "app-environment-management",
-  standalone: true,
   imports: [DatePipe, FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent, SecretInputComponent, TooltipDirective],
   styles: [`
     :host

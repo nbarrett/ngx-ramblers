@@ -169,11 +169,6 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       font-size: 1.35rem
       line-height: 1
 
-    .icon-facebook
-      color: #1877f2
-
-    .icon-instagram
-      color: #e4405f
 
     .network-toggle-label
       display: flex

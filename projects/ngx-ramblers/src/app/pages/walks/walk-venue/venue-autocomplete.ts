@@ -16,7 +16,6 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 
 @Component({
   selector: "app-venue-autocomplete",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, AsyncPipe, DecimalPipe, FontAwesomeModule, VenueIconPipe],
   template: `
     <ng-select

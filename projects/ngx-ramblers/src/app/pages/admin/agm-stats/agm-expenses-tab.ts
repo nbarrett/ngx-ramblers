@@ -20,7 +20,6 @@ import { UnpaidExpenseItem } from "../../../models/group-event.model";
 
 @Component({
   selector: "[app-agm-expenses-tab]",
-  standalone: true,
   imports: [CommonModule, FontAwesomeModule, AGMSummaryTableComponent],
   styleUrls: ["./agm-stats.sass"],
   template: `

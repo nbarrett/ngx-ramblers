@@ -6,7 +6,6 @@ import { ExternalSystem } from "../../../models/system.model";
 
 @Component({
   selector: "app-footer-link-setting",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule],
   template: `
     <div class="form-check">

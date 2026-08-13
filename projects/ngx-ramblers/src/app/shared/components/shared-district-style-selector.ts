@@ -8,7 +8,6 @@ import { enumKeyValues, KeyValue } from "../../functions/enums";
 
 @Component({
   selector: "app-shared-district-style-selector",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective],
   styles: [`
     .style-icon

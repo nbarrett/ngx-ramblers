@@ -10,7 +10,6 @@ import { MailService } from "../../../services/mail/mail.service";
 
 @Component({
   selector: "app-email-preview",
-  standalone: true,
   imports: [FontAwesomeModule],
   template: `
     <div class="print-preview" style="height:auto;overflow:visible;">

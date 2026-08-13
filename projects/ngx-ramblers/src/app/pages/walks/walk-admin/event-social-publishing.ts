@@ -154,7 +154,7 @@ import {
             <ng-template appSortableTableExpandedRow let-row>
               <div class="post-preview">
                 <div class="post-preview-heading">
-                  <fa-icon [icon]="faFacebook" class="me-2"/>
+                  <fa-icon [icon]="faFacebook" class="me-2 icon-facebook"/>
                   <strong>This is exactly what will be posted</strong>
                 </div>
                 <div class="post-preview-body">
@@ -282,6 +282,7 @@ export class EventSocialPublishingComponent implements OnInit, OnDestroy {
   protected sortKey = "startDateTime";
   protected sortDirection = ASCENDING;
   protected uploadingEventId: string;
+  private uploadTargetEventId: string;
   protected uploader: FileUploader;
   @ViewChild("imageFileInput") private imageFileInput: ElementRef<HTMLInputElement>;
 
@@ -395,7 +396,7 @@ export class EventSocialPublishingComponent implements OnInit, OnDestroy {
   }
 
   protected chooseImageFor(row: PublishableEventRow): void {
-    this.uploadingEventId = row.eventId;
+    this.uploadTargetEventId = row.eventId;
     const rootFolder = row.itemType === RamblersEventType.GROUP_EVENT
       ? RootFolder.socialEventsImages
       : RootFolder.walkImages;
@@ -408,11 +409,12 @@ export class EventSocialPublishingComponent implements OnInit, OnDestroy {
   }
 
   protected onImageSelected(files: File[]): void {
+    this.uploadingEventId = this.uploadTargetEventId;
     this.notify.progress({title: "Image upload", message: `Uploading ${files?.[0]?.name} - please wait`});
   }
 
   private async onImageUploaded(response: string | HttpErrorResponse): Promise<void> {
-    const eventId = this.uploadingEventId;
+    const eventId = this.uploadTargetEventId;
     try {
       const uploaded: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
       const awsFileName = uploaded?.fileNameData?.awsFileName;
@@ -429,6 +431,7 @@ export class EventSocialPublishingComponent implements OnInit, OnDestroy {
       this.notify.error({title: "Could not add the image", message: error?.error?.error || error?.message || error});
     } finally {
       this.uploadingEventId = null;
+      this.uploadTargetEventId = null;
     }
   }
 

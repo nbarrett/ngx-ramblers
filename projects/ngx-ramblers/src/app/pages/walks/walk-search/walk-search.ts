@@ -273,7 +273,6 @@ import { PresetSelect } from "../../../modules/common/preset-select/preset-selec
       }
     }`,
   imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule, RouterLink, NgTemplateOutlet, PresetSelect],
-    standalone: true
 })
 export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 

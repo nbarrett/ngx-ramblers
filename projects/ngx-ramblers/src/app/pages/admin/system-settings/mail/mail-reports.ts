@@ -67,7 +67,6 @@ enum MailReportType {
 
 @Component({
   selector: "app-mail-reports",
-  standalone: true,
   imports: [DateRangeSlider, DraggableModalComponent, EmailPreviewComponent, FontAwesomeModule, FormsModule, PageComponent, RouterLink, SectionToggle],
   template: `
     <app-page autoTitle>

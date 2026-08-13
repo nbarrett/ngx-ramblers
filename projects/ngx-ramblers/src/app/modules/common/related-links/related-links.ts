@@ -1,9 +1,8 @@
-import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from "@angular/core";
+import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCalendarPlus, faCopy, faEye, faRoute, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarPlus, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { RelatedLinkComponent } from "./related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { DisplayedWalk, Links } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { MeetupService } from "../../../services/meetup.service";
@@ -16,9 +15,6 @@ import { VenueService } from "../../../services/venue/venue.service";
 import { WalksConfig } from "../../../models/walks-config.model";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { Subscription } from "rxjs";
-import { NotifierService } from "../../../services/notifier.service";
-import { AlertTarget } from "../../../models/alert-target.model";
-import { WalkShareService } from "../../../pages/walks/walk-share.service";
 import { UrlService } from "../../../services/url.service";
 import { FileNameData } from "../../../models/aws-object.model";
 
@@ -33,39 +29,6 @@ import { FileNameData } from "../../../models/aws-object.model";
              alt="On Ramblers"/>
         <a content tooltip="Click to view on Ramblers Walks and Events Manager" target="_blank"
            [href]="displayedWalk?.ramblersLink">On Ramblers</a>
-      </div>
-    }
-    @if (displayedWalk.walkLink && showLink('relatedLinkShowThisWalk')) {
-      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-           class="col-sm-12">
-        <fa-icon title [icon]="faShareNodes" class="fa-icon share-icon"
-                 tooltip="Share this {{display.eventTypeTitle(displayedWalk.walk)}}"
-                 role="button" (click)="shareWalk()"></fa-icon>
-        <div content class="walk-link-dropdown" dropdown dropup container="body"
-             (mouseenter)="showDropdown()" (mouseleave)="scheduleHide()"
-             #walkLinkDropdown="bs-dropdown">
-          <a dropdownToggle class="tooltip-link rams-text-decoration-pink walk-link-toggle">
-            This {{ display.eventTypeTitle(displayedWalk.walk) }}
-          </a>
-          <ul *dropdownMenu class="dropdown-menu walk-link-dropdown-menu"
-              (mouseenter)="showDropdown()" (mouseleave)="scheduleHide()">
-            <li>
-              <a class="dropdown-item" [href]="displayedWalk.walkLink" target="_blank">
-                <fa-icon [icon]="faEye" class="fa-icon me-2"/>View this {{ display.eventTypeTitle(displayedWalk.walk).toLowerCase() }}
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item walk-link-action" role="button" (click)="shareWalk()">
-                <fa-icon [icon]="faShareNodes" class="fa-icon me-2"/>Share this {{ display.eventTypeTitle(displayedWalk.walk).toLowerCase() }}
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item walk-link-action" role="button" (click)="copyLink()">
-                <fa-icon [icon]="faCopy" class="fa-icon me-2"/>Copy link
-              </a>
-            </li>
-          </ul>
-        </div>
       </div>
     }
     @if (links?.meetup && showLink('relatedLinkShowMeetup')) {
@@ -136,32 +99,8 @@ import { FileNameData } from "../../../models/aws-object.model";
     }
   `,
   styles: [`
-    .share-icon
-      cursor: pointer
-
-    .walk-link-dropdown
-      position: relative
-      display: inline-block
-
-    .walk-link-toggle
-      cursor: pointer
-
-    .walk-link-dropdown-menu
-      margin-bottom: -2px
-      background-color: #eeeeee
-      border: 1px solid #ddd
-
-    .walk-link-dropdown-menu .dropdown-item
-      text-decoration: none !important
-      background-image: none !important
-      background-color: #eeeeee
-      font-weight: bold
-      color: inherit
-
-    .walk-link-dropdown-menu .walk-link-action
-      cursor: pointer
   `],
-  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
+  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe]
 })
 export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RelatedLinksComponent", NgxLoggerLevel.ERROR);
@@ -171,21 +110,12 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private linksService = inject(LinksService);
   private venueService = inject(VenueService);
   private walksConfigService = inject(WalksConfigService);
-  private notifierService = inject(NotifierService);
-  private walkShareService = inject(WalkShareService);
   private urlService = inject(UrlService);
   @Input() displayedWalk: DisplayedWalk;
   @Input() walksConfigOverride?: WalksConfig;
   public links: Links = null;
   public walksConfig: WalksConfig;
-  public notifyTarget: AlertTarget = {};
   private subscriptions: Subscription[] = [];
-  private notify = this.notifierService.createAlertInstance(this.notifyTarget);
-  private hideTimeout: ReturnType<typeof setTimeout>;
-  @ViewChild("walkLinkDropdown") walkLinkDropdown?: BsDropdownDirective;
-  protected readonly faShareNodes = faShareNodes;
-  protected readonly faEye = faEye;
-  protected readonly faCopy = faCopy;
   protected readonly faRoute = faRoute;
   protected readonly faCalendarPlus = faCalendarPlus;
 
@@ -209,7 +139,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    clearTimeout(this.hideTimeout);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -260,25 +189,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
       && Number.isFinite(longitude)
       && !(latitude === 0 && longitude === 0);
     return valid ? {latitude, longitude} : null;
-  }
-
-  showDropdown(): void {
-    clearTimeout(this.hideTimeout);
-    this.walkLinkDropdown?.show();
-  }
-
-  scheduleHide(): void {
-    this.hideTimeout = setTimeout(() => {
-      this.walkLinkDropdown?.hide();
-    }, 200);
-  }
-
-  shareWalk(): Promise<void> {
-    return this.walkShareService.shareWalk(this.displayedWalk, this.notify);
-  }
-
-  copyLink(): Promise<void> {
-    return this.walkShareService.copyLink(this.displayedWalk, this.notify);
   }
 
   gpxDownloadUrl(): string | undefined {

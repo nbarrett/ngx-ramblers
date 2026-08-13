@@ -31,7 +31,6 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 @Component({
   selector: "app-environment-settings",
-  standalone: true,
   imports: [
     FormsModule,
     SectionToggle,

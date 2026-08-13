@@ -4,7 +4,6 @@ import { reversed } from "../../functions/arrays";
 
 @Component({
   selector: "app-session-logs",
-  standalone: true,
   imports: [NgClass],
   template: `
     <div class="session-logs">

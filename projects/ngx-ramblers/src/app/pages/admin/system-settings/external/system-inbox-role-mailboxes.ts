@@ -11,7 +11,6 @@ import { InboxAliasConfigView, InboxNotifyMode, isInboxGeneralRoleType } from ".
 
 @Component({
   selector: "app-system-inbox-role-mailboxes",
-  standalone: true,
   template: `
     <div>
       <p class="text-muted">

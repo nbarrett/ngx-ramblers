@@ -53,7 +53,6 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 
 @Component({
   selector: "app-advanced-search-panel",
-  standalone: true,
   imports: [
     FormsModule,
     FontAwesomeModule,

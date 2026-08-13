@@ -13,7 +13,6 @@ import {
 
 @Component({
   selector: "app-sortable-table",
-  standalone: true,
   imports: [NgTemplateOutlet, FontAwesomeModule],
   template: `
     <div class="sortable-table-card" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">

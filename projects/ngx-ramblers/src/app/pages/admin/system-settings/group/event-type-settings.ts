@@ -120,24 +120,6 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
                [for]="idFor('show-related-links')">Show "Related Links" Box on {{ eventTypeTitle }} Pages</label>
       </div>
     </div>
-    @if (eventType === RamblersEventType.GROUP_WALK) {
-      <div class="form-group">
-        <div class="form-check">
-          <input [(ngModel)]="group.showWalkShareInHeader"
-                 type="checkbox" class="form-check-input"
-                 [id]="idFor('show-share-in-header')">
-          <label class="form-check-label"
-                 [for]="idFor('show-share-in-header')">Show "Share" Row in {{ eventTypeTitle }} Leader Panel</label>
-        </div>
-      </div>
-    } @else {
-      <div class="form-group invisible" aria-hidden="true">
-        <div class="form-check">
-          <input type="checkbox" class="form-check-input" tabindex="-1">
-          <label class="form-check-label">&nbsp;</label>
-        </div>
-      </div>
-    }
     <div class="form-group">
       <label [for]="idFor('contact-method')">{{ eventTypeTitle }} Contact Method</label>
       <select [(ngModel)]="group[fields.contactMethod]"

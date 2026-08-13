@@ -6,7 +6,6 @@ import { SectionToggle } from "../../shared/components/section-toggle";
 
 @Component({
   selector: "app-date-range-direction-selector",
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.Default,
   imports: [SectionToggle],
   template: `

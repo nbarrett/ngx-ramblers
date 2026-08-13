@@ -10,7 +10,6 @@ export interface CloudflareUrlParseResult {
 
 @Component({
   selector: "app-cloudflare-url-input",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule],
   template: `
     <div class="row mb-2">

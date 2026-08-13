@@ -7,7 +7,6 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 
 @Component({
   selector: "app-venue-type-select",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, FontAwesomeModule],
   styles: [`
     .venue-type-item

@@ -19,7 +19,8 @@ import { eventImages } from "../shared/event-images";
 import { applyImageSourceTo } from "../../../projects/ngx-ramblers/src/app/functions/media";
 import { publishToFacebookPage } from "../facebook/facebook-publish";
 import { publishEventToInstagram } from "../instagram/instagram-publish";
-import { buildEventCaption, captionFingerprint, eventCaptionInputFrom } from "./event-caption-builder";
+import { buildEventCaption, captionFingerprint, defaultTemplateForEvent, eventCaptionInputFrom } from "./event-caption-builder";
+import { withLink } from "./caption-builder";
 import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromMillis, dateTimeNowAsValue } from "../shared/dates";
 import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
@@ -62,7 +63,9 @@ async function publicationFor(eventId: string, network: SocialNetwork): Promise<
 
 export async function captionFor(event: ExtendedGroupEvent, config: SystemConfig, baseUrl: string): Promise<string> {
   const eventUrl = eventUrlFor(event, config?.group, baseUrl);
-  return buildEventCaption(eventCaptionInputFrom(event, eventUrl), config?.externalSystems?.facebook?.eventCaptionTemplate);
+  const customTemplate = config?.externalSystems?.facebook?.eventCaptionTemplate?.trim();
+  const template = customTemplate || defaultTemplateForEvent(event);
+  return buildEventCaption(eventCaptionInputFrom(event, eventUrl), template);
 }
 
 function assertEventPublishingConfigured(config: SystemConfig, network: SocialNetwork): void {
@@ -110,13 +113,17 @@ export async function publishEventToNetwork(
   network: SocialNetwork,
   config: SystemConfig,
   baseUrl: string,
-  republishChanged: boolean
+  republishChanged: boolean,
+  captionOverride?: string
 ): Promise<EventPublishResult> {
   const event = await extendedGroupEvent.findById(eventId).lean().exec() as ExtendedGroupEvent;
   if (!event) {
     return {eventId, network, outcome: EventPublishOutcome.FAILED, error: `No event found with id ${eventId}`};
   } else {
-    const caption = await captionFor(event, config, baseUrl);
+    const eventUrl = eventUrlFor(event, config?.group, baseUrl);
+    const caption = captionOverride?.trim()
+      ? withLink(captionOverride.trim(), eventUrl, "Full details:")
+      : await captionFor(event, config, baseUrl);
     const fingerprint = captionFingerprint(caption);
     const existing = await publicationFor(eventId, network);
     const unchanged = existing?.captionFingerprint === fingerprint;
@@ -140,8 +147,7 @@ export async function publishEventToNetwork(
       };
     } else {
       const images = eventImages(event, baseUrl);
-      const link = eventUrlFor(event, config?.group, baseUrl);
-      const result = await publishToNetwork(network, config, images, caption, link);
+      const result = await publishToNetwork(network, config, images, caption, eventUrl);
       await socialPublication.create({
         eventId,
         eventTitle: event.groupEvent?.title,
@@ -172,7 +178,8 @@ export async function publishEventsToNetworks(
   networks: SocialNetwork[],
   config: SystemConfig,
   baseUrl: string,
-  republishChanged: boolean
+  republishChanged: boolean,
+  captionOverrides?: Partial<Record<SocialNetwork, string>>
 ): Promise<EventPublishResult[]> {
   networks.forEach(network => assertEventPublishingConfigured(config, network));
   const jobs = networks.flatMap(network => eventIds.map(eventId => ({eventId, network})));
@@ -182,7 +189,7 @@ export async function publishEventsToNetworks(
       await delay(PUBLISH_DELAY_MILLIS);
     }
     try {
-      results.push(await publishEventToNetwork(job.eventId, job.network, config, baseUrl, republishChanged));
+      results.push(await publishEventToNetwork(job.eventId, job.network, config, baseUrl, republishChanged, captionOverrides?.[job.network]));
     } catch (error) {
       debugLog("publish failed for event:", job.eventId, "network:", job.network, "error:", error);
       results.push({

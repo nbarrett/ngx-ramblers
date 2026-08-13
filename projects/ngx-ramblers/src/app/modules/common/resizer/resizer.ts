@@ -21,7 +21,6 @@ export enum ResizerMode {
 
 @Component({
   selector: "app-resizer",
-  standalone: true,
   imports: [],
   template: `
     <div class="resizer-surface"

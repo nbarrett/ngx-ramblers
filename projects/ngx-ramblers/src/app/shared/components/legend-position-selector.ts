@@ -8,7 +8,6 @@ import { enumKeyValues, KeyValue } from "../../functions/enums";
 
 @Component({
   selector: "app-legend-position-selector",
-  standalone: true,
   imports: [FormsModule, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective],
   styles: [`
     .position-icon

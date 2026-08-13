@@ -20,7 +20,6 @@ const CUSTOM_PRESET_LABEL = "Custom";
 
 @Component({
   selector: "app-date-range-selector",
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.Default,
   imports: [FormsModule, DateRangeSlider, SectionToggle],
   template: `

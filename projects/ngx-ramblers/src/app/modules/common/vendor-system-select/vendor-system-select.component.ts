@@ -8,7 +8,6 @@ import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark
 
 @Component({
   selector: "app-vendor-system-select",
-  standalone: true,
   imports: [
     FormsModule,
     FontAwesomeModule,

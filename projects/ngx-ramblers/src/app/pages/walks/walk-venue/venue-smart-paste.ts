@@ -10,7 +10,6 @@ import { isEmpty } from "es-toolkit/compat";
 
 @Component({
   selector: "app-venue-smart-paste",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule],
   template: `
     <div class="smart-paste-container">

@@ -21,7 +21,6 @@ import { StoredValue } from "../../../../models/ui-actions";
 
 @Component({
   selector: "app-campaign-detail",
-  standalone: true,
   imports: [EmailPreviewComponent, FontAwesomeModule, PageComponent, RouterLink],
   template: `
     <app-page [pageTitle]="pageTitle" [showTitle]="false">

@@ -12,7 +12,6 @@ import { UiActionsService } from "../../../services/ui-actions.service";
 
 @Component({
   selector: "app-dynamic-content-search-input",
-  standalone: true,
   template: `
     <div class="row mb-3">
       <div class="col-12">

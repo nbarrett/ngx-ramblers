@@ -14,7 +14,6 @@ export interface MaximisableMapState {
 
 @Component({
   selector: "app-maximisable-map",
-  standalone: true,
   exportAs: "maximisableMap",
   imports: [FontAwesomeModule, TooltipDirective],
   encapsulation: ViewEncapsulation.None,

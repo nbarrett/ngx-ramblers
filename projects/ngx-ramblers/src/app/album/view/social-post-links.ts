@@ -52,11 +52,6 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
     .social-post-link-icon
       font-size: 1.05rem
 
-    .icon-facebook
-      color: #1877f2
-
-    .icon-instagram
-      color: #e4405f
 
     .social-post-link:hover .social-post-link-icon,
     .social-post-link:focus-visible .social-post-link-icon

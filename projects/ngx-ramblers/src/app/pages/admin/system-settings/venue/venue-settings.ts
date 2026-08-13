@@ -24,7 +24,6 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
 
 @Component({
   selector: "app-venue-settings",
-  standalone: true,
   imports: [FormsModule, FontAwesomeModule, VenueIconPipe, PageComponent, VenueTypeSelect, TooltipDirective, ContentTextEditor, TabsetComponent, TabDirective, VenueEditorComponent],
   styles: [`
     .table-container

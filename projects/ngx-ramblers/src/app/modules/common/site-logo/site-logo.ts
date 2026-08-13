@@ -9,7 +9,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 
 @Component({
   selector: "app-site-logo",
-  standalone: true,
   imports: [CommonModule],
   template: `
     @if (logo?.awsFileName) {

@@ -7,7 +7,7 @@ import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { SystemConfig } from "../../../../models/system.model";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import {
-  DEFAULT_EVENT_CAPTION_TEMPLATE,
+  DEFAULT_WALK_CAPTION_TEMPLATE,
   EventCaptionToken,
   FacebookPageOption,
   FacebookPostStyle
@@ -94,9 +94,9 @@ import { UIDateFormat } from "../../../../models/date-format.model";
           }
           @if (connectedPageName) {
             <div class="mt-2 mb-2">
-              <div><fa-icon [icon]="faFacebook"/> Facebook Page: <strong>{{ connectedPageName }}</strong></div>
+              <div><fa-icon [icon]="faFacebook" class="icon-facebook"/> Facebook Page: <strong>{{ connectedPageName }}</strong></div>
               <div>
-                <fa-icon [icon]="faInstagram"/> Instagram:
+                <fa-icon [icon]="faInstagram" class="icon-instagram"/> Instagram:
                 @if (instagramLinked) {
                   <strong>linked and ready</strong>
                 } @else {
@@ -189,7 +189,7 @@ import { UIDateFormat } from "../../../../models/date-format.model";
                     <textarea [(ngModel)]="config.externalSystems.facebook.eventCaptionTemplate"
                               id="facebook-event-caption-template" rows="6" class="form-control input-sm"
                               [disabled]="!config.externalSystems.facebook.eventPublishingEnabled"
-                              [placeholder]="DEFAULT_EVENT_CAPTION_TEMPLATE"></textarea>
+                              [placeholder]="DEFAULT_WALK_CAPTION_TEMPLATE"></textarea>
                     <small class="text-muted">Available placeholders: {{ captionTokens }}. A line whose placeholders are
                       all empty is left out.</small>
                   </div>
@@ -227,7 +227,7 @@ export class SystemSocialPublishingSettings implements OnInit, OnDestroy {
   protected readonly faInstagram = faInstagram;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly FacebookPostStyle = FacebookPostStyle;
-  protected readonly DEFAULT_EVENT_CAPTION_TEMPLATE = DEFAULT_EVENT_CAPTION_TEMPLATE;
+  protected readonly DEFAULT_WALK_CAPTION_TEMPLATE = DEFAULT_WALK_CAPTION_TEMPLATE;
   protected readonly captionTokens = values(EventCaptionToken).map(token => `{${token}}`).join(", ");
 
   private systemConfigService = inject(SystemConfigService);

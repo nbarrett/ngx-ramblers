@@ -12,7 +12,6 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
 
 @Directive({
   selector: "textarea[appEmojiShortcodes], input[appEmojiShortcodes]",
-  standalone: true
 })
 export class EmojiShortcodesDirective implements OnDestroy {
 
