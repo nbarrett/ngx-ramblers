@@ -346,6 +346,12 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                                id="related-link-show-gpx">
                         <label class="form-check-label" for="related-link-show-gpx">Download GPX route</label>
                       </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowCalendar"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-calendar">
+                        <label class="form-check-label" for="related-link-show-calendar">Add to calendar</label>
+                      </div>
                     </div>
                     <div class="col-lg-7">
                       <div class="fw-bold mb-2">Preview — walk details page</div>

@@ -6,7 +6,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { SystemConfig } from "../../../../models/system.model";
 import { AlertTarget } from "../../../../models/alert-target.model";
-import { FacebookPageOption } from "../../../../models/social-publish.model";
+import {
+  DEFAULT_EVENT_CAPTION_TEMPLATE,
+  EventCaptionToken,
+  FacebookPageOption,
+  FacebookPostStyle
+} from "../../../../models/social-publish.model";
+import { faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { values } from "es-toolkit/compat";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { SocialPublishService } from "../../../../services/social/social-publish.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
@@ -118,6 +125,77 @@ import { UIDateFormat } from "../../../../models/date-format.model";
               }
               <app-facebook-button button title="Check token" (click)="checkTokenHealth()"/>
             </div>
+            <div class="mt-4">
+              <div class="thumbnail-heading">Publish walks and social events</div>
+              <div class="alert alert-warning d-flex align-items-start mt-2">
+                <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
+                <div>
+                  <strong>Facebook Events cannot be created automatically</strong>
+                  <div>Meta's API does not allow any app to create a Facebook Event, so these are published as Page
+                    posts linking back to the event on this site. Posts reach the same feed, but give no RSVP list and
+                    no entry in the Page's Events tab.
+                  </div>
+                </div>
+              </div>
+              <div class="form-check">
+                <input [(ngModel)]="config.externalSystems.facebook.eventPublishingEnabled"
+                       type="checkbox" class="form-check-input" id="facebook-event-publishing-enabled">
+                <label class="form-check-label" for="facebook-event-publishing-enabled">
+                  Allow walks and social events to be published to Facebook
+                </label>
+              </div>
+              <div class="form-check">
+                <input [(ngModel)]="config.externalSystems.instagram.eventPublishingEnabled"
+                       type="checkbox" class="form-check-input" id="instagram-event-publishing-enabled"
+                       [disabled]="!instagramLinked">
+                <label class="form-check-label" for="instagram-event-publishing-enabled">
+                  Allow walks and social events to be published to Instagram
+                </label>
+              </div>
+              @if (config.externalSystems.instagram.eventPublishingEnabled) {
+                <div class="alert alert-warning d-flex align-items-start mt-2">
+                  <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
+                  <div>
+                    <strong>Instagram works differently</strong>
+                    <div>Instagram captions cannot contain clickable links, so the link back to the event appears as
+                      plain text. An event with no image cannot be posted to Instagram at all and will be skipped.
+                    </div>
+                  </div>
+                </div>
+              }
+              <div class="form-check mb-2">
+                <input [(ngModel)]="config.externalSystems.facebook.eventRepublishOnChange"
+                       type="checkbox" class="form-check-input" id="facebook-event-republish"
+                       [disabled]="!config.externalSystems.facebook.eventPublishingEnabled">
+                <label class="form-check-label" for="facebook-event-republish">
+                  Post again when a published event is rescheduled or cancelled
+                </label>
+              </div>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="facebook-event-post-style">Post style</label>
+                    <select [(ngModel)]="config.externalSystems.facebook.eventPostStyle" id="facebook-event-post-style"
+                            class="form-control input-sm"
+                            [disabled]="!config.externalSystems.facebook.eventPublishingEnabled">
+                      <option [ngValue]="FacebookPostStyle.LINK_PREVIEW">Link with preview card</option>
+                      <option [ngValue]="FacebookPostStyle.PHOTO_WITH_LINK">Photos with link in the text</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="facebook-event-caption-template">Post text</label>
+                    <textarea [(ngModel)]="config.externalSystems.facebook.eventCaptionTemplate"
+                              id="facebook-event-caption-template" rows="6" class="form-control input-sm"
+                              [disabled]="!config.externalSystems.facebook.eventPublishingEnabled"
+                              [placeholder]="DEFAULT_EVENT_CAPTION_TEMPLATE"></textarea>
+                    <small class="text-muted">Available placeholders: {{ captionTokens }}. A line whose placeholders are
+                      all empty is left out.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
           }
           @if (notifyTarget.showAlert) {
             <div class="alert mt-2 {{ notifyTarget.alertClass }}">
@@ -147,6 +225,10 @@ export class SystemSocialPublishingSettings implements OnInit, OnDestroy {
   protected readonly InputSize = InputSize;
   protected readonly faFacebook = faFacebook;
   protected readonly faInstagram = faInstagram;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly FacebookPostStyle = FacebookPostStyle;
+  protected readonly DEFAULT_EVENT_CAPTION_TEMPLATE = DEFAULT_EVENT_CAPTION_TEMPLATE;
+  protected readonly captionTokens = values(EventCaptionToken).map(token => `{${token}}`).join(", ");
 
   private systemConfigService = inject(SystemConfigService);
   private socialPublishService = inject(SocialPublishService);

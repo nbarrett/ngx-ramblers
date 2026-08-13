@@ -13,6 +13,7 @@ import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/syst
 import { systemConfig } from "../config/system-config";
 import { resolveAlbumImages } from "./album-images";
 import { publishAlbumToFacebook } from "../facebook/facebook-publish";
+import { withLink } from "./caption-builder";
 import { publishAlbumToInstagram } from "../instagram/instagram-publish";
 import { socialPublication } from "../mongo/models/social-publication";
 import { dateTimeNowAsValue } from "../shared/dates";
@@ -114,10 +115,11 @@ export async function handleSocialPublishAlbum(ws: WebSocket, data: SocialPublis
       const imagesByName = new Map(resolvedImages.map(image => [image.image, image]));
       debugLog("resolved images:", resolvedImages.length, "baseUrl:", baseUrl);
       for (const network of networks) {
-        const caption = data?.captions?.[network] || "";
+        const enteredCaption = data?.captions?.[network] || "";
+        const caption = withLink(enteredCaption, data?.albumUrl, "See the full album:");
         const networkImageNames = imageNamesFor(network);
         const networkImages = networkImageNames.map(name => imagesByName.get(name)).filter(Boolean);
-        if (!caption?.trim()) {
+        if (!enteredCaption?.trim()) {
           results.push({network, success: false, error: `A caption is required for ${network}`});
         } else if (networkImages.length === 0) {
           results.push({network, success: false, error: `Select at least one image to publish to ${network}`});

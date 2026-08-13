@@ -11,7 +11,8 @@ import { ButtonWrapper } from "./button-wrapper";
       width: 17px
   `],
   template: `
-    <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
+    <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip"
+                        [iconOnly]="iconOnly" [title]="title">
       <img title class="image"
            src="/assets/images/local/instagram.ico"
            alt="{{title}}"/>
@@ -24,6 +25,7 @@ export class InstagramButton implements OnInit {
   public disabled: boolean;
   public button: boolean;
   public showTooltip: boolean;
+  public iconOnly: boolean;
   public title: string;
 
   @Input("title") set titleValue(value: string) {
@@ -40,6 +42,10 @@ export class InstagramButton implements OnInit {
 
   @Input("showTooltip") set showTooltipValue(value: boolean) {
     this.showTooltip = coerceBooleanProperty(value);
+  }
+
+  @Input("iconOnly") set iconOnlyValue(value: boolean) {
+    this.iconOnly = coerceBooleanProperty(value);
   }
 
   ngOnInit(): void {

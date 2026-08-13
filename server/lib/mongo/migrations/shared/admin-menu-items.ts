@@ -198,6 +198,15 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   }
 ];
 
+export const SOCIAL_MEDIA_PUBLISHING_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "loggedInMember",
+  title: "Social Media Publishing",
+  icon: "faShareNodes",
+  iconColour: "ramblers",
+  href: "walks/admin/social-publishing",
+  contentText: "* Post walks and social events to Facebook and Instagram\n* Preview the exact wording and photos before anything is sent\n* See what has already been posted, and what has changed since"
+};
+
 export const ENVIRONMENT_MIGRATION_MENU_ITEM: ActionButtonColumn = {
   accessLevel: "committee",
   title: "Environment Migration",

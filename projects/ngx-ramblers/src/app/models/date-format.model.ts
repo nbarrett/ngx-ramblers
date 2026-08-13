@@ -44,7 +44,8 @@ export enum UIDateFormat {
   WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED = "ccc, d MMM yyyy",
   WEEKDAY_DAY_MONTH_YEAR = "ccc, d MMMM yyyy",
   WEEKDAY_DAY_MONTH_YEAR_APOSTROPHE = "ccc, d MMMM ''yy",
-  UTC_TIMESTAMP_WITH_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+  UTC_TIMESTAMP_WITH_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+  ICAL_UTC_TIMESTAMP = "yyyyMMdd'T'HHmmss'Z'"
 }
 
 export enum BsDatepickerFormat {

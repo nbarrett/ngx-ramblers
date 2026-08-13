@@ -6,6 +6,7 @@ import { GoogleMapsConfig, WalkListView } from "./walk.model";
 import { HasStyles } from "./content-text.model";
 import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { Tag } from "./tag.model";
+import { FacebookPostStyle } from "./social-publish.model";
 
 export { GoogleMapsConfig };
 
@@ -222,6 +223,8 @@ export interface Organisation extends Group {
   walkLeaderPhoneAction?: WalkLeaderPhoneAction;
   shortName?: string;
   href?: string;
+  walksBasePath?: string;
+  socialEventsBasePath?: string;
   eventTags?: Tag[];
   pages: Link[];
   groups?: AreaGroup[];
@@ -270,6 +273,7 @@ export interface Instagram extends ExternalSystem {
   groupName?: string;
   igUserId?: string;
   publishingEnabled?: boolean;
+  eventPublishingEnabled?: boolean;
 }
 
 export interface Meetup extends ExternalSystem {
@@ -290,6 +294,10 @@ export interface Facebook extends ExternalSystem {
   pageId?: string;
   pageAccessToken?: string;
   publishingEnabled?: boolean;
+  eventPublishingEnabled?: boolean;
+  eventPostStyle?: FacebookPostStyle;
+  eventCaptionTemplate?: string;
+  eventRepublishOnChange?: boolean;
 }
 
 export interface Flickr extends ExternalSystem {

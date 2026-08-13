@@ -19,23 +19,24 @@ export function walksManagerContactNamesForCsv(walk: ExtendedGroupEvent): WalksM
   return normalisedWalkLeaderName(walk?.fields?.publishing?.ramblers?.contactName) || "";
 }
 
-export function walkLeaderFirstNameForAlbumThanks(walk: ExtendedGroupEvent): string {
+function walksManagerFirstName(walk: ExtendedGroupEvent): string {
   const contactName = walksManagerContactNamesForCsv(walk);
-  if (contactName) {
-    const firstFromContact = jointWalkLeaderNames(contactName)[0]?.split(/\s+/).filter(Boolean)[0];
-    if (firstFromContact) {
-      return firstFromContact;
-    }
-  }
+  return contactName ? jointWalkLeaderNames(contactName)[0]?.split(/\s+/).filter(Boolean)[0] || "" : "";
+}
+
+export function walkLeaderFirstNameForAlbumThanks(walk: ExtendedGroupEvent): string {
   const displayName = websiteWalkLeaderDisplayName(walk);
-  if (!displayName) {
-    return "";
-  }
   const spaced = displayName.split(/\s+/).filter(Boolean);
+  const fromWalksManager = walksManagerFirstName(walk);
   if (spaced.length > 1) {
     return spaced[0];
+  } else if (displayName && fromWalksManager && displayName.toLowerCase().startsWith(fromWalksManager.toLowerCase())) {
+    return fromWalksManager;
+  } else if (displayName) {
+    return displayName;
+  } else {
+    return fromWalksManager;
   }
-  return displayName;
 }
 
 export function walksManagerWalkLeaderNameFromGroupEvent(groupEvent: GroupEvent): WalksManagerListedWalkLeaderName {

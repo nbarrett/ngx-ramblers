@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCopy, faEye, faRoute, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarPlus, faCopy, faEye, faRoute, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { RelatedLinkComponent } from "./related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
@@ -103,6 +103,16 @@ import { FileNameData } from "../../../models/aws-object.model";
         </a>
       </div>
     }
+    @if (calendarDownloadUrl() && showLink('relatedLinkShowCalendar')) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+           class="col-sm-12">
+        <fa-icon title [icon]="faCalendarPlus" class="fa-icon"></fa-icon>
+        <a content tooltip="Click to add this {{display.eventTypeTitle(displayedWalk.walk).toLowerCase()}} to your calendar"
+           [href]="calendarDownloadUrl()">
+          Add to calendar
+        </a>
+      </div>
+    }
     @if (what3wordsHref() && showLink('relatedLinkShowWhat3words')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
@@ -177,6 +187,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   protected readonly faEye = faEye;
   protected readonly faCopy = faCopy;
   protected readonly faRoute = faRoute;
+  protected readonly faCalendarPlus = faCalendarPlus;
 
   ngOnInit(): void {
     this.refreshLinks();
@@ -283,6 +294,11 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
       return filePath;
     }
     return this.urlService.resourceRelativePathForAWSFileName(filePath) || undefined;
+  }
+
+  calendarDownloadUrl(): string | undefined {
+    const eventId = this.displayedWalk?.walk?.id;
+    return eventId ? `/api/calendar/event/${eventId}` : undefined;
   }
 
   gpxDownloadFileName(): string {

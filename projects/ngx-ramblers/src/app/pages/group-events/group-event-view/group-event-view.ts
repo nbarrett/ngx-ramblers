@@ -14,6 +14,12 @@ import { MarkdownComponent } from "ngx-markdown";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsModalService } from "ngx-bootstrap/modal";
+import { faCloudArrowUp, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+import {
+  EventSocialPublishModalComponent
+} from "../../../modules/common/social-publish/event-social-publish-modal";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { RouterLink } from "@angular/router";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
@@ -38,9 +44,28 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       <div class="card-body">
         <div class="position-relative">
           @if (display.allow.edits) {
-            <input type="submit" value="edit"
-                   (click)="editGroupEvent()" [disabled]="notifyTarget.busy"
-                   title="Edit event" class="btn btn-primary float-end">
+            <div class="float-end d-flex gap-2">
+              @if (showSocialPublishing()) {
+                <div class="btn-group" dropdown container="body">
+                  <button type="button" dropdownToggle class="btn btn-primary dropdown-toggle"
+                          [disabled]="notifyTarget.busy" aria-label="Publish this event">
+                    <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish
+                  </button>
+                  <ul *dropdownMenu class="dropdown-menu">
+                    <li>
+                      <a class="dropdown-item" role="button" (click)="openSocialPublish()"
+                         tooltip="Preview and post this event to Facebook or Instagram"
+                         placement="left" container="body">
+                        <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              }
+              <input type="submit" value="edit"
+                     (click)="editGroupEvent()" [disabled]="notifyTarget.busy"
+                     tooltip="Edit event" class="btn btn-primary">
+            </div>
           }
         </div>
         <div class="card-title mb-4"><h2>{{ groupEvent?.groupEvent?.title }}</h2></div>
@@ -163,7 +188,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
 })
 export class GroupEventView implements OnInit {
 
@@ -175,6 +200,9 @@ export class GroupEventView implements OnInit {
   linksService = inject(LinksService);
   urlService = inject(UrlService);
   private systemConfigService = inject(SystemConfigService);
+  private modalService: BsModalService = inject(BsModalService);
+  protected readonly faShareNodes = faShareNodes;
+  protected readonly faCloudArrowUp = faCloudArrowUp;
   private walksAndEventsService = inject(WalksAndEventsService);
   protected mediaQueryService = inject(MediaQueryService);
   @Input()
@@ -225,6 +253,19 @@ export class GroupEventView implements OnInit {
 
   imageLoad($event: Event) {
     this.logger.info("imageLoad:", $event);
+  }
+
+  showSocialPublishing(): boolean {
+    const externalSystems = this.systemConfigService.systemConfig()?.externalSystems;
+    return !!externalSystems?.facebook?.eventPublishingEnabled || !!externalSystems?.instagram?.eventPublishingEnabled;
+  }
+
+  openSocialPublish(): void {
+    this.modalService.show(EventSocialPublishModalComponent, {
+      animated: false,
+      class: "modal-lg",
+      initialState: {eventId: this.groupEvent?.id, eventTypeLabel: "event"}
+    });
   }
 
   editGroupEvent() {

@@ -9,6 +9,7 @@ import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
 import { FALLBACK_MEDIA } from "../../models/walk.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { applyImageSourceTo, mediaFrom, mediumStyleUrlFrom } from "../../functions/media";
 
 @Injectable({
   providedIn: "root"
@@ -34,7 +35,7 @@ export class MediaQueryService {
   }
 
   public mediumStyleUrlFrom(media: Media): string {
-    return media?.styles?.find(style => style.style === "medium")?.url;
+    return mediumStyleUrlFrom(media);
   }
 
   public basicMediaFrom(mediaObject: HasMedia): BasicMedia[] {
@@ -56,31 +57,11 @@ export class MediaQueryService {
   }
 
   applyImageSource(hasMedia: HasMedia, title: string, imageUrl: string): void {
-    const media = this.mediaFrom(title, imageUrl);
-    const mediaItem: Media = hasMedia.media.find(item => item.styles.find(style => style.url === imageUrl));
-    if (!mediaItem) {
-      this.logger.info("no media exists - adding first item:", media);
-      if (!hasMedia?.media) {
-        hasMedia.media = [media];
-      } else {
-        hasMedia.media.push(media);
-        this.logger.info("Added media item", hasMedia.media.length, ":", media, "all media:", hasMedia.media);
-      }
-    }
+    applyImageSourceTo(hasMedia, title, imageUrl);
+    this.logger.info("applyImageSource:", imageUrl, "all media:", hasMedia.media);
   }
 
-  public mediaFrom(title: string, imageUrl: string) {
-    const media: Media = {
-      caption: null,
-      credit: null,
-      title,
-      alt: title,
-      styles: [{
-        style: "medium", url: imageUrl,
-        width: 0,
-        height: 0
-      }]
-    };
-    return media;
+  public mediaFrom(title: string, imageUrl: string): Media {
+    return mediaFrom(title, imageUrl);
   }
 }

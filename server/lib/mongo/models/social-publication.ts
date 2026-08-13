@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { ensureModel } from "../utils/model-utils";
 
 const SocialPublicationSchema = new mongoose.Schema({
-  albumName: {type: String, required: true},
+  albumName: {type: String},
+  eventId: {type: String, index: true},
+  eventTitle: {type: String},
+  captionFingerprint: {type: String},
   network: {type: String, required: true},
   postId: {type: String},
   permalink: {type: String},

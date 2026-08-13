@@ -101,6 +101,7 @@ export class DateRangeSelector {
   private presets: AdvancedSearchPreset[] = [];
   private rangeValue: DateRange;
   private applyFullSpanWhenBoundsReady = false;
+  private presetBounds: DateRange = null;
 
   @Input() set minDate(value: DateTime) {
     this.dataMinDate = value;
@@ -160,11 +161,16 @@ export class DateRangeSelector {
 
   applyPreset(preset: AdvancedSearchPreset) {
     this.selectedPresetLabel = preset.label;
-    this.emit(this.clampRange(preset.range()));
+    const clamped = this.clampRange(preset.range());
+    this.presetBounds = clamped;
+    this.updateScaledBounds();
+    this.emit(clamped);
   }
 
   activateCustom() {
     this.selectedPresetLabel = null;
+    this.presetBounds = null;
+    this.updateScaledBounds();
     this.emitCustomRange();
   }
 
@@ -254,6 +260,15 @@ export class DateRangeSelector {
       }
       if (this.scaledMinDate > this.scaledMaxDate) {
         this.scaledMinDate = this.scaledMaxDate;
+      }
+      if (this.presetBounds) {
+        const presetFrom = this.dateUtils.asDateTime(this.presetBounds.from);
+        const presetTo = this.dateUtils.asDateTime(this.presetBounds.to);
+        this.scaledMinDate = DateTime.max(this.scaledMinDate, presetFrom);
+        this.scaledMaxDate = DateTime.min(this.scaledMaxDate, presetTo);
+        if (this.scaledMinDate > this.scaledMaxDate) {
+          this.scaledMinDate = this.scaledMaxDate;
+        }
       }
     }
   }

@@ -7,3 +7,12 @@ export function buildCaption({writeUp, hashtags, mentions}: SocialPublishCaption
     .filter(part => part && part.length > 0)
     .join("\n\n");
 }
+
+export function withLink(caption: string, url: string, label: string): string {
+  const trimmed = (caption || "").trim();
+  if (url && !trimmed.includes(url)) {
+    return [trimmed, `${label} ${url}`].filter(part => part.length > 0).join("\n\n");
+  } else {
+    return trimmed;
+  }
+}

@@ -82,6 +82,7 @@ export class WalksConfigService {
       relatedLinkShowWhat3words: true,
       relatedLinkShowVenue: true,
       relatedLinkShowGpx: true,
+      relatedLinkShowCalendar: true,
       regularWalkDay: DEFAULT_REGULAR_WALK_DAY,
       walkCreationAccessLevel: AccessLevel.HIDDEN,
       hideAwaitingLeaderFromPublic: false,
