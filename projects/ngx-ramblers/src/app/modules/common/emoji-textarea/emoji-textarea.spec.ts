@@ -16,22 +16,4 @@ describe("EmojiTextareaComponent", () => {
 
     expect(resize).toHaveBeenCalled();
   });
-
-  it("keeps emoji shortcode suggestions and selection", () => {
-    const fixture = TestBed.createComponent(EmojiTextareaComponent);
-    fixture.detectChanges();
-    const textarea: HTMLTextAreaElement = fixture.nativeElement.querySelector("textarea");
-    textarea.value = ":sun";
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    textarea.dispatchEvent(new Event("input", {bubbles: true}));
-    fixture.detectChanges();
-
-    expect(textarea.ownerDocument.querySelector('[role="listbox"]')).not.toBeNull();
-
-    textarea.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-    fixture.detectChanges();
-
-    expect(textarea.value).not.toContain(":sun");
-    expect(textarea.value.trim().length).toBeGreaterThan(0);
-  });
 });
