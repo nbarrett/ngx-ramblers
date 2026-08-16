@@ -11,10 +11,12 @@ import { AwsFileData } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
 import { UrlService } from "../../../services/url.service";
 import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
+import { CmsImagePickerComponent } from "../cms-image-picker/cms-image-picker";
+import { CmsImagePickerImage } from "../../../models/cms-image-picker.model";
 
 @Component({
   selector: "app-article-block-single-editor",
-  imports: [FormsModule, FontAwesomeModule, TiptapMarkdownEditor, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, SectionDividerSelectComponent, SiteLinkInputComponent],
+  imports: [FormsModule, FontAwesomeModule, TiptapMarkdownEditor, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, SectionDividerSelectComponent, SiteLinkInputComponent, CmsImagePickerComponent],
   styles: [`
     .article-block-single
       display: flex
@@ -126,6 +128,12 @@ import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
                                       [value]="block.dividerAfter ?? defaultDivider"
                                       (valueChange)="onBlockDividerChange($event)"/>
         }
+        <app-cms-image-picker [open]="imagePickerOpen"
+                              [startingPagePaths]="block.sourcePagePaths ?? []"
+                              [currentImageSrc]="block.image?.src ?? null"
+                              (selected)="onCmsImageSelected($event)"
+                              (uploadRequested)="uploadDifferentImage()"
+                              (closed)="imagePickerOpen = false"/>
       </div>
     }`
 })
@@ -141,6 +149,7 @@ export class ArticleBlockSingleEditor {
 
   protected pendingRemoval = false;
   protected imageEditing = false;
+  protected imagePickerOpen = false;
   protected readonly rootFolder = RootFolder.siteContent;
   protected readonly defaultDivider = SectionDividerStyle.THIN_YELLOW;
   protected readonly ArticleBlockImageAlignment = ArticleBlockImageAlignment;
@@ -195,10 +204,33 @@ export class ArticleBlockSingleEditor {
   }
 
   replaceImage(): void {
-    if (!this.block) return;
-    this.block.image = null;
-    this.imageEditing = true;
-    this.emit();
+    if (this.block?.sourcePagePaths?.length) {
+      this.imagePickerOpen = true;
+    } else if (this.block) {
+      this.uploadDifferentImage();
+    }
+  }
+
+  protected uploadDifferentImage(): void {
+    if (this.block) {
+      this.imagePickerOpen = false;
+      this.block.image = null;
+      this.imageEditing = true;
+      this.emit();
+    }
+  }
+
+  protected onCmsImageSelected(image: CmsImagePickerImage): void {
+    if (this.block) {
+      this.block.image = {
+        src: image.src,
+        alt: image.alt,
+        width: this.block.image?.width,
+        alignment: this.block.image?.alignment ?? ArticleBlockImageAlignment.FULL
+      };
+      this.imagePickerOpen = false;
+      this.emit();
+    }
   }
 
   removeImage(): void {

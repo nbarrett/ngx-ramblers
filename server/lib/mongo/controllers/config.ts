@@ -62,6 +62,7 @@ const configAccessPolicy: Record<ConfigKey, ConfigAccess> = {
   [ConfigKey.MAILCHIMP]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.MEETUP]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.MIGRATION]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.RELEASE_NOTE_UPDATE]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.LEGACY_REDIRECT]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.RAMBLERS_AREAS_CACHE]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.SALESFORCE]: ConfigAccess.ADMIN_ONLY,

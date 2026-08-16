@@ -13,6 +13,9 @@ import {
   NewsletterPlan,
   NewsletterPlanApiResponse,
   NewsletterPlanRequest,
+  ReleaseNoteUpdateApiResponse,
+  ReleaseNoteUpdateRequest,
+  ReleaseNoteUpdateResponse,
   TextRewriteApiResponse,
   TextRewriteResponse
 } from "../../models/ai.model";
@@ -42,6 +45,11 @@ export class AiService {
   async newsletterPlan(request: NewsletterPlanRequest): Promise<NewsletterPlan> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<NewsletterPlanApiResponse>(`${this.BASE_URL}/newsletter-plan`, request));
     return response.response as NewsletterPlan;
+  }
+
+  async releaseNoteUpdate(request: ReleaseNoteUpdateRequest): Promise<ReleaseNoteUpdateResponse> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ReleaseNoteUpdateApiResponse>(`${this.BASE_URL}/release-note-update`, request));
+    return response.response as ReleaseNoteUpdateResponse;
   }
 
   async chooseCoverImage(

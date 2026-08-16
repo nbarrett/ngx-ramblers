@@ -1,17 +1,17 @@
 import { Request, Response } from "express";
 import debugLib from "debug";
 import { isArray } from "es-toolkit/compat";
-import { envConfig } from "../env-config/env-config";
-import { dateTimeNowAsValue } from "../shared/dates";
-import { Ai } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { envConfig } from "../../env-config/env-config";
+import { dateTimeNowAsValue } from "../../shared/dates";
+import { Ai } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import {
   NewsletterIntroRequest,
   NewsletterPlanRequest
-} from "../../../projects/ngx-ramblers/src/app/models/ai.model";
-import { aiConfigFromEnvironment } from "./ai-config";
-import { generate } from "./ai-generation";
-import { buildNewsletterIntroInput, systemPromptFor } from "./newsletter-intro";
-import { buildNewsletterPlanInput, NEWSLETTER_PLAN_SYSTEM_PROMPT, parseNewsletterPlan } from "./newsletter-plan";
+} from "../../../../projects/ngx-ramblers/src/app/models/ai.model";
+import { aiConfigFromEnvironment } from "../ai-config";
+import { generate } from "../ai-generation";
+import { buildNewsletterIntroInput, systemPromptFor } from "../newsletter-intro";
+import { buildNewsletterPlanInput, NEWSLETTER_PLAN_SYSTEM_PROMPT, parseNewsletterPlan } from "../newsletter-plan";
 
 const debug = debugLib(envConfig.logNamespace("ai:newsletter"));
 debug.enabled = false;

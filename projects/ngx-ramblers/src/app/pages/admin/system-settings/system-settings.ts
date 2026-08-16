@@ -66,6 +66,8 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
 import { MemberBulkLoadAuditSettingsComponent } from "./diagnostics/member-bulk-load-audit-settings";
 import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
+import { ReleaseNoteUpdateSettings } from "./release-note-updates/release-note-update-settings";
+import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 
 
 @Component({
@@ -399,6 +401,15 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                     <app-system-video-meetings-settings [config]="config"/>
                   </div>
                 </tab>
+                @if (platformAdminEnabled) {
+                  <tab heading="Updates"
+                       [active]="tabActive(SystemSettingsTab.RELEASE_NOTE_UPDATES)"
+                       (selectTab)="selectTab(SystemSettingsTab.RELEASE_NOTE_UPDATES)">
+                    <div class="img-thumbnail thumbnail-admin-edit">
+                      <app-release-note-update-settings/>
+                    </div>
+                  </tab>
+                }
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.DIAGNOSTICS)}}"
                      [active]="tabActive(SystemSettingsTab.DIAGNOSTICS)"
                      (selectTab)="selectTab(SystemSettingsTab.DIAGNOSTICS)">
@@ -430,7 +441,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings, SystemVideoMeetingsSettings]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings, SystemVideoMeetingsSettings, ReleaseNoteUpdateSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -460,6 +471,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private broadcastService: BroadcastService<string> = inject(BroadcastService);
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private router: Router = inject(Router);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("SystemSettingsComponent", NgxLoggerLevel.ERROR);
   navbarLocations: KeyValue<string>[] = enumKeyValues(NavBarLocation);
@@ -474,6 +486,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly faAdd = faAdd;
   protected readonly faPencil = faPencil;
+  protected platformAdminEnabled = false;
   footerLinks = [
     {key: "facebook", name: "facebook", title: "Facebook", icon: faFacebook},
     {key: "meetup", name: "meetup", title: "Meetup", icon: faMeetup},
@@ -510,6 +523,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.salesforceConfigService.refresh();
     this.memberSyncPolicyService.refresh();
+    this.subscriptions.push(this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(enabled => this.platformAdminEnabled = enabled));
     this.broadcastService.on(NamedEventType.DEFAULT_LOGO_CHANGED, (namedEvent: NamedEvent<string>) => {
       this.logger.debug("event received:", namedEvent);
       this.headerLogoChanged(namedEvent.data);

@@ -340,7 +340,7 @@ async function volunteerMergeFieldSource(request: BatchTransactionalSendRequest)
   }
 }
 
-async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger, senderRoleType: string | null): Promise<void> {
+async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, renderedHtmlContent: string, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger, senderRoleType: string | null): Promise<void> {
   const context = request.inboxReplyContext;
   const writebackRoleType = context?.aliasId ?? senderRoleType;
   if (!writebackRoleType) {
@@ -363,7 +363,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
     let gmailMessageId: string | null = null;
     if (mailboxConnectionDoc?.oauthRefreshTokenEncrypted && mailboxConnectionDoc.provider === InboxReaderProvider.GMAIL_API) {
       try {
-        const rfc822 = buildRfc822(emailRequest, outboundMessageId, context?.inReplyTo ?? "", context?.references ?? [], sentAt);
+        const rfc822 = buildRfc822(emailRequest, renderedHtmlContent, outboundMessageId, context?.inReplyTo ?? "", context?.references ?? [], sentAt);
         gmailMessageId = await insertSentCopy(mailboxConnectionDoc, rfc822);
       } catch (writeBackError) {
         transactionalDebugLog("inbox writeback: insertSentCopy failed", (writeBackError as Error).message);
@@ -380,7 +380,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
       to: (emailRequest.to ?? []).map(address => ({name: address.name ?? null, email: address.email})),
       cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
       subject: emailRequest.subject,
-      bodyHtml: emailRequest.htmlContent ?? null,
+      bodyHtml: renderedHtmlContent || null,
       bodyText: null,
       receivedAt: null,
       sentAt,
@@ -405,7 +405,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
   }
 }
 
-function buildRfc822(emailRequest: SendSmtpEmailRequest, messageId: string, inReplyTo: string, references: string[], sentAt: number): string {
+function buildRfc822(emailRequest: SendSmtpEmailRequest, renderedHtmlContent: string, messageId: string, inReplyTo: string, references: string[], sentAt: number): string {
   const senderName = emailRequest.sender?.name ?? "";
   const fromHeader = senderName.length > 0
     ? `From: ${escapeHeaderName(senderName)} <${emailRequest.sender?.email}>`
@@ -425,7 +425,7 @@ function buildRfc822(emailRequest: SendSmtpEmailRequest, messageId: string, inRe
     "MIME-Version: 1.0",
     "Content-Type: text/html; charset=UTF-8",
     "",
-    emailRequest.htmlContent ?? ""
+    renderedHtmlContent
   ];
   return lines.filter(line => line.length > 0 || line === "").join("\r\n");
 }
@@ -625,7 +625,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
-        await performInboxWriteback(request, emailRequest, sendResult?.body?.messageId ?? null, debugLog, senderRoleType);
+        await performInboxWriteback(request, emailRequest, sendResult.renderedHtmlContent, sendResult?.body?.messageId ?? null, debugLog, senderRoleType);
         if (item.kind === "external" && currentMemberId) {
           await recordSendUsage({
             email: item.recipient.email,
@@ -684,7 +684,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         const sentAt = dateTimeNow().toMillis();
         externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
         progress.sentCount += externalEntries.length;
-        await performInboxWriteback(request, externalEmailRequest, externalSendResult?.body?.messageId ?? null, debugLog, senderRoleType);
+        await performInboxWriteback(request, externalEmailRequest, externalSendResult.renderedHtmlContent, externalSendResult?.body?.messageId ?? null, debugLog, senderRoleType);
         if (currentMemberId) {
           await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
             await acc;

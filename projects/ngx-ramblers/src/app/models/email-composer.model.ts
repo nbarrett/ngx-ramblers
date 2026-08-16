@@ -5,6 +5,7 @@ import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
 import { ExtendedGroupEvent } from "./group-event.model";
 import { EM_DASH_WITH_SPACES } from "./content-text.model";
+import { DateRangeUnit } from "./search.model";
 
 export enum EmailComposerStepKey {
   RECIPIENTS = "recipients",
@@ -40,7 +41,8 @@ export enum EventInclusionMode {
 
 export enum EmailCompositionKind {
   STANDARD = "standard",
-  NEWSLETTER = "newsletter"
+  NEWSLETTER = "newsletter",
+  RELEASE_NOTE_UPDATE = "release-note-update"
 }
 
 export enum NewsletterCadence {
@@ -68,6 +70,9 @@ export const NEWSLETTER_CADENCE_OPTIONS: NewsletterCadenceOption[] = [
 
 export const DEFAULT_NEWSLETTER_CADENCE = NewsletterCadence.MONTHLY;
 
+export const DEFAULT_RELEASE_NOTE_UPDATE_PERIOD_AMOUNT = 1;
+export const DEFAULT_RELEASE_NOTE_UPDATE_PERIOD_UNIT = DateRangeUnit.MONTHS;
+
 export enum NewsletterStartMode {
   PERIOD = "period",
   FREE_TEXT = "free-text"
@@ -94,6 +99,95 @@ export interface PreviousNewsletter {
 }
 
 export interface NewsletterWindow {
+  fromMillis: number;
+  toMillis: number;
+  continuesPreviousWindow: boolean;
+}
+
+export interface ReleaseNoteUpdateSettings {
+  profileId: string | null;
+  periodAmount: number;
+  periodUnit: DateRangeUnit;
+  previousDigestId: string | null;
+  previousSentAt: number | null;
+  previousWindowEnd: number | null;
+  previouslyIncludedPaths: string[];
+  excludePreviouslyIncluded: boolean;
+  includedPaths: string[];
+  fromMillis: number | null;
+  toMillis: number | null;
+  guidance: string | null;
+  indexPath: string | null;
+  categories: ReleaseNoteUpdateCategory[];
+  coverage: ReleaseNoteUpdateCoverage;
+  maximumThemes: number;
+  maximumSourcesPerTheme: number;
+  writingRules: string;
+  includeTechnicalChanges: boolean;
+  includeImages: boolean;
+}
+
+export enum ReleaseNoteUpdateScope {
+  BOTH = "both",
+  EMAIL_ONLY = "email-only",
+  NON_EMAIL_ONLY = "non-email-only"
+}
+
+export enum ReleaseNoteUpdateCoverage {
+  COMPREHENSIVE = "comprehensive",
+  HIGHLIGHTS = "highlights"
+}
+
+export enum ReleaseNoteUpdateCategory {
+  EMAIL = "email",
+  NON_EMAIL = "non-email",
+  PLATFORM_MANAGEMENT = "platform-management"
+}
+
+export interface ReleaseNoteUpdateDefaults {
+  categories: ReleaseNoteUpdateCategory[];
+  coverage: ReleaseNoteUpdateCoverage;
+  maximumThemes: number;
+  maximumSourcesPerTheme: number;
+  writingRules: string;
+  includeTechnicalChanges: boolean;
+  includeImages: boolean;
+}
+
+export interface ReleaseNoteUpdateProfile {
+  id: string;
+  name: string;
+  periodAmount: number;
+  periodUnit: DateRangeUnit;
+  defaults: ReleaseNoteUpdateDefaults;
+  recipientMode: RecipientMode;
+  selectedListId: number | null;
+}
+
+export interface ReleaseNoteUpdateConfiguration {
+  defaultProfileId: string;
+  profiles: ReleaseNoteUpdateProfile[];
+}
+
+export interface ReleaseNoteUpdateOption<T> {
+  value: T;
+  label: string;
+  hint: string;
+}
+
+export interface PreviousReleaseNoteUpdate {
+  id: string;
+  title: string;
+  sentAt: number | null;
+  windowEnd: number | null;
+  includedPaths: string[];
+  selectedListId: number | null;
+  selectedMemberIds: string[];
+  periodAmount: number | null;
+  periodUnit: DateRangeUnit | null;
+}
+
+export interface ReleaseNoteUpdateWindow {
   fromMillis: number;
   toMillis: number;
   continuesPreviousWindow: boolean;
@@ -180,6 +274,7 @@ export interface ArticleBlock {
   buttonText?: string;
   buttonUrl?: string;
   dividerAfter?: SectionDividerStyle;
+  sourcePagePaths?: string[];
 }
 
 export enum SectionDividerStyle {
@@ -245,6 +340,7 @@ export interface EmailComposerState {
   context: EmailComposerContext;
   compositionKind: EmailCompositionKind;
   newsletter: NewsletterSettings | null;
+  releaseNoteUpdate: ReleaseNoteUpdateSettings | null;
   brandingMode: BrandingMode;
   unbrandedSenderRoleType: string | null;
   recipientMode: RecipientMode;

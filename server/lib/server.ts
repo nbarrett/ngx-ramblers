@@ -42,7 +42,7 @@ import { authRoutes } from "./mongo/routes/auth";
 import { contentTextRoutes } from "./mongo/routes/content-text";
 import { migrationHistoryRoutes } from "./mongo/routes/migration-history";
 import { expenseClaimRoutes } from "./mongo/routes/expense-claim";
-import { aiRoutes } from "./ai/ai-routes";
+import { aiRoutes } from "./ai/routes/ai";
 import { socialRoutes } from "./social/social-routes";
 import { calendarRoutes } from "./calendar/calendar-routes";
 import { meetupRoutes } from "./meetup/meetup";

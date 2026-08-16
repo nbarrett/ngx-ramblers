@@ -10,6 +10,7 @@ import { VolunteerAudience, VolunteerAudienceType, VolunteerManagementSnapshot }
 import { volunteerLetterSeed } from "../../functions/volunteer-letters";
 import { volunteerMergeFieldsFor } from "../../functions/volunteer-management";
 import { HttpClient } from "@angular/common/http";
+import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { switchMap } from "rxjs/operators";
 import { cloneDeep, isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -85,7 +86,15 @@ import {
   NewsletterCadenceOption,
   NewsletterStartMode,
   NewsletterWindow,
+  ReleaseNoteUpdateCoverage,
+  ReleaseNoteUpdateCategory,
+  ReleaseNoteUpdateConfiguration,
+  ReleaseNoteUpdateDefaults,
+  ReleaseNoteUpdateOption,
+  ReleaseNoteUpdateSettings,
+  ReleaseNoteUpdateWindow,
   PreviousNewsletter,
+  PreviousReleaseNoteUpdate,
   EXPANDABLE_FRAGMENT_KINDS,
   EmailComposerContextSource,
   PreviewStepDirection,
@@ -109,23 +118,32 @@ import {
   buildDefaultFragmentOrder,
   defaultEmailComposerState,
   defaultNewsletterSettings,
+  defaultReleaseNoteUpdateDefaults,
+  defaultReleaseNoteUpdateSettings,
+  releaseNoteUpdateSettingsFrom,
+  releaseNoteUpdateSubject,
   dividerHtml,
   findRecycledTrackingUrls,
   newDividerFragment,
-  newMultiColumnFragment
+  newMultiColumnFragment,
+  releaseNoteUpdateArticlesFrom,
+  releaseNoteUpdateFragmentOrder
 } from "../../functions/email-composer";
 import {
   markEventsNewSinceLastNewsletter,
   newEventCount,
   newsletterWindowFrom
 } from "../../functions/newsletter-window";
+import { releaseNoteUpdateWindowFrom } from "../../functions/release-note-update-window";
 import { AiService } from "../../services/ai/ai.service";
 import {
   DEFAULT_NEWSLETTER_INTRO_PURPOSE,
   NEWSLETTER_INTRO_PURPOSE_OPTIONS,
   NewsletterIntroEvent,
   NewsletterIntroPurpose,
-  NewsletterPlan
+  NewsletterPlan,
+  ReleaseNoteUpdateDraftOutcome,
+  ReleaseNoteUpdateResponse
 } from "../../models/ai.model";
 import { eventsForPurpose } from "../../functions/newsletter-purpose";
 import {
@@ -184,6 +202,7 @@ import { parseEmailAddressList } from "../../functions/email-addresses";
 import { InboxAttachment, InboxReplyComposeResponse, InboxReplyOutboundContext } from "../../models/inbox.model";
 import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
+import { ReleaseNoteUpdateConfigService } from "../../services/email-composer/release-note-update-config.service";
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
@@ -213,7 +232,8 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { eventSlug } from "../../functions/walks/event-slug";
 import { DateValue } from "../../models/date.model";
 import { DatePicker } from "../../date-and-time/date-picker";
-import { DateRange, DateRangeSlider } from "../../components/date-range-slider/date-range-slider";
+import { dateRangeSliderBounds, DateRange, DateRangeSlider } from "../../components/date-range-slider/date-range-slider";
+import { DurationPickerComponent } from "../../modules/common/duration-picker/duration-picker";
 import { LinkComponent } from "../../link/link";
 import { MarkdownComponent } from "ngx-markdown";
 import {
@@ -232,7 +252,8 @@ import {
   AdvancedSearchPreset,
   createAllTimePreset,
   createFuturePreset,
-  createPastPreset
+  createPastPreset,
+  RANGE_UNIT_OPTIONS
 } from "../../models/search.model";
 import { DateTime } from "luxon";
 import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
@@ -279,6 +300,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     NotificationDirective,
     DatePicker,
     DateRangeSlider,
+    DurationPickerComponent,
     LinkComponent,
     MarkdownComponent,
     CommitteeNotificationDetailsComponent,
@@ -299,6 +321,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </div>
         <div class="composer-workspace-actions">
+          <button type="button" class="btn btn-quiet" (click)="newComposition()" [disabled]="!hasContentToDraft()">
+            <fa-icon [icon]="faFile" class="me-1"/>New
+          </button>
           <button type="button" class="btn btn-quiet d-none d-md-inline-block" (click)="composerPanel.toggle()"
                   [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
             <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand" class="me-1"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
@@ -311,12 +336,17 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
       @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
       @let composeValidationVisible = stepperActiveTab === EmailComposerStepKey.COMPOSE && (composeUnbrandedNoRecipients || composeStepErrors().length > 0);
-      @if (inboxReplyLoading || notifyTarget.showAlert || postSendActionWarningVisible() || recipientsValidationVisible || composeValidationVisible) {
-        <div class="email-composer-validation-summary" [attr.role]="inboxReplyLoading ? 'status' : null" [attr.aria-live]="inboxReplyLoading ? 'polite' : null">
+      @if (inboxReplyLoading || creatingReleaseNoteUpdate || notifyTarget.showAlert || postSendActionWarningVisible() || recipientsValidationVisible || composeValidationVisible) {
+        <div class="email-composer-validation-summary" [attr.role]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'status' : null" [attr.aria-live]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'polite' : null">
           @if (inboxReplyLoading) {
             <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Loading reply…</h5>
             <ul class="list-arrow">
               <li>Fetching the conversation and preparing recipients, subject and quoted message.</li>
+            </ul>
+          } @else if (creatingReleaseNoteUpdate) {
+            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Generating update…</h5>
+            <ul class="list-arrow">
+              <li>Reading the release notes, preparing the summary and setting up Compose. You will be taken there automatically when it is ready.</li>
             </ul>
           } @else {
             @if (notifyTarget.showAlert) {
@@ -877,7 +907,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     </ng-template>
 
     <ng-template #templateStep>
-      <div class="email-composer-section">
+      <div class="email-composer-section" [class.email-composer-section-busy]="creatingReleaseNoteUpdate"
+           [attr.inert]="creatingReleaseNoteUpdate ? '' : null" [attr.aria-busy]="creatingReleaseNoteUpdate">
         <h3>Sender &amp; Template</h3>
         <p class="text-muted small mb-3">Pick the email type (which determines the visual template, banner and any built-in content), then choose who the email is from, who replies should go to, and which committee roles sign off.</p>
         <fieldset class="email-composer-fieldset">
@@ -927,6 +958,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               [showBranding]="true"/>
             @if (draftingOffered()) {
               <ng-container *ngTemplateOutlet="newsletterStartUi"/>
+            }
+            @if (platformAdminEnabled || releaseNoteUpdateMode()) {
+              <ng-container *ngTemplateOutlet="releaseNoteUpdateStartUi"/>
             }
           </fieldset>
         }
@@ -1039,6 +1073,156 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
           }
         }
+      </div>
+    </ng-template>
+
+    <ng-template #releaseNoteUpdateStartUi>
+      <div class="mt-3 pt-3 border-top">
+        @if (releaseNoteUpdateMode() && !creatingReleaseNoteUpdate) {
+          <div class="email-composer-validation-summary">
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ releaseNoteUpdateWindowTitle() }}</h5>
+            <div>{{ releaseNoteUpdateWindowDescription() }} The drafted copy stays editable on the Compose step, and nothing is sent until you review it.</div>
+          </div>
+          <ng-container *ngTemplateOutlet="previousReleaseNoteUpdateUi"/>
+        } @else {
+          <p class="text-muted small mb-3">Draft a short update for chairs, webmasters and committee members about what has shipped on NGX since the last one. You review and edit it before anything goes out.</p>
+          <ng-container *ngTemplateOutlet="releaseNoteUpdateSettingsUi; context: {showCreateButton: true}"/>
+        }
+      </div>
+    </ng-template>
+
+    <ng-template #releaseNoteUpdateSettingsUi let-showCreateButton="showCreateButton">
+      <fieldset class="email-composer-fieldset mt-3">
+        <legend>
+          <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
+                  (click)="releaseNoteUpdateSettingsExpanded = !releaseNoteUpdateSettingsExpanded"
+                  [attr.aria-expanded]="releaseNoteUpdateSettingsExpanded">
+            <fa-icon [icon]="releaseNoteUpdateSettingsExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+            Update content and date range
+          </button>
+        </legend>
+        @if (releaseNoteUpdateSettingsExpanded) {
+          @if (releaseNoteUpdateConfiguration.profiles.length > 1) {
+            <div class="mb-3">
+              <label for="release-note-update-profile">Saved configuration</label>
+              <ng-select id="release-note-update-profile" [items]="releaseNoteUpdateConfiguration.profiles" bindLabel="name" bindValue="id"
+                         [clearable]="false" [searchable]="false" [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
+                         [ngModel]="selectedReleaseNoteUpdateProfileId" (ngModelChange)="applyReleaseNoteUpdateProfile($event)"/>
+            </div>
+          }
+          <ng-container *ngTemplateOutlet="releaseNoteUpdatePeriodUi"/>
+          <ng-container *ngTemplateOutlet="previousReleaseNoteUpdateUi"/>
+          <ng-container *ngTemplateOutlet="releaseNoteUpdateMessageChoicesUi"/>
+        } @else {
+          <p class="text-muted small mb-0">{{ releaseNoteUpdateSettingsSummary() }}</p>
+        }
+        @if (showCreateButton) {
+          <div class="mt-3">
+            <button type="button" class="btn btn-primary"
+                    [disabled]="creatingReleaseNoteUpdate || !templateStepValid()"
+                    [title]="templateStepValid() ? '' : templateStepValidationMessage()"
+                    (click)="createReleaseNoteUpdate()">
+              <fa-icon [icon]="creatingReleaseNoteUpdate ? faSpinner : faWandMagicSparkles" [spin]="creatingReleaseNoteUpdate" class="me-1"/>
+              {{ creatingReleaseNoteUpdate ? "Generating…" : "Create update" }}
+            </button>
+          </div>
+          @if (!templateStepValid()) {
+            <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
+          }
+        }
+      </fieldset>
+    </ng-template>
+
+    <ng-template #previousReleaseNoteUpdateUi>
+      @if (previousReleaseNoteUpdateExists()) {
+        <div class="thumbnail-heading-frame thumbnail-heading-frame-compact mt-3 mb-3">
+          <div class="thumbnail-heading">Previously sent update</div>
+          <p class="mb-2"><strong>{{ previousReleaseNoteUpdate?.title }}</strong> was sent on {{ previousReleaseNoteUpdateSentDate() }}.</p>
+          <div class="form-check mb-2">
+            <input id="release-note-update-exclude-previous" class="form-check-input" type="checkbox"
+                   [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
+                   [(ngModel)]="releaseNoteUpdateSettings().excludePreviouslyIncluded">
+            <label class="form-check-label" for="release-note-update-exclude-previous">Leave out release notes already covered by this update</label>
+          </div>
+          @if (previousReleaseNoteUpdate?.includedPaths?.length) {
+            <details>
+              <summary>{{ stringUtils.pluraliseWithCount(previousReleaseNoteUpdate!.includedPaths.length, "release note") }} previously included</summary>
+              <ul class="mb-0 mt-2">
+                @for (path of previousReleaseNoteUpdate!.includedPaths; track path) {
+                  <li><a [href]="'/' + path" target="_blank" rel="noopener noreferrer">{{ path }}</a></li>
+                }
+              </ul>
+            </details>
+          } @else {
+            <p class="text-muted small mb-0">No individual release-note references were recorded for this update.</p>
+          }
+        </div>
+      }
+    </ng-template>
+
+    <ng-template #releaseNoteUpdatePeriodUi>
+      <div class="row mb-2">
+        <div class="col-sm-12 col-lg-8">
+          <app-duration-picker
+            [amount]="releaseNoteUpdateSettings().periodAmount"
+            (amountChange)="onReleaseNoteUpdatePeriodAmountChange($event)"
+            [unit]="releaseNoteUpdateSettings().periodUnit"
+            (unitChange)="onReleaseNoteUpdatePeriodUnitChange($event)"
+            [units]="rangeUnitOptions"
+            [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
+            amountLabel="Report on information from the last"
+            unitLabel="Unit"
+            idPrefix="update-period"/>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-sm-12">
+          <app-date-range-slider class="w-100"
+                                 [minDate]="releaseNoteUpdateSliderMinDate"
+                                 [maxDate]="releaseNoteUpdateSliderMaxDate"
+                                 [range]="releaseNoteUpdateSliderRange()"
+                                 [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
+                                 (rangeChange)="onReleaseNoteUpdateDateRangeChange($event)"/>
+        </div>
+      </div>
+    </ng-template>
+
+    <ng-template #releaseNoteUpdateMessageChoicesUi>
+      <div class="mt-3 mb-3">
+        <h4 class="mb-3">Content for this update</h4>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="mb-1">Content to include</div>
+            @for (option of releaseNoteUpdateCategoryOptions; track option.value) {
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" [id]="'release-note-update-category-' + option.value"
+                       [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate || releaseNoteUpdateCategoryIsLastSelected(option.value)"
+                       [ngModel]="releaseNoteUpdateSettings().categories.includes(option.value)"
+                       (ngModelChange)="setReleaseNoteUpdateCategory(option.value, $event)">
+                <label class="form-check-label" [for]="'release-note-update-category-' + option.value">
+                  <strong>{{ option.label }}</strong>
+                  <span class="d-block text-muted small">{{ option.hint }}</span>
+                </label>
+              </div>
+            }
+          </div>
+          <div class="col-md-6 mt-3 mt-md-0">
+            <label for="release-note-update-coverage">Coverage</label>
+            <ng-select id="release-note-update-coverage" [items]="releaseNoteUpdateCoverageOptions" bindLabel="label" bindValue="value"
+                       [clearable]="false" [searchable]="false" [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
+                       [(ngModel)]="releaseNoteUpdateSettings().coverage"/>
+            <div class="text-muted small mt-1">{{ releaseNoteUpdateCoverageHint() }}</div>
+          </div>
+        </div>
+        <div class="form-check mt-3">
+          <input id="release-note-update-include-images" class="form-check-input" type="checkbox"
+                 [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
+                 [(ngModel)]="releaseNoteUpdateSettings().includeImages">
+          <label class="form-check-label" for="release-note-update-include-images">
+            <strong>Include suitable release-note images</strong>
+            <span class="d-block text-muted small">Add a relevant image to a subject when one is available in its supporting release notes.</span>
+          </label>
+        </div>
       </div>
     </ng-template>
 
@@ -1265,6 +1449,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <div class="fragment-row-body">
                 @switch (fragment.kind) {
                   @case (ComposerFragmentKind.INTRO) {
+                    @if (releaseNoteUpdateMode()) {
+                      <ng-container *ngTemplateOutlet="releaseNoteUpdateComposeUi"/>
+                    }
                     @if (newsletterMode()) {
                       <div class="row mb-2">
                         <div class="col-sm-6 col-lg-4">
@@ -1511,6 +1698,30 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       } @else if (state.eventInclusion === EventInclusionMode.SINGLE_EVENT && state.singleEvent) {
         <ng-container *ngTemplateOutlet="singleEventUi"/>
       }
+    </ng-template>
+
+    <ng-template #releaseNoteUpdateComposeUi>
+      <ng-container *ngTemplateOutlet="releaseNoteUpdateSettingsUi"/>
+      <div class="email-composer-validation-summary">
+        <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ releaseNoteUpdateWindowTitle() }}</h5>
+        <ul class="list-arrow">
+          <li>{{ releaseNoteUpdateWindowDescription() }}</li>
+        </ul>
+      </div>
+      <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
+        <button type="button" class="btn btn-primary btn-sm"
+                [disabled]="draftingReleaseNoteUpdate"
+                (click)="draftReleaseNoteUpdate()">
+          <fa-icon [icon]="draftingReleaseNoteUpdate ? faSpinner : faWandMagicSparkles" [spin]="draftingReleaseNoteUpdate" class="me-1"/>
+          {{ draftingReleaseNoteUpdate ? "Drafting…" : introDraftUndoAvailable() ? "Draft it again" : "Draft the update" }}
+        </button>
+        @if (introDraftUndoAvailable()) {
+          <button type="button" class="btn btn-quiet btn-sm" (click)="undoDraftedIntro()">
+            <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
+          </button>
+        }
+        <span class="text-muted small">Read it over before you send. Nothing goes out until you do.</span>
+      </div>
     </ng-template>
 
     <ng-template #newsletterUi>
@@ -1949,15 +2160,22 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
 })
 export class EmailComposer implements OnInit, OnDestroy {
 
+  @HostListener("input")
+  @HostListener("change")
+  markUserEdit(): void {
+    this.userHasEditedComposer = true;
+  }
+
   @HostListener("window:beforeunload", ["$event"])
   warnBeforeBrowserLeave(event: BeforeUnloadEvent): void {
-    if (this.hasUnsavedChanges() && !this.sendInProgress && !this.campaignSendComplete) {
+    if (this.shouldWarnAboutUnsavedChanges() && !this.sendInProgress) {
       event.preventDefault();
       event.returnValue = true;
     }
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposer", NgxLoggerLevel.ERROR);
+  private userHasEditedComposer = false;
   private volunteerManagementService = inject(VolunteerManagementService);
   protected volunteerAudienceSummary: VolunteerAudience | null = null;
   private volunteerSnapshot: VolunteerManagementSnapshot | null = null;
@@ -1978,6 +2196,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private memberService = inject(MemberService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
   private memberLoginService = inject(MemberLoginService);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private changeDetector = inject(ChangeDetectorRef);
   private systemConfigService = inject(SystemConfigService);
   private salesforceConfigService = inject(SalesforceConfigService);
@@ -2000,6 +2219,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected googleMapsService = inject(GoogleMapsService);
   protected urlService = inject(UrlService);
   private compositionsService = inject(EmailCompositionsService);
+  private releaseNoteUpdateConfigService = inject(ReleaseNoteUpdateConfigService);
   private aiService = inject(AiService);
   private scheduledTaskService = inject(ScheduledTaskService);
   private http = inject(HttpClient);
@@ -2040,6 +2260,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected savedExternalRecipients: ExternalRecipient[] = [];
   protected loggedInMemberRecord: Member | null = null;
   private salesforceEnabled = false;
+  protected platformAdminEnabled = false;
   protected newExternalSaveForReuse = true;
   protected replyCcSuggestion: ComposerExternalRecipient[] = [];
   protected draftsPanelOpen = false;
@@ -2088,16 +2309,36 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faWandMagicSparkles = faWandMagicSparkles;
   protected readonly newsletterCadenceOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS;
   protected readonly newsletterPeriodOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS.filter(option => option.days !== null);
+  protected readonly rangeUnitOptions = RANGE_UNIT_OPTIONS;
   protected readonly NewsletterStartMode = NewsletterStartMode;
+  protected readonly NewsletterCadence = NewsletterCadence;
   protected newsletterStartMode: NewsletterStartMode = NewsletterStartMode.PERIOD;
   protected newsletterStartPeriod: NewsletterCadence = DEFAULT_NEWSLETTER_CADENCE;
   protected newsletterFreeText = "";
   protected creatingNewsletter = false;
+  protected creatingReleaseNoteUpdate = false;
   protected draftingIntro = false;
+  protected draftingReleaseNoteUpdate = false;
+  protected releaseNoteUpdateSettingsExpanded = false;
+  protected releaseNoteUpdateDefaults: ReleaseNoteUpdateDefaults = defaultReleaseNoteUpdateDefaults();
+  protected releaseNoteUpdateConfiguration: ReleaseNoteUpdateConfiguration = {defaultProfileId: "default", profiles: []};
+  protected selectedReleaseNoteUpdateProfileId = "default";
+  protected readonly releaseNoteUpdateCategoryOptions: ReleaseNoteUpdateOption<ReleaseNoteUpdateCategory>[] = [
+    {value: ReleaseNoteUpdateCategory.EMAIL, label: "Email features", hint: "Inbox, newsletters, subscriptions, sending, delivery and member communications."},
+    {value: ReleaseNoteUpdateCategory.NON_EMAIL, label: "Non-email features", hint: "Walks, events, website content, maps, images and social media."},
+    {value: ReleaseNoteUpdateCategory.PLATFORM_MANAGEMENT, label: "Platform management", hint: "Managing websites, environments, setup and administration across NGX."}
+  ];
+  protected readonly releaseNoteUpdateCoverageOptions: ReleaseNoteUpdateOption<ReleaseNoteUpdateCoverage>[] = [
+    {value: ReleaseNoteUpdateCoverage.COMPREHENSIVE, label: "Comprehensive", hint: "Cover every material consumer-facing capability in the selected period."},
+    {value: ReleaseNoteUpdateCoverage.HIGHLIGHTS, label: "Highlights only", hint: "Choose the changes most likely to matter to volunteers and members."}
+  ];
   protected draftPurpose: NewsletterIntroPurpose = DEFAULT_NEWSLETTER_INTRO_PURPOSE;
   protected readonly draftPurposeOptions = NEWSLETTER_INTRO_PURPOSE_OPTIONS;
   private introBeforeDraft: string | null = null;
+  private articlesBeforeDraft: ArticleBlock[] | null = null;
+  private fragmentOrderBeforeDraft: ComposerFragment[] | null = null;
   private previousNewsletter: PreviousNewsletter | null = null;
+  private previousReleaseNoteUpdate: PreviousReleaseNoteUpdate | null = null;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faGripVertical = faGripVertical;
   protected readonly faAlignLeft = faAlignLeft;
@@ -2122,6 +2363,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     void this.loadSavedExternalRecipients();
     const identityAndSalesforceConfig = Promise.all([
       this.loadLoggedInMemberRecord(),
+      this.loadReleaseNoteUpdateDefaults(),
       this.salesforceConfigService.refresh().then(config => {
         this.salesforceEnabled = config.enabled;
       }),
@@ -2155,6 +2397,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
+    }));
+    this.subscriptions.push(this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(enabled => {
+      this.platformAdminEnabled = enabled;
+      this.changeDetector.markForCheck();
     }));
     await identityAndSalesforceConfig;
     this.allMembers = await this.memberService.privilegedFields();
@@ -2612,6 +2858,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected async onNewsletterModeToggled(enabled: boolean): Promise<void> {
     this.state.compositionKind = enabled ? EmailCompositionKind.NEWSLETTER : EmailCompositionKind.STANDARD;
     if (enabled) {
+      this.state.releaseNoteUpdate = null;
       this.state.newsletter = this.state.newsletter ?? defaultNewsletterSettings();
       await this.loadPreviousNewsletter();
       this.applyNewsletterWindow();
@@ -2707,6 +2954,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   private async buildNewsletter(plan: NewsletterPlan | null): Promise<void> {
     this.state.compositionKind = EmailCompositionKind.NEWSLETTER;
+    this.state.releaseNoteUpdate = null;
     this.state.eventInclusion = EventInclusionMode.AUTO_INCLUDE;
     this.ensureGroupEventsFilter();
     await this.loadPreviousNewsletter();
@@ -2763,6 +3011,14 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.introMarkdown = this.introBeforeDraft;
       this.introBeforeDraft = null;
     }
+    if (this.articlesBeforeDraft !== null) {
+      this.state.articleBlocks = this.articlesBeforeDraft;
+      this.articlesBeforeDraft = null;
+    }
+    if (this.fragmentOrderBeforeDraft !== null) {
+      this.state.fragmentOrder = this.fragmentOrderBeforeDraft;
+      this.fragmentOrderBeforeDraft = null;
+    }
   }
 
   protected awaitingDetails(event: GroupEventSummary): boolean {
@@ -2809,6 +3065,323 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.notify.warning({ title: "Draft intro", message: this.draftPurpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST
         ? "None of the selected dates are empty slots, so there is nothing to ask for leaders for. Widen the dates on the Events step."
         : "No completed events are selected, so there is nothing to write an intro from. Choose events, or widen the dates, on the Events step." });
+    }
+  }
+
+  protected releaseNoteUpdateMode(): boolean {
+    return this.state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE;
+  }
+
+  private previousReleaseNoteUpdateExists(): boolean {
+    return !!this.previousReleaseNoteUpdate || !!this.state.releaseNoteUpdate?.previousDigestId;
+  }
+
+  protected releaseNoteUpdateWindowTitle(): string {
+    const previousSentAt = this.previousReleaseNoteUpdate?.sentAt ?? this.state.releaseNoteUpdate?.previousSentAt;
+    const sentAt = previousSentAt ? this.dateUtils.displayDate(previousSentAt) : "an unrecorded date";
+    return this.previousReleaseNoteUpdateExists() ? `Last update went out on ${sentAt}` : "This is the first update";
+  }
+
+  protected releaseNoteUpdateWindowDescription(): string {
+    const range = this.releaseNoteUpdatePeriodDescription() ?? "the dates shown below";
+    return this.previousReleaseNoteUpdateExists()
+      ? `Covering ${range}. ${this.releaseNoteUpdateSettings().excludePreviouslyIncluded ? "Changes already included in the previous update are left out." : "Release notes from the previous update may be included again."}`
+      : `Covering ${range}.`;
+  }
+
+  protected previousReleaseNoteUpdateSentDate(): string {
+    return this.previousReleaseNoteUpdate?.sentAt
+      ? this.dateUtils.displayDate(this.previousReleaseNoteUpdate.sentAt)
+      : "an unrecorded date";
+  }
+
+  private releaseNoteUpdatePeriodDescription(): string | null {
+    const from = this.state.releaseNoteUpdate?.fromMillis;
+    const to = this.state.releaseNoteUpdate?.toMillis;
+    return from && to ? `${this.dateUtils.displayDate(from)} to ${this.dateUtils.displayDate(to)}` : null;
+  }
+
+  protected releaseNoteUpdateSliderMinDate: DateTime = this.dateUtils.dateTimeNow().minus({years: 2}).startOf("day");
+  protected releaseNoteUpdateSliderMaxDate: DateTime = this.dateUtils.dateTimeNow().endOf("day");
+  private digestSliderRange: DateRange | null = null;
+
+  protected releaseNoteUpdateSliderRange(): DateRange {
+    const from = this.state.releaseNoteUpdate?.fromMillis ?? this.releaseNoteUpdateSliderMinDate.toMillis();
+    const to = this.state.releaseNoteUpdate?.toMillis ?? this.releaseNoteUpdateSliderMaxDate.toMillis();
+    if (!this.digestSliderRange || this.digestSliderRange.from !== from || this.digestSliderRange.to !== to) {
+      this.digestSliderRange = {from, to};
+    }
+    return this.digestSliderRange;
+  }
+
+  protected releaseNoteUpdateSettings(): ReleaseNoteUpdateSettings {
+    if (!this.state.releaseNoteUpdate) {
+      this.state.releaseNoteUpdate = this.releaseNoteUpdateSettingsFromSelectedProfile();
+      this.applyReleaseNoteUpdateWindow();
+    }
+    return this.state.releaseNoteUpdate;
+  }
+
+  protected releaseNoteUpdateCategoryIsLastSelected(category: ReleaseNoteUpdateCategory): boolean {
+    const categories = this.releaseNoteUpdateSettings().categories;
+    return categories.length === 1 && categories.includes(category);
+  }
+
+  protected setReleaseNoteUpdateCategory(category: ReleaseNoteUpdateCategory, selected: boolean): void {
+    const categories = this.releaseNoteUpdateSettings().categories;
+    this.releaseNoteUpdateSettings().categories = selected
+      ? categories.includes(category) ? categories : categories.concat(category)
+      : categories.filter(candidate => candidate !== category);
+  }
+
+  protected releaseNoteUpdateCoverageHint(): string {
+    return this.releaseNoteUpdateCoverageOptions.find(option => option.value === this.releaseNoteUpdateSettings().coverage)?.hint ?? "";
+  }
+
+  protected releaseNoteUpdateSettingsSummary(): string {
+    const settings = this.releaseNoteUpdateSettings();
+    const categories = this.releaseNoteUpdateCategoryOptions
+      .filter(option => settings.categories.includes(option.value))
+      .map(option => option.label)
+      .join(", ");
+    const periodUnitLabel = this.rangeUnitOptions.find(option => option.value === settings.periodUnit)?.label.toLowerCase() ?? settings.periodUnit;
+    const periodUnit = settings.periodAmount === 1 ? periodUnitLabel.replace(/s$/, "") : periodUnitLabel;
+    const imageSummary = settings.includeImages ? "Suitable release-note images included." : "No images.";
+    return `Report on information from the last ${settings.periodAmount} ${periodUnit}. ${categories}. ${this.releaseNoteUpdateCoverageOptions.find(option => option.value === settings.coverage)?.label ?? ""}. ${imageSummary}`;
+  }
+
+  private applyReleaseNoteUpdateWindow(): void {
+    const settings = this.releaseNoteUpdateSettingsWithoutSeedingWindow();
+    const window = releaseNoteUpdateWindowFrom(
+      settings.periodAmount,
+      settings.periodUnit,
+      this.dateUtils.dateTimeNow().toMillis()
+    );
+    this.applyReleaseNoteUpdateDates(window);
+  }
+
+  private releaseNoteUpdateSettingsWithoutSeedingWindow(): ReleaseNoteUpdateSettings {
+    if (!this.state.releaseNoteUpdate) {
+      this.state.releaseNoteUpdate = this.releaseNoteUpdateSettingsFromSelectedProfile();
+    }
+    return this.state.releaseNoteUpdate;
+  }
+
+  private releaseNoteUpdateSettingsFromSelectedProfile(): ReleaseNoteUpdateSettings {
+    const defaults = defaultReleaseNoteUpdateSettings();
+    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === this.selectedReleaseNoteUpdateProfileId);
+    return {
+      ...defaults,
+      ...this.releaseNoteUpdateDefaults,
+      profileId: profile?.id ?? this.selectedReleaseNoteUpdateProfileId,
+      periodAmount: profile?.periodAmount ?? defaults.periodAmount,
+      periodUnit: profile?.periodUnit ?? defaults.periodUnit
+    };
+  }
+
+  private async loadReleaseNoteUpdateDefaults(): Promise<void> {
+    try {
+      this.releaseNoteUpdateConfiguration = await this.releaseNoteUpdateConfigService.loadConfiguration();
+      this.selectedReleaseNoteUpdateProfileId = this.releaseNoteUpdateConfiguration.defaultProfileId;
+      this.releaseNoteUpdateDefaults = this.releaseNoteUpdateConfiguration.profiles.find(profile => profile.id === this.selectedReleaseNoteUpdateProfileId)?.defaults ?? defaultReleaseNoteUpdateDefaults();
+    } catch (error) {
+      this.logger.error("loadReleaseNoteUpdateDefaults failed", error);
+      this.releaseNoteUpdateDefaults = defaultReleaseNoteUpdateDefaults();
+    }
+  }
+
+  protected async applyReleaseNoteUpdateProfile(profileId: string): Promise<void> {
+    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === profileId);
+    if (profile) {
+      this.selectedReleaseNoteUpdateProfileId = profile.id;
+      this.releaseNoteUpdateDefaults = profile.defaults;
+      this.state.releaseNoteUpdate = {
+        ...this.releaseNoteUpdateSettings(),
+        ...profile.defaults,
+        profileId: profile.id,
+        periodAmount: profile.periodAmount,
+        periodUnit: profile.periodUnit
+      };
+      await this.loadPreviousReleaseNoteUpdate();
+      this.applyReleaseNoteUpdateWindow();
+    }
+  }
+
+  private applyReleaseNoteUpdateDates(window: ReleaseNoteUpdateWindow): void {
+    if (this.state.releaseNoteUpdate) {
+      this.state.releaseNoteUpdate.fromMillis = window.fromMillis;
+      this.state.releaseNoteUpdate.toMillis = window.toMillis;
+      const {minDate, maxDate} = dateRangeSliderBounds(
+        this.dateUtils.asDateTime(window.fromMillis),
+        this.dateUtils.asDateTime(window.toMillis)
+      );
+      if (!this.releaseNoteUpdateSliderMinDate.hasSame(minDate, "day")) {
+        this.releaseNoteUpdateSliderMinDate = minDate;
+      }
+      if (!this.releaseNoteUpdateSliderMaxDate.hasSame(maxDate, "day")) {
+        this.releaseNoteUpdateSliderMaxDate = maxDate;
+      }
+    }
+  }
+
+  protected onReleaseNoteUpdatePeriodAmountChange(amount: number): void {
+    const numeric = Number(amount);
+    const settings = this.releaseNoteUpdateSettings();
+    settings.periodAmount = numeric >= 1 ? numeric : 1;
+    this.applyReleaseNoteUpdateWindow();
+  }
+
+  protected onReleaseNoteUpdatePeriodUnitChange(unit: string): void {
+    const matched = RANGE_UNIT_OPTIONS.find(option => option.value === unit);
+    if (matched) {
+      this.releaseNoteUpdateSettings().periodUnit = matched.value;
+      this.applyReleaseNoteUpdateWindow();
+    }
+  }
+
+  protected onReleaseNoteUpdateDateRangeChange(range: DateRange): void {
+    const settings = this.releaseNoteUpdateSettings();
+    settings.fromMillis = range.from;
+    settings.toMillis = range.to;
+  }
+
+  private async loadPreviousReleaseNoteUpdate(): Promise<void> {
+    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === this.selectedReleaseNoteUpdateProfileId);
+    this.previousReleaseNoteUpdate = await this.compositionsService.previousReleaseNoteUpdate(
+      profile?.id ?? this.selectedReleaseNoteUpdateProfileId,
+      profile?.recipientMode ?? RecipientMode.SELECTED_MEMBERS,
+      profile?.selectedListId ?? null,
+      this.currentDraftId
+    );
+    const existing = this.releaseNoteUpdateSettings();
+    this.state.releaseNoteUpdate = {
+      ...existing,
+      previousDigestId: this.previousReleaseNoteUpdate?.id ?? null,
+      previousSentAt: this.previousReleaseNoteUpdate?.sentAt ?? null,
+      previousWindowEnd: this.previousReleaseNoteUpdate?.windowEnd ?? null,
+      previouslyIncludedPaths: this.previousReleaseNoteUpdate?.includedPaths ?? []
+    };
+    if ((this.previousReleaseNoteUpdate?.selectedMemberIds ?? []).length && !(this.state.selectedMemberIds ?? []).length) {
+      this.state.selectedMemberIds = [...this.previousReleaseNoteUpdate.selectedMemberIds];
+    }
+  }
+
+  private selectCommitteeRoleRecipients(): void {
+    const roleMemberIds = (this.committeeReferenceData?.committeeMembers() ?? [])
+      .map(role => role.memberId)
+      .filter((memberId): memberId is string => !!memberId);
+    const uniqueIds = Array.from(new Set(roleMemberIds));
+    if (uniqueIds.length) {
+      this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
+      this.state.selectedMemberIds = uniqueIds;
+    }
+  }
+
+  private applyReleaseNoteUpdateProfileRecipients(): void {
+    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === this.selectedReleaseNoteUpdateProfileId);
+    if (profile?.recipientMode === RecipientMode.ENTIRE_LIST && profile.selectedListId !== null) {
+      this.setRecipientMode(RecipientMode.ENTIRE_LIST);
+      this.state.selectedListId = profile.selectedListId;
+    } else {
+      this.selectCommitteeRoleRecipients();
+    }
+  }
+
+  protected async createReleaseNoteUpdate(): Promise<void> {
+    this.creatingReleaseNoteUpdate = true;
+    try {
+      this.state.compositionKind = EmailCompositionKind.RELEASE_NOTE_UPDATE;
+      this.state.newsletter = null;
+      this.state.eventInclusion = EventInclusionMode.NONE;
+      this.releaseNoteUpdateSettings();
+      await this.loadPreviousReleaseNoteUpdate();
+      this.applyReleaseNoteUpdateWindow();
+      this.applyReleaseNoteUpdateProfileRecipients();
+      this.applyReleaseNoteUpdateSubject();
+      const drafted = await this.draftReleaseNoteUpdate();
+      if (drafted) {
+        this.goToStepKey(this.canAccessStep(EmailComposerStepKey.COMPOSE) ? EmailComposerStepKey.COMPOSE : EmailComposerStepKey.RECIPIENTS);
+      }
+    } catch (error) {
+      this.logger.error("createReleaseNoteUpdate failed", error);
+      this.notify.warning({title: "Create update", message: `The update could not be created: ${this.errorMessage(error)}`});
+    } finally {
+      this.creatingReleaseNoteUpdate = false;
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  private applyReleaseNoteUpdateSubject(): void {
+    const period = this.releaseNoteUpdatePeriodDescription();
+    this.state.subject = releaseNoteUpdateSubject(
+      this.state.subject,
+      this.state.notificationConfig?.subject?.text ?? null,
+      period
+    );
+  }
+
+  protected async draftReleaseNoteUpdate(): Promise<boolean> {
+    const result = {drafted: false};
+    if (!this.state.releaseNoteUpdate?.fromMillis || !this.state.releaseNoteUpdate?.toMillis) {
+      this.notify.warning({title: "Draft update", message: "Choose the period to cover first."});
+    } else {
+      this.draftingReleaseNoteUpdate = true;
+      const previousIntro = this.state.introMarkdown ?? "";
+      try {
+        const response = await this.aiService.releaseNoteUpdate({
+          fromMillis: this.state.releaseNoteUpdate.fromMillis,
+          toMillis: this.state.releaseNoteUpdate.toMillis,
+          previouslyIncludedPaths: this.state.releaseNoteUpdate.excludePreviouslyIncluded ? this.state.releaseNoteUpdate.previouslyIncludedPaths : [],
+          guidance: this.state.releaseNoteUpdate.guidance ?? undefined,
+          groupName: this.systemConfig?.group?.longName || this.systemConfig?.group?.shortName,
+          categories: [...this.state.releaseNoteUpdate.categories],
+          coverage: this.state.releaseNoteUpdate.coverage,
+          maximumThemes: this.state.releaseNoteUpdate.maximumThemes,
+          maximumSourcesPerTheme: this.state.releaseNoteUpdate.maximumSourcesPerTheme,
+          writingRules: this.state.releaseNoteUpdate.writingRules,
+          includeTechnicalChanges: this.state.releaseNoteUpdate.includeTechnicalChanges,
+          includeImages: this.state.releaseNoteUpdate.includeImages
+        });
+        this.applyReleaseNoteUpdateResponse(response, previousIntro);
+        result.drafted = !!response?.draft;
+      } catch (error) {
+        this.logger.error("draftReleaseNoteUpdate failed", error);
+        this.notify.warning({title: "Draft update", message: `The update could not be drafted, so it has been left as it was: ${this.errorMessage(error)}`});
+      } finally {
+        this.draftingReleaseNoteUpdate = false;
+        this.changeDetector.detectChanges();
+      }
+    }
+    return result.drafted;
+  }
+
+  private applyReleaseNoteUpdateResponse(response: ReleaseNoteUpdateResponse, previousIntro: string): void {
+    const draft = response?.draft;
+    if (!draft) {
+      this.notify.warning({title: "Draft update", message: "Nothing came back, so the update has been left as it was."});
+    } else {
+      this.introBeforeDraft = previousIntro;
+      this.articlesBeforeDraft = [...(this.state.articleBlocks ?? [])];
+      this.fragmentOrderBeforeDraft = [...(this.state.fragmentOrder ?? [])];
+      this.state.introMarkdown = draft.intro ?? "";
+      this.state.articleBlocks = releaseNoteUpdateArticlesFrom(draft);
+      this.state.fragmentOrder = releaseNoteUpdateFragmentOrder(this.state.articleBlocks);
+      this.state.releaseNoteUpdate = {
+        ...(this.state.releaseNoteUpdate ?? defaultReleaseNoteUpdateSettings()),
+        includedPaths: Array.from(new Set((draft.items ?? []).flatMap(item => item.sourcePaths))),
+        indexPath: draft.indexPath
+      };
+      (this.state.articleBlocks ?? []).forEach(block => this.expandedFragmentIds.add(block.id));
+      this.expandedFragmentIds.add("intro");
+      if (response.emptyWindow) {
+        this.notify.warning({title: "Draft update", message: "Nothing shipped in this period, so the draft says so rather than inventing news."});
+      } else if (response.drafted) {
+        this.notify.success({title: "Draft update", message: "Update drafted from the release notes. Read it over and change anything you would say differently."});
+      } else if (response.draftOutcome === ReleaseNoteUpdateDraftOutcome.AI_DISABLED) {
+        this.notify.warning({title: "Draft update", message: "AI drafting is not enabled for this environment, so no summary was generated. The release-note headlines have been added for writing by hand."});
+      } else {
+        this.notify.warning({title: "Draft update", message: "The drafting service returned a response that could not be read, so no summary was generated. The release-note headlines have been added for writing by hand."});
+      }
     }
   }
 
@@ -2915,10 +3488,14 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private rescaleSliderToRange(fromMillis: number, toMillis: number): void {
-    const span = Math.max(toMillis - fromMillis, 24 * 60 * 60 * 1000);
-    const padding = Math.max(span * 0.25, 24 * 60 * 60 * 1000);
-    this.eventSliderMinDate = this.dateUtils.asDateTime(fromMillis - padding).startOf("day");
-    this.eventSliderMaxDate = this.dateUtils.asDateTime(toMillis + padding).startOf("day");
+    const {minDate, maxDate} = dateRangeSliderBounds(
+      this.dateUtils.asDateTime(fromMillis),
+      this.dateUtils.asDateTime(toMillis),
+      0.25,
+      1
+    );
+    this.eventSliderMinDate = minDate;
+    this.eventSliderMaxDate = maxDate;
   }
 
   private recomputeSliderBoundsFromCurrentRange(): void {
@@ -4672,7 +5249,9 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected eventsStepOmitted(): boolean {
-    return this.state.brandingMode === BrandingMode.UNBRANDED || !!this.state.notificationConfig?.omitEventsStep;
+    return this.releaseNoteUpdateMode()
+      || this.state.brandingMode === BrandingMode.UNBRANDED
+      || !!this.state.notificationConfig?.omitEventsStep;
   }
 
   eventsStepValid(): boolean {
@@ -4793,8 +5372,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (this.sendInProgress) return;
     const step = this.stepperSteps[index];
     if (step && this.canAccessStep(step.key)) {
-      this.stepperActiveTab = step.key;
-      this.syncStateToUrl({ [StoredValue.TAB]: step.key });
+      this.setActiveStepperTab(step.key);
       if (step.key === EmailComposerStepKey.COMPOSE || step.key === EmailComposerStepKey.REVIEW) {
         this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
       }
@@ -4807,8 +5385,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected goToStepKey(key: EmailComposerStepKey): void {
     if (this.sendInProgress) return;
     if (this.canAccessStep(key)) {
-      this.stepperActiveTab = key;
-      this.syncStateToUrl({ [StoredValue.TAB]: key });
+      this.setActiveStepperTab(key);
       if (key === EmailComposerStepKey.COMPOSE || key === EmailComposerStepKey.REVIEW) {
         this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
       }
@@ -4851,14 +5428,18 @@ export class EmailComposer implements OnInit, OnDestroy {
   onStepperValueChange(value: unknown): void {
     const key = value as EmailComposerStepKey;
     if (!key) return;
-    this.stepperActiveTab = key;
-    this.syncStateToUrl({ [StoredValue.TAB]: key });
+    this.setActiveStepperTab(key);
     if (key === EmailComposerStepKey.COMPOSE) {
       this.focusComposeEditor();
     }
     if (key === EmailComposerStepKey.REVIEW) {
       this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
     }
+  }
+
+  private setActiveStepperTab(key: EmailComposerStepKey, queryParams: Record<string, string | null | undefined> = {}): void {
+    this.stepperActiveTab = key;
+    this.syncStateToUrl({...queryParams, [StoredValue.TAB]: key});
   }
 
   stepHint(key: EmailComposerStepKey): string {
@@ -4900,15 +5481,16 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private confirmLeaveComposer(action: string): boolean {
-    if (this.hasUnsavedChanges() && !this.cancelArmed) {
+    if (this.shouldWarnAboutUnsavedChanges() && !this.cancelArmed) {
       this.cancelArmed = true;
       this.notify.warning({
         title: "Discard email content?",
         message: `You have unsent email content. Click ${action} again to discard and leave.`
       });
       return false;
+    } else {
+      return true;
     }
-    return true;
   }
 
   private leaveComposer(): void {
@@ -4943,6 +5525,14 @@ export class EmailComposer implements OnInit, OnDestroy {
       || (this.state.ccRecipients ?? []).length > 0
       || (this.state.bccRecipients ?? []).length > 0
       || !!this.state.selectedListId;
+  }
+
+  private shouldWarnAboutUnsavedChanges(): boolean {
+    return !this.sendSuccessfullyCompleted() && this.userHasEditedComposer && this.hasUnsavedChanges();
+  }
+
+  private sendSuccessfullyCompleted(): boolean {
+    return this.campaignSendComplete || this.batchProgress?.status === BatchSendStatus.COMPLETED;
   }
 
   protected hasContentToDraft(): boolean {
@@ -5050,6 +5640,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.currentDraftId = draft.id;
       this.lastSavedAt = draft.savedAt;
       this.currentComposition = draft;
+      this.userHasEditedComposer = false;
       this.routeCompositionKey = `draft:${draft.id}`;
       this.syncStateToUrl({ [StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null });
       await this.refreshDrafts();
@@ -5075,6 +5666,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.currentDraftId = draft.id;
       this.lastSavedAt = draft.savedAt;
       this.currentComposition = draft;
+      this.userHasEditedComposer = false;
       this.composeShared = draft.shared;
       this.draftsPanelOpen = false;
       this.routeCompositionKey = `draft:${draft.id}`;
@@ -5114,6 +5706,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.newsletter = restored.compositionKind === EmailCompositionKind.NEWSLETTER
       ? { ...defaultNewsletterSettings(), ...(restored.newsletter ?? {}) }
       : null;
+    restored.releaseNoteUpdate = restored.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE
+      ? releaseNoteUpdateSettingsFrom(restored.releaseNoteUpdate)
+      : restored.releaseNoteUpdate ?? defaultReleaseNoteUpdateSettings();
     if (restored.groupEventsFilter) {
       restored.groupEventsFilter.fromDate = this.restoredDateValue(restored.groupEventsFilter.fromDate);
       restored.groupEventsFilter.toDate = this.restoredDateValue(restored.groupEventsFilter.toDate);
@@ -5169,6 +5764,13 @@ export class EmailComposer implements OnInit, OnDestroy {
         await this.loadSingleEvent(storedSingleId);
       }
     }
+    if (this.releaseNoteUpdateMode() && this.state.releaseNoteUpdate?.fromMillis && this.state.releaseNoteUpdate?.toMillis) {
+      this.applyReleaseNoteUpdateDates({
+        fromMillis: this.state.releaseNoteUpdate.fromMillis,
+        toMillis: this.state.releaseNoteUpdate.toMillis,
+        continuesPreviousWindow: false
+      });
+    }
     const allIds = this.allFragmentCommitteeFileIds();
     if (allIds.length > 0) {
       if (this.allCommitteeFiles.length === 0) {
@@ -5197,7 +5799,6 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected newComposition(): void {
     this.forcedMemberId = null;
     this.routeCompositionKey = null;
-    this.syncStateToUrl({ [StoredValue.MEMBER]: null, [StoredValue.DRAFT_ID]: null, [StoredValue.COPY_OF]: null });
     this.state = defaultEmailComposerState();
     if (this.mailMessagingConfig) {
       this.state.notificationConfigListing = {
@@ -5208,10 +5809,15 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.autoSelectNotificationConfig();
     }
     this.currentDraftId = null;
+    this.userHasEditedComposer = false;
     this.lastSavedAt = null;
     this.composeShared = false;
     this.draftsPanelOpen = false;
-    this.stepperActiveTab = EmailComposerStepKey.RECIPIENTS;
+    this.setActiveStepperTab(EmailComposerStepKey.TEMPLATE, {
+      [StoredValue.MEMBER]: null,
+      [StoredValue.DRAFT_ID]: null,
+      [StoredValue.COPY_OF]: null
+    });
     this.batchProgress = null;
     this.campaignSendComplete = false;
     this.committeeFiles = new Map();
@@ -5842,6 +6448,7 @@ export class EmailComposer implements OnInit, OnDestroy {
           this.batchProgress = progress;
           if (this.batchSendComplete()) {
             this.sendInProgress = false;
+            this.userHasEditedComposer = progress.status === BatchSendStatus.COMPLETED ? false : this.userHasEditedComposer;
             this.pollSubscription?.unsubscribe();
             this.pollSubscription = null;
             this.notify.hide();
@@ -5896,8 +6503,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private errorMessage(error: any): string {
-    if (isString(error)) return error;
-    if (error?.message) return error.message;
-    return "An unknown error occurred";
+    return isString(error)
+      ? error
+      : error?.error?.error || error?.message || "An unknown error occurred";
   }
 }

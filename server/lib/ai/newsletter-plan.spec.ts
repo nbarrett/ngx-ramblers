@@ -54,6 +54,16 @@ describe("newsletter-plan", () => {
     it("returns null when the object will not parse", () => {
       expect(jsonObjectFrom("{fromDate: not json}")).toEqual(null);
     });
+
+    it("repairs a missing opening quote on a property name", () => {
+      expect(jsonObjectFrom('{"items":[{"title":"Walks", theme":"Running walks"}]}')).toEqual({
+        items: [{title: "Walks", theme: "Running walks"}]
+      });
+    });
+
+    it("repairs an unquoted property name and a trailing comma", () => {
+      expect(jsonObjectFrom('{"items":[{title:"Walks",}]}')).toEqual({items: [{title: "Walks"}]});
+    });
   });
 
   describe("parseNewsletterPlan", () => {

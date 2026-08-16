@@ -26,6 +26,7 @@ export enum SystemSettingsTab {
   VOLUNTEERS = "Volunteers",
   SCHEDULED_TASKS = "Scheduled Tasks",
   VIDEO_MEETINGS = "Video Meetings",
+  RELEASE_NOTE_UPDATES = "Release Note Updates",
   DIAGNOSTICS = "Diagnostics",
 }
 

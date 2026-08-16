@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.get("", authConfig.authenticate(), emailComposition.listForCurrentMember);
 router.get("/newsletter/previous", authConfig.authenticate(), emailComposition.findPreviousNewsletter);
+router.get("/release-note-update/previous", authConfig.authenticate(), emailComposition.findPreviousReleaseNoteUpdate);
 router.get("/:id", authConfig.authenticate(), emailComposition.findById);
 router.post("", authConfig.authenticate(), emailComposition.create);
 router.put("/:id", authConfig.authenticate(), emailComposition.update);

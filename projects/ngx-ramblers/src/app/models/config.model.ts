@@ -11,6 +11,7 @@ export enum ConfigKey {
   MAILCHIMP = "mailchimp",
   MEETUP = "meetup",
   MIGRATION = "migration",
+  RELEASE_NOTE_UPDATE = "release-note-update",
   RAMBLERS_AREAS_CACHE = "ramblers-areas-cache",
   SALESFORCE = "salesforce",
   MEMBER_SYNC_POLICY = "member-sync-policy",

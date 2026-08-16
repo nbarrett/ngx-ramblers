@@ -19,10 +19,10 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
 import { PageContentService } from "../../../services/page-content.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
-import { LocationExtractionService } from "../../../services/location-extraction.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronRight, faImage, faStar, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { CmsPageImageService } from "../../../services/cms-page-image.service";
 
 interface ExpandedEntry {
   column: PageContentColumn;
@@ -257,7 +257,7 @@ export class IndexEntryOverrideEditor {
 
   private contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   private pageContentService: PageContentService = inject(PageContentService);
-  private locationExtractionService: LocationExtractionService = inject(LocationExtractionService);
+  private cmsPageImageService = inject(CmsPageImageService);
   private actions: PageContentActionsService = inject(PageContentActionsService);
   private urlService: UrlService = inject(UrlService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -509,9 +509,9 @@ export class IndexEntryOverrideEditor {
       this.logger.info("extractPageImages: no page found for:", href);
       return [];
     }
-    const rawImages = this.locationExtractionService.findAllImagesInPage(page);
-    this.logger.info("extractPageImages:", href, "found", rawImages.length, "images");
-    return rawImages.map(image => ({image, imageSource: this.urlService.imageSource(image)}));
+    const images = this.cmsPageImageService.imagesFromPage(page);
+    this.logger.info("extractPageImages:", href, "found", images.length, "images");
+    return images.map(image => ({image: image.src, imageSource: image.resolvedSrc}));
   }
 
   private async findChildAlbumMetadata(href: string): Promise<ContentMetadata[]> {

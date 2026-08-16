@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { absolutiseMarkdownLinks, descriptionFromMarkdown, normalisePath, publicMarkdownFromRows, titleFromPath } from "./content-export-renderer";
+import { absolutiseMarkdownLinks, descriptionFromMarkdown, normalisePath, publicImagesFromRows, publicMarkdownFromRows, titleFromPath } from "./content-export-renderer";
 import { PageContentRow } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 
@@ -62,6 +62,35 @@ describe("content-export-renderer", () => {
         ]
       }] as PageContentRow[];
       expect(publicMarkdownFromRows(rows)).toBe("Remote\n\n![](https://example.com/image.jpg)\n\nInline");
+    });
+  });
+
+  describe("publicImagesFromRows", () => {
+    it("reads public column images and nested column images directly", () => {
+      const rows = [{columns: [{
+        imageSource: "site-content/outer.jpg",
+        alt: "Outer image",
+        rows: [{columns: [{imageSource: "site-content/inner.jpg", title: "Inner image"}]}]
+      }]}] as PageContentRow[];
+
+      expect(publicImagesFromRows(rows, "https://example.test")).toEqual([
+        {url: "https://example.test/api/aws/s3/site-content/outer.jpg", alt: "Outer image"},
+        {url: "https://example.test/api/aws/s3/site-content/inner.jpg", alt: "Inner image"}
+      ]);
+    });
+
+    it("uses nearby column content to describe an image without alt text", () => {
+      const rows = [{columns: [{imageSource: "site-content/editor.jpg", contentText: "Follow a walk on your phone and edit its route."}]}] as PageContentRow[];
+
+      expect(publicImagesFromRows(rows, "https://example.test")).toEqual([
+        {url: "https://example.test/api/aws/s3/site-content/editor.jpg", alt: "Follow a walk on your phone and edit its route."}
+      ]);
+    });
+
+    it("excludes images from restricted columns", () => {
+      const rows = [{columns: [{imageSource: "site-content/private.jpg", accessLevel: AccessLevel.COMMITTEE}]}] as PageContentRow[];
+
+      expect(publicImagesFromRows(rows, "https://example.test")).toEqual([]);
     });
   });
 

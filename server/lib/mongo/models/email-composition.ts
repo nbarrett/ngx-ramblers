@@ -5,7 +5,7 @@ import { EmailCompositionDocument, EmailCompositionKind, EmailCompositionStatus 
 const emailCompositionSchema = new mongoose.Schema({
   ownerMemberId: { type: String, required: true, index: true },
   status: { type: String, required: true, enum: [EmailCompositionStatus.Draft, EmailCompositionStatus.Sent], default: EmailCompositionStatus.Draft, index: true },
-  kind: { type: String, required: true, enum: [EmailCompositionKind.STANDARD, EmailCompositionKind.NEWSLETTER], default: EmailCompositionKind.STANDARD, index: true },
+  kind: { type: String, required: true, enum: [EmailCompositionKind.STANDARD, EmailCompositionKind.NEWSLETTER, EmailCompositionKind.RELEASE_NOTE_UPDATE], default: EmailCompositionKind.STANDARD, index: true },
   shared: { type: Boolean, required: true, default: false, index: true },
   title: { type: String, required: true },
   state: { type: mongoose.Schema.Types.Mixed, required: true },

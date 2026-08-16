@@ -1,28 +1,21 @@
-import express, { Request, Response } from "express";
+import { Request, Response } from "express";
 import debugLib from "debug";
 import { isArray } from "es-toolkit/compat";
-import * as authConfig from "../auth/auth-config";
-import { envConfig } from "../env-config/env-config";
-import { Ai } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import {
-  AiConnectionStatus,
-  CoverImageCandidate
-} from "../../../projects/ngx-ramblers/src/app/models/ai.model";
-import { draftNewsletterIntro, planNewsletter } from "./newsletter-controllers";
-import { aiConfigFromEnvironment } from "./ai-config";
-import { generate } from "./ai-generation";
-import { aiProviderFor } from "./ai-provider-factory";
+import { Ai } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
+import { AiConnectionStatus, CoverImageCandidate } from "../../../../projects/ngx-ramblers/src/app/models/ai.model";
+import { envConfig } from "../../env-config/env-config";
+import { aiConfigFromEnvironment } from "../ai-config";
+import { generate } from "../ai-generation";
+import { aiProviderFor } from "../ai-provider-factory";
 import {
   aiStatusViaIntegrationWorker,
   chooseCoverViaIntegrationWorker,
   integrationWorkerConfigured
-} from "./ai-worker-client";
-import { chooseCoverImageFromCandidates } from "./choose-cover-image";
+} from "../ai-worker-client";
+import { chooseCoverImageFromCandidates } from "../choose-cover-image";
 
 const debug = debugLib(envConfig.logNamespace("ai:text-generation"));
 debug.enabled = false;
-
-const router = express.Router();
 
 const WALK_REPORT_SYSTEM_PROMPT = [
   "Rewrite the walk description as a short photo-album report of a completed group walk.",
@@ -41,64 +34,57 @@ const WALK_REPORT_SYSTEM_PROMPT = [
 async function connectionStatus(ai: Ai): Promise<AiConnectionStatus> {
   if (integrationWorkerConfigured()) {
     return aiStatusViaIntegrationWorker(ai);
+  } else {
+    await aiProviderFor(ai).generate({systemPrompt: "Reply with the single word OK.", input: "ping", maxTokens: 5});
+    return {connected: true, model: ai?.model};
   }
-  await aiProviderFor(ai).generate({systemPrompt: "Reply with the single word OK.", input: "ping", maxTokens: 5});
-  return {connected: true, model: ai?.model};
 }
 
-router.post("/rewrite", authConfig.authenticate(), async (req: Request, res: Response) => {
-  const ai: Ai = aiConfigFromEnvironment();
+export async function rewrite(req: Request, res: Response): Promise<void> {
+  const ai = aiConfigFromEnvironment();
   const input: string = req.body?.input;
   if (!ai.enabled) {
     res.json({request: {}, response: {output: input}});
-    return;
+  } else {
+    try {
+      const output = await generate(ai, req.body?.systemPrompt || WALK_REPORT_SYSTEM_PROMPT, input);
+      res.json({request: {}, response: {output}});
+    } catch (error) {
+      debug("rewrite error:", error);
+      res.status(502).json({request: {}, error: error?.message || String(error)});
+    }
   }
-  try {
-    const output = await generate(ai, req.body?.systemPrompt || WALK_REPORT_SYSTEM_PROMPT, input);
-    res.json({request: {}, response: {output}});
-  } catch (error) {
-    debug("rewrite error:", error);
-    res.status(502).json({request: {}, error: error?.message || String(error)});
-  }
-});
+}
 
-router.post("/newsletter-intro", authConfig.authenticate(), draftNewsletterIntro);
-
-router.post("/newsletter-plan", authConfig.authenticate(), planNewsletter);
-
-router.post("/choose-cover", authConfig.authenticate(), async (req: Request, res: Response) => {
-  const ai: Ai = aiConfigFromEnvironment();
+export async function chooseCover(req: Request, res: Response): Promise<void> {
+  const ai = aiConfigFromEnvironment();
   const candidates: CoverImageCandidate[] = isArray(req.body?.candidates) ? req.body.candidates : [];
   const rootFolder: string | undefined = req.body?.rootFolder;
   const albumName: string | undefined = req.body?.albumName;
   if (!candidates.length) {
     res.json({request: {}, response: {image: null}});
-    return;
-  }
-  if (!ai.enabled) {
+  } else if (!ai.enabled) {
     debug("choose-cover: AI disabled, using first image");
     res.json({request: {}, response: {image: candidates[0]?.image || null}});
-    return;
+  } else {
+    try {
+      const image = integrationWorkerConfigured()
+        ? await chooseCoverViaIntegrationWorker(ai, candidates, rootFolder, albumName)
+        : await chooseCoverImageFromCandidates(ai, candidates, rootFolder, albumName);
+      debug("choose-cover: selected", image);
+      res.json({request: {}, response: {image: image || candidates[0]?.image || null}});
+    } catch (error) {
+      debug("choose-cover error:", error);
+      res.json({request: {}, response: {image: candidates[0]?.image || null}});
+    }
   }
-  try {
-    const image = integrationWorkerConfigured()
-      ? await chooseCoverViaIntegrationWorker(ai, candidates, rootFolder, albumName)
-      : await chooseCoverImageFromCandidates(ai, candidates, rootFolder, albumName);
-    debug("choose-cover: selected", image);
-    res.json({request: {}, response: {image: image || candidates[0]?.image || null}});
-  } catch (error) {
-    debug("choose-cover error:", error);
-    res.json({request: {}, response: {image: candidates[0]?.image || null}});
-  }
-});
+}
 
-router.get("/status", authConfig.authenticate(), async (_req: Request, res: Response) => {
+export async function status(_req: Request, res: Response): Promise<void> {
   try {
-    const status = await connectionStatus(aiConfigFromEnvironment());
-    res.json({request: {}, response: status});
+    const response = await connectionStatus(aiConfigFromEnvironment());
+    res.json({request: {}, response});
   } catch (error) {
     res.json({request: {}, response: {connected: false, error: error?.message || String(error)}});
   }
-});
-
-export const aiRoutes = router;
+}

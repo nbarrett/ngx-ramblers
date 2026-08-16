@@ -47,6 +47,21 @@ describe("ai-discovery", () => {
     expect(releaseNotesIndexPathFrom(["docs/release-notes"])).toBe("docs/release-notes");
   });
 
+  it("parses the humans index using the technical notes folder as the parent", () => {
+    const markdown = [
+      "# Release Notes For Humans",
+      "",
+      "- [17-Aug-2026 — follow a walk](https://ngx-ramblers.org.uk/how-to/committee/release-notes/2026-08-17-issue-151) 📸",
+      "- [nested ignored](how-to/committee/release-notes/2024-03-06/mail-settings-page)"
+    ].join("\n");
+    const entries = parseReleaseEntriesFromMarkdown(markdown, "how-to/committee/release-notes");
+    expect(entries).toEqual([{
+      title: "17-Aug-2026 — follow a walk",
+      path: "how-to/committee/release-notes/2026-08-17-issue-151",
+      hasImages: true
+    }]);
+  });
+
   it("parses top-level release-note entries relative to the CMS index path", () => {
     const indexPath = "how-to/committee/release-notes";
     const markdown = [
