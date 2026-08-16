@@ -6,6 +6,7 @@ import { catchError, filter, switchMap, take } from "rxjs/operators";
 import { AuthTokens } from "../models/auth-tokens";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { AuthService } from "./auth.service";
+import { isOurSessionUnauthorised } from "./session-unauthorised";
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -28,7 +29,7 @@ export class AuthInterceptor implements HttpInterceptor {
     }
 
     return next.handle(request).pipe(catchError(error => {
-      if (error instanceof HttpErrorResponse && error.status === 401 && !authRequest) {
+      if (error instanceof HttpErrorResponse && error.status === 401 && !authRequest && isOurSessionUnauthorised(error)) {
         return this.handle401Error(request, next);
       } else {
         return throwError(() => error);

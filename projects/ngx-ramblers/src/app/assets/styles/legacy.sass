@@ -418,8 +418,12 @@ h3 small
     width: 1em
     height: 1em
 
+.input-group:has(app-secret-input)
+  flex-wrap: nowrap
+
 .input-group > app-secret-input
   flex: 1 1 auto
+  width: 1%
   min-width: 0
 
 .input-group > app-secret-input .form-control
