@@ -25,6 +25,10 @@ import {
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { eventIsPubliclyIndexable } from "../../seo/public-event-indexability";
+import { eventHasIndexablePublicSlug } from "../../seo/public-path-indexability";
+import { eventPathFor } from "../../shared/event-url";
+import { systemConfig } from "../../config/system-config";
+import { Organisation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 
 const searchLog: debug.Debugger = debug(envConfig.logNamespace("database:site-search"));
 searchLog.enabled = true;
@@ -134,34 +138,37 @@ function pageVisible(entry: PageEntry, levels: AccessLevel[]): boolean {
   return hasAccessibleSegment || !hasRestrictedSegment;
 }
 
-function toEventEntry(event: ExtendedGroupEvent): EventEntry | null {
+function toEventEntry(event: ExtendedGroupEvent, group: Organisation): EventEntry | null {
   const groupEvent = event.groupEvent;
   if (!groupEvent?.title) {
     return null;
+  } else {
+    const isGroupEvent = groupEvent.item_type === RamblersEventType.GROUP_EVENT;
+    const officialPath = eventPathFor(event, group);
+    const slug = lastItemFrom(groupEvent.url) || (event as any)._id?.toString() || event.id;
+    const path = officialPath ? officialPath.replace(/^\/+/, "") : `walks/${slug}`;
+    const description = groupEvent.description || groupEvent.additional_details || "";
+    const contactName = event.fields?.contactDetails?.displayName || "";
+    return {
+      type: isGroupEvent ? SiteSearchResultType.EVENT : SiteSearchResultType.WALK,
+      title: groupEvent.title,
+      path,
+      breadcrumb: isGroupEvent ? "Events" : "Walks",
+      description,
+      haystack: [
+        groupEvent.title,
+        groupEvent.description,
+        groupEvent.additional_details,
+        groupEvent.location?.description,
+        groupEvent.location?.postcode,
+        groupEvent.start_location?.description,
+        contactName
+      ].filter(value => !!value).join(" "),
+      date: groupEvent.start_date_time || "",
+      contactName,
+      includeInPublicSitemap: eventIsPubliclyIndexable(event) && eventHasIndexablePublicSlug(event)
+    };
   }
-  const isGroupEvent = groupEvent.item_type === RamblersEventType.GROUP_EVENT;
-  const slug = lastItemFrom(groupEvent.url) || (event as any)._id?.toString() || event.id;
-  const description = groupEvent.description || groupEvent.additional_details || "";
-  const contactName = event.fields?.contactDetails?.displayName || "";
-  return {
-    type: isGroupEvent ? SiteSearchResultType.EVENT : SiteSearchResultType.WALK,
-    title: groupEvent.title,
-    path: `walks/${slug}`,
-    breadcrumb: isGroupEvent ? "Events" : "Walks",
-    description,
-    haystack: [
-      groupEvent.title,
-      groupEvent.description,
-      groupEvent.additional_details,
-      groupEvent.location?.description,
-      groupEvent.location?.postcode,
-      groupEvent.start_location?.description,
-      contactName
-    ].filter(value => !!value).join(" "),
-    date: groupEvent.start_date_time || "",
-    contactName,
-    includeInPublicSitemap: eventIsPubliclyIndexable(event)
-  };
 }
 
 async function timed<T>(label: string, action: () => Promise<T>): Promise<T> {
@@ -179,11 +186,12 @@ async function timed<T>(label: string, action: () => Promise<T>): Promise<T> {
 async function buildSearchIndex(): Promise<SearchIndex> {
   const startedAt = dateTimeNowAsValue();
   searchLog("buildSearchIndex: starting full index build from database");
-  const [pages, events] = await Promise.all([
+  const [pages, events, config] = await Promise.all([
     timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).lean().exec() as Promise<PageContent[]>),
     timed("events load", () => extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
       .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.status groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
-      .limit(EVENT_INDEX_LIMIT).lean().exec() as Promise<ExtendedGroupEvent[]>)
+      .limit(EVENT_INDEX_LIMIT).lean().exec() as Promise<ExtendedGroupEvent[]>),
+    timed("system-config load", () => systemConfig())
   ]);
   const includedPages = pages.filter(pathIncluded);
   const pageEntries: PageEntry[] = includedPages.map(page => ({
@@ -192,7 +200,7 @@ async function buildSearchIndex(): Promise<SearchIndex> {
     breadcrumb: breadcrumbFromPath(page.path),
     segments: collectSegments(page.rows, [])
   }));
-  const eventEntries: EventEntry[] = events.map(toEventEntry).filter(entry => !!entry);
+  const eventEntries: EventEntry[] = events.map(event => toEventEntry(event, config?.group)).filter(entry => !!entry);
   searchLog("buildSearchIndex: complete - loaded", pages.length, "page documents (", pageEntries.length, "indexed ),", events.length, "events (", eventEntries.length, "indexed ) - total", dateTimeNowAsValue() - startedAt, "ms");
   return {pages: pageEntries, events: eventEntries, builtAt: dateTimeNowAsValue()};
 }

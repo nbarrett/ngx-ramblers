@@ -13,7 +13,7 @@ import {
   PageSeoDescriptor
 } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
 import { EventSource, ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { DocumentField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { DocumentField, EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { values } from "es-toolkit/compat";
 import { StoredValue } from "../../../projects/ngx-ramblers/src/app/models/ui-actions";
 import { renderMarkdownToHtml } from "../shared/markdown-renderer";
@@ -26,6 +26,13 @@ import {
   titleFromPath
 } from "./content-export-renderer";
 import { eventShouldNoindex } from "../seo/public-event-indexability";
+import {
+  eventHasIndexablePublicSlug,
+  eventListRootsFrom,
+  eventRedirectTarget,
+  isReservedSeoAppPath,
+  missingPageSeoDescriptor
+} from "../seo/public-path-indexability";
 import { eventStructuredData } from "../seo/event-structured-data";
 import { eventImages, fallbackImageUrl } from "../shared/event-images";
 import { systemConfig } from "../config/system-config";
@@ -54,6 +61,15 @@ function contentExportFrom(page: PageContent, baseUrl: string): ContentExport {
     contentMarkdown,
     contentHtml: renderMarkdownToHtml(contentMarkdown)
   };
+}
+
+async function applyExportDiscoveryHeaders(res: Response, pagePath: string): Promise<void> {
+  res.setHeader("X-Robots-Tag", "noindex, follow");
+  const baseUrl = await siteBaseUrl();
+  if (baseUrl && pagePath) {
+    const url = `${baseUrl.replace(/\/+$/, "")}/${pagePath.replace(/^\/+/, "")}`;
+    res.setHeader("Link", `<${url}>; rel="canonical"`);
+  }
 }
 
 function sendInFormat(contentExport: ContentExport, format: string, res: Response): void {
@@ -101,6 +117,7 @@ async function respondWith(page: PageContent, req: Request, res: Response): Prom
   }
   const format = (req.query[StoredValue.FORMAT] as string) || ContentExportFormat.JSON;
   if (values(ContentExportFormat).includes(format as ContentExportFormat)) {
+    await applyExportDiscoveryHeaders(res, page.path);
     sendInFormat(contentExport, format, res);
   } else {
     res.status(400).json({message: `Invalid format: ${format} - valid values are ${values(ContentExportFormat).join(", ")}`});
@@ -118,6 +135,7 @@ export async function contentExportForPageUrl(req: Request, res: Response, next:
     const page = await pageContentForPath(req.path);
     const contentExport = page ? contentExportFrom(page, await siteBaseUrl()) : null;
     if (contentExport?.contentMarkdown.trim()) {
+      await applyExportDiscoveryHeaders(res, page.path);
       sendInFormat(contentExport, format, res);
     } else {
       next();
@@ -169,18 +187,11 @@ const EVENT_SEO_SELECT = [
   GroupEventField.LOCATION,
   GroupEventField.MEDIA,
   GroupEventField.GROUP_NAME,
-  "fields.contactDetails.displayName"
+  GroupEventField.WALK_LEADER_NAME,
+  GroupEventField.EVENT_ORGANISER_NAME,
+  GroupEventField.DATE_CREATED,
+  EventField.CONTACT_DETAILS_DISPLAY_NAME
 ].join(" ");
-const RESERVED_WALK_APP_SEGMENTS = new Set([
-  "add",
-  "admin",
-  "my-walks",
-  "add-walk",
-  "edit",
-  "view",
-  "new",
-  "email-composer"
-]);
 
 async function eventForSlug(slug: string): Promise<ExtendedGroupEvent> {
   const activeFilter = {
@@ -215,20 +226,10 @@ async function eventSeoDescriptor(event: ExtendedGroupEvent): Promise<PageSeoDes
     openGraphType: OpenGraphType.EVENT,
     structuredData: eventStructuredData(event, config, baseUrl, images.map(image => image.url))
   };
-  if (eventShouldNoindex(event)) {
+  if (eventShouldNoindex(event) || !eventHasIndexablePublicSlug(event)) {
     descriptor.robots = "noindex, follow";
   }
   return descriptor;
-}
-
-function missingWalkSeoDescriptor(): PageSeoDescriptor {
-  return {
-    title: "Page not found",
-    description: "",
-    contentHtml: "",
-    robots: "noindex",
-    httpStatus: 404
-  };
 }
 
 export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeoDescriptor> {
@@ -249,27 +250,35 @@ export async function pageSeoDescriptorForPath(rawPath: string): Promise<PageSeo
     } else {
       return null;
     }
-  }
-  const pathSegments = path.split("/").filter(segment => segment.length > 0);
-  if (pathSegments.length === 2 && pathSegments[0] === "walks") {
-    if (RESERVED_WALK_APP_SEGMENTS.has(pathSegments[1])) {
+  } else {
+    const config = await systemConfig();
+    const eventListRoots = eventListRootsFrom(config?.group);
+    if (isReservedSeoAppPath(path, eventListRoots)) {
       return null;
     } else {
-      const event = await eventForSlug(pathSegments[1]);
-      if (event?.groupEvent?.title) {
-        return await eventSeoDescriptor(event);
+      const pathSegments = path.split("/").filter(segment => segment.length > 0);
+      const slugCandidate = pathSegments.length >= 2 ? pathSegments[pathSegments.length - 1] : null;
+      if (!slugCandidate) {
+        return missingPageSeoDescriptor();
       } else {
-        return missingWalkSeoDescriptor();
+        const event = await eventForSlug(slugCandidate);
+        if (event?.groupEvent?.title) {
+          const redirectTo = eventRedirectTarget(path, event, config?.group);
+          if (redirectTo) {
+            return {
+              title: event.groupEvent.title,
+              description: "",
+              contentHtml: "",
+              httpStatus: 301,
+              redirectTo
+            };
+          } else {
+            return await eventSeoDescriptor(event);
+          }
+        } else {
+          return missingPageSeoDescriptor();
+        }
       }
     }
-  } else if (pathSegments.length >= 2) {
-    const event = await eventForSlug(pathSegments[pathSegments.length - 1]);
-    if (event?.groupEvent?.title) {
-      return await eventSeoDescriptor(event);
-    } else {
-      return null;
-    }
-  } else {
-    return null;
   }
 }

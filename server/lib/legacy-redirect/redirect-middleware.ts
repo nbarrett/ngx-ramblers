@@ -7,6 +7,7 @@ import * as configController from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { LegacyRedirectConfig } from "../../../projects/ngx-ramblers/src/app/models/legacy-url-redirect.model";
 import { pathWithTrackingQueryStripped } from "../seo/tracking-query";
+import { homeRedirectTarget } from "../seo/public-path-indexability";
 
 const debugLog = debug(envConfig.logNamespace("redirect-middleware"));
 
@@ -137,9 +138,13 @@ export function redirectMiddleware(req: Request, res: Response, next: NextFuncti
     next();
   } else {
     const trackingTarget = pathWithTrackingQueryStripped(req.path, req.query as Record<string, unknown>);
+    const homeTarget = homeRedirectTarget(req.path);
     if (trackingTarget) {
       debugLog(`stripping tracking query ${req.originalUrl} -> ${trackingTarget}`);
       res.redirect(301, trackingTarget);
+    } else if (homeTarget) {
+      debugLog(`normalising home path ${req.originalUrl} -> ${homeTarget}`);
+      res.redirect(301, homeTarget);
     } else {
       const now = dateTimeNowAsValue();
       if (now - cacheLoadedAt > cacheRefreshMs) {
