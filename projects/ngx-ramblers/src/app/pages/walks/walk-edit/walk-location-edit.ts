@@ -160,6 +160,9 @@ import { LocationType } from "../../../models/map.model";
               [endLocationDetails]="endLocationDetails"
               [showCombinedMap]="showCombinedMap"
               [gpxFile]="gpxFile"
+              [routeColor]="routeColor"
+              [routeWeight]="routeWeight"
+              [routeOpacity]="routeOpacity"
               [readonly]="disabled"
               [notify]="notify"
               (postcodeOptionsChange)="handlePostcodeOptions($event)"
@@ -208,6 +211,9 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
   @Input() gpxFile: FileNameData;
+  @Input() routeColor: string;
+  @Input() routeWeight: number;
+  @Input() routeOpacity: number;
   @Input() showLocationOnly = false;
   @Input() hideLocationDropdown = false;
 

@@ -1,0 +1,495 @@
+.follow-app
+  --follow-bg: #f4f5f5
+  --follow-ink: #1b1b1b
+  --follow-muted: #5b6560
+  --follow-panel: #ffffff
+  --follow-handle: #d0d4d2
+  --follow-btn: #ffffff
+  --follow-btn-ink: #1b1b1b
+  --follow-secondary: #eceeed
+  --follow-secondary-ink: #1b1b1b
+  --follow-offline: #1b4332
+  --follow-shadow: 0 8px 20px rgba(16, 32, 24, 0.16)
+  --follow-instruction: rgba(255, 255, 255, 0.96)
+  position: relative
+  height: 100%
+  background: var(--follow-bg)
+  color: var(--follow-ink)
+  overflow: hidden
+  overscroll-behavior: none
+  touch-action: none
+  -webkit-text-size-adjust: 100%
+  text-size-adjust: 100%
+  -webkit-tap-highlight-color: transparent
+  -webkit-user-select: none
+  user-select: none
+  font-family: Assistant, Arial, sans-serif
+
+@mixin follow-dark-tokens
+  --follow-bg: #102018
+  --follow-ink: #f4f1ea
+  --follow-muted: #9a9aa0
+  --follow-panel: #1c1c1e
+  --follow-handle: #4a4a4e
+  --follow-btn: #1c1c1e
+  --follow-btn-ink: #f4f1ea
+  --follow-secondary: #2c2c2e
+  --follow-secondary-ink: #f4f1ea
+  --follow-offline: #9bc8ab
+  --follow-shadow: 0 8px 20px rgba(0, 0, 0, 0.28)
+  --follow-instruction: rgba(28, 28, 30, 0.94)
+
+@media (prefers-color-scheme: dark)
+  body:not(.app-appearance-light) .follow-app
+    @include follow-dark-tokens
+
+body.app-appearance-dark .follow-app
+  @include follow-dark-tokens
+
+.follow-map
+  position: absolute
+  inset: 0
+  z-index: 0
+  touch-action: none
+  overflow: hidden
+
+.follow-top
+  position: absolute
+  top: 0
+  left: 0
+  z-index: 5
+  float: none
+  width: auto
+  background: transparent
+  color: inherit
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0
+  pointer-events: none
+
+.follow-icon-btn
+  pointer-events: auto
+  width: 44px
+  height: 44px
+  min-width: 44px
+  border: 0
+  border-radius: 50%
+  background: var(--follow-btn)
+  color: var(--follow-btn-ink)
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  box-shadow: var(--follow-shadow)
+
+.follow-instruction
+  position: absolute
+  top: calc(64px + env(safe-area-inset-top, 0px))
+  left: 12px
+  right: 12px
+  z-index: 5
+  display: flex
+  gap: 12px
+  align-items: flex-start
+  background: var(--follow-instruction)
+  color: var(--follow-ink)
+  border-radius: 16px
+  padding: 12px 14px
+  box-shadow: var(--follow-shadow)
+
+.follow-instruction-number
+  width: 32px
+  height: 32px
+  border-radius: 50%
+  background: #2b6cff
+  color: #fff
+  font-weight: 700
+  display: flex
+  align-items: center
+  justify-content: center
+  flex-shrink: 0
+
+.follow-instruction h2
+  font-size: 1rem
+  margin: 0 0 2px
+  font-weight: 700
+  line-height: 1.25
+  color: var(--follow-ink)
+
+.follow-instruction p
+  margin: 0
+  color: var(--follow-muted)
+  font-size: 0.9rem
+
+.follow-off-route
+  position: absolute
+  top: calc(64px + env(safe-area-inset-top, 0px))
+  left: 12px
+  right: 12px
+  z-index: 5
+  background: #c21d4b
+  color: #fff
+  border-radius: 14px
+  padding: 12px 14px
+  font-weight: 600
+  display: flex
+  align-items: flex-start
+  gap: 8px
+  line-height: 1.3
+
+.follow-location-error
+  background: #3c2a00
+  color: #ffe8a3
+
+.follow-bottom
+  position: absolute
+  left: 0
+  right: 0
+  bottom: 0
+  z-index: 5
+  display: flex
+  flex-direction: column
+  align-items: stretch
+  pointer-events: none
+
+.follow-map-tools
+  pointer-events: auto
+  align-self: flex-end
+  margin: 0 12px 10px 0
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 10px
+
+.follow-compass
+  width: 48px
+  height: 48px
+  min-width: 48px
+  border: 0
+  border-radius: 50%
+  background: #ffffff
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18)
+  color: #1b1b1b
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding: 0
+
+.follow-compass.is-active
+  background: #f9b104
+  color: #1b1b1b
+
+.follow-compass-needle
+  display: flex
+  align-items: center
+  justify-content: center
+  transform-origin: center center
+
+.follow-tool-stack
+  display: flex
+  flex-direction: column
+  overflow: hidden
+  border-radius: 28px
+  background: #ffffff
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18)
+
+.follow-tool
+  width: 48px
+  height: 48px
+  min-width: 48px
+  border: 0
+  border-radius: 0
+  background: transparent
+  color: #1b1b1b
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding: 0
+  box-shadow: none
+
+.follow-tool + .follow-tool
+  border-top: 1px solid #ececec
+
+.follow-tool.is-active
+  color: #d81b60
+
+.follow-style-scrim
+  position: absolute
+  inset: 0
+  z-index: 8
+  background: rgba(0, 0, 0, 0.35)
+
+.follow-style-picker
+  position: absolute
+  left: 12px
+  right: 12px
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px))
+  z-index: 9
+  background: var(--follow-panel)
+  color: var(--follow-ink)
+  border-radius: 20px
+  padding: 14px 16px 16px
+  box-shadow: var(--follow-shadow)
+  max-height: 70vh
+  overflow: auto
+
+.follow-style-picker-head
+  display: flex
+  align-items: center
+  justify-content: space-between
+  margin-bottom: 8px
+
+.follow-style-picker-head h2
+  margin: 0
+  font-size: 1.15rem
+  font-weight: 700
+
+.follow-style-picker-head-actions
+  display: flex
+  align-items: center
+  gap: 8px
+
+.follow-style-picker-head-actions .follow-icon-btn:disabled
+  opacity: 0.35
+
+.follow-style-heading
+  margin: 4px 0 12px
+  color: var(--follow-ink)
+  font-size: 1.05rem
+  font-weight: 700
+
+.follow-style-grid
+  display: flex
+  flex-wrap: nowrap
+  justify-content: flex-end
+  gap: 12px
+  overflow-x: auto
+  padding: 4px 2px 2px
+  -webkit-overflow-scrolling: touch
+  scrollbar-width: none
+
+.follow-style-grid::-webkit-scrollbar
+  display: none
+
+.follow-style-card
+  display: flex
+  flex: 0 0 88px
+  flex-direction: column
+  align-items: center
+  gap: 8px
+  width: 88px
+  margin: 0
+  padding: 0
+  border: 0
+  background: transparent
+  color: var(--follow-ink)
+  appearance: none
+  cursor: pointer
+
+.follow-style-tile
+  display: block
+  width: 100%
+  aspect-ratio: 1
+  border: 3px solid var(--follow-handle)
+  border-radius: 16px
+  overflow: hidden
+  background: #d8d8d4
+  box-sizing: border-box
+
+.follow-style-card.is-selected .follow-style-tile
+  border-color: #f9b104
+  box-shadow: 0 0 0 1px #f9b104
+
+.follow-style-preview
+  display: block
+  width: 100%
+  height: 100%
+  object-fit: cover
+
+.follow-style-label
+  display: block
+  width: 100%
+  font-size: 0.82rem
+  font-weight: 600
+  line-height: 1.2
+  text-align: center
+
+@media (min-width: 640px)
+  .follow-style-grid
+    gap: 18px
+  .follow-style-card
+    flex: 0 0 128px
+    width: 128px
+    gap: 10px
+  .follow-style-tile
+    border-radius: 20px
+  .follow-style-label
+    font-size: 0.95rem
+
+@media (min-width: 900px)
+  .follow-style-grid
+    gap: 22px
+  .follow-style-card
+    flex: 0 0 148px
+    width: 148px
+  .follow-style-tile
+    border-width: 4px
+    border-radius: 22px
+  .follow-style-label
+    font-size: 1rem
+
+.follow-sheet
+  pointer-events: auto
+  touch-action: pan-y
+  width: 100%
+  background: var(--follow-panel)
+  color: var(--follow-ink)
+  border-radius: 28px 28px 0 0
+  padding: 8px 20px calc(18px + env(safe-area-inset-bottom, 0px))
+  box-shadow: 0 -12px 32px rgba(16, 32, 24, 0.12)
+  max-height: 46vh
+  overflow: auto
+  -webkit-overflow-scrolling: touch
+
+.follow-sheet-handle
+  width: 40px
+  height: 4px
+  border-radius: 4px
+  background: var(--follow-handle)
+  margin: 4px auto 14px
+
+.follow-library-note
+  margin: 0 0 12px
+  color: var(--follow-muted)
+  font-size: 0.88rem
+  line-height: 1.35
+
+.follow-stats
+  display: grid
+  grid-template-columns: 1fr 1fr 1fr
+  gap: 8px
+  margin-bottom: 16px
+
+.follow-stat
+  display: flex
+  flex-direction: column
+  align-items: center
+  text-align: center
+  min-width: 0
+
+.follow-stat span
+  color: var(--follow-muted)
+  font-size: 0.72rem
+  line-height: 1.25
+  margin-bottom: 6px
+
+.follow-stat strong
+  font-size: 1.55rem
+  line-height: 1.05
+  font-weight: 700
+  color: var(--follow-ink)
+  letter-spacing: -0.02em
+
+.follow-style
+  display: flex
+  justify-content: center
+  margin: 0 0 14px
+
+.follow-speed
+  margin: 0 0 14px
+
+.follow-actions
+  display: flex
+  flex-direction: row
+  flex-wrap: wrap
+  justify-content: center
+  gap: 10px
+  margin-bottom: 10px
+
+.follow-main-btn,
+.follow-secondary-btn
+  flex: 1 1 calc(50% - 10px)
+  width: auto
+  min-width: 140px
+  min-height: 52px
+  margin-left: 0 !important
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 8px
+  font-size: 1.05rem
+  border-radius: 999px
+
+@media (min-width: 640px)
+  .follow-main-btn,
+  .follow-secondary-btn
+    flex: 0 1 180px
+    max-width: 200px
+
+.follow-sheet .follow-secondary-btn
+  --bs-btn-color: var(--follow-secondary-ink)
+  --bs-btn-bg: var(--follow-secondary)
+  --bs-btn-border-color: var(--follow-secondary)
+  color: var(--follow-secondary-ink)
+  background-color: var(--follow-secondary)
+  border-color: var(--follow-secondary)
+
+.follow-status
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px
+  color: var(--follow-ink)
+
+.follow-loading
+  margin: 24px 4px
+  font-size: 1.05rem
+
+.follow-alert
+  display: flex
+  align-items: flex-start
+  gap: 10px
+  border-radius: 16px
+  padding: 14px
+  margin-top: 16px
+
+.follow-alert-danger
+  background: #3a1018
+  color: #ffd6de
+
+.follow-alert-warning
+  background: #fff4d6
+  color: #5c4813
+  margin: 0 0 12px
+
+.follow-alert strong
+  display: block
+  margin-bottom: 4px
+
+.follow-alert p
+  margin: 0
+  line-height: 1.4
+
+.follow-alert-body
+  flex: 1
+  min-width: 0
+
+.follow-alert-actions
+  display: flex
+  flex-wrap: wrap
+  gap: 8px
+  margin-top: 12px
+
+@media (min-width: 720px)
+  .follow-alert-choice .follow-alert-copy
+    display: flex
+    align-items: center
+    gap: 16px
+  .follow-alert-choice .follow-alert-copy p
+    flex: 1
+    min-width: 0
+  .follow-alert-choice .follow-alert-actions
+    flex-shrink: 0
+    flex-wrap: nowrap
+    margin-top: 0
+
+.follow-offline-status
+  margin: 0 0 10px
+  color: var(--follow-offline)
+  font-size: 0.8rem
+  font-weight: 600
+  text-align: center

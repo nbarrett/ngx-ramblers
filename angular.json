@@ -125,6 +125,7 @@
             "development": {
               "optimization": false,
               "extractLicenses": false,
+              "outputHashing": "none",
               "sourceMap": {
                 "scripts": false,
                 "styles": true,

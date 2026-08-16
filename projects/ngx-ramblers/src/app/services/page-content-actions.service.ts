@@ -473,6 +473,36 @@ export class PageContentActionsService {
     return row?.type === PageContentType.MAP;
   }
 
+  public isRoute(row: PageContentRow) {
+    return row?.type === PageContentType.ROUTE;
+  }
+
+  public isMapOrRoute(row: PageContentRow) {
+    return this.isMap(row) || this.isRoute(row);
+  }
+
+  public ensureRouteGuide(row: PageContentRow) {
+    if (!row?.routeGuide) {
+      row.routeGuide = {
+        title: "",
+        summary: "",
+        distanceMiles: null,
+        durationMinutes: null,
+        difficulty: null,
+        startDescription: ""
+      };
+    }
+    this.ensureMapData(row);
+    if (this.isRoute(row)) {
+      if (!row.map.provider) {
+        row.map.provider = MapProvider.OS;
+      }
+      if (isUndefined(row.map.showControlsDefault)) {
+        row.map.showControlsDefault = false;
+      }
+    }
+  }
+
   public ensureMapData(row: PageContentRow) {
     if (!row?.map) {
       row.map = {

@@ -1,6 +1,7 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 
 import { FormsModule } from "@angular/forms";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { MapRoute, PaletteColor } from "../../../models/content-text.model";
 import { isUndefined } from "es-toolkit/compat";
 import { enumValues } from "../../../functions/enums";
@@ -36,6 +37,12 @@ import { ColourSwatchSelectorComponent } from "../../../shared/components/colour
       padding: 1rem
       box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15)
       z-index: 1080
+
+    .palette-panel.is-fixed
+      position: fixed
+      top: auto
+      right: auto
+      z-index: 2000
 
     .palette-panel .btn-close
       font-size: 0.75rem
@@ -117,7 +124,9 @@ import { ColourSwatchSelectorComponent } from "../../../shared/components/colour
         Style
       </button>
       @if (open) {
-        <div class="palette-panel">
+        <div class="palette-panel" [class.is-fixed]="fixedPanel"
+             [style.top]="panelTop" [style.bottom]="panelBottom"
+             [style.left]="panelLeft" [style.right]="panelRight">
           <button type="button"
                   class="btn-close position-absolute top-0 end-0 m-2"
                   (click)="closePanel()"
@@ -157,6 +166,9 @@ import { ColourSwatchSelectorComponent } from "../../../shared/components/colour
 })
 export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   @Input() route: MapRoute;
+  @Input() set fixed(value: boolean) {
+    this.fixedPanel = coerceBooleanProperty(value);
+  }
   @Output() styleChange = new EventEmitter<void>();
 
   paletteColors: string[] = enumValues(PaletteColor);
@@ -165,6 +177,11 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   defaultOpacity = 1.0;
   open = false;
   transparencyPercent = 0;
+  fixedPanel = false;
+  panelTop: string | null = null;
+  panelBottom: string | null = null;
+  panelLeft: string | null = null;
+  panelRight: string | null = null;
 
   constructor(private elementRef: ElementRef) {
   }
@@ -184,10 +201,21 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   toggle(event: MouseEvent) {
     event.stopPropagation();
     this.open = !this.open;
+    if (this.open) {
+      this.placePanel();
+    }
   }
 
   closePanel() {
     this.open = false;
+  }
+
+  @HostListener("window:resize")
+  @HostListener("window:scroll")
+  onViewportChange() {
+    if (this.open) {
+      this.placePanel();
+    }
   }
 
   selectColor(color: string) {
@@ -215,6 +243,30 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   closePalette(event: MouseEvent) {
     if (this.open && !this.elementRef.nativeElement.contains(event.target)) {
       this.open = false;
+    }
+  }
+
+  private placePanel() {
+    const button = this.elementRef.nativeElement.querySelector(".style-button") as HTMLElement | null;
+    if (!this.fixedPanel || !button) {
+      this.panelTop = null;
+      this.panelBottom = null;
+      this.panelLeft = null;
+      this.panelRight = null;
+    } else {
+      const rect = button.getBoundingClientRect();
+      const width = Math.min(360, window.innerWidth - 16);
+      const estimatedHeight = 300;
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+      if (rect.top >= estimatedHeight + 8) {
+        this.panelTop = null;
+        this.panelBottom = `${window.innerHeight - rect.top + 8}px`;
+      } else {
+        this.panelTop = `${rect.bottom + 8}px`;
+        this.panelBottom = null;
+      }
+      this.panelLeft = `${left}px`;
+      this.panelRight = "auto";
     }
   }
 

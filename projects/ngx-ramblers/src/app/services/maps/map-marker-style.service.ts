@@ -25,6 +25,36 @@ export class MapMarkerStyleService {
     return L.divIcon({ className: "ngx-numbered-pin", html, iconSize: [28, 36] as any, iconAnchor: [14, 36] as any, popupAnchor: [0, -28] as any });
   }
 
+  followLocationIcon(heading: number): L.DivIcon {
+    const rotation = heading || 0;
+    const html = `<div class="follow-location-chevron" style="transform:rotate(${rotation}deg)">
+      <svg width="26" height="28" viewBox="0 0 26 28" aria-hidden="true">
+        <path d="M13 2.2 L23.8 24.6 L13 18.8 L2.2 24.6 Z" fill="#d81b60" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+    return L.divIcon({
+      className: "follow-leaflet-icon",
+      html,
+      iconSize: [26, 28],
+      iconAnchor: [13, 15]
+    });
+  }
+
+  osRouteArrowIcon(heading: number, weight = 7): L.DivIcon {
+    const size = Math.max(12, Math.min(weight * 2.2, 16));
+    const html = `<div class="follow-route-arrow" style="transform:rotate(${heading}deg)">
+      <svg viewBox="0 0 12 12" width="${size}" height="${size}" aria-hidden="true">
+        <path d="M6 1.6 L10.2 10.4 L6 8.1 L1.8 10.4 Z" fill="#ffffff"/>
+      </svg>
+    </div>`;
+    return L.divIcon({
+      className: "follow-leaflet-icon",
+      html,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2]
+    });
+  }
+
   clusterIconCreate(provider: MapProvider, style: string): ((cluster: any) => L.DivIcon) | undefined {
     if (provider === MapProvider.OS) {
       return (cluster: any) => {

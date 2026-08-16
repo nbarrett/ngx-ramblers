@@ -90,6 +90,7 @@ import { DynamicContentSiteEditCommitteeDocuments } from "./dynamic-content-site
 import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
 import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
 import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
+import { DynamicContentSiteEditRoute } from "./dynamic-content-site-edit-route";
 import { DynamicContentSiteEditLocation } from "./dynamic-content-site-edit-location";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FragmentService } from "../../../services/fragment.service";
@@ -637,7 +638,10 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                   <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
                                                           [pageContent]="pageContent"/>
                 }
-                @if (actions.isMap(row)) {
+                @if (actions.isMap(row) || actions.isRoute(row)) {
+                  @if (actions.isRoute(row)) {
+                    <app-dynamic-content-site-edit-route [row]="row"/>
+                  }
                   <app-dynamic-content-site-edit-map [row]="row" [id]="'map-' + rowIndex"
                                                      [pageContent]="pageContent"/>
                 }
@@ -832,7 +836,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -2011,6 +2015,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       }
     } else if (this.actions.isMap(row)) {
       this.actions.ensureMapData(row);
+    } else if (this.actions.isRoute(row)) {
+      this.actions.ensureRouteGuide(row);
     } else if (this.actions.isCommitteeDocuments(row)) {
       if (!row?.committeeDocuments) {
         row.committeeDocuments = {

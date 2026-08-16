@@ -1,7 +1,7 @@
 import { Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
-import { values } from "es-toolkit/compat";
-import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
+import { isNumber, values } from "es-toolkit/compat";
+import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -67,6 +67,7 @@ import { PageService } from "../../../services/page.service";
 import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
 import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
 import { WalkAlbumPanelComponent } from "./walk-album-panel";
+import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.model";
 
 @Component({
   selector: "app-walk-view",
@@ -153,6 +154,9 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
                          [endLocationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                          [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
                          [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                         [routeColor]="displayedWalk?.walk?.fields?.routeColor"
+                         [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
+                         [routeOpacity]="displayedWalk?.walk?.fields?.routeOpacity"
                          [notify]="notify"></div>
                   }
                   @if (mapFullScreen) {
@@ -278,131 +282,150 @@ import { WalkAlbumPanelComponent } from "./walk-album-panel";
             <app-walk-details class="walk-meta-details" [displayedWalk]="displayedWalk"/>
           }
         </div>
-        <div class="walk-meta-footer" [class.d-none]="mapExpanded">
-          @if (showWalkViewActions() || showWalkViewStatusAlert() || showWalkStatusWarning()) {
-            <div class="walk-view-footer">
-              @if (showWalkViewActions()) {
-                <div class="walk-view-actions-row" role="toolbar" aria-label="Walk actions">
-                  @if (showAlbumAction()) {
-                    <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
-                            [tooltip]="albumActionTooltip()"
-                            class="btn btn-quiet btn-sm walk-view-action">
-                      <fa-icon [icon]="faImages"/>
-                      <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
-                    </button>
-                  }
-                  @if (canShareWalk() || showPublishToRamblers || showSocialPublishing()) {
-                    <div class="btn-group walk-view-split" dropdown container="body">
-                      @if (showPublishToRamblers && publishBlockedUntilApproved()) {
-                        <button type="button" disabled
-                                class="btn btn-primary btn-sm walk-view-action"
-                                [tooltip]="publishBlockedTooltip" container="body">
-                          <fa-icon [icon]="faCloudArrowUp"/>
-                          <span>Publish</span>
-                        </button>
-                      } @else {
-                        <button type="button" (click)="primaryAction()"
-                                class="btn btn-sm walk-view-action"
-                                [class.btn-primary]="showPublishToRamblers"
-                                [class.btn-quiet]="!showPublishToRamblers"
-                                [tooltip]="primaryActionIsPublish() ? publishTooltip : 'Share this ' + eventTypeLabel()"
-                                container="body">
-                          <fa-icon [icon]="primaryActionIsPublish() ? faCloudArrowUp : faShareNodes"/>
-                          <span>{{ primaryActionIsPublish() ? "Publish" : "Share" }}</span>
-                        </button>
-                      }
-                      <button type="button" dropdownToggle
-                              class="btn btn-sm walk-view-action dropdown-toggle dropdown-toggle-split"
-                              [class.btn-primary]="showPublishToRamblers"
-                              [class.btn-quiet]="!showPublishToRamblers"
-                              aria-label="More share and publish options">
-                        <span class="visually-hidden">More options</span>
-                      </button>
-                      <ul *dropdownMenu class="dropdown-menu">
-                        @if (showPublishToRamblers) {
-                          <li>
-                            @if (publishBlockedUntilApproved()) {
-                              <span class="dropdown-item disabled" [tooltip]="publishBlockedTooltip"
-                                    placement="left" container="body">
-                                <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
-                              </span>
-                            } @else {
-                              <a class="dropdown-item" [routerLink]="publishExportLink"
-                                 [queryParams]="publishExportQueryParams" [tooltip]="publishTooltip"
-                                 placement="left" container="body">
-                                <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
-                              </a>
-                            }
-                          </li>
-                        }
-                        @if (canShareWalk()) {
-                          <li>
-                            <a class="dropdown-item" [href]="displayedWalk.walkLink" target="_blank"
-                               rel="noopener noreferrer">
-                              <fa-icon [icon]="faEye" class="me-2"/>View this {{ eventTypeLabel() }}
-                            </a>
-                          </li>
-                          <li>
-                            <a class="dropdown-item" role="button" (click)="shareWalk()">
-                              <fa-icon [icon]="faShareNodes" class="me-2"/>Share this {{ eventTypeLabel() }}
-                            </a>
-                          </li>
-                          <li>
-                            <a class="dropdown-item" role="button" (click)="copyLink()">
-                              <fa-icon [icon]="faCopy" class="me-2"/>Copy link
-                            </a>
-                          </li>
-                        }
-                        @if (showSocialPublishing()) {
-                          <li>
-                            <a class="dropdown-item" role="button" (click)="openSocialPublish()"
-                               tooltip="Preview and post this walk to Facebook or Instagram"
-                               placement="left" container="body">
-                              <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
-                            </a>
-                          </li>
-                        }
-                      </ul>
-                    </div>
-                  }
-                  @if (linkCopied) {
-                    <span class="walk-view-action link-copied-confirmation" role="status">
-                      <fa-icon [icon]="faCircleCheck" class="me-1"/>Link copied
-                    </span>
-                  }
-                  @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                    <button type="button"
-                            (click)="display.edit(displayedWalk)"
-                            [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                            class="btn btn-primary btn-sm walk-view-action">
-                      <fa-icon [icon]="walkActionIcon()"/>
-                      <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
-                    </button>
-                  } @else if (allowWalkAdminEdits) {
-                    <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
-                       (click)="display.rememberReturnUrl()"
-                       tooltip="View this walk"
-                       class="btn btn-quiet btn-sm walk-view-action">
-                      <fa-icon [icon]="faEye"/>
-                      <span>View</span>
-                    </a>
-                  }
-                  @if (showWalkViewStatusAlert()) {
-                    <div class="alert {{notifyTarget.alertClass}} walk-view-status-alert walk-view-status-alert-inline">
-                      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                      @if (notifyTarget.alertTitle) {
-                        <strong>{{ notifyTarget.alertTitle }}</strong>
-                      }
-                      <span>{{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}</span>
-                      <a (click)="display.returnToPreviousView()" type="button"
-                         class="rams-text-decoration-pink pointer">{{ display.returnToPreviousViewLabel() }}</a>
-                    </div>
-                  } @else if (showWalkStatusWarning()) {
-                    <ng-container [ngTemplateOutlet]="walkStatusWarning" [ngTemplateOutletContext]="{inline: true}"/>
-                  }
-                </div>
+        <ng-template #walkViewActions>
+          @if (showAlbumAction()) {
+            <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
+                    [tooltip]="albumActionTooltip()"
+                    class="btn btn-quiet btn-sm walk-view-action">
+              <fa-icon [icon]="faImages"/>
+              <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
+            </button>
+          }
+          @if (canShareWalk() || showPublishToRamblers || showSocialPublishing()) {
+            <div class="btn-group walk-view-split" dropdown container="body">
+              @if (showPublishToRamblers && publishBlockedUntilApproved()) {
+                <button type="button" disabled
+                        class="btn btn-primary btn-sm walk-view-action"
+                        [tooltip]="publishBlockedTooltip" container="body">
+                  <fa-icon [icon]="faCloudArrowUp"/>
+                  <span>Publish</span>
+                </button>
+              } @else {
+                <button type="button" (click)="primaryAction()"
+                        class="btn btn-sm walk-view-action"
+                        [class.btn-primary]="showPublishToRamblers"
+                        [class.btn-quiet]="!showPublishToRamblers"
+                        [tooltip]="primaryActionIsPublish() ? publishTooltip : 'Share this ' + eventTypeLabel()"
+                        container="body">
+                  <fa-icon [icon]="primaryActionIsPublish() ? faCloudArrowUp : faShareNodes"/>
+                  <span>{{ primaryActionIsPublish() ? "Publish" : "Share" }}</span>
+                </button>
               }
-              @if (showWalkStatusWarning() && (showWalkViewStatusAlert() || !showWalkViewActions())) {
+              <button type="button" dropdownToggle
+                      class="btn btn-sm walk-view-action dropdown-toggle dropdown-toggle-split"
+                      [class.btn-primary]="showPublishToRamblers"
+                      [class.btn-quiet]="!showPublishToRamblers"
+                      aria-label="More share and publish options">
+                <span class="visually-hidden">More options</span>
+              </button>
+              <ul *dropdownMenu class="dropdown-menu">
+                @if (showPublishToRamblers) {
+                  <li>
+                    @if (publishBlockedUntilApproved()) {
+                      <span class="dropdown-item disabled" [tooltip]="publishBlockedTooltip"
+                            placement="left" container="body">
+                        <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
+                      </span>
+                    } @else {
+                      <a class="dropdown-item" [routerLink]="publishExportLink"
+                         [queryParams]="publishExportQueryParams" [tooltip]="publishTooltip"
+                         placement="left" container="body">
+                        <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
+                      </a>
+                    }
+                  </li>
+                }
+                @if (canShareWalk()) {
+                  <li>
+                    <a class="dropdown-item" [href]="displayedWalk.walkLink" target="_blank"
+                       rel="noopener noreferrer">
+                      <fa-icon [icon]="faEye" class="me-2"/>View this {{ eventTypeLabel() }}
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" role="button" (click)="shareWalk()">
+                      <fa-icon [icon]="faShareNodes" class="me-2"/>Share this {{ eventTypeLabel() }}
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" role="button" (click)="copyLink()">
+                      <fa-icon [icon]="faCopy" class="me-2"/>Copy link
+                    </a>
+                  </li>
+                }
+                @if (showSocialPublishing()) {
+                  <li>
+                    <a class="dropdown-item" role="button" (click)="openSocialPublish()"
+                       tooltip="Preview and post this walk to Facebook or Instagram"
+                       placement="left" container="body">
+                      <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
+                    </a>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+          @if (linkCopied) {
+            <span class="walk-view-action link-copied-confirmation" role="status">
+              <fa-icon [icon]="faCircleCheck" class="me-1"/>Link copied
+            </span>
+          }
+          @if (canFollowRoute()) {
+            <button type="button" (click)="followRoute()"
+                    tooltip="Follow this route"
+                    class="btn btn-quiet btn-sm walk-view-action">
+              <fa-icon [icon]="faPersonWalking"/>
+              <span>Follow this route</span>
+            </button>
+          }
+          @if (canRecordRoute()) {
+            <button type="button" (click)="followRoute()"
+                    [tooltip]="canFollowRoute() ? 'Edit or record this route' : 'Record a route for this start'"
+                    class="btn btn-quiet btn-sm walk-view-action">
+              <fa-icon [icon]="faPencil"/>
+              <span>{{ canFollowRoute() ? "Edit route" : "Record route" }}</span>
+            </button>
+          }
+          @if (displayedWalk?.walkAccessMode?.walkWritable) {
+            <button type="button"
+                    (click)="display.edit(displayedWalk)"
+                    [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                    class="btn btn-primary btn-sm walk-view-action">
+              <fa-icon [icon]="walkActionIcon()"/>
+              <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
+            </button>
+          } @else if (allowWalkAdminEdits) {
+            <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+               (click)="display.rememberReturnUrl()"
+               tooltip="View this walk"
+               class="btn btn-quiet btn-sm walk-view-action">
+              <fa-icon [icon]="faEye"/>
+              <span>View</span>
+            </a>
+          }
+        </ng-template>
+        <div class="walk-meta-footer" [class.d-none]="mapExpanded">
+          @if (showWalkViewActions()) {
+            <div class="walk-view-actions-row" role="toolbar" aria-label="Walk actions">
+              <ng-container [ngTemplateOutlet]="walkViewActions"/>
+            </div>
+          }
+          @if (showWalkViewStatusAlert() || showWalkStatusWarning()) {
+            <div class="walk-view-footer">
+              @if (showWalkViewStatusAlert()) {
+                <div class="alert {{notifyTarget.alertClass}} walk-view-status-alert walk-view-status-alert-inline">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>{{ notifyTarget.alertTitle }}</strong>
+                  }
+                  <span>{{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}</span>
+                  <a (click)="display.returnToPreviousView()" type="button"
+                     class="rams-text-decoration-pink pointer">{{ display.returnToPreviousViewLabel() }}</a>
+                </div>
+              } @else if (showWalkStatusWarning()) {
+                <ng-container [ngTemplateOutlet]="walkStatusWarning" [ngTemplateOutletContext]="{inline: true}"/>
+              }
+              @if (showWalkStatusWarning() && showWalkViewStatusAlert()) {
                 <ng-container [ngTemplateOutlet]="walkStatusWarning" [ngTemplateOutletContext]="{inline: false}"/>
               }
             </div>
@@ -473,6 +496,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private mapTiles = inject(MapTilesService);
   private uiActions = inject(UiActionsService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public area = this.urlService.area();
   public showGoogleMapsView = false;
@@ -506,7 +530,17 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   showWalkViewActions(): boolean {
-    return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers || this.canShareWalk());
+    return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers || this.canShareWalk() || this.canFollowRoute() || this.canRecordRoute());
+  }
+
+  canFollowRoute(): boolean {
+    return !!this.displayedWalk?.walk?.fields?.gpxFile?.awsFileName;
+  }
+
+  canRecordRoute(): boolean {
+    const walk = this.displayedWalk?.walk;
+    const start = walk?.groupEvent?.start_location;
+    return !!(this.displayedWalk?.walkAccessMode?.walkWritable && start && isNumber(start.latitude) && isNumber(start.longitude));
   }
 
   canShareWalk(): boolean {
@@ -916,6 +950,16 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   navigateToArea() {
     this.urlService.navigateUnconditionallyTo([this.area]);
+  }
+
+  followRoute() {
+    const slug = this.display.walkSlug(this.displayedWalk?.walk);
+    if (slug) {
+      this.display.rememberFollowReturnUrl();
+      void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
+        queryParams: {[RouteFollowQueryParam.WALK_ID]: slug}
+      });
+    }
   }
 
   private focusFromPostcodeInput() {

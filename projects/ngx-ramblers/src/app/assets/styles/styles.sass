@@ -81,3 +81,103 @@
 @media (min-width: 992px)
   main:has(.my-walks-action) app-dynamic-content-view-text-row:first-of-type p
     padding-right: 230px
+
+body.app-shell-active
+  overflow: hidden
+  background: #f4f5f5
+  overscroll-behavior: none
+  -webkit-text-size-adjust: 100%
+  text-size-adjust: 100%
+
+body.app-shell-active .tooltip,
+.follow-app .tooltip
+  z-index: 4000
+
+@media (prefers-color-scheme: dark)
+  body.app-shell-active:not(.app-appearance-light)
+    background: #102018
+
+body.app-shell-active.app-appearance-dark
+  background: #102018
+
+.app-follow-cta
+  min-height: 48px
+  display: inline-flex
+  align-items: center
+  justify-content: center
+
+@media (max-width: 767.98px)
+  .app-follow-cta
+    width: 100%
+    font-size: 1.05rem
+
+.leaflet-container.map-gestures-enabled
+  touch-action: none
+
+.map-north-control-wrap
+  margin-top: 0
+
+.map-north-control
+  width: 30px
+  height: 30px
+  line-height: 30px
+  text-align: center
+  font-weight: 700
+  display: block
+
+.map-north-control.is-rotated
+  background: #f9b104
+  color: #1b1b1b
+
+.leaflet-container .leaflet-div-icon.follow-leaflet-icon
+  background: transparent !important
+  border: none !important
+
+.follow-edit-handle-hit
+  width: 32px
+  height: 32px
+  display: flex
+  align-items: center
+  justify-content: center
+  pointer-events: auto
+
+.follow-edit-handle
+  width: 16px
+  height: 16px
+  border-radius: 50%
+  background: #ffffff
+  border: 3px solid #1b1b1b
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45)
+  pointer-events: none
+
+.follow-edit-handle-erase
+  background: #fff4f4
+  border-color: #c21d4b
+
+.follow-edit-handle-drag
+  transform: scale(1.35)
+
+.leaflet-container.is-inserting-point,
+.leaflet-container.is-inserting-point.leaflet-grab,
+.leaflet-container.is-inserting-point .leaflet-grab
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='6' fill='%23ffffff' stroke='%231b1b1b' stroke-width='2.5'/%3E%3C/svg%3E") 12 12, crosshair !important
+  border-color: #f9b104
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45)
+
+.follow-location-chevron
+  display: flex
+  align-items: center
+  justify-content: center
+  transform-origin: center center
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
+  svg
+    display: block
+
+.follow-route-arrow
+  display: flex
+  align-items: center
+  justify-content: center
+  transform-origin: center center
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4))
+  svg
+    display: block

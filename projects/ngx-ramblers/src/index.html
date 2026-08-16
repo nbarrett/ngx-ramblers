@@ -3,7 +3,14 @@
 <head>
   <meta charset="utf-8">
   <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1b4332">
+  <meta name="application-name" content="Walks">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Walks">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
   <meta http-equiv="Permissions-Policy" content="compute-pressure=()">
   <link rel="icon" type="image/svg+xml" sizes="any" href="favicon.svg">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -13,6 +20,77 @@
   <link data-n-head="ssr" rel="icon" sizes="32x32" href="favicon.ico">
 </head>
 <body>
+<script>
+  (function () {
+    var host = location.hostname;
+    var local = host === "localhost" || host === "127.0.0.1";
+
+    function clearChunkReloadKeys() {
+      Object.keys(sessionStorage).forEach(function (key) {
+        if (key.indexOf("chunk-reload-") === 0) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+
+    function dropWorkersAndCaches() {
+      if (!("serviceWorker" in navigator)) {
+        return Promise.resolve(false);
+      }
+      return navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        if (!registrations.length) {
+          return false;
+        }
+        return Promise.all(registrations.map(function (registration) {
+          return registration.unregister();
+        })).then(function () {
+          if (!window.caches) {
+            return true;
+          }
+          return caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (key) {
+              return caches.delete(key);
+            }));
+          }).then(function () {
+            return true;
+          });
+        });
+      });
+    }
+
+    var params = new URLSearchParams(location.search);
+    if (params.get("_chunkfix")) {
+      params.delete("_chunkfix");
+      var cleaned = params.toString();
+      history.replaceState(null, "", location.pathname + (cleaned ? "?" + cleaned : "") + location.hash);
+    }
+
+    if (local) {
+      dropWorkersAndCaches().then(function (hadWorker) {
+        if (hadWorker) {
+          clearChunkReloadKeys();
+          location.reload();
+        }
+      });
+    }
+
+    window.addEventListener("unhandledrejection", function (event) {
+      var reason = event && event.reason;
+      var text = String((reason && reason.message) || reason || "");
+      if (text.indexOf("Failed to fetch dynamically imported module") !== -1) {
+        dropWorkersAndCaches().then(function () {
+          clearChunkReloadKeys();
+          var next = new URLSearchParams(location.search);
+          if (!next.get("_chunkfix")) {
+            next.set("_chunkfix", "1");
+            var query = next.toString();
+            location.replace(location.pathname + (query ? "?" + query : "") + location.hash);
+          }
+        });
+      }
+    });
+  })();
+</script>
 <app-root></app-root>
 </body>
 </html>

@@ -27,7 +27,10 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { FormsModule } from "@angular/forms";
 import { MapOverlayConfig, MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
-import { faAdd, faEye, faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faArrowDown, faArrowUp, faEye, faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { enumKeyValues, KeyValue } from "../../../functions/enums";
+import { RouteWaypointKind } from "../../../models/route-follow.model";
+import { StringUtilsService } from "../../../services/string-utils.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { FileUploader } from "ng2-file-upload";
@@ -65,24 +68,57 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
             </div>
             <small class="form-text text-muted">Automatically add markers from Location row on this page</small>
           </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input"
+                     type="checkbox"
+                     id="place-waypoint-{{id}}"
+                     [(ngModel)]="placeWaypointMode">
+              <label class="form-check-label" for="place-waypoint-{{id}}">
+                Click the map to add a waypoint
+              </label>
+            </div>
+            <small class="form-text text-muted">Each waypoint can carry a direction that appears while someone is following the route.</small>
+          </div>
           @if (row.map.markers && row.map.markers.length > 0) {
             <div class="list-group mb-2">
-              @for (marker of row.map.markers; let i = $index; track i) {
+              @for (marker of row.map.markers; let i = $index; track marker.id || i) {
                 <div class="list-group-item">
-                  <div class="row align-items-center gy-2">
-                    <div class="col-md-8">
+                  <div class="row gy-2">
+                    <div class="col-md-3">
+                      <label class="form-label-sm" [for]="'marker-label-' + id + '-' + i">Label</label>
                       <input type="text"
                              class="form-control"
+                             [id]="'marker-label-' + id + '-' + i"
                              [(ngModel)]="marker.label"
                              (ngModelChange)="broadcastChange()"
-                             placeholder="Marker label">
-                      <small class="text-muted">{{ marker.latitude }}, {{ marker.longitude }}</small>
+                             placeholder="1">
                     </div>
-                    <div class="col-md-4 text-end">
-                      <app-badge-button
-                        [icon]="faTrash"
-                        caption="Remove"
-                        (click)="removeMarker(i)"/>
+                    <div class="col-md-3">
+                      <label class="form-label-sm" [for]="'marker-kind-' + id + '-' + i">Kind</label>
+                      <select class="form-control"
+                              [id]="'marker-kind-' + id + '-' + i"
+                              [(ngModel)]="marker.kind"
+                              (ngModelChange)="broadcastChange()">
+                        @for (item of waypointKinds; track item.value) {
+                          <option [ngValue]="item.value">{{ stringUtils.asTitle(item.value) }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end justify-content-end gap-2 flex-wrap">
+                      <app-badge-button [icon]="faArrowUp" caption="Up" (click)="moveMarker(i, -1)"/>
+                      <app-badge-button [icon]="faArrowDown" caption="Down" (click)="moveMarker(i, 1)"/>
+                      <app-badge-button [icon]="faTrash" caption="Remove" (click)="removeMarker(i)"/>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label-sm" [for]="'marker-instruction-' + id + '-' + i">Direction</label>
+                      <textarea class="form-control"
+                                rows="2"
+                                [id]="'marker-instruction-' + id + '-' + i"
+                                [(ngModel)]="marker.instruction"
+                                (ngModelChange)="broadcastChange()"
+                                placeholder="Turn left through the churchyard and follow the path downhill"></textarea>
+                      <small class="text-muted">{{ marker.latitude }}, {{ marker.longitude }}</small>
                     </div>
                   </div>
                 </div>
@@ -91,8 +127,8 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
           } @else {
             <alert type="warning" class="flex-grow-1">
               <fa-icon [icon]="ALERT_WARNING.icon"/>
-              <strong class="ms-2">No markers added yet{{ EM_DASH_WITH_SPACES }}</strong>
-              <span class="ms-1">Enable "Use location from page</span>
+              <strong class="ms-2">No waypoints added yet{{ EM_DASH_WITH_SPACES }}</strong>
+              <span class="ms-1">Click the map, enable "Use location from page", or import a shapefile that includes points.</span>
             </alert>
           }
         </div>
@@ -225,6 +261,8 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
               [row]="row"
               [refreshKey]="previewVersion"
               [editing]="true"
+              [clickToPlace]="placeWaypointMode"
+              (mapClick)="addWaypointAt($event)"
               (mapConfigChange)="onMapViewConfigChange()"/>
           } @else {
             <alert type="warning" class="flex-grow-1">
@@ -263,6 +301,7 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private broadcastService = inject(BroadcastService);
   protected mapDefaults = inject(MapDefaultsService);
   private numberUtils = inject(NumberUtilsService);
+  protected stringUtils = inject(StringUtilsService);
   private fileUploadService = inject(FileUploadService);
   private routeImportService = inject(RouteImportService);
   private cdr = inject(ChangeDetectorRef);
@@ -276,6 +315,10 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   protected readonly faTrash = faTrash;
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
+  protected readonly faArrowUp = faArrowUp;
+  protected readonly faArrowDown = faArrowDown;
+  protected placeWaypointMode = false;
+  protected waypointKinds: KeyValue<string>[] = enumKeyValues(RouteWaypointKind);
   private uploaders: Map<string, FileUploader> = new Map();
   private importingRoutes: Set<string> = new Set();
   private importProgressMessages: Map<string, string> = new Map();
@@ -527,7 +570,14 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
       }
 
       if (response.markers && response.markers.length > 0 && this.row.map) {
-        const importedMarkers: MapMarker[] = response.markers.map(marker => ({latitude: marker.latitude, longitude: marker.longitude, label: marker.label}));
+        const importedMarkers: MapMarker[] = response.markers.map(marker => ({
+          id: this.numberUtils.generateUid(),
+          latitude: marker.latitude,
+          longitude: marker.longitude,
+          label: marker.label,
+          instruction: "",
+          kind: RouteWaypointKind.WAYPOINT
+        }));
         this.row.map.markers = [...(this.row.map.markers || []), ...importedMarkers];
         if (!response.gpxFile) {
           this.removeRoute(route);
@@ -766,6 +816,42 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
       return;
     }
     this.row.map.markers.splice(index, 1);
+    this.broadcastChange();
+  }
+
+  moveMarker(index: number, offset: number) {
+    const markers = this.row.map?.markers || [];
+    const next = index + offset;
+    if (next >= 0 && next < markers.length) {
+      const updated = markers.map((marker, markerIndex) => {
+        if (markerIndex === index) {
+          return markers[next];
+        } else if (markerIndex === next) {
+          return markers[index];
+        } else {
+          return marker;
+        }
+      });
+      this.row.map.markers = updated;
+      this.broadcastChange();
+    }
+  }
+
+  addWaypointAt(location: {latitude: number; longitude: number}) {
+    if (!this.row.map) {
+      return;
+    }
+    const markers = this.row.map.markers || [];
+    const nextNumber = String(markers.length + 1);
+    this.row.map.markers = [...markers, {
+      id: this.numberUtils.generateUid(),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      label: nextNumber,
+      instruction: "",
+      kind: RouteWaypointKind.WAYPOINT
+    }];
+    this.placeWaypointMode = false;
     this.broadcastChange();
   }
 }

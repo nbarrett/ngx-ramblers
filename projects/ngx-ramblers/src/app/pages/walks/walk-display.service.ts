@@ -47,6 +47,8 @@ import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { AccessLevel } from "../../models/member-resource.model";
+import { AppPath } from "../../models/route-follow.model";
+import { DEFAULT_WALKS_AREA } from "../../models/walks-route-paths.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
 import { eventSlug } from "../../functions/walks/event-slug";
@@ -97,6 +99,7 @@ export class WalkDisplayService {
   private nextWalkStartDateByGroupCode: Record<string, number> = {};
   private nextWalkStartDatesRequested = false;
   private viewReturnUrl: string;
+  private followReturnUrl: string;
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
   public group: Organisation;
@@ -536,18 +539,20 @@ export class WalkDisplayService {
     return lastSegment ? this.stringUtils.asPathSegmentTitle(lastSegment) : null;
   }
 
-  public returnToPreviousView(): void {
+  public returnToPreviousView(walk?: ExtendedGroupEvent): void {
     const returnUrl = this.viewReturnUrl;
     this.viewReturnUrl = null;
     this.logger.info("returnToPreviousView:returnUrl:", returnUrl, "historyLength:", window.history.length);
-    if (returnUrl) {
+    if (returnUrl && !this.isFollowPath(returnUrl)) {
       const [pathWithQuery, fragment] = returnUrl.split("#");
       const [path, queryString] = pathWithQuery.split("?");
       this.router.navigate([path], {queryParams: this.queryParamsFrom(queryString), fragment});
+    } else if (walk) {
+      this.router.navigate(this.publicWalkLink(walk));
     } else if (window.history.length > 1) {
       this.location.back();
     } else {
-      this.router.navigate(["/" + this.walksArea()]);
+      this.router.navigate(["/" + this.walksListArea()]);
     }
   }
 
@@ -560,7 +565,29 @@ export class WalkDisplayService {
   }
 
   public rememberReturnUrl(): void {
-    this.viewReturnUrl = this.location.path();
+    const path = this.location.path();
+    if (!this.isFollowPath(path)) {
+      this.viewReturnUrl = path;
+    }
+  }
+
+  public rememberFollowReturnUrl(): void {
+    const path = this.location.path();
+    if (!this.isFollowPath(path)) {
+      this.followReturnUrl = path;
+    }
+  }
+
+  public rememberFollowReturnUrlFrom(path: string): void {
+    if (path && !this.isFollowPath(path)) {
+      this.followReturnUrl = path;
+    }
+  }
+
+  public takeFollowReturnUrl(): string | null {
+    const returnUrl = this.followReturnUrl;
+    this.followReturnUrl = null;
+    return returnUrl;
   }
 
   public openWalkViewFor(identifier: string): Promise<boolean> {
@@ -589,8 +616,22 @@ export class WalkDisplayService {
   }
 
   closeEditView(walk: ExtendedGroupEvent) {
-    this.returnToPreviousView();
+    this.returnToPreviousView(walk);
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
+  }
+
+  public publicWalkLink(walk: ExtendedGroupEvent): string[] {
+    return ["/" + this.walksListArea(), this.walkSlug(walk)];
+  }
+
+  private walksListArea(): string {
+    return (this.groupEventArea() || DEFAULT_WALKS_AREA).replace(/^\/+/, "");
+  }
+
+  private isFollowPath(url: string): boolean {
+    const path = (url || "").split("?")[0];
+    const follow = "/" + AppPath.ROOT + "/" + AppPath.FOLLOW;
+    return path === follow || path.startsWith(follow + "/");
   }
 
   public walksCoordinatorName() {

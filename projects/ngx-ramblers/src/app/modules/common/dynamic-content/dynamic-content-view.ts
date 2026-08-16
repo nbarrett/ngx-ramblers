@@ -17,6 +17,7 @@ import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AreaMap } from "../../../pages/area-map/area-map";
 import { DynamicContentViewMap } from "./dynamic-content-view-map";
+import { DynamicContentViewRoute } from "./dynamic-content-view-route";
 import { DynamicContentViewLocation } from "./dynamic-content-view-location";
 import { FragmentService } from "../../../services/fragment.service";
 import { DynamicContentViewIndex } from "./dynamic-content-view-index";
@@ -68,6 +69,9 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
           @if (actions.isMap(row)) {
             <app-dynamic-content-view-map [row]="row" [pageContent]="viewablePageContent"/>
           }
+          @if (actions.isRoute(row)) {
+            <app-dynamic-content-view-route [row]="row" [pageContent]="viewablePageContent"/>
+          }
           @if (actions.isLocation(row)) {
             <app-dynamic-content-view-location [row]="row"/>
           }
@@ -94,7 +98,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewLocation]
+  imports: [ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, DynamicContentViewLocation]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

@@ -1,0 +1,221 @@
+.app-home
+  --app-bg: #f4f5f5
+  --app-ink: #1b1b1b
+  --app-muted: #5b6560
+  --app-card: #ffffff
+  --app-card-hover: #f1f3f2
+  --app-kicker: #1b4332
+  --app-input-border: rgba(16, 32, 24, 0.16)
+  --app-input-bg: #ffffff
+  min-height: 100%
+  height: 100%
+  background: var(--app-bg)
+  color: var(--app-ink)
+  overflow-y: auto
+  -webkit-overflow-scrolling: touch
+  overscroll-behavior: contain
+  -webkit-text-size-adjust: 100%
+  text-size-adjust: 100%
+  -webkit-tap-highlight-color: transparent
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 0px))
+  font-family: Assistant, Arial, sans-serif
+
+@mixin app-home-dark-tokens
+  --app-bg: #102018
+  --app-ink: #f4f1ea
+  --app-muted: #c5d0c8
+  --app-card: #1b2d24
+  --app-card-hover: #214032
+  --app-kicker: #9bc8ab
+  --app-input-border: rgba(255, 255, 255, 0.16)
+  --app-input-bg: #1b2d24
+
+@media (prefers-color-scheme: dark)
+  body:not(.app-appearance-light) .app-home
+    @include app-home-dark-tokens
+
+body.app-appearance-dark .app-home
+  @include app-home-dark-tokens
+
+.app-home-header
+  float: none
+  width: auto
+  margin-bottom: 20px
+  background: transparent
+  color: inherit
+  box-shadow: none
+
+.app-home-kicker
+  text-transform: uppercase
+  letter-spacing: 0.08em
+  font-size: 0.75rem
+  color: var(--app-kicker)
+  margin: 0 0 6px
+
+.app-home-header h1
+  font-size: 2rem
+  font-weight: 700
+  margin: 0 0 8px
+  background: none
+  color: var(--app-ink)
+  padding: 0
+  line-height: 1.15
+
+.app-home-lead
+  margin: 0
+  color: var(--app-muted)
+  font-size: 1.05rem
+  line-height: 1.4
+
+.app-home-install
+  display: flex
+  align-items: flex-start
+  gap: 12px
+  background: #3c2a00
+  color: #ffe8a3
+  border-radius: 16px
+  padding: 14px 16px
+  margin-bottom: 22px
+
+.app-home-install fa-icon
+  margin-top: 3px
+  flex-shrink: 0
+
+.app-home-install strong
+  display: block
+  color: #fff6d6
+  margin-bottom: 4px
+
+.app-home-install p
+  margin: 0
+  font-size: 0.95rem
+  line-height: 1.4
+
+.app-home-install-btn
+  margin-top: 12px
+  width: 100%
+  min-height: 48px
+
+.app-home-open
+  display: flex
+  flex-direction: column
+  gap: 10px
+  margin: 8px 0 8px
+
+.app-home-open-label
+  font-weight: 700
+  font-size: 0.95rem
+
+.app-home-open-input
+  min-height: 48px
+  border-radius: 12px
+  border: 1px solid var(--app-input-border)
+  background: var(--app-input-bg)
+  color: var(--app-ink)
+
+.app-home-open-btn
+  width: 100%
+  min-height: 48px
+  margin-left: 0 !important
+
+.app-home-open-error
+  margin: 0
+  color: #ffd6de
+  font-size: 0.95rem
+
+.app-home-section
+  margin-top: 28px
+
+.app-home-section h2
+  font-size: 1.05rem
+  font-weight: 700
+  margin: 0 0 12px
+
+.app-home-card
+  display: flex
+  align-items: center
+  gap: 12px
+  background: var(--app-card)
+  border: 1px solid var(--app-input-border)
+  border-radius: 16px
+  padding: 16px
+  margin-bottom: 12px
+  color: inherit
+  text-decoration: none
+
+.app-home-card-stack
+  flex-direction: column
+  align-items: stretch
+
+.app-home-card:hover,
+.app-home-card:focus
+  background: var(--app-card-hover)
+  color: inherit
+
+.app-home-card-copy
+  flex: 1
+  min-width: 0
+
+.app-home-card h3
+  font-size: 1.1rem
+  margin: 0 0 6px
+  line-height: 1.25
+
+.app-home-meta
+  margin: 0
+  color: var(--app-muted)
+  font-size: 0.95rem
+  line-height: 1.35
+
+.app-home-actions
+  display: flex
+  flex-direction: column
+  gap: 10px
+  margin-top: 4px
+
+.app-home-card-btn
+  min-height: 48px
+  width: 100%
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 8px
+  margin-left: 0 !important
+  font-size: 1.05rem
+
+.app-home-card:not(.app-home-card-stack) .app-home-card-btn
+  width: auto
+  min-width: 108px
+  padding-left: 16px
+  padding-right: 16px
+
+.app-home-details
+  display: block
+  text-align: center
+  color: var(--app-kicker)
+  font-weight: 600
+  min-height: 44px
+  line-height: 44px
+  text-decoration: none
+
+.app-home-offline
+  margin: 6px 0 0
+  font-size: 0.8rem
+  font-weight: 700
+  letter-spacing: 0.02em
+  text-transform: uppercase
+  color: var(--app-kicker)
+
+.app-home-empty
+  color: var(--app-muted)
+  margin: 0
+
+.app-home-appearance
+  display: flex
+  flex-wrap: wrap
+  gap: 8px
+
+.app-home-appearance-btn
+  flex: 1 1 0
+  min-height: 44px
+  margin-left: 0 !important

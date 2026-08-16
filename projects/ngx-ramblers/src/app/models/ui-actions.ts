@@ -31,6 +31,7 @@ export enum StoredValue {
   ALBUM_WORKFLOW = "album-workflow",
   ANALYTICS_RANGE = "analytics-range",
   APP = "app",
+  APP_APPEARANCE = "app-appearance",
   AREA_MAP_CENTER = "area-map-center",
   AREA_MAP_CLICK_ACTION = "area-map-click-action",
   AREA_MAP_ZOOM = "area-map-zoom",

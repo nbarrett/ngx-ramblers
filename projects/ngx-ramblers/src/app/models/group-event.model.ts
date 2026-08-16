@@ -14,6 +14,7 @@ import { MeetupConfig } from "./meetup-config.model";
 import { Venue } from "./event-venue.model";
 import { Notification } from "./committee.model";
 import { FileNameData } from "./aws-object.model";
+import { RouteFollowWaypoint } from "./route-follow.model";
 import { ImageConfig, LinkWithSource, Publish, RiskAssessmentRecord } from "./walk.model";
 
 export interface HasStartAndEndTime {
@@ -94,6 +95,10 @@ export interface ExtendedFields {
   venue?: Venue;
   inputSource: InputSource;
   gpxFile?: FileNameData;
+  routeColor?: string;
+  routeWeight?: number;
+  routeOpacity?: number;
+  routeWaypoints?: RouteFollowWaypoint[];
   maxCapacity?: number;
   maxGroupSize?: number;
   memberPriorityDays?: number;

@@ -1,23 +1,19 @@
 import { ErrorHandler, inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
-import { DateUtilsService } from "../services/date-utils.service";
 
 @Injectable()
 export class ChunkErrorHandler implements ErrorHandler {
 
   private logger: Logger = inject(LoggerFactory).createLogger("ChunkErrorHandler", NgxLoggerLevel.ERROR);
-  private dateUtils: DateUtilsService = inject(DateUtilsService);
 
   handleError(error: unknown): void {
     const resolved = this.resolveError(error);
-    if (this.isChunkLoadError(resolved)) {
-      const storageKey = `chunk-reload-${location.pathname}`;
-      const lastReload = Number(sessionStorage.getItem(storageKey) || "0");
-      const now = this.dateUtils.dateTimeNowAsValue();
-      if (now - lastReload > 10000) {
+    if (this.isChunkLoadError(error) || this.isChunkLoadError(resolved)) {
+      const storageKey = "chunk-reload-" + location.pathname;
+      if (!sessionStorage.getItem(storageKey)) {
         this.logger.error("ChunkLoadError detected — reloading to fetch updated chunks");
-        sessionStorage.setItem(storageKey, String(now));
+        sessionStorage.setItem(storageKey, "1");
         location.reload();
       } else {
         this.logger.error("ChunkLoadError detected but reload already attempted recently — skipping to prevent loop");
@@ -28,11 +24,27 @@ export class ChunkErrorHandler implements ErrorHandler {
   }
 
   private resolveError(error: unknown): unknown {
-    return (error as { rejection?: unknown })?.rejection || error;
+    const wrapped = error as { rejection?: unknown; originalError?: unknown; error?: unknown };
+    return wrapped?.rejection || wrapped?.originalError || wrapped?.error || error;
   }
 
   private isChunkLoadError(error: unknown): boolean {
-    return (error as { name?: string })?.name === "ChunkLoadError";
+    const name = (error as { name?: string })?.name || "";
+    const message = (error as { message?: string })?.message || "";
+    const text = `${name} ${message} ${String(error)}`;
+    if (name === "ChunkLoadError") {
+      return true;
+    } else if (text.includes("Failed to fetch dynamically imported module")) {
+      return true;
+    } else if (text.includes("Importing a module script failed")) {
+      return true;
+    } else if (text.includes("Loading chunk")) {
+      return true;
+    } else if (text.includes("error loading dynamically imported module")) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
 }

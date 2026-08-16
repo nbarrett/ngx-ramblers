@@ -82,6 +82,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
   @Input() gpxFile: FileNameData;
+  @Input() routeColor: string;
+  @Input() routeWeight: number;
+  @Input() routeOpacity: number;
   @Output() postcodeOptionsChange = new EventEmitter<{ postcode: string, distance: number }[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   public locationDetails: LocationDetails;
@@ -127,7 +130,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes["gpxFile"] && !changes["gpxFile"].firstChange) {
+    if ((changes["gpxFile"] && !changes["gpxFile"].firstChange) || ((changes["routeColor"] || changes["routeWeight"] || changes["routeOpacity"]) && this.gpxFile)) {
       this.gpxLayers.forEach(layer => {
         const index = this.layers.indexOf(layer);
         if (index > -1) this.layers.splice(index, 1);
@@ -295,10 +298,10 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
         const latLngs = this.gpxParser.toLeafletLatLngs(track);
 
         if (latLngs.length >= 2) {
-          const routeColor = PaletteColor.ROSE;
-          const coreWeight = 8;
-          const haloWeight = 12;
-          const coreOpacity = 0.8;
+          const routeColor = this.routeColor || PaletteColor.ROSE;
+          const coreWeight = this.routeWeight || 8;
+          const haloWeight = coreWeight + 4;
+          const coreOpacity = this.routeOpacity ?? 0.8;
           const haloOpacity = 0.5;
 
           const halo = L.polyline(latLngs, {

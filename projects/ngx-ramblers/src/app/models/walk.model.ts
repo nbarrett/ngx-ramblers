@@ -336,6 +336,7 @@ export enum EventField {
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
   GPX_FILE = "fields.gpxFile",
   GPX_FILE_AWS_FILE_NAME = "fields.gpxFile.awsFileName",
+  ROUTE_WAYPOINTS = "fields.routeWaypoints",
   IMAGE_CONFIG = "fields.imageConfig",
   IMAGE_CONFIG_IMPORT_FROM_AREA_CODE = "fields.imageConfig.importFrom.areaCode",
   IMAGE_CONFIG_IMPORT_FROM_FILTER_PARAMETERS_SELECT_TYPE = "fields.imageConfig.importFrom.filterParameters.selectType",
