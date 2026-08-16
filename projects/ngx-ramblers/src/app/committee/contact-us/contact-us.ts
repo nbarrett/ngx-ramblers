@@ -2,6 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommitteeMember } from "../../models/committee.model";
+import { committeeMemberTrackKey } from "../../functions/committee-members";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -16,7 +17,7 @@ export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-
     template: `
     @if (format==='list') {
       <ul>
-        @for (committeeMember of committeeMembers(); track committeeMember.type) {
+        @for (committeeMember of committeeMembers(); track committeeMemberTrackKey(committeeMember)) {
           <li
           [ngStyle]="{
           'font-weight': 'normal',
@@ -45,6 +46,7 @@ export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-
 
 export class ContactUsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ContactUsComponent", NgxLoggerLevel.ERROR);
+  protected readonly committeeMemberTrackKey = committeeMemberTrackKey;
   urlService = inject(UrlService);
   private committeeConfig = inject(CommitteeConfigService);
   private contactUsModalService = inject(ContactUsModalService);

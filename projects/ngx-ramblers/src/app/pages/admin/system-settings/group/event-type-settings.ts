@@ -15,6 +15,7 @@ import {
   SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS,
   WALK_CONTACT_ACCESS_LEVEL_FIELDS
 } from "../../../../functions/contact-details-access-level";
+import { uniqueCommitteeMembersByType } from "../../../../functions/committee-members";
 
 interface EventTypeFieldMapping {
   population: keyof Organisation;
@@ -201,7 +202,7 @@ export class EventTypeSettingsComponent implements OnInit {
     this.photoAlbumBasePathPlaceholder = this.eventType === RamblersEventType.GROUP_EVENT ? "social/photos" : "walks/photos";
     this.applyDefaults();
     this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
-      this.committeeRoles = data.committeeMembers();
+      this.committeeRoles = uniqueCommitteeMembersByType(data.committeeMembers());
     });
   }
 
