@@ -615,7 +615,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       existingPublishingContactName: this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName
     }));
     if (!memberId) {
-      this.setStatus(EventType.AWAITING_LEADER);
+      const isImportedWalk = [InputSource.WALKS_MANAGER_CACHE, InputSource.FILE_IMPORT].includes(this.displayedWalk.walk?.fields?.inputSource);
+      if (this.display.walkPopulationLocal() && !isImportedWalk) {
+        this.setStatus(EventType.AWAITING_LEADER);
+      }
       this.displayedWalk.walk.fields.contactDetails.memberId = null;
       this.displayedWalk.walk.fields.contactDetails.contactId = null;
       this.displayedWalk.walk.fields.publishing.ramblers.contactName = null;

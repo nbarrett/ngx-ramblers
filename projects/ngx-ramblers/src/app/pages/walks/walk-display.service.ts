@@ -45,7 +45,7 @@ import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ram
 import { EventsData } from "../../models/group-events.model";
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
-import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { AccessLevel } from "../../models/member-resource.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
@@ -120,7 +120,11 @@ export class WalkDisplayService {
   }
 
   public awaitingLeader(walk: ExtendedGroupEvent): boolean {
-    return this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
+    const walksManagerCached = walk?.source === EventSource.WALKS_MANAGER
+      || walk?.fields?.inputSource === InputSource.WALKS_MANAGER_CACHE;
+    return this.walkPopulationLocal()
+      && !walksManagerCached
+      && this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
   }
 
   public publicVisibilityFilteringActive(): boolean {

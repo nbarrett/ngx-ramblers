@@ -41,7 +41,8 @@ const memberLoginService = {
     memberLoggedIn: () => false,
     loggedInMember: () => {
     },
-    allowWalkAdminEdits: () => false
+    allowWalkAdminEdits: () => false,
+    allowContentEdits: () => false
 };
 
 const memberService = {

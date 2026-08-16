@@ -24,7 +24,7 @@ import { CommitteeFileService } from "./committee-file.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
 import { MediaQueryService } from "./media-query.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
-import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
@@ -155,12 +155,10 @@ export class CommitteeQueryService {
   }
 
   private walkContactFallback(event: ExtendedGroupEvent): string | null {
-    if (this.group?.walkPopulation === EventPopulation.LOCAL) {
-      return "Awaiting " + event.groupEvent.item_type + " leader";
-    } else if (event?.groupEvent?.item_type === RamblersEventType.GROUP_WALK && event?.fields?.contactDetails?.email) {
-      return "Contact Via Ramblers";
-    } else if (event?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT && event?.fields?.contactDetails?.email) {
-      return "Contact Via Ramblers";
+    const walksManagerCached = event?.source === EventSource.WALKS_MANAGER
+      || event?.fields?.inputSource === InputSource.WALKS_MANAGER_CACHE;
+    if (walksManagerCached || this.group?.walkPopulation !== EventPopulation.LOCAL) {
+      return event?.fields?.contactDetails?.email ? "Contact Via Ramblers" : null;
     } else {
       return "Awaiting " + event.groupEvent.item_type + " leader";
     }

@@ -8,7 +8,7 @@ describe("Album image title", () => {
     const walk = {
       groupEvent: {
         title: "Grove Ferry 13 mile circular",
-        walk_leader: {name: "Kerry O"}
+        walk_leader: {name: "Kerry Example"}
       }
     } as ExtendedGroupEvent;
 

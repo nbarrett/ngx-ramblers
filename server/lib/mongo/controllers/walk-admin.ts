@@ -3,7 +3,7 @@ import { extendedGroupEvent } from "../models/extended-group-event";
 import { socialEvent } from "../models/social-event";
 import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
 import { deletedMember } from "../models/deleted-member";
-import { EventField, GroupEventField, EventType } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { CsvZipRequest, RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import AdmZip from "adm-zip";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
@@ -24,7 +24,17 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
 import * as transforms from "./transforms";
-import { isArray, isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
+import {
+  asLeaderStats,
+  isUnknownWalkLeader,
+  isUnknownWalkLeaderName,
+  leaderStatsFromWalks,
+  UNKNOWN_WALK_LEADER_NAME,
+  walkLeaderAggregateKey
+} from "../../../../projects/ngx-ramblers/src/app/functions/agm-leader-stats";
+import { trimmedNamePart } from "../../../../projects/ngx-ramblers/src/app/functions/member-names";
+import { walksManagerWalkLeaderNameFromGroupEvent } from "../../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-fields";
+import { isArray, isNumber, isString, kebabCase } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
@@ -34,6 +44,7 @@ import { fetchMappedEvents } from "../../ramblers/list-events";
 import { calculateExpenseStats } from "./agm-expense-stats";
 import { expenseClaim } from "../models/expense-claim";
 import { LocalWalkStatus } from "../models/walk-admin.model";
+import { classifyLocalWalk } from "./classify-local-walk";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
 debugLog.enabled = false;
@@ -327,6 +338,28 @@ export function morningWalksCount(totalWalks: number, cancelledWalks: number, ev
   return value > 0 ? value : 0;
 }
 
+function firstNonEmptyString(fields: string[]) {
+  return {
+    $reduce: {
+      input: fields,
+      initialValue: "",
+      in: {
+        $cond: [
+          {
+            $and: [
+              {$eq: ["$$value", ""]},
+              {$eq: [{$type: "$$this"}, "string"]},
+              {$ne: ["$$this", ""]}
+            ]
+          },
+          "$$this",
+          "$$value"
+        ]
+      }
+    }
+  };
+}
+
 async function calculateWalkStats(fromDate: number, toDate: number): Promise<WalkAGMStats> {
   const config = await systemConfig();
   const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
@@ -495,63 +528,9 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
           },
           {
             $addFields: {
-              leaderId: {
-                $reduce: {
-                  input: leaderIdFields,
-                  initialValue: "",
-                  in: {
-                    $cond: [
-                      {
-                        $and: [
-                          {$eq: ["$$value", ""]},
-                          {$ne: ["$$this", null]},
-                          {$ne: ["$$this", ""]}
-                        ]
-                      },
-                      "$$this",
-                      "$$value"
-                    ]
-                  }
-                }
-              },
-              leaderName: {
-                $reduce: {
-                  input: leaderNameFields,
-                  initialValue: "",
-                  in: {
-                    $cond: [
-                      {
-                        $and: [
-                          {$eq: ["$$value", ""]},
-                          {$ne: ["$$this", null]},
-                          {$ne: ["$$this", ""]}
-                        ]
-                      },
-                      "$$this",
-                      "$$value"
-                    ]
-                  }
-                }
-              },
-              leaderEmail: {
-                $reduce: {
-                  input: leaderEmailFields,
-                  initialValue: "",
-                  in: {
-                    $cond: [
-                      {
-                        $and: [
-                          {$eq: ["$$value", ""]},
-                          {$ne: ["$$this", null]},
-                          {$ne: ["$$this", ""]}
-                        ]
-                      },
-                      "$$this",
-                      "$$value"
-                    ]
-                  }
-                }
-              }
+              leaderId: firstNonEmptyString(leaderIdFields),
+              leaderName: firstNonEmptyString(leaderNameFields),
+              leaderEmail: firstNonEmptyString(leaderEmailFields)
             }
           },
           {
@@ -564,6 +543,11 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
                 $sum: {$ifNull: [`$${GroupEventField.DISTANCE_MILES}`, 0]}
               },
             firstWalkDate: {$min: `$${GroupEventField.START_DATE}`}
+            }
+          },
+          {
+            $match: {
+              _id: {$nin: [null, ""]}
             }
           },
           {
@@ -635,13 +619,20 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   ]);
   debugLog("Sample walks with extracted hours:", JSON.stringify(sampleWalks, null, 2));
 
-  let leaders: LeaderStats[] = (data.leaders || []).map((leader: any) => ({
-    id: leader._id || "",
-    name: leader.name || "",
-    email: leader.email || "",
-    walkCount: leader.walkCount || 0,
-    totalMiles: Math.round(leader.totalMiles * 10) / 10
-  }));
+  let leaders: LeaderStats[] = (data.leaders || []).map((leader: any) => {
+    const stats = asLeaderStats({
+      _id: leader._id,
+      id: leader.id,
+      name: leader.name,
+      email: leader.email,
+      walkCount: leader.walkCount,
+      totalMiles: leader.totalMiles
+    });
+    return {
+      ...stats,
+      name: stats.name || "Unknown"
+    };
+  });
 
   let remoteEvents: ExtendedGroupEvent[] = [];
   if (isWalksManager) {
@@ -650,13 +641,9 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
 
   if (isWalksManager) {
     const leaderMap = new Map<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>();
-    const firstValue = (candidates: (string | null | undefined)[]) => {
-      for (const value of candidates) {
-        if (!isUndefined(value) && !isNull(value) && value !== "") {
-          return value;
-        }
-      }
-      return "";
+    const firstValue = (candidates: unknown[]): string => {
+      const match = candidates.find(value => isString(value) && value !== "");
+      return isString(match) ? match : "";
     };
 
     const normalizeText = (value: string | number) => value ? String(value).trim().replace(/\.$/, "") : "";
@@ -664,19 +651,20 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     const addLeaderCount = (id: string, name: string, email: string, walkCount: number, miles: number) => {
       const normalizedId = normalizeText(id);
       const normalizedName = normalizeText(name);
-      if (!normalizedId) {
-        return;
+      const key = walkLeaderAggregateKey({id: normalizedId, name: normalizedName, email});
+      if (key) {
+        const displayName = isUnknownWalkLeaderName(normalizedName) ? UNKNOWN_WALK_LEADER_NAME : normalizedName;
+        const existing = leaderMap.get(key) || {id: key, name: displayName, email, walkCount: 0, totalMiles: 0};
+        existing.walkCount += walkCount;
+        existing.totalMiles += miles;
+        if (!existing.name && displayName) {
+          existing.name = displayName;
+        }
+        if (!existing.email && email) {
+          existing.email = email;
+        }
+        leaderMap.set(key, existing);
       }
-      const existing = leaderMap.get(normalizedId) || {id: normalizedId, name: normalizedName, email, walkCount: 0, totalMiles: 0};
-      existing.walkCount += walkCount;
-      existing.totalMiles += miles;
-      if (!existing.name && normalizedName) {
-        existing.name = normalizedName;
-      }
-      if (!existing.email && email) {
-        existing.email = email;
-      }
-      leaderMap.set(normalizedId, existing);
     };
 
     leaders.forEach(leader => addLeaderCount(leader.id, leader.name, leader.email, leader.walkCount, leader.totalMiles));
@@ -717,18 +705,6 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       return b.totalMiles - a.totalMiles;
     });
   }
-
-  const topLeader = leaders.length > 0 ? leaders[0] : {
-    id: "",
-    name: "None",
-    email: "",
-    walkCount: 0,
-    totalMiles: 0
-  };
-
-  const historicalLeaders = await allHistoricalLeaders(fromDate);
-  const newLeaderIds = new Set(leaders.map(l => l.id).filter(id => id && !historicalLeaders.has(id)));
-  const newLeadersList = leaders.filter(leader => newLeaderIds.has(leader.id));
 
   const cancelledWalksList = await extendedGroupEvent.find({
     [`${GroupEventField.START_DATE}`]: {
@@ -798,9 +774,6 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       $lte: dateTimeNow().toISO()
     },
     $or: [
-      {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: null},
-      {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: {$exists: false}},
-      {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: ""},
       {[`${GroupEventField.TITLE}`]: null},
       {[`${GroupEventField.TITLE}`]: {$exists: false}},
       {[`${GroupEventField.TITLE}`]: ""}
@@ -817,8 +790,8 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       || walk.groupEvent?.id
       || walkId;
     const lastSegment = urlSlug.split("/").pop() || urlSlug;
-    const walkLeaderFromManager = walk.groupEvent?.walk_leader?.name;
-    const walkLeaderFromFields = walk.fields?.contactDetails?.displayName;
+    const walkLeaderFromManager = walksManagerWalkLeaderNameFromGroupEvent(walk.groupEvent);
+    const walkLeaderFromFields = trimmedNamePart(walk.fields?.contactDetails?.displayName);
     const walkLeader = isWalksManager
       ? walkLeaderFromManager || walkLeaderFromFields || ""
       : walkLeaderFromFields || walkLeaderFromManager || "";
@@ -844,50 +817,10 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   const localCancelledWalks: any[] = [];
   const localUnfilledWalks: any[] = [];
 
-  const classifyLocalWalk = (walk: any): LocalWalkStatus => {
-    const events: any[] = isArray(walk.events) ? walk.events : [];
-    const hasDeletedEvent = events.some(event => event?.eventType === EventType.DELETED);
-    if (hasDeletedEvent) {
-      return LocalWalkStatus.DELETED;
-    }
-    const title = (walk.groupEvent?.title || "") as string;
-    const status = walk.groupEvent?.status as string | undefined;
-    const memberId = walk.fields?.contactDetails?.memberId as string | undefined;
-    const leaderMissing = !memberId;
-    const titleMissing = !title;
-
-    const start = walk.groupEvent?.start_date_time as string | undefined;
-
-    const cancelledByStatus = status === "cancelled";
-    const cancelledByTitle = /cancelled/i.test(title);
-    const cancelled = cancelledByStatus || cancelledByTitle;
-
-    if (cancelled) {
-      return LocalWalkStatus.CANCELLED;
-    }
-
-    if (!start) {
-      return LocalWalkStatus.UNFILLED;
-    }
-
-    const dt = dateTimeFromIso(start);
-    const nowMillis = dateTimeNowAsValue();
-    const pastOrToday = dt.toMillis() <= nowMillis;
-
-    if (pastOrToday && (leaderMissing || titleMissing)) {
-      return LocalWalkStatus.UNFILLED;
-    }
-
-    if (dt.hour >= 15) {
-      return LocalWalkStatus.EVENING;
-    }
-
-    return LocalWalkStatus.MORNING;
-  };
-
   if (!isWalksManager) {
+    const nowMillis = dateTimeNowAsValue();
     for (const walk of allWalksForStats) {
-      const bucket = classifyLocalWalk(walk);
+      const bucket = classifyLocalWalk(walk, nowMillis);
       if (bucket === LocalWalkStatus.DELETED) {
         continue;
       }
@@ -911,7 +844,21 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       unfilled: localUnfilledWalks.length,
       sum: localMorningWalks.length + localEveningWalks.length + localCancelledWalks.length + localUnfilledWalks.length
     });
+    leaders = leaderStatsFromWalks([...localMorningWalks, ...localEveningWalks]);
   }
+
+  const namedLeaders = leaders.filter(leader => !isUnknownWalkLeader(leader));
+  const topLeader = namedLeaders.length > 0 ? namedLeaders[0] : {
+    id: "",
+    name: "None",
+    email: "",
+    walkCount: 0,
+    totalMiles: 0
+  };
+
+  const historicalLeaders = await allHistoricalLeaders(fromDate);
+  const newLeaderIds = new Set(namedLeaders.map(l => l.id).filter(id => id && !historicalLeaders.has(id)));
+  const newLeadersList = namedLeaders.filter(leader => newLeaderIds.has(leader.id));
 
   const totalWalksFinal = isWalksManager
     ? totals.totalWalks
@@ -948,7 +895,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     eveningWalksList: eveningWalksListFinal,
     totalMiles: Math.round(totals.totalMiles * 10) / 10,
     totalAttendees: totals.totalAttendees,
-    activeLeaders: leaders.length,
+    activeLeaders: namedLeaders.length,
     newLeaders: newLeaderIds.size,
     newLeadersList,
     topLeader,
@@ -989,25 +936,7 @@ async function allHistoricalLeaders(beforeDate: number): Promise<Set<string>> {
     },
     {
       $addFields: {
-        leaderId: {
-          $reduce: {
-            input: leaderIdFields,
-            initialValue: "",
-            in: {
-              $cond: [
-                {
-                  $and: [
-                    {$eq: ["$$value", ""]},
-                    {$ne: ["$$this", null]},
-                    {$ne: ["$$this", ""]}
-                  ]
-                },
-                "$$this",
-                "$$value"
-              ]
-            }
-          }
-        }
+        leaderId: firstNonEmptyString(leaderIdFields)
       }
     },
     {

@@ -19,6 +19,7 @@ import { GroupEventDisplayService } from "../../group-events/group-event-display
 import { UIDateFormat } from "../../../models/date-format.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
+import { aggregateLeaderStats, asLeaderStats } from "../../../functions/agm-leader-stats";
 import { sortBy } from "../../../functions/arrays";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -833,8 +834,8 @@ export class AGMStatsComponent implements OnInit {
     if (!this.stats?.currentYear) {
       return [];
     }
-    return this.stats.currentYear.walks.allLeaders.map((leader, index) => ({
-      ...leader,
+    return (this.stats.currentYear.walks?.allLeaders || []).map((leader, index) => ({
+      ...asLeaderStats(leader),
       rank: index + 1
     }));
   }
@@ -845,50 +846,11 @@ export class AGMStatsComponent implements OnInit {
     }
     const source: YearComparison[] = this.stats.yearlyStats?.length ? this.stats.yearlyStats : [this.stats.twoYearsAgo, this.stats.previousYear, this.stats.currentYear].filter(Boolean);
     this.logger.info(`aggregateLeaderRows: using ${source.length} periods, yearlyStats.length=${this.stats.yearlyStats?.length || 0}`);
-    const leaders: LeaderStats[] = source.flatMap(year => year.walks.allLeaders);
+    const leaders: LeaderStats[] = source.flatMap(year => year.walks?.allLeaders || []);
     this.logger.info(`aggregateLeaderRows: total leader entries before aggregation: ${leaders.length}`);
     this.logger.info(`aggregateLeaderRows: sample leader entries:`, leaders.slice(0, 5));
 
-    const aggregate = leaders.reduce((acc, leader) => {
-      const normalizedName = leader.name?.trim().toLowerCase() || "";
-      const normalizedEmail = leader.email?.trim().toLowerCase() || "";
-
-      let matchedKey: string | null = null;
-      for (const [existingKey, existingLeader] of entries(acc)) {
-        const existingName = existingLeader.name?.trim().toLowerCase() || "";
-        const existingEmail = existingLeader.email?.trim().toLowerCase() || "";
-
-        if ((normalizedEmail && normalizedEmail === existingEmail) ||
-            (normalizedName && normalizedName === existingName)) {
-          matchedKey = existingKey;
-          break;
-        }
-      }
-
-      if (matchedKey) {
-        acc[matchedKey].walkCount += leader.walkCount || 0;
-        acc[matchedKey].totalMiles += leader.totalMiles || 0;
-      } else {
-        const newKey = normalizedEmail || leader.id || normalizedName;
-        acc[newKey] = {
-          id: leader.id || "",
-          name: leader.name || "",
-          email: leader.email || "",
-          walkCount: leader.walkCount || 0,
-          totalMiles: leader.totalMiles || 0
-        };
-      }
-
-      return acc;
-    }, {} as Record<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>);
-
-    const result: RankedLeaderRow[] = values(aggregate)
-      .sort(sortBy("-walkCount", "-totalMiles"))
-      .map((leader, index) => ({
-        ...leader,
-        rank: index + 1,
-        totalMiles: Math.round(leader.totalMiles * 10) / 10
-      }));
+    const result: RankedLeaderRow[] = aggregateLeaderStats(leaders);
 
     this.logger.warn(`aggregateLeaderRows: final aggregated leaders count: ${result.length}`);
     this.logger.warn(`aggregateLeaderRows: top 5 leaders:`, result.slice(0, 5));
@@ -905,7 +867,7 @@ export class AGMStatsComponent implements OnInit {
   }
 
   newLeadersList() {
-    return this.stats?.currentYear?.walks?.newLeadersList || [];
+    return aggregateLeaderStats(this.stats?.currentYear?.walks?.newLeadersList || []);
   }
 
   cancelledWalksList() {
