@@ -22,7 +22,6 @@ import { InputSize } from "../../../models/ui-size.model";
       display: block
       width: 100%
       min-width: 0
-      flex: 1 1 auto
 
     .secret-input-wrapper
       position: relative

@@ -411,11 +411,21 @@ function summariseRequestBody(body: unknown): unknown {
   return serialised.length > 8000 ? `${serialised.slice(0, 8000)}…[truncated]` : trimmed;
 }
 
+export function httpStatusForBrevoError(statusCode: number | null): number {
+  if (statusCode === 401) {
+    return 502;
+  } else if (statusCode) {
+    return statusCode;
+  } else {
+    return 500;
+  }
+}
+
 export function handleError(req: Request, res: Response, messageType: string, _debugLog: any, error: unknown) {
   const brevoError = error instanceof BrevoError ? error : null;
   logBrevoError(messageType, error, {request: {method: req?.method, url: req?.originalUrl, body: summariseRequestBody(req?.body)}});
   if (brevoError) {
-    res.status(brevoError.statusCode ?? 500).json({request: {messageType}, error: brevoError.body});
+    res.status(httpStatusForBrevoError(brevoError.statusCode)).json({request: {messageType}, error: brevoError.body});
   } else {
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }

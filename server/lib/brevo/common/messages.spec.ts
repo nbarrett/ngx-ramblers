@@ -8,6 +8,7 @@ import {
   composeShellAndBody,
   escapeUnknownTemplateExpressions,
   extractContentBlockKeys,
+  httpStatusForBrevoError,
   renderBrandedTemplate,
   renderLocalBrandedTemplate,
   renderTemplateMarkdownToHtml,
@@ -36,6 +37,24 @@ function omittedOverride(type: TemplateOverrideType): TemplateOverride {
 }
 
 describe("brevo messages", () => {
+
+  describe("httpStatusForBrevoError", () => {
+
+    it("maps Brevo 401 to 502 so the browser does not treat it as a session expiry", () => {
+      expect(httpStatusForBrevoError(401)).toBe(502);
+    });
+
+    it("keeps other Brevo status codes", () => {
+      expect(httpStatusForBrevoError(400)).toBe(400);
+      expect(httpStatusForBrevoError(403)).toBe(403);
+      expect(httpStatusForBrevoError(404)).toBe(404);
+      expect(httpStatusForBrevoError(429)).toBe(429);
+    });
+
+    it("defaults a missing status to 500", () => {
+      expect(httpStatusForBrevoError(null)).toBe(500);
+    });
+  });
 
   describe("wrapMergeFieldsAsFroalaPlaceholders", () => {
 

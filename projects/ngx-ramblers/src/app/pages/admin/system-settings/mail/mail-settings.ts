@@ -307,8 +307,9 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                       </div>
                       <div class="form-group">
                         <label for="api-key">API Key</label>
-                        <div class="input-group">
+                        <div class="d-flex gap-2 align-items-center">
                           <app-secret-input
+                            class="flex-grow-1"
                             [(ngModel)]="mailMessagingConfig.mailConfig.apiKey"
                             (ngModelChange)="apiKeyChanged($event)"
                             id="api-key"
@@ -316,7 +317,7 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                             autocomplete="off"
                             [ignorePasswordManagers]="true"
                             placeholder="The API key for the mail api"/>
-                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                          <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
                           [title]="'View'"/>
                         </div>
@@ -335,15 +336,16 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                       </div>
                       <div class="form-group">
                         <label for="smtp-password">SMTP Key</label>
-                        <div class="input-group">
+                        <div class="d-flex gap-2 align-items-center">
                           <app-secret-input
+                            class="flex-grow-1"
                             [(ngModel)]="mailMessagingConfig.mailConfig.smtpPassword"
                             id="smtp-password"
                             [size]="InputSize.SM"
                             autocomplete="off"
                             [ignorePasswordManagers]="true"
                             placeholder="Brevo SMTP key (separate from the API Key above)"/>
-                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                          <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
                           [title]="'View'"/>
                         </div>

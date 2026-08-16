@@ -11,6 +11,11 @@ import { DockedTo } from "../../../models/docking.model";
 @Component({
     selector: "app-brevo-button",
     styles: [`
+    :host
+      display: inline-flex
+      flex: 0 0 auto
+      align-items: stretch
+      max-width: 100%
     .image
       width: 17px
     .brevo-dropdown
