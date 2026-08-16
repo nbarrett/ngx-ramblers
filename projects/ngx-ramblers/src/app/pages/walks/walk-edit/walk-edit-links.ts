@@ -24,6 +24,7 @@ import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
 import { enumValues } from "../../../functions/enums";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { StoredValue } from "../../../models/ui-actions";
+import { OsMapsImportGpxButtonComponent } from "./os-maps-import-gpx-button";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -34,6 +35,7 @@ import { StoredValue } from "../../../models/ui-actions";
     TooltipDirective,
     DisplayDatePipe,
     SectionToggle,
+    OsMapsImportGpxButtonComponent,
   ],
   template: `
     @if (displayedWalk?.walk?.fields) {
@@ -187,22 +189,25 @@ import { StoredValue } from "../../../models/ui-actions";
                         </div>
                       </div>
                       <div class="col-sm-12">
-                        <div class="d-inline-flex align-items-center flex-wrap">
-                          <input type="submit" value="Unlink"
-                                 (click)="unlinkOSMapsFromCurrentWalk()"
-                                 title="Remove link between this walk and OS Maps"
-                                 [disabled]="!canUnlinkOSMaps() || inputDisabled"
-                                 class="btn btn-primary me-2">
-                          <label>Link preview:</label>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                          <label class="mb-0">Link preview:</label>
                           <img class="related-links-image"
                                src="/assets/images/local/ordnance-survey.png"
                                alt=""/>
                           <a target="_blank"
-                             class="ms-2"
                              [href]="links.osMapsRoute.href"
                              tooltip="Click to view the route for this walk on Ordnance Survey Maps">
                             {{ links.osMapsRoute.title || displayedWalk?.walk?.groupEvent.title }}
                           </a>
+                          <app-os-maps-import-gpx-button
+                            [displayedWalk]="displayedWalk"
+                            [notify]="notify"
+                            [inputDisabled]="inputDisabled"/>
+                          <input type="submit" value="Unlink"
+                                 (click)="unlinkOSMapsFromCurrentWalk()"
+                                 title="Remove link between this walk and OS Maps"
+                                 [disabled]="!canUnlinkOSMaps() || inputDisabled"
+                                 class="btn btn-primary">
                         </div>
                       </div>
                     } @else {

@@ -7,7 +7,8 @@ export enum RouteFollowQueryParam {
   PATH = "path",
   ROUTE_ID = "routeId",
   WALK_ID = "walkId",
-  RAMBLERS_SLUG = "ramblersSlug"
+  RAMBLERS_SLUG = "ramblersSlug",
+  OS_MAPS_ROUTE_ID = "osMapsRouteId"
 }
 
 export enum RouteWaypointKind {
@@ -37,6 +38,36 @@ export enum RouteFollowMode {
 export enum RouteFollowEditTool {
   PENCIL = "pencil",
   ERASER = "eraser"
+}
+
+export enum RouteFollowSheetState {
+  EXPANDED = "expanded",
+  MINIMISED = "minimised"
+}
+
+export enum RouteFollowReturnDirection {
+  FORWARD = "forward",
+  RIGHT = "right",
+  BACK = "back",
+  LEFT = "left"
+}
+
+export interface RouteFollowSession {
+  walkId: string | null;
+  path: string | null;
+  routeId: string | null;
+  ramblersSlug: string | null;
+  osMapsRouteId: string | null;
+  mode: RouteFollowMode;
+  headingUp: boolean;
+  sheetState: RouteFollowSheetState;
+  previewSpeed: number;
+  previewMetres: number;
+  visitedWaypointIds: string[];
+}
+
+export function isLiveFollowMode(mode: RouteFollowMode): boolean {
+  return mode === RouteFollowMode.FOLLOWING || mode === RouteFollowMode.PAUSED || mode === RouteFollowMode.PREVIEW;
 }
 
 export enum RouteFollowLocationError {
@@ -69,6 +100,16 @@ export function appAppearanceFromStored(value: string | null): AppAppearance {
   }
 }
 
+export function nextAppAppearance(current: AppAppearance, systemIsDark: boolean): AppAppearance {
+  if (current === AppAppearance.SYSTEM) {
+    return systemIsDark ? AppAppearance.LIGHT : AppAppearance.DARK;
+  } else if (current === AppAppearance.LIGHT) {
+    return AppAppearance.DARK;
+  } else {
+    return AppAppearance.LIGHT;
+  }
+}
+
 export enum RouteFollowOfflineStatus {
   NEEDS_NETWORK = "needs-network",
   SAVING = "saving",
@@ -78,7 +119,8 @@ export enum RouteFollowOfflineStatus {
 export enum RouteFollowSource {
   PAGE = "page",
   WALK = "walk",
-  RAMBLERS_LIBRARY = "ramblers-library"
+  RAMBLERS_LIBRARY = "ramblers-library",
+  OS_MAPS = "os-maps"
 }
 
 export interface MapGestureAnchor {
@@ -86,6 +128,8 @@ export interface MapGestureAnchor {
   angle: number;
   zoom: number;
   bearing: number;
+  midX: number;
+  midY: number;
 }
 
 export type FollowMapGestureAnchor = MapGestureAnchor;
@@ -147,6 +191,7 @@ export interface RouteFollowPayload {
   walkId: string | null;
   routeId: string | null;
   ramblersSlug: string | null;
+  osMapsRouteId: string | null;
   provider: string;
   osStyle: string;
   color: string;
@@ -191,8 +236,11 @@ export function followCacheKey(parts: {
   routeId?: string | null;
   walkId?: string | null;
   ramblersSlug?: string | null;
+  osMapsRouteId?: string | null;
 }): string | null {
-  if (parts.ramblersSlug) {
+  if (parts.osMapsRouteId) {
+    return `os-maps:${parts.osMapsRouteId}`;
+  } else if (parts.ramblersSlug) {
     return `ramblers:${parts.ramblersSlug}`;
   } else if (parts.walkId) {
     return `walk:${parts.walkId}`;
@@ -201,6 +249,42 @@ export function followCacheKey(parts: {
   } else {
     return null;
   }
+}
+
+export const ROUTE_FOLLOW_NETWORK_TIMEOUT_MS = 3000;
+
+export function formatDataSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${Math.max(0, Math.round(bytes))} bytes`;
+  } else if (bytes < 1024 * 1024) {
+    const kilobytes = bytes / 1024;
+    return kilobytes < 10 ? `${kilobytes.toFixed(1)} KB` : `${Math.round(kilobytes)} KB`;
+  } else {
+    const megabytes = bytes / (1024 * 1024);
+    return megabytes < 10 ? `${megabytes.toFixed(1)} MB` : `${Math.round(megabytes)} MB`;
+  }
+}
+
+export function formatMapSaveProgress(done: number, total: number, bytes: number): string {
+  if (total <= 0) {
+    return "Saving the map for offline use…";
+  } else {
+    const percent = Math.min(100, Math.round((done / total) * 100));
+    if (bytes > 0) {
+      return `Saving the map for offline use… ${percent}% (${formatDataSize(bytes)})`;
+    } else {
+      return `Saving the map for offline use… ${percent}%`;
+    }
+  }
+}
+
+export function firstCompleted<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      globalThis.setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    })
+  ]);
 }
 
 export const ROUTE_FOLLOW_APPROACH_METRES = 40;
@@ -220,3 +304,14 @@ export const ROUTE_FOLLOW_PREVIEW_SPEED_MIN = 1;
 export const ROUTE_FOLLOW_PREVIEW_SPEED_MAX = 10;
 export const ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT = 1;
 export const ROUTE_FOLLOW_PREVIEW_SPEED_SPAN = 2;
+export const ROUTE_FOLLOW_SHEET_DRAG_THRESHOLD = 36;
+
+export function sheetStateAfterDrag(current: RouteFollowSheetState, deltaY: number, threshold = ROUTE_FOLLOW_SHEET_DRAG_THRESHOLD): RouteFollowSheetState {
+  if (deltaY <= -threshold) {
+    return RouteFollowSheetState.EXPANDED;
+  } else if (deltaY >= threshold) {
+    return RouteFollowSheetState.MINIMISED;
+  } else {
+    return current;
+  }
+}

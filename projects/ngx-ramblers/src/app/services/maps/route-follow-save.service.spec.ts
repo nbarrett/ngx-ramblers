@@ -11,6 +11,7 @@ import { WalkGpxService } from "../walks/walk-gpx.service";
 import { UrlService } from "../url.service";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
 import { RouteFollowSaveService } from "./route-follow-save.service";
+import { OsMapsExportService } from "./os-maps-export.service";
 
 describe("RouteFollowSaveService", () => {
   let service: RouteFollowSaveService;
@@ -41,7 +42,8 @@ describe("RouteFollowSaveService", () => {
         {provide: UrlService, useValue: {
           isRemoteUrl: () => false,
           resourceRelativePathForAWSFileName: (name: string) => `/api/aws/s3/${name}`
-        }}
+        }},
+        {provide: OsMapsExportService, useValue: {saveImportedRoute: async () => ({})}}
       ]
     });
     service = TestBed.inject(RouteFollowSaveService);
@@ -65,6 +67,7 @@ describe("RouteFollowSaveService", () => {
       walkId: "sunday-walk",
       routeId: null,
       ramblersSlug: null,
+      osMapsRouteId: null,
       provider: "os",
       osStyle: "Leisure_27700",
       color: "#c21d4b",
@@ -90,6 +93,7 @@ describe("RouteFollowSaveService", () => {
       walkId: "sunday-walk",
       routeId: null,
       ramblersSlug: null,
+      osMapsRouteId: null,
       provider: "os",
       osStyle: "Leisure_27700",
       color: "#4c6c3e",

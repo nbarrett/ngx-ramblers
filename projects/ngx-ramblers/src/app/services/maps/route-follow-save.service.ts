@@ -18,6 +18,7 @@ import { PageContentService } from "../page-content.service";
 import { WalksAndEventsService } from "../walks-and-events/walks-and-events.service";
 import { WalkGpxService } from "../walks/walk-gpx.service";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
+import { OsMapsExportService } from "./os-maps-export.service";
 
 @Injectable({
   providedIn: "root"
@@ -28,6 +29,7 @@ export class RouteFollowSaveService {
   private walksAndEvents = inject(WalksAndEventsService);
   private pageContent = inject(PageContentService);
   private payloadService = inject(RouteFollowPayloadService);
+  private osMapsExport = inject(OsMapsExportService);
   private logger = inject(LoggerFactory).createLogger("RouteFollowSaveService", NgxLoggerLevel.ERROR);
 
   canPersist(payload: RouteFollowPayload | null): boolean {
@@ -37,6 +39,8 @@ export class RouteFollowSaveService {
       return !!payload.walkId;
     } else if (payload.source === RouteFollowSource.PAGE) {
       return !!payload.path;
+    } else if (payload.source === RouteFollowSource.OS_MAPS) {
+      return !!payload.osMapsRouteId;
     } else {
       return false;
     }
@@ -77,6 +81,8 @@ ${trackPoints}
         await this.attachToWalk(payload.walkId, gpxFile, payload);
       } else if (payload.source === RouteFollowSource.PAGE && payload.path) {
         await this.attachToPage(payload.path, payload.routeId, payload.title, gpxFile, payload);
+      } else if (payload.source === RouteFollowSource.OS_MAPS && payload.osMapsRouteId) {
+        await this.attachToOsMapsRoute(payload.osMapsRouteId, gpxFile, payload);
       } else {
         throw new Error("This route cannot be saved back to the site.");
       }
@@ -91,6 +97,8 @@ ${trackPoints}
       await this.walksAndEvents.createOrUpdate(walk);
     } else if (payload.source === RouteFollowSource.PAGE && payload.path) {
       await this.attachToPage(payload.path, payload.routeId, payload.title, null, payload);
+    } else if (payload.source === RouteFollowSource.OS_MAPS && payload.osMapsRouteId) {
+      await this.attachToOsMapsRoute(payload.osMapsRouteId, null, payload);
     } else {
       throw new Error("This route style cannot be saved back to the site.");
     }
@@ -101,6 +109,15 @@ ${trackPoints}
     walk.fields.gpxFile = gpxFile;
     this.applyStyleToWalk(walk, payload);
     await this.walksAndEvents.createOrUpdate(walk);
+  }
+
+  private async attachToOsMapsRoute(routeId: string, gpxFile: FileNameData | null, payload: RouteFollowPayload): Promise<void> {
+    await this.osMapsExport.saveImportedRoute(routeId, {
+      gpxFile,
+      color: payload.color,
+      weight: payload.weight,
+      opacity: payload.opacity
+    });
   }
 
   private applyStyleToWalk(walk: ExtendedGroupEvent, payload: RouteFollowPayload): void {

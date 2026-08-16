@@ -1,10 +1,11 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { firstValueFrom } from "rxjs";
+import { firstValueFrom, timeout } from "rxjs";
 import { isNumber, isString } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FileNameData, ServerFileNameData } from "../../models/aws-object.model";
 import { MapData, MapMarker, MapRoute, PageContent, PageContentRow, PageContentType, PaletteColor } from "../../models/content-text.model";
+import { OsMapsListedRoute } from "../../models/os-maps-export.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../models/map.model";
 import {
@@ -14,7 +15,8 @@ import {
   RouteFollowSource,
   RouteFollowSummary,
   RouteFollowWaypoint,
-  RouteWaypointKind
+  RouteWaypointKind,
+  ROUTE_FOLLOW_NETWORK_TIMEOUT_MS
 } from "../../models/route-follow.model";
 import { generateUid } from "../../functions/numbers";
 import { eventSlug } from "../../functions/walks/event-slug";
@@ -113,6 +115,7 @@ export class RouteFollowPayloadService {
       walkId: null,
       routeId: null,
       ramblersSlug: route.slug,
+      osMapsRouteId: null,
       provider: MapProvider.OS,
       osStyle: DEFAULT_OS_STYLE,
       color: PaletteColor.ROSE,
@@ -161,6 +164,7 @@ export class RouteFollowPayloadService {
         walkId: null,
         routeId: route?.id || null,
         ramblersSlug: null,
+        osMapsRouteId: null,
         provider: map.provider || MapProvider.OS,
         osStyle: map.osStyle || DEFAULT_OS_STYLE,
         color: route?.color || PaletteColor.ROSE,
@@ -170,6 +174,36 @@ export class RouteFollowPayloadService {
         waypoints,
         totalMetres: parsed.totalMetres,
         guide: row.routeGuide || null
+      };
+    }
+  }
+
+  async payloadFromOsMapsRoute(route: OsMapsListedRoute): Promise<RouteFollowPayload | null> {
+    if (!route?.gpxFile?.awsFileName) {
+      return null;
+    } else {
+      const parsed = await this.loadGpx(route.gpxFile);
+      return {
+        source: RouteFollowSource.OS_MAPS,
+        title: route.title || "OS Maps route",
+        path: null,
+        walkId: null,
+        routeId: null,
+        ramblersSlug: null,
+        osMapsRouteId: route.id,
+        provider: MapProvider.OS,
+        osStyle: DEFAULT_OS_STYLE,
+        color: route.routeColor || PaletteColor.COBALT,
+        weight: route.routeWeight || 8,
+        opacity: isNumber(route.routeOpacity) ? route.routeOpacity : 1,
+        points: parsed.points,
+        waypoints: parsed.waypoints,
+        totalMetres: parsed.totalMetres,
+        guide: {
+          title: route.title,
+          distanceMiles: route.distanceMetres ? route.distanceMetres / 1609.34 : null,
+          startDescription: null
+        }
       };
     }
   }
@@ -198,6 +232,7 @@ export class RouteFollowPayloadService {
         walkId: eventSlug(walk) || walk.id || null,
         routeId: null,
         ramblersSlug: null,
+        osMapsRouteId: null,
         provider: MapProvider.OS,
         osStyle: DEFAULT_OS_STYLE,
         color: walk.fields?.routeColor || PaletteColor.ROSE,
@@ -258,7 +293,7 @@ export class RouteFollowPayloadService {
       return {points: [], waypoints: [], totalMetres: 0};
     } else {
       try {
-        const content = await firstValueFrom(this.http.get(url, {responseType: "text"}));
+        const content = await firstValueFrom(this.http.get(url, {responseType: "text"}).pipe(timeout(ROUTE_FOLLOW_NETWORK_TIMEOUT_MS)));
         const parsed = this.gpxParser.parseGpxFile(content);
         const points = (parsed.tracks || []).reduce((acc: RouteFollowPoint[], track) => {
           const trackPoints = (track.points || []).map(point => ({

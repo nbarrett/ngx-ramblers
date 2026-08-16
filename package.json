@@ -34,6 +34,7 @@
     "test": "ng test --project ngx-ramblers --watch=false",
     "test:watch": "ng test --project ngx-ramblers",
     "test:server": "sh -c 'cd server && npm run unit-test:once'",
+    "test:serenity:os-export": "npm --prefix server run test:serenity:os-export",
     "release-notes": "npm --prefix server run release-notes --",
     "release-notes:refresh-build-links": "npm --prefix server run release-notes:refresh-build-links --",
     "cli": "npx ts-node server/lib/cli/index.ts",

@@ -19,6 +19,9 @@ import {
   IntegrationWorkerResultCallbackRequest
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { prepareRamblersUploadJobFiles, removeRamblersUploadJobFiles } from "./ramblers-upload-job-files";
+import { applyOsMapsExportEnvironment, isOsMapsExportJob, isOsMapsListJob, isOsMapsWorkerJob } from "./serenity-job-environment";
+import { OsMapsListedRoute } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { exportedGpxFromJobPath } from "../os-maps/os-maps-exported-gpx-files";
 import {
   clearRemoteRamblersUploadExecutionState,
   remoteRamblersUploadExecutionState,
@@ -30,6 +33,12 @@ import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-u
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("integration-worker-runner"));
 debugLog.enabled = true;
 const decoder = new stringDecoder.StringDecoder("utf8");
+
+function prepareOsMapsExportJobPath(jobId: string): {jobPath: string; metadataPath?: string} {
+  const jobPath = path.join("/tmp/os-maps-export", jobId);
+  fs.mkdirSync(jobPath, {recursive: true});
+  return {jobPath};
+}
 
 async function safePostProgress(callback: IntegrationWorkerCallbackConfig, sharedSecret: string, payload: IntegrationWorkerProgressCallbackRequest): Promise<void> {
   try {
@@ -156,11 +165,20 @@ export async function executeRamblersUploadJobOnWorker(
   awsCredentials?: IntegrationWorkerAwsCredentials
 ): Promise<void> {
   const jobStartedAt = dateTimeNowAsValue();
-  const preparedFiles = await prepareRamblersUploadJobFiles(job);
-  process.env[Environment.RAMBLERS_METADATA_FILE] = preparedFiles.metadataPath;
-  process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
-  process.env[Environment.RAMBLERS_USERNAME] = credentials.userName;
-  process.env[Environment.RAMBLERS_PASSWORD] = credentials.password;
+  const preparedFiles = isOsMapsWorkerJob(job)
+    ? prepareOsMapsExportJobPath(job.jobId)
+    : await prepareRamblersUploadJobFiles(job);
+  if (isOsMapsWorkerJob(job)) {
+    applyOsMapsExportEnvironment(job, credentials, preparedFiles.jobPath);
+  } else {
+    process.env[Environment.RAMBLERS_METADATA_FILE] = preparedFiles.metadataPath;
+    process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
+    process.env[Environment.RAMBLERS_USERNAME] = credentials.userName;
+    process.env[Environment.RAMBLERS_PASSWORD] = credentials.password;
+  }
+  if (job.data.ramblersUser) {
+    process.env[Environment.SERENITY_ACTOR] = job.data.ramblersUser;
+  }
   process.env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL] = callback.baseUrl;
   process.env[Environment.INTEGRATION_WORKER_CALLBACK_PROGRESS_PATH] = callback.progressPath;
   process.env[Environment.INTEGRATION_WORKER_CALLBACK_RESULT_PATH] = callback.resultPath;
@@ -221,7 +239,7 @@ export async function executeRamblersUploadJobOnWorker(
     });
 
     subprocess.on("error", error => {
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt)
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
           clearRemoteRamblersUploadExecutionState();
@@ -234,7 +252,7 @@ export async function executeRamblersUploadJobOnWorker(
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
       const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`} [${elapsed}]`;
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt)
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
           clearRemoteRamblersUploadExecutionState();
@@ -264,7 +282,8 @@ async function finishJob(
   type: IntegrationWorkerEventType.COMPLETE | IntegrationWorkerEventType.ERROR,
   status: string,
   payload: string,
-  jobStartedAt: number
+  jobStartedAt: number,
+  jobPath?: string
 ): Promise<void> {
   let reportKeyPrefix: string | undefined;
   let reportBucket: string | undefined;
@@ -294,6 +313,21 @@ async function finishJob(
     payload: `${payload} total ${totalElapsed}`,
     status,
     reportKeyPrefix,
-    reportBucket
+    reportBucket,
+    listedRoutes: isOsMapsListJob(job) ? listedRoutesFromJobPath(jobPath) : undefined,
+    exportedGpx: isOsMapsExportJob(job) ? exportedGpxFromJobPath(jobPath) : undefined
   });
+}
+
+function listedRoutesFromJobPath(jobPath?: string): OsMapsListedRoute[] {
+  if (!jobPath) {
+    return [];
+  } else {
+    const listingPath = path.join(jobPath, "listed-routes.json");
+    if (!fs.existsSync(listingPath)) {
+      return [];
+    } else {
+      return JSON.parse(fs.readFileSync(listingPath, "utf8")) as OsMapsListedRoute[];
+    }
+  }
 }

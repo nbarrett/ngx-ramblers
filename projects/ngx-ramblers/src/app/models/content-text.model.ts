@@ -11,6 +11,7 @@ import { SharedDistrictStyle } from "./system.model";
 import { MapProvider } from "./map.model";
 import { RouteGuideData, RouteWaypointKind } from "./route-follow.model";
 import { SortDirection } from "./sort.model";
+import { enumKeyValues } from "../functions/enums";
 import {
   AdminContentPath,
   AdminMembersPath,
@@ -676,6 +677,7 @@ export enum PaletteColor {
   DARK_GRAY = "#3f3f3f",
   SLATE = "#5c6b7a",
   BLUE = "#2e54a6",
+  COBALT = "#2454d4",
   PURPLE = "#5a45c6",
   TEAL = "#2a8a8a",
   GREEN = "#4c6c3e",
@@ -691,6 +693,20 @@ export enum PaletteColor {
   PLUM = "#6d2874",
   MINT = "#1a9b7a"
 }
+
+export interface PaletteColorChoice {
+  name: string;
+  color: string;
+}
+
+function paletteColorName(key: string): string {
+  return key.toLowerCase().split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
+export const PALETTE_COLOR_CHOICES: PaletteColorChoice[] = enumKeyValues(PaletteColor).map(item => ({
+  name: paletteColorName(item.key),
+  color: item.value
+}));
 
 export interface EditorState {
   view: View;

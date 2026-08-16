@@ -8,6 +8,8 @@ export const fileNameData = new mongoose.Schema({
     originalFileName: {type: String},
     awsFileName: {type: String},
     title: {type: String},
+    startLat: {type: Number},
+    startLng: {type: Number},
 }, {_id: false});
 
 

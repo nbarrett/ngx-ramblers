@@ -179,6 +179,7 @@ const rp = adminRelativePath;
     { path: "content-migration", redirectTo: rp(AdminContentPath.CONTENT_MIGRATION), pathMatch: "full" },
     { path: "image-migration", redirectTo: rp(AdminContentPath.CONTENT_MIGRATION), pathMatch: "full" },
     { path: "legacy-redirects", redirectTo: rp(AdminContentPath.LEGACY_REDIRECTS), pathMatch: "full" },
+    { path: "content/os-maps-export", redirectTo: "/walks/admin/os-maps-export", pathMatch: "full" },
 
     {
       path: rp(AdminSettingsPath.SYSTEM_SETTINGS),

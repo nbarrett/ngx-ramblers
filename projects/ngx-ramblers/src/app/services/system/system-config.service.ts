@@ -252,6 +252,11 @@ export class SystemConfigService {
     return this.cachedSystemConfig;
   }
 
+  public osMapsLoginConfigured(): boolean {
+    const osMaps = this.cachedSystemConfig?.externalSystems?.osMaps;
+    return !!(osMaps?.email && osMaps?.password);
+  }
+
   public events(): Observable<SystemConfig> {
     return this.subject.pipe(shareReplay());
   }

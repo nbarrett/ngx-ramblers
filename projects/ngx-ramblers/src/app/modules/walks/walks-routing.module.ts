@@ -74,6 +74,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [WalksAuthGuard]
     },
     {
+      path: "admin/os-maps-export",
+      loadComponent: () => import("../../pages/walks/walk-admin/os-maps-export")
+        .then(m => m.OsMapsExportPage),
+      canActivate: [WalksAuthGuard]
+    },
+    {
       path: "admin/config",
       loadComponent: () => import("../../pages/walks/walk-config/walk-config")
         .then(m => m.WalkConfigComponent),

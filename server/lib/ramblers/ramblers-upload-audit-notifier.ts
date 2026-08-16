@@ -66,6 +66,8 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
       const created = await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
         auditTime,
         fileName: session.fileName,
+        jobId: session.jobId,
+        feature: session.feature,
         record: nextRecord,
         type: data.type,
         status: data.status,
@@ -100,6 +102,8 @@ export async function recordLifecycleEvent(jobId: string, message: string): Prom
   const audit = await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
     auditTime: dateTimeNowAsValue(),
     fileName: session.fileName,
+    jobId: session.jobId,
+    feature: session.feature,
     record: nextRecord,
     type: AuditType.SUMMARY,
     status: Status.SUCCESS,
@@ -119,6 +123,8 @@ export async function recordReportLocation(jobId: string, bucket: string, keyPre
   const reportAudit = await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
     auditTime: dateTimeNowAsValue(),
     fileName: session.fileName,
+    jobId: session.jobId,
+    feature: session.feature,
     record: nextRecord,
     type: AuditType.SUMMARY,
     status: Status.SUCCESS,
@@ -139,9 +145,9 @@ export function reportErrorAndClose(error, ws: WebSocket) {
   ws.close();
 }
 
-export function registerUploadStart(fileName: string, ws: WebSocket, jobId: string): void {
+export function registerUploadStart(fileName: string, ws: WebSocket, jobId: string, feature?: string): void {
   debugLog("✅ registered upload file name:", fileName);
-  registerRamblersUploadSession(jobId, fileName, ws);
+  registerRamblersUploadSession(jobId, fileName, ws, feature);
   sendAudit(ws, {
     messageType: MessageType.PROGRESS,
     status: Status.INFO,

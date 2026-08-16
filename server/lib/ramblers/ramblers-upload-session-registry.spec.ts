@@ -1,6 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import WebSocket from "ws";
+import { SerenityFeature } from "../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
 import {
   activateRamblersUploadSession,
   activeRamblersUploadJobId,
@@ -19,6 +20,7 @@ describe("ramblersUploadSessionRegistry", () => {
 
     expect(activeRamblersUploadJobId()).toEqual("job-1");
     expect(currentRamblersUploadSession()?.fileName).toEqual("first.csv");
+    expect(currentRamblersUploadSession()?.feature).toEqual(SerenityFeature.WALKS_UPLOAD);
 
     activateRamblersUploadSession("job-2");
 
@@ -27,5 +29,12 @@ describe("ramblersUploadSessionRegistry", () => {
 
     completeRamblersUploadSession("job-1");
     completeRamblersUploadSession("job-2");
+  });
+
+  it("records the OS Maps export scenario from the file name", () => {
+    const socket = { readyState: WebSocket.OPEN } as unknown as WebSocket;
+    registerRamblersUploadSession("job-os", "os-maps-export-20260816-184215.gpx", socket);
+    expect(currentRamblersUploadSession()?.feature).toEqual(SerenityFeature.OS_MAPS_EXPORT);
+    completeRamblersUploadSession("job-os");
   });
 });

@@ -1,13 +1,15 @@
 import WebSocket from "ws";
 import { CurrentUploadSession } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import { resolvedSerenityFeature } from "../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
 
 const uploadSessions = new Map<string, CurrentUploadSession & { ws: WebSocket }>();
 let activeUploadJobId: string | null = null;
 
-export function registerRamblersUploadSession(jobId: string, fileName: string, ws: WebSocket): CurrentUploadSession {
+export function registerRamblersUploadSession(jobId: string, fileName: string, ws: WebSocket, feature?: string): CurrentUploadSession {
   const session: CurrentUploadSession & { ws: WebSocket } = {
     jobId,
     fileName,
+    feature: resolvedSerenityFeature(fileName, feature),
     record: 0,
     logStandardOut: true,
     ws

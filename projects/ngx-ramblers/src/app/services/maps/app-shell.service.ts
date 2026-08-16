@@ -4,7 +4,7 @@ import { NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { BehaviorSubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { environment } from "../../../environments/environment";
-import { AppAppearance, appAppearanceFromStored, AppInstallPlatform, AppPath } from "../../models/route-follow.model";
+import { AppAppearance, appAppearanceFromStored, AppInstallPlatform, AppPath, nextAppAppearance } from "../../models/route-follow.model";
 import { StoredValue } from "../../models/ui-actions";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -103,13 +103,8 @@ export class AppShellService {
   }
 
   cycleAppearance(): void {
-    if (this.appearance() === AppAppearance.SYSTEM) {
-      this.setAppearance(AppAppearance.LIGHT);
-    } else if (this.appearance() === AppAppearance.LIGHT) {
-      this.setAppearance(AppAppearance.DARK);
-    } else {
-      this.setAppearance(AppAppearance.SYSTEM);
-    }
+    const systemIsDark = !!this.document.defaultView?.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+    this.setAppearance(nextAppAppearance(this.appearance(), systemIsDark));
   }
 
   async promptInstall(): Promise<void> {

@@ -209,18 +209,36 @@ export class RouteFollowService {
   startFollowing(): void {
     this.stopPreview();
     this.visitedWaypointIds = new Set<string>();
-    if (!navigator.geolocation) {
-      this.logger.error("startFollowing: geolocation is not available");
-      this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
-    } else {
-      this.applyMode(RouteFollowMode.FOLLOWING);
-      void this.startCompass();
-      this.watchId = navigator.geolocation.watchPosition(
-        position => this.onPosition(position),
-        error => this.onPositionError(error),
-        {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000}
-      );
-    }
+    this.beginLocationWatch();
+  }
+
+  restoreFollowing(visitedWaypointIds: string[]): void {
+    this.stopPreview();
+    this.visitedWaypointIds = new Set(visitedWaypointIds || []);
+    this.beginLocationWatch();
+  }
+
+  restorePaused(visitedWaypointIds: string[]): void {
+    this.stopAll();
+    this.visitedWaypointIds = new Set(visitedWaypointIds || []);
+    this.applyMode(RouteFollowMode.PAUSED);
+  }
+
+  restorePreview(metres: number, visitedWaypointIds: string[]): void {
+    this.clearWatch();
+    this.visitedWaypointIds = new Set(visitedWaypointIds || []);
+    this.previewMetres = metres > 0 ? metres : 0;
+    this.applyMode(RouteFollowMode.PREVIEW);
+    this.showPreviewAt(this.previewMetres);
+    this.startPreviewTimer();
+  }
+
+  visitedIds(): string[] {
+    return [...this.visitedWaypointIds];
+  }
+
+  previewProgressMetres(): number {
+    return this.previewMetres;
   }
 
   pause(): void {
@@ -235,7 +253,7 @@ export class RouteFollowService {
 
   resume(): void {
     if (this.state.mode === RouteFollowMode.PAUSED) {
-      this.startFollowing();
+      this.beginLocationWatch();
     }
   }
 
@@ -246,6 +264,22 @@ export class RouteFollowService {
     this.applyMode(RouteFollowMode.PREVIEW);
     this.advancePreview();
     this.startPreviewTimer();
+  }
+
+  private beginLocationWatch(): void {
+    if (!navigator.geolocation) {
+      this.logger.error("startFollowing: geolocation is not available");
+      this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
+    } else {
+      this.applyMode(RouteFollowMode.FOLLOWING);
+      void this.startCompass();
+      this.clearWatch();
+      this.watchId = navigator.geolocation.watchPosition(
+        position => this.onPosition(position),
+        error => this.onPositionError(error),
+        {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000}
+      );
+    }
   }
 
   previewSpeed(): number {
@@ -471,9 +505,8 @@ export class RouteFollowService {
     if (this.track.length === 0) {
       this.stopPreview();
     } else {
+      this.showPreviewAt(this.previewMetres);
       const total = this.totalMetres();
-      const sample = this.pointAt(this.previewMetres);
-      this.applyPosition(sample.point, sample.heading, 5);
       if (total <= 0) {
         this.stopPreview();
       } else {
@@ -483,6 +516,15 @@ export class RouteFollowService {
         }
         this.previewMetres = next % total;
       }
+    }
+  }
+
+  private showPreviewAt(metres: number): void {
+    if (this.track.length === 0) {
+      this.stopPreview();
+    } else {
+      const sample = this.pointAt(metres);
+      this.applyPosition(sample.point, sample.heading, 5);
     }
   }
 

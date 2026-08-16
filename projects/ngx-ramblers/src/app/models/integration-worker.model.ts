@@ -5,6 +5,7 @@ import { SiteMigrationConfig } from "./migration-config.model";
 import { MigrationResult } from "./migration-scraping.model";
 import { ContentMetadata, ContentMetadataItem, ContentMetadataResizeRequest } from "./content-metadata.model";
 import { ApiAction } from "./api-response.model";
+import { ExportedGpxSummary, OsMapsListedRoute } from "./os-maps-export.model";
 
 export enum IntegrationWorkerEventType {
   STANDARD_OUT = "standard-out",
@@ -49,6 +50,7 @@ export interface IntegrationWorkerJobResponse {
   queued: boolean;
   queuePosition: number;
   activeJobId: string | null;
+  fileName?: string;
 }
 
 export interface IntegrationWorkerProgressCallbackRequest {
@@ -64,6 +66,8 @@ export interface IntegrationWorkerResultCallbackRequest {
   status?: string;
   reportKeyPrefix?: string;
   reportBucket?: string;
+  listedRoutes?: OsMapsListedRoute[];
+  exportedGpx?: ExportedGpxSummary[];
 }
 
 export interface IntegrationWorkerAuditEnvelope {

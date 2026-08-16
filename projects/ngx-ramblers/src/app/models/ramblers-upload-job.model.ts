@@ -20,6 +20,9 @@ export interface RamblersUploadJobData {
   ramblersUser: string;
   walkImageUploads: WalkImagesUpload[];
   feature: string;
+  osMapsRouteUrl?: string;
+  osMapsRouteUrls?: string[];
+  osMapsWalkId?: string;
 }
 
 export interface RamblersUploadJob {

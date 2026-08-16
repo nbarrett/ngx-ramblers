@@ -14,6 +14,7 @@ import {
   RamblersUploadAuditApiResponse,
   Status
 } from "../../../models/ramblers-upload-audit.model";
+import { SerenityFeature } from "../../../models/serenity-feature.model";
 import { RamblersEventType, RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
 import {
   DownloadConflictResponse,
@@ -27,6 +28,7 @@ import {
   WalkExportTab,
 } from "../../../models/walk.model";
 import { publishedToRamblersEvent } from "../../../functions/walks/walk-event-snapshot";
+import { openSerenityReport } from "../../../functions/serenity-report";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -66,6 +68,9 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
 import { SortDirection } from "../../../models/sort.model";
 import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
 
 const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
   [StoredValue.STATUS]: "status",
@@ -373,48 +378,29 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
             <div class="row mt-2">
               <div class="col col-sm-12">
                 <div class="d-none d-md-block">
-                  <div class="audit-table-scroll">
-                    <table class="round styled-table table-striped table-hover table-sm table-pointer">
-                      <thead>
-                      <tr>
-                        <th (click)="sortAuditsBy(StoredValue.STATUS)"><span class="nowrap">Status
-                          @if (auditSortField === StoredValue.STATUS) {
-                            <span class="sorting-header">{{ sortIndicator() }}</span>
-                          }</span>
-                        </th>
-                        <th (click)="sortAuditsBy(StoredValue.AUDIT_TIME)"><span class="nowrap">Time
-                          @if (auditSortField === StoredValue.AUDIT_TIME) {
-                            <span class="sorting-header">{{ sortIndicator() }}</span>
-                          }</span>
-                        </th>
-                        <th (click)="sortAuditsBy(StoredValue.DURATION)"><span class="nowrap">Duration
-                          @if (auditSortField === StoredValue.DURATION) {
-                            <span class="sorting-header">{{ sortIndicator() }}</span>
-                          }</span>
-                        </th>
-                        <th (click)="sortAuditsBy(StoredValue.AUDIT_MESSAGE)"><span class="nowrap">Audit Message
-                          @if (auditSortField === StoredValue.AUDIT_MESSAGE) {
-                            <span class="sorting-header">{{ sortIndicator() }}</span>
-                          }</span>
-                        </th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                        @for (audit of filteredAudits; track audit.id) {
-                          <tr>
-                            <td>
-                              <app-status-icon noLabel [status]="auditDisplayStatus(audit)"/>
-                            </td>
-                            <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
-                            <td class="nowrap">{{ timing(audit) }}</td>
-                            <td class="text-break">{{ audit.message }}@if (audit.errorResponse) {
-                              <div>: {{ audit.errorResponse | valueOrDefault }}</div>
-                            }</td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
+                  <app-sortable-table
+                    [columns]="auditColumns"
+                    [rows]="filteredAudits"
+                    [defaultSortKey]="auditTableSortKey"
+                    [defaultSortDirection]="auditTableSortDirection"
+                    [trackBy]="trackAudit"
+                    (sortChange)="onAuditTableSort($event)"
+                    emptyMessage="No audit items to display.">
+                    <ng-template appSortableTableCell="status" let-row>
+                      <app-status-icon noLabel [status]="auditDisplayStatus(row)"/>
+                    </ng-template>
+                    <ng-template appSortableTableCell="auditTime" let-row>
+                      {{ row.auditTime | displayTimeWithSeconds }}
+                    </ng-template>
+                    <ng-template appSortableTableCell="durationMs" let-row>
+                      {{ timing(row) }}
+                    </ng-template>
+                    <ng-template appSortableTableCell="message" let-row>
+                      {{ row.message }}@if (row.errorResponse) {
+                        <div>: {{ row.errorResponse | valueOrDefault }}</div>
+                      }
+                    </ng-template>
+                  </app-sortable-table>
                 </div>
                 <div class="d-md-none">
                   @for (audit of filteredAudits; track audit.id) {
@@ -526,7 +512,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
         max-width: 100% !important
   `],
   styleUrls: ["./walk-export.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
 })
 
 export class WalkExport implements OnInit, OnDestroy {
@@ -580,6 +566,12 @@ export class WalkExport implements OnInit, OnDestroy {
   protected readonly StoredValue = StoredValue;
   public auditSortField: StoredValue = StoredValue.AUDIT_TIME;
   public auditSortOrder: SortDirection = SortDirection.DESC;
+  auditColumns: SortableTableColumn<RamblersUploadAudit>[] = [
+    {key: "status", label: "Status", sortKey: "status"},
+    {key: "auditTime", label: "Time", sortKey: "auditTime", cellClass: "nowrap"},
+    {key: "durationMs", label: "Duration", sortKey: "durationMs", cellClass: "nowrap"},
+    {key: "message", label: "Audit Message", sortKey: "message"}
+  ];
   public confirmOverrideRequested = false;
   public confirmCancelRequested = false;
   private sessionDurations: { [fileName: string]: string } = {};
@@ -1038,12 +1030,7 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   openReport(audit: RamblersUploadAudit, event: MouseEvent) {
-    if (!audit.reportKeyPrefix || !audit.reportBucket) {
-      return;
-    }
-    const bucket = audit.reportBucket.replace(/^\/+|\/+$/g, "");
-    const keyPrefix = audit.reportKeyPrefix.replace(/^\/+|\/+$/g, "");
-    this.urlService.navigateToUrl(`api/aws/report/${bucket}/${keyPrefix}/_/index.html`, event);
+    openSerenityReport(audit, event, this.urlService);
   }
 
   populateWalkExport(walksForExport: WalkExportData[]): WalkExportData[] {
@@ -1071,7 +1058,7 @@ export class WalkExport implements OnInit, OnDestroy {
     this.showSelect = false;
     this.walkExportNotifier.warning("Refreshing past download sessions", false, true);
     try {
-      this.fileNames = await this.ramblersUploadAuditService.uniqueUploadSessions(6);
+      this.fileNames = await this.ramblersUploadAuditService.uniqueUploadSessions(6, SerenityFeature.WALKS_UPLOAD);
     } catch (e) {
       const message = (e as any)?.message || "Failed to query upload sessions";
       this.auditNotifier.error({title: "Audit Load Error", message});
@@ -1304,19 +1291,35 @@ export class WalkExport implements OnInit, OnDestroy {
     this.updateUrl();
   }
 
-  sortAuditsBy(field: StoredValue): void {
-    if (this.auditSortField === field) {
-      this.auditSortOrder = this.auditSortOrder === SortDirection.ASC ? SortDirection.DESC : SortDirection.ASC;
-    } else {
-      this.auditSortField = field;
-      this.auditSortOrder = SortDirection.DESC;
-    }
+  get auditTableSortKey(): string {
+    return AUDIT_SORT_FIELD_MAPPING[this.auditSortField] || "auditTime";
+  }
+
+  get auditTableSortDirection(): string {
+    return this.auditSortOrder === SortDirection.ASC ? ASCENDING : DESCENDING;
+  }
+
+  trackAudit(_index: number, audit: RamblersUploadAudit): string {
+    return audit.id || `${audit.fileName}-${audit.record}`;
+  }
+
+  onAuditTableSort(state: SortableTableSortState): void {
+    this.auditSortField = this.storedValueForAuditSortKey(state.key);
+    this.auditSortOrder = state.direction === ASCENDING ? SortDirection.ASC : SortDirection.DESC;
     this.applyFilter();
     this.updateUrl();
   }
 
-  sortIndicator(): string {
-    return this.auditSortOrder === SortDirection.ASC ? ASCENDING : DESCENDING;
+  private storedValueForAuditSortKey(sortKey: string | null): StoredValue {
+    if (sortKey === "status") {
+      return StoredValue.STATUS;
+    } else if (sortKey === "durationMs") {
+      return StoredValue.DURATION;
+    } else if (sortKey === "message") {
+      return StoredValue.AUDIT_MESSAGE;
+    } else {
+      return StoredValue.AUDIT_TIME;
+    }
   }
 
   onSessionChange(): void {
