@@ -6,6 +6,7 @@ import { faCopy, faPaste } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeMember, RoleType } from "../../../../models/committee.model";
+import { uniqueCommitteeMembersByType } from "../../../../functions/committee-members";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 
 @Component({
@@ -167,7 +168,7 @@ export class InboxVisibilityComponent {
   copiedFromType: string | null = null;
 
   participatingRoles(): CommitteeMember[] {
-    return (this.roles ?? []).filter(role => role.type && !role.vacant);
+    return uniqueCommitteeMembersByType((this.roles ?? []).filter(role => role.type && !role.vacant));
   }
 
   readerRoles(): CommitteeMember[] {
