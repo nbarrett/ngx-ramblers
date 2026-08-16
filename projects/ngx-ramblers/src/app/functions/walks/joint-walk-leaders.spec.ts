@@ -96,8 +96,8 @@ describe("walkLeaderNameMatches", () => {
     expect(walkLeaderNameMatches("Jenny Brown", "Jenny B.")).toBe(true);
     expect(walkLeaderNameMatches("Jenny Brown", "Jenny B")).toBe(true);
     expect(walkLeaderNameMatches("Martin Daniels", "Martin D")).toBe(true);
-    expect(walkLeaderNameMatches("Kerry O'Grady", "Kerry O")).toBe(true);
-    expect(walkLeaderNameMatches("Kerry O'Grady", "Kerry O.")).toBe(true);
+    expect(walkLeaderNameMatches("Kerry Example", "Kerry E")).toBe(true);
+    expect(walkLeaderNameMatches("Kerry Example", "Kerry E.")).toBe(true);
   });
 
   it("does not match different leaders", () => {

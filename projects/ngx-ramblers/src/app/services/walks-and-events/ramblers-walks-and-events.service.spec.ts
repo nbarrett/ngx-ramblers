@@ -613,7 +613,7 @@ describe("RamblersWalksAndEventsService", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const withContact = publishedWalk({}, {walk_leader: {name: "Kerry O'Grady"}}) as any;
       withContact.localWalk.fields.publishing.ramblers.contactName = "Kerry O'Grady";
-      withContact.localWalk.fields.contactDetails = {displayName: "Kerry O", memberId: "m1"};
+      withContact.localWalk.fields.contactDetails = {displayName: "Kerry Example", memberId: "m1"};
       const result = service.toWalkExport(withContact);
 
       expect(result.fieldChanges.map(change => change.field)).not.toContain(WalkEditField.WALK_LEADERS);

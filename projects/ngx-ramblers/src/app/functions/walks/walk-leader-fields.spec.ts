@@ -11,13 +11,13 @@ describe("walk leader field accessors", () => {
   it("reads website display name only from contactDetails.displayName", () => {
     const walk = {
       fields: {
-        contactDetails: {displayName: "Kerry O"},
+        contactDetails: {displayName: "Kerry Example"},
         publishing: {ramblers: {contactName: "Kerry O'Grady", publish: true}}
       },
       groupEvent: {walk_leader: {name: "Kerry O'Grady"}}
     } as any;
 
-    expect(websiteWalkLeaderDisplayName(walk)).toBe("Kerry O");
+    expect(websiteWalkLeaderDisplayName(walk)).toBe("Kerry Example");
     expect(walksManagerContactNamesForCsv(walk)).toBe("Kerry O'Grady");
     expect(walksManagerWalkLeaderNameFromGroupEvent(walk.groupEvent)).toBe("Kerry O'Grady");
   });

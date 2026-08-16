@@ -40,7 +40,7 @@ describe("CONTRACT: walk leader fields — what each field is for (no ambiguity)
     id: "walk-1",
     fields: {
       contactDetails: {
-        displayName: "Kerry O",
+        displayName: "Kerry Example",
         memberId: "member-kerry",
         email: "kerry@example.org",
         phone: "07000 000000",
@@ -73,20 +73,20 @@ describe("CONTRACT: walk leader fields — what each field is for (no ambiguity)
       expect(EventField.CONTACT_DETAILS_DISPLAY_NAME).toBe("fields.contactDetails.displayName");
     });
 
-    it("is the short name shown on this website (for example Kerry O or Nick B)", () => {
-      expect(websiteWalkLeaderDisplayName(walkWithBothNames)).toBe("Kerry O");
+    it("is the short name shown on this website (for example Kerry Example or Nick B)", () => {
+      expect(websiteWalkLeaderDisplayName(walkWithBothNames)).toBe("Kerry Example");
     });
 
     it("is never used as the Walks Manager CSV Walk leaders value", () => {
       expect(walksManagerContactNamesForCsv(walkWithBothNames)).not.toBe(websiteWalkLeaderDisplayName(walkWithBothNames));
-      expect(walksManagerContactNamesForCsv(walkWithBothNames)).not.toBe("Kerry O");
+      expect(walksManagerContactNamesForCsv(walkWithBothNames)).not.toBe("Kerry Example");
     });
 
     it("is the wrong local field for export diffs — export must use Walks Manager contact name instead", () => {
       const websiteName = websiteWalkLeaderDisplayName(walkWithBothNames);
       const contactNameForCsv = walksManagerContactNamesForCsv(walkWithBothNames);
       const walksManagerListed = walksManagerWalkLeaderNameFromGroupEvent(walkWithBothNames.groupEvent);
-      expect(websiteName).toBe("Kerry O");
+      expect(websiteName).toBe("Kerry Example");
       expect(contactNameForCsv).toBe("Kerry O'Grady");
       expect(walksManagerListed).toBe("Kerry O'Grady");
       expect(walkLeaderNamesMatch(contactNameForCsv, walksManagerListed)).toBe(true);
@@ -143,7 +143,7 @@ describe("CONTRACT: walk leader fields — what each field is for (no ambiguity)
 
   describe("the two local names must never be treated as interchangeable", () => {
     it("website display name and Walks Manager contact name can differ on the same walk and that is normal", () => {
-      expect(websiteWalkLeaderDisplayName(walkWithBothNames)).toBe("Kerry O");
+      expect(websiteWalkLeaderDisplayName(walkWithBothNames)).toBe("Kerry Example");
       expect(walksManagerContactNamesForCsv(walkWithBothNames)).toBe("Kerry O'Grady");
       expect(websiteWalkLeaderDisplayName(walkWithBothNames))
         .not.toEqual(walksManagerContactNamesForCsv(walkWithBothNames));
@@ -155,7 +155,7 @@ describe("CONTRACT: walk leader fields — what each field is for (no ambiguity)
       const listed = walksManagerWalkLeaderNameFromGroupEvent(walkWithBothNames.groupEvent);
       expect(contact).toBe("Kerry O'Grady");
       expect(listed).toBe("Kerry O'Grady");
-      expect(display).toBe("Kerry O");
+      expect(display).toBe("Kerry Example");
       expect(walkLeaderNamesMatch(contact, listed)).toBe(true);
       expect(contact).not.toBe(display);
     });
@@ -234,14 +234,14 @@ describe("CONTRACT: walk leader fields — what each field is for (no ambiguity)
       expect(service.walkLeader(walkWithBothNames)).toBe("Kerry O'Grady");
       expect(service.walksManagerContactNamesForCsv(walkWithBothNames)).toBe("Kerry O'Grady");
       expect(service.walkLeader(walkWithBothNames)).toBe(service.walksManagerContactNamesForCsv(walkWithBothNames));
-      expect(service.walkLeader(walkWithBothNames)).not.toBe("Kerry O");
+      expect(service.walkLeader(walkWithBothNames)).not.toBe("Kerry Example");
     });
 
     it("CSV Walk leaders column is filled from Walks Manager contact name only", async () => {
       const service = TestBed.inject(RamblersWalksAndEventsService);
       const row = await service.walkToWalkUploadRow(walkWithBothNames);
       expect(row[WalkUploadColumnHeading.WALK_LEADERS]).toBe("Kerry O'Grady");
-      expect(row[WalkUploadColumnHeading.WALK_LEADERS]).not.toBe("Kerry O");
+      expect(row[WalkUploadColumnHeading.WALK_LEADERS]).not.toBe("Kerry Example");
       expect(row[WalkUploadColumnHeading.WALK_LEADERS]).toBe(walksManagerContactNamesForCsv(walkWithBothNames));
     });
 

@@ -150,7 +150,7 @@ import { MemberWithLabel } from "../../../models/member.model";
                    type="text"
                    [disabled]="inputDisabled"
                    class="form-control input-sm" id="display-name"
-                   placeholder="Shown on this website only (for example Kerry O)">
+                   placeholder="Shown on this website only (for example Kerry Example)">
           </div>
         </div>
         @if (display.allowAdminEdits()) {
