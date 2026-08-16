@@ -4,10 +4,14 @@ import { LocationDetails, WalkStatus } from "../../../projects/ngx-ramblers/src/
 import {
   SchemaOrgEvent,
   SchemaOrgEventStatus,
+  SchemaOrgOffer,
+  SchemaOrgOfferAvailability,
+  SchemaOrgPerformerType,
   SchemaOrgPlace
 } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
 import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromIsoWithZone } from "../shared/dates";
+import { walkLeaderDisplayName } from "../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-fields";
 
 const OFFLINE_ATTENDANCE_MODE = "https://schema.org/OfflineEventAttendanceMode";
 
@@ -90,6 +94,34 @@ export function eventStructuredData(
         url: (baseUrl || "").replace(/\/+$/, "") || null
       };
     }
+    const performerName = walkLeaderDisplayName(event) || groupEvent.event_organiser?.name;
+    if (performerName) {
+      structuredData.performer = {
+        "@type": SchemaOrgPerformerType.PERSON,
+        name: performerName
+      };
+    } else if (organiserName) {
+      structuredData.performer = {
+        "@type": SchemaOrgPerformerType.PERFORMING_GROUP,
+        name: organiserName
+      };
+    }
+    const offer: SchemaOrgOffer = {
+      "@type": "Offer",
+      price: 0,
+      priceCurrency: "GBP",
+      availability: groupEvent.status === WalkStatus.CANCELLED
+        ? SchemaOrgOfferAvailability.SOLD_OUT
+        : SchemaOrgOfferAvailability.IN_STOCK
+    };
+    if (url) {
+      offer.url = url;
+    }
+    const validFrom = isoOrNull(groupEvent.date_created);
+    if (validFrom) {
+      offer.validFrom = validFrom;
+    }
+    structuredData.offers = offer;
     return structuredData;
   } else {
     return null;

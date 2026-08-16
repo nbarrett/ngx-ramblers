@@ -23,6 +23,17 @@ export enum SchemaOrgEventStatus {
   CANCELLED = "https://schema.org/EventCancelled"
 }
 
+export enum SchemaOrgOfferAvailability {
+  IN_STOCK = "https://schema.org/InStock",
+  SOLD_OUT = "https://schema.org/SoldOut",
+  PRE_ORDER = "https://schema.org/PreOrder"
+}
+
+export enum SchemaOrgPerformerType {
+  PERSON = "Person",
+  PERFORMING_GROUP = "PerformingGroup"
+}
+
 export interface SchemaOrgPlace {
   "@type": string;
   name: string;
@@ -32,6 +43,20 @@ export interface SchemaOrgPlace {
     latitude: number;
     longitude: number;
   };
+}
+
+export interface SchemaOrgOffer {
+  "@type": string;
+  url?: string;
+  price: number;
+  priceCurrency: string;
+  availability?: SchemaOrgOfferAvailability;
+  validFrom?: string;
+}
+
+export interface SchemaOrgPerformer {
+  "@type": SchemaOrgPerformerType;
+  name: string;
 }
 
 export interface SchemaOrgEvent {
@@ -51,6 +76,8 @@ export interface SchemaOrgEvent {
     name: string;
     url?: string;
   };
+  offers?: SchemaOrgOffer;
+  performer?: SchemaOrgPerformer;
 }
 
 export interface PageSeoDescriptor {
@@ -60,6 +87,7 @@ export interface PageSeoDescriptor {
   exportablePath?: string;
   robots?: string;
   httpStatus?: number;
+  redirectTo?: string;
   imageUrl?: string;
   openGraphType?: OpenGraphType;
   structuredData?: SchemaOrgEvent;

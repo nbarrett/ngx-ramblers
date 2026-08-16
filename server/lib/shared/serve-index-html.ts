@@ -187,37 +187,42 @@ export function withServerContent(html: string, descriptor: PageSeoDescriptor): 
 }
 
 export async function serveIndexHtml(indexPath: string, res: Response, requestPath?: string): Promise<void> {
-  const html = fs.readFileSync(indexPath, "utf-8");
-  const headConfig = await cachedHeadConfig();
   const seoDescriptor = await cachedSeoDescriptor(requestPath || "/");
-  const transformations: ((input: string) => string)[] = [
-    input => headConfig?.verificationId ? withGoogleSiteVerification(input, headConfig.verificationId) : input,
-    input => headConfig?.baseHref ? withCanonicalLink(input, headConfig.baseHref, requestPath) : input,
-    input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
-    input => withMetaDescription(input, seoDescriptor?.description),
-    input => withRobotsMeta(input, seoDescriptor?.robots),
-    input => withOpenGraphTags(input, headConfig?.baseHref, headConfig?.siteName, seoDescriptor, requestPath),
-    input => withStructuredData(input, seoDescriptor),
-    input => headConfig?.baseHref ? withAiDiscoveryLinks(input, headConfig.baseHref) : input,
-    input => headConfig?.baseHref ? withRepresentationAlternates(input, headConfig.baseHref, seoDescriptor) : input,
-    input => withServerContent(input, seoDescriptor)
-  ];
-  const transformed = transformations.reduce((current, transformation) => transformation(current), html);
-  if (headConfig?.baseHref) {
-    const discoveryLinks = [
-      `<${headConfig.baseHref}/llms.txt>; rel="alternate"; type="text/plain"; title="llms.txt"`,
-      `<${headConfig.baseHref}/for-ai>; rel="alternate"; type="text/markdown"; title="For AI assistants"`
+  if (seoDescriptor?.redirectTo) {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.redirect(seoDescriptor.httpStatus || 301, seoDescriptor.redirectTo);
+  } else {
+    const html = fs.readFileSync(indexPath, "utf-8");
+    const headConfig = await cachedHeadConfig();
+    const transformations: ((input: string) => string)[] = [
+      input => headConfig?.verificationId ? withGoogleSiteVerification(input, headConfig.verificationId) : input,
+      input => headConfig?.baseHref ? withCanonicalLink(input, headConfig.baseHref, requestPath) : input,
+      input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
+      input => withMetaDescription(input, seoDescriptor?.description),
+      input => withRobotsMeta(input, seoDescriptor?.robots),
+      input => withOpenGraphTags(input, headConfig?.baseHref, headConfig?.siteName, seoDescriptor, requestPath),
+      input => withStructuredData(input, seoDescriptor),
+      input => headConfig?.baseHref ? withAiDiscoveryLinks(input, headConfig.baseHref) : input,
+      input => headConfig?.baseHref ? withRepresentationAlternates(input, headConfig.baseHref, seoDescriptor) : input,
+      input => withServerContent(input, seoDescriptor)
     ];
-    const pageLinks = seoDescriptor?.exportablePath ? [
-      `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "markdown")}>; rel="alternate"; type="text/markdown"`,
-      `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "html")}>; rel="alternate"; type="text/html"`,
-      `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "json")}>; rel="alternate"; type="application/json"`
-    ] : [];
-    res.setHeader("Link", discoveryLinks.concat(pageLinks).join(", "));
+    const transformed = transformations.reduce((current, transformation) => transformation(current), html);
+    if (headConfig?.baseHref) {
+      const discoveryLinks = [
+        `<${headConfig.baseHref}/llms.txt>; rel="alternate"; type="text/plain"; title="llms.txt"`,
+        `<${headConfig.baseHref}/for-ai>; rel="alternate"; type="text/markdown"; title="For AI assistants"`
+      ];
+      const pageLinks = seoDescriptor?.exportablePath ? [
+        `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "markdown")}>; rel="alternate"; type="text/markdown"`,
+        `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "html")}>; rel="alternate"; type="text/html"`,
+        `<${representationUrl(headConfig.baseHref, seoDescriptor.exportablePath, "json")}>; rel="alternate"; type="application/json"`
+      ] : [];
+      res.setHeader("Link", discoveryLinks.concat(pageLinks).join(", "));
+    }
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    if (seoDescriptor?.httpStatus) {
+      res.status(seoDescriptor.httpStatus);
+    }
+    res.type("html").send(transformed);
   }
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  if (seoDescriptor?.httpStatus) {
-    res.status(seoDescriptor.httpStatus);
-  }
-  res.type("html").send(transformed);
 }
