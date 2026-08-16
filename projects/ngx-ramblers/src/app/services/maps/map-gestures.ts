@@ -1,11 +1,36 @@
 import * as L from "leaflet";
-import { MapGestureAnchor } from "../../models/route-follow.model";
+import { MapGestureAnchor, RouteFollowReturnDirection } from "../../models/route-follow.model";
 
 const gesturesByMap = new WeakMap<L.Map, MapGestures>();
 const installState = {done: false};
 
 export function mapAngleDelta(from: number, to: number): number {
   return ((to - from + 540) % 360) - 180;
+}
+
+export function returnDirectionFrom(heading: number, bearingToRoute: number): RouteFollowReturnDirection {
+  const turn = mapAngleDelta(heading, bearingToRoute);
+  const absolute = Math.abs(turn);
+  if (absolute <= 45) {
+    return RouteFollowReturnDirection.FORWARD;
+  } else if (absolute >= 135) {
+    return RouteFollowReturnDirection.BACK;
+  } else if (turn > 0) {
+    return RouteFollowReturnDirection.RIGHT;
+  } else {
+    return RouteFollowReturnDirection.LEFT;
+  }
+}
+
+export function screenDeltaToLocal(dx: number, dy: number, bearing: number, scale = 1): {x: number; y: number} {
+  const radians = (-bearing * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const safeScale = scale || 1;
+  return {
+    x: (dx * cos - dy * sin) / safeScale,
+    y: (dx * sin + dy * cos) / safeScale
+  };
 }
 
 export function mapGesturesFor(map: L.Map): MapGestures | null {
@@ -45,6 +70,7 @@ export class MapGestures {
   private northButton: HTMLElement | null = null;
   private northControl: L.Control | null = null;
   private coverScale = 1;
+  private hookedDraggable: {on: (type: string, fn: () => void) => void; off: (type: string, fn: () => void) => void} | null = null;
 
   attach(map: L.Map, onBearing?: (bearing: number) => void): void {
     this.detach();
@@ -64,6 +90,7 @@ export class MapGestures {
     el.addEventListener("touchcancel", this.onTouchEnd, {passive: false, capture: true});
     map.on("resize", this.onMapResize);
     this.applyBearing();
+    this.hookDragCorrection();
   }
 
   detach(): void {
@@ -89,6 +116,7 @@ export class MapGestures {
       }
       el.style.transform = "";
     }
+    this.unhookDragCorrection();
     this.map = null;
     this.originalToContainer = null;
     this.anchor = null;
@@ -183,11 +211,17 @@ export class MapGestures {
         const bounded = snapped < minZoom ? minZoom : (snapped > maxZoom ? maxZoom : snapped);
         this.bearing = this.anchor.bearing + mapAngleDelta(this.anchor.angle, next.angle);
         this.applyBearing();
-        const mid = this.containerPointFromClient(
-          (event.touches[0].clientX + event.touches[1].clientX) / 2,
-          (event.touches[1].clientY + event.touches[0].clientY) / 2
-        );
-        this.map.setZoomAround(this.map.containerPointToLatLng(mid), bounded, {animate: false});
+        const mid = this.midpointFromEvent(event);
+        if (bounded !== this.map.getZoom()) {
+          this.map.setZoomAround(this.map.containerPointToLatLng(mid), bounded, {animate: false});
+        } else {
+          const panX = this.anchor.midX - mid.x;
+          const panY = this.anchor.midY - mid.y;
+          if (panX !== 0 || panY !== 0) {
+            this.map.panBy([panX, panY], {animate: false});
+          }
+        }
+        this.anchor = {...this.anchor, midX: mid.x, midY: mid.y};
         if (this.onBearing) {
           this.onBearing(this.bearing);
         }
@@ -210,17 +244,28 @@ export class MapGestures {
       if (this.map.dragging) {
         this.map.dragging.enable();
       }
+      this.hookDragCorrection();
     }
   };
 
   private snapshot(event: TouchEvent): MapGestureAnchor {
     const measured = this.measure(event);
+    const mid = this.midpointFromEvent(event);
     return {
       distance: measured.distance,
       angle: measured.angle,
       zoom: this.map ? this.map.getZoom() : 0,
-      bearing: this.bearing
+      bearing: this.bearing,
+      midX: mid.x,
+      midY: mid.y
     };
+  }
+
+  private midpointFromEvent(event: TouchEvent): L.Point {
+    return this.containerPointFromClient(
+      (event.touches[0].clientX + event.touches[1].clientX) / 2,
+      (event.touches[0].clientY + event.touches[1].clientY) / 2
+    );
   }
 
   private measure(event: TouchEvent): {distance: number; angle: number} {
@@ -275,6 +320,52 @@ export class MapGestures {
       this.northButton.classList.toggle("is-rotated", Math.abs(this.bearing) > 1);
     }
   }
+
+  private hookDragCorrection(): void {
+    const draggable = this.leafletDraggable();
+    if (draggable && draggable !== this.hookedDraggable) {
+      this.unhookDragCorrection();
+      draggable.on("predrag", this.correctDragOffset);
+      this.hookedDraggable = draggable;
+    }
+  }
+
+  private unhookDragCorrection(): void {
+    if (this.hookedDraggable) {
+      this.hookedDraggable.off("predrag", this.correctDragOffset);
+      this.hookedDraggable = null;
+    }
+  }
+
+  private leafletDraggable(): {
+    on: (type: string, fn: () => void) => void;
+    off: (type: string, fn: () => void) => void;
+    _startPos?: {x: number; y: number};
+    _newPos?: {x: number; y: number};
+    _parentScale?: {x: number; y: number};
+  } | null {
+    const handler = this.map?.dragging as unknown as {
+      _draggable?: {
+        on: (type: string, fn: () => void) => void;
+        off: (type: string, fn: () => void) => void;
+        _startPos?: {x: number; y: number};
+        _newPos?: {x: number; y: number};
+        _parentScale?: {x: number; y: number};
+      };
+    } | undefined;
+    return handler?._draggable || null;
+  }
+
+  private correctDragOffset = (): void => {
+    const draggable = this.leafletDraggable();
+    if (draggable && draggable._startPos && draggable._newPos && Math.abs(this.bearing) >= 1) {
+      const parentScale = draggable._parentScale || {x: 1, y: 1};
+      const screenX = (draggable._newPos.x - draggable._startPos.x) * (parentScale.x || 1);
+      const screenY = (draggable._newPos.y - draggable._startPos.y) * (parentScale.y || 1);
+      const local = screenDeltaToLocal(screenX, screenY, this.bearing, this.coverScale || 1);
+      draggable._newPos = L.point(draggable._startPos.x + local.x, draggable._startPos.y + local.y);
+    }
+  };
 
   private containerPointFromClient(clientX: number, clientY: number): L.Point {
     if (!this.map) {

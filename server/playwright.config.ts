@@ -11,6 +11,7 @@ const TWO_MINUTES_IN_MILLIS = 2 * 60 * 1000;
 const TWENTY_MINUTES_IN_MILLIS = 20 * 60 * 1000;
 const selectedFeature = process.env[Environment.RAMBLERS_FEATURE] || "*.ts";
 const testMatch = selectedFeature.includes("/") ? selectedFeature : `**/${ selectedFeature }`;
+const featureRequested = !!process.env[Environment.RAMBLERS_FEATURE];
 const headless = resolveHeadless();
 const realtimeReportingActive = !!(process.env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL]
   && process.env[Environment.INTEGRATION_WORKER_CALLBACK_PROGRESS_PATH]
@@ -20,6 +21,7 @@ const realtimeReportingActive = !!(process.env[Environment.INTEGRATION_WORKER_CA
 export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
   testDir: featuresDirectory,
   testMatch,
+  testIgnore: featureRequested ? [] : ["**/os-maps-*.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: TWENTY_MINUTES_IN_MILLIS,
@@ -40,6 +42,8 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
     acceptDownloads: true,
     actionTimeout: DEFAULT_WAIT_TIMEOUT.inMilliseconds(),
     baseURL: process.env[Environment.BASE_URL],
+    geolocation: {latitude: 51.2787, longitude: 1.0804},
+    permissions: ["geolocation"],
     cueTimeout: DEFAULT_WAIT_TIMEOUT,
     interactionTimeout: DEFAULT_WAIT_TIMEOUT,
     headless,

@@ -32,7 +32,8 @@ export class RouteFollowCacheService {
       path: payload.path,
       routeId: payload.routeId,
       walkId: payload.walkId,
-      ramblersSlug: payload.ramblersSlug
+      ramblersSlug: payload.ramblersSlug,
+      osMapsRouteId: payload.osMapsRouteId
     });
   }
 
@@ -112,24 +113,25 @@ export class RouteFollowCacheService {
     }, {} as Record<string, RouteFollowOfflineStatus>);
   }
 
-  async prefetchTiles(urls: string[], onProgress?: (done: number, total: number) => void): Promise<{saved: number; total: number}> {
+  async prefetchTiles(urls: string[], onProgress?: (done: number, total: number, bytes: number) => void): Promise<{saved: number; total: number; bytes: number}> {
     const unique = urls.filter((url, index) => urls.indexOf(url) === index);
     const result = await unique.reduce(async (previous, url, index) => {
       const acc = await previous;
       try {
-        await fetch(url, {mode: "cors", credentials: "same-origin"});
-        const next = {saved: acc.saved + 1, total: unique.length};
+        const response = await fetch(url, {mode: "cors", credentials: "same-origin"});
+        const buffer = await response.arrayBuffer();
+        const next = {saved: acc.saved + 1, total: unique.length, bytes: acc.bytes + buffer.byteLength};
         if (onProgress) {
-          onProgress(index + 1, unique.length);
+          onProgress(index + 1, unique.length, next.bytes);
         }
         return next;
       } catch {
         if (onProgress) {
-          onProgress(index + 1, unique.length);
+          onProgress(index + 1, unique.length, acc.bytes);
         }
         return {...acc, total: unique.length};
       }
-    }, Promise.resolve({saved: 0, total: unique.length}));
+    }, Promise.resolve({saved: 0, total: unique.length, bytes: 0}));
     return result;
   }
 

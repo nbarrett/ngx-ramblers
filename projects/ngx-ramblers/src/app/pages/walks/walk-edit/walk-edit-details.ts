@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, inject, Input, OnInit, QueryList, ViewChildren } from "@angular/core";
+import { AfterViewInit, Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
+import { Subscription } from "rxjs";
 import { Router } from "@angular/router";
 import { DetailsTab, DisplayedWalk, GpxFileListItem, INITIALISED_LOCATION, WalkType } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
@@ -108,7 +109,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
             <div class="col-sm-12">
               <div class="form-group">
                 <label for="gpx-route">GPX Route (Optional)</label>
-                <div class="d-flex gap-2 align-items-start">
+                <div class="d-flex flex-wrap gap-2 align-items-start">
                   <ng-select
                     id="gpx-route"
                     [items]="gpxFiles"
@@ -272,7 +273,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
     }
   `
 })
-export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
+export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditDetailsComponent", NgxLoggerLevel.ERROR);
   private stringUtils = inject(StringUtilsService);
   private dateUtils = inject(DateUtilsService);
@@ -318,10 +319,18 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
   public uploadError: string | null = null;
   public gpxFilesLoaded = false;
   public gpxFilesLoading = false;
+  private subscriptions: Subscription[] = [];
 
   ngOnInit() {
     this.initializeDisplayLabel();
     this.initializeMeetingPoint();
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.WALK_CHANGED, () => {
+      this.initializeDisplayLabel();
+    }));
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   private initializeMeetingPoint() {

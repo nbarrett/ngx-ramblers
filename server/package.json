@@ -41,6 +41,7 @@
     "unit-test": ". test-setenv.sh && npm run build && mocha --watch",
     "unit-test:once": "bash -lc 'source ./test-setenv.sh && npm run build && mocha'",
     "test:serenity-discovery": "playwright test --list -c ./playwright.config.ts",
+    "test:serenity:os-export": "RAMBLERS_FEATURE=os-maps-export.ts playwright test -c ./playwright.config.ts",
     "ops:estate-rebuild-capture": "tsx lib/ops/generate-estate-rebuild-capture.ts"
   },
   "nodemonConfig": {

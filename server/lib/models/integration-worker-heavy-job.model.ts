@@ -1,6 +1,7 @@
 export enum IntegrationWorkerHeavyJobType {
   Upload = "upload",
   Resize = "resize",
+  OsMapsExport = "os-maps-export",
 }
 
 export interface IntegrationWorkerHeavyJob {

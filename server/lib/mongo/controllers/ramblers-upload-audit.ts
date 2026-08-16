@@ -11,6 +11,12 @@ import {
   Status
 } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { asNumber } from "../../../../projects/ngx-ramblers/src/app/functions/numbers";
+import { isString } from "es-toolkit/compat";
+import {
+  isSerenityFeature,
+  resolvedSerenityFeature,
+  SerenityFeature
+} from "../../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
 
 const debugLog = debug(envConfig.logNamespace("ramblers-upload-audit"));
 debugLog.enabled = false;
@@ -29,6 +35,7 @@ export async function queryUploadSessions(req: Request, res: Response): Promise<
           _id: "$fileName",
           latestAuditTime: {$max: "$auditTime"},
           earliestAuditTime: {$min: "$auditTime"},
+          feature: {$first: "$feature"},
           records: {
             $push: {
               status: "$status",
@@ -45,29 +52,33 @@ export async function queryUploadSessions(req: Request, res: Response): Promise<
       }
     ]);
 
+    const requestedFeature = isString(req.query.feature) && isSerenityFeature(req.query.feature)
+      ? req.query.feature
+      : SerenityFeature.WALKS_UPLOAD;
     const fileUploadSummaries: FileUploadSummary[] = detailedResult.map(file => {
       const fileName = file._id;
-      let status: Status;
+      const statusProgress = {value: Status.INFO};
 
       const hasError = file.records.some(record => record.errorResponse || record.status === Status.ERROR);
       if (hasError) {
-        status = Status.ERROR;
+        statusProgress.value = Status.ERROR;
       } else if (file.records.some(record =>
         ((record.type?.includes(AuditType.SUMMARY)) && record.status === Status.SUCCESS))) {
-        status = Status.SUCCESS;
+        statusProgress.value = Status.SUCCESS;
       } else if (!file.records.some(record => record.type?.includes(AuditType.SUMMARY))) {
-        status = Status.ACTIVE;
+        statusProgress.value = Status.ACTIVE;
       } else {
-        status = Status.INFO;
+        statusProgress.value = Status.INFO;
       }
 
       return {
         fileName,
-        status,
+        feature: resolvedSerenityFeature(fileName, file.feature),
+        status: statusProgress.value,
         earliestAuditTime: file.earliestAuditTime,
         latestAuditTime: file.latestAuditTime
       };
-    });
+    }).filter(session => session.feature === requestedFeature);
 
     debugLog(req.query, "queryUploadSessions:fileUploadSummaries", fileUploadSummaries);
     return res.status(200).json({

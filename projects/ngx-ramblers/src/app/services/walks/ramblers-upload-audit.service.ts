@@ -8,6 +8,7 @@ import {
   RamblersUploadAuditApiResponse,
   RamblersUploadSummaryResponse
 } from "../../models/ramblers-upload-audit.model";
+import { SerenityFeature } from "../../models/serenity-feature.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -32,10 +33,10 @@ export class RamblersUploadAuditService {
     return this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/all`, {params}), this.auditNotifications, true);
   }
 
-  async uniqueUploadSessions(months: number = 6): Promise<FileUploadSummary[]> {
-    const uploadSessionsResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadSummaryResponse>(`${this.BASE_URL}/upload-sessions`, { params: this.commonDataService.toHttpParams({ months }) }));
+  async uniqueUploadSessions(months: number = 6, feature: SerenityFeature = SerenityFeature.WALKS_UPLOAD): Promise<FileUploadSummary[]> {
+    const uploadSessionsResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadSummaryResponse>(`${this.BASE_URL}/upload-sessions`, { params: this.commonDataService.toHttpParams({ months, feature }) }));
     const sessions = uploadSessionsResponse.response;
-    this.logger.info("uniqueUploadSessions:", sessions);
+    this.logger.info("uniqueUploadSessions:", sessions, "feature:", feature);
     return sessions;
   }
 

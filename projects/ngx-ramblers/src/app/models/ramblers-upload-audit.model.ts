@@ -19,9 +19,12 @@ export interface RamblersUploadAudit extends Identifiable {
   message?: string;
   record?: number;
   fileName?: string;
+  jobId?: string;
+  feature?: string;
   errorResponse?: any;
   reportKeyPrefix?: string;
   reportBucket?: string;
+  durationMs?: number;
 }
 
 export interface RamblersUploadAuditApiResponse extends ApiResponse {
@@ -52,6 +55,7 @@ export enum Status {
 export interface FileUploadSummary {
   fileName: string,
   status: Status,
+  feature?: string,
   earliestAuditTime?: number,
   latestAuditTime?: number
 }
@@ -85,4 +89,5 @@ export interface CurrentUploadSession {
   logStandardOut: boolean;
   record: number;
   fileName: string;
+  feature?: string;
 }

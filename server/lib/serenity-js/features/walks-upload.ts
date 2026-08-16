@@ -20,20 +20,12 @@ import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-sourc
 import { RequestParameterExtractor } from "../screenplay/tasks/ramblers/common/request-parameter-extractor";
 import { RequestParameters } from "../screenplay/questions/ramblers/request-parameters";
 import { UploadImagesForWalks } from "../screenplay/tasks/ramblers/walks/upload-images-for-walks";
+import { resolveSerenityActorName } from "../resolve-actor-name";
 
 const debugLog = debug(envConfig.logNamespace("serenity-walks-upload"));
 debugLog.enabled = false;
 
-function resolveActorName(): string {
-  try {
-    return RequestParameterExtractor.extract().ramblersUser?.trim() || "Walks Admin";
-  } catch (error) {
-    debugLog("unable to resolve actor name from metadata, defaulting to Walks Admin:", error.message);
-    return "Walks Admin";
-  }
-}
-
-const actor = resolveActorName();
+const actor = resolveSerenityActorName();
 debugLog("About to run Walks Upload scenario for", actor);
 
 describe("Walks Upload", () => {

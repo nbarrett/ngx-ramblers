@@ -24,6 +24,9 @@ import { activateRamblersUploadSession, currentRamblersUploadSession } from "./r
 import { IntegrationWorkerQueuedUploadJob } from "../models/ramblers-upload-execution.model";
 import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
 import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
+import { isOsMapsWorkerJob } from "./serenity-job-environment";
+import { saveOsMapsRouteListing } from "../os-maps/os-maps-route-listing-store";
+import { applyOsMapsExportWorkerResult } from "../os-maps/os-maps-gpx-attach";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-routes"));
 debugLog.enabled = true;
@@ -70,7 +73,7 @@ router.post("/jobs", async (req: Request, res: Response) => {
     const enqueuedAt = dateTimeNowAsValue();
     const queueResult = integrationWorkerHeavyJobQueue.enqueue({
       jobId: request.job.jobId,
-      type: IntegrationWorkerHeavyJobType.Upload,
+      type: isOsMapsWorkerJob(request.job) ? IntegrationWorkerHeavyJobType.OsMapsExport : IntegrationWorkerHeavyJobType.Upload,
       label: request.job.data?.fileName || request.job.jobId,
       run: () => executeWorkerJob({ request, credentials, reportUploadCredentials, enqueuedAt })
     });
@@ -153,27 +156,34 @@ router.post("/result", async (req: Request, res: Response) => {
     }
 
     const request: IntegrationWorkerResultCallbackRequest = req.body;
+    if (request.listedRoutes && request.listedRoutes.length > 0) {
+      await saveOsMapsRouteListing(request.listedRoutes);
+    }
+    const handledExport = await applyOsMapsExportWorkerResult(request.jobId, request.exportedGpx, request.payload);
     const session = currentRamblersUploadSession(request.jobId);
 
     if (!session) {
       debugLog("POST /result no active session for jobId:", request.jobId);
-      res.status(404).json({ error: `No upload session found for job ${request.jobId}` });
-      return;
+      if ((request.listedRoutes && request.listedRoutes.length > 0) || handledExport) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: `No upload session found for job ${request.jobId}` });
+      }
+    } else {
+      activateRamblersUploadSession(request.jobId);
+      if (request.reportKeyPrefix && request.reportBucket) {
+        await auditNotifier.recordReportLocation(request.jobId, request.reportBucket, request.reportKeyPrefix);
+      }
+      await auditNotifier.sendAudit(session.ws, {
+        messageType: MessageType.COMPLETE,
+        auditMessage: request.payload || "Upload completed",
+        parserFunction: auditParser.parseExit,
+        status: (request.status as Status) || Status.INFO
+      }, request.jobId);
+      downloadStatusManager.completeDownload(request.status === Status.SUCCESS ? ServerDownloadStatusType.COMPLETED : ServerDownloadStatusType.ERROR);
+      debugLog("POST /result forwarded to session for jobId:", incomingJobId, "reportKeyPrefix:", request.reportKeyPrefix);
+      res.json({ success: true });
     }
-
-    activateRamblersUploadSession(request.jobId);
-    if (request.reportKeyPrefix && request.reportBucket) {
-      await auditNotifier.recordReportLocation(request.jobId, request.reportBucket, request.reportKeyPrefix);
-    }
-    await auditNotifier.sendAudit(session.ws, {
-      messageType: MessageType.COMPLETE,
-      auditMessage: request.payload || "Upload completed",
-      parserFunction: auditParser.parseExit,
-      status: (request.status as Status) || Status.INFO
-    }, request.jobId);
-    downloadStatusManager.completeDownload(request.status === Status.SUCCESS ? ServerDownloadStatusType.COMPLETED : ServerDownloadStatusType.ERROR);
-    debugLog("POST /result forwarded to session for jobId:", incomingJobId, "reportKeyPrefix:", request.reportKeyPrefix);
-    res.json({ success: true });
   } catch (error) {
     debugLog("POST /result error for jobId:", incomingJobId, "error:", (error as Error).message);
     res.status(500).json({ error: (error as Error).message });

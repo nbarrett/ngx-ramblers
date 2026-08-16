@@ -370,14 +370,6 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
               <fa-icon [icon]="faCircleCheck" class="me-1"/>Link copied
             </span>
           }
-          @if (canFollowRoute()) {
-            <button type="button" (click)="followRoute()"
-                    tooltip="Follow this route"
-                    class="btn btn-quiet btn-sm walk-view-action">
-              <fa-icon [icon]="faPersonWalking"/>
-              <span>Follow this route</span>
-            </button>
-          }
           @if (canRecordRoute()) {
             <button type="button" (click)="followRoute()"
                     [tooltip]="canFollowRoute() ? 'Edit or record this route' : 'Record a route for this start'"
@@ -402,6 +394,14 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
               <fa-icon [icon]="faEye"/>
               <span>View</span>
             </a>
+          }
+          @if (canFollowRoute()) {
+            <button type="button" (click)="followRoute()"
+                    tooltip="Follow this route"
+                    class="btn btn-quiet btn-sm walk-view-action walk-view-action-follow">
+              <fa-icon [icon]="faPersonWalking"/>
+              <span>Follow this route</span>
+            </button>
           }
         </ng-template>
         <div class="walk-meta-footer" [class.d-none]="mapExpanded">

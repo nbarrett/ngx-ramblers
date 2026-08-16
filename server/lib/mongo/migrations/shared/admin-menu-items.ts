@@ -8,6 +8,7 @@ import {
   AdminPlatformPath,
 } from "../../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import {
+  DEFAULT_WALKS_AREA,
   WALKS_HOW_TO_DOCUMENTATION_URL,
   WalksAdminSegment,
   walksAdminPath,
@@ -197,6 +198,19 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "View and manage event bookings, attendee lists, and download CSV reports"
   }
 ];
+
+export function osMapsExportMenuItem(walksArea = DEFAULT_WALKS_AREA): ActionButtonColumn {
+  return {
+    accessLevel: "loggedInMember",
+    title: "OS Maps Routes",
+    icon: "faMapLocationDot",
+    iconColour: "ramblers",
+    href: walksAdminPath(walksArea, WalksAdminSegment.OS_MAPS_EXPORT),
+    contentText: "* Load the routes saved on the group's OS Maps account\n* Convert chosen routes to GPX\n* Attach an imported GPX to a walk that already has an OS Maps link"
+  };
+}
+
+export const OS_MAPS_EXPORT_MENU_ITEM: ActionButtonColumn = osMapsExportMenuItem();
 
 export const SOCIAL_MEDIA_PUBLISHING_MENU_ITEM: ActionButtonColumn = {
   accessLevel: "loggedInMember",
@@ -523,6 +537,7 @@ export function walkAdminMenuItems(walksArea: string): ActionButtonColumn[] {
       href: walksAdminPath(walksArea, WalksAdminSegment.IMPORT),
       contentText: "* Upload a walks CSV exported from [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n* Match imported walk leaders to members in your database\n* Review and save the imported walks into your local database"
     },
+    osMapsExportMenuItem(walksArea),
     {
       accessLevel: "loggedInMember",
       title: "Add Walk Slots",

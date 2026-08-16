@@ -13,6 +13,7 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { RamblersUploadJob } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
 import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { prepareRamblersUploadJobFiles, removeRamblersUploadJobFiles } from "./ramblers-upload-job-files";
+import { isOsMapsWorkerJob } from "./serenity-job-environment";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = true;
@@ -27,7 +28,11 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
   const fileName = job.data.fileName;
   let preparedFiles;
   try {
-    preparedFiles = await prepareRamblersUploadJobFiles(job);
+    if (isOsMapsWorkerJob(job)) {
+      throw new Error("OS Maps export must run on the integration worker");
+    } else {
+      preparedFiles = await prepareRamblersUploadJobFiles(job);
+    }
   } catch (error) {
     auditNotifier.reportErrorAndClose(error, ws);
     return;
@@ -47,7 +52,7 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
     "RAMBLERS_FEATURE:", process.env[Environment.RAMBLERS_FEATURE],
     "RAMBLERS_METADATA_FILE:", process.env[Environment.RAMBLERS_METADATA_FILE]
   );
-  auditNotifier.registerUploadStart(fileName, ws, job.jobId);
+  auditNotifier.registerUploadStart(fileName, ws, job.jobId, job.data.feature);
   auditNotifier.sendAudit(ws, {
     messageType: MessageType.PROGRESS,
     status: Status.INFO,

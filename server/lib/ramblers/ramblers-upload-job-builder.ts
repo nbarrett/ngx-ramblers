@@ -6,6 +6,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
 import { RamblersWalksUploadRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { SerenityFeature } from "../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
 
 export function buildRamblersUploadJob(request: RamblersWalksUploadRequest): RamblersUploadJob {
   const data: RamblersUploadJobData = {
@@ -18,7 +19,7 @@ export function buildRamblersUploadJob(request: RamblersWalksUploadRequest): Ram
     rows: request.rows,
     ramblersUser: request.ramblersUser,
     walkImageUploads: request.walkImageUploads || [],
-    feature: "walks-upload.ts"
+    feature: SerenityFeature.WALKS_UPLOAD
   };
 
   return {

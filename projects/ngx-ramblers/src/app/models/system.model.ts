@@ -318,13 +318,19 @@ export interface Ai {
   apiKey?: string;
 }
 
+export interface OsMapsSystemConfig {
+  apiKey?: string;
+  email?: string;
+  password?: string;
+}
+
 export interface ExternalSystems {
   facebook?: Facebook;
   flickr?: Flickr;
   instagram?: Instagram;
   meetup?: Meetup;
   linkedIn?: ExternalSystem;
-  osMaps?: { apiKey?: string };
+  osMaps?: OsMapsSystemConfig;
   twitter?: ExternalSystem;
   youtube?: ExternalSystem;
 }

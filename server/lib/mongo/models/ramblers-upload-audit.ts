@@ -7,6 +7,8 @@ export const ramblersUploadAudit: mongoose.Model<RamblersUploadAudit> = ensureMo
     record: {type: Number},
     errorResponse: {type: Object},
     fileName: {type: String},
+    jobId: {type: String},
+    feature: {type: String},
     message: {type: String},
     status: {type: String},
     type: {type: String},

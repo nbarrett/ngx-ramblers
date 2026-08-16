@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { appAppearanceFromStored, AppAppearance, followCacheKey, RouteFollowLocationError, RouteFollowMode, RouteWaypointKind } from "../../models/route-follow.model";
+import { appAppearanceFromStored, AppAppearance, followCacheKey, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteWaypointKind } from "../../models/route-follow.model";
 import { GeoDistanceService } from "./geo-distance.service";
 import { RouteFollowService } from "./route-follow.service";
 
@@ -18,6 +18,18 @@ describe("followCacheKey", () => {
     expect(followCacheKey({ramblersSlug: "egerton-kent"})).toBe("ramblers:egerton-kent");
     expect(followCacheKey({walkId: "abc"})).toBe("walk:abc");
     expect(followCacheKey({path: "walks/foo", routeId: "r1"})).toBe("page:walks/foo:r1");
+    expect(followCacheKey({osMapsRouteId: "29532353"})).toBe("os-maps:29532353");
+  });
+});
+
+describe("isLiveFollowMode", () => {
+  it("treats following, paused and preview as a live follow", () => {
+    expect(isLiveFollowMode(RouteFollowMode.FOLLOWING)).toBe(true);
+    expect(isLiveFollowMode(RouteFollowMode.PAUSED)).toBe(true);
+    expect(isLiveFollowMode(RouteFollowMode.PREVIEW)).toBe(true);
+    expect(isLiveFollowMode(RouteFollowMode.IDLE)).toBe(false);
+    expect(isLiveFollowMode(RouteFollowMode.EDITING)).toBe(false);
+    expect(isLiveFollowMode(RouteFollowMode.RECORDING)).toBe(false);
   });
 });
 
@@ -173,6 +185,25 @@ describe("RouteFollowService", () => {
     expect(nearest).toBeTruthy();
     expect(nearest.index).toBe(0);
     expect(nearest.point.longitude).toBeCloseTo(1.01, 3);
+  });
+
+  it("restores a paused follow without losing visited waypoints", () => {
+    service.applyPosition(eastWest[1], 90, 5);
+    expect(service.progress().approachedWaypoint?.id).toBe("mid");
+    service.restorePaused(service.visitedIds());
+    expect(service.progress().mode).toBe(RouteFollowMode.PAUSED);
+    service.applyPosition(eastWest[1], 90, 5);
+    expect(service.progress().approachedWaypoint).toBeNull();
+    expect(service.visitedIds()).toContain("mid");
+  });
+
+  it("restores a preview at the stored distance along the line", () => {
+    const halfway = service.totalMetres() / 2;
+    service.restorePreview(halfway, []);
+    expect(service.progress().mode).toBe(RouteFollowMode.PREVIEW);
+    expect(service.previewProgressMetres()).toBeCloseTo(halfway, 5);
+    expect(service.progress().remainingMetres).toBeLessThan(service.totalMetres());
+    service.stop();
   });
 
   it("replaces the track when a drawn line is saved locally", () => {

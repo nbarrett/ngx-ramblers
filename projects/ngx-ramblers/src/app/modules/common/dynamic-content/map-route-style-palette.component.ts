@@ -44,6 +44,15 @@ import { ColourSwatchSelectorComponent } from "../../../shared/components/colour
       right: auto
       z-index: 2000
 
+    .palette-panel.is-inline
+      position: static
+      width: 100%
+      min-width: 0
+      max-width: none
+      padding: 0
+      box-shadow: none
+      background: transparent
+
     .palette-panel .btn-close
       font-size: 0.75rem
       opacity: 0.5
@@ -116,22 +125,26 @@ import { ColourSwatchSelectorComponent } from "../../../shared/components/colour
     `],
   template: `
     <div class="position-relative">
-      <button type="button"
-              class="btn btn-outline-secondary btn-sm style-button"
-              [class.active]="open"
-              (click)="toggle($event)">
-        <span class="color-dot" [style.backgroundColor]="route?.color || paletteColors[0]"></span>
-        Style
-      </button>
-      @if (open) {
-        <div class="palette-panel" [class.is-fixed]="fixedPanel"
-             [style.top]="panelTop" [style.bottom]="panelBottom"
-             [style.left]="panelLeft" [style.right]="panelRight">
-          <button type="button"
-                  class="btn-close position-absolute top-0 end-0 m-2"
-                  (click)="closePanel()"
-                  aria-label="Close style palette">
-          </button>
+      @if (!inlinePanel) {
+        <button type="button"
+                class="btn btn-outline-secondary btn-sm style-button"
+                [class.active]="open"
+                (click)="toggle($event)">
+          <span class="color-dot" [style.backgroundColor]="route?.color || paletteColors[0]"></span>
+          Style
+        </button>
+      }
+      @if (open || inlinePanel) {
+        <div class="palette-panel" [class.is-fixed]="fixedPanel && !inlinePanel" [class.is-inline]="inlinePanel"
+             [style.top]="inlinePanel ? null : panelTop" [style.bottom]="inlinePanel ? null : panelBottom"
+             [style.left]="inlinePanel ? null : panelLeft" [style.right]="inlinePanel ? null : panelRight">
+          @if (!inlinePanel) {
+            <button type="button"
+                    class="btn-close position-absolute top-0 end-0 m-2"
+                    (click)="closePanel()"
+                    aria-label="Close style palette">
+            </button>
+          }
           <div class="palette-heading">Line Colour</div>
           <app-colour-swatch-selector
             [value]="route?.color || paletteColors[0]"
@@ -169,6 +182,9 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   @Input() set fixed(value: boolean) {
     this.fixedPanel = coerceBooleanProperty(value);
   }
+  @Input() set inline(value: boolean) {
+    this.inlinePanel = coerceBooleanProperty(value);
+  }
   @Output() styleChange = new EventEmitter<void>();
 
   paletteColors: string[] = enumValues(PaletteColor);
@@ -178,6 +194,7 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   open = false;
   transparencyPercent = 0;
   fixedPanel = false;
+  inlinePanel = false;
   panelTop: string | null = null;
   panelBottom: string | null = null;
   panelLeft: string | null = null;
