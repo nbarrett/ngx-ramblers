@@ -9,6 +9,7 @@ import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 import { SharedDistrictStyle } from "./system.model";
 import { MapProvider } from "./map.model";
+import { RouteGuideData, RouteWaypointKind } from "./route-follow.model";
 import { SortDirection } from "./sort.model";
 import {
   AdminContentPath,
@@ -226,9 +227,12 @@ export interface MapRoute {
 }
 
 export interface MapMarker {
+  id?: string;
   latitude: number;
   longitude: number;
   label?: string;
+  instruction?: string;
+  kind?: RouteWaypointKind;
 }
 
 export interface MapData {
@@ -271,6 +275,7 @@ export interface PageContentRow extends HasColumnRange {
   albumIndex?: Index;
   areaMap?: AreaMapData;
   map?: MapData;
+  routeGuide?: RouteGuideData;
   fragment?: Fragment;
   location?: LocationRowData;
   migrationPlaceholder?: boolean;
@@ -636,6 +641,7 @@ export enum PageContentType {
   EVENTS = "events",
   AREA_MAP = "area-map",
   MAP = "map",
+  ROUTE = "route",
   TEXT = "text",
   SHARED_FRAGMENT = "shared-fragment",
   LOCATION = "location",
@@ -677,7 +683,13 @@ export enum PaletteColor {
   AMBER = "#bf8630",
   ORANGE = "#d2611f",
   ROSE = "#c21d4b",
-  RED = "#cc0000"
+  RED = "#cc0000",
+  WHITE = "#ffffff",
+  CYAN = "#0b9ec4",
+  VIOLET = "#7c3aed",
+  PINK = "#e11d8a",
+  PLUM = "#6d2874",
+  MINT = "#1a9b7a"
 }
 
 export interface EditorState {

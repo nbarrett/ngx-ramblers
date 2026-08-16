@@ -5,3 +5,9 @@ export enum MapProjectionCode {
 }
 
 export const EPSG_27700_PROJ4 = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.1502,0.247,0.8421,-20.4894 +units=m +no_defs";
+
+export const EPSG_27700_RESOLUTIONS = [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75, 0.875, 0.4375, 0.21875, 0.109375];
+export const WEB_MERCATOR_METRES_PER_PIXEL_AT_ZOOM_0 = 156543.03392804097;
+export const EPSG_27700_NATIVE_ZOOM = 13;
+export const EPSG_27700_LEISURE_NATIVE_ZOOM = 9;
+export const EPSG_27700_LEISURE_MAX_ZOOM = 11;

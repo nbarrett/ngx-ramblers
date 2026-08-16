@@ -15,3 +15,27 @@
 
 .normal
   background: white
+
+.app-shell
+  min-height: 100vh
+  min-height: 100dvh
+  height: 100%
+  background: #f4f5f5
+  overflow: hidden
+
+@media (prefers-color-scheme: dark)
+  :host-context(body:not(.app-appearance-light))
+    .app-shell
+      background: #1b2a22
+
+:host-context(body.app-appearance-dark)
+  .app-shell
+    background: #1b2a22
+
+:host-context(body.app-shell-active)
+  .app-shell
+    position: fixed
+    inset: 0
+    z-index: 2000
+    height: 100%
+    height: 100dvh

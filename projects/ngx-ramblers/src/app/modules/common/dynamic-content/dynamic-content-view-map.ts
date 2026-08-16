@@ -47,7 +47,8 @@ import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { AsyncPipe, NgClass } from "@angular/common";
-import { faExclamationTriangle, faSearch, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { Router } from "@angular/router";
+import { faExclamationTriangle, faPersonWalking, faSearch, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AlertModule } from "ngx-bootstrap/alert";
 import { FormsModule } from "@angular/forms";
@@ -209,6 +210,28 @@ import { DateUtilsService } from "../../../services/date-utils.service";
       <div [class]="actions.rowClasses(row)">
         @if (row.map.text) {
           <div class="map-text" markdown [data]="row.map.text"></div>
+        }
+        @if (!editing && canFollowRoute) {
+          <div class="mb-3">
+            <button class="btn btn-primary app-follow-cta" type="button" (click)="openFollow()">
+              <fa-icon [icon]="faPersonWalking" class="me-2"/>Follow this route
+            </button>
+          </div>
+        }
+        @if (!editing && guideWaypoints.length) {
+          <div class="thumbnail-heading-frame mb-3">
+            <div class="thumbnail-heading">How to follow this route</div>
+            <ol class="ps-3 mb-0">
+              @for (marker of guideWaypoints; track $index) {
+                <li class="mb-2">
+                  <strong>{{ marker.label || "Waypoint" }}</strong>
+                  @if (marker.instruction) {
+                    <div>{{ marker.instruction }}</div>
+                  }
+                </li>
+              }
+            </ol>
+          </div>
         }
 
         @if (!hasVisibleRoutes && !loadingRoutes) {
@@ -425,9 +448,12 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   @Input() row!: PageContentRow;
   @Input() refreshKey?: number;
   @Input() editing = false;
+  @Input() clickToPlace = false;
   @Input() pageContent?: PageContent;
   @Output() mapConfigChange = new EventEmitter<Partial<MapData>>();
+  @Output() mapClick = new EventEmitter<{latitude: number; longitude: number}>();
   protected faExclamationTriangle = faExclamationTriangle;
+  protected faPersonWalking = faPersonWalking;
   protected faSearch = faSearch;
   protected faTimes = faTimes;
   public searchTerm = "";
@@ -444,6 +470,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   public numberUtils = inject(NumberUtilsService);
   private mapDefaults = inject(MapDefaultsService);
   private dateUtils = inject(DateUtilsService);
+  private router = inject(Router);
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private mapMarkerStyle = inject(MapMarkerStyleService);
@@ -497,6 +524,11 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
 
   private componentReady = false;
   private mapViewChangeHandler = () => this.captureMapView();
+  private mapClickHandler = (event: L.LeafletMouseEvent) => {
+    if (this.clickToPlace) {
+      this.mapClick.emit({latitude: event.latlng.lat, longitude: event.latlng.lng});
+    }
+  };
   public roseColor = PaletteColor.ROSE;
   private viewportFilterTimer: ReturnType<typeof setTimeout> | null = null;
   private loadRoutesInProgress = false;
@@ -1216,6 +1248,26 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       this.captureMapView();
   }
 
+  get canFollowRoute(): boolean {
+    return (this.row?.map?.routes || []).some(route => route.visible !== false && !!route.gpxFile?.awsFileName);
+  }
+
+  get guideWaypoints() {
+    return (this.row?.map?.markers || []).filter(marker => marker.instruction || marker.label);
+  }
+
+  openFollow(): void {
+    const route = (this.row.map?.routes || []).find(item => item.visible !== false && item.gpxFile?.awsFileName);
+    const queryParams: Record<string, string> = {};
+    if (this.pageContent?.path) {
+      queryParams.path = this.pageContent.path;
+    }
+    if (route?.id) {
+      queryParams.routeId = route.id;
+    }
+    void this.router.navigate(["/app/follow"], {queryParams});
+  }
+
   toggleControls() {
     if (!this.allowControlsToggle) {
       return;
@@ -1420,6 +1472,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       this.mapRef.on("moveend", this.mapViewChangeHandler);
       this.mapRef.on("zoomend", this.mapViewChangeHandler);
       this.mapRef.once("load", this.mapLoadHandler);
+      this.mapRef.on("click", this.mapClickHandler);
     }
   }
 
@@ -1430,6 +1483,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       this.mapRef.off("moveend", this.mapViewChangeHandler);
       this.mapRef.off("zoomend", this.mapViewChangeHandler);
       this.mapRef.off("load", this.mapLoadHandler);
+      this.mapRef.off("click", this.mapClickHandler);
     }
   }
 
@@ -1526,8 +1580,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       const label = marker.label?.trim();
       const markerIcon = label && label.length <= 3 ? this.mapMarkerStyle.numberedMarkerIcon(label, provider, osStyle) : icon;
       const leafletMarker = L.marker(latlng, {icon: markerIcon});
-      if (marker.label) {
-        leafletMarker.bindPopup(`<div><strong>${this.escapeHtml(marker.label)}</strong></div>`);
+      if (marker.label || marker.instruction) {
+        const title = this.escapeHtml(marker.label || "Waypoint");
+        const instruction = marker.instruction ? `<div class="mt-1"><small>${this.escapeHtml(marker.instruction)}</small></div>` : "";
+        leafletMarker.bindPopup(`<div><strong>${title}</strong></div>${instruction}`);
       }
       return leafletMarker;
     });

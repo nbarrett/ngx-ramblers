@@ -77,6 +77,9 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
                    [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                    [walkStatus]="displayedWalk.walk?.groupEvent?.status"
                    [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
+                   [routeColor]="displayedWalk.walk?.fields?.routeColor"
+                   [routeWeight]="displayedWalk.walk?.fields?.routeWeight"
+                   [routeOpacity]="displayedWalk.walk?.fields?.routeOpacity"
                    [notify]="notify"></div>
             </a>
           } @else {
@@ -85,6 +88,9 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
                  [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                  [walkStatus]="displayedWalk.walk?.groupEvent?.status"
                  [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
+                 [routeColor]="displayedWalk.walk?.fields?.routeColor"
+                 [routeWeight]="displayedWalk.walk?.fields?.routeWeight"
+                 [routeOpacity]="displayedWalk.walk?.fields?.routeOpacity"
                  [notify]="notify"></div>
           }
         } @else {

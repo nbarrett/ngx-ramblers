@@ -123,6 +123,46 @@ export const OS_MAP_STYLE_LIST: MapStyleInfo[] = values(OSMapStyle).filter(s => 
 export const DEFAULT_OS_STYLE = OSMapStyle[OSMapStyleKey.LEISURE_27700].key;
 export const OUTDOOR_OS_STYLE = OSMapStyle[OSMapStyleKey.OUTDOOR_27700].key;
 
+export interface MapBasemapChoice {
+  provider: MapProvider;
+  style: string;
+  name: string;
+  preview: string;
+}
+
+export const MAP_BASEMAP_CHOICES: MapBasemapChoice[] = [
+  {
+    provider: MapProvider.OSM,
+    style: DEFAULT_OS_STYLE,
+    name: "OSM",
+    preview: "/assets/images/local/map-styles/osm.jpg?v=3"
+  },
+  {
+    provider: MapProvider.OS,
+    style: OSMapStyle[OSMapStyleKey.LEISURE_27700].key,
+    name: "Explorer",
+    preview: "/assets/images/local/map-styles/os-explorer.jpg?v=3"
+  },
+  {
+    provider: MapProvider.OS,
+    style: OSMapStyle[OSMapStyleKey.OUTDOOR_27700].key,
+    name: "Outdoor",
+    preview: "/assets/images/local/map-styles/os-outdoor.jpg?v=3"
+  },
+  {
+    provider: MapProvider.OS,
+    style: OSMapStyle[OSMapStyleKey.LIGHT_27700].key,
+    name: "Light",
+    preview: "/assets/images/local/map-styles/os-light.jpg?v=3"
+  },
+  {
+    provider: MapProvider.OS,
+    style: OSMapStyle[OSMapStyleKey.ROAD_27700].key,
+    name: "Road",
+    preview: "/assets/images/local/map-styles/os-road.jpg?v=3"
+  }
+];
+
 export type ExtractedLocationType = GeocodeMatchType.POSTCODE | GeocodeMatchType.GRID_REFERENCE | GeocodeMatchType.PLACE_NAME;
 
 export interface ExtractedLocation {

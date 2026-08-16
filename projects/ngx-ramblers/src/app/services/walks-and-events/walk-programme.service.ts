@@ -63,7 +63,8 @@ export class WalkProgrammeService {
     [GroupEventField.END_LOCATION]: 1,
     [EventField.CONTACT_DETAILS_DISPLAY_NAME]: 1,
     [EventField.CONTACT_DETAILS_MEMBER_ID]: 1,
-    [EventField.INPUT_SOURCE]: 1
+    [EventField.INPUT_SOURCE]: 1,
+    [EventField.GPX_FILE_AWS_FILE_NAME]: 1
   };
 
   async programmeSummary(request: WalkProgrammeSummaryRequest): Promise<WalkProgrammeSummaryResponse> {

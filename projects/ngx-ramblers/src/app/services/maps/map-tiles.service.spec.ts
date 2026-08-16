@@ -40,4 +40,43 @@ describe("MapTilesService", () => {
 
     expect(layer.getAttribution()).toContain("Ordnance Survey");
   });
+
+  it("lets OS Explorer overzoom two levels past its native tiles", () => {
+    const service = TestBed.inject(MapTilesService);
+    const layer = service.createBaseLayer(MapProvider.OS, OSMapStyle.LEISURE_27700.key);
+
+    expect(layer.options.maxNativeZoom).toBe(9);
+    expect(layer.options.maxZoom).toBe(11);
+  });
+
+  it("exposes OS Outdoor native zooms through 13", () => {
+    const service = TestBed.inject(MapTilesService);
+    const layer = service.createBaseLayer(MapProvider.OS, OSMapStyle.OUTDOOR_27700.key);
+
+    expect(layer.options.maxNativeZoom).toBe(13);
+    expect(layer.options.maxZoom).toBe(13);
+  });
+
+  it("keeps the same OS zoom when only the OS style changes", () => {
+    const service = TestBed.inject(MapTilesService);
+    const zoom = service.matchingZoom(
+      MapProvider.OS, OSMapStyle.LEISURE_27700.key, 7,
+      MapProvider.OS, OSMapStyle.OUTDOOR_27700.key, 51.2
+    );
+    expect(zoom).toBe(7);
+  });
+
+  it("picks an OSM zoom that matches OS Explorer scale at UK latitudes", () => {
+    const service = TestBed.inject(MapTilesService);
+    const osm = service.matchingZoom(
+      MapProvider.OS, OSMapStyle.LEISURE_27700.key, 7,
+      MapProvider.OSM, OSMapStyle.LEISURE_27700.key, 51.2
+    );
+    expect(osm).toBe(14);
+    const back = service.matchingZoom(
+      MapProvider.OSM, OSMapStyle.LEISURE_27700.key, osm,
+      MapProvider.OS, OSMapStyle.LEISURE_27700.key, 51.2
+    );
+    expect(back).toBe(7);
+  });
 });

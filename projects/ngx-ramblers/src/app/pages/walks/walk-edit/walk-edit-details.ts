@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, inject, Input, OnInit, QueryList, ViewChildren } from "@angular/core";
+import { Router } from "@angular/router";
 import { DetailsTab, DisplayedWalk, GpxFileListItem, INITIALISED_LOCATION, WalkType } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { WalkLocationEditComponent } from "./walk-location-edit";
@@ -25,6 +26,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
+import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.model";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -147,6 +149,13 @@ import { StoredValue } from "../../../models/ui-actions";
                     }
                     Upload New GPX
                   </button>
+                  <button
+                    type="button"
+                    class="btn btn-quiet"
+                    [disabled]="inputDisabled"
+                    (click)="openFollowEditor()">
+                    Record or edit on the map
+                  </button>
                 </div>
                 @if (uploadError) {
                   <small class="text-danger">{{ uploadError }}</small>
@@ -184,6 +193,9 @@ import { StoredValue } from "../../../models/ui-actions";
                                           [endLocationDetails]="showCombinedMap ? displayedWalk?.walk?.groupEvent.end_location : null"
                                           [showCombinedMap]="showCombinedMap"
                                           [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                                          [routeColor]="displayedWalk?.walk?.fields?.routeColor"
+                                          [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
+                                          [routeOpacity]="displayedWalk?.walk?.fields?.routeOpacity"
                                           [disabled]="syncDisabled"
                                           [notify]="notify"/>
                 </div>
@@ -192,6 +204,9 @@ import { StoredValue } from "../../../models/ui-actions";
                     <app-walk-location-edit [locationType]="LocationType.FINISHING"
                                             [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                                             [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                                            [routeColor]="displayedWalk?.walk?.fields?.routeColor"
+                                            [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
+                                            [routeOpacity]="displayedWalk?.walk?.fields?.routeOpacity"
                                             [disabled]="inputDisabled"
                                             [notify]="notify"/>
                   </div>
@@ -296,6 +311,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
   private walkGpxService = inject(WalkGpxService);
+  private router = inject(Router);
   public gpxFiles: GpxFileListItem[] = [];
   public selectedGpxFile: GpxFileListItem | null = null;
   public uploadInProgress = false;
@@ -486,6 +502,16 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
       }
     }
     this.displayedWalk.walk.fields = { ...this.displayedWalk.walk.fields };
+  }
+
+  openFollowEditor(): void {
+    const slug = this.display.walkSlug(this.displayedWalk?.walk);
+    if (slug) {
+      this.display.rememberFollowReturnUrl();
+      void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
+        queryParams: {[RouteFollowQueryParam.WALK_ID]: slug}
+      });
+    }
   }
 
   onFileSelected(event: Event) {

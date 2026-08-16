@@ -10,8 +10,7 @@ import {
   DEFAULT_OS_STYLE,
   MapProvider,
   MapStyleInfo,
-  OS_MAP_STYLE_LIST,
-  osStyleForKey
+  OS_MAP_STYLE_LIST
 } from "../../../models/map.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -384,7 +383,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
     this.options = this.hasMarkers ? {
       crs: this.mapTiles.crsForStyle(this.provider, this.osStyle),
       center: bounds ? bounds.getCenter() : L.latLng(53.8, -1.5),
-      zoom: Math.min(initialZoom, this.maxZoomForCurrentStyle()),
+      zoom: Math.min(initialZoom, this.mapTiles.maxZoomForStyle(this.provider, this.osStyle)),
       maxZoom: this.mapTiles.maxZoomForStyle(this.provider, this.osStyle),
       minZoom: 1
     } : null;
@@ -691,7 +690,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
         this.mapRef?.fitBounds(this.normalizeBounds(this.fitBounds));
       }
       if (this.preserveNextView && this.savedCenter && this.savedZoom != null) {
-        const targetZoom = Math.min(this.savedZoom, this.maxZoomForCurrentStyle());
+        const targetZoom = Math.min(this.savedZoom, this.mapTiles.maxZoomForStyle(this.provider, this.osStyle));
         try { this.mapRef?.setView(this.savedCenter, targetZoom); } catch (error) { this.logger.debug("mapRef.setView failed", error); }
         this.preserveNextView = false;
       }
@@ -702,14 +701,6 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
   }
 
 
-
-  private maxZoomForCurrentStyle(): number {
-    const styleInfo = osStyleForKey(this.osStyle);
-    if (this.provider === MapProvider.OS && styleInfo?.is27700) {
-      return 9;
-    }
-    return 19;
-  }
 
   private normalizeBounds(bounds: L.LatLngBounds): L.LatLngBounds {
     const ne = bounds.getNorthEast();

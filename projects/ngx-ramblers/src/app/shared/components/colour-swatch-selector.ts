@@ -26,7 +26,7 @@ import { PaletteColor } from "../../models/content-text.model";
       width: 28px
       height: 28px
       border-radius: 50%
-      border: 2px solid transparent
+      border: 2px solid rgba(0, 0, 0, 0.18)
       padding: 0
       cursor: pointer
     .colour-swatch.selected

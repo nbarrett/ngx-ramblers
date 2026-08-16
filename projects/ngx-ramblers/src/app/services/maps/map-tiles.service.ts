@@ -5,16 +5,27 @@ import proj4 from "proj4";
 import * as proj4leaflet from "proj4leaflet";
 import { SystemConfigService } from "../system/system-config.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
-import { MapProvider, osStyleForKey } from "../../models/map.model";
+import { MapProvider, OSMapStyle, osStyleForKey } from "../../models/map.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
+import {
+  EPSG_27700_LEISURE_MAX_ZOOM,
+  EPSG_27700_LEISURE_NATIVE_ZOOM,
+  EPSG_27700_NATIVE_ZOOM,
+  EPSG_27700_PROJ4,
+  EPSG_27700_RESOLUTIONS,
+  MapProjectionCode,
+  WEB_MERCATOR_METRES_PER_PIXEL_AT_ZOOM_0
+} from "../../common/maps/map-projection.constants";
 import { Proj4LeafletApi } from "../../models/proj4leaflet.model";
+import { installLeafletMapGestures } from "./map-gestures";
+
+installLeafletMapGestures();
 
 @Injectable({ providedIn: "root" })
 export class MapTilesService {
   private static readonly EPSG_27700_CRS_OPTIONS = {
-    resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75],
+    resolutions: EPSG_27700_RESOLUTIONS,
     origin: [-238375.0, 1376256.0] as [number, number],
     bounds: L.bounds([-238375.0, 0.0], [900000.0, 1376256.0])
   };
@@ -44,16 +55,32 @@ export class MapTilesService {
 
   createBaseLayer(provider: MapProvider, style: string): L.TileLayer {
     this.initializeProjections();
-
+    const maxZoom = this.maxZoomForStyle(provider, style);
+    const options: L.TileLayerOptions = {
+      noWrap: true,
+      maxZoom,
+      maxNativeZoom: this.nativeMaxZoomForStyle(provider, style)
+    };
     if (provider === MapProvider.OS) {
       if (!this.osApiKeyConfigured()) {
-        return L.tileLayer(this.osmUrl(), { attribution: "© OpenStreetMap (OS Maps unavailable)", maxZoom: 19, noWrap: true });
+        return L.tileLayer(this.osmUrl(), {
+          ...options,
+          attribution: "© OpenStreetMap (OS Maps unavailable)",
+          maxZoom: 19,
+          maxNativeZoom: 19
+        });
+      } else {
+        return L.tileLayer(this.osProxyUrl(style), {
+          ...options,
+          attribution: "© Ordnance Survey"
+        });
       }
-
-      const url = this.osProxyUrl(style);
-      return L.tileLayer(url, { attribution: "© Ordnance Survey", maxZoom: 19, noWrap: true });
+    } else {
+      return L.tileLayer(this.osmUrl(), {
+        ...options,
+        attribution: "© OpenStreetMap"
+      });
     }
-    return L.tileLayer(this.osmUrl(), { attribution: "© OpenStreetMap", maxZoom: 19, noWrap: true });
   }
 
   crsForStyle(provider: MapProvider, style: string): any {
@@ -68,12 +95,94 @@ export class MapTilesService {
     return L.CRS.EPSG3857;
   }
 
+  tileUrlsForPoints(provider: MapProvider, style: string, points: {latitude: number; longitude: number}[]): string[] {
+    this.initializeProjections();
+    if (points.length === 0) {
+      return [];
+    } else {
+      const crs = this.crsForStyle(provider, style);
+      const maxZoom = this.nativeMaxZoomForStyle(provider, style);
+      const minZoom = provider === MapProvider.OS ? Math.max(maxZoom - 3, 4) : Math.max(maxZoom - 5, 11);
+      const lats = points.map(point => point.latitude);
+      const lngs = points.map(point => point.longitude);
+      const south = Math.min(...lats);
+      const north = Math.max(...lats);
+      const west = Math.min(...lngs);
+      const east = Math.max(...lngs);
+      const padLat = Math.max((north - south) * 0.2, 0.01);
+      const padLng = Math.max((east - west) * 0.2, 0.01);
+      const zooms = Array.from({length: maxZoom - minZoom + 1}, (_, index) => minZoom + index);
+      const template = provider === MapProvider.OS && this.osApiKeyConfigured()
+        ? this.osProxyUrl(style)
+        : this.osmUrl();
+      return zooms.reduce((acc: string[], zoom) => {
+        const nw = crs.latLngToPoint(L.latLng(north + padLat, west - padLng), zoom);
+        const se = crs.latLngToPoint(L.latLng(south - padLat, east + padLng), zoom);
+        const minX = Math.floor(Math.min(nw.x, se.x) / 256);
+        const maxX = Math.floor(Math.max(nw.x, se.x) / 256);
+        const minY = Math.floor(Math.min(nw.y, se.y) / 256);
+        const maxY = Math.floor(Math.max(nw.y, se.y) / 256);
+        const xs = Array.from({length: maxX - minX + 1}, (_, index) => minX + index);
+        const ys = Array.from({length: maxY - minY + 1}, (_, index) => minY + index);
+        const urls = xs.reduce((row: string[], x) => {
+          return [...row, ...ys.map(y => template.replace("{s}", "a").replace("{z}", String(zoom)).replace("{x}", String(x)).replace("{y}", String(y)))];
+        }, []);
+        return [...acc, ...urls];
+      }, []).slice(0, 500);
+    }
+  }
+
   maxZoomForStyle(provider: MapProvider, style: string): number {
     const styleInfo = osStyleForKey(style);
     if (provider === MapProvider.OS && styleInfo?.is27700) {
-      return 9;
+      if (styleInfo.key === OSMapStyle.LEISURE_27700.key) {
+        return EPSG_27700_LEISURE_MAX_ZOOM;
+      } else {
+        return EPSG_27700_NATIVE_ZOOM;
+      }
+    } else {
+      return 19;
     }
-    return 19;
+  }
+
+  matchingZoom(
+    fromProvider: MapProvider,
+    fromStyle: string,
+    fromZoom: number,
+    toProvider: MapProvider,
+    toStyle: string,
+    latitude: number
+  ): number {
+    const target = this.metresPerPixel(fromProvider, fromStyle, fromZoom, latitude);
+    const maxZoom = this.maxZoomForStyle(toProvider, toStyle);
+    const zooms = Array.from({length: maxZoom + 1}, (_, zoom) => zoom);
+    return zooms.reduce((best, zoom) => {
+      const resolution = this.metresPerPixel(toProvider, toStyle, zoom, latitude);
+      const score = Math.abs(Math.log(resolution) - Math.log(target));
+      return score < best.score ? {zoom, score} : best;
+    }, {zoom: 0, score: Number.POSITIVE_INFINITY}).zoom;
+  }
+
+  metresPerPixel(provider: MapProvider, style: string, zoom: number, latitude: number): number {
+    const styleInfo = osStyleForKey(style);
+    if (provider === MapProvider.OS && styleInfo?.is27700) {
+      return EPSG_27700_RESOLUTIONS[0] / Math.pow(2, zoom);
+    } else {
+      return WEB_MERCATOR_METRES_PER_PIXEL_AT_ZOOM_0 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
+    }
+  }
+
+  nativeMaxZoomForStyle(provider: MapProvider, style: string): number {
+    const styleInfo = osStyleForKey(style);
+    if (provider === MapProvider.OS && styleInfo?.is27700) {
+      if (styleInfo.key === OSMapStyle.LEISURE_27700.key) {
+        return EPSG_27700_LEISURE_NATIVE_ZOOM;
+      } else {
+        return EPSG_27700_NATIVE_ZOOM;
+      }
+    } else {
+      return 19;
+    }
   }
 
   private osProxyUrl(layer: string): string {

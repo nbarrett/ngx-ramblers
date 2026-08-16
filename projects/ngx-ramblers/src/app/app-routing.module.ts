@@ -28,6 +28,18 @@ const routes: Routes = [
     canActivate: [SystemHealthyGuard]
   },
   {
+    path: "app/follow",
+    loadComponent: () => import("./pages/app/route-follow")
+      .then(m => m.RouteFollowComponent),
+    canActivate: [SystemHealthyGuard]
+  },
+  {
+    path: "app",
+    loadComponent: () => import("./pages/app/app-home")
+      .then(m => m.AppHomeComponent),
+    canActivate: [SystemHealthyGuard]
+  },
+  {
     path: "forgot-password",
     loadComponent: () => import("./login/forgot-password.component")
       .then(m => m.ForgotPasswordComponent),

@@ -19,6 +19,17 @@ describe("PageContentActionsService", () => {
         service = TestBed.inject(PageContentActionsService);
     });
 
+    it("treats a route row as distinct from a map row and initialises guide data", () => {
+        const row: PageContentRow = { type: PageContentType.ROUTE, columns: [] } as unknown as PageContentRow;
+        expect(service.isRoute(row)).toBe(true);
+        expect(service.isMap(row)).toBe(false);
+        expect(service.isMapOrRoute(row)).toBe(true);
+        service.ensureRouteGuide(row);
+        expect(row.routeGuide).toBeTruthy();
+        expect(row.map).toBeTruthy();
+        expect(row.map.routes).toEqual([]);
+    });
+
     it("clearColumnDragState resets all fields", () => {
         service.draggedColumnIndex = 1;
         service.draggedColumnRowIndex = 2;
