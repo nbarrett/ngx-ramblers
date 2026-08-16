@@ -5,7 +5,8 @@ import { isArray } from "es-toolkit/compat";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { envConfig } from "../../env-config/env-config";
 import { emailComposition } from "../models/email-composition";
-import { EmailCompositionDocument, EmailCompositionKind, EmailCompositionStatus, PreviousNewsletter } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
+import { EmailCompositionDocument, EmailCompositionKind, EmailCompositionStatus, PreviousNewsletter, PreviousReleaseNoteUpdate } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
+import { releaseNoteUpdatePeriodFromStored } from "../../../../projects/ngx-ramblers/src/app/functions/release-note-update-window";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import * as transforms from "./transforms";
 
@@ -33,12 +34,18 @@ function summaryFromQuery(req: Request): boolean {
 
 function kindFromQuery(req: Request): EmailCompositionKind | null {
   const raw = (req.query?.kind ?? "").toString().toLowerCase();
-  const recognised = raw === EmailCompositionKind.STANDARD || raw === EmailCompositionKind.NEWSLETTER;
+  const recognised = raw === EmailCompositionKind.STANDARD
+    || raw === EmailCompositionKind.NEWSLETTER
+    || raw === EmailCompositionKind.RELEASE_NOTE_UPDATE;
   return recognised ? raw as EmailCompositionKind : null;
 }
 
 function kindFromBody(body: any): EmailCompositionKind {
-  return body?.kind === EmailCompositionKind.NEWSLETTER ? EmailCompositionKind.NEWSLETTER : EmailCompositionKind.STANDARD;
+  return body?.kind === EmailCompositionKind.NEWSLETTER
+    ? EmailCompositionKind.NEWSLETTER
+    : body?.kind === EmailCompositionKind.RELEASE_NOTE_UPDATE
+      ? EmailCompositionKind.RELEASE_NOTE_UPDATE
+      : EmailCompositionKind.STANDARD;
 }
 
 export function previousNewsletterFromDocument(doc: EmailCompositionDocument): PreviousNewsletter {
@@ -52,6 +59,58 @@ export function previousNewsletterFromDocument(doc: EmailCompositionDocument): P
     selectedListId: state?.selectedListId ?? null,
     cadence: state?.newsletter?.cadence ?? null
   };
+}
+
+export function previousReleaseNoteUpdateFromDocument(doc: EmailCompositionDocument): PreviousReleaseNoteUpdate {
+  const state: any = doc.state ?? {};
+  const period = releaseNoteUpdatePeriodFromStored(state?.releaseNoteUpdate ?? null);
+  return {
+    id: doc.id,
+    title: doc.title,
+    sentAt: doc.sentAt ?? null,
+    windowEnd: state?.releaseNoteUpdate?.toMillis ?? null,
+    includedPaths: isArray(state?.releaseNoteUpdate?.includedPaths) ? state.releaseNoteUpdate.includedPaths : [],
+    selectedListId: state?.selectedListId ?? null,
+    selectedMemberIds: isArray(state?.selectedMemberIds) ? state.selectedMemberIds : [],
+    periodAmount: period.amount,
+    periodUnit: period.unit
+  };
+}
+
+export async function findPreviousReleaseNoteUpdate(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const memberId = memberIdFrom(req);
+  if (!memberId) {
+    res.status(401).json({ message: "Authentication required" });
+  } else {
+    try {
+      const excludeId = (req.query?.excludeId ?? "").toString();
+      const profileId = (req.query?.profileId ?? "default").toString();
+      const recipientMode = (req.query?.recipientMode ?? "").toString();
+      const selectedListIdValue = (req.query?.selectedListId ?? "").toString();
+      const selectedListId = selectedListIdValue ? Number(selectedListIdValue) : null;
+      const profileFilter = profileId === "default"
+        ? {$or: [{"state.releaseNoteUpdate.profileId": profileId}, {"state.releaseNoteUpdate.profileId": {$exists: false}}]}
+        : {"state.releaseNoteUpdate.profileId": profileId};
+      const filter: any = {
+        kind: EmailCompositionKind.RELEASE_NOTE_UPDATE,
+        status: EmailCompositionStatus.Sent,
+        ...profileFilter,
+        ...(recipientMode ? {"state.recipientMode": recipientMode} : {}),
+        ...(selectedListId !== null && Number.isFinite(selectedListId) ? {"state.selectedListId": selectedListId} : {})
+      };
+      if (excludeId) {
+        filter._id = { $ne: excludeId };
+      }
+      const doc = await emailComposition.findOne(filter).sort({ sentAt: -1 }).exec();
+      res.status(200).json({
+        action: ApiAction.QUERY,
+        response: doc ? previousReleaseNoteUpdateFromDocument(transforms.toObjectWithId(doc)) : null
+      });
+    } catch (error) {
+      errorDebugLog("findPreviousReleaseNoteUpdate error:", error);
+      res.status(500).json({ message: "previous release note update lookup failed", error: transforms.parseError(error) });
+    }
+  }
 }
 
 export async function findPreviousNewsletter(req: AuthenticatedRequest, res: Response): Promise<void> {

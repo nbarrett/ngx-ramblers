@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 export interface DurationUnitOption {
   value: string;
@@ -16,7 +17,7 @@ export interface DurationUnitOption {
           <div class="form-group">
             <label [for]="idPrefix + '-amount'">{{ amountLabel }}</label>
             <input [ngModel]="amount" (ngModelChange)="amountChange.emit($event)"
-                   type="number" min="1" [id]="idPrefix + '-amount'" class="form-control input-sm">
+                   type="number" min="1" [id]="idPrefix + '-amount'" class="form-control input-sm" [disabled]="disabled">
           </div>
         </div>
       }
@@ -24,7 +25,7 @@ export interface DurationUnitOption {
         <div class="form-group">
           <label [for]="idPrefix + '-unit'">{{ unitLabel }}</label>
           <select [ngModel]="unit" (ngModelChange)="unitChange.emit($event)"
-                  [id]="idPrefix + '-unit'" class="form-control input-sm">
+                  [id]="idPrefix + '-unit'" class="form-control input-sm" [disabled]="disabled">
             @for (option of units; track option.value) {
               <option [ngValue]="option.value">{{ option.label }}</option>
             }
@@ -41,8 +42,13 @@ export class DurationPickerComponent {
   @Input() unitLabel = "Unit";
   @Input() idPrefix = "duration";
   @Input() noAmountValue: string;
+  disabled = false;
   @Output() amountChange = new EventEmitter<number>();
   @Output() unitChange = new EventEmitter<string>();
+
+  @Input({alias: "disabled"}) set disabledValue(value: boolean) {
+    this.disabled = coerceBooleanProperty(value);
+  }
 
   get showAmount(): boolean {
     return !this.noAmountValue || this.unit !== this.noAmountValue;

@@ -11,13 +11,29 @@ function publicColumn(column: PageContentColumn): boolean {
 }
 
 function imageMarkdownFrom(column: PageContentColumn): string {
+  const url = imageUrlFrom(column);
+  return url ? `![${column.alt || ""}](${url.startsWith("http") ? url : `/${url.replace(/^\/+/, "")}`})` : "";
+}
+
+function imageUrlFrom(column: PageContentColumn): string | null {
   if (!column.imageSource || column.imageSource.startsWith("data:")) {
-    return "";
+    return null;
+  } else {
+    return column.imageSource.startsWith("http") || column.imageSource.includes(S3_BASE_URL)
+      ? column.imageSource
+      : `/${S3_BASE_URL}/${column.imageSource.replace(/^\/+/, "")}`;
   }
-  const url = column.imageSource.startsWith("http") || column.imageSource.includes(S3_BASE_URL)
-    ? column.imageSource
-    : `/${S3_BASE_URL}/${column.imageSource.replace(/^\/+/, "")}`;
-  return `![${column.alt || ""}](${url.startsWith("http") ? url : `/${url.replace(/^\/+/, "")}`})`;
+}
+
+export function publicImagesFromRows(rows: PageContentRow[], baseUrl: string): {url: string; alt: string}[] {
+  return (rows ?? []).flatMap(row => (row.columns ?? []).filter(publicColumn).flatMap(column => {
+    const imageUrl = imageUrlFrom(column);
+    const image = imageUrl ? [{
+      url: imageUrl.startsWith("http") ? imageUrl : `${baseUrl.replace(/\/+$/, "")}/${imageUrl.replace(/^\/+/, "")}`,
+      alt: column.alt || column.title || descriptionFromMarkdown(column.contentText || "")
+    }] : [];
+    return image.concat(column.rows ? publicImagesFromRows(column.rows, baseUrl) : []);
+  }));
 }
 
 function markdownFromColumn(column: PageContentColumn): string {

@@ -539,8 +539,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                       <span class="console-shared-badge">Shared</span>
                     </div>
                     <p class="console-shared-panel-hint mb-2">
-                      Parent account and console login values are not missing from each site row - each is stored once
-                      here and applies to every environment below.
+                      Platform services, parent accounts and shared console logins are stored once here and apply to
+                      every environment below.
                     </p>
                     <div class="console-shared-panel-groups">
                       @for (group of hoistedSharedGroups(); track group.serviceId) {
@@ -551,6 +551,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               <strong>{{ group.serviceName }}</strong>
                             </div>
                           }
+                          <p class="console-shared-panel-hint mb-2">{{ group.function }}</p>
                           <div class="console-shared-panel-fields"
                                [class.console-shared-panel-fields-wide]="group.sharedCredentials || group.identifiers.length > 1">
                             @for (identifier of group.identifiers; track identifier.key) {
@@ -616,6 +617,19 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                   Same parent console login for every site - not missing; stored once as platform shared
                                 </span>
                               </label>
+                            }
+                          </div>
+                          <div class="console-table-links mt-2">
+                            @for (link of resolvedUrlsForSharedGroup(group); track link.url) {
+                              <a [href]="link.url"
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 class="console-table-link"
+                                 [tooltip]="link.label"
+                                 container="body">
+                                <fa-icon [icon]="linkIcon(link)"></fa-icon>
+                                <span class="console-table-link-text">{{ link.label }}</span>
+                              </a>
                             }
                           </div>
                         </div>
@@ -1623,13 +1637,19 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       return [];
     } else {
       return this.filteredConsoleServices()
+        .filter(service => service.scope === "platform"
+          || service.sharedCredentials
+          || (service.identifiers || []).some(item => item.shared))
         .map(service => ({
           serviceId: service.serviceId,
           serviceName: this.serviceFilterLabel(service.name),
-          identifiers: (service.identifiers || []).filter(item => item.shared),
-          sharedCredentials: !!service.sharedCredentials
-        }))
-        .filter(group => group.identifiers.length > 0 || group.sharedCredentials);
+          function: service.function,
+          identifiers: service.scope === "platform"
+            ? service.identifiers || []
+            : (service.identifiers || []).filter(item => item.shared),
+          sharedCredentials: service.scope === "platform" || !!service.sharedCredentials,
+          urls: service.urls || []
+        }));
     }
   }
 
@@ -1646,7 +1666,12 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     const rows = this.scopesToShow().reduce((acc: ConsoleAccessTableRow[], scope) => {
       const environmentLabel = scope === PLATFORM_SCOPE ? "Platform shared" : scope;
       const services = this.servicesForScope(scope).filter(service => {
-        if (this.consoleServiceFilter === "all" || !this.consoleServiceFilter) {
+        const hoistedPlatformService = this.shouldHoistSharedValues()
+          && scope === PLATFORM_SCOPE
+          && service.scope === "platform";
+        if (hoistedPlatformService) {
+          return false;
+        } else if (this.consoleServiceFilter === "all" || !this.consoleServiceFilter) {
           return true;
         } else {
           return service.serviceId === this.consoleServiceFilter;
@@ -1908,6 +1933,20 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       }
       return acc;
     }, []);
+  }
+
+  resolvedUrlsForSharedGroup(group: ConsoleSharedIdentifierGroup): ConsoleAccessResolvedUrlInfo[] {
+    return this.resolvedUrlsFor({
+      rowId: `${PLATFORM_SCOPE}::${group.serviceId}`,
+      scope: PLATFORM_SCOPE,
+      environmentLabel: "Shared across all environments",
+      serviceId: group.serviceId,
+      serviceName: group.serviceName,
+      serviceScope: "platform",
+      function: group.function,
+      identifiers: group.identifiers,
+      urls: group.urls
+    });
   }
 
   linkIcon(link: ConsoleAccessResolvedUrlInfo): IconDefinition {

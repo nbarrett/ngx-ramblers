@@ -1,7 +1,7 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionKind, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse, PreviousNewsletter } from "../../models/email-composer.model";
+import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionKind, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse, PreviousNewsletter, PreviousReleaseNoteUpdate } from "../../models/email-composer.model";
 import { ApiResponse } from "../../models/api-response.model";
 import { EmailAttachment } from "../../models/mail.model";
 import { CommonDataService } from "../common-data-service";
@@ -35,6 +35,21 @@ export class EmailCompositionsService {
       return apiResponse.response ? this.toComposition(apiResponse.response) : null;
     } catch (error) {
       this.logger.error("load composition failed:", error);
+      return null;
+    }
+  }
+
+  async previousReleaseNoteUpdate(profileId: string, recipientMode: string, selectedListId: number | null, excludeId?: string | null): Promise<PreviousReleaseNoteUpdate | null> {
+    try {
+      const params = new HttpParams()
+        .set("profileId", profileId)
+        .set("recipientMode", recipientMode)
+        .set("selectedListId", selectedListId?.toString() ?? "")
+        .set("excludeId", excludeId ?? "");
+      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/release-note-update/previous`, {params}));
+      return (apiResponse.response as PreviousReleaseNoteUpdate) ?? null;
+    } catch (error) {
+      this.logger.error("previousReleaseNoteUpdate lookup failed:", error);
       return null;
     }
   }
@@ -81,7 +96,8 @@ export class EmailCompositionsService {
       } : null,
       buttonText: block.buttonText,
       buttonUrl: block.buttonUrl,
-      dividerAfter: block.dividerAfter
+      dividerAfter: block.dividerAfter,
+      sourcePagePaths: block.sourcePagePaths
     }));
     const filter = state.groupEventsFilter ? {
       search: state.groupEventsFilter.search ?? null,
@@ -109,6 +125,28 @@ export class EmailCompositionsService {
         previouslyAnnouncedEventIds: [...(state.newsletter.previouslyAnnouncedEventIds ?? [])],
         markNewEvents: state.newsletter.markNewEvents ?? true,
         guidance: state.newsletter.guidance ?? null
+      } : null,
+      releaseNoteUpdate: state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE && state.releaseNoteUpdate ? {
+        profileId: state.releaseNoteUpdate.profileId ?? null,
+        periodAmount: state.releaseNoteUpdate.periodAmount,
+        periodUnit: state.releaseNoteUpdate.periodUnit,
+        previousDigestId: state.releaseNoteUpdate.previousDigestId ?? null,
+        previousSentAt: state.releaseNoteUpdate.previousSentAt ?? null,
+        previousWindowEnd: state.releaseNoteUpdate.previousWindowEnd ?? null,
+        previouslyIncludedPaths: [...(state.releaseNoteUpdate.previouslyIncludedPaths ?? [])],
+        excludePreviouslyIncluded: state.releaseNoteUpdate.excludePreviouslyIncluded !== false,
+        includedPaths: [...(state.releaseNoteUpdate.includedPaths ?? [])],
+        fromMillis: state.releaseNoteUpdate.fromMillis ?? null,
+        toMillis: state.releaseNoteUpdate.toMillis ?? null,
+        guidance: state.releaseNoteUpdate.guidance ?? null,
+        indexPath: state.releaseNoteUpdate.indexPath ?? null,
+        categories: [...state.releaseNoteUpdate.categories],
+        coverage: state.releaseNoteUpdate.coverage,
+        maximumThemes: state.releaseNoteUpdate.maximumThemes,
+        maximumSourcesPerTheme: state.releaseNoteUpdate.maximumSourcesPerTheme,
+        writingRules: state.releaseNoteUpdate.writingRules,
+        includeTechnicalChanges: state.releaseNoteUpdate.includeTechnicalChanges,
+        includeImages: state.releaseNoteUpdate.includeImages
       } : null,
       brandingMode: state.brandingMode,
       unbrandedSenderRoleType: state.unbrandedSenderRoleType ?? null,

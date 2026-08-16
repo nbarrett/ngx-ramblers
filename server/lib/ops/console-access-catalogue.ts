@@ -194,6 +194,19 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     ]
   },
   {
+    serviceId: ConsoleAccessService.GEMINI_AI_STUDIO,
+    name: "Google AI Studio / Gemini API",
+    function: "Human login for the shared Gemini API project used by NGX drafting and assisted-content features. The runtime API key is configured separately.",
+    scope: EstateRebuildSystemScope.PLATFORM,
+    identifiers: [],
+    urls: [
+      {label: "Usage", urlTemplate: "https://aistudio.google.com/usage", iconKey: ConsoleAccessUrlIconKey.METRICS},
+      {label: "API keys", urlTemplate: "https://aistudio.google.com/app/apikey", iconKey: ConsoleAccessUrlIconKey.CREDENTIALS},
+      {label: "Billing", urlTemplate: "https://console.cloud.google.com/billing", iconKey: ConsoleAccessUrlIconKey.ACCOUNT},
+      {label: "Logs", urlTemplate: "https://aistudio.google.com/logs", iconKey: ConsoleAccessUrlIconKey.OVERVIEW}
+    ]
+  },
+  {
     serviceId: ConsoleAccessService.DOCKER_HUB,
     name: "Docker Hub website",
     function: "Human login for the account that owns ngx-ramblers images. Shared platform account.",

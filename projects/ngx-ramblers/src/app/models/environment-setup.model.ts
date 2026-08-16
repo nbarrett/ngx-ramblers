@@ -402,8 +402,10 @@ export interface ConsoleAccessTableRow {
 export interface ConsoleSharedIdentifierGroup {
   serviceId: string;
   serviceName: string;
+  function: string;
   identifiers: ConsoleAccessIdentifierInfo[];
   sharedCredentials: boolean;
+  urls: ConsoleAccessUrlInfo[];
 }
 
 

@@ -1,4 +1,5 @@
 import { ApiResponse } from "./api-response.model";
+import { ReleaseNoteUpdateCategory, ReleaseNoteUpdateCoverage } from "./email-composer.model";
 
 export interface TextGenerationRequest {
   systemPrompt: string;
@@ -118,6 +119,79 @@ export interface NewsletterPlan {
 
 export interface NewsletterPlanApiResponse extends ApiResponse {
   response?: NewsletterPlan;
+}
+
+export interface ReleaseNoteUpdateCandidate {
+  title: string;
+  path: string;
+  url: string;
+  dateMillis: number | null;
+  excerpt: string;
+  hasImages?: boolean;
+  images?: ReleaseNoteUpdateImage[];
+}
+
+export interface ReleaseNoteUpdateImage {
+  url: string;
+  alt: string;
+}
+
+export interface ReleaseNoteUpdateItem {
+  path: string;
+  sourcePaths: string[];
+  sourceNotes: ReleaseNoteUpdateSourceNote[];
+  url: string;
+  title: string;
+  body: string;
+  theme: string | null;
+  category: ReleaseNoteUpdateCategory;
+  image?: ReleaseNoteUpdateImage | null;
+}
+
+export interface ReleaseNoteUpdateSourceNote {
+  description: string;
+  url: string;
+  date: string | null;
+}
+
+export interface ReleaseNoteUpdateDraft {
+  intro: string;
+  items: ReleaseNoteUpdateItem[];
+  indexPath: string | null;
+  indexUrl: string | null;
+}
+
+export interface ReleaseNoteUpdateRequest {
+  fromMillis: number;
+  toMillis: number;
+  previouslyIncludedPaths?: string[];
+  guidance?: string;
+  groupName?: string;
+  categories: ReleaseNoteUpdateCategory[];
+  coverage: ReleaseNoteUpdateCoverage;
+  maximumThemes: number;
+  maximumSourcesPerTheme: number;
+  writingRules: string;
+  includeTechnicalChanges: boolean;
+  includeImages: boolean;
+}
+
+export enum ReleaseNoteUpdateDraftOutcome {
+  GENERATED = "generated",
+  AI_DISABLED = "ai-disabled",
+  INVALID_RESPONSE = "invalid-response"
+}
+
+export interface ReleaseNoteUpdateResponse {
+  candidates: ReleaseNoteUpdateCandidate[];
+  draft: ReleaseNoteUpdateDraft;
+  emptyWindow: boolean;
+  drafted: boolean;
+  draftOutcome: ReleaseNoteUpdateDraftOutcome;
+}
+
+export interface ReleaseNoteUpdateApiResponse extends ApiResponse {
+  response?: ReleaseNoteUpdateResponse;
 }
 
 export interface AiConnectionStatus {

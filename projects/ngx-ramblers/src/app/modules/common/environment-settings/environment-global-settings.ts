@@ -95,10 +95,10 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
         <span>Global AI Text Generation</span>
       </div>
       <small class="form-text text-muted mb-3">
-        Connect any OpenAI-compatible model to write a past-tense report from a walk description when creating a photo
-        album. Point the base URL at a hosted API or a model on your own hardware — nothing is tied to a single provider.
-        Used by every environment; a specific environment can override it below. When disabled, the walk description is
-        used as-is.
+        Connect an AI model for drafting and other assisted content features across NGX. Point the base URL at any
+        OpenAI-compatible hosted API or a model on your own hardware. The configuration is shared by every environment,
+        although a specific environment can override it below. When disabled, features that require AI assistance use
+        their non-AI fallback where one is available.
       </small>
       <div class="row">
         <div class="col-md-4 mb-2">

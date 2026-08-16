@@ -49,6 +49,7 @@ const BRAND_BY_KEY: Record<string, VendorBrandMark> = {
   cloudflare: MARKS.cloudflare,
   brevo: MARKS.brevo,
   googleCloud: MARKS.google,
+  geminiAiStudio: MARKS.google,
   googleMaps: MARKS.google,
   recaptcha: MARKS.google,
   googleAnalytics: MARKS.google,

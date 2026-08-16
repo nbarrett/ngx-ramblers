@@ -4,8 +4,11 @@ import { integrationWorkerConfigured, rewriteViaIntegrationWorker } from "./ai-w
 
 export const MAX_GENERATED_TOKENS = 1024;
 
-export async function generate(ai: Ai, systemPrompt: string, input: string): Promise<string> {
+export async function generate(ai: Ai,
+                               systemPrompt: string,
+                               input: string,
+                               maxTokens: number = MAX_GENERATED_TOKENS): Promise<string> {
   return integrationWorkerConfigured()
-    ? rewriteViaIntegrationWorker(ai, input, systemPrompt)
-    : aiProviderFor(ai).generate({systemPrompt, input, maxTokens: MAX_GENERATED_TOKENS});
+    ? rewriteViaIntegrationWorker(ai, input, systemPrompt, maxTokens)
+    : aiProviderFor(ai).generate({systemPrompt, input, maxTokens});
 }

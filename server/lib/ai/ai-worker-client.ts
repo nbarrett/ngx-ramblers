@@ -31,8 +31,8 @@ async function callWorker<T>(operationPath: string, payload: object): Promise<T>
   return JSON.parse(text) as T;
 }
 
-export async function rewriteViaIntegrationWorker(config: Ai, input: string, systemPrompt: string): Promise<string> {
-  const result = await callWorker<{ output: string }>("rewrite", {config, input, systemPrompt, maxTokens: 1024});
+export async function rewriteViaIntegrationWorker(config: Ai, input: string, systemPrompt: string, maxTokens: number): Promise<string> {
+  const result = await callWorker<{ output: string }>("rewrite", {config, input, systemPrompt, maxTokens});
   return result.output;
 }
 

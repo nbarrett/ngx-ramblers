@@ -68,7 +68,8 @@ export enum ConsoleAccessService {
   META = "meta",
   MEETUP = "meetup",
   DOCKER_HUB = "dockerHub",
-  GITHUB = "github"
+  GITHUB = "github",
+  GEMINI_AI_STUDIO = "geminiAiStudio"
 }
 
 export interface ConsoleAccessLogin {

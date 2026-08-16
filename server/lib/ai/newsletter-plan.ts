@@ -36,11 +36,20 @@ function parsedJson(candidate: string): any | null {
   }
 }
 
+function repairedJson(candidate: string): any | null {
+  const repaired = candidate
+    .replace(/([{,]\s*)([A-Za-z][A-Za-z0-9_]*)"\s*:/g, "$1\"$2\":")
+    .replace(/([{,]\s*)([A-Za-z][A-Za-z0-9_]*)\s*:/g, "$1\"$2\":")
+    .replace(/,\s*([}\]])/g, "$1");
+  return repaired === candidate ? null : parsedJson(repaired);
+}
+
 export function jsonObjectFrom(raw: string): any | null {
   const text = (raw ?? "").replace(/```json/gi, "").replace(/```/g, "").trim();
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  return start === -1 || end <= start ? null : parsedJson(text.slice(start, end + 1));
+  const candidate = start === -1 || end <= start ? null : text.slice(start, end + 1);
+  return candidate ? parsedJson(candidate) ?? repairedJson(candidate) : null;
 }
 
 function dayFrom(value: any): DateTime | null {

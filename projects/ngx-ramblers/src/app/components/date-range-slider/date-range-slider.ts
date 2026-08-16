@@ -28,6 +28,16 @@ export interface DateRange {
   to: number;
 }
 
+export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, paddingRatio: number = 0, minimumPaddingDays: number = 0) {
+  const minimumSpanMillis = 24 * 60 * 60 * 1000;
+  const spanMillis = Math.max(toDate.diff(fromDate).toMillis(), minimumSpanMillis);
+  const paddingMillis = Math.max(spanMillis * paddingRatio, minimumPaddingDays * minimumSpanMillis);
+  return {
+    minDate: fromDate.minus({milliseconds: paddingMillis}).startOf("day"),
+    maxDate: toDate.plus({milliseconds: paddingMillis}).startOf("day")
+  };
+}
+
 @Component({
   selector: "app-date-range-slider",
   imports: [FormsModule, FontAwesomeModule, PresetSelect],
@@ -60,6 +70,7 @@ export interface DateRange {
                 class="range-slider range-from"
                 [min]="minValue"
                 [max]="maxValue"
+                [disabled]="disabled"
                 [style.z-index]="fromThumbZIndex"
                 [(ngModel)]="fromValue"
                 (ngModelChange)="onFromChange()"
@@ -69,6 +80,7 @@ export interface DateRange {
                 class="range-slider range-to"
                 [min]="minValue"
                 [max]="maxValue"
+                [disabled]="disabled"
                 [(ngModel)]="toValue"
                 (ngModelChange)="onToChange()"
                 step="1"/>
@@ -255,9 +267,14 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
   @Output() rangeChange = new EventEmitter<DateRange>();
   showPresets = false;
+  disabled = false;
 
   @Input("showPresets") set showPresetsValue(value: boolean) {
     this.showPresets = coerceBooleanProperty(value);
+  }
+
+  @Input({alias: "disabled"}) set disabledValue(value: boolean) {
+    this.disabled = coerceBooleanProperty(value);
   }
 
   @Input() presets: DateRangeSliderPreset[] = DATE_RANGE_SLIDER_PRESETS;

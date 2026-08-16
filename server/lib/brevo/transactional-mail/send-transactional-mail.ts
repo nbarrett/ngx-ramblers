@@ -5,12 +5,12 @@ import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { Brevo } from "@getbrevo/brevo";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
-import * as http from "http";
 import { SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { htmlToPlainText } from "../../shared/string-utils";
 import { keys } from "es-toolkit/compat";
 import { buildUnsubscribeApiUrl, buildUnsubscribeUrl } from "../contacts/unsubscribe-token";
 import { member } from "../../mongo/models/member";
+import { SendTransactionalEmailResult } from "./transactional-email.model";
 
 const messageType = "brevo:send-transactional-mail";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -95,10 +95,7 @@ async function injectUnsubscribeContext(emailRequest: SendSmtpEmailRequest, over
 
 export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailRequest,
                                                     transactionalDebugLog: debug.Debugger,
-                                                    unsubscribeBaseUrlOverride?: string): Promise<{
-  response: http.IncomingMessage;
-  body: Brevo.SendTransacEmailResponse
-}> {
+                                                    unsubscribeBaseUrlOverride?: string): Promise<SendTransactionalEmailResult> {
   const client = await brevoClient();
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
     subject: emailRequest.subject,
@@ -127,19 +124,16 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
   }
   transactionalDebugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
   const body = await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
-  return { response: null, body };
+  return {response: null, body, renderedHtmlContent: sendSmtpEmail.htmlContent ?? ""};
 }
 
 export async function sendTransactionalMail(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const emailRequest: SendSmtpEmailRequest = req.body;
     const liveBaseUrl = `${req.protocol}://${req.get("host")}`;
-    sendTransactionalEmailRequest(emailRequest, debugLog, liveBaseUrl).then((data: {
-      response: http.IncomingMessage;
-      body: Brevo.SendTransacEmailResponse
-    }) => {
+    sendTransactionalEmailRequest(emailRequest, debugLog, liveBaseUrl).then(data => {
       debugLog("API called successfully. Returned data: " + JSON.stringify(data));
-      successfulResponse({req, res, response: data, messageType, debugLog});
+      successfulResponse({req, res, response: {response: data.response, body: data.body}, messageType, debugLog});
     }).catch((error: any) => {
       handleError(req, res, messageType, debugLog, error);
     });
