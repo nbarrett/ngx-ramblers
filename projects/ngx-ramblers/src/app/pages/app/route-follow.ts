@@ -3,8 +3,6 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
-  faChevronUp,
-  faCircleInfo,
   faCircleExclamation,
   faCircleHalfStroke,
   faCompress,
@@ -52,7 +50,11 @@ import {
   RouteFollowWaypoint,
   firstCompleted,
   followCacheKey,
+  FollowMapScaleBar,
+  compassHeadingLabel,
+  followMapScaleBar,
   formatMapSaveProgress,
+  formatOsGridReference,
   isLiveFollowMode,
   ROUTE_FOLLOW_NETWORK_TIMEOUT_MS,
   RouteFollowOfflineStatus,
@@ -70,7 +72,7 @@ import { RouteFollowCacheService } from "../../services/maps/route-follow-cache.
 import { RouteFollowService } from "../../services/maps/route-follow.service";
 import { RouteFollowSaveService } from "../../services/maps/route-follow-save.service";
 import { OsMapsExportService } from "../../services/maps/os-maps-export.service";
-import { MapGestures, mapAngleDelta, mapGesturesFor, returnDirectionFrom } from "../../services/maps/map-gestures";
+import { MapGestures, mapAngleDelta, mapGesturesFor } from "../../services/maps/map-gestures";
 import { PageContentService } from "../../services/page-content.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walks/walk-display.service";
@@ -83,6 +85,8 @@ import { ColourSwatchSelectorComponent } from "../../shared/components/colour-sw
 import { DEFAULT_WALKS_AREA } from "../../models/walks-route-paths.model";
 import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
+import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
+import proj4 from "proj4";
 
 @Component({
   selector: "app-route-follow",
@@ -118,22 +122,48 @@ import { UiActionsService } from "../../services/ui-actions.service";
         }
         <h1 class="visually-hidden">{{ payload?.title }}</h1>
         <div class="follow-top">
-          <button class="follow-icon-btn" type="button" (click)="closeFollow()"
-                  tooltip="Close" placement="bottom" container=".follow-app"
-                  aria-label="Close follow">
-            <fa-icon [icon]="faXmark"/>
-          </button>
-          @if (progress?.offRoute && isLive) {
-            <div class="follow-off-route">
-              <fa-icon [icon]="faCircleExclamation"/>
-              {{ offRouteMessage }}
+          <div class="follow-top-bar">
+            <button class="follow-icon-btn" type="button" (click)="closeFollow()"
+                    tooltip="Close" placement="bottom" container=".follow-app"
+                    aria-label="Close follow">
+              <fa-icon [icon]="faXmark"/>
+            </button>
+            @if (showOffRoute) {
+              <div class="follow-off-route">
+                <fa-icon [icon]="faCircleExclamation"/>
+                {{ offRouteMessage }}
+              </div>
+            } @else if (locationMessage) {
+              <div class="follow-off-route follow-location-error">
+                <fa-icon [icon]="faCircleExclamation"/>
+                {{ locationMessage }}
+              </div>
+            }
+            <div class="follow-hud">
+              @if (mapScale.label) {
+                <div class="follow-hud-scale">
+                  <span class="follow-hud-scale-label">{{ mapScale.label }}</span>
+                  <span class="follow-hud-scale-bar" [style.width.px]="mapScale.widthPx"></span>
+                </div>
+              }
+              <button class="follow-hud-compass" type="button" [class.is-active]="headingUp"
+                      (click)="toggleMapHeading()"
+                      [tooltip]="headingUp ? 'Keep the map north-up' : 'Turn the map with the route'"
+                      placement="bottom" container=".follow-app"
+                      [attr.aria-label]="headingUp ? 'Keep the map north-up' : 'Turn the map with the route'">
+                <span class="follow-hud-rose" [style.transform]="'rotate(' + (-mapBearing) + 'deg)'" aria-hidden="true">
+                  <svg viewBox="0 0 36 36" width="22" height="22">
+                    <text x="18" y="8" text-anchor="middle" class="is-north">N</text>
+                    <polygon points="18,9 20.6,18 18,16.4 15.4,18" fill="#d81b60"/>
+                    <polygon points="18,27 20.6,18 18,19.6 15.4,18" fill="#c4c4c4"/>
+                  </svg>
+                </span>
+                @if (compassHeadingText) {
+                  <span class="follow-hud-heading">{{ compassHeadingText }}</span>
+                }
+              </button>
             </div>
-          } @else if (locationMessage) {
-            <div class="follow-off-route follow-location-error">
-              <fa-icon [icon]="faCircleExclamation"/>
-              {{ locationMessage }}
-            </div>
-          }
+          </div>
         </div>
         @if (progress?.approachedWaypoint && instructionText) {
           <div class="follow-instruction">
@@ -197,18 +227,6 @@ import { UiActionsService } from "../../services/ui-actions.service";
         }
         <div class="follow-bottom">
           <div class="follow-map-tools">
-            <button class="follow-compass" type="button" [class.is-active]="headingUp"
-                    (click)="toggleMapHeading()"
-                    [tooltip]="headingUp ? 'Keep the map north-up' : 'Turn the map with the route'"
-                    placement="left" container=".follow-app"
-                    [attr.aria-label]="headingUp ? 'Keep the map north-up' : 'Turn the map with the route'">
-              <span class="follow-compass-needle" [style.transform]="'rotate(' + (-mapBearing) + 'deg)'" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="22" height="22">
-                  <polygon points="12,3 16.2,12 12,10.4 7.8,12" fill="#d81b60"/>
-                  <polygon points="12,21 16.2,12 12,13.6 7.8,12" fill="#c8c8c8"/>
-                </svg>
-              </span>
-            </button>
             @if (progress?.mode === RouteFollowMode.EDITING && !thinningPrompt) {
               <div class="follow-tool-stack">
                 <button class="follow-tool" type="button"
@@ -229,24 +247,6 @@ import { UiActionsService } from "../../services/ui-actions.service";
                 </button>
               </div>
             }
-            @if (sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING) {
-              @if (progress?.mode === RouteFollowMode.PAUSED) {
-                <button class="follow-start-tool" type="button" (click)="resume()"
-                        tooltip="Resume" placement="left" container=".follow-app" aria-label="Resume">
-                  <fa-icon [icon]="faPlay"/>
-                </button>
-              } @else if (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PREVIEW) {
-                <button class="follow-start-tool" type="button" (click)="pause()"
-                        tooltip="Pause" placement="left" container=".follow-app" aria-label="Pause">
-                  <fa-icon [icon]="faPause"/>
-                </button>
-              } @else {
-                <button class="follow-start-tool" type="button" (click)="start()"
-                        tooltip="Start" placement="left" container=".follow-app" aria-label="Start">
-                  <fa-icon [icon]="faPersonWalking"/>
-                </button>
-              }
-            }
             <div class="follow-tool-stack">
               <button class="follow-tool" type="button" (click)="cycleAppearance()"
                       [tooltip]="appearanceLabel()"
@@ -261,14 +261,6 @@ import { UiActionsService } from "../../services/ui-actions.service";
                       aria-label="Map style">
                 <fa-icon [icon]="faLayerGroup"/>
               </button>
-              <button class="follow-tool" type="button" [class.is-active]="!sheetMinimised"
-                      (click)="toggleSheet()"
-                      [tooltip]="sheetMinimised ? 'Route details' : 'Hide route details'"
-                      placement="left" container=".follow-app"
-                      [attr.aria-expanded]="!sheetMinimised"
-                      [attr.aria-label]="sheetMinimised ? 'Route details' : 'Hide route details'">
-                <fa-icon [icon]="faCircleInfo"/>
-              </button>
               <button class="follow-tool" type="button" [class.is-active]="!followUser" (click)="recenter()"
                       tooltip="Recentre on me"
                       placement="left" container=".follow-app"
@@ -277,15 +269,45 @@ import { UiActionsService } from "../../services/ui-actions.service";
               </button>
             </div>
           </div>
-          @if (!sheetMinimised) {
-          <section class="follow-sheet">
+          <section class="follow-sheet" [class.is-minimised]="sheetMinimised">
           <button class="follow-sheet-handle" type="button"
                   (pointerdown)="onSheetHandlePointerDown($event)"
                   (click)="onSheetHandleClick()"
-                  aria-expanded="true"
-                  aria-label="Hide route details">
-            <fa-icon class="follow-sheet-chevron is-expanded" [icon]="faChevronUp"/>
+                  [attr.aria-expanded]="!sheetMinimised"
+                  [attr.aria-label]="sheetMinimised ? 'Show route details' : 'Hide route details'">
+            <span class="follow-sheet-grab" aria-hidden="true"></span>
           </button>
+          <div class="follow-sheet-peek"
+               (pointerdown)="onSheetHandlePointerDown($event)"
+               (click)="onSheetHandleClick()">
+            <div class="follow-peek-stat">
+              <span>Elevation</span>
+              <strong>{{ currentElevation }}</strong>
+            </div>
+            @if (sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING) {
+              @if (progress?.mode === RouteFollowMode.PAUSED) {
+                <button class="follow-start-tool" type="button"
+                        (pointerdown)="$event.stopPropagation()" (click)="onPeekAction($event)"
+                        tooltip="Resume" placement="top" container=".follow-app" aria-label="Resume">
+                  <fa-icon [icon]="faPlay"/>
+                </button>
+              } @else if (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PREVIEW) {
+                <button class="follow-start-tool" type="button"
+                        (pointerdown)="$event.stopPropagation()" (click)="onPeekAction($event)"
+                        tooltip="Pause" placement="top" container=".follow-app" aria-label="Pause">
+                  <fa-icon [icon]="faPause"/>
+                </button>
+              } @else {
+                <button class="follow-start-tool" type="button"
+                        (pointerdown)="$event.stopPropagation()" (click)="onPeekAction($event)"
+                        tooltip="Start" placement="top" container=".follow-app" aria-label="Start">
+                  <fa-icon [icon]="faPersonWalking"/>
+                </button>
+              }
+            }
+          </div>
+          <div class="follow-sheet-body-slot">
+          <div class="follow-sheet-body">
           @if (offlineStatus === RouteFollowOfflineStatus.AVAILABLE) {
             <p class="follow-offline-status">Available off-line</p>
           } @else if (offlineStatus === RouteFollowOfflineStatus.SAVING) {
@@ -430,8 +452,9 @@ import { UiActionsService } from "../../services/ui-actions.service";
               </button>
             }
           </div>
+          </div>
+          </div>
         </section>
-          }
         </div>
       }
     </div>
@@ -537,8 +560,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly MapProvider = MapProvider;
   protected readonly faLayerGroup = faLayerGroup;
   protected readonly faXmark = faXmark;
-  protected readonly faChevronUp = faChevronUp;
-  protected readonly faCircleInfo = faCircleInfo;
+  protected mapScale: FollowMapScaleBar = {label: "", widthPx: 0};
+  protected gridReference = "";
   private skipNextFit = false;
   private arrowGroup = L.layerGroup();
   private pointerMarker: L.Marker | null = null;
@@ -553,6 +576,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.followService.progress$.subscribe(progress => {
       this.progress = progress;
       this.persistFollowSession();
+      this.refreshHud();
       if (this.draggingVertexIndex === null) {
         this.redraw();
       }
@@ -627,8 +651,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     return this.progress?.mode === RouteFollowMode.FOLLOWING || this.progress?.mode === RouteFollowMode.PREVIEW;
   }
 
+  get showOffRoute(): boolean {
+    return !!this.progress?.offRoute && isLiveFollowMode(this.progress.mode);
+  }
+
   get offRouteMessage(): string {
-    const direction = this.offRouteDirection();
+    const direction = this.progress?.returnDirection;
     if (direction === RouteFollowReturnDirection.LEFT) {
       return "Off the route. Head left.";
     } else if (direction === RouteFollowReturnDirection.RIGHT) {
@@ -639,16 +667,6 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       return "Off the route. Head back.";
     } else {
       return "Off the route. Head back to the line.";
-    }
-  }
-
-  private offRouteDirection(): RouteFollowReturnDirection | null {
-    const position = this.progress?.position;
-    const snap = this.progress?.snap;
-    if (!position || !snap) {
-      return null;
-    } else {
-      return returnDirectionFrom(this.currentHeading(), this.followService.headingBetween(position, snap.point));
     }
   }
 
@@ -732,6 +750,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     map.on("dragstart", () => {
       this.followUser = false;
     });
+    map.on("zoom move", () => this.zone.run(() => this.refreshHud()));
+    this.refreshHud();
     this.redraw();
     if (this.progress?.mode === RouteFollowMode.EDITING) {
       this.refreshEditHandles();
@@ -917,6 +937,21 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     return this.sheetState === RouteFollowSheetState.MINIMISED;
   }
 
+  get compassHeadingText(): string {
+    return compassHeadingLabel(this.currentHeading());
+  }
+
+  onPeekAction(event: Event): void {
+    event.stopPropagation();
+    if (this.progress?.mode === RouteFollowMode.PAUSED) {
+      this.resume();
+    } else if (this.progress?.mode === RouteFollowMode.FOLLOWING || this.progress?.mode === RouteFollowMode.PREVIEW) {
+      this.pause();
+    } else {
+      void this.start();
+    }
+  }
+
   onSheetHandlePointerDown(event: PointerEvent): void {
     this.sheetDrag.active = true;
     this.sheetDrag.pointerId = event.pointerId;
@@ -975,8 +1010,47 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.refreshMapSize();
   }
 
+  private revealIdleSheet(): void {
+    if (!isLiveFollowMode(this.progress?.mode) && this.sheetMinimised) {
+      setTimeout(() => this.expandSheet(), 80);
+    }
+  }
+
   private refreshMapSize(): void {
-    setTimeout(() => this.mapRef?.invalidateSize(), 200);
+    setTimeout(() => this.mapRef?.invalidateSize(), 400);
+  }
+
+  private refreshHud(): void {
+    const map = this.mapRef;
+    if (!map) {
+      this.mapScale = {label: "", widthPx: 0};
+      this.gridReference = "";
+    } else {
+      const left = map.containerPointToLatLng(L.point(0, 0));
+      const right = map.containerPointToLatLng(L.point(100, 0));
+      this.mapScale = followMapScaleBar(map.distance(left, right) / 100, 48, 64);
+      this.gridReference = this.hudGridReference();
+    }
+  }
+
+  private hudGridReference(): string {
+    const position = this.progress?.position;
+    const center = this.mapRef?.getCenter() || null;
+    const latitude = position?.latitude ?? center?.lat ?? null;
+    const longitude = position?.longitude ?? center?.lng ?? null;
+    if (!isNumber(latitude) || !isNumber(longitude)) {
+      return "";
+    } else {
+      this.ensureOsProjection();
+      const projected = proj4(MapProjectionCode.WGS84, MapProjectionCode.BRITISH_NATIONAL_GRID, [longitude, latitude]);
+      return formatOsGridReference(projected[0], projected[1]);
+    }
+  }
+
+  private ensureOsProjection(): void {
+    if ((proj4 as any).defs && !(proj4 as any).defs[MapProjectionCode.BRITISH_NATIONAL_GRID]) {
+      (proj4 as any).defs(MapProjectionCode.BRITISH_NATIONAL_GRID, EPSG_27700_PROJ4);
+    }
   }
 
   async start(): Promise<void> {
@@ -1635,6 +1709,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.usablePayload(cached)) {
       await this.applyLoaded(cached);
       this.loading = false;
+      this.revealIdleSheet();
       void this.refreshFromNetwork(path, routeId, walkId, ramblersSlug, osMapsRouteId);
     } else {
       try {
@@ -1647,6 +1722,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.clearRouteOverlays();
       }
       this.loading = false;
+      this.revealIdleSheet();
     }
   }
 

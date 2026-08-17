@@ -62,19 +62,101 @@
   float: none
   width: auto
   display: flex
-  align-items: flex-start
-  gap: 10px
+  flex-direction: column
+  align-items: stretch
   background: transparent
   color: inherit
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0
+  padding: env(safe-area-inset-top, 0px) 10px 0
   pointer-events: none
   box-sizing: border-box
 
+.follow-top-bar
+  display: flex
+  align-items: center
+  gap: 8px
+  min-height: 36px
+
+.follow-hud
+  pointer-events: auto
+  display: flex
+  align-items: center
+  flex: 0 0 auto
+  gap: 6px
+  margin-left: auto
+
+.follow-hud-compass
+  height: 32px
+  min-height: 32px
+  padding: 0 8px 0 6px
+  border: 0
+  border-radius: 10px
+  background: var(--follow-btn)
+  color: var(--follow-btn-ink)
+  box-shadow: var(--follow-shadow)
+  display: inline-flex
+  align-items: center
+  gap: 4px
+
+.follow-hud-compass.is-active
+  background: #f9b104
+  color: #1b1b1b
+
+.follow-hud-rose
+  display: flex
+  align-items: center
+  justify-content: center
+  transform-origin: center center
+  line-height: 0
+
+.follow-hud-rose text
+  font-size: 7px
+  font-weight: 700
+  fill: currentColor
+  font-family: Assistant, Arial, sans-serif
+
+.follow-hud-rose text.is-north
+  fill: #d81b60
+
+.follow-hud-heading
+  font-size: 0.72rem
+  font-weight: 700
+  letter-spacing: 0.01em
+  line-height: 1
+  min-width: 1.8em
+
+.follow-hud-scale
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 2px
+  min-width: 56px
+  height: 32px
+  padding: 3px 8px 4px
+  border-radius: 10px
+  background: var(--follow-btn)
+  color: var(--follow-ink)
+  box-shadow: var(--follow-shadow)
+
+.follow-hud-scale-label
+  font-size: 0.68rem
+  font-weight: 700
+  line-height: 1
+  letter-spacing: 0.01em
+
+.follow-hud-scale-bar
+  display: block
+  height: 5px
+  box-sizing: border-box
+  border: 1.5px solid var(--follow-ink)
+  border-top: 0
+  background: transparent
+
 .follow-icon-btn
   pointer-events: auto
-  width: 44px
-  height: 44px
-  min-width: 44px
+  width: 36px
+  height: 36px
+  min-width: 36px
   border: 0
   border-radius: 50%
   background: var(--follow-btn)
@@ -86,7 +168,7 @@
 
 .follow-instruction
   position: absolute
-  top: calc(64px + env(safe-area-inset-top, 0px))
+  top: calc(48px + env(safe-area-inset-top, 0px))
   left: 12px
   right: 12px
   z-index: 5
@@ -125,15 +207,15 @@
 
 .follow-off-route
   pointer-events: auto
-  flex: 1
+  flex: 1 1 auto
   min-width: 0
   background: #c21d4b
   color: #fff
-  border-radius: 14px
-  padding: 10px 12px
-  min-height: 44px
+  border-radius: 12px
+  padding: 8px 12px
+  min-height: 36px
   font-weight: 600
-  font-size: 0.92rem
+  font-size: 0.88rem
   display: flex
   align-items: center
   gap: 8px
@@ -154,7 +236,6 @@
   flex-direction: column
   align-items: stretch
   pointer-events: none
-  padding-bottom: env(safe-area-inset-bottom, 0px)
 
 .follow-map-tools
   pointer-events: auto
@@ -178,30 +259,6 @@
   align-items: center
   justify-content: center
   padding: 0
-
-.follow-compass
-  width: 48px
-  height: 48px
-  min-width: 48px
-  border: 0
-  border-radius: 50%
-  background: var(--follow-btn)
-  box-shadow: var(--follow-shadow)
-  color: var(--follow-btn-ink)
-  display: inline-flex
-  align-items: center
-  justify-content: center
-  padding: 0
-
-.follow-compass.is-active
-  background: #f9b104
-  color: #1b1b1b
-
-.follow-compass-needle
-  display: flex
-  align-items: center
-  justify-content: center
-  transform-origin: center center
 
 .follow-tool-stack
   display: flex
@@ -367,22 +424,30 @@
   pointer-events: auto
   touch-action: pan-y
   width: 100%
+  height: auto
   background: var(--follow-panel)
   color: var(--follow-ink)
-  border-radius: 28px 28px 0 0
-  padding: 0 20px calc(18px + env(safe-area-inset-bottom, 0px))
+  border-radius: 22px 22px 0 0
+  padding: 0 16px 0
   box-shadow: 0 -12px 32px rgba(16, 32, 24, 0.12)
-  max-height: 46vh
-  overflow: auto
-  -webkit-overflow-scrolling: touch
+  overflow: hidden
+  display: flex
+  flex-direction: column
+  justify-content: flex-start
+  flex: 0 0 auto
+
+@media (display-mode: standalone)
+  .follow-sheet
+    padding-bottom: env(safe-area-inset-bottom, 0px)
 
 .follow-sheet-handle
   display: flex
   align-items: center
   justify-content: center
+  flex: 0 0 auto
   width: 100%
-  height: 40px
-  margin: 0 0 4px
+  height: 20px
+  margin: 0
   padding: 0
   border: 0
   background: transparent
@@ -391,14 +456,60 @@
   cursor: grab
   color: var(--follow-muted)
 
-.follow-sheet-chevron
-  font-size: 1.05rem
-  line-height: 1
-  transition: transform 0.22s ease
-  pointer-events: none
+.follow-sheet-grab
+  display: block
+  width: 36px
+  height: 4px
+  border-radius: 999px
+  background: var(--follow-handle)
 
-.follow-sheet-chevron.is-expanded
-  transform: rotate(180deg)
+.follow-sheet-body-slot
+  display: block
+  overflow: hidden
+  max-height: 0
+  flex: 0 0 auto
+  min-height: 0
+  transition: max-height 0.36s cubic-bezier(0.32, 0.72, 0, 1)
+
+.follow-sheet:not(.is-minimised) .follow-sheet-body-slot
+  max-height: 70vh
+
+.follow-sheet-peek
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 12px
+  flex: 0 0 auto
+  padding: 0 4px 10px
+  touch-action: none
+  cursor: pointer
+
+.follow-peek-stat
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  min-width: 0
+
+.follow-peek-stat span
+  color: var(--follow-muted)
+  font-size: 0.78rem
+  line-height: 1.25
+  margin-bottom: 2px
+
+.follow-peek-stat strong
+  font-size: 1.7rem
+  line-height: 1.05
+  font-weight: 700
+  color: var(--follow-ink)
+  letter-spacing: -0.02em
+
+.follow-sheet-body
+  min-height: 0
+  overflow: hidden
+  -webkit-overflow-scrolling: touch
+
+.follow-sheet:not(.is-minimised) .follow-sheet-body
+  padding-bottom: 8px
 
 
 .follow-library-note
@@ -427,11 +538,12 @@
   margin-bottom: 6px
 
 .follow-stat strong
-  font-size: 1.55rem
-  line-height: 1.05
+  font-size: 1.25rem
+  line-height: 1.15
   font-weight: 700
   color: var(--follow-ink)
   letter-spacing: -0.02em
+  white-space: nowrap
 
 .follow-speed
   margin: 0 0 14px
@@ -442,7 +554,7 @@
   flex-wrap: wrap
   justify-content: center
   gap: 10px
-  margin-bottom: 10px
+  margin-bottom: 0
 
 .follow-main-btn,
 .follow-secondary-btn

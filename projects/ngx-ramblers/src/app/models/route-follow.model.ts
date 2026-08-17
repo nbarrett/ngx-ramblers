@@ -181,6 +181,7 @@ export interface RouteFollowProgress {
   totalMetres: number;
   locationError: RouteFollowLocationError;
   routeHeading: number | null;
+  returnDirection: RouteFollowReturnDirection | null;
   currentElevationMetres: number | null;
 }
 
@@ -305,6 +306,50 @@ export const ROUTE_FOLLOW_PREVIEW_SPEED_MAX = 10;
 export const ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT = 1;
 export const ROUTE_FOLLOW_PREVIEW_SPEED_SPAN = 2;
 export const ROUTE_FOLLOW_SHEET_DRAG_THRESHOLD = 36;
+export const FOLLOW_MAP_SCALE_TARGET_PX = 72;
+export const FOLLOW_MAP_SCALE_MAX_PX = 110;
+export const FOLLOW_MAP_SCALE_MIN_PX = 36;
+const METRES_PER_FOOT = 0.3048;
+const METRES_PER_MILE = 1609.34;
+const OS_GRID_LETTERS = [
+  ["SV", "SW", "SX", "SY", "SZ", "TV", "TW"],
+  ["SQ", "SR", "SS", "ST", "SU", "TQ", "TR"],
+  ["SL", "SM", "SN", "SO", "SP", "TL", "TM"],
+  ["SF", "SG", "SH", "SJ", "SK", "TF", "TG"],
+  ["SA", "SB", "SC", "SD", "SE", "TA", "TB"],
+  ["NV", "NW", "NX", "NY", "NZ", "OV", "OW"],
+  ["NQ", "NR", "NS", "NT", "NU", "OQ", "OR"],
+  ["NL", "NM", "NN", "NO", "NP", "OL", "OM"],
+  ["NF", "NG", "NH", "NJ", "NK", "OF", "OG"],
+  ["NA", "NB", "NC", "ND", "NE", "OA", "OB"]
+];
+
+export interface FollowMapScaleBar {
+  label: string;
+  widthPx: number;
+}
+
+const FOLLOW_MAP_SCALE_CHOICES: FollowMapScaleBarChoice[] = [
+  {metres: 5 * METRES_PER_FOOT, label: "5 ft"},
+  {metres: 10 * METRES_PER_FOOT, label: "10 ft"},
+  {metres: 20 * METRES_PER_FOOT, label: "20 ft"},
+  {metres: 50 * METRES_PER_FOOT, label: "50 ft"},
+  {metres: 100 * METRES_PER_FOOT, label: "100 ft"},
+  {metres: 200 * METRES_PER_FOOT, label: "200 ft"},
+  {metres: 500 * METRES_PER_FOOT, label: "500 ft"},
+  {metres: 1000 * METRES_PER_FOOT, label: "1000 ft"},
+  {metres: 0.25 * METRES_PER_MILE, label: "0.25 mi"},
+  {metres: 0.5 * METRES_PER_MILE, label: "0.5 mi"},
+  {metres: 1 * METRES_PER_MILE, label: "1 mi"},
+  {metres: 2 * METRES_PER_MILE, label: "2 mi"},
+  {metres: 5 * METRES_PER_MILE, label: "5 mi"},
+  {metres: 10 * METRES_PER_MILE, label: "10 mi"}
+];
+
+interface FollowMapScaleBarChoice {
+  metres: number;
+  label: string;
+}
 
 export function sheetStateAfterDrag(current: RouteFollowSheetState, deltaY: number, threshold = ROUTE_FOLLOW_SHEET_DRAG_THRESHOLD): RouteFollowSheetState {
   if (deltaY <= -threshold) {
@@ -313,5 +358,50 @@ export function sheetStateAfterDrag(current: RouteFollowSheetState, deltaY: numb
     return RouteFollowSheetState.MINIMISED;
   } else {
     return current;
+  }
+}
+
+export function compassHeadingLabel(degrees: number): string {
+  if (!Number.isFinite(degrees)) {
+    return "";
+  } else {
+    const wrapped = ((Math.round(degrees) % 360) + 360) % 360;
+    return `${wrapped}°`;
+  }
+}
+
+export function followMapScaleBar(
+  metresPerPixel: number,
+  targetPx = FOLLOW_MAP_SCALE_TARGET_PX,
+  maxPx = FOLLOW_MAP_SCALE_MAX_PX
+): FollowMapScaleBar {
+  if (!Number.isFinite(metresPerPixel) || metresPerPixel <= 0) {
+    return {label: "", widthPx: 0};
+  } else {
+    const scored = FOLLOW_MAP_SCALE_CHOICES.map(choice => {
+      const widthPx = choice.metres / metresPerPixel;
+      return {choice, widthPx, score: Math.abs(widthPx - targetPx)};
+    });
+    const inRange = scored.filter(item => item.widthPx >= FOLLOW_MAP_SCALE_MIN_PX && item.widthPx <= maxPx);
+    const pool = inRange.length > 0 ? inRange : scored;
+    const best = pool.reduce((winner, item) => item.score < winner.score ? item : winner);
+    return {label: best.choice.label, widthPx: Math.round(best.widthPx)};
+  }
+}
+
+export function formatOsGridReference(eastings: number, northings: number): string {
+  if (!Number.isFinite(eastings) || !Number.isFinite(northings) || eastings < 0 || eastings >= 700000 || northings < 0 || northings >= 1300000) {
+    return "";
+  } else {
+    const columnIndex = Math.floor(eastings / 100000);
+    const rowIndex = Math.floor(northings / 100000);
+    const letters = OS_GRID_LETTERS[rowIndex] ? OS_GRID_LETTERS[rowIndex][columnIndex] : null;
+    if (!letters) {
+      return "";
+    } else {
+      const east = Math.floor(eastings % 100000).toString().padStart(5, "0");
+      const north = Math.floor(northings % 100000).toString().padStart(5, "0");
+      return `${letters} ${east} ${north}`;
+    }
   }
 }

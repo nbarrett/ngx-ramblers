@@ -19,12 +19,14 @@ import {
   RouteFollowMode,
   RouteFollowPoint,
   RouteFollowProgress,
+  RouteFollowReturnDirection,
   RouteFollowSnap,
   RouteFollowWaypoint,
   RouteWaypointKind
 } from "../../models/route-follow.model";
 import { GeoDistanceService } from "./geo-distance.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
+import { returnDirectionFrom } from "./map-gestures";
 
 @Injectable({
   providedIn: "root"
@@ -458,6 +460,7 @@ export class RouteFollowService {
       ? this.remainingFrom(progressMetres)
       : (next?.metres ?? 0);
     const offRoute = snap ? snap.distanceMetres > ROUTE_FOLLOW_OFF_ROUTE_METRES : false;
+    const routeHeading = this.routeHeadingAt(snap ? snap.index : -1);
     this.state = {
       mode: this.state.mode,
       position,
@@ -473,7 +476,8 @@ export class RouteFollowService {
       completedMetres: progressMetres,
       totalMetres: this.totalMetres(),
       locationError: RouteFollowLocationError.NONE,
-      routeHeading: this.routeHeadingAt(snap ? snap.index : -1),
+      routeHeading,
+      returnDirection: this.returnDirectionFor(position, snap, routeHeading),
       currentElevationMetres: this.elevationAt(position, snap)
     };
     this.progressSubject.next(this.state);
@@ -647,6 +651,7 @@ export class RouteFollowService {
       totalMetres: 0,
       locationError: RouteFollowLocationError.NONE,
       routeHeading: null,
+      returnDirection: null,
       currentElevationMetres: null
     };
   }
@@ -698,10 +703,26 @@ export class RouteFollowService {
   }
 
   private routeHeadingAt(index: number): number | null {
-    if (index < 0 || index >= this.track.length - 1) {
+    if (this.track.length < 2) {
+      return null;
+    } else if (index >= 0 && index < this.track.length - 1) {
+      return this.headingBetween(this.track[index], this.track[index + 1]);
+    } else if (index >= this.track.length - 1) {
+      return this.headingBetween(this.track[this.track.length - 2], this.track[this.track.length - 1]);
+    } else {
+      return this.headingBetween(this.track[0], this.track[1]);
+    }
+  }
+
+  private returnDirectionFor(
+    position: RouteFollowPoint,
+    snap: RouteFollowSnap | null,
+    routeHeading: number | null
+  ): RouteFollowReturnDirection | null {
+    if (!snap || !isNumber(routeHeading) || snap.distanceMetres < 1) {
       return null;
     } else {
-      return this.headingBetween(this.track[index], this.track[index + 1]);
+      return returnDirectionFrom(routeHeading, this.headingBetween(position, snap.point));
     }
   }
 

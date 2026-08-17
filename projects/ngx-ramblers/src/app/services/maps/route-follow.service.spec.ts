@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { appAppearanceFromStored, AppAppearance, followCacheKey, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteWaypointKind } from "../../models/route-follow.model";
+import { appAppearanceFromStored, AppAppearance, followCacheKey, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteFollowReturnDirection, RouteWaypointKind } from "../../models/route-follow.model";
 import { GeoDistanceService } from "./geo-distance.service";
 import { RouteFollowService } from "./route-follow.service";
 
@@ -87,6 +87,20 @@ describe("RouteFollowService", () => {
   it("flags off-route when the walker is far from the line", () => {
     service.applyPosition({latitude: 51.25, longitude: 1.01}, 0, 5);
     expect(service.progress().offRoute).toBe(true);
+  });
+
+  it("says which way to walk back from the side of an eastbound line", () => {
+    service.applyPosition({latitude: 51.21, longitude: 1.01}, 0, 5);
+    expect(service.progress().returnDirection).toBe(RouteFollowReturnDirection.RIGHT);
+    service.applyPosition({latitude: 51.19, longitude: 1.01}, 0, 5);
+    expect(service.progress().returnDirection).toBe(RouteFollowReturnDirection.LEFT);
+  });
+
+  it("says head forward before the start and back after the finish", () => {
+    service.applyPosition({latitude: 51.2, longitude: 0.99}, 0, 5);
+    expect(service.progress().returnDirection).toBe(RouteFollowReturnDirection.FORWARD);
+    service.applyPosition({latitude: 51.2, longitude: 1.03}, 0, 5);
+    expect(service.progress().returnDirection).toBe(RouteFollowReturnDirection.BACK);
   });
 
   it("formats short distances in metres and longer ones in miles", () => {

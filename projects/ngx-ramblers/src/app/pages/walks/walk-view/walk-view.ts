@@ -398,7 +398,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
           @if (canFollowRoute()) {
             <button type="button" (click)="followRoute()"
                     tooltip="Follow this route"
-                    class="btn btn-quiet btn-sm walk-view-action walk-view-action-follow">
+                    class="btn btn-primary btn-sm walk-view-action walk-view-action-follow">
               <fa-icon [icon]="faPersonWalking"/>
               <span>Follow this route</span>
             </button>
