@@ -16,6 +16,7 @@ export interface VideoMeetingRuntimeConfig {
   enabled: boolean;
   host: string;
   jwtRequired: boolean;
+  publicHost: boolean;
   roomPrefix: string;
   brandName: string;
   startWithAudioMuted: boolean;
