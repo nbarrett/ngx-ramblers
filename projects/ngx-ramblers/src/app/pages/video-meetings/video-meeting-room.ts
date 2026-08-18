@@ -191,7 +191,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       height: "100%",
       jwt: token || undefined,
       configOverwrite: {
-        prejoinPageEnabled: this.guest ? true : this.config.enableLobby,
+        prejoinPageEnabled: this.guest && this.config.enableLobby,
+        prejoinConfig: {enabled: this.guest && this.config.enableLobby},
         startWithAudioMuted: this.config.startWithAudioMuted,
         startWithVideoMuted: this.config.startWithVideoMuted,
         disableDeepLinking: true,

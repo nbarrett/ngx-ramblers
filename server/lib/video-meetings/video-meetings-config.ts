@@ -5,16 +5,27 @@ import { VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../project
 
 const DEFAULT_PUBLIC_HOST = "https://meet.jit.si";
 
+export function isPublicJitsiHost(host: string): boolean {
+  try {
+    const hostname = new URL(host).hostname.toLowerCase();
+    return hostname === "meet.jit.si" || hostname.endsWith(".meet.jit.si") || hostname === "8x8.vc" || hostname.endsWith(".8x8.vc");
+  } catch {
+    return false;
+  }
+}
+
 export async function resolveVideoMeetingRuntime(): Promise<VideoMeetingRuntimeConfig> {
   const config: VideoMeetingsConfig = (await systemConfig())?.videoMeetings;
   const envHost = envConfig.value(Environment.JITSI_HOST_URL);
   const host = (envHost || config?.hostUrl || DEFAULT_PUBLIC_HOST).replace(/\/$/, "");
   const {appId, appSecret} = jitsiJwtCredentials();
-  const jwtRequired = !!(appId && appSecret);
+  const publicHost = isPublicJitsiHost(host);
+  const jwtRequired = !!(appId && appSecret) && !publicHost;
   return {
     enabled: config?.enabled ?? true,
     host,
     jwtRequired,
+    publicHost,
     roomPrefix: config?.roomPrefix || "ngx",
     brandName: config?.brandName || "Ramblers Video Meetings",
     startWithAudioMuted: config?.startWithAudioMuted ?? false,
