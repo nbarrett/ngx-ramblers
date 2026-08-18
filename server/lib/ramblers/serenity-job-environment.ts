@@ -17,8 +17,8 @@ export function isOsMapsWorkerJob(job: RamblersUploadJob): boolean {
 
 export function applyOsMapsExportEnvironment(job: RamblersUploadJob, credentials: RamblersUploadCredentials, jobPath: string): void {
   process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
-  process.env[Environment.OS_EMAIL] = credentials.userName;
-  process.env[Environment.OS_PASSWORD] = credentials.password;
+  process.env[Environment.OS_EMAIL] = (credentials.userName || "").trim();
+  process.env[Environment.OS_PASSWORD] = (credentials.password || "").trim();
   process.env[Environment.OS_MAPS_JOB_PATH] = jobPath;
   if (job.data.osMapsRouteUrls && job.data.osMapsRouteUrls.length > 0) {
     process.env[Environment.OS_MAPS_ROUTE_URLS] = JSON.stringify(job.data.osMapsRouteUrls);

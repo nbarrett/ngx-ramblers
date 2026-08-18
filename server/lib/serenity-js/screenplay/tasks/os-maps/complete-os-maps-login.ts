@@ -8,16 +8,13 @@ import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
 import {
   clickOsMapsExploreLogin,
-  fillOsMapsIdentityField,
+  completeOsMapsIdentityLogin,
   osMapsEmailField,
   osMapsIdentityErrorText,
   osMapsIdentityHost,
-  osMapsPasswordField,
   osMapsSessionIsSignedIn,
   pageShowingOsMapsIdentity,
-  submitOsMapsIdentityForm,
   waitForOsMapsApplicationReady,
-  waitForOsMapsIdentityForm,
   waitForOsMapsSignedIn
 } from "./os-maps-identity";
 
@@ -45,10 +42,7 @@ export class CompleteOsMapsLogin extends Interaction {
     } else {
       const loginPage = await this.openIdentityPage(native, timeout);
       debugLog("identity page", loginPage.url());
-      await waitForOsMapsIdentityForm(loginPage, timeout);
-      await fillOsMapsIdentityField(loginPage, osMapsEmailField(loginPage), this.email, timeout);
-      await fillOsMapsIdentityField(loginPage, osMapsPasswordField(loginPage), this.password, timeout);
-      await submitOsMapsIdentityForm(loginPage, timeout);
+      await completeOsMapsIdentityLogin(loginPage, this.email, this.password, timeout);
       const rejected = await osMapsIdentityErrorText(loginPage);
       if (rejected) {
         throw new Error(`OS Maps login was rejected: ${rejected}`);

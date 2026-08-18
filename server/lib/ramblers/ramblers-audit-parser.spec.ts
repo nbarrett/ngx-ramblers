@@ -52,6 +52,19 @@ describe("auditParser.parseStandardOut", () => {
       }
     }]);
   });
+
+  it("drops playwright leftover lines", () => {
+    const ignored = [{audit: false}];
+    expect(auditParser.parseStandardOut("1 failed")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("npx playwright show-trace target/site/playwright/os-maps-export.ts-OS-Maps--93009-s-GPX-and-validate-the-file/trace.zip")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("Usage:")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("attachment #3: trace (application/zip)")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("Error Context: target/site/playwright/os-maps-export.ts-OS-Maps--93009-s-GPX-and-validate-the-file/error-context.md")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("lib/serenity-js/features/os-maps-export.ts:60:7 › OS Maps GPX export › should login, export Requested OS Maps route (0) as GPX and validate the file")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("at /Users/nick/dev/git-personal/ngx-ramblers/server/lib/serenity-js/features/os-maps-export.ts:63:7")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("at PerformActivitiesAsPlaywrightSteps.perform (/Users/nick/dev/git-personal/ngx-ramblers/server/node_modules/@serenity-js/playwright-test/src/stage/crew/PlaywrightTestReporter.ts:1:1)")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("--------------------------------")).toEqual(ignored);
+  });
 });
 
 describe("auditParser.parseStandardError", () => {

@@ -4,6 +4,7 @@ import "proj4leaflet";
 import proj4 from "proj4";
 import * as proj4leaflet from "proj4leaflet";
 import { SystemConfigService } from "../system/system-config.service";
+import { OsMapsBrandingService } from "./os-maps-branding.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
 import { MapProvider, OSMapStyle, osStyleForKey } from "../../models/map.model";
 import { LoggerFactory } from "../logger-factory.service";
@@ -31,6 +32,7 @@ export class MapTilesService {
   };
 
   private systemConfig = inject(SystemConfigService);
+  private osBranding = inject(OsMapsBrandingService);
   private projInitialized = false;
   private logger = inject(LoggerFactory).createLogger("MapTilesService", NgxLoggerLevel.ERROR);
   private leafletProj: Proj4LeafletApi = proj4leaflet as Proj4LeafletApi;
@@ -63,23 +65,23 @@ export class MapTilesService {
     };
     if (provider === MapProvider.OS) {
       if (!this.osApiKeyConfigured()) {
-        return L.tileLayer(this.osmUrl(), {
+        return this.withBranding(L.tileLayer(this.osmUrl(), {
           ...options,
           attribution: "© OpenStreetMap (OS Maps unavailable)",
           maxZoom: 19,
           maxNativeZoom: 19
-        });
+        }), false);
       } else {
-        return L.tileLayer(this.osProxyUrl(style), {
+        return this.withBranding(L.tileLayer(this.osProxyUrl(style), {
           ...options,
-          attribution: "© Ordnance Survey"
-        });
+          attribution: this.osBranding.attributionHtml()
+        }), true);
       }
     } else {
-      return L.tileLayer(this.osmUrl(), {
+      return this.withBranding(L.tileLayer(this.osmUrl(), {
         ...options,
         attribution: "© OpenStreetMap"
-      });
+      }), false);
     }
   }
 
@@ -102,7 +104,7 @@ export class MapTilesService {
     } else {
       const crs = this.crsForStyle(provider, style);
       const maxZoom = this.nativeMaxZoomForStyle(provider, style);
-      const minZoom = provider === MapProvider.OS ? Math.max(maxZoom - 3, 4) : Math.max(maxZoom - 5, 11);
+      const minZoom = provider === MapProvider.OS ? maxZoom : Math.max(maxZoom - 5, 11);
       const lats = points.map(point => point.latitude);
       const lngs = points.map(point => point.longitude);
       const south = Math.min(...lats);
@@ -183,6 +185,20 @@ export class MapTilesService {
     } else {
       return 19;
     }
+  }
+
+  private withBranding(layer: L.TileLayer, showOsLogo: boolean): L.TileLayer {
+    layer.on("add", () => {
+      const map = (layer as L.TileLayer & {_map?: L.Map})._map;
+      if (map) {
+        if (showOsLogo) {
+          this.osBranding.attachTo(map);
+        } else {
+          this.osBranding.detachFrom(map);
+        }
+      }
+    });
+    return layer;
   }
 
   private osProxyUrl(layer: string): string {

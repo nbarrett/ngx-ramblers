@@ -15,8 +15,8 @@ export class LoginToOsMaps extends Task {
   }
 
   performAs(actor: PerformsActivities): Promise<void> {
-    const email = process.env[Environment.OS_EMAIL];
-    const password = process.env[Environment.OS_PASSWORD];
+    const email = (process.env[Environment.OS_EMAIL] || "").trim();
+    const password = (process.env[Environment.OS_PASSWORD] || "").trim();
     if (!email || !password) {
       throw new Error("OS_EMAIL and OS_PASSWORD must be set to export an OS Maps route");
     } else {

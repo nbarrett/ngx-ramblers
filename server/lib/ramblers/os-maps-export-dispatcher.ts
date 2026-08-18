@@ -14,8 +14,8 @@ async function osMapsWorkerCredentials(): Promise<{userName: string; password: s
     throw new Error("INTEGRATION_WORKER_URL is not set; OS Maps export must run on the integration worker");
   } else {
     const config = await systemConfig();
-    const email = config?.externalSystems?.osMaps?.email;
-    const password = config?.externalSystems?.osMaps?.password;
+    const email = (config?.externalSystems?.osMaps?.email || "").trim();
+    const password = (config?.externalSystems?.osMaps?.password || "").trim();
     if (!email || !password) {
       throw new Error("OS Maps login details are not configured");
     } else {

@@ -6,6 +6,7 @@ import { isArray } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
 import { openSerenityReport } from "../../../functions/serenity-report";
+import { isRamblersAuditNoise } from "../../../models/ramblers-audit-noise";
 import { RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
 import { SortDirection } from "../../../models/sort.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
@@ -231,6 +232,7 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   private applyAudits(incoming: RamblersUploadAudit[]): void {
     const seen = new Set<string>();
     this.audits = incoming
+      .filter(audit => !isRamblersAuditNoise(audit.message || ""))
       .filter(audit => {
         const key = audit.id || `${audit.fileName}-${audit.record}`;
         if (seen.has(key)) {
