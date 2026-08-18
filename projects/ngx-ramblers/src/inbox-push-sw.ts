@@ -10,7 +10,8 @@ interface InboxPushPayload {
 }
 
 const FOLLOW_SHELL = "follow-shell-v2";
-const FOLLOW_TILES = "follow-tiles-v2";
+const FOLLOW_TILES = "follow-tiles-v3";
+const OS_TILE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 sw.addEventListener("install", () => {
   void sw.skipWaiting();
@@ -33,6 +34,8 @@ sw.addEventListener("fetch", event => {
     const url = new URL(request.url);
     if (request.mode === "navigate" && (url.pathname === "/app" || url.pathname.startsWith("/app/"))) {
       event.respondWith(networkThenShell(request));
+    } else if (isOsTile(url)) {
+      event.respondWith(osTile(request));
     } else if (isFollowTile(url)) {
       event.respondWith(cacheFirst(request, FOLLOW_TILES));
     } else if (url.origin === sw.location.origin && isFollowAsset(url.pathname)) {
@@ -41,8 +44,12 @@ sw.addEventListener("fetch", event => {
   }
 });
 
+function isOsTile(url: URL): boolean {
+  return url.pathname.startsWith("/api/os-maps/tiles/");
+}
+
 function isFollowTile(url: URL): boolean {
-  return url.pathname.startsWith("/api/os-maps/tiles/") || url.hostname.endsWith("tile.openstreetmap.org");
+  return url.hostname.endsWith("tile.openstreetmap.org");
 }
 
 function isFollowAsset(pathname: string): boolean {
@@ -66,6 +73,42 @@ async function networkThenShell(request: Request): Promise<Response> {
       status: 503,
       headers: {"Content-Type": "text/plain; charset=utf-8"}
     });
+  }
+}
+
+function clockMs(): number {
+  return self.performance.timeOrigin + self.performance.now();
+}
+
+function cachedAtMs(response: Response): number {
+  const stamped = Number(response.headers.get("x-sw-cached-at"));
+  if (stamped > 0) {
+    return stamped;
+  } else {
+    const dateHeader = Date.parse(response.headers.get("date") || "");
+    return Number.isFinite(dateHeader) ? dateHeader : 0;
+  }
+}
+
+async function osTile(request: Request): Promise<Response> {
+  const cache = await caches.open(FOLLOW_TILES);
+  const cached = await cache.match(request);
+  const now = clockMs();
+  if (cached && now - cachedAtMs(cached) < OS_TILE_MAX_AGE_MS) {
+    return cached;
+  } else {
+    try {
+      const fresh = await fetch(request);
+      if (fresh.ok) {
+        const headers = new Headers(fresh.headers);
+        headers.set("x-sw-cached-at", String(now));
+        const stamped = new Response(fresh.clone().body, {status: fresh.status, statusText: fresh.statusText, headers});
+        await cache.put(request, stamped);
+      }
+      return fresh;
+    } catch {
+      return cached || new Response("Map tile unavailable", {status: 504});
+    }
   }
 }
 

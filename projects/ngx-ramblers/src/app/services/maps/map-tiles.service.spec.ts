@@ -38,7 +38,9 @@ describe("MapTilesService", () => {
     const service = TestBed.inject(MapTilesService);
     const layer = service.createBaseLayer(MapProvider.OS, DEFAULT_OS_STYLE);
 
-    expect(layer.getAttribution()).toContain("Ordnance Survey");
+    expect(layer.getAttribution()).toContain("Contains OS data");
+    expect(layer.getAttribution()).toContain("Crown copyright");
+    expect(layer.getAttribution()).toContain("osdatahub.os.uk/legal/apiTermsConditions");
   });
 
   it("lets OS Explorer overzoom two levels past its native tiles", () => {
@@ -64,6 +66,18 @@ describe("MapTilesService", () => {
       MapProvider.OS, OSMapStyle.OUTDOOR_27700.key, 51.2
     );
     expect(zoom).toBe(7);
+  });
+
+  it("prefetches only the native OS zoom for a route corridor", () => {
+    const service = TestBed.inject(MapTilesService);
+    const urls = service.tileUrlsForPoints(MapProvider.OS, OSMapStyle.LEISURE_27700.key, [
+      {latitude: 51.28, longitude: 1.08},
+      {latitude: 51.29, longitude: 1.09}
+    ]);
+    const zooms = urls.map(url => url.match(/\/(\d+)\/\d+\/\d+\.png$/)?.[1]);
+    expect(urls.length).toBeGreaterThan(0);
+    expect(new Set(zooms).size).toBe(1);
+    expect(zooms[0]).toBe("9");
   });
 
   it("picks an OSM zoom that matches OS Explorer scale at UK latitudes", () => {

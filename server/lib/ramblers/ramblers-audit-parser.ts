@@ -7,6 +7,7 @@ import {
   Status,
   DomainEventData
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import { isRamblersAuditNoise } from "../../../projects/ngx-ramblers/src/app/models/ramblers-audit-noise";
 import { dateTimeInTimezone, dateTimeNowAsValue } from "../shared/dates";
 
 const errorIcons = ["⨯", "✗", "✖"];
@@ -88,38 +89,8 @@ function splitIntoItems(auditMessage: string) {
     .map(item => item.trim());
 }
 
-const noiseIndicators = [
-  "undefined undefined undefined",
-  "DeprecationWarning",
-  "mongodb+srv://",
-  "env-config using environment variable",
-  "Spawning: ",
-  "Loading test outcomes",
-  "Writing aggregated report",
-  "SERENITY COMMAND LINE",
-  "> serenity-bdd",
-  "> ngx-ramblers@",
-  "> playwright",
-  "(Use `node --trace-deprecation",
-  "Script '",
-  "Failed with exit code",
-  "Succeeded with exit code 0 as all scripts passed",
-  "@playwright/test",
-  "@serenity-js/playwright-test",
-  "@serenity-js/playwright",
-  "Running 1 test using 1 worker",
-  "-------------------------------",
-  "Execution Summary",
-  "Scenarios:",
-  "Real time:",
-  "Total time:",
-  "1 passed",
-  "============================================================"
-];
-
 function isNoiseLine(auditMessageItem: string): boolean {
-  return noiseIndicators.some(indicator => auditMessageItem.includes(indicator))
-    || /^=+$/.test(removeTokensFromMessage(auditMessageItem).replace(/\s/g, ""));
+  return isRamblersAuditNoise(removeTokensFromMessage(auditMessageItem));
 }
 
 export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudit[] {
@@ -206,7 +177,8 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
   return auditMessageItems.map(auditMessageItem => {
     const messageItemIgnored = isEmpty(auditMessageItem)
       || auditMessageItem.includes(envConfig.logNamespace(logNamespace))
-      || includes(["\n", "", "npm"], auditMessageItem.trim());
+      || includes(["\n", "", "npm"], auditMessageItem.trim())
+      || isNoiseLine(auditMessageItem);
     debugLog("parseStandardError:auditMessageItem:", auditMessageItems.indexOf(auditMessageItem) + 1, "of", auditMessageItems.length, "messageItemIgnored:", messageItemIgnored, "data:", auditMessageItem);
     if (messageItemIgnored) {
       return {

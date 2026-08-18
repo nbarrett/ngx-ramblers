@@ -164,6 +164,7 @@ async function scheduleInboxBackgroundWork(): Promise<void> {
 }
 
 app.use(compression());
+app.set("trust proxy", 1);
 app.set("port", port);
 app.disable("view cache");
 const faviconPath = path.join(distFolder, "favicon.ico");
