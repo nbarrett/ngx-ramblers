@@ -102,6 +102,7 @@ export enum StoredValue {
   FILTER = "filter",
   FORMAT = "format",
   FOLLOW_SESSION = "follow-session",
+  FOLLOW_PROGRESS_PAINT = "follow-progress-paint",
   FORWARD = "forward",
   FREE_ONLY = "free-only",
   FROM_POSTCODE = "from-postcode",

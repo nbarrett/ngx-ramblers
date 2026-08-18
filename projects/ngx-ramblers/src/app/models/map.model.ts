@@ -212,5 +212,6 @@ export enum LocationType {
   FINISHING = "Finishing",
   MEETING = "Meeting",
   START = "Start",
-  END = "End"
+  END = "End",
+  FINISH = "Finish"
 }

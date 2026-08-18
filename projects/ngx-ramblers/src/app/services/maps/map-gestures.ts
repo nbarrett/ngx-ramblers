@@ -70,6 +70,7 @@ export class MapGestures {
   private northButton: HTMLElement | null = null;
   private northControl: L.Control | null = null;
   private coverScale = 1;
+  private gesture = {active: false, startBearing: 0};
   private hookedDraggable: {on: (type: string, fn: () => void) => void; off: (type: string, fn: () => void) => void} | null = null;
 
   attach(map: L.Map, onBearing?: (bearing: number) => void): void {
@@ -88,6 +89,9 @@ export class MapGestures {
     el.addEventListener("touchmove", this.onTouchMove, {passive: false, capture: true});
     el.addEventListener("touchend", this.onTouchEnd, {passive: false, capture: true});
     el.addEventListener("touchcancel", this.onTouchEnd, {passive: false, capture: true});
+    el.addEventListener("gesturestart", this.onGestureStart, {passive: false, capture: true});
+    el.addEventListener("gesturechange", this.onGestureChange, {passive: false, capture: true});
+    el.addEventListener("gestureend", this.onGestureEnd, {passive: false, capture: true});
     map.on("resize", this.onMapResize);
     this.applyBearing();
     this.hookDragCorrection();
@@ -100,6 +104,9 @@ export class MapGestures {
       el.removeEventListener("touchmove", this.onTouchMove, true);
       el.removeEventListener("touchend", this.onTouchEnd, true);
       el.removeEventListener("touchcancel", this.onTouchEnd, true);
+      el.removeEventListener("gesturestart", this.onGestureStart, true);
+      el.removeEventListener("gesturechange", this.onGestureChange, true);
+      el.removeEventListener("gestureend", this.onGestureEnd, true);
       this.map.off("resize", this.onMapResize);
       el.classList.remove("map-gestures-enabled");
       if (this.originalToContainer) {
@@ -155,21 +162,23 @@ export class MapGestures {
     if (!this.map || this.northControl) {
       return;
     } else {
+      const onNorthClick = (event: Event) => {
+        L.DomEvent.stop(event);
+        this.resetNorth();
+      };
       const NorthControl = L.Control.extend({
         options: {position: "topleft"},
         onAdd: () => {
           const wrap = L.DomUtil.create("div", "leaflet-bar leaflet-control map-north-control-wrap");
-          const button = L.DomUtil.create("a", "map-north-control", wrap);
-          button.href = "#";
-          button.role = "button";
+          const button = L.DomUtil.create("button", "map-north-control", wrap);
+          button.type = "button";
           button.title = "Reset map to north";
           button.setAttribute("aria-label", "Reset map to north");
           button.textContent = "N";
           L.DomEvent.disableClickPropagation(wrap);
-          L.DomEvent.on(button, "click", (event: Event) => {
-            L.DomEvent.preventDefault(event);
-            this.resetNorth();
-          });
+          L.DomEvent.disableScrollPropagation(wrap);
+          L.DomEvent.on(button, "dblclick", L.DomEvent.stop);
+          L.DomEvent.on(button, "click", onNorthClick);
           this.northButton = button;
           return wrap;
         }
@@ -179,6 +188,27 @@ export class MapGestures {
       this.updateNorthControl();
     }
   }
+
+  private onGestureStart = (event: Event): void => {
+    event.preventDefault();
+    this.gesture = {active: true, startBearing: this.bearing};
+    if (this.onUserRotate) {
+      this.onUserRotate();
+    }
+  };
+
+  private onGestureChange = (event: Event): void => {
+    const rotation = (event as Event & {rotation?: number}).rotation;
+    if (this.gesture.active && rotation !== undefined && this.map) {
+      event.preventDefault();
+      this.setBearing(this.gesture.startBearing + rotation);
+    }
+  };
+
+  private onGestureEnd = (event: Event): void => {
+    event.preventDefault();
+    this.gesture = {active: false, startBearing: this.bearing};
+  };
 
   private onTouchStart = (event: TouchEvent): void => {
     if (event.touches.length === 2 && this.map) {
@@ -289,7 +319,7 @@ export class MapGestures {
       el.style.transformOrigin = "center center";
       if (this.bearing === 0) {
         this.coverScale = 1;
-        el.style.transform = "";
+        el.style.transform = "none";
       } else {
         this.coverScale = this.scaleToCover();
         el.style.transform = `rotate(${this.bearing}deg) scale(${this.coverScale})`;

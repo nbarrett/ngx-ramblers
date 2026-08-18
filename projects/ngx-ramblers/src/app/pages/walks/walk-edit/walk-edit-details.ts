@@ -28,6 +28,8 @@ import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.model";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faCloudArrowUp, faMap, faPencil, faRightLeft, faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -43,7 +45,8 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
     DecimalPipe,
     Venue,
     SectionToggle,
-    TimePicker
+    TimePicker,
+    FontAwesomeModule
   ],
   template: `
     @if (displayedWalk?.walk?.groupEvent) {
@@ -147,6 +150,8 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                     (click)="fileInput.click()">
                     @if (uploadInProgress) {
                       <span class="spinner-border spinner-border-sm me-2"></span>
+                    } @else {
+                      <fa-icon class="me-2" [icon]="faCloudArrowUp"/>
                     }
                     Upload New GPX
                   </button>
@@ -155,7 +160,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                     class="btn btn-quiet"
                     [disabled]="inputDisabled"
                     (click)="openFollowEditor()">
-                    Record or edit on the map
+                    <fa-icon class="me-2" [icon]="faPencil"/>Record or edit
                   </button>
                 </div>
                 @if (uploadError) {
@@ -169,20 +174,18 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                   <div class="col d-flex justify-content-center gap-2">
                     <div class="btn-group" role="group">
                       <button type="button" class="btn btn-primary" [class.active]="!showCombinedMap"
-                              [disabled]="syncDisabled"
                               (click)="showCombinedMap = false">
-                        Separate Maps
+                        <fa-icon class="me-2" [icon]="faTableColumns"/>Separate Maps
                       </button>
                       <button type="button" class="btn btn-primary" [class.active]="showCombinedMap"
-                              [disabled]="syncDisabled"
                               (click)="showCombinedMap = true">
-                        Combined Map
+                        <fa-icon class="me-2" [icon]="faMap"/>Combined Map
                       </button>
                     </div>
                     <button type="button" class="btn btn-secondary"
                             [disabled]="syncDisabled"
                             (click)="swapStartAndEndLocations()">
-                      Swap Start & End Locations
+                      <fa-icon class="me-2" [icon]="faRightLeft"/>Swap
                     </button>
                   </div>
                 </div>
@@ -286,6 +289,11 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
 
   @Input() displayedWalk!: DisplayedWalk;
   public inputDisabled = false;
+  protected readonly faCloudArrowUp = faCloudArrowUp;
+  protected readonly faPencil = faPencil;
+  protected readonly faTableColumns = faTableColumns;
+  protected readonly faMap = faMap;
+  protected readonly faRightLeft = faRightLeft;
 
   get syncDisabled(): boolean {
     return this.inputDisabled || this.display.walkPopulationWalksManager();

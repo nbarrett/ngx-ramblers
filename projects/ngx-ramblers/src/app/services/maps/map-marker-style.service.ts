@@ -13,7 +13,7 @@ export class MapMarkerStyleService {
   }
 
   numberedMarkerIcon(label: string, provider: MapProvider, style: string): L.DivIcon {
-    const color = provider === MapProvider.OS ? "var(--os-explorer-color)" : "#c21d4b";
+    const color = provider === MapProvider.OS ? "#453C90" : "#c21d4b";
     const text = (label || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const fontSize = text.length > 2 ? 9 : 12;
     const html = `
@@ -28,20 +28,20 @@ export class MapMarkerStyleService {
   followLocationIcon(heading: number): L.DivIcon {
     const rotation = heading || 0;
     const html = `<div class="follow-location-chevron" style="transform:rotate(${rotation}deg)">
-      <svg width="26" height="28" viewBox="0 0 26 28" aria-hidden="true">
+      <svg width="18" height="20" viewBox="0 0 26 28" aria-hidden="true">
         <path d="M13 2.2 L23.8 24.6 L13 18.8 L2.2 24.6 Z" fill="#d81b60" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
       </svg>
     </div>`;
     return L.divIcon({
       className: "follow-leaflet-icon",
       html,
-      iconSize: [26, 28],
-      iconAnchor: [13, 15]
+      iconSize: [18, 20],
+      iconAnchor: [9, 11]
     });
   }
 
-  osRouteArrowIcon(heading: number, weight = 7): L.DivIcon {
-    const size = Math.max(12, Math.min(weight * 2.2, 16));
+  osRouteArrowIcon(heading: number, weight = 6): L.DivIcon {
+    const size = Math.max(10, Math.min(weight * 1.5, 12));
     const html = `<div class="follow-route-arrow" style="transform:rotate(${heading}deg)">
       <svg viewBox="0 0 12 12" width="${size}" height="${size}" aria-hidden="true">
         <path d="M6 1.6 L10.2 10.4 L6 8.1 L1.8 10.4 Z" fill="#ffffff"/>
@@ -72,7 +72,7 @@ export class MapMarkerStyleService {
 
   private explorerPinIcon(walkStatus?: WalkStatus): L.DivIcon {
     const isCancelled = walkStatus === WalkStatus.CANCELLED;
-    const color = isCancelled ? "#999999" : "var(--os-explorer-color)";
+    const color = isCancelled ? "#999999" : "#453C90";
     const opacity = isCancelled ? "0.6" : "1";
     const html = `
       <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="display:block;color: ${color};opacity:${opacity}">

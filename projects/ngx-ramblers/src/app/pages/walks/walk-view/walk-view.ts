@@ -12,6 +12,7 @@ import { StoredValue } from "../../../models/ui-actions";
 import { DisplayedWalk, EventType, MapDisplay, WalkExportTab } from "../../../models/walk.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
+import { LocationType } from "../../../models/map.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
@@ -150,6 +151,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                          class="map-walk-view maximisable-map-fill" readonly
                          [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
                          [locationDetails]="mapDisplay==MapDisplay.SHOW_END_POINT? displayedWalk?.walk?.groupEvent?.end_location:displayedWalk?.walk?.groupEvent?.start_location"
+                         [locationType]="mapDisplay==MapDisplay.SHOW_END_POINT ? LocationType.FINISHING : LocationType.STARTING"
                          [showCombinedMap]="mapDisplay==MapDisplay.SHOW_START_AND_END_POINT"
                          [endLocationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                          [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
@@ -398,7 +400,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
           @if (canFollowRoute()) {
             <button type="button" (click)="followRoute()"
                     tooltip="Follow this route"
-                    class="btn btn-quiet btn-sm walk-view-action walk-view-action-follow">
+                    class="btn btn-primary btn-sm walk-view-action walk-view-action-follow">
               <fa-icon [icon]="faPersonWalking"/>
               <span>Follow this route</span>
             </button>
@@ -506,6 +508,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private mapProviderTouched = false;
   private mapDisplayTouched = false;
   protected readonly MapDisplay = MapDisplay;
+  protected readonly LocationType = LocationType;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   protected readonly WalkStatus = WalkStatus;
