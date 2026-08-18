@@ -63,8 +63,9 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
             <div class="col-sm-6">
               <div class="form-group">
                 Video meetings are open-source Jitsi, built into the site. Leave the host URL blank and meetings run on
-                the free <code>meet.jit.si</code> instance — members join by name with no separate sign-in. Set a host
-                URL to point at your own self-hosted Jitsi instead.
+                the free <code>meet.jit.si</code> instance. That public service now asks the first person to sign in
+                with Google or GitHub to start the room — that is Jitsi's login, not NGX. Set a host URL to point at
+                your own self-hosted Jitsi instead.
               </div>
               <div class="form-group">
                 When your own host is configured with a JWT app id and secret (server environment variables

@@ -2,7 +2,7 @@ import { Component, inject, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCalendarDays, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faCircleExclamation, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
@@ -33,8 +33,8 @@ import { StoredValue } from "../../models/ui-actions";
               <div class="row thumbnail-heading-frame h-100">
                 <div class="thumbnail-heading">Start a meeting</div>
                 <div class="col-sm-12">
-                  <p>Spin up a private meeting room and share the link with your group. No accounts, nothing to install —
-                    it runs in the browser, with gallery view, screen sharing, chat and shared notes.</p>
+                  <p>Spin up a private meeting room and share the link with your group. It runs in the browser, with
+                    gallery view, screen sharing, chat and shared notes.</p>
                   <div class="d-flex flex-wrap gap-2">
                     <button type="button" class="btn btn-primary btn-sm flex-fill" (click)="startMeeting()">
                       <fa-icon [icon]="faVideo" class="me-2"/>Start a meeting now
@@ -46,6 +46,15 @@ import { StoredValue } from "../../models/ui-actions";
                   @if (config) {
                     <p class="text-muted small mt-3 mb-0">You will join as <strong>{{ displayName }}</strong>. Powered by
                       open-source Jitsi{{ config.jwtRequired ? " on our own server" : "" }}.</p>
+                  }
+                  @if (config?.publicHost) {
+                    <div class="alert alert-warning mt-3 mb-0 d-flex align-items-start">
+                      <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                      <div>
+                        <strong>Starting a room on the free public Jitsi service</strong>
+                        <div>The first person has to sign in with Google or GitHub on Jitsi's own screen. That is not your NGX login, and being a committee member here does not make you a Jitsi moderator. Point Video Meetings at your own Jitsi host with JWT and committee members start the room automatically.</div>
+                      </div>
+                    </div>
                   }
                 </div>
               </div>
@@ -84,6 +93,7 @@ export class VideoMeetingsPageComponent implements OnInit {
   protected readonly faVideo = faVideo;
   protected readonly faRightToBracket = faRightToBracket;
   protected readonly faCalendarDays = faCalendarDays;
+  protected readonly faCircleExclamation = faCircleExclamation;
 
   async ngOnInit(): Promise<void> {
     try {
