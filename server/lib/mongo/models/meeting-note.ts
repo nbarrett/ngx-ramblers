@@ -10,7 +10,8 @@ const meetingNoteSchema = new mongoose.Schema({
   createdAt: {type: Number},
   createdBy: {type: String},
   updatedAt: {type: Number},
-  updatedBy: {type: String}
+  updatedBy: {type: String},
+  source: {type: String}
 }, {collection: "meetingNotes"});
 
 export const meetingNote: mongoose.Model<MeetingNote> = ensureModel<MeetingNote>("meetingNote", meetingNoteSchema);

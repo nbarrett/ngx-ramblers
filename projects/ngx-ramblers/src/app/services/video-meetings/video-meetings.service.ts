@@ -4,7 +4,16 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom } from "rxjs";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
-import { GuestInviteResponse, MeetingNote, VideoMeeting, VideoMeetingRuntimeConfig, VideoMeetingTokenResponse } from "../../models/video-meeting.model";
+import {
+  GuestInviteResponse,
+  MeetingMinutesRequest,
+  MeetingMinutesResponse,
+  MeetingNote,
+  MeetingSpeechCapture,
+  VideoMeeting,
+  VideoMeetingRuntimeConfig,
+  VideoMeetingTokenResponse
+} from "../../models/video-meeting.model";
 
 @Injectable({providedIn: "root"})
 export class VideoMeetingsService {
@@ -50,6 +59,16 @@ export class VideoMeetingsService {
 
   async deleteNote(id: string): Promise<void> {
     await firstValueFrom(this.http.delete(`${this.notesUrl}/${id}`));
+  }
+
+  async writeMinutes(room: string, capture: MeetingSpeechCapture): Promise<MeetingNote> {
+    const request: MeetingMinutesRequest = {
+      room,
+      transcript: capture?.transcript || "",
+      chat: capture?.chat || ""
+    };
+    const response = await firstValueFrom(this.http.post<MeetingMinutesResponse>(`${this.apiUrl}/minutes`, request));
+    return response?.note;
   }
 
   generateRoomName(prefix: string): string {

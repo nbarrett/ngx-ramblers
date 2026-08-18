@@ -1,14 +1,15 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faNoteSticky, faPaperPlane, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faNoteSticky, faPaperPlane, faTrash, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { DateUtilsService } from "../../services/date-utils.service";
-import { MeetingNote } from "../../models/video-meeting.model";
+import { AiService } from "../../services/ai/ai.service";
+import { MeetingNote, MeetingNoteSource, MeetingSpeechCapture } from "../../models/video-meeting.model";
 
 @Component({
   selector: "app-video-meeting-notes",
@@ -20,11 +21,34 @@ import { MeetingNote } from "../../models/video-meeting.model";
         <fa-icon [icon]="faNoteSticky"/>
         <span>Meeting notes</span>
       </div>
+      @if (canUseAi && !guest) {
+        <div class="meeting-notes-ai">
+          <div class="custom-control custom-checkbox">
+            <input type="checkbox" class="custom-control-input" id="auto-meeting-notes"
+                   [ngModel]="autoWrite" (ngModelChange)="autoWriteChange($event)">
+            <label class="custom-control-label" for="auto-meeting-notes">Write notes from the call automatically</label>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm w-100" [disabled]="writing" (click)="writeMinutes()">
+            <fa-icon [icon]="faWandMagicSparkles" class="me-2"/>{{ writing ? "Writing notes…" : "Write notes now" }}
+          </button>
+          @if (aiStatus) {
+            <p class="meeting-notes-ai-status">{{ aiStatus }}</p>
+          }
+        </div>
+      } @else if (!guest && aiChecked && !canUseAi) {
+        <div class="meeting-notes-ai meeting-notes-ai-missing">
+          <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+          Automatic notes need AI to be switched on for this site.
+        </div>
+      }
       <div class="meeting-notes-list">
         @for (note of notes; track note.id) {
           <div class="meeting-note">
             <div class="meeting-note-meta">
               <span class="author">{{ note.authorName }}</span>
+            @if (note.source === MeetingNoteSource.AI) {
+              <span class="source">AI</span>
+            }
               <span class="time">{{ note.createdAt | date: "shortTime" }}</span>
               @if (canDelete(note)) {
                 <button type="button" class="meeting-note-delete" aria-label="Delete note" (click)="deleteNote(note)">
@@ -46,24 +70,79 @@ import { MeetingNote } from "../../models/video-meeting.model";
       </div>
     </div>`
 })
-export class VideoMeetingNotesComponent implements OnInit {
+export class VideoMeetingNotesComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingNotesComponent", NgxLoggerLevel.ERROR);
   private videoMeetingsService = inject(VideoMeetingsService);
   private memberLoginService = inject(MemberLoginService);
   private dateUtils = inject(DateUtilsService);
+  private aiService = inject(AiService);
 
   @Input() room: string;
+  @Input() guest = false;
+
+  private speech: MeetingSpeechCapture = {transcript: "", chat: ""};
+  private autoTimer: number | null = null;
+  private lastWrittenLength = 0;
+
+  @Input() set capture(value: MeetingSpeechCapture) {
+    this.speech = value || {transcript: "", chat: ""};
+  }
 
   notes: MeetingNote[] = [];
   draft = "";
+  autoWrite = true;
+  writing = false;
+  canUseAi = false;
+  aiChecked = false;
+  aiStatus = "";
 
   protected readonly faNoteSticky = faNoteSticky;
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faTrash = faTrash;
+  protected readonly faWandMagicSparkles = faWandMagicSparkles;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly MeetingNoteSource = MeetingNoteSource;
 
   async ngOnInit(): Promise<void> {
     await this.refresh();
+    try {
+      this.canUseAi = (await this.aiService.status())?.connected === true;
+    } catch (error) {
+      this.logger.error("failed to check AI status for meeting notes", error);
+      this.canUseAi = false;
+    }
+    this.aiChecked = true;
+    if (this.canUseAi && !this.guest && this.autoWrite) {
+      this.startAutoWrite();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.stopAutoWrite();
+  }
+
+  autoWriteChange(enabled: boolean): void {
+    this.autoWrite = enabled;
+    if (enabled) {
+      this.startAutoWrite();
+    } else {
+      this.stopAutoWrite();
+    }
+  }
+
+  private startAutoWrite(): void {
+    this.stopAutoWrite();
+    this.autoTimer = window.setInterval(() => {
+      void this.writeMinutes(true);
+    }, 180000);
+  }
+
+  private stopAutoWrite(): void {
+    if (this.autoTimer !== null) {
+      window.clearInterval(this.autoTimer);
+      this.autoTimer = null;
+    }
   }
 
   private async refresh(): Promise<void> {
@@ -73,6 +152,36 @@ export class VideoMeetingNotesComponent implements OnInit {
       } catch (error) {
         this.logger.error("failed to load notes for room", this.room, error);
       }
+    }
+  }
+
+  async writeMinutes(automatic = false): Promise<void> {
+    const captureLength = (this.speech.transcript || "").length + (this.speech.chat || "").length;
+    const handwritten = this.notes
+      .filter(note => note.source !== MeetingNoteSource.AI)
+      .map(note => `${note.authorName}: ${note.text}`)
+      .join("\n");
+    const skip = this.writing || (automatic && captureLength < this.lastWrittenLength + 80 && !handwritten);
+    const empty = !this.speech.transcript.trim() && !this.speech.chat.trim() && !handwritten.trim();
+    if (!skip && empty && !automatic) {
+      this.aiStatus = "Nothing to write up yet. Talk in the meeting, use chat, or add a note first.";
+    } else if (!skip && !empty) {
+      this.writing = true;
+      this.aiStatus = automatic ? "Updating notes from the call…" : "Writing notes…";
+      try {
+        const saved = await this.videoMeetingsService.writeMinutes(this.room, this.speech);
+        if (saved) {
+          this.notes = [...this.notes.filter(note => note.source !== MeetingNoteSource.AI), saved];
+          this.lastWrittenLength = captureLength;
+          this.aiStatus = "Notes updated from the call.";
+        } else {
+          this.aiStatus = "The notes came back empty. Try again in a moment.";
+        }
+      } catch (error) {
+        this.logger.error("failed to write meeting minutes", error);
+        this.aiStatus = "We could not write the notes. Try again in a moment.";
+      }
+      this.writing = false;
     }
   }
 
@@ -86,7 +195,8 @@ export class VideoMeetingNotesComponent implements OnInit {
         memberId: member?.memberId,
         authorName,
         text,
-        createdAt: this.dateUtils.nowAsValue()
+        createdAt: this.dateUtils.nowAsValue(),
+        source: MeetingNoteSource.MEMBER
       };
       try {
         const saved = await this.videoMeetingsService.addNote(note);

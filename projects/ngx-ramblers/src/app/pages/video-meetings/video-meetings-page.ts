@@ -51,8 +51,8 @@ import { StoredValue } from "../../models/ui-actions";
                     <div class="alert alert-warning mt-3 mb-0 d-flex align-items-start">
                       <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
                       <div>
-                        <strong>Starting a room on the free public Jitsi service</strong>
-                        <div>The first person has to sign in with Google or GitHub on Jitsi's own screen. That is not your NGX login, and being a committee member here does not make you a Jitsi moderator. Point Video Meetings at your own Jitsi host with JWT and committee members start the room automatically.</div>
+                        <strong>This site is using Jitsi's public rooms</strong>
+                        <div>The call opens on Jitsi's own page so it is not cut off after five minutes. The first person still has to sign in with Google or GitHub on Jitsi's screen. For meetings that stay inside NGX, with no time limit and no Jitsi login, set a self-hosted Jitsi host under System Settings → Video Meetings.</div>
                       </div>
                     </div>
                   }
