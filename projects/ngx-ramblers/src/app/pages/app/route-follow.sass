@@ -53,28 +53,183 @@
   touch-action: none
   overflow: hidden
 
+.follow-os-credit
+  margin: 10px 0 0
+  font-size: 0.75rem
+  line-height: 1.35
+  color: var(--follow-muted)
+
+.follow-os-credit a
+  color: inherit
+  text-decoration: underline
+
 .follow-top
   position: absolute
   top: 0
   left: 0
   right: 0
   z-index: 5
-  float: none
-  width: auto
   display: flex
-  align-items: flex-start
-  gap: 10px
+  flex-direction: column
+  align-items: stretch
   background: transparent
   color: inherit
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0
+  padding: env(safe-area-inset-top, 0px) 10px 0
   pointer-events: none
   box-sizing: border-box
 
+.follow-top-bar
+  display: flex
+  align-items: center
+  flex: 0 0 auto
+  min-width: 0
+  gap: 8px
+  min-height: 36px
+  z-index: 2
+
+.follow-top:not(.has-banner)
+  flex-direction: row
+  align-items: flex-start
+  gap: 8px
+
+  .follow-top-bar
+    padding-top: 0
+
+  .follow-hud
+    flex: 1 1 auto
+    min-width: 0
+    width: auto
+    overflow: hidden
+
+.follow-hud
+  pointer-events: none
+  display: flex
+  flex-direction: column
+  align-items: center
+  width: 100%
+  color: var(--follow-ink)
+
+.follow-tape-heading
+  min-height: 36px
+  display: flex
+  align-items: center
+  font-size: 1.05rem
+  font-weight: 700
+  line-height: 1.1
+  letter-spacing: 0.01em
+  text-shadow: 0 0 5px var(--follow-bg), 0 0 8px var(--follow-bg), 0 1px 2px var(--follow-bg)
+
+.follow-top.has-banner .follow-tape-heading
+  min-height: 0
+  padding-top: 4px
+
+.follow-tape
+  width: 100%
+  max-width: 420px
+  height: 32px
+  overflow: hidden
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent)
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent)
+
+.follow-tape-window
+  position: relative
+  width: 100%
+  height: 100%
+
+.follow-tape-mark
+  position: absolute
+  top: 0
+  display: flex
+  flex-direction: column
+  align-items: center
+  transform: translateX(-50%)
+  pointer-events: none
+
+.follow-tape-tick
+  width: 1px
+  height: 6px
+  background: var(--follow-ink)
+  opacity: 0.32
+
+.follow-tape-tick.is-medium
+  height: 10px
+  opacity: 0.55
+
+.follow-tape-tick.is-major
+  height: 13px
+  opacity: 0.92
+
+.follow-tape-label
+  margin-top: 2px
+  font-size: 0.68rem
+  font-weight: 700
+  line-height: 1
+  letter-spacing: 0.04em
+  text-shadow: 0 0 5px var(--follow-bg), 0 1px 2px var(--follow-bg)
+
+.follow-tape-needle
+  position: absolute
+  left: 50%
+  top: 0
+  width: 2px
+  height: 16px
+  background: #e20074
+  border-radius: 1px
+  transform: translateX(-50%)
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85)
+
+.follow-tape-grid
+  margin-top: 3px
+  font-size: 0.78rem
+  font-weight: 700
+  letter-spacing: 0.04em
+  line-height: 1.15
+  text-shadow: 0 0 5px var(--follow-bg), 0 0 8px var(--follow-bg), 0 1px 2px var(--follow-bg)
+
+.follow-bottom-chrome
+  display: flex
+  align-items: flex-end
+  justify-content: space-between
+  gap: 12px
+  padding: 0 12px 8px
+  pointer-events: none
+
+.follow-map-scale
+  pointer-events: none
+  flex: 0 0 auto
+  color: var(--follow-ink)
+  text-shadow: 0 0 4px var(--follow-bg), 0 1px 2px var(--follow-bg)
+  padding-bottom: 6px
+
+.follow-map-scale-spacer
+  flex: 1 1 auto
+
+.follow-map-scale-labels
+  display: flex
+  justify-content: space-between
+  font-size: 0.62rem
+  font-weight: 700
+  line-height: 1.15
+  margin-bottom: 2px
+
+.follow-map-scale-track
+  height: 6px
+  border-radius: 999px
+  background: #fff
+  box-shadow: 0 0 0 1px rgba(20, 32, 24, 0.55), 0 1px 2px rgba(0, 0, 0, 0.12)
+  overflow: hidden
+
+.follow-map-scale-fill
+  display: block
+  width: 50%
+  height: 100%
+  background: #16382c
+
 .follow-icon-btn
   pointer-events: auto
-  width: 44px
-  height: 44px
-  min-width: 44px
+  width: 36px
+  height: 36px
+  min-width: 36px
   border: 0
   border-radius: 50%
   background: var(--follow-btn)
@@ -86,7 +241,7 @@
 
 .follow-instruction
   position: absolute
-  top: calc(64px + env(safe-area-inset-top, 0px))
+  top: calc(86px + env(safe-area-inset-top, 0px))
   left: 12px
   right: 12px
   z-index: 5
@@ -98,6 +253,9 @@
   border-radius: 16px
   padding: 12px 14px
   box-shadow: var(--follow-shadow)
+
+.follow-instruction.has-banner-offset
+  top: calc(128px + env(safe-area-inset-top, 0px))
 
 .follow-instruction-number
   width: 32px
@@ -125,15 +283,15 @@
 
 .follow-off-route
   pointer-events: auto
-  flex: 1
+  flex: 1 1 auto
   min-width: 0
   background: #c21d4b
   color: #fff
-  border-radius: 14px
-  padding: 10px 12px
-  min-height: 44px
+  border-radius: 12px
+  padding: 8px 12px
+  min-height: 36px
   font-weight: 600
-  font-size: 0.92rem
+  font-size: 0.88rem
   display: flex
   align-items: center
   gap: 8px
@@ -154,54 +312,53 @@
   flex-direction: column
   align-items: stretch
   pointer-events: none
-  padding-bottom: env(safe-area-inset-bottom, 0px)
 
 .follow-map-tools
   pointer-events: auto
-  align-self: flex-end
-  margin: 0 12px 10px 0
+  margin: 0
   display: flex
   flex-direction: column
   align-items: center
   gap: 10px
 
-.follow-start-tool
-  width: 48px
-  height: 48px
-  min-width: 48px
-  border: 0
-  border-radius: 50%
-  background: #f9b104
-  color: #1b1b1b
-  box-shadow: var(--follow-shadow)
-  display: inline-flex
-  align-items: center
-  justify-content: center
-  padding: 0
-
-.follow-compass
+.follow-heading-tool
   width: 48px
   height: 48px
   min-width: 48px
   border: 0
   border-radius: 50%
   background: var(--follow-btn)
-  box-shadow: var(--follow-shadow)
   color: var(--follow-btn-ink)
+  box-shadow: var(--follow-shadow)
   display: inline-flex
   align-items: center
   justify-content: center
   padding: 0
 
-.follow-compass.is-active
+.follow-heading-tool.is-active
   background: #f9b104
   color: #1b1b1b
 
-.follow-compass-needle
-  display: flex
+.follow-heading-n
+  font-size: 1.05rem
+  font-weight: 700
+  line-height: 1
+  letter-spacing: 0.02em
+
+.follow-start-tool
+  width: 48px
+  height: 48px
+  min-width: 48px
+  margin-left: auto
+  border: 0
+  border-radius: 50%
+  background: #f9b104
+  color: #1b1b1b
+  box-shadow: var(--follow-shadow)
+  display: inline-flex
   align-items: center
   justify-content: center
-  transform-origin: center center
+  padding: 0
 
 .follow-tool-stack
   display: flex
@@ -276,33 +433,59 @@
   font-size: 1.05rem
   font-weight: 700
 
-.follow-style-grid + .follow-style-heading
+.follow-style-row
+  display: flex
+  flex-direction: column
+  gap: 16px
+
+.follow-style-section
+  min-width: 0
+
+.follow-style-row + .follow-style-heading
   margin-top: 18px
 
 .follow-style-swatches
   display: block
   margin: 0 2px 4px
 
-.follow-style-grid
+.follow-progress-paint
   display: flex
+  flex-direction: column
   flex-wrap: nowrap
-  justify-content: flex-end
-  gap: 12px
-  overflow-x: auto
-  padding: 4px 2px 2px
-  -webkit-overflow-scrolling: touch
-  scrollbar-width: none
+  gap: 8px
+  margin: 0 0 8px
 
-.follow-style-grid::-webkit-scrollbar
-  display: none
+.follow-progress-paint-btn
+  flex: 0 0 auto
+  width: 100%
+  min-height: 40px
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 6px
+  margin-left: 0 !important
+  white-space: nowrap
+
+@media (min-width: 768px)
+  .follow-progress-paint
+    flex-direction: row
+  .follow-progress-paint-btn
+    flex: 1 1 0
+    width: auto
+
+.follow-style-grid
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr))
+  gap: 12px
+  padding: 4px 2px 2px
 
 .follow-style-card
   display: flex
-  flex: 0 0 88px
   flex-direction: column
   align-items: center
   gap: 8px
-  width: 88px
+  width: 100%
+  min-width: 0
   margin: 0
   padding: 0
   border: 0
@@ -341,10 +524,9 @@
 
 @media (min-width: 640px)
   .follow-style-grid
-    gap: 18px
+    gap: 16px
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr))
   .follow-style-card
-    flex: 0 0 128px
-    width: 128px
     gap: 10px
   .follow-style-tile
     border-radius: 20px
@@ -352,11 +534,22 @@
     font-size: 0.95rem
 
 @media (min-width: 900px)
+  .follow-style-row
+    flex-direction: row
+    align-items: flex-start
+    justify-content: space-between
+    gap: 28px
+  .follow-style-route
+    flex: 1 1 0
+  .follow-style-basemaps
+    flex: 0 0 auto
   .follow-style-grid
-    gap: 22px
+    display: flex
+    flex-wrap: nowrap
+    gap: 14px
   .follow-style-card
-    flex: 0 0 148px
-    width: 148px
+    flex: 0 0 96px
+    width: 96px
   .follow-style-tile
     border-width: 4px
     border-radius: 22px
@@ -367,22 +560,30 @@
   pointer-events: auto
   touch-action: pan-y
   width: 100%
+  height: auto
   background: var(--follow-panel)
   color: var(--follow-ink)
-  border-radius: 28px 28px 0 0
-  padding: 0 20px calc(18px + env(safe-area-inset-bottom, 0px))
+  border-radius: 22px 22px 0 0
+  padding: 0 16px 0
   box-shadow: 0 -12px 32px rgba(16, 32, 24, 0.12)
-  max-height: 46vh
-  overflow: auto
-  -webkit-overflow-scrolling: touch
+  overflow: hidden
+  display: flex
+  flex-direction: column
+  justify-content: flex-start
+  flex: 0 0 auto
+
+@media (display-mode: standalone)
+  .follow-sheet
+    padding-bottom: env(safe-area-inset-bottom, 0px)
 
 .follow-sheet-handle
   display: flex
   align-items: center
   justify-content: center
+  flex: 0 0 auto
   width: 100%
-  height: 40px
-  margin: 0 0 4px
+  height: 20px
+  margin: 0
   padding: 0
   border: 0
   background: transparent
@@ -391,14 +592,60 @@
   cursor: grab
   color: var(--follow-muted)
 
-.follow-sheet-chevron
-  font-size: 1.05rem
-  line-height: 1
-  transition: transform 0.22s ease
-  pointer-events: none
+.follow-sheet-grab
+  display: block
+  width: 36px
+  height: 4px
+  border-radius: 999px
+  background: var(--follow-handle)
 
-.follow-sheet-chevron.is-expanded
-  transform: rotate(180deg)
+.follow-sheet-body-slot
+  display: block
+  overflow: hidden
+  max-height: 0
+  flex: 0 0 auto
+  min-height: 0
+  transition: max-height 0.36s cubic-bezier(0.32, 0.72, 0, 1)
+
+.follow-sheet:not(.is-minimised) .follow-sheet-body-slot
+  max-height: 70vh
+
+.follow-sheet-peek
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 12px
+  flex: 0 0 auto
+  padding: 0 4px 10px
+  touch-action: none
+  cursor: pointer
+
+.follow-peek-stat
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  min-width: 0
+
+.follow-peek-stat span
+  color: var(--follow-muted)
+  font-size: 0.78rem
+  line-height: 1.25
+  margin-bottom: 2px
+
+.follow-peek-stat strong
+  font-size: 1.7rem
+  line-height: 1.05
+  font-weight: 700
+  color: var(--follow-ink)
+  letter-spacing: -0.02em
+
+.follow-sheet-body
+  min-height: 0
+  overflow: hidden
+  -webkit-overflow-scrolling: touch
+
+.follow-sheet:not(.is-minimised) .follow-sheet-body
+  padding-bottom: 8px
 
 
 .follow-library-note
@@ -406,6 +653,18 @@
   color: var(--follow-muted)
   font-size: 0.88rem
   line-height: 1.35
+
+.follow-edit-notes
+  display: flex
+  flex-wrap: wrap
+  align-items: baseline
+  column-gap: 28px
+  row-gap: 4px
+  margin: 0 0 12px
+
+.follow-edit-notes .follow-library-note
+  margin: 0
+  flex: 1 1 22rem
 
 .follow-stats
   display: grid
@@ -427,11 +686,12 @@
   margin-bottom: 6px
 
 .follow-stat strong
-  font-size: 1.55rem
-  line-height: 1.05
+  font-size: 1.25rem
+  line-height: 1.15
   font-weight: 700
   color: var(--follow-ink)
   letter-spacing: -0.02em
+  white-space: nowrap
 
 .follow-speed
   margin: 0 0 14px
@@ -442,27 +702,30 @@
   flex-wrap: wrap
   justify-content: center
   gap: 10px
-  margin-bottom: 10px
+  margin-bottom: 0
 
 .follow-main-btn,
 .follow-secondary-btn
-  flex: 1 1 calc(50% - 10px)
+  flex: 1 1 auto
   width: auto
-  min-width: 140px
+  min-width: min-content
   min-height: 52px
   margin-left: 0 !important
   display: inline-flex
   align-items: center
   justify-content: center
+  flex-wrap: nowrap
   gap: 8px
   font-size: 1.05rem
   border-radius: 999px
+  white-space: nowrap
 
-@media (min-width: 640px)
+@media (min-width: 900px)
+  .follow-actions
+    flex-wrap: nowrap
   .follow-main-btn,
   .follow-secondary-btn
-    flex: 0 1 180px
-    max-width: 200px
+    flex: 0 0 auto
 
 .follow-sheet .follow-secondary-btn
   --bs-btn-color: var(--follow-secondary-ink)

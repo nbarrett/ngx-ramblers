@@ -16,6 +16,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { DEFAULT_OS_STYLE, LocationType, MapProvider } from "../../../models/map.model";
 import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
+import { GoogleMapsService } from "../../../services/google-maps.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
@@ -43,10 +44,6 @@ const COMBINED_MAP_BOUNDS_PADDING = 0.25;
         (leafletClick)="onMapClick($event)">
       </div>
     }`,
-    styles: [`
-      :host ::ng-deep .leaflet-bottom
-        bottom: 9px
-    `],
     imports: [LeafletModule]
 })
 export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
@@ -111,7 +108,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private httpClient = inject(HttpClient);
   private urlService = inject(UrlService);
   private mapZoom = inject(MapZoomService);
+  private googleMapsService = inject(GoogleMapsService);
   private gpxLayers: L.Layer[] = [];
+  private startMarker: L.Marker | null = null;
 
   async ngOnInit() {
     this.initializeSubscriptions();
@@ -242,20 +241,20 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     };
 
     const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
-    this.layers = [
-      L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
-        this.zone.run(() => this.onMarkerDragEnd(event))
-      ),
-    ];
+    this.startMarker = L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
+      this.zone.run(() => this.onMarkerDragEnd(event))
+    );
+    this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+    this.layers = [this.startMarker];
 
     if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
       const endMarkerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
-      this.layers.push(
-        L.marker([this.endLocationDetails.latitude, this.endLocationDetails.longitude], {
-          draggable: false,
-          icon: endMarkerIcon as any
-        })
-      );
+      const endMarker = L.marker([this.endLocationDetails.latitude, this.endLocationDetails.longitude], {
+        draggable: false,
+        icon: endMarkerIcon as any
+      });
+      this.bindLocationPopup(endMarker, this.endLocationDetails, this.endPinRole());
+      this.layers.push(endMarker);
     }
 
     this.fitBounds = bounds as any;
@@ -448,6 +447,49 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     this.locationDetails.grid_reference_8 = response.gridReference8;
     this.locationDetails.grid_reference_10 = response.gridReference10;
     this.locationDetails.description = response.description;
+    if (this.startMarker) {
+      this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+    }
+  }
+
+  private primaryPinRole(): string {
+    if (this.locationType === LocationType.FINISHING || this.locationType === LocationType.END) {
+      return this.endPinRole();
+    } else if (this.locationType === LocationType.MEETING) {
+      return LocationType.MEETING;
+    } else {
+      return LocationType.START;
+    }
+  }
+
+  private endPinRole(): string {
+    return LocationType.FINISH;
+  }
+
+  private bindLocationPopup(marker: L.Marker, location: LocationDetails, role: string): void {
+    marker.bindPopup(this.locationPopupHtml(role, location), {maxWidth: 280, autoPanPadding: [16, 16]});
+  }
+
+  private locationPopupHtml(role: string, location: LocationDetails): string {
+    const description = location?.description?.trim();
+    const postcode = location?.postcode?.trim();
+    const grid = this.display.gridReferenceFrom(location);
+    const descriptionHtml = description ? `<div class="small">${this.escapeHtml(description)}</div>` : "";
+    const postcodeHtml = postcode
+      ? `<div class="small"><a href="${this.escapeHtml(this.googleMapsService.urlForPostcode(postcode))}" target="_blank" rel="noopener">${this.escapeHtml(postcode)}</a></div>`
+      : "";
+    const gridHtml = grid
+      ? `<div class="small"><a href="${this.escapeHtml(this.display.gridReferenceLink(grid))}" target="_blank" rel="noopener">${this.escapeHtml(grid)}</a></div>`
+      : "";
+    return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${this.escapeHtml(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
+  }
+
+  private escapeHtml(value: string): string {
+    return (value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   onMapZoom($event: LeafletEvent) {

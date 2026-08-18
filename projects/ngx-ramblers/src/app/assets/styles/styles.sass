@@ -94,6 +94,10 @@ body.app-shell-active .tooltip,
 .follow-app .tooltip
   z-index: 4000
 
+@media (hover: none), (pointer: coarse)
+  .follow-app .tooltip
+    display: none !important
+
 @media (prefers-color-scheme: dark)
   body.app-shell-active:not(.app-appearance-light)
     background: #102018
@@ -122,9 +126,18 @@ body.app-shell-active.app-appearance-dark
   width: 30px
   height: 30px
   line-height: 30px
+  padding: 0
+  border: 0
+  background: #fff
+  color: #000
   text-align: center
   font-weight: 700
+  font-size: 14px
   display: block
+  cursor: pointer
+
+.leaflet-bar .map-north-control:hover
+  background: #f4f4f4
 
 .map-north-control.is-rotated
   background: #f9b104

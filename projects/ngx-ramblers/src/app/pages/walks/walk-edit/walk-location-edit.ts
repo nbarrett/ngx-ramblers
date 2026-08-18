@@ -1,7 +1,8 @@
 import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
-import { faPencil } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faMap, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -30,6 +31,13 @@ import { LocationType } from "../../../models/map.model";
 
 @Component({
     selector: "app-walk-location-edit",
+    styles: [`
+      .walk-location-map-toggle
+        flex-wrap: nowrap
+      .walk-location-map-toggle .btn
+        white-space: nowrap
+        min-width: min-content
+    `],
     template: `
     @if (locationDetails) {
       @if (!hideLocationDropdown) {
@@ -130,16 +138,16 @@ import { LocationType } from "../../../models/map.model";
       </div>
       <div class="row">
         <div class="col-sm-12">
-          <div class="btn-group w-100 mb-2" role="group" aria-label="Toggle Google Maps View">
-            <button type="button" class="btn btn-primary" [class.active]="!showGoogleMapsView"
+          <div class="btn-group walk-location-map-toggle w-100 mb-2" role="group" aria-label="Toggle Google Maps View">
+            <button type="button" class="btn btn-primary text-nowrap" [class.active]="!showGoogleMapsView"
               [disabled]="disabled"
               (click)="showGoogleMapsView = false">
-              {{ locationType }} Pin Location
+              <fa-icon class="me-2" [icon]="faMapPin"/>Pin
             </button>
-            <button type="button" class="btn btn-primary" [class.active]="showGoogleMapsView"
+            <button type="button" class="btn btn-primary text-nowrap" [class.active]="showGoogleMapsView"
               [disabled]="disabled"
               (click)="showGoogleMapsView = true">
-              {{ locationType }} Location Google Map
+              <fa-icon class="me-2" [icon]="faMap"/>Google Map
             </button>
           </div>
           @if (showGoogleMapsView) {
@@ -174,7 +182,7 @@ import { LocationType } from "../../../models/map.model";
       }
     }`,
     styleUrls: ["./walk-edit.component.sass"],
-    imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, LocationAutocompleteComponent]
+    imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, LocationAutocompleteComponent, FontAwesomeModule]
 })
 export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
@@ -225,6 +233,8 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   public postcodeSelectItems: {postcode: string, distance: number, label: string, distanceLabel: string}[] = [];
   public googleMapsUrl: SafeResourceUrl;
   public faPencil = faPencil;
+  public faMapPin = faMapPin;
+  public faMap = faMap;
   public showGoogleMapsView = false;
   public gridRefLookupBusy = false;
 

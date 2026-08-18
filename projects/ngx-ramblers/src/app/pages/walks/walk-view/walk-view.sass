@@ -221,6 +221,9 @@
       > .dropdown-toggle-split
         flex: 0 0 auto
 
+    > :nth-last-child(1 of .walk-view-split, .walk-view-action:not(.walk-view-action-follow)):nth-child(odd)
+      grid-column: 1 / -1
+
     > .walk-view-action-follow
       grid-column: 1 / -1
       order: 10

@@ -16,6 +16,7 @@ import {
   RouteFollowSummary,
   RouteFollowWaypoint,
   RouteWaypointKind,
+  ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
   ROUTE_FOLLOW_NETWORK_TIMEOUT_MS
 } from "../../models/route-follow.model";
 import { generateUid } from "../../functions/numbers";
@@ -119,7 +120,7 @@ export class RouteFollowPayloadService {
       provider: MapProvider.OS,
       osStyle: DEFAULT_OS_STYLE,
       color: PaletteColor.ROSE,
-      weight: 8,
+      weight: ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
       opacity: 1,
       points: route.points || [],
       waypoints: route.waypoints || [],
@@ -168,7 +169,7 @@ export class RouteFollowPayloadService {
         provider: map.provider || MapProvider.OS,
         osStyle: map.osStyle || DEFAULT_OS_STYLE,
         color: route?.color || PaletteColor.ROSE,
-        weight: route?.weight || 8,
+        weight: route?.weight || ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
         opacity: route && isNumber(route.opacity) ? route.opacity : 1,
         points,
         waypoints,
@@ -194,7 +195,7 @@ export class RouteFollowPayloadService {
         provider: MapProvider.OS,
         osStyle: DEFAULT_OS_STYLE,
         color: route.routeColor || PaletteColor.COBALT,
-        weight: route.routeWeight || 8,
+        weight: route.routeWeight || ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
         opacity: isNumber(route.routeOpacity) ? route.routeOpacity : 1,
         points: parsed.points,
         waypoints: parsed.waypoints,
@@ -236,7 +237,7 @@ export class RouteFollowPayloadService {
         provider: MapProvider.OS,
         osStyle: DEFAULT_OS_STYLE,
         color: walk.fields?.routeColor || PaletteColor.ROSE,
-        weight: walk.fields?.routeWeight || 8,
+        weight: walk.fields?.routeWeight || ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
         opacity: isNumber(walk.fields?.routeOpacity) ? walk.fields.routeOpacity : 1,
         points: parsed.points,
         waypoints,

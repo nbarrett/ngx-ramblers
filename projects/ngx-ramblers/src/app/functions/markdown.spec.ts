@@ -23,6 +23,18 @@ describe("markdown", () => {
         .toBe("A walk via [Denton](https://example.com) and back");
     });
 
+    it("restores Walks Manager flattened postcode links to markdown", () => {
+      expect(normaliseMarkdownText("We meet at Eastbourne Pier Entrance at BN21 3EL: https://goo.gl/maps/ksTQtZKn-LYRVQEQ36 (parking available in surrounding streets in Eastbourne), get the bus to Seaford at BN25 1JH: https://goo.gl/maps/7spwekckxVhDHd-Jx9 from where the walk starts."))
+        .toBe("We meet at Eastbourne Pier Entrance at [BN21 3EL](https://goo.gl/maps/ksTQtZKn-LYRVQEQ36) (parking available in surrounding streets in Eastbourne), get the bus to Seaford at [BN25 1JH](https://goo.gl/maps/7spwekckxVhDHd-Jx9) from where the walk starts.");
+    });
+
+    it("restores a flattened place-name link and an auto-linked html url", () => {
+      expect(normaliseMarkdownText("meet at the Kings Arms: https://thekingsarmselham.com/, parking available"))
+        .toBe("meet at the [Kings Arms](https://thekingsarmselham.com/), parking available");
+      expect(normaliseMarkdownText("<p>meet at BN21 3EL: <a href=\"https://goo.gl/maps/ksTQtZKn-LYRVQEQ36\">https://goo.gl/maps/ksTQtZKn-LYRVQEQ36</a></p>"))
+        .toBe("meet at [BN21 3EL](https://goo.gl/maps/ksTQtZKn-LYRVQEQ36)");
+    });
+
     it("returns null for empty values and passes through non-strings", () => {
       expect(normaliseMarkdownText("   ")).toBe(null);
       expect(normaliseMarkdownText(null)).toBe(null);
