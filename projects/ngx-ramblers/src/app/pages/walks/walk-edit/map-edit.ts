@@ -36,7 +36,7 @@ const COMBINED_MAP_BOUNDS_PADDING = 0.25;
     selector: "[app-map-edit]",
     template: `
     @if (mapReady()) {
-      <div [class]="class"
+      <div class="map-edit-surface"
         leaflet [leafletOptions]="options"
         [leafletLayers]="layers"
         (leafletMapZoom)="onMapZoom($event)"
@@ -44,6 +44,14 @@ const COMBINED_MAP_BOUNDS_PADDING = 0.25;
         (leafletClick)="onMapClick($event)">
       </div>
     }`,
+    styles: [`
+      :host
+        display: block
+        position: relative
+      .map-edit-surface
+        width: 100%
+        height: 100%
+    `],
     imports: [LeafletModule]
 })
 export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
@@ -66,7 +74,6 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     this.locationDetails = locationDetails;
     this.setDefaultLatLng().then(() => this.initializeMap());
   }
-  @Input() class!: string;
   private notifyInstance: AlertInstance;
   @Input() set notify(value: AlertInstance | undefined) {
     this.notifyInstance = value ?? this.notifierService.createGlobalAlert();

@@ -7,8 +7,6 @@ import {
   OsMapsBrandingHref
 } from "../../models/os-maps-branding.model";
 
-const LOGO_CLASS = "os-api-branding logo";
-
 @Injectable({providedIn: "root"})
 export class OsMapsBrandingService {
   private dateUtils = inject(DateUtilsService);
@@ -19,7 +17,7 @@ export class OsMapsBrandingService {
 
   attributionHtml(): string {
     const year = this.copyrightYear();
-    return `${OS_MAPS_ATTRIBUTION_LEAD} ${year}<span class="os-attr-links"><a href="${OsMapsBrandingHref.TERMS}" target="_blank" rel="noopener">Terms</a> · <a href="${OsMapsBrandingHref.ERROR_REPORTING}" target="_blank" rel="noopener">Report an error</a></span>`;
+    return `${OS_MAPS_ATTRIBUTION_LEAD} ${year} · <a href="${OsMapsBrandingHref.TERMS}" target="_blank" rel="noopener">Terms</a> · <a href="${OsMapsBrandingHref.ERROR_REPORTING}" target="_blank" rel="noopener">Report an error</a>`;
   }
 
   attachTo(map: L.Map): void {
@@ -27,15 +25,18 @@ export class OsMapsBrandingService {
       map.attributionControl.setPrefix(false);
     }
     const container = map.getContainer();
-    if (!container.querySelector(".os-api-branding.logo")) {
-      const logo = document.createElement("div");
-      logo.className = LOGO_CLASS;
+    if (!container.querySelector(".os-api-branding")) {
+      const bar = document.createElement("div");
+      bar.className = "os-api-branding";
+      const logo = document.createElement("span");
+      logo.className = "os-api-branding-logo";
       logo.setAttribute("aria-hidden", "true");
-      const credit = document.createElement("div");
-      credit.className = "os-api-branding copyright";
+      const credit = document.createElement("span");
+      credit.className = "os-api-branding-text";
       credit.innerHTML = this.attributionHtml();
-      container.appendChild(logo);
-      container.appendChild(credit);
+      bar.appendChild(logo);
+      bar.appendChild(credit);
+      container.appendChild(bar);
     }
   }
 

@@ -165,10 +165,10 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                     <ng-container *ngTemplateOutlet="mapDisplayControls"/>
                   }
                 </app-maximisable-map>
+                @if (!mapFullScreen) {
+                  <ng-container *ngTemplateOutlet="mapDisplayControls"/>
+                }
               </div>
-              @if (!mapFullScreen) {
-                <ng-container *ngTemplateOutlet="mapDisplayControls"/>
-              }
               <ng-template #mapDisplayControls>
                 <form class="rounded img-thumbnail map-radio-frame d-flex flex-wrap align-items-center justify-content-start">
                   <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
