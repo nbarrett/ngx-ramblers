@@ -58,6 +58,11 @@ export enum VideoMeetingPlanAction {
   COMPOSE = "compose"
 }
 
+export enum JitsiJoinMode {
+  EMBED = "embed",
+  HOST_PAGE = "host-page"
+}
+
 export interface VideoMeetingInviteHandoff {
   subject: string;
   body: string;
@@ -80,6 +85,21 @@ export interface VideoMeeting extends Identifiable {
   createdByName?: string;
 }
 
+export interface UpcomingBookedMeeting {
+  title: string;
+  startTime: number;
+  committeeFileId?: string;
+  committeePath?: string;
+  committeeSlug?: string;
+  composedDocument?: boolean;
+  room?: string;
+}
+
+export enum MeetingNoteSource {
+  MEMBER = "member",
+  AI = "ai"
+}
+
 export interface MeetingNote extends Identifiable {
   room: string;
   memberId: string;
@@ -89,6 +109,22 @@ export interface MeetingNote extends Identifiable {
   createdBy?: string;
   updatedAt?: number;
   updatedBy?: string;
+  source?: MeetingNoteSource;
+}
+
+export interface MeetingSpeechCapture {
+  transcript: string;
+  chat: string;
+}
+
+export interface MeetingMinutesRequest {
+  room: string;
+  transcript: string;
+  chat: string;
+}
+
+export interface MeetingMinutesResponse {
+  note: MeetingNote;
 }
 
 export interface JitsiTokenUser {

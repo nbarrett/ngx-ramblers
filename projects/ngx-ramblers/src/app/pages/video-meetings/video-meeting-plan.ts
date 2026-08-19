@@ -2,7 +2,7 @@ import { AfterViewInit, Component, inject, OnDestroy, OnInit, ViewChild } from "
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleCheck, faCircleExclamation, faEnvelope, faPaperPlane, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelope, faPaperPlane, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { DateUtilsService } from "../../services/date-utils.service";
@@ -24,6 +24,7 @@ import { Member } from "../../models/member.model";
 import { CommitteeFile, CommitteeFileType, CommitteeMeetingType, CommitteeMember } from "../../models/committee.model";
 import { NextCommitteeMeetingBannerComponent } from "./next-committee-meeting-banner";
 import { ThumbnailHeadingFrameComponent } from "../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
+import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { ExternalRecipientService } from "../../services/external-recipient/external-recipient.service";
 import { ExternalRecipient } from "../../models/external-recipient.model";
@@ -36,6 +37,7 @@ import {
 import { CommitteeDisplayService } from "../committee/committee-display.service";
 import { Subscription } from "rxjs";
 import {
+  UpcomingBookedMeeting,
   VideoMeetingInviteHandoff,
   VideoMeetingInviteRecipient,
   VideoMeetingPlanAction,
@@ -44,6 +46,7 @@ import {
 import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { UIDateFormat } from "../../models/date-format.model";
+import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
@@ -53,68 +56,21 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from
 
 @Component({
   selector: "app-video-meeting-plan",
-  imports: [FormsModule, FontAwesomeModule, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent],
-  styles: [`
-    :host ::ng-deep .thumbnail-heading-frame-compact
-      margin: 18px 0 6px 0
-      padding: 8px 12px 6px 12px
-    .invite-date
-      margin-bottom: 0.25rem
-    .meeting-details-row
-      display: grid
-      grid-template-columns: auto minmax(0, 1fr)
-      grid-template-rows: auto auto
-      column-gap: 1.25rem
-      row-gap: 0.15rem
-      align-items: start
-    .meeting-details-label
-      margin: 0
-      line-height: 1.5
-    .meeting-details-label-time
-      grid-column: 1
-      grid-row: 1
-    .meeting-details-time
-      grid-column: 1
-      grid-row: 2
-    .meeting-details-title-stack
-      grid-column: 2
-      grid-row: 2
-      display: flex
-      flex-direction: column
-      row-gap: 0.15rem
-      align-self: start
-      padding-top: 4px
-    .meeting-details-label-title
-      line-height: 1.25
-    .meeting-details-title
-      min-height: var(--btn-min-height)
-      height: var(--btn-min-height)
-    .meeting-details-row ::ng-deep timepicker table
-      margin: 0 !important
-    .meeting-details-row ::ng-deep timepicker .btn,
-    .meeting-details-row ::ng-deep timepicker button
-      min-height: 0
-      height: auto
-      padding: 0.15rem 0.35rem
-  `],
+  imports: [FormsModule, FontAwesomeModule, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent],
   template: `
     @if (sendNotice) {
-      <div class="alert alert-success d-flex align-items-start">
-        <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
-        <div>
-          <strong class="d-block">Invite sent</strong>
-          {{ sendNotice }}
-        </div>
-      </div>
+      <app-alert-panel title="Invite sent">
+        {{ sendNotice }}
+      </app-alert-panel>
     }
-    <app-next-committee-meeting-banner (plan)="planSuggestedMeeting($event)"/>
+    <app-next-committee-meeting-banner (plan)="openBannerMeeting($event)"/>
     <app-walk-programme-calendar [selectMode]="true" [includeCommitteeEvents]="true"
                                  (dateSelected)="onDateSelected($event)"/>
 
     <app-draggable-modal [open]="showInvite" [showCloseButton]="false" (closed)="cancel()">
       <span modalTitle>New meeting invite</span>
       <div modalBody>
-        <p class="fw-bold invite-date">{{ selectedDateLabel }}</p>
+        <p class="fw-bold">{{ selectedDateLabel }}</p>
 
         @if (meetingTypes.length) {
           <app-thumbnail-heading-frame heading="Meeting type" [compact]="true">
@@ -136,14 +92,17 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from
         }
 
         <app-thumbnail-heading-frame heading="Meeting details" [compact]="true">
-          <div class="meeting-details-row">
-            <label class="meeting-details-label meeting-details-label-time" for="plan-time">Time</label>
-            <div class="meeting-details-time form-group mb-0" app-time-picker id="plan-time"
-                 [value]="startDateTime" (change)="onTimeChange($event)"></div>
-            <div class="meeting-details-title-stack">
-              <label class="meeting-details-label meeting-details-label-title" for="plan-title">Meeting title</label>
-              <input id="plan-title" class="form-control meeting-details-title" [(ngModel)]="title"
-                     placeholder="e.g. Committee meeting">
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="form-group" app-time-picker id="plan-time" label="Time"
+                   [value]="startDateTime" (change)="onTimeChange($event)"></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label for="plan-title">Meeting title</label>
+                <input id="plan-title" class="form-control input-sm" [(ngModel)]="title"
+                       placeholder="e.g. Committee meeting">
+              </div>
             </div>
           </div>
         </app-thumbnail-heading-frame>
@@ -170,13 +129,9 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from
           }
         </app-thumbnail-heading-frame>
         @if (sendError) {
-          <div class="alert alert-danger d-flex align-items-start mt-3 mb-0">
-            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
-            <div>
-              <strong class="d-block">Invite not sent</strong>
-              {{ sendError }}
-            </div>
-          </div>
+          <app-alert-panel class="mt-3" title="Invite not sent">
+            {{ sendError }}
+          </app-alert-panel>
         }
       </div>
       <button modalFooter type="button" class="btn btn-quiet btn-sm" [disabled]="working" (click)="cancel()">
@@ -242,18 +197,22 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   private fileTypes: CommitteeFileType[] = [];
   private aiConnected = false;
   private pendingPlanDate: number | null = null;
+  private pendingMeetingType: string | null = null;
   private config: VideoMeetingRuntimeConfig;
 
   protected readonly faEnvelope = faEnvelope;
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faSpinner = faSpinner;
-  protected readonly faCircleCheck = faCircleCheck;
-  protected readonly faCircleExclamation = faCircleExclamation;
+
 
   async ngOnInit(): Promise<void> {
     const planDate = this.uiActions.queryParameter(StoredValue.PLAN_DATE);
+    const meetingType = this.uiActions.queryParameter(StoredValue.MEETING_TYPE);
     if (planDate) {
       this.pendingPlanDate = this.dateUtils.asValueNoTime(planDate);
+    }
+    if (meetingType) {
+      this.pendingMeetingType = meetingType;
     }
     this.applyMailLists(this.mailMessagingService.currentConfig());
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
@@ -294,8 +253,12 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
 
   ngAfterViewInit(): void {
     if (this.pendingPlanDate) {
-      this.planSuggestedMeeting(this.pendingPlanDate);
+      this.openBannerMeeting({
+        title: this.pendingMeetingType,
+        startTime: this.pendingPlanDate
+      });
       this.pendingPlanDate = null;
+      this.pendingMeetingType = null;
     }
   }
 
@@ -339,7 +302,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private suggestedTitle(): string {
-    return this.selectedDateLabel ? `${this.meetingKind()}, ${this.selectedDateLabel}` : this.meetingKind();
+    return suggestedVideoMeetingTitle(this.meetingKind(), this.selectedDateLabel);
   }
 
   private applySuggestedTitle(): void {
@@ -350,8 +313,13 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.generatedTitle = suggested;
   }
 
-  planSuggestedMeeting(dayValue: number): void {
+  openBannerMeeting(meeting: UpcomingBookedMeeting): void {
+    if (meeting.title) {
+      this.meetingType = meeting.title;
+    }
+    const dayValue = this.dateUtils.asValueNoTime(meeting.startTime);
     this.calendar?.showDate(dayValue);
+    this.onDateSelected(dayValue);
   }
 
   cancel(): void {
@@ -431,10 +399,11 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
 
   private async createMeetingAndInvite(): Promise<VideoMeetingInviteHandoff | null> {
     this.workingMessage = "Creating meeting…";
-    const room = this.videoMeetingsService.generateRoomName(this.config?.roomPrefix);
     const member = this.memberLoginService.loggedInMember();
     const meetingTitle = this.title.trim() || this.suggestedTitle();
     const startTime = this.startTimeValue();
+    const dateSlug = videoMeetingDateSlug(this.dateUtils.asString(startTime, null, UIDateFormat.DISPLAY_DATE_NO_DAY));
+    const room = this.videoMeetingsService.generateRoomName(meetingTitle, dateSlug);
     const agendaFileType = this.selectedAgendaFileType();
     const joinUrl = this.videoMeetingsService.guestUrl(room);
     const savedFile = (this.generateAgenda && agendaFileType)

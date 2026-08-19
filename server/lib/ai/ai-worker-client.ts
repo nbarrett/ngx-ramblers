@@ -36,6 +36,22 @@ export async function rewriteViaIntegrationWorker(config: Ai, input: string, sys
   return result.output;
 }
 
+export async function meetingMinutesViaIntegrationWorker(
+  config: Ai,
+  transcript: string,
+  chat: string,
+  existingNotes: string
+): Promise<string> {
+  const result = await callWorker<{ output: string }>("meeting-minutes", {
+    config,
+    transcript,
+    chat,
+    existingNotes,
+    maxTokens: 2048
+  });
+  return result.output;
+}
+
 export async function aiStatusViaIntegrationWorker(config: Ai): Promise<AiConnectionStatus> {
   return callWorker<AiConnectionStatus>("status", {config});
 }
