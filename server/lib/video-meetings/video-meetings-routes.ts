@@ -3,6 +3,7 @@ import * as authConfig from "../auth/auth-config";
 import { jitsiJwtCredentials, resolveVideoMeetingRuntime } from "./video-meetings-config";
 import { mintMeetingToken } from "./jitsi-jwt";
 import { sendGuestInviteEmail } from "./send-guest-invite-email";
+import { writeMeetingMinutes } from "./write-meeting-minutes";
 import { videoMeeting } from "../mongo/models/video-meeting";
 import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
@@ -109,6 +110,8 @@ router.post("/invite", authConfig.authenticate(), async (req: Request, res: Resp
     res.status(500).json({message: "Failed to send guest invite", error: String(error)});
   }
 });
+
+router.post("/minutes", authConfig.authenticate(), writeMeetingMinutes);
 
 router.post("/guest-token", async (req: Request, res: Response) => {
   try {

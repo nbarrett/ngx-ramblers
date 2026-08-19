@@ -9,7 +9,10 @@ import { VideoMeetingsService } from "../../services/video-meetings/video-meetin
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { VideoMeetingNotesComponent } from "./video-meeting-notes";
-import { VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
+import { JitsiJoinMode, MeetingSpeechCapture, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
+import { jitsiHostPageUrl, jitsiJoinMode } from "../../functions/video-meeting-join";
+import { StoredValue } from "../../models/ui-actions";
+import { appendUniqueLine, lineFromJitsiChat, lineFromJitsiTranscription } from "../../functions/video-meeting-minutes";
 
 declare const JitsiMeetExternalAPI: any;
 
@@ -34,7 +37,7 @@ const TEAMS_LIKE_TOOLBAR = [
           <fa-icon [icon]="faRightFromBracket"/>
           <span class="meeting-bar-label">Leave</span>
         </button>
-        <span class="meeting-bar-room">{{ room }}</span>
+        <span class="meeting-bar-room">{{ displayTitle }}</span>
         <span class="meeting-bar-spacer"></span>
         <button type="button" class="meeting-bar-btn" (click)="toggleFullscreen()">
           <fa-icon [icon]="fullscreen ? faCompress : faExpand"/>
@@ -101,7 +104,7 @@ const TEAMS_LIKE_TOOLBAR = [
             <button type="button" class="meeting-dialog-close floating" aria-label="Close" (click)="toggleNotes()">
               <fa-icon [icon]="faXmark"/>
             </button>
-            <app-video-meeting-notes [room]="room"/>
+            <app-video-meeting-notes [room]="room" [guest]="guest" [capture]="speechCapture"/>
           </div>
         }
       </div>
@@ -119,6 +122,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   @ViewChild("jitsiContainer") private jitsiContainer: ElementRef<HTMLDivElement>;
 
   room: string;
+  displayTitle = "";
   guest = false;
   error: string;
   notesEnabled = false;
@@ -131,9 +135,12 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   connecting = false;
   fullscreen = false;
   coverHostBranding = false;
+  speechCapture: MeetingSpeechCapture = {transcript: "", chat: ""};
 
   private config: VideoMeetingRuntimeConfig;
   private api: any;
+  private transcriptLines: string[] = [];
+  private chatLines: string[] = [];
 
   protected readonly faComments = faComments;
   protected readonly faRightFromBracket = faRightFromBracket;
@@ -145,6 +152,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   ngOnInit(): void {
     this.room = this.route.snapshot.paramMap.get("room");
+    this.displayTitle = (this.room || "").replace(/-/g, " ");
     this.guest = !!this.route.snapshot.data?.["guest"];
   }
 
@@ -156,16 +164,41 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     try {
       this.config = await this.videoMeetingsService.config();
       if (this.config.enabled) {
-        this.notesEnabled = this.config.enableNotes;
-        const token = await this.resolveToken();
-        await this.videoMeetingsService.loadExternalApi(this.config.host);
-        this.mountMeeting(token);
+        this.notesEnabled = this.config.enableNotes && !this.config.publicHost;
+        if (jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.HOST_PAGE) {
+          this.connecting = true;
+          window.location.assign(jitsiHostPageUrl(this.config.host, this.room, await this.meetingSubject()));
+        } else {
+          const token = await this.resolveToken();
+          await this.videoMeetingsService.loadExternalApi(this.config.host);
+          await this.mountMeeting(token);
+        }
       } else {
         this.error = "Video meetings are switched off for this site.";
       }
     } catch (error) {
       this.logger.error("failed to start meeting", error);
       this.error = "We could not start the meeting. Please try again, or contact an administrator if it keeps happening.";
+    }
+  }
+
+  private async meetingSubject(): Promise<string> {
+    const fromQuery = this.route.snapshot.queryParamMap.get(StoredValue.MEETING_TITLE)?.trim();
+    if (fromQuery) {
+      this.displayTitle = fromQuery;
+      return fromQuery;
+    } else {
+      try {
+        const planned = await this.videoMeetingsService.meetingByRoom(this.room);
+        const title = planned?.title?.trim() || this.config.brandName || "Ramblers video meeting";
+        this.displayTitle = title;
+        return title;
+      } catch (error) {
+        this.logger.info("no planned meeting title for room", this.room, error);
+        const title = this.config.brandName || "Ramblers video meeting";
+        this.displayTitle = title;
+        return title;
+      }
     }
   }
 
@@ -182,8 +215,9 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private mountMeeting(token: string): void {
+  private async mountMeeting(token: string): Promise<void> {
     const domain = new URL(this.config.host).host;
+    const subject = await this.meetingSubject();
     const options: any = {
       roomName: this.room,
       parentNode: this.jitsiContainer.nativeElement,
@@ -197,7 +231,10 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         startWithVideoMuted: this.config.startWithVideoMuted,
         disableDeepLinking: true,
         defaultLogoUrl: "",
-        toolbarButtons: TEAMS_LIKE_TOOLBAR
+        toolbarButtons: TEAMS_LIKE_TOOLBAR,
+        transcription: {enabled: true},
+        transcribingEnabled: true,
+        subject
       },
       interfaceConfigOverwrite: {
         SHOW_JITSI_WATERMARK: false,
@@ -225,8 +262,18 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("videoConferenceJoined", () => this.zone.run(() => {
       this.connecting = false;
       this.hideHostBranding();
+      this.startCaptions();
     }));
     this.api.addEventListener("readyToClose", () => this.zone.run(() => this.leave()));
+    this.api.addEventListener("transcriptionChunkReceived", (payload: unknown) => this.zone.run(() => {
+      this.recordTranscript(lineFromJitsiTranscription(payload));
+    }));
+    this.api.addEventListener("incomingMessage", (payload: unknown) => this.zone.run(() => {
+      this.recordChat(lineFromJitsiChat(payload));
+    }));
+    this.api.addEventListener("outgoingMessage", (payload: unknown) => this.zone.run(() => {
+      this.recordChat(lineFromJitsiChat(payload));
+    }));
     this.hideHostBranding();
     if (this.connecting) {
       setTimeout(() => this.zone.run(() => {
@@ -234,6 +281,24 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         this.hideHostBranding();
       }), 2000);
     }
+  }
+
+  private startCaptions(): void {
+    try {
+      this.api?.executeCommand?.("setSubtitles", true);
+    } catch (error) {
+      this.logger.info("could not start meeting captions", error);
+    }
+  }
+
+  private recordTranscript(line: string | null): void {
+    this.transcriptLines = appendUniqueLine(this.transcriptLines, line);
+    this.speechCapture = {transcript: this.transcriptLines.join("\n"), chat: this.chatLines.join("\n")};
+  }
+
+  private recordChat(line: string | null): void {
+    this.chatLines = appendUniqueLine(this.chatLines, line);
+    this.speechCapture = {transcript: this.transcriptLines.join("\n"), chat: this.chatLines.join("\n")};
   }
 
   private hideHostBranding(): void {

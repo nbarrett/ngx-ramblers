@@ -1,10 +1,11 @@
 # Self-hosted Jitsi for NGX-Ramblers video meetings
 
 NGX video meetings (see issue #357) embed [Jitsi Meet](https://jitsi.org/) via its iframe
-External API. The NGX side works with **no infrastructure at all** by pointing at the free
-public `meet.jit.si` instance. This directory is only needed when you want to run Jitsi on
-your **own** host — for local development against the real stack, or for a self-hosted
-production instance with cryptographic member identity (JWT).
+External API when the host is **ours**. The public `meet.jit.si` instance no longer allows
+production embedding: an iframe call is treated as a demo and Jitsi ends it after five
+minutes. With no host configured, NGX therefore opens the room on Jitsi's own page instead
+(unlimited, but it is their site and their Google/GitHub login). This directory is what you
+need for meetings that stay inside NGX with no time limit.
 
 ## How NGX chooses where meetings run
 
@@ -13,7 +14,7 @@ NGX resolves the Jitsi host with the same one-value toggle the integration worke
 
 | Mode | What is set | Media server |
 | --- | --- | --- |
-| Default | nothing | free `meet.jit.si` |
+| Default | nothing | Jitsi's public page (`meet.jit.si`), not an embed |
 | Local dev | `JITSI_HOST_URL=https://localhost:8443` (or System Settings → Video → host URL) | this docker stack on your machine |
 | Self-hosted | `JITSI_HOST_URL=https://ngx-ramblers-jitsi.fly.dev` | the `ngx-ramblers-jitsi` app |
 

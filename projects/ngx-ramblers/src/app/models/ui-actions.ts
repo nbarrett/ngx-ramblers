@@ -140,6 +140,8 @@ export enum StoredValue {
   MAP_ZOOM = "map-zoom",
   MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
   MAXIMISE = "maximise",
+  MEETING_TITLE = "meetingTitle",
+  MEETING_TYPE = "meeting-type",
   MEDIA_SUB_TAB = "media-sub-tab",
   MEMBER = "member",
   MEMBER_ID = "member-id",

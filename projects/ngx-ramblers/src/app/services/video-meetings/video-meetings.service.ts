@@ -4,12 +4,25 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom } from "rxjs";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
-import { GuestInviteResponse, MeetingNote, VideoMeeting, VideoMeetingRuntimeConfig, VideoMeetingTokenResponse } from "../../models/video-meeting.model";
+import { CommonDataService } from "../common-data-service";
+import { DataQueryOptions } from "../../models/api-request.model";
+import { videoMeetingRoomSlug } from "../../functions/video-meeting-join";
+import {
+  GuestInviteResponse,
+  MeetingMinutesRequest,
+  MeetingMinutesResponse,
+  MeetingNote,
+  MeetingSpeechCapture,
+  VideoMeeting,
+  VideoMeetingRuntimeConfig,
+  VideoMeetingTokenResponse
+} from "../../models/video-meeting.model";
 
 @Injectable({providedIn: "root"})
 export class VideoMeetingsService {
   private http = inject(HttpClient);
   private urlService = inject(UrlService);
+  private commonDataService = inject(CommonDataService);
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingsService", NgxLoggerLevel.ERROR);
   private apiUrl = "/api/video-meetings";
   private notesUrl = "/api/database/meeting-notes";
@@ -26,6 +39,12 @@ export class VideoMeetingsService {
 
   inviteGuest(room: string, email: string, name: string): Promise<GuestInviteResponse> {
     return firstValueFrom(this.http.post<GuestInviteResponse>(`${this.apiUrl}/invite`, {room, email, name}));
+  }
+
+  async meetings(dataQueryOptions?: DataQueryOptions): Promise<VideoMeeting[]> {
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    const response = await firstValueFrom(this.http.get<{ response: VideoMeeting[] }>(`${this.meetingsUrl}/all`, {params}));
+    return response?.response || [];
   }
 
   async createPlannedMeeting(meeting: VideoMeeting): Promise<VideoMeeting> {
@@ -52,9 +71,24 @@ export class VideoMeetingsService {
     await firstValueFrom(this.http.delete(`${this.notesUrl}/${id}`));
   }
 
-  generateRoomName(prefix: string): string {
-    const slug = Array.from({length: 3}, () => Math.random().toString(36).slice(2, 8)).join("-");
-    return `${prefix || "ngx"}-${slug}`;
+  async writeMinutes(room: string, capture: MeetingSpeechCapture): Promise<MeetingNote> {
+    const request: MeetingMinutesRequest = {
+      room,
+      transcript: capture?.transcript || "",
+      chat: capture?.chat || ""
+    };
+    const response = await firstValueFrom(this.http.post<MeetingMinutesResponse>(`${this.apiUrl}/minutes`, request));
+    return response?.note;
+  }
+
+  generateRoomName(label: string, dateSlug: string): string {
+    const unique = String(1000 + Math.floor(Math.random() * 9000));
+    return videoMeetingRoomSlug(label, dateSlug, unique);
+  }
+
+  async meetingByRoom(room: string): Promise<VideoMeeting | null> {
+    const response = await firstValueFrom(this.http.get<{ response: VideoMeeting }>(`${this.meetingsUrl}/room/${encodeURIComponent(room)}`));
+    return response?.response || null;
   }
 
   guestPath(room: string): string {

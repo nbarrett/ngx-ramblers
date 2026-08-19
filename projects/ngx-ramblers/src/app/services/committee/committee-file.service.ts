@@ -112,6 +112,13 @@ export class CommitteeFileService {
     }
   }
 
+  async documentsPagePathFor(file: CommitteeFile): Promise<string | null> {
+    const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
+    const yearPage = await this.pageForPath(`committee/${year}`);
+    const target = yearPage || await this.latestYearDocumentsPage();
+    return target?.path || null;
+  }
+
   private async pageForPath(path: string): Promise<PageContent | null> {
     try {
       const page = await this.pageContentService.findByPath(path);
