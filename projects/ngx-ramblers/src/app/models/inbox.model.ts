@@ -193,6 +193,7 @@ export interface InboxThread extends Identifiable {
   unread: boolean;
   readByMemberIds?: string[];
   conversationKey?: string | null;
+  sentFrom?: InboxAddress | null;
 }
 
 export interface InboxPendingDelete {

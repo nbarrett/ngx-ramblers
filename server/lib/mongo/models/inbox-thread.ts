@@ -19,6 +19,7 @@ const inboxThreadSchema = new mongoose.Schema({
   firstSeenAt: {type: Number, required: true},
   lastSeenAt: {type: Number, required: true, index: true},
   lastDirection: {type: String, required: true},
+  sentFrom: {type: inboxAddress, default: null},
   unread: {type: Boolean, default: true, index: true},
   readByMemberIds: {type: [String], default: [], index: true},
   conversationKey: {type: String, default: null, index: true}
