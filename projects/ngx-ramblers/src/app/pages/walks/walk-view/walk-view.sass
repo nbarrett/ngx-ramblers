@@ -36,12 +36,9 @@
 
 .map-radio-frame
   position: relative
-  z-index: 1
-  padding: 18px 15px 12px 15px
-  margin: -8px 0 0
+  z-index: 2
+  padding: 18px 15px 12px
   width: 100%
-  border-top-left-radius: 0
-  border-top-right-radius: 0
 
 .postcode-input
   width: 120px
@@ -101,12 +98,15 @@
   width: 100%
   position: relative
   z-index: 0
+  overflow: visible
 
   .map-walk-view,
   .map-walk-view-google
+    float: none
     margin-top: 16px
     margin-bottom: 0
-    border-radius: 10px 10px 0 0
+    border-radius: 8px 8px 0 0
+    border-bottom: 0
     overflow: hidden
 
 .walk-meta-grid

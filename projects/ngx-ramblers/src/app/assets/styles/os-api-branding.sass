@@ -1,51 +1,65 @@
 .os-api-branding
   position: absolute
-  bottom: 18px
+  left: 0
+  right: 0
+  bottom: 0
   z-index: 1000
+  display: flex
+  align-items: center
+  gap: 6px
   margin: 0
-  pointer-events: none
-
-.os-api-branding.logo
-  left: 14px
-  width: 90px
-  height: 24px
-  overflow: hidden
-  padding: 6px 8px
-  border-radius: 4px
-  background-color: rgba(255, 255, 255, 0.92)
-  background-image: url("/assets/images/local/os-api/os-logo-maps.svg")
-  background-position: center
-  background-repeat: no-repeat
-  background-size: 90px 24px
-  box-sizing: content-box
-
-.os-api-branding.copyright
-  right: 14px
-  max-width: calc(100% - 150px)
-  padding: 6px 8px
-  border-radius: 4px
+  padding: 2px 8px
   background: rgba(255, 255, 255, 0.92)
+  pointer-events: none
   font: 11px / 14px Arial, Helvetica, sans-serif
   color: #1b1b1b
-  text-align: right
 
-.os-api-branding.copyright .os-attr-links
-  display: block
-  white-space: nowrap
+.os-api-branding-logo
+  flex: 0 0 auto
+  width: 54px
+  height: 14px
+  background-image: url("/assets/images/local/os-api/os-logo-maps.svg")
+  background-position: left center
+  background-repeat: no-repeat
+  background-size: contain
 
-.os-api-branding.copyright a
+.os-api-branding-text
+  flex: 1 1 auto
+  min-width: 0
+  display: -webkit-box
+  -webkit-box-orient: vertical
+  -webkit-line-clamp: 2
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: normal
+
+.os-api-branding-text a
   color: #0071bc
   text-decoration: none
   pointer-events: all
 
-.os-api-branding.copyright a:hover
+.os-api-branding-text a:hover
   text-decoration: underline
+
+.walk-view-map .os-api-branding
+  bottom: 0
+  background: #fff
+  padding-bottom: calc(2px + var(--bs-border-radius) + 1px)
+
+.walk-view-map .map-walk-view,
+.walk-view-map .map-walk-view-google
+  border-radius: 8px 8px 0 0 !important
+  border-bottom: 0 !important
+
+.walk-view-map .map-radio-frame
+  position: relative
+  top: calc(-1 * (var(--bs-border-radius) + 1px))
+  margin-top: 0
+  margin-bottom: calc(-1 * (var(--bs-border-radius) + 1px))
+  z-index: 2
 
 .leaflet-container:has(.os-api-branding) .leaflet-control-attribution
   display: none
-
-.leaflet-container .leaflet-bottom
-  bottom: 18px
 
 .follow-map .os-api-branding
   display: none
