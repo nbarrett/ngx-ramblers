@@ -41,9 +41,9 @@ import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
+import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, reclassifyOwnSentInboundMessages, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireCanUpdateInboxRoleNotifications, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
-import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses, siteInternalEmails } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import {
   conversationCount,
@@ -65,6 +65,23 @@ const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 const errorDebugLog = createErrorDebugLog(messageType);
+
+const ownSentReclassify = {lastRunAt: 0, inFlight: false};
+
+async function repairOwnSentCopies(): Promise<void> {
+  const now = dateTimeNow().toMillis();
+  if (!ownSentReclassify.inFlight && now - ownSentReclassify.lastRunAt >= 60_000) {
+    ownSentReclassify.inFlight = true;
+    try {
+      await reclassifyOwnSentInboundMessages(await siteInternalEmails());
+      ownSentReclassify.lastRunAt = dateTimeNow().toMillis();
+    } catch (error) {
+      errorDebugLog("own-sent reclassify failed:", (error as Error).message);
+    } finally {
+      ownSentReclassify.inFlight = false;
+    }
+  }
+}
 
 const router = express.Router();
 
@@ -734,6 +751,7 @@ router.put("/aliases/notifications", authConfig.authenticate(), async (req: Requ
 
 router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
+    await repairOwnSentCopies();
     const [allowedRoleTypes, assignedRoleTypes] = await Promise.all([
       permittedInboxRoleTypes(req),
       assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>)
@@ -758,6 +776,7 @@ router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res
 
 router.get("/threads", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
+    await repairOwnSentCopies();
     const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
     const offset = req.query.offset ? Math.max(parseInt(req.query.offset as string, 10) || 0, 0) : 0;
     if (req.query.folder === InboxThreadFolder.JUNK) {
@@ -863,7 +882,9 @@ async function updateThreadReadState(req: Request, res: Response, unread: boolea
   }, new Map());
   const memberId = requestingMemberId(req);
   const readStateUpdate = memberId
-    ? (unread ? {$pull: {readByMemberIds: memberId}} : {$addToSet: {readByMemberIds: memberId}})
+    ? (unread
+      ? {$pull: {readByMemberIds: memberId}, $set: {unread: true}}
+      : {$addToSet: {readByMemberIds: memberId}, $set: {unread: false}})
     : {$set: {unread}};
   await inboxThreadModel.updateOne({_id: req.params.id}, readStateUpdate);
   const unreadCountForRole = await unreadConversationCountForRole(thread.roleType, memberId);

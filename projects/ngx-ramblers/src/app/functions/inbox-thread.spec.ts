@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { InboxMessage, InboxReplyComposeResponse, InboxThread } from "../models/inbox.model";
+import { InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread } from "../models/inbox.model";
 import {
+  collapseInboxSends,
   inboxMessageAt,
   inboxMessageMatchingId,
+  inboxThreadHeaderFrom,
+  inboxThreadHeaderTo,
   inboxThreadId,
   inboxThreadMatchingSlug,
+  inboxThreadRoleLine,
   inboxThreadSlug,
   newestInboxMessage,
   replyAllRecipients
@@ -56,6 +60,31 @@ describe("inboxThreadSlug", () => {
 
 });
 
+describe("inboxThreadRoleLine", () => {
+
+  it("uses the address the mail was sent from, not the mailbox the copy arrived in", () => {
+    const sent = thread({
+      lastDirection: InboxMessageDirection.OUTBOUND,
+      sentFrom: {name: "Nick Barrett", email: "membership@canterburyramblers.org.uk"}
+    });
+    expect(inboxThreadRoleLine(sent, "chairman@canterburyramblers.org.uk"))
+      .toEqual("from membership@canterburyramblers.org.uk");
+  });
+
+  it("falls back to the mailbox when an older outbound thread has no sentFrom", () => {
+    const sent = thread({lastDirection: InboxMessageDirection.OUTBOUND});
+    expect(inboxThreadRoleLine(sent, "chairman@canterburyramblers.org.uk"))
+      .toEqual("from chairman@canterburyramblers.org.uk");
+  });
+
+  it("keeps inbound mail as delivered to the mailbox", () => {
+    const incoming = thread({lastDirection: InboxMessageDirection.INBOUND});
+    expect(inboxThreadRoleLine(incoming, "chairman@canterburyramblers.org.uk"))
+      .toEqual("to chairman@canterburyramblers.org.uk");
+  });
+
+});
+
 describe("inboxThreadId", () => {
 
   it("uses id when the thread has been mapped", () => {
@@ -84,6 +113,47 @@ describe("newestInboxMessage", () => {
 
   it("returns null for an empty list", () => {
     expect(newestInboxMessage([])).toBeNull();
+  });
+
+});
+
+describe("inboxThreadHeaderFrom and inboxThreadHeaderTo", () => {
+
+  it("follows the message From and To, not the conversation partner", () => {
+    const welcome = {
+      messageId: "welcome",
+      direction: InboxMessageDirection.INBOUND,
+      from: {name: "Nick Barrett", email: "nick.barrett@staging-lite.ngx-ramblers.org.uk"},
+      to: [{name: "Zoe Young", email: "zoe.young184@staging-lite.ngx-ramblers.org.uk"}],
+      receivedAt: 2000,
+      sentAt: null
+    } as InboxMessage;
+    expect(inboxThreadHeaderFrom([welcome])?.email).toEqual("nick.barrett@staging-lite.ngx-ramblers.org.uk");
+    expect(inboxThreadHeaderTo([welcome]).map(address => address.email)).toEqual(["zoe.young184@staging-lite.ngx-ramblers.org.uk"]);
+  });
+
+  it("uses the newest message when the conversation has more than one", () => {
+    const earlier = {
+      messageId: "earlier",
+      from: {name: "Nick Barrett", email: "nick.barrett@example.org"},
+      to: [{name: "Zoe Young", email: "zoe@example.org"}],
+      receivedAt: 1000,
+      sentAt: null
+    } as InboxMessage;
+    const reply = {
+      messageId: "reply",
+      from: {name: "Zoe Young", email: "zoe@example.org"},
+      to: [{name: "Nick Barrett", email: "nick.barrett@example.org"}],
+      receivedAt: 2000,
+      sentAt: null
+    } as InboxMessage;
+    expect(inboxThreadHeaderFrom([earlier, reply])?.email).toEqual("zoe@example.org");
+    expect(inboxThreadHeaderTo([earlier, reply]).map(address => address.email)).toEqual(["nick.barrett@example.org"]);
+  });
+
+  it("returns nothing when there are no messages yet", () => {
+    expect(inboxThreadHeaderFrom([])).toBeNull();
+    expect(inboxThreadHeaderTo([])).toEqual([]);
   });
 
 });
@@ -149,6 +219,69 @@ describe("replyAllRecipients", () => {
 
   it("copes with a message that has no to or cc", () => {
     expect(replyAllRecipients(reply, {} as InboxMessage, []).map(address => address.email)).toEqual(["ciaran.evans@ramblers.org.uk"]);
+  });
+
+});
+
+describe("collapseInboxSends", () => {
+
+  function outbound(overrides: Partial<InboxMessage>): InboxMessage {
+    return {
+      direction: InboxMessageDirection.OUTBOUND,
+      from: {email: "nick.barrett@ngx-ramblers.org.uk", name: "Nick Barrett"},
+      subject: "Re: Group & Area Email Project",
+      to: [{email: "ciaran.evans@ramblers.org.uk", name: "Ciaran Evans"}],
+      cc: [],
+      receivedAt: null,
+      ...overrides
+    } as InboxMessage;
+  }
+
+  it("keeps a follow-up with a different body sent a few minutes later on the same subject", () => {
+    const first = outbound({
+      messageId: "<first@mail>",
+      sentAt: 1_787_066_134_596,
+      bodyHtml: "<p>Hi Ciaran,</p><p>Just checking in on the meeting.</p>"
+    });
+    const followUp = outbound({
+      messageId: "<follow-up@mail>",
+      sentAt: 1_787_066_374_642,
+      bodyHtml: "<p>Sorry, those weekdays were a day out.</p>"
+    });
+    const collapsed = collapseInboxSends([first, followUp]);
+    expect(collapsed.map(message => message.messageId)).toEqual(["<first@mail>", "<follow-up@mail>"]);
+  });
+
+  it("still folds identical copies of one send, including extra recipients", () => {
+    const first = outbound({
+      messageId: "<send-a@mail>",
+      sentAt: 1000,
+      bodyHtml: "<p>Welcome to The Group</p>",
+      to: [{email: "one@example.com", name: "One"}]
+    });
+    const copy = outbound({
+      messageId: "<send-b@mail>",
+      sentAt: 2000,
+      bodyHtml: "<p>Welcome to The Group</p>",
+      to: [{email: "two@example.com", name: "Two"}]
+    });
+    const collapsed = collapseInboxSends([first, copy]);
+    expect(collapsed.length).toEqual(1);
+    expect(collapsed[0].to.map(address => address.email)).toEqual(["one@example.com", "two@example.com"]);
+  });
+
+  it("fills an empty stub from the later copy of the same send", () => {
+    const stub = outbound({messageId: "<stub@mail>", sentAt: 1000, bodyHtml: "", bodyText: ""});
+    const full = outbound({messageId: "<full@mail>", sentAt: 2000, bodyHtml: "<p>Welcome</p>"});
+    const collapsed = collapseInboxSends([stub, full]);
+    expect(collapsed.length).toEqual(1);
+    expect(collapsed[0].bodyHtml).toEqual("<p>Welcome</p>");
+  });
+
+  it("does not fold two matching bodies once they are more than five minutes apart", () => {
+    const first = outbound({messageId: "<early@mail>", sentAt: 0, bodyHtml: "<p>Same</p>"});
+    const later = outbound({messageId: "<late@mail>", sentAt: 5 * 60 * 1000 + 1, bodyHtml: "<p>Same</p>"});
+    expect(collapseInboxSends([first, later]).map(message => message.messageId)).toEqual(["<early@mail>", "<late@mail>"]);
   });
 
 });

@@ -6,7 +6,7 @@ import {
   InboxMessageDirection,
   InboxReaderProvider
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, resolveThreadExternalAddress, shouldRefreshUnreadForInbound } from "./inbox-message-import";
+import { autoReplyFromHeaders, isOwnSentCopy, outboundCopyFromInbound, resolveThreadExternalAddress, shouldRefreshUnreadForInbound } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -162,5 +162,84 @@ describe("shouldRefreshUnreadForInbound", () => {
     expect(shouldRefreshUnreadForInbound(false, 200, 100)).toBe(true);
     expect(shouldRefreshUnreadForInbound(false, 100, 100)).toBe(false);
     expect(shouldRefreshUnreadForInbound(false, 50, 100)).toBe(false);
+  });
+});
+
+describe("isOwnSentCopy", () => {
+  const internalEmails = new Set([
+    "membership@canterburyramblers.org.uk",
+    "chairman@canterburyramblers.org.uk"
+  ]);
+
+  it("treats a BCC copy of a welcome email as mail we sent", () => {
+    expect(isOwnSentCopy(message({
+      from: address("membership@canterburyramblers.org.uk", "Nick Barrett"),
+      to: [
+        address("kirstywilliamson2025@gmail.com", "Kirsty Williamson"),
+        address("chairman@canterburyramblers.org.uk")
+      ]
+    }), internalEmails)).toBe(true);
+  });
+
+  it("does not treat a Contact Us enquiry as mail we sent", () => {
+    expect(isOwnSentCopy(message({
+      from: address("contact-us@canterburyramblers.org.uk", "Contact Us"),
+      replyTo: address("enquirer@example.com", "Enquirer"),
+      to: [address("contact-us@canterburyramblers.org.uk")]
+    }), internalEmails)).toBe(false);
+  });
+
+  it("does not treat a same-domain copy with no outside recipient as mail we sent", () => {
+    expect(isOwnSentCopy(message({
+      from: address("chairman@canterburyramblers.org.uk", "David Reekie"),
+      to: [address("system@canterburyramblers.org.uk")]
+    }), internalEmails)).toBe(false);
+  });
+
+  it("does not treat mail from a member as mail we sent", () => {
+    expect(isOwnSentCopy(message({
+      from: address("kirstywilliamson2025@gmail.com", "Kirsty Williamson"),
+      to: [address("chairman@canterburyramblers.org.uk")]
+    }), internalEmails)).toBe(false);
+  });
+
+  it("does not treat an automatic reply from a role address as mail we sent", () => {
+    expect(isOwnSentCopy(message({
+      from: address("membership@canterburyramblers.org.uk"),
+      to: [address("kirstywilliamson2025@gmail.com")],
+      autoReply: true,
+      subject: "Automatic reply: Welcome"
+    }), internalEmails)).toBe(false);
+  });
+
+  it("does not classify without a set of internal addresses", () => {
+    expect(isOwnSentCopy(message({
+      from: address("membership@canterburyramblers.org.uk"),
+      to: [address("kirstywilliamson2025@gmail.com")]
+    }))).toBe(false);
+  });
+});
+
+describe("outboundCopyFromInbound", () => {
+  const internalEmails = new Set([
+    "membership@canterburyramblers.org.uk",
+    "chairman@canterburyramblers.org.uk"
+  ]);
+
+  it("keeps only the outside recipient and records the message as sent", () => {
+    const outbound = outboundCopyFromInbound(message({
+      from: address("membership@canterburyramblers.org.uk", "Nick Barrett"),
+      to: [
+        address("kirstywilliamson2025@gmail.com", "Kirsty Williamson"),
+        address("chairman@canterburyramblers.org.uk")
+      ],
+      receivedAt: 1786269442000,
+      sentAt: null
+    }), internalEmails);
+    expect(outbound.direction).toEqual(InboxMessageDirection.OUTBOUND);
+    expect(outbound.to).toEqual([address("kirstywilliamson2025@gmail.com", "Kirsty Williamson")]);
+    expect(outbound.cc).toEqual([]);
+    expect(outbound.sentAt).toEqual(1786269442000);
+    expect(outbound.receivedAt).toBeNull();
   });
 });

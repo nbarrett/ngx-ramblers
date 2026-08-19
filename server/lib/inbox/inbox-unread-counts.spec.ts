@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { threadUnreadForMember, unreadConditionForMember, unreadConversationFilter } from "./inbox-unread-counts";
 
 describe("inbox-unread-counts", () => {
@@ -36,12 +36,30 @@ describe("inbox-unread-counts", () => {
       expect(threadUnreadForMember(thread, "me")).toBe(true);
     });
 
+    it("should treat outbound mail we sent as read unless the unread flag is set", () => {
+      expect(threadUnreadForMember(createThread({
+        lastDirection: InboxMessageDirection.OUTBOUND,
+        unread: false,
+        readByMemberIds: []
+      }), "me")).toBe(false);
+      expect(threadUnreadForMember(createThread({
+        lastDirection: InboxMessageDirection.OUTBOUND,
+        unread: true,
+        readByMemberIds: []
+      }), "me")).toBe(true);
+    });
+
   });
 
   describe("unreadConditionForMember", () => {
 
-    it("should match threads the member has not read when a member is supplied", () => {
-      expect(unreadConditionForMember("me")).toEqual({readByMemberIds: {$ne: "me"}});
+    it("should match inbound threads the member has not read, and outbound threads marked unread", () => {
+      expect(unreadConditionForMember("me")).toEqual({
+        $or: [
+          {lastDirection: InboxMessageDirection.OUTBOUND, unread: true},
+          {lastDirection: {$ne: InboxMessageDirection.OUTBOUND}, readByMemberIds: {$ne: "me"}}
+        ]
+      });
     });
 
     it("should fall back to the global unread flag when there is no member", () => {
@@ -56,7 +74,10 @@ describe("inbox-unread-counts", () => {
       const filter = unreadConversationFilter(["secretary", "chair"], "me");
       expect(filter.roleType).toEqual({$in: ["secretary", "chair"]});
       expect(filter.folder).toEqual({$ne: InboxThreadFolder.JUNK});
-      expect(filter.readByMemberIds).toEqual({$ne: "me"});
+      expect(filter.$or).toEqual([
+        {lastDirection: InboxMessageDirection.OUTBOUND, unread: true},
+        {lastDirection: {$ne: InboxMessageDirection.OUTBOUND}, readByMemberIds: {$ne: "me"}}
+      ]);
     });
 
     it("should match a single role directly rather than with $in", () => {

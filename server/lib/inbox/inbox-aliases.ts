@@ -149,6 +149,12 @@ export async function derivedAliases(): Promise<InboxAliasConfig[]> {
   return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug);
 }
 
+export async function derivedAliasForEmail(email: string): Promise<InboxAliasConfig | null> {
+  const wanted = normaliseEmail(email);
+  const aliases = wanted ? await derivedAliases() : [];
+  return aliases.find(alias => normaliseEmail(alias.roleEmail) === wanted) ?? null;
+}
+
 export async function derivedAliasForRoleType(roleType: string): Promise<InboxAliasConfig | null> {
   if (isInboxGeneralRoleType(roleType)) {
     const tenantSlug = defaultTenantSlug();
@@ -239,6 +245,14 @@ export function roleMatchesMessageAddresses(roleType: string, roleEmail: string,
   const identityEmails = identityEmailsByType.get(roleType) ?? new Set([normaliseEmail(roleEmail)]);
   const excludedEmailSet = new Set(excludedEmails.map(normaliseEmail));
   return messageEmails.some(email => !excludedEmailSet.has(email) && identityEmails.has(email));
+}
+
+export async function siteInternalEmails(): Promise<Set<string>> {
+  const aliases = await derivedAliases();
+  const identityEmailsByType = await roleIdentityEmailsByType();
+  const aliasEmails = aliases.map(alias => normaliseEmail(alias.roleEmail)).filter(Boolean);
+  const identityEmails = Array.from(identityEmailsByType.values()).flatMap(emails => Array.from(emails));
+  return new Set([...aliasEmails, ...identityEmails].map(normaliseEmail).filter(Boolean));
 }
 
 export async function internalEmailsForConnection(connection: InboxMailboxConnection): Promise<Set<string>> {

@@ -9,9 +9,10 @@ import {
   InboxMessageDirection,
   InboxNewMessageEvent,
   InboxThread,
-  InboxThreadFolder
+  InboxThreadFolder,
+  isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { emailDomain, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -20,6 +21,7 @@ import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
+import { derivedAliasForEmail } from "./inbox-aliases";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
@@ -121,6 +123,133 @@ export async function backfillStatedReplyAddress(message: InboxMessage, internal
   return storedWithoutReplyTo.length;
 }
 
+function domainsFromEmails(internalEmails: Set<string>): Set<string> {
+  return new Set(Array.from(internalEmails).map(emailDomain).filter(Boolean));
+}
+
+function addressIsInternal(address: InboxAddress | null | undefined, internalEmails: Set<string>, internalDomains: Set<string>): boolean {
+  const email = address?.email ? normaliseEmail(address.email) : "";
+  const domain = email ? emailDomain(email) : "";
+  return Boolean(email) && (internalEmails.has(email) || (Boolean(domain) && internalDomains.has(domain)));
+}
+
+export function isOwnSentCopy(message: InboxMessage, internalEmails?: Set<string>): boolean {
+  const emails = internalEmails ?? new Set<string>();
+  const domains = domainsFromEmails(emails);
+  const recipients = [...(message.to ?? []), ...(message.cc ?? [])];
+  return emails.size > 0
+    && !isAutoReplyMessage(message)
+    && addressIsInternal(message.from, emails, domains)
+    && recipients.some(address => address?.email && !addressIsInternal(address, emails, domains));
+}
+
+export function outboundCopyFromInbound(message: InboxMessage, internalEmails?: Set<string>): InboxMessage {
+  const emails = internalEmails ?? new Set<string>();
+  const domains = domainsFromEmails(emails);
+  const keepExternal = (address: InboxAddress) => Boolean(address?.email) && !addressIsInternal(address, emails, domains);
+  const to = (message.to ?? []).filter(keepExternal);
+  const cc = (message.cc ?? []).filter(keepExternal);
+  return {
+    ...message,
+    direction: InboxMessageDirection.OUTBOUND,
+    to: to.length > 0 ? to : (message.to ?? []),
+    cc,
+    sentAt: message.sentAt ?? message.receivedAt,
+    receivedAt: null
+  };
+}
+
+export async function reclassifyOwnSentInboundMessages(internalEmails: Set<string>): Promise<number> {
+  const candidates = internalEmails.size === 0
+    ? []
+    : await inboxMessageModel.find({
+      direction: InboxMessageDirection.INBOUND,
+      "from.email": {$in: Array.from(internalEmails)}
+    }).lean() as unknown as (InboxMessage & {_id: unknown})[];
+  const ownSends = candidates.filter(candidate => isOwnSentCopy(candidate, internalEmails));
+  await ownSends.reduce<Promise<void>>(async (previous, storedMessage) => {
+    await previous;
+    const outbound = outboundCopyFromInbound(storedMessage, internalEmails);
+    await inboxMessageModel.updateOne({_id: storedMessage._id}, {
+      $set: {
+        direction: InboxMessageDirection.OUTBOUND,
+        to: outbound.to,
+        cc: outbound.cc,
+        sentAt: outbound.sentAt,
+        receivedAt: null
+      }
+    });
+  }, Promise.resolve());
+  const threadIds = Array.from(new Set(ownSends.map(storedMessage => storedMessage.threadId).filter(Boolean)));
+  await threadIds.reduce<Promise<void>>(async (previous, threadId) => {
+    await previous;
+    await refreshThreadAfterOwnSentReclassify(threadId, internalEmails);
+  }, Promise.resolve());
+  if (ownSends.length > 0) {
+    debugLog(`reclassified ${pluraliseWithCount(ownSends.length, "own-sent inbox copy")} as outbound`);
+  }
+  const backfilled = await backfillMissingSentFrom();
+  return ownSends.length + backfilled;
+}
+
+async function backfillMissingSentFrom(): Promise<number> {
+  const threads = await inboxThreadModel.find({
+    lastDirection: InboxMessageDirection.OUTBOUND
+  }).select("_id roleType sentFrom").lean() as {_id: {toString(): string}; roleType: string; sentFrom?: InboxAddress | null}[];
+  const progress = {count: 0};
+  await threads.reduce<Promise<void>>(async (previous, thread) => {
+    await previous;
+    const existingFrom = thread.sentFrom?.email ? thread.sentFrom : null;
+    const latestOutbound = existingFrom
+      ? null
+      : await inboxMessageModel.findOne({
+        threadId: thread._id.toString(),
+        direction: InboxMessageDirection.OUTBOUND
+      }).sort({sentAt: -1, receivedAt: -1}).lean() as InboxMessage | null;
+    const sentFrom = existingFrom ?? (latestOutbound?.from?.email ? latestOutbound.from : null);
+    const senderAlias = sentFrom ? await derivedAliasForEmail(sentFrom.email) : null;
+    const senderRoleType = senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias.roleType : null;
+    const updates: Record<string, unknown> = {};
+    if (sentFrom && sentFrom.email !== thread.sentFrom?.email) {
+      updates.sentFrom = sentFrom;
+    }
+    if (senderRoleType && senderRoleType !== thread.roleType) {
+      updates.roleType = senderRoleType;
+    }
+    if (keys(updates).length > 0) {
+      await inboxThreadModel.updateOne({_id: thread._id}, {$set: updates});
+      progress.count += 1;
+    }
+  }, Promise.resolve());
+  return progress.count;
+}
+
+async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEmails: Set<string>): Promise<void> {
+  const messages = await inboxMessageModel.find({threadId}).lean() as unknown as InboxMessage[];
+  const latest = messages.reduce<InboxMessage | null>((current, candidate) => {
+    const currentAt = current?.receivedAt ?? current?.sentAt ?? -1;
+    const candidateAt = candidate.receivedAt ?? candidate.sentAt ?? -1;
+    return candidateAt >= currentAt ? candidate : current;
+  }, null);
+  if (latest) {
+    const lastDirection = latest.direction;
+    const thread = await inboxThreadModel.findById(threadId).lean() as unknown as InboxThread | null;
+    const externalAddress = resolveThreadExternalAddress(latest, thread?.externalAddress, internalEmails);
+    const sentFrom = lastDirection === InboxMessageDirection.OUTBOUND && latest.from?.email ? latest.from : null;
+    const senderAlias = sentFrom ? await derivedAliasForEmail(sentFrom.email) : null;
+    const senderRoleType = senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias.roleType : null;
+    await inboxThreadModel.updateOne({_id: threadId}, {
+      $set: {
+        lastDirection,
+        unread: thread?.folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND,
+        externalAddress,
+        sentFrom,
+        ...(senderRoleType ? {roleType: senderRoleType} : {})
+      }
+    });
+  }
+}
+
 export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress, internalEmails?: Set<string>): InboxAddress {
   const isInternal = (address?: InboxAddress | null) =>
     Boolean(address?.email && internalEmails?.has(normaliseEmail(address.email)));
@@ -153,7 +282,22 @@ export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number
   return messageAt > previousLastSeenAt;
 }
 
+async function aliasForOwnSentCopy(fallback: InboxAliasConfig, message: InboxMessage): Promise<InboxAliasConfig> {
+  const senderAlias = await derivedAliasForEmail(message.from?.email ?? "");
+  return senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias : fallback;
+}
+
 export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX, internalEmails?: Set<string>): Promise<InboxMessage> {
+  const outbound = folder !== InboxThreadFolder.JUNK && isOwnSentCopy(message, internalEmails)
+    ? outboundCopyFromInbound(message, internalEmails)
+    : null;
+  const storedOutbound = outbound
+    ? await recordOutboundMessage(await aliasForOwnSentCopy(aliasConfig, outbound), outbound, internalEmails)
+    : null;
+  return outbound ? (storedOutbound ?? outbound) : storeReceivedInboundMessage(aliasConfig, message, folder, internalEmails);
+}
+
+async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder, internalEmails?: Set<string>): Promise<InboxMessage> {
   const isJunk = folder === InboxThreadFolder.JUNK;
   const now = dateTimeNow().toMillis();
   const messageAt = message.receivedAt ?? message.sentAt ?? now;
@@ -261,7 +405,7 @@ export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outbo
 export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMessage: InboxMessage, originalThreadId: string): Promise<InboxMessage> {
   const now = dateTimeNow().toMillis();
   const messageAt = replyMessage.sentAt ?? now;
-  const persistedMessage = await inboxMessageModel.create({...replyMessage, threadId: originalThreadId, mailboxConnectionId: replyMessage.mailboxConnectionId ?? aliasConfig.mailboxConnectionId});
+  const persistedMessage = await persistOutboundOnThread(aliasConfig, replyMessage, originalThreadId);
   await inboxThreadModel.updateOne({_id: originalThreadId}, {
     $addToSet: {messageIds: replyMessage.messageId}
   });
@@ -269,7 +413,8 @@ export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMe
     $set: {
       lastSeenAt: messageAt,
       lastDirection: InboxMessageDirection.OUTBOUND,
-      unread: false
+      unread: false,
+      sentFrom: replyMessage.from?.email ? replyMessage.from : null
     }
   });
   const unreadCountForRole = await unreadConversationCountForRole(aliasConfig.roleType, null);
@@ -280,7 +425,36 @@ export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMe
     unreadCountForRole
   });
   debugLog(`✅ recorded outbound reply ${replyMessage.messageId} on thread ${originalThreadId}`);
-  return persistedMessage.toObject();
+  return persistedMessage;
+}
+
+async function persistOutboundOnThread(aliasConfig: InboxAliasConfig, replyMessage: InboxMessage, originalThreadId: string): Promise<InboxMessage> {
+  const existing = await inboxMessageModel.findOne({
+    threadId: originalThreadId,
+    messageId: replyMessage.messageId
+  }).lean() as unknown as (InboxMessage & {_id: unknown}) | null;
+  if (existing && existing.direction === InboxMessageDirection.OUTBOUND) {
+    return existing;
+  } else if (existing) {
+    const sentAt = replyMessage.sentAt ?? existing.sentAt ?? existing.receivedAt;
+    await inboxMessageModel.updateOne({_id: existing._id}, {
+      $set: {
+        direction: InboxMessageDirection.OUTBOUND,
+        to: replyMessage.to,
+        cc: replyMessage.cc,
+        sentAt,
+        receivedAt: null
+      }
+    });
+    return {...existing, direction: InboxMessageDirection.OUTBOUND, to: replyMessage.to, cc: replyMessage.cc, sentAt, receivedAt: null};
+  } else {
+    const created = await inboxMessageModel.create({
+      ...replyMessage,
+      threadId: originalThreadId,
+      mailboxConnectionId: replyMessage.mailboxConnectionId ?? aliasConfig.mailboxConnectionId
+    });
+    return created.toObject();
+  }
 }
 
 async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder, counterparty?: InboxAddress): Promise<InboxThread | null> {
@@ -347,6 +521,7 @@ async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage
     firstSeenAt: seenAt,
     lastSeenAt: seenAt,
     lastDirection,
+    sentFrom: lastDirection === InboxMessageDirection.OUTBOUND && message.from?.email ? message.from : null,
     unread: folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND
   });
   debugLog(`createThread: created thread ${created._id} with externalAddress=${JSON.stringify(externalAddress)} from=${JSON.stringify(message.from)} to=${JSON.stringify(message.to)} subject="${message.subject}" counterparty=${JSON.stringify(counterparty)}`);

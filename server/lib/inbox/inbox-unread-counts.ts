@@ -1,16 +1,25 @@
 import { isArray } from "es-toolkit/compat";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { defaultTenantSlug } from "./inbox-aliases";
 
 const conversationGroupId = {$ifNull: ["$conversationKey", {$toString: "$_id"}]};
 
 export function threadUnreadForMember(thread: InboxThread, memberId: string | null): boolean {
-  return memberId ? !(thread.readByMemberIds ?? []).includes(memberId) : thread.unread;
+  return thread.lastDirection === InboxMessageDirection.OUTBOUND
+    ? thread.unread
+    : (memberId ? !(thread.readByMemberIds ?? []).includes(memberId) : thread.unread);
 }
 
 export function unreadConditionForMember(memberId: string | null): Record<string, unknown> {
-  return memberId ? {readByMemberIds: {$ne: memberId}} : {unread: true};
+  return memberId
+    ? {
+      $or: [
+        {lastDirection: InboxMessageDirection.OUTBOUND, unread: true},
+        {lastDirection: {$ne: InboxMessageDirection.OUTBOUND}, readByMemberIds: {$ne: memberId}}
+      ]
+    }
+    : {unread: true};
 }
 
 export async function conversationCount(filter: Record<string, unknown>): Promise<number> {

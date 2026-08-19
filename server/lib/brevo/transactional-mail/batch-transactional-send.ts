@@ -625,9 +625,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
-        if (request.inboxReplyContext || item.kind === "external") {
-          await performInboxWriteback(request, emailRequest, sendResult?.body?.messageId ?? null, debugLog, senderRoleType);
-        }
+        await performInboxWriteback(request, emailRequest, sendResult?.body?.messageId ?? null, debugLog, senderRoleType);
         if (item.kind === "external" && currentMemberId) {
           await recordSendUsage({
             email: item.recipient.email,

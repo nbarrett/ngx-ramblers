@@ -11,7 +11,7 @@ import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { inboxThreadId, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
+import { collapseInboxSends, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -292,8 +292,8 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 </div>
                 <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 <div class="inbox-thread-preview">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? 'Last message sent by you' : 'Latest incoming message'}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
-                @if (recipientForThread(thread); as roleEmail) {
-                  <div class="inbox-thread-recipient text-truncate">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? "from" : "to"}} {{roleEmail}}</div>
+                @if (roleLineForThread(thread); as roleLine) {
+                  <div class="inbox-thread-recipient text-truncate">{{roleLine}}</div>
                 }
               </div>
             </div>
@@ -1444,7 +1444,7 @@ export class InboxComponent implements OnInit, OnDestroy {
           listed.externalAddress = response.thread.externalAddress;
         }
       });
-      this.selectedMessages = this.collapseSends(responses.flatMap(response => response.messages));
+      this.selectedMessages = collapseInboxSends(responses.flatMap(response => response.messages));
       this.rebuildDisplayMessages();
       this.alignOutboundThreadCounterparty();
       const newestMessage = this.selectedMessages.length
@@ -1587,18 +1587,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.expandedMessageIds = nextExpanded;
   }
 
-  private dedupeMessages(messages: InboxMessage[]): InboxMessage[] {
-    const seen = new Set<string>();
-    return messages.filter(message => {
-      const key = message.externalId ?? message.messageId;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  }
-
   recipientSummary(message: InboxMessage): string {
     return [...(message.to ?? []), ...(message.cc ?? [])]
       .map(address => address.email?.trim())
@@ -1632,33 +1620,6 @@ export class InboxComponent implements OnInit, OnDestroy {
         }
       }
     }
-  }
-
-  private collapseSends(messages: InboxMessage[]): InboxMessage[] {
-    const windowMs = 5 * 60 * 1000;
-    const groups: InboxMessage[] = [];
-    const groupsByKey = new Map<string, InboxMessage[]>();
-    this.dedupeMessages(messages).forEach(message => {
-      const key = `${this.sendKey(message)}|${message.direction}`;
-      const at = message.receivedAt ?? message.sentAt ?? 0;
-      const candidates = groupsByKey.get(key) ?? [];
-      const group = candidates.find(existing =>
-        Math.abs((existing.receivedAt ?? existing.sentAt ?? 0) - at) <= windowMs);
-      if (group) {
-        group.to = this.unionAddresses(group.to, message.to);
-        group.cc = this.unionAddresses(group.cc, message.cc);
-      } else {
-        const created = {...message, to: [...(message.to ?? [])], cc: [...(message.cc ?? [])]};
-        groups.push(created);
-        groupsByKey.set(key, [...candidates, created]);
-      }
-    });
-    return groups;
-  }
-
-  private sendKey(message: InboxMessage): string {
-    const subject = (message.subject ?? "").replace(/^(?:re|fwd?|aw)\s*:\s*/gi, "").trim().toLowerCase();
-    return `${(message.from?.email ?? "").toLowerCase()}|${subject}`;
   }
 
   private unionAddresses(existing: InboxAddress[], incoming: InboxAddress[]): InboxAddress[] {
@@ -1699,33 +1660,27 @@ export class InboxComponent implements OnInit, OnDestroy {
     return alias && !isInboxGeneralRoleType(alias.roleType) ? alias.roleEmail : null;
   }
 
+  roleLineForThread(thread: InboxThread): string | null {
+    return inboxThreadRoleLine(thread, this.recipientForThread(thread));
+  }
+
   selectedThreadOutboundOnly(): boolean {
     return this.selectedMessages.length > 0 && this.selectedMessages.every(message => message.direction === InboxMessageDirection.OUTBOUND);
   }
 
   threadFromLabel(): string | null {
-    let label: string | null = null;
-    if (this.selectedThread) {
-      label = this.selectedThreadOutboundOnly()
-        ? this.selectedThreadRecipient()
-        : (this.formatAddress(this.selectedThread.externalAddress) || null);
-    }
-    return label;
+    const from = inboxThreadHeaderFrom(this.displayMessages);
+    return from ? this.formatAddress(from) || null : null;
   }
 
   threadToLabel(): string | null {
-    let label: string | null = null;
-    if (this.selectedThread) {
-      label = this.selectedThreadOutboundOnly()
-        ? (this.outboundThreadRecipientLabel() || null)
-        : this.selectedThreadRecipient();
-    }
-    return label;
+    const to = inboxThreadHeaderTo(this.displayMessages);
+    return to.length ? this.formatAddresses(to) : null;
   }
 
   messageFromLabel(message: InboxMessage): string {
     return message.direction === InboxMessageDirection.OUTBOUND
-      ? "Sent from Email Composer — " + this.formatAddress(message.from)
+      ? "Sent - " + this.formatAddress(message.from)
       : "From " + this.formatAddress(message.from);
   }
 
