@@ -32,6 +32,33 @@ function backingConnectionEmail(role: CommitteeMember): string | null {
   return null;
 }
 
+export function roleForwardingRecipients(role: CommitteeMember, linkedMemberEmail: string | null): string[] | null {
+  const target = role.forwardEmailTarget ?? ForwardEmailTarget.MEMBER_EMAIL;
+  if (target === ForwardEmailTarget.NONE) {
+    return [];
+  } else if (target === ForwardEmailTarget.CUSTOM) {
+    return role.forwardEmailCustom?.trim() ? [normaliseEmail(role.forwardEmailCustom)] : null;
+  } else if (target === ForwardEmailTarget.MULTIPLE) {
+    return (role.forwardEmailRecipients ?? []).map(normaliseEmail).filter(Boolean);
+  } else if (target === ForwardEmailTarget.MEMBER_EMAIL) {
+    return linkedMemberEmail?.trim() ? [normaliseEmail(linkedMemberEmail)] : null;
+  } else {
+    return null;
+  }
+}
+
+export async function legacyRoleForwardingRecipients(roleEmail: string): Promise<string[] | null> {
+  const wanted = normaliseEmail(roleEmail);
+  const role = (await committeeRoles()).find(candidate => normaliseEmail(candidate.email) === wanted) ?? null;
+  if (role) {
+    const linkedMembers = await assignedMembersByMemberId([role.memberId]);
+    const linkedMemberEmail = role.memberId ? linkedMembers.get(role.memberId)?.email ?? null : null;
+    return roleForwardingRecipients(role, linkedMemberEmail);
+  } else {
+    return null;
+  }
+}
+
 function catchAllConnection(connections: InboxMailboxConnection[]): InboxMailboxConnection | null {
   return connections.length === 1 ? connections[0] : null;
 }
