@@ -104,6 +104,11 @@ export interface UploadWorkerConfig {
   apiKey?: string;
 }
 
+export interface CmsScriptAuth {
+  username?: string;
+  password?: string;
+}
+
 export interface EnvironmentsConfig {
   environments?: EnvironmentConfig[];
   aws?: AwsConfig;
@@ -115,6 +120,7 @@ export interface EnvironmentsConfig {
   dockerImage?: string;
   region?: string;
   consoleAccess?: EnvironmentConsoleAccess;
+  cms?: CmsScriptAuth;
 }
 
 export enum FlyioMemory {

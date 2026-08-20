@@ -61,5 +61,7 @@ Thumbs.db
 /.gemini-clipboard/
 .eslint-config/
 /cli-output
-/.claude/
+/.claude/settings.local.json
+/.claude/hooks/
+/.claude/launch.json
 /.agents/
