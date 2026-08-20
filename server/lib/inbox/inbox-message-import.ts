@@ -165,7 +165,7 @@ export async function reclassifyOwnSentInboundMessages(internalEmails: Set<strin
     : await inboxMessageModel.find({
       direction: InboxMessageDirection.INBOUND,
       "from.email": {$in: Array.from(internalEmails)}
-    }).lean() as unknown as (InboxMessage & {_id: unknown})[];
+    }).select("_id threadId direction from to cc sentAt receivedAt subject autoReply").lean() as unknown as (InboxMessage & {_id: unknown})[];
   const ownSends = candidates.filter(candidate => isOwnSentCopy(candidate, internalEmails));
   await ownSends.reduce<Promise<void>>(async (previous, storedMessage) => {
     await previous;
@@ -194,33 +194,35 @@ export async function reclassifyOwnSentInboundMessages(internalEmails: Set<strin
 
 async function backfillMissingSentFrom(): Promise<number> {
   const threads = await inboxThreadModel.find({
-    lastDirection: InboxMessageDirection.OUTBOUND
-  }).select("_id roleType sentFrom").lean() as {_id: {toString(): string}; roleType: string; sentFrom?: InboxAddress | null}[];
+    lastDirection: InboxMessageDirection.OUTBOUND,
+    $or: [
+      {sentFrom: {$exists: false}},
+      {sentFrom: null},
+      {"sentFrom.email": {$in: [null, ""]}}
+    ]
+  }).select("_id roleType").lean() as {_id: {toString(): string}; roleType: string}[];
   const progress = {count: 0};
   await threads.reduce<Promise<void>>(async (previous, thread) => {
     await previous;
-    const existingFrom = thread.sentFrom?.email ? thread.sentFrom : null;
-    const latestOutbound = existingFrom
-      ? null
-      : await inboxMessageModel.findOne({
-        threadId: thread._id.toString(),
-        direction: InboxMessageDirection.OUTBOUND
-      }).sort({sentAt: -1, receivedAt: -1}).lean() as InboxMessage | null;
-    const sentFrom = existingFrom ?? (latestOutbound?.from?.email ? latestOutbound.from : null);
-    const senderAlias = sentFrom ? await derivedAliasForEmail(sentFrom.email) : null;
-    const senderRoleType = senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias.roleType : null;
-    const updates: Record<string, unknown> = {};
-    if (sentFrom && sentFrom.email !== thread.sentFrom?.email) {
-      updates.sentFrom = sentFrom;
-    }
-    if (senderRoleType && senderRoleType !== thread.roleType) {
-      updates.roleType = senderRoleType;
-    }
-    if (keys(updates).length > 0) {
+    const latestOutbound = await inboxMessageModel.findOne({
+      threadId: thread._id.toString(),
+      direction: InboxMessageDirection.OUTBOUND
+    }).select("from").sort({sentAt: -1, receivedAt: -1}).lean() as InboxMessage | null;
+    const sentFrom = latestOutbound?.from?.email ? latestOutbound.from : null;
+    if (sentFrom) {
+      const senderAlias = await derivedAliasForEmail(sentFrom.email);
+      const senderRoleType = senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias.roleType : null;
+      const updates: Record<string, unknown> = {
+        sentFrom,
+        ...(senderRoleType && senderRoleType !== thread.roleType ? {roleType: senderRoleType} : {})
+      };
       await inboxThreadModel.updateOne({_id: thread._id}, {$set: updates});
       progress.count += 1;
     }
   }, Promise.resolve());
+  if (threads.length > 0) {
+    debugLog(`backfilled sentFrom on ${pluraliseWithCount(progress.count, "outbound thread")} (${threads.length} missing)`);
+  }
   return progress.count;
 }
 
