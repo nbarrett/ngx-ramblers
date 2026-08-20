@@ -1105,7 +1105,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             @for (attachment of state.attachments ?? []; track attachment.url; let index = $index) {
               <span class="composer-attachment">
                 <button type="button" class="composer-attachment-open" [tooltip]="attachment.name" container="body"
-                        (click)="attachmentPreview.open({filename: attachment.name, url: attachment.url})">
+                        (click)="attachmentPreview.open({filename: attachment.name, url: attachment.url, contentType: attachmentContentType(attachment.name)})">
                   <fa-icon [icon]="faPaperclip" class="composer-attachment-icon"/>
                   <span class="composer-attachment-name">{{ attachment.name }}</span>
                   <span class="composer-attachment-size text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
@@ -5779,6 +5779,17 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected removeAttachment(index: number): void {
     this.state.attachments = (this.state.attachments ?? []).filter((_, attachmentIndex) => attachmentIndex !== index);
+  }
+
+  attachmentContentType(name: string): string | null {
+    const lower = (name || "").toLowerCase();
+    if (lower.endsWith(".pdf")) {
+      return "application/pdf";
+    } else if (lower.endsWith(".ics")) {
+      return "text/calendar";
+    } else {
+      return null;
+    }
   }
 
   private async startBatchTransactionalSend(): Promise<void> {

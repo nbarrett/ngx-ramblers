@@ -90,6 +90,10 @@ describe("aws-utils.contentTypeFrom", () => {
     expect(contentTypeFrom("document.pdf")).toEqual("application/pdf");
   });
 
+  it("returns text/calendar for .ics", () => {
+    expect(contentTypeFrom("meeting.ics")).toEqual("text/calendar; charset=utf-8");
+  });
+
   it("returns application/msword for .doc / .docx", () => {
     expect(contentTypeFrom("letter.doc")).toEqual("application/msword");
     expect(contentTypeFrom("letter.docx")).toEqual("application/msword");

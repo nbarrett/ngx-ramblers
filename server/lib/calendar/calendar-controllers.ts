@@ -43,7 +43,7 @@ function calendarNameFor(config: SystemConfig): string {
 
 function sendCalendar(res: Response, document: string, fileName: string): void {
   res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
   res.setHeader("Cache-Control", CACHE_CONTROL);
   res.send(document);
 }
@@ -55,7 +55,7 @@ export async function eventCalendar(req: Request, res: Response): Promise<void> 
     const event = await extendedGroupEvent.findById(eventId).lean().exec() as ExtendedGroupEvent;
     if (event) {
       const baseUrl = publicImageBaseUrl(req, config);
-      sendCalendar(res, icalDocument([event], config, baseUrl, calendarNameFor(config)), `${eventId}.ics`);
+      sendCalendar(res, icalDocument([event], config, baseUrl, event.groupEvent?.title || calendarNameFor(config)), `${eventId}.ics`);
     } else {
       res.status(404).json({message: `No event found with id ${eventId}`});
     }

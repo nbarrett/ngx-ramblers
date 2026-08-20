@@ -1,6 +1,10 @@
 import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
 import { faCalendarPlus, faRoute } from "@fortawesome/free-solid-svg-icons";
+import { isBrowser } from "es-toolkit";
+import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } from "../../../models/inbox.model";
+import { calendarAppLabel, calendarAppsForDevice, calendarEventFromGroupEvent, calendarHrefFor, deviceKindFromUserAgent } from "../../../functions/calendar-add";
 import { RelatedLinkComponent } from "./related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayedWalk, Links } from "../../../models/walk.model";
@@ -67,14 +71,21 @@ import { FileNameData } from "../../../models/aws-object.model";
       </div>
     }
     @if (calendarDownloadUrl() && showLink('relatedLinkShowCalendar')) {
-      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-           class="col-sm-12">
-        <fa-icon title [icon]="faCalendarPlus" class="fa-icon"></fa-icon>
-        <a content tooltip="Click to add this {{display.eventTypeTitle(displayedWalk.walk).toLowerCase()}} to your calendar"
-           [href]="calendarDownloadUrl()">
-          Add to calendar
-        </a>
-      </div>
+      @for (app of calendarApps; track app) {
+        @if (calendarHref(app); as href) {
+          <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+               class="col-sm-12">
+            <fa-icon title [icon]="calendarIcon(app)" class="fa-icon"></fa-icon>
+            <a content
+               tooltip="Click to add this {{display.eventTypeTitle(displayedWalk.walk).toLowerCase()}} to {{calendarDestination(app)}}"
+               [href]="href"
+               [attr.target]="app === CalendarApp.LOCAL ? null : '_blank'"
+               [attr.rel]="app === CalendarApp.LOCAL ? null : 'noopener'">
+              {{ calendarLabel(app) }}
+            </a>
+          </div>
+        }
+      }
     }
     @if (what3wordsHref() && showLink('relatedLinkShowWhat3words')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
@@ -118,6 +129,19 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected readonly faRoute = faRoute;
   protected readonly faCalendarPlus = faCalendarPlus;
+  protected readonly faGoogle = faGoogle;
+  protected readonly faMicrosoft = faMicrosoft;
+  protected readonly CalendarApp = CalendarApp;
+  protected readonly deviceKind: DeviceKind = deviceKindFromUserAgent(
+    isBrowser() ? navigator.userAgent : "",
+    isBrowser() ? navigator.platform : null
+  );
+  protected readonly calendarApps: CalendarApp[] = calendarAppsForDevice(this.deviceKind);
+  private readonly calendarClientHints: CalendarClientHints = {
+    userAgent: isBrowser() ? navigator.userAgent : "",
+    origin: isBrowser() ? window.location.origin : null
+  };
+  protected calendarEvent: CalendarPreviewEvent | null = null;
 
   ngOnInit(): void {
     this.refreshLinks();
@@ -144,6 +168,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   private refreshLinks(): void {
     this.links = this.linksService.linksFrom(this.displayedWalk?.walk);
+    this.calendarEvent = calendarEventFromGroupEvent(this.displayedWalk?.walk ?? null);
     this.logger.info("refreshLinks:links:", this.links, "from displayedWalk?.walk?.fields.links:", this.displayedWalk?.walk?.fields.links);
   }
 
@@ -209,6 +234,34 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   calendarDownloadUrl(): string | undefined {
     const eventId = this.displayedWalk?.walk?.id;
     return eventId ? `/api/calendar/event/${eventId}` : undefined;
+  }
+
+  calendarLabel(app: CalendarApp): string {
+    return calendarAppLabel(app);
+  }
+
+  calendarDestination(app: CalendarApp): string {
+    if (app === CalendarApp.GOOGLE) {
+      return "Google Calendar";
+    } else if (app === CalendarApp.OUTLOOK) {
+      return "Outlook";
+    } else {
+      return "your calendar";
+    }
+  }
+
+  calendarIcon(app: CalendarApp) {
+    if (app === CalendarApp.GOOGLE) {
+      return this.faGoogle;
+    } else if (app === CalendarApp.OUTLOOK) {
+      return this.faMicrosoft;
+    } else {
+      return this.faCalendarPlus;
+    }
+  }
+
+  calendarHref(app: CalendarApp): string | null {
+    return calendarHrefFor(app, this.calendarEvent, this.calendarDownloadUrl() || null, this.calendarClientHints);
   }
 
   gpxDownloadFileName(): string {
