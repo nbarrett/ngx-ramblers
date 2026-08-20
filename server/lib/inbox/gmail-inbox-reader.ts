@@ -316,6 +316,16 @@ export async function insertSentCopy(connection: InboxMailboxConnection, rfc822:
   return response.id ?? null;
 }
 
+export async function sendRfc822(connection: InboxMailboxConnection, rfc822: string): Promise<string | null> {
+  const response = await gmailRequest<GmailMessage>(connection, GmailEndpoint.SEND, null, {
+    method: GmailRequestMethod.POST,
+    data: {
+      raw: Buffer.from(rfc822, "utf8").toString("base64url")
+    }
+  });
+  return response.id ?? null;
+}
+
 export async function fetchMessageReplyTo(connection: InboxMailboxConnection, gmailMessageId: string): Promise<InboxAddress | null> {
   const payload = await gmailRequest<GmailMessage>(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE(gmailMessageId), {
     format: GmailMessageFormat.METADATA

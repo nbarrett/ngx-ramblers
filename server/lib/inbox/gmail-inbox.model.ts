@@ -20,7 +20,8 @@ export enum GmailEndpoint {
   WATCH = "/users/me/watch",
   STOP = "/users/me/stop",
   BATCH_MODIFY = "/users/me/messages/batchModify",
-  INSERT = "/users/me/messages/insert"
+  INSERT = "/users/me/messages/insert",
+  SEND = "/users/me/messages/send"
 }
 
 export const GMAIL_DYNAMIC_ENDPOINTS = {

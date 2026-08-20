@@ -72,6 +72,7 @@ export const fileContentTypeMappings: FileContentTypeMapping[] = [
   { extensions: ["gz"], contentType: "application/gzip" },
   { extensions: ["tar"], contentType: "application/x-tar" },
   { extensions: ["pdf"], contentType: "application/pdf" },
+  { extensions: ["ics"], contentType: "text/calendar; charset=utf-8" },
   { extensions: ["doc", "docx", "dot"], contentType: "application/msword" },
   { extensions: ["gpx"], contentType: "application/gpx+xml" },
   { extensions: ["zip"], contentType: "application/zip" },

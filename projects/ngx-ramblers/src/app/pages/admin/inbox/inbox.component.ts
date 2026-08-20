@@ -46,6 +46,7 @@ import { PageComponent } from "../../../page/page.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { AttachmentPreviewComponent } from "../../../modules/common/attachment-preview/attachment-preview";
+import { InboxCalendarInviteComponent } from "./inbox-calendar-invite";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
@@ -53,7 +54,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent],
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
@@ -394,6 +395,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 </div>
                 @if (hasOpenedMessage(message)) {
                   <div class="inbox-message-content" [class.d-none]="!isMessageExpanded(message)">
+                    <app-inbox-calendar-invite [message]="message"/>
                     @if (visibleAttachments(message).length) {
                       <div class="inbox-attachments d-flex flex-wrap gap-2 mb-3">
                         @for (attachment of visibleAttachments(message); track attachment.s3Key) {

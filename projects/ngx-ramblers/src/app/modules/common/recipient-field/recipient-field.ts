@@ -59,8 +59,12 @@ import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } fr
               }
               <input type="text"
                      class="recipient-input"
-                     autocomplete="email"
-                     inputmode="email"
+                     autocomplete="off"
+                     autocorrect="off"
+                     autocapitalize="off"
+                     spellcheck="false"
+                     inputmode="text"
+                     [attr.name]="'recipient-' + field.key"
                      [ngModel]="draft[field.key]"
                      (ngModelChange)="onDraftChange(field.key, $event)"
                      (paste)="onPaste(field.key, $event)"
@@ -90,8 +94,12 @@ import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } fr
                          (ngModelChange)="changeEditingEmail($event)"
                          (keydown.enter)="confirmEditingEmail($event)"
                          placeholder="Email address"
-                         autocomplete="email"
-                         inputmode="email">
+                         autocomplete="off"
+                         autocorrect="off"
+                         autocapitalize="off"
+                         spellcheck="false"
+                         inputmode="text"
+                         name="recipient-editor-email">
                 </label>
                 @if (editorError) {
                   <p class="recipient-editor-error">{{ editorError }}</p>

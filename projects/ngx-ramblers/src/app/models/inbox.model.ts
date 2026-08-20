@@ -168,6 +168,7 @@ export interface InboxAttachment {
 export enum AttachmentPreviewKind {
   IMAGE = "image",
   PDF = "pdf",
+  ICS = "ics",
   CSV = "csv",
   TEXT = "text",
   NONE = "none"
@@ -177,6 +178,77 @@ export interface AttachmentPreview {
   filename: string;
   url: string;
   contentType?: string;
+}
+
+export enum CalendarMethod {
+  REQUEST = "REQUEST",
+  PUBLISH = "PUBLISH",
+  REPLY = "REPLY",
+  CANCEL = "CANCEL",
+  COUNTER = "COUNTER"
+}
+
+export enum CalendarRsvpStatus {
+  NEEDS_ACTION = "NEEDS-ACTION",
+  ACCEPTED = "ACCEPTED",
+  TENTATIVE = "TENTATIVE",
+  DECLINED = "DECLINED"
+}
+
+export interface CalendarAttendee {
+  email: string;
+  name: string | null;
+  rsvp: boolean;
+  partStat: CalendarRsvpStatus | null;
+}
+
+export interface CalendarPreviewEvent {
+  title: string | null;
+  startsAt: number | null;
+  endsAt: number | null;
+  allDay: boolean;
+  location: string | null;
+  description: string | null;
+  url: string | null;
+  status: string | null;
+  organiser: string | null;
+  organiserEmail: string | null;
+  uid: string | null;
+  sequence: number;
+  attendees: CalendarAttendee[];
+}
+
+export interface CalendarInvite {
+  method: CalendarMethod | null;
+  events: CalendarPreviewEvent[];
+}
+
+export interface InboxCalendarReplyRequest {
+  messageId: string;
+  status: CalendarRsvpStatus;
+}
+
+export interface InboxCalendarReplyResponse {
+  status: CalendarRsvpStatus;
+  attendeeEmail: string;
+}
+
+export enum DeviceKind {
+  APPLE = "apple",
+  WINDOWS = "windows",
+  ANDROID = "android",
+  OTHER = "other"
+}
+
+export enum CalendarApp {
+  LOCAL = "local",
+  GOOGLE = "google",
+  OUTLOOK = "outlook"
+}
+
+export interface CalendarClientHints {
+  userAgent: string;
+  origin: string | null;
 }
 
 export interface InboxThread extends Identifiable {
@@ -226,6 +298,7 @@ export interface InboxMessage extends Identifiable {
   attachments: InboxAttachment[];
   notifiedAt?: number | null;
   conversationKey?: string | null;
+  calendarRsvp?: CalendarRsvpStatus | null;
 }
 
 export interface InboxThreadListRequest {

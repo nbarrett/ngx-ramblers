@@ -39,6 +39,7 @@ import {
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
+import { sendCalendarReply } from "./inbox-calendar-reply";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, reclassifyOwnSentInboundMessages, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
@@ -920,6 +921,8 @@ router.post("/threads/:id/mark-unread", authConfig.authenticate(), async (req: R
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
+
+router.post("/threads/:id/calendar-reply", authConfig.authenticate(), sendCalendarReply);
 
 router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {

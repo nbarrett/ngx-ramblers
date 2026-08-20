@@ -19,7 +19,9 @@ import {
   InboxThreadListResponse,
   InboxThreadMessagesResponse,
   InboxUnreadCountsResponse,
-  InboxViewScope
+  InboxViewScope,
+  InboxCalendarReplyRequest,
+  InboxCalendarReplyResponse
 } from "../../models/inbox.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { CommonDataService } from "../common-data-service";
@@ -183,5 +185,10 @@ export class InboxService {
   async composeReply(threadId: string, request: InboxReplyComposeRequest): Promise<InboxReplyComposeResponse> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/compose-reply`, request));
     return response.response as InboxReplyComposeResponse;
+  }
+
+  async sendCalendarReply(threadId: string, request: InboxCalendarReplyRequest): Promise<InboxCalendarReplyResponse> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/calendar-reply`, request));
+    return response.response as InboxCalendarReplyResponse;
   }
 }
