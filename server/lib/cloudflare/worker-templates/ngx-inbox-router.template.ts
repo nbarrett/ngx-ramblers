@@ -57,17 +57,20 @@ export default {
     }
 
     let action = "store";
-    let forwardAddress = "";
+    let forwardAddresses: string[] = [];
     try {
       const parsed = JSON.parse(await response.text());
       const inner = (parsed && parsed.response) || parsed || {};
       action = inner.action || "store";
-      forwardAddress = inner.to || "";
+      forwardAddresses = ([] as string[]).concat(inner.to || []);
     } catch (_ignored) {
       action = "store";
     }
     if (action === "forward") {
-      await forwardTo(forwardAddress, "site catch-all forwards");
+      const destinations = forwardAddresses.length > 0 ? forwardAddresses : [fallback];
+      for (const destination of destinations) {
+        await forwardTo(destination, "site forwarding");
+      }
     }
   }
 };

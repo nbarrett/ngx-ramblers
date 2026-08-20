@@ -23,6 +23,7 @@ import {
   defaultTenantSlug,
   generalInboxForwardAddress,
   internalEmailsForConnection,
+  legacyRoleForwardingRecipients,
   messageRecipientEmails
 } from "../inbox/inbox-aliases";
 import { ensureCloudflareIngressConnection } from "./cloudflare-ingress-connection";
@@ -149,47 +150,48 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
     const inboxSettings = (await systemConfig())?.inbox;
     const provider = inboxSettings?.provider;
     if (provider !== InboxReaderProvider.CLOUDFLARE_INGRESS) {
+      const roleRecipients = await legacyRoleForwardingRecipients(payload.envelopeTo ?? "");
       const catchAll = inboxSettings?.catchAll;
-      if (catchAll?.mode === InboxCatchAllMode.DROP) {
+      if (roleRecipients?.length === 0) {
+        debugLog("inbound-inbox: role forwarding is disabled for %s; instructing router to drop", payload.envelopeTo);
+        res.status(200).json({request: {messageType}, response: {action: "drop", provider: provider ?? null}});
+      } else if (roleRecipients && roleRecipients.length > 0) {
+        debugLog("inbound-inbox: this site's inbox provider is %s; forwarding %s to configured role recipients %o", provider ?? "unset", payload.envelopeTo, roleRecipients);
+        res.status(200).json({request: {messageType}, response: {action: "forward", to: roleRecipients, provider: provider ?? null}});
+      } else if (catchAll?.mode === InboxCatchAllMode.DROP) {
         debugLog("inbound-inbox: this site's catch-all is set to drop; instructing router to drop");
         res.status(200).json({request: {messageType}, response: {action: "drop", provider: provider ?? null}});
-        return;
-      }
-      if (catchAll?.mode === InboxCatchAllMode.INBOX) {
+      } else if (catchAll?.mode === InboxCatchAllMode.INBOX) {
         const inboxAddress = await generalInboxForwardAddress(defaultTenantSlug());
         debugLog("inbound-inbox: catch-all set to deliver to this site's inbox; forwarding to the site's inbox account %s", inboxAddress ?? "(none found - using shared fallback)");
         res.status(200).json({request: {messageType}, response: {action: "forward", to: inboxAddress, provider: provider ?? null}});
-        return;
+      } else {
+        const forwardTo = catchAll?.forwardTo?.trim() || null;
+        debugLog("inbound-inbox: this site's inbox provider is %s (not direct-to-inbox); instructing router to forward%s", provider ?? "unset", forwardTo ? ` to ${forwardTo}` : " to the shared fallback");
+        res.status(200).json({request: {messageType}, response: {action: "forward", to: forwardTo, provider: provider ?? null}});
       }
-      const forwardTo = catchAll?.forwardTo?.trim() || null;
-      debugLog("inbound-inbox: this site's inbox provider is %s (not direct-to-inbox); instructing router to forward%s", provider ?? "unset", forwardTo ? ` to ${forwardTo}` : " to the shared fallback");
-      res.status(200).json({request: {messageType}, response: {action: "forward", to: forwardTo, provider: provider ?? null}});
-      return;
-    }
-    const parsed = await simpleParser(Buffer.from(payload.rawMimeBase64, "base64"));
-    const message = withEnvelopeRecipient(await parsedToInboxMessage(parsed), payload.envelopeTo);
-    debugLog("inbound-inbox: signature OK (%s secret); recipients %o envelopeTo=%s subject=%o", routerSecret ? "shared-router" : "per-site", messageRecipientEmails(message), payload.envelopeTo, message.subject);
-    const connection = await ensureCloudflareIngressConnection();
-    const aliases = await cloudflareIngressAliasesForMessage(message, connection);
-    const roleMatched = aliases.some(alias => !isInboxGeneralRoleType(alias.roleType));
-    if (!roleMatched) {
+    } else {
+      const parsed = await simpleParser(Buffer.from(payload.rawMimeBase64, "base64"));
+      const message = withEnvelopeRecipient(await parsedToInboxMessage(parsed), payload.envelopeTo);
+      debugLog("inbound-inbox: signature OK (%s secret); recipients %o envelopeTo=%s subject=%o", routerSecret ? "shared-router" : "per-site", messageRecipientEmails(message), payload.envelopeTo, message.subject);
+      const connection = await ensureCloudflareIngressConnection();
+      const aliases = await cloudflareIngressAliasesForMessage(message, connection);
+      const roleMatched = aliases.some(alias => !isInboxGeneralRoleType(alias.roleType));
       const catchAll = inboxSettings?.catchAll;
-      if (catchAll?.mode === InboxCatchAllMode.DROP) {
+      if (!roleMatched && catchAll?.mode === InboxCatchAllMode.DROP) {
         debugLog("inbound-inbox: unmatched recipients %o and catch-all set to drop", messageRecipientEmails(message));
         res.status(200).json({request: {messageType}, response: {action: "drop"}});
-        return;
-      }
-      if (catchAll?.mode === InboxCatchAllMode.FORWARD) {
+      } else if (!roleMatched && catchAll?.mode === InboxCatchAllMode.FORWARD) {
         const forwardTo = catchAll.forwardTo?.trim() || null;
         debugLog("inbound-inbox: unmatched recipients %o and catch-all set to forward%s", messageRecipientEmails(message), forwardTo ? ` to ${forwardTo}` : " to the shared fallback");
         res.status(200).json({request: {messageType}, response: {action: "forward", to: forwardTo}});
-        return;
+      } else {
+        const internalEmails = await internalEmailsForConnection(connection);
+        await Promise.all(aliases.map(alias => storeInboundMessage(alias, message, undefined, internalEmails)));
+        debugLog("Stored inbound message %s under %s: %o", message.messageId, pluraliseWithCount(aliases.length, "role"), aliases.map(alias => alias.roleType));
+        res.status(200).json({request: {messageType}, response: {action: "store", stored: aliases.length, roleTypes: aliases.map(alias => alias.roleType)}});
       }
     }
-    const internalEmails = await internalEmailsForConnection(connection);
-    await Promise.all(aliases.map(alias => storeInboundMessage(alias, message, undefined, internalEmails)));
-    debugLog("Stored inbound message %s under %s: %o", message.messageId, pluraliseWithCount(aliases.length, "role"), aliases.map(alias => alias.roleType));
-    res.status(200).json({request: {messageType}, response: {action: "store", stored: aliases.length, roleTypes: aliases.map(alias => alias.roleType)}});
   } catch (error) {
     const messageText = (error as Error).message || String(error);
     errorDebugLog("Unhandled inbound-inbox error: %s", messageText);

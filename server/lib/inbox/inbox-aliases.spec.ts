@@ -2,7 +2,15 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import { CommitteeMember, ForwardEmailTarget } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { cloudflareIngressAliasesFromMessage, connectionIdentifier, deriveAliasesFrom, generalAliasFor, messageAddressEmails, roleMatchesMessageAddresses } from "./inbox-aliases";
+import {
+  cloudflareIngressAliasesFromMessage,
+  connectionIdentifier,
+  deriveAliasesFrom,
+  generalAliasFor,
+  messageAddressEmails,
+  roleForwardingRecipients,
+  roleMatchesMessageAddresses
+} from "./inbox-aliases";
 
 function connection(overrides: Partial<InboxMailboxConnection>): InboxMailboxConnection {
   return {
@@ -31,6 +39,36 @@ function connectionsByEmail(connections: InboxMailboxConnection[]): Map<string, 
 }
 
 describe("inbox-aliases", () => {
+
+  describe("roleForwardingRecipients", () => {
+
+    it("uses the linked member email when the target is omitted", () => {
+      expect(roleForwardingRecipients(role({forwardEmailTarget: undefined}), "BobTolson7@outlook.com"))
+        .toEqual(["bobtolson7@outlook.com"]);
+    });
+
+    it("uses a custom forwarding address", () => {
+      expect(roleForwardingRecipients(role({forwardEmailTarget: ForwardEmailTarget.CUSTOM, forwardEmailCustom: "Shared@Example.com"}), null))
+        .toEqual(["shared@example.com"]);
+    });
+
+    it("uses every configured recipient for multiple forwarding", () => {
+      expect(roleForwardingRecipients(role({
+        forwardEmailTarget: ForwardEmailTarget.MULTIPLE,
+        forwardEmailRecipients: ["First@Example.com", "second@example.com"]
+      }), null)).toEqual(["first@example.com", "second@example.com"]);
+    });
+
+    it("returns an empty list when forwarding is disabled", () => {
+      expect(roleForwardingRecipients(role({forwardEmailTarget: ForwardEmailTarget.NONE}), null)).toEqual([]);
+    });
+
+    it("leaves catch-all and inbox routing to their existing handlers", () => {
+      expect(roleForwardingRecipients(role({forwardEmailTarget: ForwardEmailTarget.CATCHALL}), null)).toEqual(null);
+      expect(roleForwardingRecipients(role({forwardEmailTarget: ForwardEmailTarget.ROLE_EMAIL}), null)).toEqual(null);
+    });
+
+  });
 
   describe("cloudflareIngressAliasesForMessage", () => {
 
