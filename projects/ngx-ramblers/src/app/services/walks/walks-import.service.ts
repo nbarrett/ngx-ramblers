@@ -24,7 +24,7 @@ import {
   RamblersMemberAndContact
 } from "../../models/member.model";
 import { MemberNamingService } from "../member/member-naming.service";
-import { DataQueryOptions, FilterCriteria } from "../../models/api-request.model";
+import { DataQueryOptions } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
 import { Contact, LocationDetails, RamblersEventType, WalkStatus, WalkUploadColumnHeading } from "../../models/ramblers-walks-manager";
 import { AlertInstance } from "../notifier.service";
@@ -178,13 +178,7 @@ export class WalksImportService {
     importData.messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
     importData.messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
     const existingWalks: ExtendedGroupEvent[] = await this.allExistingWalksWithinRange(importData, firstWalk, lastWalk);
-    importData.existingWalksWithinRange = existingWalks.filter(walk => {
-      const withinRange = importData.groupCodeAndName.group_code === walk.groupEvent.group_code
-        && walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time
-        && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time;
-      this.logger.off("walk.groupEvent:", walk.groupEvent, "importData.groupCodeAndName:", importData.groupCodeAndName.group_code, "walk.groupEvent.group_code:", walk.groupEvent.group_code, "withinRange:", withinRange);
-      return withinRange;
-    });
+    importData.existingWalksWithinRange = existingWalks;
     importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be updated; new walks will be added`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range");
     const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[] = walksToImport.map(event => {
@@ -220,16 +214,18 @@ export class WalksImportService {
   }
 
   private async allExistingWalksWithinRange(importData: ImportData, firstWalk: ExtendedGroupEvent, lastWalk: ExtendedGroupEvent): Promise<ExtendedGroupEvent[]> {
+    const firstWalkDate = this.dateUtils.asDateTime(firstWalk.groupEvent.start_date_time).startOf("day").toISODate();
+    const dayAfterLastWalk = this.dateUtils.asDateTime(lastWalk.groupEvent.start_date_time).plus({days: 1}).startOf("day").toISODate();
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptionsFrom({
       inputSource: importData.inputSource,
       suppressEventLinking: true,
       groupCode: importData.groupCodeAndName.group_code,
       types: [RamblersEventType.GROUP_WALK],
       dataQueryOptions: {
-        ...this.extendedGroupEventQueryService.dataQueryOptions({
-          ascending: true,
-          selectType: FilterCriteria.DATE_RANGE
-        }, firstWalk?.groupEvent?.start_date_time, lastWalk?.groupEvent?.start_date_time),
+        criteria: {
+          [GroupEventField.START_DATE]: {$gte: firstWalkDate, $lt: dayAfterLastWalk}
+        },
+        sort: {[GroupEventField.START_DATE]: 1},
         select: {
           fields: 1,
           [GroupEventField.ID]: 1,
