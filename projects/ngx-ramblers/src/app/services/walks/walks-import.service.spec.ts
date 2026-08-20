@@ -306,6 +306,8 @@ describe("WalksImportService Walks Manager matching", () => {
         });
         localWalksAndEventsService.create.mockClear();
         localWalksAndEventsService.update.mockClear();
+        localWalksAndEventsService.allWithPagination.mockReset();
+        localWalksAndEventsService.allWithPagination.mockResolvedValue({ response: [], pagination: { total: 0 } });
         groupEventService.createEventIfRequired.mockClear();
         groupEventService.writeEventIfRequired.mockClear();
         memberService.createOrUpdate.mockClear();
@@ -324,6 +326,50 @@ describe("WalksImportService Walks Manager matching", () => {
 
         expect(row.bulkLoadMemberAndMatch.memberMatch).toEqual(MemberAction.found);
         expect(row.bulkLoadMemberAndMatch.member?.id).toEqual(matchingMember.id);
+    });
+
+    it("loads existing walks stored as ISO strings across the complete file import date range", async () => {
+        const service = TestBed.inject(WalksImportService);
+        const firstExistingWalk = walksManagerWalk();
+        firstExistingWalk.groupEvent.id = "100119582";
+        firstExistingWalk.groupEvent.title = "Kingsclere and Watership Down";
+        firstExistingWalk.groupEvent.start_date_time = "2023-05-21T10:30:00";
+        const lastExistingWalk = walksManagerWalk();
+        lastExistingWalk.groupEvent.id = "100121572";
+        lastExistingWalk.groupEvent.title = "Thames Path & Mad Duck";
+        lastExistingWalk.groupEvent.start_date_time = "2023-07-06T10:30:00";
+        localWalksAndEventsService.allWithPagination.mockResolvedValue({
+            response: [firstExistingWalk, lastExistingWalk],
+            pagination: {total: 2}
+        });
+        const firstIncomingWalk = service.csvRowToExtendedGroupEvent({
+            "Walk ID": "100119582",
+            "Title": "Kingsclere and Watership Down",
+            "Date": "2023-05-21",
+            "Start time": "10:30",
+            "Walk leaders": "Pauline Lax; Alistair Lax"
+        }, systemConfig.group);
+        const lastIncomingWalk = service.csvRowToExtendedGroupEvent({
+            "Walk ID": "100121572",
+            "Title": "Thames Path and Mad Duck",
+            "Date": "2023-07-06",
+            "Start time": "10:30",
+            "Walk leaders": "Diana Lincoln"
+        }, systemConfig.group);
+
+        const result = await service.prepareImportOfEvents(
+            service.importDataDefaults(InputSource.FILE_IMPORT),
+            [firstIncomingWalk, lastIncomingWalk]
+        );
+
+        expect(localWalksAndEventsService.allWithPagination).toHaveBeenCalledTimes(1);
+        const query = vi.mocked(localWalksAndEventsService.allWithPagination).mock.lastCall[0];
+        expect(query.criteria).toEqual({
+            "groupEvent.start_date_time": {$gte: "2023-05-21", $lt: "2023-07-07"}
+        });
+        expect(result.existingWalksWithinRange).toEqual([firstExistingWalk, lastExistingWalk]);
+        expect(service.existingWalkResolver(result.existingWalksWithinRange)(firstIncomingWalk)).toBe(firstExistingWalk);
+        expect(service.existingWalkResolver(result.existingWalksWithinRange)(lastIncomingWalk)).toBe(lastExistingWalk);
     });
 
     it("saves unmatched Walks Manager walks without creating members", async () => {
