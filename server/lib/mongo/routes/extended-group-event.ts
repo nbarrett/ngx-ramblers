@@ -9,7 +9,7 @@ import { DocumentField, GroupEventField } from "../../../../projects/ngx-rambler
 import { keys } from "es-toolkit/compat";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 
-const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
+const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, false, [GroupEventField.WALK_LEADER, GroupEventField.EVENT_ORGANISER]);
 const router = express.Router();
 const errorDebugLog = createErrorDebugLog("database:group-event-routes");
 const LOCAL_ACTIVE_FILTER = {
