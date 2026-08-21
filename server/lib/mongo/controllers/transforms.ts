@@ -26,7 +26,17 @@ export function toObjectWithId(document: any) {
     };
   }
 }
-export function setUnSetDocument<T>(document: T, parent?: string, parentResponse?: object): SetUnSetDocument {
+function withoutEmptyValues(object: object): object {
+  return keys(object).reduce((accumulator, field) => {
+    const value = isString(object[field]) ? object[field].trim() : object[field];
+    if (!includes([null, "", undefined], value)) {
+      accumulator[field] = value;
+    }
+    return accumulator;
+  }, {});
+}
+
+export function setUnSetDocument<T>(document: T, parent?: string, parentResponse?: object, atomicObjectPaths: string[] = []): SetUnSetDocument {
   const parentPath = parent ? parent + "." : "";
   const setUnSetDocumentResponse: SetUnSetDocument = parentResponse || {};
   each(document as any, (value: any, field) => {
@@ -40,9 +50,12 @@ export function setUnSetDocument<T>(document: T, parent?: string, parentResponse
     } else if (isArray(value)) {
       debugLog("setting array:", fullPath, "[" + typeof (value) + "]", "value:", value);
       set(setUnSetDocumentResponse, ["$set", fullPath], value);
+    } else if (isObject(value) && includes(atomicObjectPaths, fullPath)) {
+      debugLog("setting atomic object:", fullPath, "[" + typeof (value) + "]", "value:", value);
+      set(setUnSetDocumentResponse, ["$set", fullPath], withoutEmptyValues(value));
     } else if (isObject(value)) {
       debugLog("setting nested field:", fullPath, "[" + typeof (value) + "]", "value:", value);
-      setUnSetDocument(value, fullPath, setUnSetDocumentResponse);
+      setUnSetDocument(value, fullPath, setUnSetDocumentResponse, atomicObjectPaths);
     } else {
       debugLog("setting field:", fullPath, "[" + typeof (value) + "]", "value:", value);
       set(setUnSetDocumentResponse, ["$set", fullPath], value);
@@ -138,14 +151,14 @@ export function documentFromRequest<T>(documentOrRequest: T | (T & ControllerReq
   return isControllerRequest(documentOrRequest) ? documentOrRequest.body : documentOrRequest;
 }
 
-export function updateDocumentRequest<T>(documentOrRequest: T): SetUnSetDocument {
+export function updateDocumentRequest<T>(documentOrRequest: T, atomicObjectPaths: string[] = []): SetUnSetDocument {
   const document = documentFromRequest(documentOrRequest);
   const documentMinusIds = omit(document as any, ["_id", "__v", "id"]);
-  return setUnSetDocument<T>(documentMinusIds);
+  return setUnSetDocument<T>(documentMinusIds, undefined, undefined, atomicObjectPaths);
 }
 
-export function createDocumentRequest<T>(documentOrRequest: T): T {
-  return createDocument(updateDocumentRequest(documentOrRequest));
+export function createDocumentRequest<T>(documentOrRequest: T, atomicObjectPaths: string[] = []): T {
+  return createDocument(updateDocumentRequest(documentOrRequest, atomicObjectPaths));
 }
 
 export function createDocument<T>(setUnSetDocument: SetUnSetDocument): T {
@@ -157,10 +170,10 @@ export function createDocument<T>(setUnSetDocument: SetUnSetDocument): T {
   return response;
 }
 
-export function criteriaAndDocument<T>(req: ControllerRequest): CriteriaAndDocument {
+export function criteriaAndDocument<T>(req: ControllerRequest, atomicObjectPaths: string[] = []): CriteriaAndDocument {
   return {
     criteria: mongoIdCriteria(req),
-    document: updateDocumentRequest(req)
+    document: updateDocumentRequest(req, atomicObjectPaths)
   };
 }
 

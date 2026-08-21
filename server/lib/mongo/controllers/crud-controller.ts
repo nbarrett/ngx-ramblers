@@ -15,7 +15,7 @@ const UNPAGINATED_RESULT_CAP = 1000;
 
 mongoose.set("strictQuery", false);
 
-export function create<T>(model: Model<T>, debugEnabled = false) {
+export function create<T>(model: Model<T>, debugEnabled = false, atomicObjectPaths: string[] = []) {
   const debugLog: debug.Debugger = debug(envConfig.logNamespace("database:" + model.modelName));
   debugLog.enabled = debugEnabled;
   const errorDebugLog = createErrorDebugLog("database:" + model.modelName);
@@ -143,7 +143,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
   }
 
   async function updateDocument(requestDocument: ControllerRequest): Promise<T> {
-    const {criteria, document} = transforms.criteriaAndDocument<T>(requestDocument);
+    const {criteria, document} = transforms.criteriaAndDocument<T>(requestDocument, atomicObjectPaths);
     debugLog("pre-update:criteria:", criteria, "document:", document);
     const result = await model.findOneAndUpdate(criteria, document, {new: true}).exec();
     if (!result) throw new Error("Document not found for update");
@@ -153,7 +153,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
   }
 
   async function createDocument(requestDocument: ControllerRequest): Promise<T> {
-    const document: any = transforms.createDocumentRequest(requestDocument);
+    const document: any = transforms.createDocumentRequest(requestDocument, atomicObjectPaths);
     debugLog("pre-create:document:", document);
     const result = await model.create(document);
     const createdDocument = transforms.toObjectWithId(result);

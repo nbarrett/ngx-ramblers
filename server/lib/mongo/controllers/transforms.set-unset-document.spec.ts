@@ -309,4 +309,75 @@ describe("transforms.setUnSetDocument", () => {
     ;
     done();
   });
+
+  it("sets an atomic object path as a whole object rather than dotted sub-paths", done => {
+    const json = {
+      groupEvent: {
+        title: "Kingsclere and Watership Down",
+        walk_leader: {
+          is_overridden: false,
+          id: "5aa8666ac2ef1639d44610e4",
+          name: "Pauline Lax; Alistair Lax",
+          telephone: "07123 456789",
+          has_email: true
+        }
+      }
+    };
+    expect(transforms.setUnSetDocument(json, undefined, undefined, ["groupEvent.walk_leader"])).toEqual({
+      $set: {
+        "groupEvent.title": "Kingsclere and Watership Down",
+        "groupEvent.walk_leader": {
+          is_overridden: false,
+          id: "5aa8666ac2ef1639d44610e4",
+          name: "Pauline Lax; Alistair Lax",
+          telephone: "07123 456789",
+          has_email: true
+        }
+      }
+    });
+    done();
+  });
+
+  it("strips empty values from an atomic object path", done => {
+    const json = {
+      groupEvent: {
+        walk_leader: {
+          is_overridden: false,
+          id: "",
+          name: "Diana Lincoln",
+          telephone: null,
+          email_form: "   ",
+          has_email: false
+        }
+      }
+    };
+    expect(transforms.setUnSetDocument(json, undefined, undefined, ["groupEvent.walk_leader"])).toEqual({
+      $set: {
+        "groupEvent.walk_leader": {
+          is_overridden: false,
+          name: "Diana Lincoln",
+          has_email: false
+        }
+      }
+    });
+    done();
+  });
+
+  it("still recurses into object paths that are not declared atomic", done => {
+    const json = {
+      groupEvent: {
+        walk_leader: {
+          name: "Diana Lincoln",
+          has_email: true
+        }
+      }
+    };
+    expect(transforms.setUnSetDocument(json)).toEqual({
+      $set: {
+        "groupEvent.walk_leader.name": "Diana Lincoln",
+        "groupEvent.walk_leader.has_email": true
+      }
+    });
+    done();
+  });
 });
