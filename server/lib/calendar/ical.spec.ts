@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { escapeIcalText, foldIcalLine, icalDocument } from "./ical";
+import { escapeIcalText, foldIcalLine, icalDocument, meetingIcalDocument } from "./ical";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { RamblersEventType, WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -81,4 +81,45 @@ describe("ical", () => {
     const document = icalDocument([socialEvent], config, "https://example.org", "Calendar");
     expect(document).toContain("URL:https://example.org/social/summer-barbecue");
   });
+});
+
+describe("meetingIcalDocument", () => {
+
+  const START = 1789900800000;
+  const JOIN = "https://example.org/video-meetings/guest/r";
+
+  it("wraps a single VEVENT in a VCALENDAR with the meeting summary and uid", () => {
+    const ics = meetingIcalDocument({uid: "meeting-r@example.org", title: "Committee Meeting", startTime: START, url: JOIN}, "EKWG meetings");
+    expect(ics).toContain("BEGIN:VCALENDAR");
+    expect(ics).toContain("BEGIN:VEVENT");
+    expect(ics).toContain("END:VEVENT");
+    expect(ics).toContain("END:VCALENDAR");
+    expect(ics).toContain("SUMMARY:Committee Meeting");
+    expect(ics).toContain("UID:meeting-r@example.org");
+  });
+
+  it("uses METHOD:REQUEST with an organiser and a non-RSVP attendee when an organiser email is given", () => {
+    const ics = meetingIcalDocument({
+      uid: "u", title: "AGM", startTime: START, url: JOIN,
+      organiserName: "The Secretary", organiserEmail: "secretary@example.com"
+    }, "cal");
+    expect(ics).toContain("METHOD:REQUEST");
+    expect(ics).toContain("ORGANIZER;CN=The Secretary:mailto:secretary@example.com");
+    expect(ics).toContain("ATTENDEE;CN=The Secretary;RSVP=FALSE:mailto:secretary@example.com");
+  });
+
+  it("falls back to METHOD:PUBLISH with no organiser when no organiser email is given", () => {
+    const ics = meetingIcalDocument({uid: "u", title: "Open call", startTime: START, url: JOIN}, "cal");
+    expect(ics).toContain("METHOD:PUBLISH");
+    expect(ics).not.toContain("ORGANIZER");
+    expect(ics).not.toContain("ATTENDEE");
+  });
+
+  it("includes the join link and a UTC start and end time", () => {
+    const ics = meetingIcalDocument({uid: "u", title: "Call", startTime: START, url: JOIN}, "cal");
+    expect(ics).toContain(`URL:${JOIN}`);
+    expect(ics).toMatch(/DTSTART:\d{8}T\d{6}Z/);
+    expect(ics).toMatch(/DTEND:\d{8}T\d{6}Z/);
+  });
+
 });

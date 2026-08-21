@@ -135,7 +135,7 @@ export interface JitsiTokenUser {
   moderator: boolean;
 }
 
-export interface MintMeetingTokenOptions {
+export interface IssueMeetingTokenOptions {
   appId: string;
   appSecret: string;
   room: string;

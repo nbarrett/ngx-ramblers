@@ -18,7 +18,7 @@ NGX resolves the Jitsi host with the same one-value toggle the integration worke
 | Local dev | `JITSI_HOST_URL=https://localhost:8443` (or System Settings → Video → host URL) | this docker stack on your machine |
 | Self-hosted | `JITSI_HOST_URL=https://ngx-ramblers-jitsi.fly.dev` | the `ngx-ramblers-jitsi` app |
 
-When `JITSI_JWT_APP_ID` and `JITSI_JWT_APP_SECRET` are also set on the NGX server, NGX mints a
+Clicking on the button.When `JITSI_JWT_APP_ID` and `JITSI_JWT_APP_SECRET` are also set on the NGX server, NGX issues a
 signed JWT per meeting so members join with enforced identity and committee members become
 moderators — no separate Jitsi sign-in. Those two values must match `JWT_APP_ID` /
 `JWT_APP_SECRET` here.

@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
-import { MintMeetingTokenOptions } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import { IssueMeetingTokenOptions } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
-export function mintMeetingToken(options: MintMeetingTokenOptions): string {
+export function issueMeetingToken(options: IssueMeetingTokenOptions): string {
   const {appId, appSecret, room, user, expirySeconds} = options;
   const payload = {
     aud: appId,
