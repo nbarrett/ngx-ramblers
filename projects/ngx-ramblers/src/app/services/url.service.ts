@@ -17,7 +17,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
 import { isNumericRamblersId } from "./path-matchers";
 import { StringUtilsService } from "./string-utils.service";
-import { Organisation, RootFolder } from "../models/system.model";
+import { FLICKR_ORIGINAL_SIZE_PATTERN, FLICKR_SERVED_SIZE, Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
 import { FALLBACK_MEDIA } from "../models/walk.model";
@@ -349,7 +349,7 @@ export class UrlService {
 
   imageSource(url: string, absolute?: boolean, cacheBuster?: boolean): string {
     if (this.isRemoteUrl(url)) {
-      const encoded = url.replace(/ /g, "%20");
+      const encoded = this.servedRemoteImageUrl(url).replace(/ /g, "%20");
       this.logger.debug("imageSourceUrl:isRemoteUrl:returning", encoded);
       return encoded;
     } else if (FALLBACK_MEDIA.url === url) {
@@ -363,6 +363,10 @@ export class UrlService {
       this.logger.debug("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
       return imageSource;
     }
+  }
+
+  private servedRemoteImageUrl(url: string): string {
+    return url.replace(FLICKR_ORIGINAL_SIZE_PATTERN, `$1${FLICKR_SERVED_SIZE}$2$3`);
   }
 
   isUrlWithId(linkConfig: LinkConfig | AWSLinkConfig): linkConfig is LinkConfig {

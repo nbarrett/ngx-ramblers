@@ -838,6 +838,10 @@ export interface FlickrScrapedPhotoData {
   description?: string;
 }
 
+export const FLICKR_ORIGINAL_SIZE = "o";
+export const FLICKR_SERVED_SIZE = "b";
+export const FLICKR_ORIGINAL_SIZE_PATTERN = new RegExp(`(//live\\.staticflickr\\.com/\\S+_)${FLICKR_ORIGINAL_SIZE}(\\.\\w+)(\\?\\S*)?$`, "i");
+
 export interface FlickrScrapedAlbumData {
   title: string;
   description?: string;
