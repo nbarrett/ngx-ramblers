@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import * as authConfig from "../auth/auth-config";
 import { jitsiJwtCredentials, resolveVideoMeetingRuntime } from "./video-meetings-config";
-import { mintMeetingToken } from "./jitsi-jwt";
+import { issueMeetingToken } from "./jitsi-jwt";
 import { sendGuestInviteEmail } from "./send-guest-invite-email";
 import { writeMeetingMinutes } from "./write-meeting-minutes";
 import { videoMeeting } from "../mongo/models/video-meeting";
@@ -22,9 +22,9 @@ function memberName(member: MemberCookie): string {
   return [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName || "Member";
 }
 
-function mintGuestToken(room: string, name: string): string {
+function issueGuestToken(room: string, name: string): string {
   const {appId, appSecret} = jitsiJwtCredentials();
-  return mintMeetingToken({
+  return issueMeetingToken({
     appId,
     appSecret,
     room,
@@ -69,7 +69,7 @@ router.post("/token", authConfig.authenticate(), async (req: Request, res: Respo
       const moderator = isModerator(member);
       if (runtime.jwtRequired) {
         const {appId, appSecret} = jitsiJwtCredentials();
-        const token = mintMeetingToken({
+        const token = issueMeetingToken({
           appId,
           appSecret,
           room,
@@ -99,7 +99,7 @@ router.post("/invite", authConfig.authenticate(), async (req: Request, res: Resp
       res.status(400).json({message: "room and email are required"});
     } else {
       const runtime = await resolveVideoMeetingRuntime();
-      const token = runtime.jwtRequired ? mintGuestToken(room, name) : null;
+      const token = runtime.jwtRequired ? issueGuestToken(room, name) : null;
       const link = await buildGuestLink(room, token);
       const inviter = memberName(req.user as MemberCookie);
       const html = guestInviteHtml(link, inviter, runtime.brandName);
@@ -125,7 +125,7 @@ router.post("/guest-token", async (req: Request, res: Response) => {
       } else {
         const planned = await videoMeeting.findOne({room}).lean().exec();
         if (planned) {
-          res.status(200).json({token: mintGuestToken(room, "Guest"), host: runtime.host, room});
+          res.status(200).json({token: issueGuestToken(room, "Guest"), host: runtime.host, room});
         } else {
           res.status(200).json({token: null, host: runtime.host, room});
         }
