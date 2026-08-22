@@ -14,6 +14,7 @@ export enum WalkLeaderMatchType {
   PHONE_ONLY = "phone-only",
   NAME_ONLY = "name-only",
   NAME_INITIAL_PATTERN = "name-initial-pattern",
+  SURNAME_ONLY = "surname-only",
   NONE = "none",
   PRIOR_CONFLICT = "prior-conflict",
   PRIOR_MISSING_MEMBER = "prior-missing-member",

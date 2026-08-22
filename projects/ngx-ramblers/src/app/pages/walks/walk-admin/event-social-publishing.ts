@@ -32,6 +32,7 @@ import { AwsFileUploadResponseData } from "../../../models/aws-object.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { StoredValue } from "../../../models/ui-actions";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
+import { SortDirection } from "../../../models/sort.model";
 import {
   EventPublishOutcome,
   EventPublishResult,
@@ -307,7 +308,7 @@ export class EventSocialPublishingComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const params = this.activatedRoute.snapshot.queryParams;
     this.sortKey = params[StoredValue.SORT] || this.sortKey;
-    this.sortDirection = params[StoredValue.SORT_ASC] === "false" ? DESCENDING : ASCENDING;
+    this.sortDirection = params[StoredValue.SORT_ORDER] === SortDirection.DESC ? DESCENDING : ASCENDING;
     this.dateRange = {
       from: Number(params[StoredValue.DATE_FROM]) || this.dateUtils.dateTimeNowNoTime().toMillis(),
       to: Number(params[StoredValue.DATE_TO]) || this.dateUtils.dateTimeNowNoTime().plus({months: 3}).toMillis()
@@ -365,7 +366,7 @@ export class EventSocialPublishingComponent implements OnInit, OnDestroy {
   private storeViewState(): void {
     this.urlService.navigateTo([], {
       [StoredValue.SORT]: this.sortKey,
-      [StoredValue.SORT_ASC]: this.sortDirection === ASCENDING,
+      [StoredValue.SORT_ORDER]: this.sortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC,
       [StoredValue.DATE_FROM]: this.dateRange?.from,
       [StoredValue.DATE_TO]: this.dateRange?.to
     }, "merge");

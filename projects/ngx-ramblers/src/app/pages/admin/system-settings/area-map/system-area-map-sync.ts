@@ -32,6 +32,7 @@ import {
   SharedDistrictStyle,
   SystemConfig
 } from "../../../../models/system.model";
+import { SortDirection } from "../../../../models/sort.model";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { NgHeaderTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { SelectAllHeaderComponent } from "../../../../modules/common/selectors/select-all-header";
@@ -939,7 +940,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.uiActionsService.updateQueryParameters({
       [StoredValue.FILTER]: this.filterText || null,
       [StoredValue.SORT]: this.sortField !== AreaGroupSortField.GroupCode ? this.uiActionsService.queryValueAliasFor(this.sortField) : null,
-      [StoredValue.SORT_ASC]: this.sortAsc ? null : "false"
+      [StoredValue.SORT_ORDER]: this.sortAsc ? null : SortDirection.DESC
     });
   }
 
@@ -965,7 +966,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.loadParishAllocations();
     this.filterText = this.uiActionsService.queryParameter(StoredValue.FILTER) || "";
     this.sortField = (this.uiActionsService.queryValueForAlias(this.uiActionsService.queryParameter(StoredValue.SORT), values(AreaGroupSortField)) as AreaGroupSortField) || AreaGroupSortField.GroupCode;
-    this.sortAsc = this.uiActionsService.queryParameter(StoredValue.SORT_ASC) !== "false";
+    this.sortAsc = this.uiActionsService.queryParameter(StoredValue.SORT_ORDER) !== SortDirection.DESC;
     this.systemConfigService.events().subscribe(config => {
       this.config = config;
       this.loadAreaGroups();

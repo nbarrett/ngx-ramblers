@@ -9,6 +9,14 @@ export class SortableTableCellDirective {
 }
 
 @Directive({
+  selector: "[appSortableTableHeaderCell]",
+})
+export class SortableTableHeaderCellDirective {
+  template: TemplateRef<unknown> = inject(TemplateRef);
+  @Input("appSortableTableHeaderCell") key!: string;
+}
+
+@Directive({
   selector: "[appSortableTableGroupHeader]",
 })
 export class SortableTableGroupHeaderDirective {

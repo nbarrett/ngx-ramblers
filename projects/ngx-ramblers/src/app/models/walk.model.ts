@@ -533,6 +533,17 @@ export interface ImportTypeOptions {
   unlistedGroupCodeAndName: HasGroupCodeAndName;
 }
 
+export enum WalkImportMatchType {
+  WALK_ID = "walk-id",
+  TITLE_AND_DATE = "title-and-date",
+  NONE = "none"
+}
+
+export interface WalkMatchOutcome {
+  existingWalk: ExtendedGroupEvent | null;
+  matchType: WalkImportMatchType;
+}
+
 export interface ServerDownloadStatus {
   fileName: string;
   status: ServerDownloadStatusType;

@@ -2,6 +2,7 @@ export enum WalkImportFilterMatch {
   ALL = "all",
   MATCHED = "matched",
   UNMATCHED = "unmatched",
+  TENTATIVE = "tentative",
   EXCLUDED = "excluded"
 }
 
