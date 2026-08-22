@@ -4,8 +4,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom } from "rxjs";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
-import { CommonDataService } from "../common-data-service";
-import { DataQueryOptions } from "../../models/api-request.model";
 import { videoMeetingRoomSlug } from "../../functions/video-meeting-join";
 import {
   GuestInviteResponse,
@@ -13,7 +11,6 @@ import {
   MeetingMinutesResponse,
   MeetingNote,
   MeetingSpeechCapture,
-  VideoMeeting,
   VideoMeetingRuntimeConfig,
   VideoMeetingTokenResponse
 } from "../../models/video-meeting.model";
@@ -22,11 +19,9 @@ import {
 export class VideoMeetingsService {
   private http = inject(HttpClient);
   private urlService = inject(UrlService);
-  private commonDataService = inject(CommonDataService);
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingsService", NgxLoggerLevel.ERROR);
   private apiUrl = "/api/video-meetings";
   private notesUrl = "/api/database/meeting-notes";
-  private meetingsUrl = "/api/database/video-meetings";
   private externalApiPromises = new Map<string, Promise<void>>();
 
   config(): Promise<VideoMeetingRuntimeConfig> {
@@ -39,17 +34,6 @@ export class VideoMeetingsService {
 
   inviteGuest(room: string, email: string, name: string): Promise<GuestInviteResponse> {
     return firstValueFrom(this.http.post<GuestInviteResponse>(`${this.apiUrl}/invite`, {room, email, name}));
-  }
-
-  async meetings(dataQueryOptions?: DataQueryOptions): Promise<VideoMeeting[]> {
-    const params = this.commonDataService.toHttpParams(dataQueryOptions);
-    const response = await firstValueFrom(this.http.get<{ response: VideoMeeting[] }>(`${this.meetingsUrl}/all`, {params}));
-    return response?.response || [];
-  }
-
-  async createPlannedMeeting(meeting: VideoMeeting): Promise<VideoMeeting> {
-    const response = await firstValueFrom(this.http.post<{ response: VideoMeeting }>(this.meetingsUrl, meeting));
-    return response?.response;
   }
 
   async guestToken(room: string): Promise<string> {
@@ -86,11 +70,6 @@ export class VideoMeetingsService {
     return videoMeetingRoomSlug(label, dateSlug, unique);
   }
 
-  async meetingByRoom(room: string): Promise<VideoMeeting | null> {
-    const response = await firstValueFrom(this.http.get<{ response: VideoMeeting }>(`${this.meetingsUrl}/room/${encodeURIComponent(room)}`));
-    return response?.response || null;
-  }
-
   guestPath(room: string): string {
     return `/video-meetings/guest/${encodeURIComponent(room)}`;
   }
@@ -99,12 +78,12 @@ export class VideoMeetingsService {
     return `${this.urlService.publicBaseUrl()}${this.guestPath(room)}`;
   }
 
-  calendarPath(room: string): string {
-    return `/api/calendar/meeting/${encodeURIComponent(room)}.ics`;
+  calendarPath(committeeFileId: string): string {
+    return `/api/calendar/meeting/${encodeURIComponent(committeeFileId)}.ics`;
   }
 
-  calendarUrl(room: string): string {
-    return `${this.urlService.publicBaseUrl()}${this.calendarPath(room)}`;
+  calendarUrl(committeeFileId: string): string {
+    return `${this.urlService.publicBaseUrl()}${this.calendarPath(committeeFileId)}`;
   }
 
   loadExternalApi(host: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
+import { Component, ElementRef, EventEmitter, inject, Input, Output } from "@angular/core";
 import { kebabCase, isDate } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../services/date-utils.service";
@@ -28,17 +28,26 @@ export class TimePicker {
   private logger: Logger = inject(LoggerFactory).createLogger("TimePicker", NgxLoggerLevel.ERROR);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
+  private elementRef: ElementRef<HTMLElement> = inject(ElementRef);
   protected time: Date;
-  @Input() value: string;
+  value: string;
+  private ignoreNextChange = false;
   @Input() label: string;
   @Input() id: string;
   @Input() disabled: boolean;
 
   @Input("value") set valueValue(value: string) {
-    this.time = this.dateUtils.asDateTime(value).toJSDate();
+    this.value = value;
+    if (value) {
+      const next = this.dateUtils.asDateTime(value).toJSDate();
+      if (!this.time || this.time.getTime() !== next.getTime()) {
+        this.ignoreNextChange = true;
+        this.time = next;
+      }
+    }
   }
 
-  @Output() change: EventEmitter<string> = new EventEmitter();
+  @Output() timeChange: EventEmitter<string> = new EventEmitter();
   public startOfDay: boolean;
 
   ngOnInit() {
@@ -49,15 +58,38 @@ export class TimePicker {
   }
 
   onModelChange(date: Date) {
-    if (isDate(date)) {
-      const roundedMinutes = Math.round(date.getMinutes() / 5) * 5;
-      date.setMinutes(roundedMinutes, 0, 0);
-      this.time = date;
-      const value: string = this.dateUtils.isoDateTime(date);
-      this.logger.info("onModelChange:label", this.label, "date:", date, "of type", typeof date, "emitting value:", value);
-      this.change.emit(value);
-    } else {
+    if (this.ignoreNextChange) {
+      this.ignoreNextChange = false;
+    } else if (isDate(date) && this.value) {
+      this.emitTime(date.getHours(), date.getMinutes());
+    } else if (date && !isDate(date)) {
       this.logger.warn("onModelChange:invalid change received:", date, "of type", typeof date);
+    }
+  }
+
+  commitDisplayedTime(): void {
+    if (this.value) {
+      const fields = this.elementRef.nativeElement.querySelectorAll(".bs-timepicker-field");
+      const hours = parseInt((fields[0] as HTMLInputElement)?.value, 10);
+      const minutes = parseInt((fields[1] as HTMLInputElement)?.value, 10);
+      if (Number.isFinite(hours) && Number.isFinite(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+        this.emitTime(hours, minutes);
+      }
+    }
+  }
+
+  private emitTime(hours: number, minutes: number): void {
+    const roundedMinutes = Math.round(minutes / 5) * 5;
+    const next = this.dateUtils.asDateTime(this.value).set({
+      hour: hours,
+      minute: roundedMinutes,
+      second: 0,
+      millisecond: 0
+    });
+    const value: string = this.dateUtils.isoDateTime(next.toMillis());
+    if (value !== this.value) {
+      this.logger.info("emitTime:label", this.label, "hours:", hours, "minutes:", roundedMinutes, "emitting value:", value);
+      this.timeChange.emit(value);
     }
   }
 }

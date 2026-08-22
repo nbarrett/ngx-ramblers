@@ -1,9 +1,9 @@
 import {
   BuiltInRole,
   CommitteeConfig,
+  CommitteeFileMeetingRole,
   CommitteeMember,
   DEFAULT_COST_PER_MILE,
-  defaultCommitteeMeetingTypes,
   RoleType
 } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
@@ -48,10 +48,10 @@ export function createCommitteeConfig(params: CommitteeConfigTemplateParams): Co
     roles.find(r => r.type === type) || createCommitteeRole(type, type, RoleType.COMMITTEE_MEMBER);
 
   const fileTypes = [
-    { description: "AGM Agenda", public: true },
-    { description: "AGM Minutes", public: true },
-    { description: "Committee Agenda", public: false },
-    { description: "Committee Minutes", public: false },
+    { description: "AGM Agenda", public: true, meetingRole: CommitteeFileMeetingRole.AGENDA, meetingCategory: "AGM" },
+    { description: "AGM Minutes", public: true, meetingRole: CommitteeFileMeetingRole.MINUTES, meetingCategory: "AGM" },
+    { description: "Committee Agenda", public: false, meetingRole: CommitteeFileMeetingRole.AGENDA, meetingCategory: "Committee Meeting" },
+    { description: "Committee Minutes", public: false, meetingRole: CommitteeFileMeetingRole.MINUTES, meetingCategory: "Committee Meeting" },
     { description: "Annual Report", public: true },
     { description: "Financial Statement", public: false },
     { description: "Walks Programme", public: true }
@@ -69,7 +69,6 @@ export function createCommitteeConfig(params: CommitteeConfigTemplateParams): Co
       support: roleByType("support")
     },
     fileTypes,
-    meetingTypes: defaultCommitteeMeetingTypes(fileTypes),
     expenses: {
       costPerMile: DEFAULT_COST_PER_MILE
     }

@@ -58,6 +58,7 @@ export enum StoredValue {
   CHART_TYPE = "chart-type",
   COLOUR_PALETTE = "colour-palette",
   COMMITTEE_FILE = "committee-file",
+  COMMITTEE_FILE_ID = "committee-file-id",
   CONFIDENCE = "confidence",
   CONFIGURATION = "configuration",
   CONFIGURED = "configured",

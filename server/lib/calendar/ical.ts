@@ -1,10 +1,9 @@
-import { DateTime } from "luxon";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { eventUrlFor } from "../shared/event-url";
-import { dateTimeFromIsoWithZone, dateTimeNow, formatDateTime } from "../shared/dates";
+import { dateTimeFromIsoWithZone, dateTimeFromMillis, dateTimeNow, formatDateTime } from "../shared/dates";
 
 const DEFAULT_EVENT_DURATION_HOURS = 3;
 const MAXIMUM_LINE_OCTETS = 75;
@@ -99,6 +98,7 @@ export interface MeetingInvite {
   startTime: number;
   durationMinutes?: number;
   description?: string;
+  location?: string;
   url?: string;
   organiserName?: string;
   organiserEmail?: string;
@@ -107,7 +107,7 @@ export interface MeetingInvite {
 const DEFAULT_MEETING_DURATION_MINUTES = 60;
 
 function icalTimestampFromMillis(millis: number): string {
-  const dateTime = millis ? DateTime.fromMillis(millis) : null;
+  const dateTime = millis ? dateTimeFromMillis(millis) : null;
   return dateTime?.isValid ? formatDateTime(dateTime.toUTC(), UIDateFormat.ICAL_UTC_TIMESTAMP) : null;
 }
 
@@ -133,7 +133,7 @@ export function meetingIcalDocument(meeting: MeetingInvite, calendarName: string
     end ? `DTEND:${end}` : null,
     `SUMMARY:${escapeIcalText(meeting.title)}`,
     meeting.description ? `DESCRIPTION:${escapeIcalText(meeting.description)}` : null,
-    meeting.url ? `LOCATION:${escapeIcalText(meeting.url)}` : null,
+    (meeting.location || meeting.url) ? `LOCATION:${escapeIcalText(meeting.location || meeting.url)}` : null,
     meeting.url ? `URL:${escapeIcalText(meeting.url)}` : null,
     organiser,
     attendee,

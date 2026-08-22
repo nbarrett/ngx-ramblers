@@ -6,6 +6,7 @@ import { DateValue } from "./date.model";
 import { NotificationConfig } from "./mail.model";
 import { Link } from "./page.model";
 import { Media } from "./ramblers-walks-manager";
+import { VideoMeetingInviteRecipient } from "./video-meeting.model";
 
 export interface GroupEventType {
   eventType: string;
@@ -49,6 +50,35 @@ export interface CommitteeFile extends Identifiable {
   fileType: string;
   fileNameData?: FileNameData;
   document?: CommitteeDocument;
+  meeting?: CommitteeFileMeeting;
+}
+
+export enum CommitteeMeetingFormat {
+  IN_PERSON = "in-person",
+  ONLINE = "online",
+  HYBRID = "hybrid"
+}
+
+export interface CommitteeFileMeeting {
+  format: CommitteeMeetingFormat;
+  room?: string;
+  location?: string;
+  title?: string;
+  durationMinutes?: number;
+  invited?: boolean;
+  invitedMemberIds?: string[];
+  invitedRecipients?: VideoMeetingInviteRecipient[];
+  invitedListId?: number;
+  createdBy?: string;
+  createdByName?: string;
+}
+
+export function meetingIsOnline(format: CommitteeMeetingFormat): boolean {
+  return format === CommitteeMeetingFormat.ONLINE || format === CommitteeMeetingFormat.HYBRID;
+}
+
+export function meetingHasVenue(format: CommitteeMeetingFormat): boolean {
+  return format === CommitteeMeetingFormat.IN_PERSON || format === CommitteeMeetingFormat.HYBRID;
 }
 
 export interface CommitteeDocument {
@@ -177,25 +207,53 @@ export interface CommitteeRolesChangeEvent {
   roles: string[];
 }
 
+export enum CommitteeFileMeetingRole {
+  AGENDA = "agenda",
+  MINUTES = "minutes"
+}
+
+export const OTHER_MEETING_CATEGORY = "Other";
+
 export interface CommitteeFileType {
   description: string;
   public?: boolean;
+  meetingRole?: CommitteeFileMeetingRole;
+  meetingCategory?: string;
 }
 
 export interface CommitteeMeetingType {
   description: string;
   agendaFileType?: string;
+  minutesFileType?: string;
 }
 
-export function defaultCommitteeMeetingTypes(fileTypes: CommitteeFileType[]): CommitteeMeetingType[] {
-  const types = fileTypes || [];
-  const agmAgenda = types.find(fileType => /agm/i.test(fileType.description) && /agenda/i.test(fileType.description));
-  const committeeAgenda = types.find(fileType => /committee/i.test(fileType.description) && /agenda/i.test(fileType.description));
-  return [
-    {description: "AGM", agendaFileType: agmAgenda?.description ?? null},
-    {description: "Committee Meeting", agendaFileType: committeeAgenda?.description ?? null},
-    {description: "Other", agendaFileType: null}
-  ];
+export function committeeMeetingTypesFromFileTypes(fileTypes: CommitteeFileType[]): CommitteeMeetingType[] {
+  const byCategory = new Map<string, CommitteeMeetingType>();
+  (fileTypes || []).forEach(fileType => {
+    if (fileType.meetingRole && fileType.meetingCategory) {
+      const meetingType = byCategory.get(fileType.meetingCategory)
+        || {description: fileType.meetingCategory, agendaFileType: null, minutesFileType: null};
+      if (fileType.meetingRole === CommitteeFileMeetingRole.AGENDA) {
+        meetingType.agendaFileType = fileType.description;
+      } else if (fileType.meetingRole === CommitteeFileMeetingRole.MINUTES) {
+        meetingType.minutesFileType = fileType.description;
+      }
+      byCategory.set(fileType.meetingCategory, meetingType);
+    }
+  });
+  return [...byCategory.values(), {description: OTHER_MEETING_CATEGORY, agendaFileType: null, minutesFileType: null}];
+}
+
+export function meetingFileTypes(fileTypes: CommitteeFileType[]): CommitteeFileType[] {
+  return (fileTypes || []).filter(fileType => !!fileType.meetingRole);
+}
+
+export function isMeetingFileType(fileType: string, fileTypes: CommitteeFileType[]): boolean {
+  return (fileTypes || []).some(candidate => candidate.description === fileType && !!candidate.meetingRole);
+}
+
+export function isAgendaFileType(fileType: string, fileTypes: CommitteeFileType[]): boolean {
+  return (fileTypes || []).some(candidate => candidate.description === fileType && candidate.meetingRole === CommitteeFileMeetingRole.AGENDA);
 }
 
 export interface ExpensesConfig {

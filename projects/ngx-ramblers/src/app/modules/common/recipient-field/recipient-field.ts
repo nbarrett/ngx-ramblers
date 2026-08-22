@@ -142,7 +142,7 @@ import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } fr
               </div>
             }
             @if (showSuggestions(field.key)) {
-              <ul class="recipient-suggestions" (mousedown)="$event.preventDefault()">
+              <ul class="recipient-suggestions" [class.is-above]="suggestionsAbove" (mousedown)="$event.preventDefault()">
                 <li class="recipient-suggestions-heading">Previously saved</li>
                 @for (suggestion of suggestions(field.key); track suggestion.id || suggestion.email; let i = $index) {
                   <li>
@@ -183,6 +183,7 @@ import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } fr
 export class RecipientFieldComponent {
 
   private dateUtils = inject(DateUtilsService);
+  private host = inject(ElementRef);
   @ViewChild("editorEmailInput") private editorEmailInput: ElementRef<HTMLInputElement>;
 
   @Input() to: ComposerExternalRecipient[] = [];
@@ -217,6 +218,7 @@ export class RecipientFieldComponent {
   protected error: Record<RecipientField, string | null> = { to: null, cc: null, bcc: null };
   protected activeField: RecipientField | null = null;
   protected activeSuggestionIndex = -1;
+  protected suggestionsAbove = false;
   private suggestionsSuppressed = false;
   protected editing: { field: RecipientField; index: number } | null = null;
   protected pending: { field: RecipientField; name: string; email: string; saveForReuse: boolean } | null = null;
@@ -458,6 +460,23 @@ export class RecipientFieldComponent {
     this.activeField = field;
     this.activeSuggestionIndex = -1;
     this.suggestionsSuppressed = false;
+    setTimeout(() => this.placeSuggestions());
+  }
+
+  private placeSuggestions(): void {
+    const list = this.host.nativeElement.querySelector(".recipient-suggestions") as HTMLElement | null;
+    const line = this.host.nativeElement.querySelector(".recipient-line.is-active") as HTMLElement | null;
+    const clip = line?.closest(".draggable-modal-body, .modal-body") as HTMLElement | null;
+    if (!list || !line) {
+      this.suggestionsAbove = false;
+    } else {
+      const lineBox = line.getBoundingClientRect();
+      const footer = clip?.parentElement?.querySelector(".modal-footer") as HTMLElement | null;
+      const bottomLimit = footer
+        ? footer.getBoundingClientRect().top
+        : (clip ? clip.getBoundingClientRect().bottom : window.innerHeight);
+      this.suggestionsAbove = (bottomLimit - lineBox.bottom) < Math.max(list.offsetHeight, 160);
+    }
   }
 
   protected onBlur(field: RecipientField): void {

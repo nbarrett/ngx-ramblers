@@ -115,7 +115,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <div class="form-group" app-time-picker id="start-time" label="Start Time"
                                  [disabled]="!display.allow.edits"
                                  [value]="groupEvent?.groupEvent?.start_date_time"
-                                 (change)="onStartDateTimeChange($event)">
+                                 (timeChange)="onStartDateTimeChange($event)">
                             </div>
                           </div>
                           <div class="col-auto">
@@ -131,7 +131,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <div class="form-group" app-time-picker id="end-time" label="End Time"
                                  [disabled]="!display.allow.edits"
                                  [value]="groupEvent?.groupEvent?.end_date_time"
-                                 (change)="onEndDateTimeChange($event)">
+                                 (timeChange)="onEndDateTimeChange($event)">
                             </div>
                           </div>
                           <div class="col">

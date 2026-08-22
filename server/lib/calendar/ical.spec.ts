@@ -4,6 +4,7 @@ import { escapeIcalText, foldIcalLine, icalDocument, meetingIcalDocument } from 
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { RamblersEventType, WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { dateTimeFromObject } from "../shared/dates";
 
 describe("ical", () => {
 
@@ -120,6 +121,13 @@ describe("meetingIcalDocument", () => {
     expect(ics).toContain(`URL:${JOIN}`);
     expect(ics).toMatch(/DTSTART:\d{8}T\d{6}Z/);
     expect(ics).toMatch(/DTEND:\d{8}T\d{6}Z/);
+  });
+
+  it("writes British Summer Time as UTC so calendar apps show the London clock time", () => {
+    const start = dateTimeFromObject({year: 2026, month: 9, day: 18, hour: 19, minute: 30}).toMillis();
+    const ics = meetingIcalDocument({uid: "u", title: "Call", startTime: start, url: JOIN}, "cal");
+    expect(ics).toContain("DTSTART:20260918T183000Z");
+    expect(ics).toContain("DTEND:20260918T193000Z");
   });
 
 });

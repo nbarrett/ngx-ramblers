@@ -7,10 +7,12 @@ import {
   createEmptyAwsConfig,
   createEmptyCloudflareConfig,
   createDefaultFlyioConfig,
+  createDefaultJitsiConfig,
   createDefaultUploadWorkerConfig,
   createEmptyMongoConfig,
   EnvironmentConfig,
   EnvironmentsConfig,
+  JitsiConfig,
   UploadWorkerConfig
 } from "../../../models/environment-config.model";
 import { EnvironmentSettingsSubTab } from "../../../models/system.model";
@@ -149,6 +151,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     this.editableConfig.cloudflare = {...createEmptyCloudflareConfig(), ...this.editableConfig.cloudflare};
     this.editableConfig.secrets = this.editableConfig.secrets || {};
     this.editableConfig.uploadWorker = {...createDefaultUploadWorkerConfig(), ...this.editableConfig.uploadWorker};
+    this.editableConfig.jitsi = {...createDefaultJitsiConfig(), ...this.editableConfig.jitsi};
     this.editableConfig.environments = this.editableConfig.environments
       .map(env => ({
         ...env,
@@ -167,7 +170,9 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     this.saving = true;
     const config: EnvironmentsConfig = {
       ...this.editableConfig,
-      environments: this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker)
+      environments: this.propagateJitsiSecrets(
+        this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker),
+        this.editableConfig.jitsi)
     };
 
     return this.environmentConfigService.saveConfig(config).then(async () => {
@@ -226,6 +231,24 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
           [Environment.INTEGRATION_WORKER_ENCRYPTION_KEY]: uploadWorker.encryptionKey || ""
         }
       };
+    });
+  }
+
+  private propagateJitsiSecrets(environments: EnvironmentConfig[], jitsi: JitsiConfig): EnvironmentConfig[] {
+    const hostUrl = jitsi?.hostUrl || (jitsi?.appName ? `https://${jitsi.appName}.fly.dev` : "");
+    const active = !!(jitsi?.enabled && hostUrl);
+    return environments.map(env => {
+      const secrets = {...(env.secrets || {})};
+      if (active) {
+        secrets[Environment.JITSI_HOST_URL] = hostUrl;
+        secrets[Environment.JITSI_JWT_APP_ID] = jitsi.jwtAppId || "";
+        secrets[Environment.JITSI_JWT_APP_SECRET] = jitsi.jwtAppSecret || "";
+      } else {
+        delete secrets[Environment.JITSI_HOST_URL];
+        delete secrets[Environment.JITSI_JWT_APP_ID];
+        delete secrets[Environment.JITSI_JWT_APP_SECRET];
+      }
+      return {...env, secrets};
     });
   }
 }

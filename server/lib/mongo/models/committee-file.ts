@@ -16,6 +16,19 @@ const committeeFileSchema = new mongoose.Schema({
     title: { type: String },
     markdown: { type: String },
     templateId: { type: String },
+  },
+  meeting: {
+    format: { type: String },
+    room: { type: String, index: true },
+    location: { type: String },
+    title: { type: String },
+    durationMinutes: { type: Number },
+    invited: { type: Boolean },
+    invitedMemberIds: { type: [String] },
+    invitedRecipients: { type: [{ email: String, name: String }] },
+    invitedListId: { type: Number },
+    createdBy: { type: String },
+    createdByName: { type: String },
   }
 }, { collection: "committeeFiles" });
 

@@ -6,7 +6,7 @@ import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { CloudflareUrlInputComponent, CloudflareUrlParseResult } from "../cloudflare-url-input/cloudflare-url-input";
 import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark.component";
-import { createEmptyAiConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
+import { createDefaultJitsiConfig, createEmptyAiConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
 import { AiProviderType } from "../../../models/system.model";
 import { InputSize } from "../../../models/ui-size.model";
 import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
@@ -281,6 +281,129 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
         </div>
       </div>
     </div>
+    <div class="row thumbnail-heading-frame mb-5">
+      <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+        <app-vendor-brand-mark serviceId="flyIo" [sizePx]="26"/>
+        <span>Video Meetings</span>
+        @if (config.jitsi?.enabled && config.jitsi?.appName) {
+          <a href="https://fly.io/apps/{{ config.jitsi.appName }}"
+             target="_blank"
+             class="btn btn-sm btn-outline-secondary ms-auto">
+            <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+            Fly Dashboard
+          </a>
+        }
+      </div>
+      <small class="form-text text-muted mb-3">
+        Optional self-hosted video meetings for committee calls, shared across every group. Off by default:
+        when disabled, groups are sent out to the free public meeting page (a separate site, not embedded in NGX).
+        When enabled, meetings run inside NGX on our own server with no time limit, and members join under their
+        own name. No calls are recorded or stored. Saving pushes the host and identity settings to every
+        environment automatically.
+      </small>
+      <div class="row">
+        <div class="col-md-12 mb-2">
+          <div class="form-check">
+            <input class="form-check-input"
+                   type="checkbox"
+                   [(ngModel)]="config.jitsi.enabled"
+                   name="jitsiEnabled"
+                   id="jitsiEnabled">
+            <label class="form-check-label" for="jitsiEnabled">Enable self-hosted video meetings for all groups</label>
+          </div>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Host address</label>
+          <input type="text"
+                 class="form-control"
+                 [(ngModel)]="config.jitsi.hostUrl"
+                 name="jitsiHostUrl"
+                 placeholder="e.g. https://ngx-ramblers-jitsi.fly.dev">
+          <small class="form-text text-muted">The address every group's site uses for meetings</small>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Identity signing secret</label>
+          <app-secret-input
+            [(ngModel)]="config.jitsi.jwtAppSecret"
+            name="jitsiJwtSecret"
+            [size]="InputSize.SM">
+          </app-secret-input>
+          <small class="form-text text-muted">Lets members join under their own name with no separate sign-in</small>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Room name prefix</label>
+          <input type="text"
+                 class="form-control"
+                 [(ngModel)]="config.jitsi.roomPrefix"
+                 name="jitsiRoomPrefix"
+                 placeholder="ngx">
+          <small class="form-text text-muted">Used at the start of every meeting room name, across all groups</small>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Join defaults</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="config.jitsi.enableNotes"
+                   name="jitsiEnableNotes" id="jitsiEnableNotes">
+            <label class="form-check-label" for="jitsiEnableNotes">Show the shared notes panel</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="config.jitsi.enableLobby"
+                   name="jitsiEnableLobby" id="jitsiEnableLobby">
+            <label class="form-check-label" for="jitsiEnableLobby">Show the pre-join lobby screen</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="config.jitsi.startWithAudioMuted"
+                   name="jitsiStartAudioMuted" id="jitsiStartAudioMuted">
+            <label class="form-check-label" for="jitsiStartAudioMuted">Start with microphone muted</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="config.jitsi.startWithVideoMuted"
+                   name="jitsiStartVideoMuted" id="jitsiStartVideoMuted">
+            <label class="form-check-label" for="jitsiStartVideoMuted">Start with camera off</label>
+          </div>
+        </div>
+      </div>
+      <details class="mt-2">
+        <summary class="text-muted small">Advanced server settings</summary>
+        <div class="row mt-2">
+          <div class="col-md-6 mb-2">
+            <label class="form-label">App Name</label>
+            <input type="text"
+                   class="form-control"
+                   [(ngModel)]="config.jitsi.appName"
+                   name="jitsiAppName"
+                   placeholder="e.g. ngx-ramblers-jitsi">
+          </div>
+          <div class="col-md-6 mb-2">
+            <label class="form-label">Identity app name</label>
+            <input type="text"
+                   class="form-control"
+                   [(ngModel)]="config.jitsi.jwtAppId"
+                   name="jitsiJwtAppId"
+                   placeholder="e.g. ngx-ramblers">
+          </div>
+          <div class="col-md-6 mb-2">
+            <label class="form-label">Memory</label>
+            <input type="text"
+                   class="form-control"
+                   [(ngModel)]="config.jitsi.memory"
+                   name="jitsiMemory"
+                   placeholder="e.g. 4096mb">
+          </div>
+          <div class="col-md-6 mb-2">
+            <label class="form-label">Fly Deploy Token</label>
+            <app-secret-input
+              [(ngModel)]="config.jitsi.apiKey"
+              name="jitsiApiKey"
+              [size]="InputSize.SM">
+            </app-secret-input>
+            <small class="form-text text-muted">If blank, the staging environment's Fly API key is used instead</small>
+          </div>
+        </div>
+      </details>
+    </div>
   `
 })
 export class EnvironmentGlobalSettings implements OnInit {
@@ -296,6 +419,9 @@ export class EnvironmentGlobalSettings implements OnInit {
   ngOnInit() {
     if (!this.config.ai) {
       this.config.ai = createEmptyAiConfig();
+    }
+    if (!this.config.jitsi) {
+      this.config.jitsi = createDefaultJitsiConfig();
     }
   }
 

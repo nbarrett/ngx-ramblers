@@ -6,12 +6,14 @@ import { faCompress, faComments, faExpand, faPaperPlane, faRightFromBracket, faU
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
+import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { VideoMeetingNotesComponent } from "./video-meeting-notes";
 import { JitsiJoinMode, MeetingSpeechCapture, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
 import { jitsiHostPageUrl, jitsiJoinMode } from "../../functions/video-meeting-join";
 import { StoredValue } from "../../models/ui-actions";
+import { AdminPath } from "../../models/admin-route-paths.model";
 import { appendUniqueLine, lineFromJitsiChat, lineFromJitsiTranscription } from "../../functions/video-meeting-minutes";
 
 declare const JitsiMeetExternalAPI: any;
@@ -116,6 +118,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private videoMeetingsService = inject(VideoMeetingsService);
+  private committeeFileService = inject(CommitteeFileService);
   private memberLoginService = inject(MemberLoginService);
   private zone = inject(NgZone);
 
@@ -189,8 +192,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       return fromQuery;
     } else {
       try {
-        const planned = await this.videoMeetingsService.meetingByRoom(this.room);
-        const title = planned?.title?.trim() || this.config.brandName || "Ramblers video meeting";
+        const planned = await this.committeeFileService.meetingFileByRoom(this.room);
+        const title = (planned?.document?.title || planned?.meeting?.title)?.trim() || this.config.brandName || "Ramblers video meeting";
         this.displayTitle = title;
         return title;
       } catch (error) {
@@ -372,7 +375,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   leave(): void {
     this.disposeApi();
-    this.router.navigate([this.guest ? "/" : "/admin/video-meetings"]);
+    this.router.navigate([this.guest ? "/" : "/" + AdminPath.MEETINGS]);
   }
 
   private disposeApi(): void {

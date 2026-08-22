@@ -240,7 +240,7 @@ import { faCloudArrowUp, faMap, faPencil, faRightLeft, faTableColumns } from "@f
                       <div class="form-group mb-0" app-time-picker id="meeting-time" label="Meeting Time"
                            [disabled]="syncDisabled"
                            [value]="displayedWalk?.walk?.groupEvent?.meeting_date_time"
-                           (change)="onMeetingTimeChange($event)">
+                           (timeChange)="onMeetingTimeChange($event)">
                       </div>
                       @if (meetingTimeValidationMessage) {
                         <div class="text-danger mt-1">{{ meetingTimeValidationMessage }}</div>

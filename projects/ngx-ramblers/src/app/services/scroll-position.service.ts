@@ -24,4 +24,8 @@ export class ScrollPositionService {
       setTimeout(() => window.scrollTo({top: target}));
     }
   }
+
+  public clear(): void {
+    this.retained = null;
+  }
 }

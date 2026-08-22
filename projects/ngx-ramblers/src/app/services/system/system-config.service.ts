@@ -349,14 +349,7 @@ export class SystemConfigService {
 
   public videoMeetingsDefaults(): VideoMeetingsConfig {
     return {
-      enabled: true,
-      hostUrl: null,
-      roomPrefix: "ngx",
-      brandName: "Ramblers Video Meetings",
-      startWithAudioMuted: false,
-      startWithVideoMuted: false,
-      enableNotes: true,
-      enableLobby: false
+      brandName: "Ramblers Video Meetings"
     };
   }
 

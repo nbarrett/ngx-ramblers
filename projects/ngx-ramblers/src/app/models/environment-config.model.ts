@@ -105,6 +105,21 @@ export interface UploadWorkerConfig {
   apiKey?: string;
 }
 
+export interface JitsiConfig {
+  enabled?: boolean;
+  appName?: string;
+  hostUrl?: string;
+  jwtAppId?: string;
+  jwtAppSecret?: string;
+  memory?: string;
+  apiKey?: string;
+  roomPrefix?: string;
+  startWithAudioMuted?: boolean;
+  startWithVideoMuted?: boolean;
+  enableNotes?: boolean;
+  enableLobby?: boolean;
+}
+
 export interface CmsScriptAuth {
   username?: string;
   password?: string;
@@ -117,6 +132,7 @@ export interface EnvironmentsConfig {
   ai?: Ai;
   secrets?: Record<string, string>;
   uploadWorker?: UploadWorkerConfig;
+  jitsi?: JitsiConfig;
   autoDeployTarget?: string;
   dockerImage?: string;
   region?: string;
@@ -211,6 +227,23 @@ export function createDefaultUploadWorkerConfig(): UploadWorkerConfig {
     memory: FLYIO_DEFAULTS.MEMORY,
     scaleCount: FLYIO_DEFAULTS.SCALE_COUNT,
     apiKey: ""
+  };
+}
+
+export function createDefaultJitsiConfig(): JitsiConfig {
+  return {
+    enabled: false,
+    appName: "ngx-ramblers-jitsi",
+    hostUrl: "",
+    jwtAppId: "ngx-ramblers",
+    jwtAppSecret: "",
+    memory: FlyioMemory.MB_4096,
+    apiKey: "",
+    roomPrefix: "ngx",
+    startWithAudioMuted: false,
+    startWithVideoMuted: false,
+    enableNotes: true,
+    enableLobby: false
   };
 }
 

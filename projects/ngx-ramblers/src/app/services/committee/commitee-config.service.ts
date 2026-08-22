@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { BuiltInRole, CommitteeConfig, CommitteeMember, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, defaultCommitteeMeetingTypes, RoleType } from "../../models/committee.model";
+import { BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, RoleType } from "../../models/committee.model";
 import { ConfigKey } from "../../models/config.model";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -48,7 +48,7 @@ export class CommitteeConfigService {
         support: this.emptyCommitteeMember()
       },
       fileTypes: [],
-      meetingTypes: defaultCommitteeMeetingTypes([]),
+      meetingTypes: [],
       expenses: {costPerMile: DEFAULT_COST_PER_MILE}
     }).then((queriedConfig: CommitteeConfig) => {
       const committeeConfig = this.applyNameAndDescription(this.migrateConfig(queriedConfig));
@@ -69,14 +69,10 @@ export class CommitteeConfigService {
     if (!queriedConfig.roles) {
       this.logger.info("migrating old contactUs data structure:", queriedConfig, "to roles:", withRoles);
     }
-    if (!withRoles.meetingTypes) {
-      return {
-        ...withRoles,
-        meetingTypes: defaultCommitteeMeetingTypes(withRoles.fileTypes)
-      };
-    } else {
-      return withRoles;
-    }
+    return {
+      ...withRoles,
+      meetingTypes: committeeMeetingTypesFromFileTypes(withRoles.fileTypes)
+    };
   }
 
   private toCommitteeMembers(committeeConfig: CommitteeConfig): CommitteeMember[] {

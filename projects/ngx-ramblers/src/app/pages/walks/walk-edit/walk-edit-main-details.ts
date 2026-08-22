@@ -33,9 +33,9 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
       <form>
         <div class="row align-items-center">
           <div class="col-auto">
-            <label for="walk-date">Walk Date</label>
             <div class="form-group">
-              <app-date-picker id="walk-date" size="md"
+              <label for="walk-date">Walk Date</label>
+              <app-date-picker id="walk-date" size="sm"
                                placeholder="enter date of walk"
                                [disabled]="!display.walkLeaderOrAdmin(displayedWalk?.walk) || syncDisabled"
                                class="w-100"
@@ -46,7 +46,7 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
           <div class="col-auto">
             <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="syncDisabled"
                  [value]="displayedWalk?.walk?.groupEvent.start_date_time"
-                 (change)="onStartDateTimeChange($event)">
+                 (timeChange)="onStartDateTimeChange($event)">
             </div>
           </div>
           <div class="col-auto">
@@ -71,7 +71,7 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
             <div class="form-group" app-time-picker id="end-time" label="Estimated Finish Time"
                  [disabled]="syncDisabled"
                  [value]="displayedWalk?.walk?.groupEvent.end_date_time"
-                 (change)="onEndDateTimeChange($event)"></div>
+                 (timeChange)="onEndDateTimeChange($event)"></div>
           </div>
           <div class="col-auto">
             <div class="form-group">

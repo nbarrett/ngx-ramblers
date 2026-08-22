@@ -1,6 +1,8 @@
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { systemConfig } from "../config/system-config";
+import { configuredEnvironments } from "../environments/environments-config";
+import { JitsiConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 const DEFAULT_PUBLIC_HOST = "https://meet.jit.si";
@@ -15,23 +17,24 @@ export function isPublicJitsiHost(host: string): boolean {
 }
 
 export async function resolveVideoMeetingRuntime(): Promise<VideoMeetingRuntimeConfig> {
-  const config: VideoMeetingsConfig = (await systemConfig())?.videoMeetings;
+  const global: JitsiConfig = (await configuredEnvironments())?.jitsi;
+  const perSite: VideoMeetingsConfig = (await systemConfig())?.videoMeetings;
   const envHost = envConfig.value(Environment.JITSI_HOST_URL);
-  const host = (envHost || config?.hostUrl || DEFAULT_PUBLIC_HOST).replace(/\/$/, "");
+  const host = (envHost || global?.hostUrl || DEFAULT_PUBLIC_HOST).replace(/\/$/, "");
   const {appId, appSecret} = jitsiJwtCredentials();
   const publicHost = isPublicJitsiHost(host);
   const jwtRequired = !!(appId && appSecret) && !publicHost;
   return {
-    enabled: config?.enabled ?? true,
+    enabled: global?.enabled ?? false,
     host,
     jwtRequired,
     publicHost,
-    roomPrefix: config?.roomPrefix || "ngx",
-    brandName: config?.brandName || "Ramblers Video Meetings",
-    startWithAudioMuted: config?.startWithAudioMuted ?? false,
-    startWithVideoMuted: config?.startWithVideoMuted ?? false,
-    enableNotes: config?.enableNotes ?? true,
-    enableLobby: config?.enableLobby ?? false
+    roomPrefix: global?.roomPrefix || "ngx",
+    brandName: perSite?.brandName || "Ramblers Video Meetings",
+    startWithAudioMuted: global?.startWithAudioMuted ?? false,
+    startWithVideoMuted: global?.startWithVideoMuted ?? false,
+    enableNotes: global?.enableNotes ?? true,
+    enableLobby: global?.enableLobby ?? false
   };
 }
 

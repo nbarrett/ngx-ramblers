@@ -2,14 +2,7 @@ import { Identifiable } from "./api-response.model";
 import { EmailAttachment } from "./mail.model";
 
 export interface VideoMeetingsConfig {
-  enabled: boolean;
-  hostUrl?: string;
-  roomPrefix: string;
   brandName?: string;
-  startWithAudioMuted: boolean;
-  startWithVideoMuted: boolean;
-  enableNotes: boolean;
-  enableLobby: boolean;
 }
 
 export interface VideoMeetingRuntimeConfig {
@@ -53,9 +46,18 @@ export interface VideoMeetingInviteRecipient {
   name?: string;
 }
 
+export interface VideoMeetingCancellationPerson {
+  key: string;
+  name: string;
+  email: string;
+  memberId: string | null;
+}
+
 export enum VideoMeetingPlanAction {
   SEND = "send",
-  COMPOSE = "compose"
+  COMPOSE = "compose",
+  SAVE = "save",
+  DELETE = "delete"
 }
 
 export enum JitsiJoinMode {
@@ -73,21 +75,10 @@ export interface VideoMeetingInviteHandoff {
   committeePagePath?: string;
 }
 
-export interface VideoMeeting extends Identifiable {
-  room: string;
-  title: string;
-  startTime: number;
-  durationMinutes?: number;
-  meetingType?: string;
-  committeeFileId?: string;
-  createdAt: number;
-  createdBy?: string;
-  createdByName?: string;
-}
-
 export interface UpcomingBookedMeeting {
   title: string;
   startTime: number;
+  meetingType?: string;
   committeeFileId?: string;
   committeePath?: string;
   committeeSlug?: string;

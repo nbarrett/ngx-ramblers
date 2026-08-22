@@ -17,8 +17,8 @@ import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model"
 import {
   BuiltInRole,
   CommitteeConfig,
+  CommitteeFileMeetingRole,
   CommitteeFileType,
-  CommitteeMeetingType,
   CommitteeMember,
   DEFAULT_COST_PER_MILE,
   EmailDerivation,
@@ -715,9 +715,9 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                     Add new file type
                   </div>
                   @for (fileType of committeeConfig.fileTypes; track fileType.description; let fileTypeIndex = $index) {
-                    <div class="row">
-                      <div class="col-sm-8">
-                        <div class="form-group">
+                    <div class="row align-items-end mb-2">
+                      <div class="col-sm-3">
+                        <div class="form-group mb-0">
                           <label [for]="stringUtils.kebabCase('file-type', fileTypeIndex)">File Type</label>
                           <input [id]="stringUtils.kebabCase('file-type', fileTypeIndex)" type="text"
                                  class="form-control input-sm"
@@ -725,64 +725,36 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                         </div>
                       </div>
                       <div class="col-sm-3">
-                        <div class="form-group mt-5">
-                          <div class="form-check">
-                            <input [(ngModel)]="fileType.public"
-                                   type="checkbox" class="form-check-input"
-                                   [id]="stringUtils.kebabCase('public', fileTypeIndex)">
-                            <label class="form-check-label" [for]="stringUtils.kebabCase('public', fileTypeIndex)">
-                              Visible by Public</label>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="col-sm-1 mt-5">
-                        <div class="badge-button" (click)="deleteFileType(fileType)"
-                             delay=500 tooltip="Delete file type">
-                          <fa-icon [icon]="faClose"></fa-icon>
-                        </div>
-                      </div>
-                    </div>
-                  }
-                </app-thumbnail-heading-frame>
-
-                <app-thumbnail-heading-frame heading="Meeting Types" class="mb-3">
-                  <div class="row">
-                    <div class="col-sm-12 mt-2 mb-2">
-                      <p class="text-muted mb-2">The kinds of meeting you can plan from Video Meetings. Link an agenda
-                        file type if choosing that meeting should also create a committee event.</p>
-                    </div>
-                  </div>
-                  <div class="badge-button mb-3" (click)="addMeetingType()"
-                       delay=500 tooltip="Add new meeting type">
-                    <fa-icon [icon]="faAdd"></fa-icon>
-                    Add new meeting type
-                  </div>
-                  @for (meetingType of committeeConfig.meetingTypes; track $index; let meetingTypeIndex = $index) {
-                    <div class="row">
-                      <div class="col-sm-5">
-                        <div class="form-group">
-                          <label [for]="stringUtils.kebabCase('meeting-type', meetingTypeIndex)">Meeting Type</label>
-                          <input [id]="stringUtils.kebabCase('meeting-type', meetingTypeIndex)" type="text"
-                                 class="form-control input-sm"
-                                 placeholder="Enter meeting type" [(ngModel)]="meetingType.description">
-                        </div>
-                      </div>
-                      <div class="col-sm-6">
-                        <div class="form-group">
-                          <label [for]="stringUtils.kebabCase('meeting-type-agenda', meetingTypeIndex)">Agenda file type</label>
-                          <select [id]="stringUtils.kebabCase('meeting-type-agenda', meetingTypeIndex)"
-                                  class="form-select"
-                                  [(ngModel)]="meetingType.agendaFileType">
-                            <option [ngValue]="null">None</option>
-                            @for (fileType of committeeConfig.fileTypes; track fileType.description) {
-                              <option [ngValue]="fileType.description">{{ fileType.description }}</option>
-                            }
+                        <div class="form-group mb-0">
+                          <label [for]="stringUtils.kebabCase('meeting-role', fileTypeIndex)">Meeting role</label>
+                          <select [id]="stringUtils.kebabCase('meeting-role', fileTypeIndex)" class="form-select"
+                                  [(ngModel)]="fileType.meetingRole">
+                            <option [ngValue]="undefined">Not a meeting document</option>
+                            <option [ngValue]="CommitteeFileMeetingRole.AGENDA">Agenda</option>
+                            <option [ngValue]="CommitteeFileMeetingRole.MINUTES">Minutes</option>
                           </select>
                         </div>
                       </div>
-                      <div class="col-sm-1 mt-5">
-                        <div class="badge-button" (click)="deleteMeetingType(meetingType)"
-                             delay=500 tooltip="Delete meeting type">
+                      <div class="col-sm-3">
+                        <div class="form-group mb-0">
+                          <label [for]="stringUtils.kebabCase('meeting-category', fileTypeIndex)">Meeting</label>
+                          <input [id]="stringUtils.kebabCase('meeting-category', fileTypeIndex)" type="text"
+                                 class="form-control input-sm" [disabled]="!fileType.meetingRole"
+                                 placeholder="e.g. AGM" [(ngModel)]="fileType.meetingCategory">
+                        </div>
+                      </div>
+                      <div class="col-sm-2">
+                        <div class="form-check">
+                          <input [(ngModel)]="fileType.public"
+                                 type="checkbox" class="form-check-input"
+                                 [id]="stringUtils.kebabCase('public', fileTypeIndex)">
+                          <label class="form-check-label" [for]="stringUtils.kebabCase('public', fileTypeIndex)">
+                            Visible by Public</label>
+                        </div>
+                      </div>
+                      <div class="col-sm-1">
+                        <div class="badge-button" (click)="deleteFileType(fileType)"
+                             delay=500 tooltip="Delete file type">
                           <fa-icon [icon]="faClose"></fa-icon>
                         </div>
                       </div>
@@ -889,6 +861,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly EmailForwardStatus = EmailForwardStatus;
   protected readonly CatchAllAction = CatchAllAction;
+  protected readonly CommitteeFileMeetingRole = CommitteeFileMeetingRole;
   protected readonly faClose = faClose;
   protected readonly faAdd = faAdd;
   protected readonly faEdit = faEdit;
@@ -1005,9 +978,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.committeeConfig = committeeConfig;
         if (!this.committeeConfig?.expenses) {
           this.committeeConfig.expenses = {costPerMile: DEFAULT_COST_PER_MILE};
-        }
-        if (!this.committeeConfig.meetingTypes) {
-          this.committeeConfig.meetingTypes = [];
         }
         if (this.pendingEditType) {
           this.openEditorForType(this.pendingEditType);
@@ -1881,17 +1851,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   addFileType() {
     this.committeeConfig.fileTypes = [...this.committeeConfig.fileTypes, {description: "(Enter new file type)"}];
-  }
-
-  deleteMeetingType(meetingType: CommitteeMeetingType) {
-    this.committeeConfig.meetingTypes = this.committeeConfig.meetingTypes.filter(item => item !== meetingType);
-  }
-
-  addMeetingType() {
-    this.committeeConfig.meetingTypes = [...(this.committeeConfig.meetingTypes || []), {
-      description: "(Enter new meeting type)",
-      agendaFileType: null
-    }];
   }
 
   undoChanges() {

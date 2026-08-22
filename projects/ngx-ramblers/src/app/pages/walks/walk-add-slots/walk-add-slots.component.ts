@@ -109,7 +109,7 @@ import { DEFAULT_REGULAR_WALK_DAY } from "../../../models/walks-config.model";
                       <div class="form-group" app-time-picker id="add-slots-start-time" label="Start time"
                            [disabled]="confirmAction"
                            [value]="startTime"
-                           (change)="onStartTimeChange($event)">
+                           (timeChange)="onStartTimeChange($event)">
                       </div>
                     </div>
                   </div>
@@ -135,7 +135,7 @@ import { DEFAULT_REGULAR_WALK_DAY } from "../../../models/walks-config.model";
                       <div class="form-group" app-time-picker id="add-single-slot-start-time" label="Start time"
                            [disabled]="confirmAction"
                            [value]="startTime"
-                           (change)="onStartTimeChange($event)">
+                           (timeChange)="onStartTimeChange($event)">
                       </div>
                     </div>
                   </div>

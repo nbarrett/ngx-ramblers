@@ -3,17 +3,10 @@ import fs from "fs";
 import { keys, toPairs } from "es-toolkit/compat";
 import { envConfig } from "../lib/env-config/env-config";
 import { configuredEnvironments } from "../lib/environments/environments-config";
+import { autoDeployTargetFrom } from "./auto-deploy-target";
 
 const debugLog = debug(envConfig.logNamespace("resolve-build-time-vars"));
 debugLog.enabled = true;
-
-const PRE_MAIN_AUTO_DEPLOY_TARGET = "staging";
-
-function autoDeployTargetFrom(dbTarget: string | undefined): string | undefined {
-  if (dbTarget) return dbTarget;
-  if (process.env.GITHUB_REF_NAME === "pre-main") return PRE_MAIN_AUTO_DEPLOY_TARGET;
-  return undefined;
-}
 
 void resolveBuildTimeVars().then(() => process.exit(0)).catch(error => {
   debugLog("Failed to resolve build-time variables:", error);

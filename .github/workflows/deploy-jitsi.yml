@@ -1,0 +1,38 @@
+name: Deploy Self-Hosted Jitsi (manual)
+
+on:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "24.14.0"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install server dependencies
+        run: npm ci --prefix server --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install Flyctl
+        run: |
+          curl -fsSL https://fly.io/install.sh | FLYCTL_INSTALL="$HOME/.fly" sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Install ts-node
+        run: npm install -g ts-node
+
+      - name: Deploy Jitsi
+        env:
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+        run: ts-node server/deploy/deploy-jitsi.ts

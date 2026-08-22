@@ -1,15 +1,16 @@
 import { AfterViewInit, Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Router } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faEnvelope, faPaperPlane, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faCircleCheck, faEllipsis, faFileLines, faFloppyDisk, faPaperPlane, faRightToBracket, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
-import { VideoMeetingInviteHandoffService } from "../../services/video-meetings/video-meeting-invite-handoff.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { WalkProgrammeCalendarComponent } from "../walks/walk-programme-calendar/walk-programme-calendar";
+import { CalendarEntry } from "../../models/walk-programme.model";
 import { DraggableModalComponent } from "../../modules/common/draggable-modal/draggable-modal";
 import { TimePicker } from "../../date-and-time/time-picker";
 import { ListSubscriberCountComponent } from "../../modules/common/mail/list-subscriber-count";
@@ -21,28 +22,32 @@ import { CommitteeFileService } from "../../services/committee/committee-file.se
 import { DocumentConversionService } from "../../services/committee/document-conversion.service";
 import { ListInfo, MailMessagingConfig } from "../../models/mail.model";
 import { Member } from "../../models/member.model";
-import { CommitteeFile, CommitteeFileType, CommitteeMeetingType, CommitteeMember } from "../../models/committee.model";
+import { CommitteeFile, CommitteeFileMeeting, CommitteeFileMeetingRole, CommitteeFileType, CommitteeMeetingFormat, CommitteeMeetingType, CommitteeMember, meetingHasVenue, meetingIsOnline } from "../../models/committee.model";
 import { NextCommitteeMeetingBannerComponent } from "./next-committee-meeting-banner";
 import { ThumbnailHeadingFrameComponent } from "../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
+import { LabelledFieldRowComponent } from "../../modules/common/labelled-field-row/labelled-field-row";
+import { LabelledFieldComponent } from "../../modules/common/labelled-field-row/labelled-field";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
+import { AlertPanelVariant } from "../../models/alert-panel.model";
 import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { ExternalRecipientService } from "../../services/external-recipient/external-recipient.service";
 import { ExternalRecipient } from "../../models/external-recipient.model";
 import {
   AddresseeType,
   BrandingMode,
-  ComposerExternalRecipient,
-  RecipientMode
+  ComposerExternalRecipient
 } from "../../models/email-composer.model";
 import { CommitteeDisplayService } from "../committee/committee-display.service";
 import { Subscription } from "rxjs";
 import {
   UpcomingBookedMeeting,
+  VideoMeetingCancellationPerson,
   VideoMeetingInviteHandoff,
   VideoMeetingInviteRecipient,
-  VideoMeetingPlanAction,
-  VideoMeetingRuntimeConfig
+  VideoMeetingPlanAction
 } from "../../models/video-meeting.model";
+import { AdminPath } from "../../models/admin-route-paths.model";
+import { videoMeetingCancellationPeople } from "../../functions/video-meeting-cancellation";
 import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { UIDateFormat } from "../../models/date-format.model";
@@ -52,23 +57,64 @@ import { EmailComposerRenderingService } from "../../services/email-composer/ema
 import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { extractErrorMessage } from "../../functions/strings";
-import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from "../../functions/committee-meeting-agenda";
+import { isString } from "es-toolkit/compat";
+import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated, withCommitteeMeetingDateLine, withCommitteeMeetingLink, withCommitteeMeetingLocationLine } from "../../functions/committee-meeting-agenda";
 
 @Component({
   selector: "app-video-meeting-plan",
-  imports: [FormsModule, FontAwesomeModule, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent],
+  imports: [FormsModule, FontAwesomeModule, RouterLink, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent, LabelledFieldRowComponent, LabelledFieldComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
+  styleUrls: ["./video-meeting-plan.sass"],
   template: `
     @if (sendNotice) {
-      <app-alert-panel title="Invite sent">
+      <app-alert-panel class="mb-3" title="Invite sent" [variant]="AlertPanelVariant.SUCCESS" [icon]="faCircleCheck">
         {{ sendNotice }}
       </app-alert-panel>
     }
     <app-next-committee-meeting-banner (plan)="openBannerMeeting($event)"/>
     <app-walk-programme-calendar [selectMode]="true" [includeCommitteeEvents]="true"
-                                 (dateSelected)="onDateSelected($event)"/>
+                                 (dateSelected)="onDateSelected($event)"
+                                 (committeeEventSelected)="onCommitteeEventSelected($event)"
+                                 (committeeEventDeleted)="onCommitteeEventDeleted($event)"/>
+    @if (pendingDeleteEntry) {
+      <app-draggable-modal [open]="true" [showCloseButton]="false" (closed)="cancelDelete()">
+        <span modalTitle>Delete this meeting?</span>
+        <div modalBody>
+          <app-alert-panel title="This cannot be undone">
+            <p class="mb-2"><strong>{{ pendingDeleteEntry.title }}</strong> will be
+              removed from the calendar and the committee documents page.</p>
+            @if (cancellationPeople.length > 0) {
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="email-invitees" [(ngModel)]="emailInviteesOnDelete">
+                <label class="form-check-label" for="email-invitees">Also email the cancellation to the people who were invited</label>
+              </div>
+              @if (emailInviteesOnDelete) {
+                <ul class="cancellation-people">
+                  @for (person of cancellationPeople; track person.key) {
+                    <li>{{ person.name }}</li>
+                  }
+                </ul>
+              }
+            }
+          </app-alert-panel>
+          @if (deleteError) {
+            <app-alert-panel class="mt-3" title="Meeting not deleted" [variant]="AlertPanelVariant.DANGER">
+              {{ deleteError }}
+            </app-alert-panel>
+          }
+        </div>
+        <button modalFooter type="button" class="btn btn-quiet btn-sm" [disabled]="working" (click)="cancelDelete()">
+          Cancel
+        </button>
+        <button modalFooter type="button" class="btn btn-danger btn-sm" [disabled]="working" (click)="confirmDelete()">
+          <fa-icon [icon]="deleteWorking() ? faSpinner : faTrash" [animation]="deleteWorking() ? 'spin' : null" class="me-2"/>
+          {{ deleteWorking() ? workingMessage : "Delete meeting" }}
+        </button>
+      </app-draggable-modal>
+    }
 
-    <app-draggable-modal [open]="showInvite" [showCloseButton]="false" (closed)="cancel()">
-      <span modalTitle>New meeting invite</span>
+    @if (showInvite) {
+    <app-draggable-modal [open]="true" [showCloseButton]="false" (closed)="cancel()">
+      <span modalTitle>{{ isEditing() ? "Edit meeting" : "New meeting invite" }}</span>
       <div modalBody>
         <p class="fw-bold">{{ selectedDateLabel }}</p>
 
@@ -81,7 +127,7 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from
                 <label class="form-check-label" [for]="'plan-type-' + type.description">{{ type.description }}</label>
               </div>
             }
-            @if (selectedAgendaFileType()) {
+            @if (selectedAgendaFileType() && !isEditing()) {
               <div class="form-check mt-1">
                 <input class="form-check-input" type="checkbox" id="plan-generate-agenda"
                        [(ngModel)]="generateAgenda" [ngModelOptions]="{standalone: true}">
@@ -92,25 +138,45 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from
         }
 
         <app-thumbnail-heading-frame heading="Meeting details" [compact]="true">
-          <div class="row">
-            <div class="col-sm-6">
-              <div class="form-group" app-time-picker id="plan-time" label="Time"
-                   [value]="startDateTime" (change)="onTimeChange($event)"></div>
+          <div class="mb-2">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="plan-format" id="plan-format-in-person"
+                     [checked]="format === CommitteeMeetingFormat.IN_PERSON" (change)="format = CommitteeMeetingFormat.IN_PERSON">
+              <label class="form-check-label" for="plan-format-in-person">In person</label>
             </div>
-            <div class="col-sm-6">
-              <div class="form-group">
-                <label for="plan-title">Meeting title</label>
-                <input id="plan-title" class="form-control input-sm" [(ngModel)]="title"
-                       placeholder="e.g. Committee meeting">
-              </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="plan-format" id="plan-format-online"
+                     [checked]="format === CommitteeMeetingFormat.ONLINE" (change)="format = CommitteeMeetingFormat.ONLINE">
+              <label class="form-check-label" for="plan-format-online">Online</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="plan-format" id="plan-format-hybrid"
+                     [checked]="format === CommitteeMeetingFormat.HYBRID" (change)="format = CommitteeMeetingFormat.HYBRID">
+              <label class="form-check-label" for="plan-format-hybrid">Hybrid</label>
             </div>
           </div>
+          <app-labelled-field-row>
+            <app-labelled-field label="Time" controlId="plan-time">
+              <div app-time-picker id="plan-time"
+                   [value]="startDateTime" (timeChange)="onTimeChange($event)"></div>
+            </app-labelled-field>
+            <app-labelled-field label="Meeting title" controlId="plan-title" [grow]="true">
+              <input id="plan-title" class="form-control input-sm flex-grow-1" [(ngModel)]="title"
+                     placeholder="e.g. Committee meeting">
+            </app-labelled-field>
+          </app-labelled-field-row>
+          @if (hasVenue()) {
+            <div class="mt-2">
+              <label for="plan-location">Location</label>
+              <input id="plan-location" class="form-control input-sm" [(ngModel)]="location"
+                     placeholder="e.g. Village Hall, High Street">
+            </div>
+          }
+          @if (isOnline()) {
+            <p class="small text-muted mb-0 mt-2">A video link is created and added to the agenda and invite.</p>
+          }
         </app-thumbnail-heading-frame>
 
-        <app-thumbnail-heading-frame heading="External recipients (optional)" [compact]="true">
-          <app-recipient-field [to]="guestRecipientsField" (toChange)="guestRecipientsField = $event"
-                               [savedRecipients]="previousRecipients" [plain]="true"/>
-        </app-thumbnail-heading-frame>
         <app-thumbnail-heading-frame heading="Include a list (optional)" [compact]="true">
           <div class="form-check">
             <input class="form-check-input" type="radio" name="plan-list" id="plan-list-none"
@@ -128,36 +194,84 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated } from
             </div>
           }
         </app-thumbnail-heading-frame>
+        <app-thumbnail-heading-frame heading="External recipients (optional)" [compact]="true">
+          <app-recipient-field [to]="guestRecipientsField" (toChange)="guestRecipientsField = $event"
+                               [savedRecipients]="previousRecipients" [plain]="true"/>
+        </app-thumbnail-heading-frame>
+        @if (existingLoadError) {
+          <app-alert-panel class="mt-3" title="Could not load this meeting" [variant]="AlertPanelVariant.DANGER">
+            {{ existingLoadError }}
+          </app-alert-panel>
+        }
         @if (sendError) {
-          <app-alert-panel class="mt-3" title="Invite not sent">
+          <app-alert-panel class="mt-3" [title]="isEditing() ? 'Meeting not saved' : 'Invite not sent'">
             {{ sendError }}
           </app-alert-panel>
+        }
+        @if (editingCreatedByName) {
+          <p class="small text-muted mb-0 mt-2">Planned by {{ editingCreatedByName }}</p>
         }
       </div>
       <button modalFooter type="button" class="btn btn-quiet btn-sm" [disabled]="working" (click)="cancel()">
         Close
       </button>
-      <button modalFooter type="button" class="btn btn-quiet btn-sm" [disabled]="working" (click)="continueToComposer()">
-        <fa-icon [icon]="composeWorking() ? faSpinner : faEnvelope" [animation]="composeWorking() ? 'spin' : null" class="me-2"/>
-        {{ composeWorking() ? workingMessage : "Continue in email composer" }}
+      <div modalFooter dropdown [dropup]="true" class="btn-group" [class.d-none]="!isEditing()">
+        <button dropdownToggle type="button" class="btn btn-quiet btn-sm dropdown-toggle" [disabled]="working">
+          <fa-icon [icon]="faEllipsis" class="me-2"/>More actions
+        </button>
+        <ul *dropdownMenu class="dropdown-menu dropdown-menu-end" role="menu">
+          @if (editingMeetingRoom) {
+            <li>
+              <a class="dropdown-item" role="button" (click)="joinFromInvite()">
+                <fa-icon [icon]="faRightToBracket" class="me-2"/>Join
+              </a>
+            </li>
+          }
+          @if (editingCommitteePath) {
+            <li>
+              <a class="dropdown-item" [routerLink]="'/' + editingCommitteePath" [queryParams]="existingCommitteeQuery()">
+                <fa-icon [icon]="faFileLines" class="me-2"/>Committee page
+              </a>
+            </li>
+          }
+          <li>
+            <a class="dropdown-item text-danger" role="button" (click)="deleteFromInvite()">
+              <fa-icon [icon]="faTrash" class="me-2"/>Delete meeting
+            </a>
+          </li>
+        </ul>
+      </div>
+      <button modalFooter type="button" class="btn btn-primary btn-sm" [class.d-none]="!isEditing()"
+              [disabled]="working || !existingReady" (click)="saveChanges()">
+        <fa-icon [icon]="saveWorking() ? faSpinner : faFloppyDisk" [animation]="saveWorking() ? 'spin' : null" class="me-2"/>
+        {{ saveWorking() ? workingMessage : "Save changes" }}
       </button>
-      <button modalFooter type="button" class="btn btn-primary btn-sm" [disabled]="working || !canSendNow()"
-              (click)="sendNow()">
+      <button modalFooter type="button" class="btn btn-quiet btn-sm" [class.d-none]="!confirmingSend"
+              [disabled]="working" (click)="cancelSend()">Cancel</button>
+      <button modalFooter type="button" class="btn btn-sunset btn-sm" [class.d-none]="!confirmingSend"
+              [disabled]="working" (click)="sendNow()">
         <fa-icon [icon]="sendWorking() ? faSpinner : faPaperPlane" [animation]="sendWorking() ? 'spin' : null" class="me-2"/>
-        {{ sendWorking() ? workingMessage : "Send now" }}
+        {{ sendWorking() ? workingMessage : "Confirm send" }}
       </button>
-    </app-draggable-modal>`
+      <button modalFooter type="button" class="btn btn-primary btn-sm" [class.d-none]="confirmingSend"
+              [disabled]="working || !canSendNow()" (click)="requestSend()">
+        <fa-icon [icon]="faPaperPlane" class="me-2"/>
+        Send now
+      </button>
+    </app-draggable-modal>
+    }`
 })
 export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild(WalkProgrammeCalendarComponent) calendar: WalkProgrammeCalendarComponent;
+  @ViewChild(NextCommitteeMeetingBannerComponent) banner: NextCommitteeMeetingBannerComponent;
+  @ViewChild(TimePicker) timePicker: TimePicker;
 
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingPlanComponent", NgxLoggerLevel.ERROR);
   private router = inject(Router);
   private dateUtils = inject(DateUtilsService);
   private uiActions = inject(UiActionsService);
   private videoMeetingsService = inject(VideoMeetingsService);
-  private inviteHandoff = inject(VideoMeetingInviteHandoffService);
   private memberLoginService = inject(MemberLoginService);
   private mailMessagingService = inject(MailMessagingService);
   private memberService = inject(MemberService);
@@ -174,10 +288,21 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   private subscriptions: Subscription[] = [];
 
   showInvite = false;
+  confirmingSend = false;
+  existingLoadError: string | null = null;
+  existingReady = true;
+  editingCreatedByName: string | null = null;
+  editingCommitteePath: string | null = null;
+  editingMeetingRoom: string | null = null;
+  pendingDeleteEntry: CalendarEntry | null = null;
+  emailInviteesOnDelete = false;
+  cancellationPeople: VideoMeetingCancellationPerson[] = [];
   selectedDate: number;
   selectedDateLabel = "";
   startDateTime: string;
   title = "";
+  format: CommitteeMeetingFormat = CommitteeMeetingFormat.IN_PERSON;
+  location = "";
   guestRecipientsField: ComposerExternalRecipient[] = [];
   lists: ListInfo[] = [];
   selectedListId: number | null = null;
@@ -191,6 +316,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   workingMessage = "Working…";
   sendNotice: string | null = null;
   sendError: string | null = null;
+  deleteError: string | null = null;
 
   private generatedTitle = "";
   private committeeRoles: CommitteeMember[] = [];
@@ -198,21 +324,44 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   private aiConnected = false;
   private pendingPlanDate: number | null = null;
   private pendingMeetingType: string | null = null;
-  private config: VideoMeetingRuntimeConfig;
+  private pendingCommitteeFileId: string | null = null;
 
-  protected readonly faEnvelope = faEnvelope;
+  private editingFile: CommitteeFile | null = null;
+  private editingCommitteeSlug: string | null = null;
+  private editingComposedDocument = false;
+  private loadingEntryId: string | null = null;
+
+  protected readonly faCircleCheck = faCircleCheck;
+  protected readonly faEllipsis = faEllipsis;
+  protected readonly faFileLines = faFileLines;
+  protected readonly faFloppyDisk = faFloppyDisk;
   protected readonly faPaperPlane = faPaperPlane;
+  protected readonly faRightToBracket = faRightToBracket;
   protected readonly faSpinner = faSpinner;
+  protected readonly faTrash = faTrash;
+  protected readonly AlertPanelVariant = AlertPanelVariant;
+  protected readonly CommitteeMeetingFormat = CommitteeMeetingFormat;
 
+  isOnline(): boolean {
+    return meetingIsOnline(this.format);
+  }
+
+  hasVenue(): boolean {
+    return meetingHasVenue(this.format);
+  }
 
   async ngOnInit(): Promise<void> {
     const planDate = this.uiActions.queryParameter(StoredValue.PLAN_DATE);
     const meetingType = this.uiActions.queryParameter(StoredValue.MEETING_TYPE);
+    const committeeFileId = this.uiActions.queryParameter(StoredValue.COMMITTEE_FILE_ID);
     if (planDate) {
       this.pendingPlanDate = this.dateUtils.asValueNoTime(planDate);
     }
     if (meetingType) {
       this.pendingMeetingType = meetingType;
+    }
+    if (committeeFileId) {
+      this.pendingCommitteeFileId = committeeFileId;
     }
     this.applyMailLists(this.mailMessagingService.currentConfig());
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
@@ -240,11 +389,6 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
       this.logger.error("failed to load previous guest recipients", error);
     }
     try {
-      this.config = await this.videoMeetingsService.config();
-    } catch (error) {
-      this.logger.error("failed to load video meeting config", error);
-    }
-    try {
       this.aiConnected = (await this.aiService.status())?.connected === true;
     } catch (error) {
       this.aiConnected = false;
@@ -255,10 +399,12 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     if (this.pendingPlanDate) {
       this.openBannerMeeting({
         title: this.pendingMeetingType,
-        startTime: this.pendingPlanDate
+        startTime: this.pendingPlanDate,
+        committeeFileId: this.pendingCommitteeFileId || undefined
       });
       this.pendingPlanDate = null;
       this.pendingMeetingType = null;
+      this.pendingCommitteeFileId = null;
     }
   }
 
@@ -267,6 +413,10 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   onDateSelected(value: number): void {
+    this.clearEditing();
+    this.generateAgenda = true;
+    this.format = CommitteeMeetingFormat.IN_PERSON;
+    this.location = "";
     this.selectedDate = value;
     this.selectedDateLabel = this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_COMMA);
     this.startDateTime = this.dateUtils.isoDateTime(this.dateUtils.asDateTime(value).plus({hours: 19}).toMillis());
@@ -278,8 +428,138 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.showInvite = true;
   }
 
+  onCommitteeEventSelected(entry: CalendarEntry): void {
+    this.pendingDeleteEntry = null;
+    this.existingLoadError = null;
+    this.confirmingSend = false;
+    this.generateAgenda = false;
+    this.existingReady = false;
+    this.loadingEntryId = entry.id;
+    this.applyCalendarEntryToForm(entry);
+    this.showInvite = true;
+    void this.loadExistingMeetingIntoForm(entry);
+  }
+
   onTimeChange(isoDateTime: string): void {
-    this.startDateTime = isoDateTime;
+    if (isString(isoDateTime)) {
+      this.startDateTime = isoDateTime;
+    }
+  }
+
+  onCommitteeEventDeleted(entry: CalendarEntry): void {
+    this.clearEditing();
+    this.showInvite = false;
+    this.pendingDeleteEntry = entry;
+    this.emailInviteesOnDelete = false;
+    this.cancellationPeople = [];
+    this.deleteError = null;
+    void this.loadCancellationPeople(entry);
+  }
+
+  cancelDelete(): void {
+    this.pendingDeleteEntry = null;
+    this.emailInviteesOnDelete = false;
+    this.cancellationPeople = [];
+    this.deleteError = null;
+  }
+
+  async confirmDelete(): Promise<void> {
+    const entry = this.pendingDeleteEntry;
+    const committeeFileId = entry?.id;
+    if (committeeFileId) {
+      this.working = true;
+      this.workingAction = VideoMeetingPlanAction.DELETE;
+      this.workingMessage = "Deleting meeting…";
+      this.deleteError = null;
+      try {
+        const file = await this.committeeFileService.getById(committeeFileId).catch((error): CommitteeFile | null => {
+          this.logger.error("no committee file for calendar entry", error);
+          return null;
+        });
+        if (this.emailInviteesOnDelete && file) {
+          await this.sendCancellation(file);
+        }
+        if (file) {
+          await this.committeeFileService.removeFromCommitteeDocumentsPage(file);
+          await this.committeeFileService.delete(file);
+        }
+        await this.calendar?.reloadEntries();
+        await this.banner?.reload();
+        this.pendingDeleteEntry = null;
+        this.emailInviteesOnDelete = false;
+        this.cancellationPeople = [];
+      } catch (error) {
+        this.logger.error("failed to delete committee event", error);
+        this.deleteError = extractErrorMessage(error) || "The meeting could not be deleted.";
+      } finally {
+        this.working = false;
+        this.workingAction = null;
+        this.workingMessage = "";
+      }
+    } else {
+      this.pendingDeleteEntry = null;
+      this.emailInviteesOnDelete = false;
+      this.cancellationPeople = [];
+    }
+  }
+
+  private async loadCancellationPeople(entry: CalendarEntry): Promise<void> {
+    try {
+      if (!this.members.length) {
+        this.members = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
+      }
+      const file = await this.committeeFileService.getById(entry.id).catch((): CommitteeFile | null => null);
+      if (this.pendingDeleteEntry?.id === entry.id) {
+        this.cancellationPeople = file ? this.peopleWhoWouldReceiveCancellation(file) : [];
+      }
+    } catch (error) {
+      this.logger.error("failed to load meeting invitees for cancellation", error);
+      if (this.pendingDeleteEntry?.id === entry.id) {
+        this.cancellationPeople = [];
+      }
+    }
+  }
+
+  private peopleWhoWouldReceiveCancellation(file: CommitteeFile): VideoMeetingCancellationPerson[] {
+    const listMembers = file.meeting?.invitedListId == null
+      ? []
+      : this.mailListUpdaterService.subscribedMembers(this.members, file.meeting.invitedListId);
+    return videoMeetingCancellationPeople(listMembers, file.meeting?.invitedRecipients || []);
+  }
+
+  private async sendCancellation(file: CommitteeFile): Promise<void> {
+    const role = this.senderRole();
+    const people = this.peopleWhoWouldReceiveCancellation(file);
+    const memberIds = people.map(person => person.memberId).filter((id): id is string => !!id);
+    const externalRecipients = people
+      .filter(person => !person.memberId)
+      .map(person => ({
+        email: person.email,
+        name: person.name
+      }));
+    if (role && people.length > 0) {
+      const meetingTitle = file.document?.title || file.meeting?.title || "Committee meeting";
+      const timeLabel = this.dateUtils.asString(file.eventDate, null, UIDateFormat.RAMBLERS_TIME);
+      const dateLabel = this.dateUtils.asString(file.eventDate, null, UIDateFormat.DISPLAY_DATE_NO_DAY);
+      const body = `The meeting "${meetingTitle}" on ${dateLabel} at ${timeLabel} has been cancelled.\n\n`
+        + `Apologies for any inconvenience.`;
+      const htmlBody = this.rendering.markdownToHtml(body);
+      const start = await this.sendService.startBatch({
+        bannerId: null,
+        subject: `Cancelled: ${meetingTitle}`,
+        addresseeType: AddresseeType.NONE,
+        signoffRoles: [],
+        htmlBody,
+        htmlBodyTop: htmlBody,
+        htmlBodyBottom: "",
+        memberIds,
+        externalRecipients,
+        attachments: [],
+        brandingMode: BrandingMode.UNBRANDED,
+        unbrandedSenderRoleType: role.type
+      });
+      this.sendNotice = `A cancellation has been sent to ${this.stringUtils.pluraliseWithCount(start.totalRecipients, "recipient")}.`;
+    }
   }
 
   onMeetingTypeChange(meetingType: string): void {
@@ -298,7 +578,17 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private meetingKind(): string {
-    return this.meetingType || "Video meeting";
+    return this.meetingType || "Committee meeting";
+  }
+
+  private agendaLocationLine(venue: string): string {
+    if (this.format === CommitteeMeetingFormat.ONLINE) {
+      return "Online";
+    } else if (this.format === CommitteeMeetingFormat.HYBRID) {
+      return venue ? `Online, and in person at ${venue}` : "Online and in person";
+    } else {
+      return venue || "In person";
+    }
   }
 
   private suggestedTitle(): string {
@@ -314,16 +604,125 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   openBannerMeeting(meeting: UpcomingBookedMeeting): void {
-    if (meeting.title) {
-      this.meetingType = meeting.title;
-    }
-    const dayValue = this.dateUtils.asValueNoTime(meeting.startTime);
-    this.calendar?.showDate(dayValue);
-    this.onDateSelected(dayValue);
+    this.calendar?.showDate(this.dateUtils.asValueNoTime(meeting.startTime));
   }
 
   cancel(): void {
     this.showInvite = false;
+    this.clearEditing();
+    this.generateAgenda = true;
+  }
+
+  isEditing(): boolean {
+    return !!(this.editingFile || this.loadingEntryId);
+  }
+
+  existingCommitteeQuery(): Record<string, string> {
+    if (!this.editingCommitteeSlug) {
+      return {};
+    } else if (this.editingComposedDocument) {
+      return {[StoredValue.DOCUMENT]: this.editingCommitteeSlug};
+    } else {
+      return {[StoredValue.FILE]: this.editingCommitteeSlug};
+    }
+  }
+
+  deleteFromInvite(): void {
+    const committeeFileId = this.editingFile?.id;
+    const title = this.title;
+    const startTime = this.editingFile?.eventDate || this.startTimeValue();
+    this.cancel();
+    if (committeeFileId) {
+      this.onCommitteeEventDeleted({
+        id: committeeFileId,
+        title,
+        isGroupEvent: false,
+        isCommitteeEvent: true,
+        colour: "",
+        time: "",
+        dateValue: startTime
+      });
+    }
+  }
+
+  joinFromInvite(): void {
+    if (this.editingMeetingRoom) {
+      this.router.navigate(["/" + AdminPath.MEETING_ROOM, this.editingMeetingRoom], {
+        queryParams: {[StoredValue.MEETING_TITLE]: this.title}
+      });
+    }
+  }
+
+  private clearEditing(): void {
+    this.confirmingSend = false;
+    this.editingFile = null;
+    this.editingCreatedByName = null;
+    this.editingCommitteePath = null;
+    this.editingCommitteeSlug = null;
+    this.editingComposedDocument = false;
+    this.editingMeetingRoom = null;
+    this.loadingEntryId = null;
+    this.existingLoadError = null;
+    this.existingReady = true;
+  }
+
+  private applyCalendarEntryToForm(entry: CalendarEntry): void {
+    this.selectedDate = this.dateUtils.asValueNoTime(entry.dateValue);
+    this.selectedDateLabel = this.dateUtils.asString(entry.dateValue, null, UIDateFormat.DISPLAY_DATE_NO_COMMA);
+    this.startDateTime = this.dateUtils.isoDateTime(entry.dateValue);
+    this.title = entry.title;
+    this.generatedTitle = this.title;
+    this.selectedListId = null;
+    this.guestRecipientsField = [];
+    this.sendError = null;
+    this.applyMailLists(this.mailMessagingService.currentConfig());
+  }
+
+  private meetingTypeFromFile(file: CommitteeFile | null): string | null {
+    return this.meetingTypes.find(type => type.agendaFileType === file?.fileType || type.minutesFileType === file?.fileType)?.description
+      || null;
+  }
+
+  private async loadExistingMeetingIntoForm(entry: CalendarEntry): Promise<void> {
+    try {
+      if (!this.members.length) {
+        this.members = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
+      }
+      const file = await this.committeeFileService.getById(entry.id).catch((error): CommitteeFile | null => {
+        this.logger.error("failed to load committee file for meeting", error);
+        return null;
+      });
+      if (this.loadingEntryId === entry.id && this.showInvite) {
+        const meeting = file?.meeting;
+        const start = file?.eventDate || entry.dateValue;
+        this.editingFile = file;
+        this.editingCreatedByName = meeting?.createdByName || null;
+        this.editingMeetingRoom = meeting?.room || null;
+        this.selectedDate = this.dateUtils.asValueNoTime(start);
+        this.selectedDateLabel = this.dateUtils.asString(start, null, UIDateFormat.DISPLAY_DATE_NO_COMMA);
+        this.startDateTime = this.dateUtils.isoDateTime(start);
+        this.title = file?.document?.title || meeting?.title || entry.title;
+        this.generatedTitle = this.title;
+        this.meetingType = this.meetingTypeFromFile(file) || this.meetingType;
+        this.format = meeting?.format || CommitteeMeetingFormat.IN_PERSON;
+        this.location = meeting?.location || "";
+        this.selectedListId = meeting?.invitedListId ?? null;
+        this.guestRecipientsField = (meeting?.invitedRecipients || []).map(recipient => ({
+          email: recipient.email,
+          name: recipient.name
+        }));
+        this.editingCommitteePath = file ? await this.committeeFileService.documentsPagePathFor(file) : null;
+        this.editingCommitteeSlug = file ? this.committeeDisplayService.committeeFileSlug(file) : null;
+        this.editingComposedDocument = !!(file && this.committeeDisplayService.isComposedDocument(file));
+        this.existingReady = true;
+      }
+    } catch (error) {
+      this.logger.error("failed to load existing meeting", error);
+      if (this.loadingEntryId === entry.id) {
+        this.existingLoadError = extractErrorMessage(error) || "This meeting could not be loaded.";
+        this.existingReady = true;
+      }
+    }
   }
 
   private guestRecipients(): VideoMeetingInviteRecipient[] {
@@ -338,50 +737,73 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     return this.sendRecipientCount() > 0;
   }
 
-  composeWorking(): boolean {
-    return this.working && this.workingAction === VideoMeetingPlanAction.COMPOSE;
-  }
-
   sendWorking(): boolean {
     return this.working && this.workingAction === VideoMeetingPlanAction.SEND;
   }
 
-  async continueToComposer(): Promise<void> {
-    this.working = true;
-    this.workingAction = VideoMeetingPlanAction.COMPOSE;
+  saveWorking(): boolean {
+    return this.working && this.workingAction === VideoMeetingPlanAction.SAVE;
+  }
+
+  deleteWorking(): boolean {
+    return this.working && this.workingAction === VideoMeetingPlanAction.DELETE;
+  }
+
+  async saveChanges(): Promise<void> {
     this.sendError = null;
+    this.sendNotice = null;
+    this.working = true;
+    this.workingAction = VideoMeetingPlanAction.SAVE;
+    this.workingMessage = "Saving meeting…";
     try {
-      const invite = await this.createMeetingAndInvite();
-      if (invite) {
-        this.inviteHandoff.queue(invite);
-        this.router.navigate(["/admin/email-composer"], {queryParams: this.composerQueryParams(invite)});
+      const persisted = await this.persistMeeting();
+      if (persisted) {
+        await this.refreshPlanView();
+        this.sendNotice = "Meeting updated.";
+        this.showInvite = false;
+        this.clearEditing();
+        this.generateAgenda = true;
       }
     } catch (error) {
-      this.logger.error("failed to continue to composer", error);
-      this.sendError = extractErrorMessage(error) || "The meeting invite could not be created.";
+      this.logger.error("failed to save meeting", error);
+      this.sendError = extractErrorMessage(error) || "The meeting could not be saved.";
     } finally {
       this.working = false;
       this.workingAction = null;
     }
   }
 
+  requestSend(): void {
+    this.sendNotice = null;
+    if (!this.senderRole()) {
+      this.confirmingSend = false;
+      this.sendError = "Sending needs you to be linked to a committee role with an email address. Ask a site administrator if you are not.";
+    } else if (!this.canSendNow()) {
+      this.confirmingSend = false;
+      this.sendError = "Add guests or include a list before sending.";
+    } else {
+      this.sendError = null;
+      this.confirmingSend = true;
+    }
+  }
+
+  cancelSend(): void {
+    this.confirmingSend = false;
+  }
+
   async sendNow(): Promise<void> {
     this.sendError = null;
     this.sendNotice = null;
-    if (!this.senderRole()) {
-      this.sendError = "Send now needs you to be linked to a committee role with an email address. Continue in the email composer instead, or ask a site administrator.";
-    } else if (!this.canSendNow()) {
-      this.sendError = "Add guests or include a list before sending.";
-    } else {
-      this.working = true;
-      this.workingAction = VideoMeetingPlanAction.SEND;
-      const invite = await this.createMeetingAndInvite();
-      if (invite) {
-        await this.sendInviteNow(invite);
-      }
-      this.working = false;
-      this.workingAction = null;
+    this.confirmingSend = false;
+    this.working = true;
+    this.workingAction = VideoMeetingPlanAction.SEND;
+    const invite = await this.createMeetingAndInvite();
+    if (invite) {
+      await this.sendInviteNow(invite);
+      await this.refreshPlanView();
     }
+    this.working = false;
+    this.workingAction = null;
   }
 
   private sendRecipientCount(): number {
@@ -398,67 +820,95 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private async createMeetingAndInvite(): Promise<VideoMeetingInviteHandoff | null> {
-    this.workingMessage = "Creating meeting…";
-    const member = this.memberLoginService.loggedInMember();
+    this.workingMessage = this.isEditing() ? "Saving meeting…" : "Creating meeting…";
+    const persisted = await this.persistMeeting();
+    if (!persisted) {
+      return null;
+    } else {
+      return {
+        subject: persisted.meetingTitle,
+        body: this.inviteMarkdown(persisted.startTime, persisted.joinUrl, persisted.location),
+        externalRecipients: this.guestRecipients(),
+        selectedListId: this.selectedListId ?? undefined,
+        attachments: persisted.committeeFileId
+          ? [{name: "meeting.ics", url: this.videoMeetingsService.calendarUrl(persisted.committeeFileId)}]
+          : [],
+        committeeFileSlug: persisted.savedFile ? this.committeeDisplayService.committeeFileSlug(persisted.savedFile) : undefined,
+        committeePagePath: persisted.committeePagePath || undefined
+      };
+    }
+  }
+
+  private inviteMarkdown(startTime: number, joinUrl: string, location: string): string {
+    const timeLabel = this.dateUtils.asString(startTime, null, UIDateFormat.RAMBLERS_TIME);
+    const whereLines = [
+      joinUrl ? `**Join:** ${joinUrl}` : null,
+      location ? `**Where:** ${location}` : null
+    ].filter(Boolean).join("\n\n");
+    const guidance = joinUrl
+      ? `Open the link above to join the meeting. You do not need an account. When your browser asks, allow the camera and microphone so that others can see and hear you.`
+      : `We look forward to seeing you there.`;
+    return `You are invited to a committee meeting.\n\n`
+      + `**When:** ${this.selectedDateLabel} at ${timeLabel}\n\n`
+      + (whereLines ? `${whereLines}\n\n` : "")
+      + guidance
+      + this.inviteSignoff();
+  }
+
+  private inviteSignoff(): string {
+    const role = this.senderRole();
+    const name = role?.fullName || role?.description;
+    const roleLine = role?.fullName && role?.description && role.description !== role.fullName
+      ? `\n${role.description}`
+      : "";
+    return name ? `\n\nKind regards\n\n${name}${roleLine}` : "";
+  }
+
+  private async persistMeeting(): Promise<{
+    startTime: number;
+    meetingTitle: string;
+    committeeFileId: string | null;
+    joinUrl: string;
+    location: string;
+    savedFile: CommitteeFile | null;
+    committeePagePath: string | null;
+  } | null> {
+    this.timePicker?.commitDisplayedTime();
     const meetingTitle = this.title.trim() || this.suggestedTitle();
     const startTime = this.startTimeValue();
     const dateSlug = videoMeetingDateSlug(this.dateUtils.asString(startTime, null, UIDateFormat.DISPLAY_DATE_NO_DAY));
-    const room = this.videoMeetingsService.generateRoomName(meetingTitle, dateSlug);
-    const agendaFileType = this.selectedAgendaFileType();
-    const joinUrl = this.videoMeetingsService.guestUrl(room);
-    const savedFile = (this.generateAgenda && agendaFileType)
-      ? await this.createCommitteeEventWithAgenda(agendaFileType, startTime, meetingTitle, joinUrl)
-      : null;
-    if (savedFile) {
+    const room = this.isOnline()
+      ? (this.editingFile?.meeting?.room || this.videoMeetingsService.generateRoomName(meetingTitle, dateSlug))
+      : undefined;
+    const joinUrl = room ? this.videoMeetingsService.guestUrl(room) : "";
+    const venue = this.hasVenue() ? this.location.trim() : "";
+    const createdFile = !this.editingFile;
+    const member = this.memberLoginService.loggedInMember();
+    const meeting: CommitteeFileMeeting = {
+      format: this.format,
+      room,
+      location: venue || undefined,
+      invited: this.guestRecipients().length > 0 || this.selectedListId != null,
+      invitedRecipients: this.guestRecipients(),
+      invitedListId: this.selectedListId ?? undefined,
+      durationMinutes: this.editingFile?.meeting?.durationMinutes,
+      createdBy: this.editingFile?.meeting?.createdBy ?? member?.memberId,
+      createdByName: this.editingFile?.meeting?.createdByName
+        ?? ([member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName)
+    };
+    const savedFile = this.editingFile
+      ? await this.updateCommitteeCalendarEvent(this.editingFile, startTime, meetingTitle, joinUrl, venue, meeting)
+      : await this.createCommitteeCalendarEvent(startTime, meetingTitle, joinUrl, venue, meeting);
+    if (savedFile && createdFile) {
       this.workingMessage = "Adding agenda to committee events…";
     }
-    const committeePagePath = savedFile
+    const committeePagePath = savedFile && createdFile
       ? await this.committeeFileService.addToCommitteeDocumentsPage(savedFile)
-      : null;
-    const committeeFileId = savedFile?.id;
-    try {
-      await this.videoMeetingsService.createPlannedMeeting({
-        room,
-        title: meetingTitle,
-        startTime,
-        meetingType: this.meetingType ?? undefined,
-        committeeFileId,
-        createdAt: this.dateUtils.nowAsValue(),
-        createdBy: member?.memberId,
-        createdByName: [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName
-      });
-    } catch (error) {
-      this.logger.error("failed to persist planned meeting", error);
-    }
-    const timeLabel = this.dateUtils.asString(startTime, null, UIDateFormat.RAMBLERS_TIME);
-    const body = `You are invited to a video meeting.\n\n`
-      + `**When:** ${this.selectedDateLabel} at ${timeLabel}\n\n`
-      + `**Join:** ${joinUrl}\n\n`
-      + `No account is needed — click the link, allow your camera and microphone, and you are in.`;
-    return {
-      subject: meetingTitle,
-      body,
-      externalRecipients: this.guestRecipients(),
-      selectedListId: this.selectedListId ?? undefined,
-      attachments: [{name: "meeting.ics", url: this.videoMeetingsService.calendarUrl(room)}],
-      committeeFileSlug: savedFile ? this.committeeDisplayService.committeeFileSlug(savedFile) : undefined,
-      committeePagePath: committeePagePath || undefined
-    };
-  }
-
-  private composerQueryParams(invite: VideoMeetingInviteHandoff): Record<string, string> {
-    const queryParams: Record<string, string> = {};
-    if (invite.committeeFileSlug) {
-      queryParams[StoredValue.COMMITTEE_FILE] = invite.committeeFileSlug;
-    }
-    if (invite.committeePagePath) {
-      queryParams[StoredValue.SOURCE_PAGE] = invite.committeePagePath;
-    }
-    if (invite.selectedListId != null) {
-      queryParams[StoredValue.LIST_ID] = String(invite.selectedListId);
-      queryParams[StoredValue.EMAIL_TYPE] = RecipientMode.ENTIRE_LIST;
-    }
-    return queryParams;
+      : this.editingCommitteePath;
+    this.editingFile = savedFile || this.editingFile;
+    this.editingCreatedByName = this.editingFile?.meeting?.createdByName || this.editingCreatedByName;
+    this.editingMeetingRoom = this.editingFile?.meeting?.room || null;
+    return {startTime, meetingTitle, committeeFileId: this.editingFile?.id || null, joinUrl, location: venue, savedFile, committeePagePath: committeePagePath || null};
   }
 
   private async sendInviteNow(invite: VideoMeetingInviteHandoff): Promise<void> {
@@ -496,6 +946,8 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
         });
         this.sendNotice = `The invite is being sent to ${this.stringUtils.pluraliseWithCount(start.totalRecipients, "recipient")}.`;
         this.showInvite = false;
+        this.clearEditing();
+        this.generateAgenda = true;
       } catch (error) {
         this.logger.error("failed to send meeting invite", error);
         this.sendError = extractErrorMessage(error) || "The invite could not be sent.";
@@ -503,18 +955,66 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private async createCommitteeEventWithAgenda(agendaType: string, startTime: number, meetingTitle: string, joinUrl: string): Promise<CommitteeFile | null> {
-    this.workingMessage = "Drafting agenda…";
+  private async refreshPlanView(): Promise<void> {
+    await this.calendar?.reloadEntries();
+    await this.banner?.reload();
+  }
+
+  private async updateCommitteeCalendarEvent(
+    file: CommitteeFile,
+    startTime: number,
+    meetingTitle: string,
+    joinUrl: string,
+    venue: string,
+    meeting: CommitteeFileMeeting
+  ): Promise<CommitteeFile | null> {
+    this.workingMessage = "Saving meeting…";
     try {
-      const markdown = await this.buildAgendaMarkdown(agendaType, joinUrl);
-      const committeeFile: CommitteeFile = {
+      const timeLabel = this.dateUtils.asString(startTime, null, UIDateFormat.DISPLAY_TIME);
+      const dateLine = `${this.selectedDateLabel}, ${timeLabel}`;
+      const withDate = withCommitteeMeetingDateLine(file.document?.markdown || "", dateLine);
+      const withLocation = withCommitteeMeetingLocationLine(withDate, this.agendaLocationLine(venue));
+      const markdown = withCommitteeMeetingLink(withLocation, joinUrl);
+      const saved = await this.committeeFileService.createOrUpdate({
+        ...file,
+        fileType: this.selectedAgendaFileType() || file.fileType,
+        eventDate: startTime,
+        meeting,
+        document: {
+          ...(file.document || {}),
+          title: meetingTitle,
+          markdown
+        }
+      });
+      return saved || null;
+    } catch (error) {
+      this.logger.error("failed to update committee event", error);
+      return null;
+    }
+  }
+
+  private async createCommitteeCalendarEvent(startTime: number, meetingTitle: string, joinUrl: string, venue: string, meeting: CommitteeFileMeeting): Promise<CommitteeFile | null> {
+    const fileType = this.selectedAgendaFileType() || this.meetingKind();
+    this.workingMessage = this.generateAgenda ? "Drafting agenda…" : "Saving meeting…";
+    try {
+      const timeLabel = this.dateUtils.asString(this.startTimeValue(), null, UIDateFormat.DISPLAY_TIME);
+      const markdown = this.generateAgenda
+        ? await this.buildAgendaMarkdown(fileType, joinUrl, venue)
+        : committeeMeetingAgendaMarkdown({
+          heading: this.meetingKind(),
+          dateLine: `${this.selectedDateLabel}, ${timeLabel}`,
+          location: this.agendaLocationLine(venue),
+          joinUrl: joinUrl || undefined,
+          itemsMarkdown: ""
+        });
+      const saved = await this.committeeFileService.createOrUpdate({
         id: null,
-        fileType: agendaType,
+        fileType,
         eventDate: startTime,
         createdDate: this.dateUtils.nowAsValue(),
+        meeting,
         document: {title: meetingTitle, markdown}
-      };
-      const saved = await this.committeeFileService.createOrUpdate(committeeFile);
+      });
       return saved || null;
     } catch (error) {
       this.logger.error("failed to create committee event", error);
@@ -522,7 +1022,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private async buildAgendaMarkdown(agendaType: string, joinUrl: string): Promise<string> {
+  private async buildAgendaMarkdown(agendaType: string, joinUrl: string, venue: string): Promise<string> {
     const previousMinutes = await this.latestMinutesMarkdown(agendaType);
     const generated = (previousMinutes && this.aiConnected)
       ? await this.generateAgendaFromMinutes(agendaType, previousMinutes)
@@ -531,7 +1031,8 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     return committeeMeetingAgendaMarkdown({
       heading: this.meetingKind(),
       dateLine: `${this.selectedDateLabel}, ${timeLabel}`,
-      joinUrl,
+      location: this.agendaLocationLine(venue),
+      joinUrl: joinUrl || undefined,
       itemsMarkdown: numberedAgendaItemsFromGenerated(generated || "") || this.standardAgendaItemsMarkdown(agendaType)
     });
   }
@@ -566,10 +1067,9 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private minutesTypeFor(agendaType: string): string {
-    const candidate = agendaType.replace(/agenda/i, "Minutes").trim();
-    const exact = this.fileTypes.find(fileType => fileType.description.toLowerCase() === candidate.toLowerCase());
-    const anyMinutes = this.fileTypes.find(fileType => /minutes/i.test(fileType.description));
-    return exact?.description || anyMinutes?.description || "Minutes";
+    const category = this.meetingTypes.find(type => type.agendaFileType === agendaType);
+    const anyMinutes = this.fileTypes.find(fileType => fileType.meetingRole === CommitteeFileMeetingRole.MINUTES);
+    return category?.minutesFileType || anyMinutes?.description || "Minutes";
   }
 
   private agendaSystemPrompt(agendaType: string): string {
@@ -613,6 +1113,13 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private startTimeValue(): number {
-    return this.dateUtils.asDateTime(this.startDateTime).toMillis();
+    const day = this.dateUtils.asDateTime(this.selectedDate).startOf("day");
+    const time = this.startDateTime ? this.dateUtils.asDateTime(this.startDateTime) : day.plus({hours: 19});
+    return day.set({
+      hour: time.hour,
+      minute: time.minute,
+      second: 0,
+      millisecond: 0
+    }).toMillis();
   }
 }
