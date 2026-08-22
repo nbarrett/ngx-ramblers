@@ -243,7 +243,7 @@ async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEma
     await inboxThreadModel.updateOne({_id: threadId}, {
       $set: {
         lastDirection,
-        unread: thread?.folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND,
+        unread: unreadAfterReclassify(thread?.folder, lastDirection, thread?.readByMemberIds),
         externalAddress,
         sentFrom,
         ...(senderRoleType ? {roleType: senderRoleType} : {})
@@ -282,6 +282,11 @@ export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number
     return true;
   }
   return messageAt > previousLastSeenAt;
+}
+
+export function unreadAfterReclassify(folder: InboxThreadFolder | undefined, lastDirection: InboxMessageDirection, readByMemberIds: string[] | undefined): boolean {
+  const alreadyReadByMember = (readByMemberIds?.length ?? 0) > 0;
+  return folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND && !alreadyReadByMember;
 }
 
 async function aliasForOwnSentCopy(fallback: InboxAliasConfig, message: InboxMessage): Promise<InboxAliasConfig> {
