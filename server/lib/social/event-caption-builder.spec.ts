@@ -85,6 +85,19 @@ describe("event-caption-builder", () => {
     expect(input.startLocation).toEqual("Dover seafront, CT16 1LW");
   });
 
+  it("decodes HTML entities in the event description", () => {
+    const event = {
+      groupEvent: {
+        title: "Shade walk",
+        description: "Lots of&nbsp;on street parking. Rose &amp; Crown open all day.&nbsp;Snacks &lt;or&gt; lunch.",
+        start_date_time: "2026-08-23T09:30:00+01:00"
+      },
+      fields: {contactDetails: {displayName: "Jo Bloggs"}}
+    } as unknown as ExtendedGroupEvent;
+    const input = eventCaptionInputFrom(event, "https://example.org/walks/shade-walk");
+    expect(input.description).toEqual("Lots of on street parking. Rose & Crown open all day. Snacks <or> lunch.");
+  });
+
   it("omits distance and grade for a social event even if a difficulty is present", () => {
     const event = {
       groupEvent: {
