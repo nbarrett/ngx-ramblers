@@ -2,14 +2,14 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
-import { first } from "es-toolkit/compat";
+import { first, isString } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { CommitteeFile, CommitteeFileKind } from "../../../models/committee.model";
+import { CommitteeFile, CommitteeFileKind, isMeetingFileType } from "../../../models/committee.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { DateValue } from "../../../models/date.model";
@@ -22,6 +22,9 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { DatePicker } from "../../../date-and-time/date-picker";
+import { TimePicker } from "../../../date-and-time/time-picker";
+import { LabelledFieldRowComponent } from "../../../modules/common/labelled-field-row/labelled-field-row";
+import { LabelledFieldComponent } from "../../../modules/common/labelled-field-row/labelled-field";
 import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
 import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
 import { CommitteeDocumentView } from "../document/committee-document-view";
@@ -36,18 +39,38 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
       [tabs]="kindTabs"
       [selectedTab]="kind"
       (selectedTabChange)="selectKind($event)"/>
-    <div class="row mb-3">
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="event-date">File or Event Date</label>
-          <app-date-picker startOfDay
-                           id="event-date"
-                           [size]="'md'"
-                           (change)="eventDateChanged($event)"
-                           [value]="eventDate">
-          </app-date-picker>
-        </div>
+    <div class="row mb-3 mt-3">
+      <div class="col-md-12">
+        <app-labelled-field-row>
+          <app-labelled-field label="File or Event Date" controlId="event-date">
+            <app-date-picker startOfDay
+                             id="event-date"
+                             [size]="'md'"
+                             (change)="eventDateChanged($event)"
+                             [value]="eventDate">
+            </app-date-picker>
+          </app-labelled-field>
+          @if (isMeetingFile()) {
+            <app-labelled-field label="Time" controlId="event-time">
+              <div app-time-picker id="event-time"
+                   [value]="eventTime" (timeChange)="eventTimeChanged($event)"></div>
+            </app-labelled-field>
+          } @else if (committeeFile?.createdDate) {
+            <app-labelled-field label="Created">
+              <span class="text-muted">{{ dateUtils.displayDateAndTime(committeeFile.createdDate) }}</span>
+            </app-labelled-field>
+          }
+          <app-labelled-field label="Title" controlId="file-title" [grow]="true">
+            <input id="file-title"
+                   class="form-control input-md flex-grow-1"
+                   [(ngModel)]="fileTitle"
+                   [disabled]="notifyTarget.busy"
+                   placeholder="Enter a title">
+          </app-labelled-field>
+        </app-labelled-field-row>
       </div>
+    </div>
+    <div class="row mb-3">
       <div class="col-md-6">
         <div class="form-group">
           <label for="fileType">File Type</label>
@@ -97,17 +120,8 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
           }
         </div>
         @if (committeeFile?.fileNameData) {
-          <div class="col-md-12">
-            Originally uploaded as <span>{{ committeeFile.fileNameData.originalFileName }}</span>
-          </div>
           <div class="col-md-12 mb-3">
-            <label for="attachment">Display Title</label>
-            <input [(ngModel)]="committeeFile.fileNameData.title"
-                   [disabled]="notifyTarget.busy"
-                   type="text"
-                   id="attachment"
-                   class="form-control input-md"
-                   placeholder="Enter a title for this file">
+            Originally uploaded as <span>{{ committeeFile.fileNameData.originalFileName }}</span>
           </div>
           <div class="col-md-12 mb-3">
             <label>Link Preview: <a target="_blank" rel="noopener" [href]="display.viewUrl(committeeFile)">
@@ -117,17 +131,6 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
         }
       </div>
     } @else {
-      <div class="row">
-        <div class="col-md-12 mb-3">
-          <label for="document-title">Document Title</label>
-          <input [(ngModel)]="committeeFile.document.title"
-                 [disabled]="notifyTarget.busy"
-                 type="text"
-                 id="document-title"
-                 class="form-control input-md"
-                 placeholder="Enter a title for this document">
-        </div>
-      </div>
       <div appStickyControls class="committee-file-editor-actions">
         <div class="d-flex gap-2 flex-wrap">
             <input type="submit" value="Save File"
@@ -194,7 +197,7 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
                class="btn btn-secondary">
       </div>
     }`,
-  imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, TiptapMarkdownEditor, CommitteeDocumentView, SectionToggle, StickyControlsDirective]
+  imports: [DatePicker, TimePicker, LabelledFieldRowComponent, LabelledFieldComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, TiptapMarkdownEditor, CommitteeDocumentView, SectionToggle, StickyControlsDirective]
 })
 export class CommitteeFileEditor implements OnInit, OnDestroy {
 
@@ -209,6 +212,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public hasFileOver = false;
   public eventDate: DateValue;
+  public eventTime: string;
   private existingTitle: string;
   public uploader: FileUploader;
   public kind: CommitteeFileKind = CommitteeFileKind.ATTACHMENT;
@@ -230,6 +234,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.eventDate = this.dateUtils.asDateValue(this.committeeFile?.eventDate);
+    this.eventTime = this.committeeFile?.eventDate ? this.dateUtils.isoDateTime(this.committeeFile.eventDate) : null;
     this.existingTitle = this.committeeFile?.fileNameData?.title;
     this.notify.hide();
     this.kind = this.committeeFile?.document ? CommitteeFileKind.COMPOSED : CommitteeFileKind.ATTACHMENT;
@@ -250,7 +255,34 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
     this.kind = kind;
     this.previewing = false;
     if (kind === CommitteeFileKind.COMPOSED && !this.committeeFile.document) {
-      this.committeeFile.document = {title: this.committeeFile?.fileNameData?.title || "", markdown: ""};
+      this.committeeFile.document = {title: this.existingTitle || this.committeeFile?.fileNameData?.title || "", markdown: ""};
+    }
+  }
+
+  isMeetingFile(): boolean {
+    return isMeetingFileType(this.committeeFile?.fileType, this.display.fileTypes());
+  }
+
+  get fileTitle(): string {
+    if (this.kind === CommitteeFileKind.COMPOSED) {
+      return this.committeeFile?.document?.title ?? "";
+    } else {
+      return this.committeeFile?.fileNameData?.title ?? this.existingTitle ?? "";
+    }
+  }
+
+  set fileTitle(value: string) {
+    if (this.kind === CommitteeFileKind.COMPOSED) {
+      if (this.committeeFile.document) {
+        this.committeeFile.document.title = value;
+      } else {
+        this.committeeFile.document = {title: value, markdown: ""};
+      }
+    } else {
+      this.existingTitle = value;
+      if (this.committeeFile.fileNameData) {
+        this.committeeFile.fileNameData.title = value;
+      }
     }
   }
 
@@ -323,7 +355,30 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
 
   eventDateChanged(dateValue: DateValue) {
     if (dateValue) {
-      this.committeeFile.eventDate = dateValue.value;
+      const previous = this.dateUtils.asDateTime(this.committeeFile?.eventDate || dateValue.value);
+      const next = this.dateUtils.asDateTime(dateValue.value).startOf("day").set({
+        hour: previous.hour,
+        minute: previous.minute,
+        second: previous.second,
+        millisecond: previous.millisecond
+      });
+      this.committeeFile.eventDate = next.toMillis();
+      this.eventDate = this.dateUtils.asDateValue(this.committeeFile.eventDate);
+      this.eventTime = this.dateUtils.isoDateTime(this.committeeFile.eventDate);
+    }
+  }
+
+  eventTimeChanged(isoDateTime: string) {
+    if (isString(isoDateTime)) {
+      const time = this.dateUtils.asDateTime(isoDateTime);
+      const day = this.dateUtils.asDateTime(this.committeeFile?.eventDate || isoDateTime).startOf("day");
+      this.committeeFile.eventDate = day.set({
+        hour: time.hour,
+        minute: time.minute,
+        second: 0,
+        millisecond: 0
+      }).toMillis();
+      this.eventTime = this.dateUtils.isoDateTime(this.committeeFile.eventDate);
     }
   }
 

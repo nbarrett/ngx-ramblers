@@ -39,6 +39,11 @@ export class CommitteeFileService {
     return files.filter(file => !!file.eventDate);
   }
 
+  async meetingFileByRoom(room: string): Promise<CommitteeFile | null> {
+    const files = await this.all({criteria: {"meeting.room": room}});
+    return files?.[0] || null;
+  }
+
   async createOrUpdate(committeeFile: CommitteeFile): Promise<CommitteeFile> {
     if (committeeFile.id) {
       return this.update(committeeFile);
@@ -109,6 +114,23 @@ export class CommitteeFileService {
         this.logger.info("added committee file", fileId, "to", page.path);
       }
       return page.path || null;
+    }
+  }
+
+  async removeFromCommitteeDocumentsPage(file: CommitteeFile): Promise<void> {
+    if (file?.id) {
+      try {
+        const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
+        const target = await this.pageForPath(`committee/${year}`) || await this.latestYearDocumentsPage();
+        const row = target && (target.rows || []).find(candidate => candidate.type === PageContentType.COMMITTEE_DOCUMENTS);
+        if (row?.committeeDocuments?.fileIds?.includes(file.id)) {
+          row.committeeDocuments.fileIds = row.committeeDocuments.fileIds.filter(id => id !== file.id);
+          await this.pageContentService.createOrUpdate(target);
+          this.logger.info("removed committee file", file.id, "from", target.path);
+        }
+      } catch (error) {
+        this.logger.error("failed to remove committee file from documents page", file.id, error);
+      }
     }
   }
 

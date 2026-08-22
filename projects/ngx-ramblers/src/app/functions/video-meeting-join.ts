@@ -24,7 +24,7 @@ export function videoMeetingRoomSlug(label: string, dateSlug: string, unique: st
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "ramblers-video-meeting";
   const datePart = (dateSlug || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if (datePart) {
+  if (datePart && !base.includes(datePart)) {
     return `${base}-${datePart}-${unique}`;
   } else {
     return `${base}-${unique}`;
@@ -32,11 +32,21 @@ export function videoMeetingRoomSlug(label: string, dateSlug: string, unique: st
 }
 
 export function suggestedVideoMeetingTitle(kind: string, dateLabel: string): string {
-  const meetingKind = (kind || "").trim() || "Video meeting";
+  const meetingKind = (kind || "").trim() || "Meeting";
   if (dateLabel?.trim()) {
     return `${meetingKind}, ${dateLabel.trim()}`;
   } else {
     return meetingKind;
+  }
+}
+
+export function videoMeetingDisplayName(title: string, meetingType?: string | null): string {
+  if (meetingType?.trim()) {
+    return meetingType.trim();
+  } else {
+    const trimmed = (title || "").trim();
+    const withoutDate = trimmed.replace(/, [A-Za-z]+ \d{1,2} [A-Za-z]+ \d{4}$/, "").trim();
+    return withoutDate || trimmed || "Meeting";
   }
 }
 

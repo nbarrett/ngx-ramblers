@@ -7,15 +7,15 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
-import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
 import { CommitteeDisplayService } from "../committee/committee-display.service";
 import { DateRangeUnit } from "../../models/search.model";
 import { AdminSettingsPath } from "../../models/admin-route-paths.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { StoredValue } from "../../models/ui-actions";
-import { CommitteeFile, CommitteeMeetingType } from "../../models/committee.model";
+import { CommitteeFile, CommitteeFileType } from "../../models/committee.model";
 import { UpcomingBookedMeeting } from "../../models/video-meeting.model";
-import { lastFileDateForAgendaType, lastMeetingEventDate, mergeUpcomingBookedMeetings } from "../../functions/upcoming-booked-meetings";
+import { lastMeetingEventDate, upcomingBookedMeetings } from "../../functions/upcoming-booked-meetings";
+import { videoMeetingDisplayName } from "../../functions/video-meeting-join";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 
 @Component({
@@ -29,7 +29,7 @@ import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-pane
                [class.mt-2]="!first" [class.pt-2]="!first" [class.border-top]="!first"
                role="button" (click)="showOnCalendar(meeting)">
             <div>
-              <div>{{ meeting.title }}</div>
+              <div>{{ bannerTitle(meeting) }}</div>
               <div class="small">{{ dateLabel(meeting.startTime) }}</div>
             </div>
             <div class="d-flex flex-wrap gap-2">
@@ -66,7 +66,6 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private committeeConfigService = inject(CommitteeConfigService);
   private committeeFileService = inject(CommitteeFileService);
-  private videoMeetingsService = inject(VideoMeetingsService);
   private committeeDisplay = inject(CommitteeDisplayService);
   private subscriptions: Subscription[] = [];
 
@@ -75,8 +74,7 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
   protected suggestedNextDate: number | null = null;
   protected committeeConfigLoaded = false;
   protected upcoming: UpcomingBookedMeeting[] = [];
-  private agendaTypes: string[] = [];
-  private meetingTypes: CommitteeMeetingType[] = [];
+  private fileTypes: CommitteeFileType[] = [];
 
   protected readonly committeeSettingsPath = AdminSettingsPath.COMMITTEE_SETTINGS;
 
@@ -85,11 +83,8 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
       this.committeeConfigLoaded = true;
       this.meetingFrequencyAmount = committeeConfig?.meetingFrequencyAmount ?? null;
       this.meetingFrequencyUnit = committeeConfig?.meetingFrequencyUnit ?? null;
-      this.meetingTypes = committeeConfig?.meetingTypes || [];
-      this.agendaTypes = this.meetingTypes
-        .map(type => type.agendaFileType)
-        .filter(Boolean);
-      void this.refresh();
+      this.fileTypes = committeeConfig?.fileTypes ?? [];
+      void this.reload();
     }));
   }
 
@@ -123,6 +118,10 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
       : "";
   }
 
+  bannerTitle(meeting: UpcomingBookedMeeting): string {
+    return videoMeetingDisplayName(meeting.title, meeting.meetingType);
+  }
+
   dateLabel(value: number): string {
     if (value === this.dateUtils.asValueNoTime(value)) {
       return this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_COMMA);
@@ -148,7 +147,7 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async refresh(): Promise<void> {
+  async reload(): Promise<void> {
     await this.loadUpcoming();
     await this.computeNextMeetingSuggestion();
   }
@@ -156,53 +155,16 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
   private async loadUpcoming(): Promise<void> {
     const fromTime = this.dateUtils.dateTimeNowNoTime().toMillis();
     try {
-      const [meetings, files] = await Promise.all([
-        this.videoMeetingsService.meetings({sort: {startTime: 1}}),
-        this.committeeFileService.all({
-          criteria: {eventDate: {$exists: true}},
-          sort: {eventDate: 1}
-        })
-      ]);
-      const committeeFiles = files as CommitteeFile[];
-      const merged = mergeUpcomingBookedMeetings(meetings, committeeFiles, fromTime, this.agendaTypes);
-      const source = merged.length ? merged : this.meetingsFromConfiguredTypes(committeeFiles, fromTime);
-      this.upcoming = await Promise.all(source.map(item => this.withCommitteeLinks(item, committeeFiles)));
+      const committeeFiles = await this.committeeFileService.all({
+        criteria: {eventDate: {$exists: true}},
+        sort: {eventDate: 1}
+      }) as CommitteeFile[];
+      const merged = upcomingBookedMeetings(committeeFiles, fromTime, this.fileTypes);
+      this.upcoming = await Promise.all(merged.map(item => this.withCommitteeLinks(item, committeeFiles)));
     } catch (error) {
       this.logger.error("failed to load upcoming meetings", error);
       this.upcoming = [];
     }
-  }
-
-  private meetingsFromConfiguredTypes(files: CommitteeFile[], fromTime: number): UpcomingBookedMeeting[] {
-    if (!this.hasFrequency) {
-      return [];
-    } else {
-      const fallbackLast = lastMeetingEventDate(files, this.agendaTypes);
-      return this.meetingTypes
-        .filter(type => type.description && !/^other$/i.test(type.description))
-        .map(type => {
-          const last = lastFileDateForAgendaType(files, type.agendaFileType);
-          const startTime = this.dateUtils.asValueNoTime(last && last >= fromTime
-            ? last
-            : this.nextDateAfter(last || fallbackLast, fromTime));
-          return {title: type.description, startTime};
-        })
-        .filter(meeting => !!meeting.startTime);
-    }
-  }
-
-  private nextDateAfter(lastDate: number | null, fromTime: number): number {
-    const start = lastDate && lastDate >= fromTime
-      ? lastDate
-      : this.dateUtils.asDateTime(lastDate || fromTime).plus({
-        [this.meetingFrequencyUnit]: this.meetingFrequencyAmount
-      }).toMillis();
-    const found = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-      .map(step => this.dateUtils.asDateTime(start).plus({
-        [this.meetingFrequencyUnit]: this.meetingFrequencyAmount * step
-      }).toMillis())
-      .find(value => value >= fromTime);
-    return found || start;
   }
 
   private async withCommitteeLinks(
@@ -235,7 +197,7 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
           sort: {eventDate: -1},
           limit: 50
         });
-        const lastDate = lastMeetingEventDate(latest as CommitteeFile[], this.agendaTypes);
+        const lastDate = lastMeetingEventDate(latest as CommitteeFile[], this.fileTypes);
         const base = lastDate
           ? this.dateUtils.asDateTime(lastDate)
           : this.dateUtils.asDateTime(this.dateUtils.nowAsValue());

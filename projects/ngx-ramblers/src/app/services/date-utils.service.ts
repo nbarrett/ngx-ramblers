@@ -52,6 +52,12 @@ export class DateUtilsService {
     return dateTime.hour === 0 && dateTime.minute === 0;
   }
 
+  isDateOnly(dateValue: DateInput): boolean {
+    const dateTime = this.asDateTime(dateValue);
+    const asUtc = dateTime.toUTC();
+    return (dateTime.hour === 0 && dateTime.minute === 0) || (asUtc.hour === 0 && asUtc.minute === 0);
+  }
+
   yearFromDate(dateValue: number): number {
     return dateValue ? asNumber(this.asString(dateValue, undefined, UIDateFormat.YEAR)) : null;
   }

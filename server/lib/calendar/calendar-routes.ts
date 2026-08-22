@@ -7,6 +7,6 @@ router.get("/events.ics", eventsCalendarFeed);
 
 router.get("/event/:eventId", eventCalendar);
 
-router.get("/meeting/:room", meetingInviteCalendar);
+router.get("/meeting/:id", meetingInviteCalendar);
 
 export const calendarRoutes = router;

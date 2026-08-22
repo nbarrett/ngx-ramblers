@@ -1,22 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { CommitteeFile } from "../models/committee.model";
-import { VideoMeeting } from "../models/video-meeting.model";
-import { lastFileDateForAgendaType, lastMeetingEventDate, mergeUpcomingBookedMeetings } from "./upcoming-booked-meetings";
+import { CommitteeFile, CommitteeFileMeetingRole, CommitteeFileType } from "../models/committee.model";
+import { lastMeetingEventDate, upcomingBookedMeetings } from "./upcoming-booked-meetings";
 
-describe("mergeUpcomingBookedMeetings", () => {
+const fileTypes: CommitteeFileType[] = [
+  {description: "Agenda", meetingRole: CommitteeFileMeetingRole.AGENDA, meetingCategory: "Committee Meeting"},
+  {description: "Minutes", meetingRole: CommitteeFileMeetingRole.MINUTES, meetingCategory: "Committee Meeting"},
+  {description: "AGM Agenda", meetingRole: CommitteeFileMeetingRole.AGENDA, meetingCategory: "AGM"},
+  {description: "AGM Minutes", meetingRole: CommitteeFileMeetingRole.MINUTES, meetingCategory: "AGM"},
+  {description: "Import Template"}
+];
 
-  it("keeps future video meetings and agendas, and drops past ones", () => {
-    const meetings = [
-      {title: "Past call", startTime: 100, committeeFileId: "old"} as VideoMeeting,
-      {title: "November committee", startTime: 500, committeeFileId: "nov"} as VideoMeeting
-    ];
+describe("upcomingBookedMeetings", () => {
+
+  it("keeps future agendas and drops past ones, minutes and non-meeting files", () => {
     const files = [
+      {id: "past", eventDate: 100, fileType: "Agenda", document: {title: "Past agenda"}} as CommitteeFile,
       {id: "aug", eventDate: 200, fileType: "Agenda", document: {title: "August agenda"}} as CommitteeFile,
       {id: "nov", eventDate: 500, fileType: "Agenda", document: {title: "November agenda"}} as CommitteeFile,
-      {id: "mins", eventDate: 600, fileType: "Minutes", document: {title: "Old minutes"}} as CommitteeFile
+      {id: "mins", eventDate: 600, fileType: "Minutes", document: {title: "Future minutes"}} as CommitteeFile,
+      {id: "import", eventDate: 700, fileType: "Import Template"} as CommitteeFile
     ];
-    const merged = mergeUpcomingBookedMeetings(meetings, files, 150, ["Agenda"]);
-    expect(merged.map(item => item.title)).toEqual(["August agenda", "November committee"]);
+    const upcoming = upcomingBookedMeetings(files, 150, fileTypes);
+    expect(upcoming.map(item => item.title)).toEqual(["August agenda", "November agenda"]);
   });
 
   it("uses the latest agenda or minutes as the last meeting, not other file types", () => {
@@ -25,18 +30,7 @@ describe("mergeUpcomingBookedMeetings", () => {
       {eventDate: 200, fileType: "Agenda"} as CommitteeFile,
       {eventDate: 100, fileType: "Minutes"} as CommitteeFile
     ];
-    expect(lastMeetingEventDate(files, ["Agenda"])).toBe(200);
-    expect(lastMeetingEventDate(files, [])).toBe(200);
-  });
-
-  it("finds the latest file for one agenda type and its minutes", () => {
-    const files = [
-      {eventDate: 100, fileType: "AGM Agenda"} as CommitteeFile,
-      {eventDate: 300, fileType: "AGM Minutes"} as CommitteeFile,
-      {eventDate: 400, fileType: "Committee Meeting Agenda"} as CommitteeFile
-    ];
-    expect(lastFileDateForAgendaType(files, "AGM Agenda")).toBe(300);
-    expect(lastFileDateForAgendaType(files, "Committee Meeting Agenda")).toBe(400);
+    expect(lastMeetingEventDate(files, fileTypes)).toBe(200);
   });
 
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JitsiJoinMode } from "../models/video-meeting.model";
-import { jitsiHostPageUrl, jitsiJoinMode, suggestedVideoMeetingTitle, videoMeetingRoomSlug } from "./video-meeting-join";
+import { jitsiHostPageUrl, jitsiJoinMode, suggestedVideoMeetingTitle, videoMeetingDisplayName, videoMeetingRoomSlug } from "./video-meeting-join";
 
 describe("jitsiJoinMode", () => {
 
@@ -36,6 +36,20 @@ describe("suggestedVideoMeetingTitle", () => {
   it("uses the meeting kind and date as the name people see", () => {
     expect(suggestedVideoMeetingTitle("Committee meeting", "Tuesday 18 August 2026"))
       .toEqual("Committee meeting, Tuesday 18 August 2026");
+  });
+
+});
+
+describe("videoMeetingDisplayName", () => {
+
+  it("prefers the meeting type over a title that also contains a date", () => {
+    expect(videoMeetingDisplayName("Committee Meeting, Saturday 12 September 2026", "Committee Meeting"))
+      .toEqual("Committee Meeting");
+  });
+
+  it("strips a trailing display date from the title when there is no meeting type", () => {
+    expect(videoMeetingDisplayName("Committee Meeting, Saturday 12 September 2026"))
+      .toEqual("Committee Meeting");
   });
 
 });

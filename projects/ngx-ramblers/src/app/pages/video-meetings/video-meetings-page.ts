@@ -7,6 +7,8 @@ import { faCalendarDays, faRightToBracket, faVideo } from "@fortawesome/free-sol
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
+import { CommitteeFileService } from "../../services/committee/committee-file.service";
+import { CommitteeMeetingFormat } from "../../models/committee.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { PageComponent } from "../../page/page.component";
@@ -24,32 +26,44 @@ import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../function
   selector: "app-video-meetings-page",
   imports: [FormsModule, FontAwesomeModule, PageComponent, AlertPanelComponent, NextCommitteeMeetingBannerComponent, RouterLink, ThumbnailHeadingFrameComponent],
   template: `
-    <app-page pageTitle="Video meetings">
-      @if (config && !config.enabled) {
-        <app-alert-panel title="Video meetings are switched off">
-          An administrator can enable them in
-          <a [routerLink]="'/' + systemSettingsPath" [queryParams]="{tab: videoMeetingsTab}">System Settings</a>.
-        </app-alert-panel>
-      } @else {
-        <app-next-committee-meeting-banner (plan)="openPlannedMeeting($event)"/>
-        <div class="row">
-          <div class="col-sm-6">
-            <app-thumbnail-heading-frame heading="Start a meeting">
-              <p>Spin up a private meeting room and share the link with your group. It runs in the browser, with
+    <app-page pageTitle="Meetings">
+      <app-next-committee-meeting-banner (plan)="openPlannedMeeting($event)"/>
+      <div class="row align-items-start mb-4">
+        <div class="col-sm-6">
+          <app-thumbnail-heading-frame heading="Plan a committee meeting">
+            <p>Book a meeting on the calendar - in person, online or hybrid - with an agenda, an email invite and a
+              calendar attachment. Pick a date to get started.</p>
+            <button type="button" class="btn btn-primary" (click)="planMeeting()">
+              <fa-icon [icon]="faCalendarDays" class="me-2"/>Plan a meeting
+            </button>
+          </app-thumbnail-heading-frame>
+        </div>
+        <div class="col-sm-6">
+          <app-thumbnail-heading-frame heading="Video call">
+            @if (config && !config.enabled) {
+              <app-alert-panel title="Video meetings are switched off">
+                An administrator can enable them in
+                <a [routerLink]="'/' + systemSettingsPath" [queryParams]="{tab: videoMeetingsTab}">System Settings</a>.
+              </app-alert-panel>
+            } @else {
+              <p>Spin up a private meeting room now and share the link, or join one. It runs in the browser, with
                 gallery view, screen sharing, chat and shared notes.</p>
               <div class="form-group">
                 <label for="start-title">Meeting name</label>
                 <input id="start-title" class="form-control input-sm" [(ngModel)]="meetingTitle"
                        placeholder="e.g. August committee meeting">
               </div>
-              <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="btn btn-primary flex-fill" (click)="startMeeting()">
-                  <fa-icon [icon]="faVideo" class="me-2"/>Start a meeting now
-                </button>
-                <button type="button" class="btn btn-primary flex-fill" (click)="planMeeting()">
-                  <fa-icon [icon]="faCalendarDays" class="me-2"/>Plan a meeting for later
-                </button>
+              <button type="button" class="btn btn-primary mb-3" (click)="startMeeting()">
+                <fa-icon [icon]="faVideo" class="me-2"/>Start a video call now
+              </button>
+              <div class="form-group">
+                <label for="joinRoom">Paste a meeting link, or type a room name</label>
+                <input id="joinRoom" class="form-control input-sm" [(ngModel)]="joinRoom" (keydown.enter)="join()"
+                       placeholder="Paste a meeting link">
               </div>
+              <button type="button" class="btn btn-primary" [disabled]="!canJoin" (click)="join()">
+                <fa-icon [icon]="faRightToBracket" class="me-2"/>Join
+              </button>
               @if (config) {
                 <p class="form-text text-muted mt-3 mb-0">You will join as <strong>{{ displayName }}</strong>.</p>
               }
@@ -59,22 +73,10 @@ import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../function
                   <a [routerLink]="'/' + systemSettingsPath" [queryParams]="{tab: videoMeetingsTab}">System Settings</a>.
                 </app-alert-panel>
               }
-            </app-thumbnail-heading-frame>
-          </div>
-          <div class="col-sm-6">
-            <app-thumbnail-heading-frame heading="Join a meeting">
-              <div class="form-group">
-                <label for="joinRoom">Paste a meeting link, or type a room name</label>
-                <input id="joinRoom" class="form-control input-sm" [(ngModel)]="joinRoom" (keydown.enter)="join()"
-                       placeholder="Paste a meeting link">
-              </div>
-              <button type="button" class="btn btn-primary" [disabled]="!canJoin" (click)="join()">
-                <fa-icon [icon]="faRightToBracket" class="me-2"/>Join
-              </button>
-            </app-thumbnail-heading-frame>
-          </div>
+            }
+          </app-thumbnail-heading-frame>
         </div>
-      }
+      </div>
     </app-page>`
 })
 export class VideoMeetingsPageComponent implements OnInit {
@@ -84,6 +86,7 @@ export class VideoMeetingsPageComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingsPageComponent", NgxLoggerLevel.ERROR);
   private router = inject(Router);
   private videoMeetingsService = inject(VideoMeetingsService);
+  private committeeFileService = inject(CommitteeFileService);
   private memberLoginService = inject(MemberLoginService);
   private dateUtils = inject(DateUtilsService);
 
@@ -108,7 +111,7 @@ export class VideoMeetingsPageComponent implements OnInit {
 
   private defaultMeetingTitle(): string {
     const today = this.dateUtils.asString(this.dateUtils.nowAsValue(), null, UIDateFormat.DISPLAY_DATE_NO_COMMA);
-    return suggestedVideoMeetingTitle("Video meeting", today);
+    return suggestedVideoMeetingTitle("Video call", today);
   }
 
   get displayName(): string {
@@ -123,18 +126,23 @@ export class VideoMeetingsPageComponent implements OnInit {
     const room = this.videoMeetingsService.generateRoomName(title, dateSlug);
     const member = this.memberLoginService.loggedInMember();
     try {
-      await this.videoMeetingsService.createPlannedMeeting({
-        room,
-        title,
-        startTime: now,
-        createdAt: now,
-        createdBy: member?.memberId,
-        createdByName: [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName
+      await this.committeeFileService.createOrUpdate({
+        id: null,
+        fileType: "",
+        eventDate: now,
+        createdDate: now,
+        meeting: {
+          format: CommitteeMeetingFormat.ONLINE,
+          room,
+          title,
+          createdBy: member?.memberId,
+          createdByName: [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName
+        }
       });
     } catch (error) {
       this.logger.error("failed to save meeting title", error);
     }
-    this.router.navigate(["/admin/video-meetings/room", room], {
+    this.router.navigate(["/" + AdminPath.MEETING_ROOM, room], {
       queryParams: {[StoredValue.MEETING_TITLE]: title}
     });
   }
@@ -151,9 +159,10 @@ export class VideoMeetingsPageComponent implements OnInit {
     const queryParams = date ? {
       [StoredValue.PLAN_DATE]: date,
       [StoredValue.CALENDAR_DATE]: date,
-      ...(meeting.title ? {[StoredValue.MEETING_TYPE]: meeting.title} : {})
+      ...(meeting.title ? {[StoredValue.MEETING_TYPE]: meeting.title} : {}),
+      ...(meeting.committeeFileId ? {[StoredValue.COMMITTEE_FILE_ID]: meeting.committeeFileId} : {})
     } : {};
-    this.router.navigate(["/" + AdminPath.VIDEO_MEETING_PLAN], date ? {queryParams} : {});
+    this.router.navigate(["/" + AdminPath.MEETING_PLAN], date ? {queryParams} : {});
   }
 
   get canJoin(): boolean {
@@ -163,7 +172,7 @@ export class VideoMeetingsPageComponent implements OnInit {
   join(): void {
     const room = this.extractRoom(this.joinRoom);
     if (room) {
-      this.router.navigate(["/admin/video-meetings/room", room]);
+      this.router.navigate(["/" + AdminPath.MEETING_ROOM, room]);
     }
   }
 

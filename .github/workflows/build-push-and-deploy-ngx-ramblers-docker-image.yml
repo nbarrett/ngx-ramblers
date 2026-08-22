@@ -254,3 +254,75 @@ jobs:
             echo "Generating release notes for commits since $PREV_SHA"
             npm run release-notes -- --since "$PREV_SHA" $RELEASE_NOTES_ARGS
           fi
+
+  deploy-jitsi:
+    needs: [ resolve, test ]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-jitsi-group
+      cancel-in-progress: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache root node_modules
+        id: cache-root-nm
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: root-nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install root dependencies
+        if: steps.cache-root-nm.outputs.cache-hit != 'true'
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Cache server node_modules
+        id: cache-server-nm
+        uses: actions/cache@v5
+        with:
+          path: server/node_modules
+          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+
+      - name: Install server dependencies
+        if: steps.cache-server-nm.outputs.cache-hit != 'true'
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Detect jitsi-relevant changes
+        id: jitsi-changes
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: ./server/node_modules/.bin/tsx server/deploy/detect-jitsi-changes.ts
+
+      - name: Install ts-node
+        if: steps.jitsi-changes.outputs.jitsi == 'true'
+        run: npm install -g ts-node
+
+      - name: Install Flyctl
+        if: steps.jitsi-changes.outputs.jitsi == 'true'
+        run: |
+          curl -fsSL https://fly.io/install.sh | FLYCTL_INSTALL="$HOME/.fly" sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Flyctl installation
+        if: steps.jitsi-changes.outputs.jitsi == 'true'
+        run: flyctl version
+
+      - name: Deploy self-hosted Jitsi (only when image-affecting files changed)
+        if: steps.jitsi-changes.outputs.jitsi == 'true'
+        timeout-minutes: 15
+        env:
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+        run: ts-node server/deploy/deploy-jitsi.ts
+
+      - name: Advance jitsi-deployed ref after successful deploy
+        if: steps.jitsi-changes.outputs.jitsi == 'true'
+        run: git push --force origin HEAD:refs/heads/jitsi-deployed

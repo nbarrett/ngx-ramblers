@@ -135,7 +135,7 @@
   left: 34px
   right: 0
   top: 100%
-  z-index: 20
+  z-index: 40
   margin: 4px 0 0
   padding: 4px 0
   list-style: none
@@ -143,6 +143,10 @@
   border: 1px solid #dee2e6
   border-radius: 8px
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08)
+  &.is-above
+    top: auto
+    bottom: 100%
+    margin: 0 0 4px
 
 .recipient-suggestions-heading
   padding: 4px 14px

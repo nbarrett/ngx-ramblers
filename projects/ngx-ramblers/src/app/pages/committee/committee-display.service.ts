@@ -200,7 +200,10 @@ export class CommitteeDisplayService {
     }
     const title = committeeFile.fileNameData?.title || committeeFile.document?.title || "";
     const dateStr = this.dateUtils.asString(committeeFile.eventDate, undefined, this.dateUtils.formats.displayDateTh);
-    return title ? `${dateStr}${EM_DASH_WITH_SPACES}${title}` : dateStr;
+    const dateAndTime = committeeFile.eventDate && !this.dateUtils.isDateOnly(committeeFile.eventDate)
+      ? `${dateStr}, ${this.dateUtils.asString(committeeFile.eventDate, undefined, this.dateUtils.formats.displayTime)}`
+      : dateStr;
+    return title ? `${dateAndTime}${EM_DASH_WITH_SPACES}${title}` : dateAndTime;
   }
 
   fileExtensionIs(fileName, extensions: string[]) {

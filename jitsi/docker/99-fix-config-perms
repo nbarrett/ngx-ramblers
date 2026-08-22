@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+allow_all_services_to_write_shared_config() {
+  chgrp -R jitsi /config 2>/dev/null || true
+  chmod -R g+rwX /config 2>/dev/null || true
+}
+
+allow_all_services_to_write_shared_config

@@ -149,7 +149,7 @@ import { MemberResourcesReferenceDataService } from "../../../../services/member
                     <div class="col-auto form-group mb-0" app-time-picker
                          [id]="'task-time-' + task.id" label="At time"
                          [value]="schedule.time" [disabled]="busy"
-                         (change)="schedule.time = $event">
+                         (timeChange)="schedule.time = $event">
                     </div>
                   </div>
                 }

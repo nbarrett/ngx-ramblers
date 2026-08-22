@@ -10,11 +10,10 @@ import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/w
 import { icalDocument, meetingIcalDocument } from "./ical";
 import { publicImageBaseUrl } from "../social/public-base-url";
 import { dateTimeNow } from "../shared/dates";
-import { videoMeeting } from "../mongo/models/video-meeting";
+import committeeFile from "../mongo/models/committee-file";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { VideoMeeting } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import { CommitteeConfig, CommitteeFile, meetingHasVenue, meetingIsOnline } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 const debugLog = debug(envConfig.logNamespace("calendar"));
 debugLog.enabled = false;
@@ -72,43 +71,49 @@ function committeeSecretaryEmail(committeeConfig: CommitteeConfig | null): { nam
   return {name: withEmail?.fullName || withEmail?.description, email: withEmail?.email};
 }
 
-export async function meetingCalendarFile(roomName: string, req: Request): Promise<{document: string; fileName: string} | null> {
-  const room = (roomName || "").replace(/\.ics$/i, "");
-  const meeting = await videoMeeting.findOne({room}).lean().exec() as VideoMeeting;
-  if (!meeting) {
+export async function meetingCalendarFile(committeeFileId: string, req: Request): Promise<{document: string; fileName: string} | null> {
+  const id = (committeeFileId || "").replace(/\.ics$/i, "");
+  const meetingFile = await committeeFile.findById(id).lean().exec() as unknown as CommitteeFile;
+  if (!meetingFile?.meeting) {
     return null;
   } else {
     const config: SystemConfig = await systemConfig();
     const baseUrl = publicImageBaseUrl(req, config).replace(/\/+$/, "");
     const committeeConfigDoc = await queryKey(ConfigKey.COMMITTEE);
     const organiser = committeeSecretaryEmail(committeeConfigDoc?.value as CommitteeConfig || null);
-    const joinLink = `${baseUrl}/video-meetings/guest/${encodeURIComponent(room)}`;
     const host = baseUrl.replace(/^https?:\/\//, "") || "ngx-ramblers";
+    const room = meetingFile.meeting.room;
+    const joinLink = meetingIsOnline(meetingFile.meeting.format) && room
+      ? `${baseUrl}/video-meetings/guest/${encodeURIComponent(room)}`
+      : null;
+    const venue = meetingHasVenue(meetingFile.meeting.format) ? meetingFile.meeting.location : null;
+    const descriptionLines = [joinLink ? `Join the meeting: ${joinLink}` : null, venue ? `Location: ${venue}` : null].filter(Boolean);
     const document = meetingIcalDocument({
-      uid: `meeting-${room}@${host}`,
-      title: meeting.title || "Ramblers meeting",
-      startTime: meeting.startTime,
-      durationMinutes: meeting.durationMinutes,
-      description: `Join the meeting: ${joinLink}`,
-      url: joinLink,
+      uid: `meeting-${id}@${host}`,
+      title: meetingFile.document?.title || meetingFile.meeting.title || "Ramblers meeting",
+      startTime: meetingFile.eventDate,
+      durationMinutes: meetingFile.meeting.durationMinutes,
+      description: descriptionLines.join("\n") || undefined,
+      location: joinLink || venue || undefined,
+      url: joinLink || undefined,
       organiserName: organiser.name,
       organiserEmail: organiser.email
     }, calendarNameFor(config));
-    return {document, fileName: `${room}.ics`};
+    return {document, fileName: `${id}.ics`};
   }
 }
 
 export async function meetingInviteCalendar(req: Request, res: Response): Promise<void> {
-  const room = req.params.room?.replace(/\.ics$/i, "");
+  const id = req.params.id?.replace(/\.ics$/i, "");
   try {
-    const file = await meetingCalendarFile(room, req);
+    const file = await meetingCalendarFile(id, req);
     if (file) {
       sendCalendar(res, file.document, file.fileName);
     } else {
-      res.status(404).json({message: `No meeting found for room ${room}`});
+      res.status(404).json({message: `No meeting found for id ${id}`});
     }
   } catch (error) {
-    errorDebugLog("meetingInviteCalendar failed for", room, "error:", error);
+    errorDebugLog("meetingInviteCalendar failed for", id, "error:", error);
     res.status(500).json({message: "Calendar generation failed"});
   }
 }
