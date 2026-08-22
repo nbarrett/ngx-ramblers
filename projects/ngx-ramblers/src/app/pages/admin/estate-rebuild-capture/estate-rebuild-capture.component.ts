@@ -425,6 +425,11 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                       </ng-template>
                       <ng-template appSortableTableCell="safeValue" let-row>
                         <code>{{ row.safeValue }}</code>
+                        @if (siteValueSharedCount(row) > 1) {
+                          <span class="console-shared-badge ms-2"
+                                tooltip="This exact value is used by {{ siteValueSharedCount(row) }} environments - a candidate to hold once as a shared value"
+                                container="body">shared × {{ siteValueSharedCount(row) }}</span>
+                        }
                       </ng-template>
                       <ng-template appSortableTableCell="whereHeld" let-row>
                         <code>{{ row.whereHeld }}</code>
@@ -532,7 +537,14 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                   </div>
                 </div>
 
-              @if (hoistedSharedGroups().length) {
+              <div class="mb-3" style="max-width: 22rem">
+                <app-section-toggle
+                  [tabs]="consoleVisibilityTabs"
+                  [selectedTab]="consoleVisibility"
+                  (selectedTabChange)="consoleVisibility = $event"/>
+              </div>
+
+              @if (hoistedSharedGroups().length && consoleVisibility !== 'site') {
                   <div class="console-shared-panel mb-3">
                     <div class="console-shared-panel-title">
                       Shared across all environments
@@ -558,7 +570,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               <label class="console-field">
                                 <span class="form-label">
                                   {{ identifier.label }}
-                                  <span class="console-shared-badge">Once for all sites</span>
+                                  <span class="console-shared-badge">Global</span>
                                 </span>
                                 <input type="text"
                                        class="form-control"
@@ -579,7 +591,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               <label class="console-field">
                                 <span class="form-label">
                                   Username
-                                  <span class="console-shared-badge">Once for all sites</span>
+                                  <span class="console-shared-badge">Global</span>
                                 </span>
                                 <input type="text"
                                        class="form-control"
@@ -592,7 +604,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               <label class="console-field console-shared-panel-password">
                                 <span class="form-label">
                                   Password
-                                  <span class="console-shared-badge">Once for all sites</span>
+                                  <span class="console-shared-badge">Global</span>
                                 </span>
                                 <app-secret-input
                                   [id]="'password-shared-' + group.serviceId"
@@ -604,7 +616,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               <label class="console-field console-shared-panel-notes">
                                 <span class="form-label">
                                   Notes
-                                  <span class="console-shared-badge">Once for all sites</span>
+                                  <span class="console-shared-badge">Global</span>
                                 </span>
                                 <input type="text"
                                        class="form-control"
@@ -619,7 +631,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               </label>
                             }
                           </div>
-                          <div class="console-table-links mt-2">
+                          <div class="console-table-links">
                             @for (link of resolvedUrlsForSharedGroup(group); track link.url) {
                               <a [href]="link.url"
                                  target="_blank"
@@ -638,6 +650,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                   </div>
                 }
 
+                @if (consoleVisibility !== 'global') {
                 @if (layoutWidth === layoutWidthWide) {
                   <div class="console-access-table"
                        [class.console-access-table-no-system]="!consoleSystemColumnVisible()"
@@ -867,6 +880,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                     }
                   </div>
                 }
+                }
             </div>
           </div>
           }
@@ -967,6 +981,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
 
   summary: EstateRebuildCaptureSummary = null;
   inventory: EstateRebuildInventory = null;
+  private siteValueSharedCounts = new Map<string, number>();
   inventoryBusy = false;
   inventoryIncludeSecrets = false;
   layoutWidth = LayoutWidth.NORMAL;
@@ -990,6 +1005,12 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   includeSecrets = true;
   consoleBusy = false;
   consoleScope = CONSOLE_SCOPE_ALL;
+  consoleVisibility = "all";
+  consoleVisibilityTabs: SectionToggleTab[] = [
+    {value: "all", label: "All"},
+    {value: "global", label: "Global"},
+    {value: "site", label: "Site-specific"}
+  ];
   consoleServiceFilter = "all";
   consoleFilledOnly = false;
   consoleEnvironments: ConsoleAccessEnvironmentListItem[] = [];
@@ -1342,6 +1363,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
     this.notify.hide();
     try {
       this.inventory = await this.environmentSetupService.estateRebuildInventory(this.inventoryIncludeSecrets);
+      this.buildSiteValueSharedCounts();
       this.summary = {
         generatedAtUtc: this.inventory.generatedAtUtc,
         siteCount: this.inventory.siteCount,
@@ -1425,6 +1447,29 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
         return envOk && systemOk && layerOk && configuredOk && searchOk;
       });
     }
+  }
+
+  private buildSiteValueSharedCounts(): void {
+    const environmentsByKey = new Map<string, Set<string>>();
+    (this.inventory?.siteCapture || [])
+      .filter(row => row.configured === EstateRebuildConfigured.PRESENT && !!row.safeValue)
+      .forEach(row => {
+        const key = this.siteValueSharedKey(row);
+        const environments = environmentsByKey.get(key) || new Set<string>();
+        environments.add(row.environment);
+        environmentsByKey.set(key, environments);
+      });
+    this.siteValueSharedCounts = new Map(
+      Array.from(environmentsByKey.entries()).map(([key, environments]) => [key, environments.size])
+    );
+  }
+
+  private siteValueSharedKey(row: EstateRebuildSiteCaptureRow): string {
+    return `${row.fieldId}::${row.safeValue}`;
+  }
+
+  siteValueSharedCount(row: EstateRebuildSiteCaptureRow): number {
+    return this.inventory?.includeSecrets ? (this.siteValueSharedCounts.get(this.siteValueSharedKey(row)) || 0) : 0;
   }
 
   presentCount(): number {
@@ -2016,7 +2061,6 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   async onConsoleScopeChange(scope: string): Promise<void> {
     this.copiedServiceId = null;
     this.copiedScopeKey = null;
-    this.consoleServiceFilter = "all";
     this.consoleScope = scope;
     this.refreshConsoleSystemFilterItems();
     this.writePageStateToUrl();
