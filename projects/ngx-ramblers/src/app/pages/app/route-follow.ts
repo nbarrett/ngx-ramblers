@@ -661,6 +661,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected compassHeadingText = "";
   protected tapeMarks: CompassTapeMark[] = [];
   private skipNextFit = false;
+  private lastRecordedPointCount = -1;
   private arrowGroup = L.layerGroup();
   private pointerMarker: L.Marker | null = null;
 
@@ -716,6 +717,21 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   @HostListener("window:resize")
   onViewportChange(): void {
     this.mapRef?.invalidateSize();
+  }
+
+  @HostListener("document:visibilitychange")
+  onVisibilityChange(): void {
+    if (document.visibilityState === "hidden") {
+      this.persistFollowSession(true);
+    } else if (document.visibilityState === "visible" && this.progress && isLiveFollowMode(this.progress.mode)) {
+      this.followService.resumeWatchIfLive();
+      void this.requestWakeLock();
+    }
+  }
+
+  @HostListener("window:pagehide")
+  onPageHide(): void {
+    this.persistFollowSession(true);
   }
 
   get remainingDistance(): string {
@@ -1281,6 +1297,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else {
       this.persistError = null;
       this.persistMessage = "";
+      this.lastRecordedPointCount = -1;
       this.draftPoints = this.followService.trackPoints().map(point => ({...point}));
       this.followUser = true;
       this.clearEditHandles();
@@ -1410,6 +1427,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.editVertices = [];
         this.clearEditHandles();
         this.followService.stop();
+        this.clearFollowSession();
         void this.releaseWakeLock();
         this.refreshArrows();
         this.redraw();
@@ -1825,13 +1843,22 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     return path === follow || path.startsWith(follow + "/");
   }
 
-  private persistFollowSession(): void {
+  private persistFollowSession(force = false): void {
     if (this.payload && this.progress && isLiveFollowMode(this.progress.mode)) {
-      this.uiActions.saveValueFor(StoredValue.FOLLOW_SESSION, this.followSessionSnapshot());
+      const recording = this.progress.mode === RouteFollowMode.RECORDING;
+      const count = this.followService.trackPoints().length;
+      const unchangedRecording = recording && !force && count === this.lastRecordedPointCount;
+      if (!unchangedRecording) {
+        if (recording) {
+          this.lastRecordedPointCount = count;
+        }
+        this.uiActions.saveValueFor(StoredValue.FOLLOW_SESSION, this.followSessionSnapshot());
+      }
     }
   }
 
   private clearFollowSession(): void {
+    this.lastRecordedPointCount = -1;
     this.uiActions.removeItemFor(StoredValue.FOLLOW_SESSION);
   }
 
@@ -1847,7 +1874,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       sheetState: this.sheetState,
       previewSpeed: this.previewSpeed,
       previewMetres: this.followService.previewProgressMetres(),
-      visitedWaypointIds: this.followService.visitedIds()
+      visitedWaypointIds: this.followService.visitedIds(),
+      recordedPoints: this.progress?.mode === RouteFollowMode.RECORDING ? this.followService.trackPoints() : undefined
     };
   }
 
@@ -1869,7 +1897,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.previewSpeed = session.previewSpeed || ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
       this.followService.setPreviewSpeed(this.previewSpeed);
       const visited = session.visitedWaypointIds || [];
-      if (session.mode === RouteFollowMode.FOLLOWING) {
+      if (session.mode === RouteFollowMode.RECORDING) {
+        this.followUser = true;
+        this.lastRecordedPointCount = (session.recordedPoints || []).length;
+        this.followService.restoreRecording(session.recordedPoints || [], visited);
+        void this.followService.requestCompassPermission();
+        void this.requestWakeLock();
+      } else if (session.mode === RouteFollowMode.FOLLOWING) {
         this.followUser = true;
         this.followService.restoreFollowing(visited);
         void this.followService.requestCompassPermission();

@@ -6,6 +6,7 @@ import { firstValueFrom } from "rxjs";
 import { filter } from "rxjs/operators";
 import { BuildVersion, VERSION_CHECK_INTERVAL_MS } from "../models/build-version.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import { RouteFollowService } from "./maps/route-follow.service";
 
 @Injectable({
   providedIn: "root"
@@ -15,6 +16,7 @@ export class VersionCheckService {
   private logger: Logger = inject(LoggerFactory).createLogger("VersionCheckService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private router = inject(Router);
+  private routeFollow = inject(RouteFollowService);
   private BASE_URL = "/api/version";
   private runningBuildNumber: string;
   private newVersionAvailable = false;
@@ -92,7 +94,9 @@ export class VersionCheckService {
   }
 
   private safeToReload(): boolean {
-    return !document.body.classList.contains("modal-open") && !this.userHasEditedSinceNavigation;
+    return !document.body.classList.contains("modal-open")
+      && !this.userHasEditedSinceNavigation
+      && !this.routeFollow.isBusy();
   }
 
   protected reloadPage(): void {

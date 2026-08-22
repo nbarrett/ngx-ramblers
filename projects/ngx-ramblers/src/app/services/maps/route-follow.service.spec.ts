@@ -23,13 +23,13 @@ describe("followCacheKey", () => {
 });
 
 describe("isLiveFollowMode", () => {
-  it("treats following, paused and preview as a live follow", () => {
+  it("treats following, paused, preview and recording as a live follow", () => {
     expect(isLiveFollowMode(RouteFollowMode.FOLLOWING)).toBe(true);
     expect(isLiveFollowMode(RouteFollowMode.PAUSED)).toBe(true);
     expect(isLiveFollowMode(RouteFollowMode.PREVIEW)).toBe(true);
+    expect(isLiveFollowMode(RouteFollowMode.RECORDING)).toBe(true);
     expect(isLiveFollowMode(RouteFollowMode.IDLE)).toBe(false);
     expect(isLiveFollowMode(RouteFollowMode.EDITING)).toBe(false);
-    expect(isLiveFollowMode(RouteFollowMode.RECORDING)).toBe(false);
   });
 });
 
