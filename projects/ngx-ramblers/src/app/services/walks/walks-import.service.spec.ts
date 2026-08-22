@@ -7,7 +7,7 @@ import { vi } from "vitest";
 import { InputSource } from "../../models/group-event.model";
 import { Member, MemberAction } from "../../models/member.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
-import { EventType } from "../../models/walk.model";
+import { EventType, WalkImportMatchType } from "../../models/walk.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
@@ -705,7 +705,35 @@ describe("WalksImportService Walks Manager matching", () => {
         it("returns no match when neither ids nor title and date correspond", () => {
             const service = TestBed.inject(WalksImportService);
             const resolver = service.existingWalkResolver([walksManagerWalk({ id: mongoId })]);
-            expect(resolver(incomingCsvWalk("no-such-id"))).toBeUndefined();
+            expect(resolver(incomingCsvWalk("no-such-id"))).toBeNull();
+        });
+
+        it("reports the walk match type as WALK_ID when a Walk ID matches", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            const resolver = service.existingWalkMatchResolver([existingWalk]);
+            const outcome = resolver(incomingCsvWalk("wm-1"));
+            expect(outcome.matchType).toEqual(WalkImportMatchType.WALK_ID);
+            expect(outcome.existingWalk).toBe(existingWalk);
+        });
+
+        it("reports the walk match type as TITLE_AND_DATE when only title and date match", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            const resolver = service.existingWalkMatchResolver([existingWalk]);
+            const incoming = incomingCsvWalk("no-such-id");
+            incoming.groupEvent.title = "Coastal Walk";
+            const outcome = resolver(incoming);
+            expect(outcome.matchType).toEqual(WalkImportMatchType.TITLE_AND_DATE);
+            expect(outcome.existingWalk).toBe(existingWalk);
+        });
+
+        it("reports the walk match type as NONE when nothing matches (a new walk will be created)", () => {
+            const service = TestBed.inject(WalksImportService);
+            const resolver = service.existingWalkMatchResolver([walksManagerWalk({ id: mongoId })]);
+            const outcome = resolver(incomingCsvWalk("no-such-id"));
+            expect(outcome.matchType).toEqual(WalkImportMatchType.NONE);
+            expect(outcome.existingWalk).toBeNull();
         });
 
         it("updates only leader details on a matched walks-manager walk, preserving its groupEvent", async () => {

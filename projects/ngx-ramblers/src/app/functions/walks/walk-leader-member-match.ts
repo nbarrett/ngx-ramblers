@@ -197,7 +197,20 @@ function currentSignalMatch(members: Member[], contactDetails: ContactDetails): 
     };
   }
 
-  return { member: null, confidence: WalkLeaderMatchConfidence.LOW, matchType: WalkLeaderMatchType.NONE };
+  const contactSurname = name ? normaliseText(nameTokens(name)?.slice(-1)?.[0] || "") : "";
+  const uniqueBySurname = contactSurname
+    ? uniqueMatch(members.filter(member => {
+      const memberSurname = normaliseText(nameTokens(member?.lastName || member?.displayName || "")?.slice(-1)?.[0] || "");
+      return !!memberSurname && memberSurname === contactSurname;
+    }))
+    : null;
+  return uniqueBySurname
+    ? { member: uniqueBySurname, confidence: WalkLeaderMatchConfidence.LOW, matchType: WalkLeaderMatchType.SURNAME_ONLY }
+    : { member: null, confidence: WalkLeaderMatchConfidence.LOW, matchType: WalkLeaderMatchType.NONE };
+}
+
+export function isTentativeLeaderMatch(result: LeaderMemberMatchResult | null | undefined): boolean {
+  return !!result?.member && result.matchType === WalkLeaderMatchType.SURNAME_ONLY;
 }
 
 function priorLookup(priorMatches: PriorContactMemberMatch[]): Map<string, PriorContactMemberMatch[]> {

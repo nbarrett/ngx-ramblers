@@ -1,7 +1,7 @@
 import { ContactDetails } from "../../models/group-event.model";
 import { Member } from "../../models/member.model";
 import { WalkLeaderMatchConfidence, WalkLeaderMatchType } from "../../models/walk-leader-match.model";
-import { contactDetailsForLeaderRematch, contactDetailsWithLeaderMatch, leaderMatchResult, matchedMemberForWalkLeader, memberContactDetailsForLeaderMatch, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "./walk-leader-member-match";
+import { contactDetailsForLeaderRematch, contactDetailsWithLeaderMatch, isTentativeLeaderMatch, leaderMatchResult, matchedMemberForWalkLeader, memberContactDetailsForLeaderMatch, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "./walk-leader-member-match";
 
 function member(overrides?: Partial<Member>): Member {
     return {
@@ -340,6 +340,32 @@ describe("leaderMatchResult", () => {
         expect(result.matchType).toEqual(WalkLeaderMatchType.EMAIL);
         expect(result.confidence).toEqual(WalkLeaderMatchConfidence.LOW);
         expect(shouldAutoLinkLeaderMatch(result)).toBe(false);
+    });
+
+    it("tentatively suggests a member by surname when the forename differs (Liz Sanderson to Elizabeth Sanderson)", () => {
+        const members = [
+            member({ id: "member-1", firstName: "Elizabeth", lastName: "Sanderson", displayName: "Elizabeth Sanderson" }),
+            member({ id: "member-2", firstName: "Elizabeth", lastName: "Marchetti", displayName: "Elizabeth Marchetti" })
+        ];
+        const result = leaderMatchResult(members, contactDetails({ displayName: "Liz Sanderson", email: null, phone: null }));
+
+        expect(result.member?.id).toEqual("member-1");
+        expect(result.matchType).toEqual(WalkLeaderMatchType.SURNAME_ONLY);
+        expect(result.confidence).toEqual(WalkLeaderMatchConfidence.LOW);
+        expect(isTentativeLeaderMatch(result)).toBe(true);
+        expect(shouldAutoLinkLeaderMatch(result)).toBe(false);
+    });
+
+    it("does not suggest a surname match when more than one member shares the surname", () => {
+        const members = [
+            member({ id: "member-1", firstName: "Elizabeth", lastName: "Sanderson", displayName: "Elizabeth Sanderson" }),
+            member({ id: "member-2", firstName: "David", lastName: "Sanderson", displayName: "David Sanderson" })
+        ];
+        const result = leaderMatchResult(members, contactDetails({ displayName: "Liz Sanderson", email: null, phone: null }));
+
+        expect(result.member).toBeNull();
+        expect(result.matchType).toEqual(WalkLeaderMatchType.NONE);
+        expect(isTentativeLeaderMatch(result)).toBe(false);
     });
 });
 

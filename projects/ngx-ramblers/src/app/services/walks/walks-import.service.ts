@@ -3,7 +3,7 @@ import { STANDARD_CSV_PARSE_OPTIONS } from "../../functions/csv";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable, Injector } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventField, EventType, GroupEventField, ImageSource, ImportData, ImportStage, WalkImageRow } from "../../models/walk.model";
+import { EventField, EventType, GroupEventField, ImageSource, ImportData, ImportStage, WalkImageRow, WalkImportMatchType, WalkMatchOutcome } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
@@ -46,6 +46,7 @@ import {
   normalisedWalkLeaderName
 } from "../../functions/walks/joint-walk-leaders";
 import {
+  isTentativeLeaderMatch,
   leaderMatchResult,
   priorMatchesFromWalks,
   shouldAutoLinkLeaderMatch
@@ -476,6 +477,11 @@ export class WalksImportService {
   }
 
   public existingWalkResolver(existingWalks: ExtendedGroupEvent[]): (incomingWalk: ExtendedGroupEvent) => ExtendedGroupEvent {
+    const resolveMatch = this.existingWalkMatchResolver(existingWalks);
+    return (incomingWalk: ExtendedGroupEvent): ExtendedGroupEvent => resolveMatch(incomingWalk).existingWalk;
+  }
+
+  public existingWalkMatchResolver(existingWalks: ExtendedGroupEvent[]): (incomingWalk: ExtendedGroupEvent) => WalkMatchOutcome {
     const existingById = new Map<string, ExtendedGroupEvent>(
       existingWalks
         .filter(walk => walk.groupEvent?.id)
@@ -497,14 +503,21 @@ export class WalksImportService {
         .filter(walk => walk.groupEvent?.title && walk.groupEvent?.start_date_time)
         .map(walk => [naturalKeyFor(walk), walk])
     );
-    return (incomingWalk: ExtendedGroupEvent): ExtendedGroupEvent => {
+    return (incomingWalk: ExtendedGroupEvent): WalkMatchOutcome => {
       const idCandidates = [incomingWalk.groupEvent?.id, incomingWalk.fields?.migratedFromId].filter(candidate => !!candidate);
       const matchedById = idCandidates
         .map(candidate => existingById.get(candidate)
           || existingByMigratedFromId.get(candidate)
           || (isMongoId(candidate) ? existingByMongoId.get(candidate) : null))
         .find(match => !!match);
-      return matchedById || existingByNaturalKey.get(naturalKeyFor(incomingWalk));
+      const matchedByNaturalKey = matchedById ? null : existingByNaturalKey.get(naturalKeyFor(incomingWalk));
+      if (matchedById) {
+        return {existingWalk: matchedById, matchType: WalkImportMatchType.WALK_ID};
+      } else if (matchedByNaturalKey) {
+        return {existingWalk: matchedByNaturalKey, matchType: WalkImportMatchType.TITLE_AND_DATE};
+      } else {
+        return {existingWalk: null, matchType: WalkImportMatchType.NONE};
+      }
     };
   }
 
@@ -709,10 +722,13 @@ export class WalksImportService {
     };
     const match = leaderMatchResult(members, contactDetailsForMatch, priorMatches);
     const matchedMember = shouldAutoLinkLeaderMatch(match) ? match.member : null;
+    const tentativeMember = !matchedMember && isTentativeLeaderMatch(match) ? match.member : null;
+    const resolvedMember = matchedMember || tentativeMember;
     return {
-      memberMatch: matchedMember ? MemberAction.found : MemberAction.notFound,
-      memberMatchType: matchedMember ? `walk-leader-contact-details:${match.matchType}:${match.confidence}` : `walk-leader-contact-details:${match.matchType}:${WalkLeaderMatchConfidence.LOW}`,
-      member: matchedMember,
+      memberMatch: resolvedMember ? MemberAction.found : MemberAction.notFound,
+      memberMatchType: resolvedMember ? `walk-leader-contact-details:${match.matchType}:${match.confidence}` : `walk-leader-contact-details:${match.matchType}:${WalkLeaderMatchConfidence.LOW}`,
+      member: resolvedMember,
+      tentative: !!tentativeMember,
       ramblersMember,
       contact
     };

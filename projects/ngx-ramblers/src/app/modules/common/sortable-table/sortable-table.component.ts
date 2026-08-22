@@ -8,7 +8,8 @@ import { SortableTableAlignment, SortableTableColumn, SortableTableGroup, Sortab
 import {
   SortableTableCellDirective,
   SortableTableExpandedRowDirective,
-  SortableTableGroupHeaderDirective
+  SortableTableGroupHeaderDirective,
+  SortableTableHeaderCellDirective
 } from "./sortable-table-cell.directive";
 
 @Component({
@@ -23,7 +24,11 @@ import {
               <th [class]="headerClassFor(column)"
                   [class.sortable]="!!column.sortKey"
                   (click)="column.sortKey && toggleSort(column.sortKey)">
-                {{ column.label }}
+                @if (headerTemplateFor(column.key); as headerTemplate) {
+                  <ng-container *ngTemplateOutlet="headerTemplate"></ng-container>
+                } @else {
+                  {{ column.label }}
+                }
                 @if (sortKey && column.sortKey === sortKey) {
                   <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                 }
@@ -194,6 +199,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   @Output() rowSelect = new EventEmitter<any>();
 
   @ContentChildren(SortableTableCellDirective) protected cellTemplates!: QueryList<SortableTableCellDirective>;
+  @ContentChildren(SortableTableHeaderCellDirective) protected headerCellTemplates!: QueryList<SortableTableHeaderCellDirective>;
   @ContentChild(SortableTableGroupHeaderDirective) protected groupHeaderTemplate: SortableTableGroupHeaderDirective | null = null;
   @ContentChild(SortableTableExpandedRowDirective) protected expandedRowTemplate: SortableTableExpandedRowDirective | null = null;
 
@@ -256,6 +262,11 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
 
   protected templateFor(key: string): TemplateRef<any> | null {
     const match = this.cellTemplates?.find(entry => entry.key === key);
+    return match?.template ?? null;
+  }
+
+  protected headerTemplateFor(key: string): TemplateRef<any> | null {
+    const match = this.headerCellTemplates?.find(entry => entry.key === key);
     return match?.template ?? null;
   }
 

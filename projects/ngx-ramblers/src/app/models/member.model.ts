@@ -227,6 +227,8 @@ export interface BulkLoadMemberAndMatch {
   contact: Contact;
   ramblersMember: RamblersMember;
   member: Member;
+  tentative?: boolean;
+  selectedMemberIds?: string[];
 }
 
 export interface MemberMatchResult {
