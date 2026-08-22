@@ -4,9 +4,10 @@ import {
   InboxAddress,
   InboxMessage,
   InboxMessageDirection,
-  InboxReaderProvider
+  InboxReaderProvider,
+  InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, isOwnSentCopy, outboundCopyFromInbound, resolveThreadExternalAddress, shouldRefreshUnreadForInbound } from "./inbox-message-import";
+import { autoReplyFromHeaders, isOwnSentCopy, outboundCopyFromInbound, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -162,6 +163,25 @@ describe("shouldRefreshUnreadForInbound", () => {
     expect(shouldRefreshUnreadForInbound(false, 200, 100)).toBe(true);
     expect(shouldRefreshUnreadForInbound(false, 100, 100)).toBe(false);
     expect(shouldRefreshUnreadForInbound(false, 50, 100)).toBe(false);
+  });
+});
+
+describe("unreadAfterReclassify", () => {
+  it("preserves read state when a member has already read the thread", () => {
+    expect(unreadAfterReclassify(InboxThreadFolder.INBOX, InboxMessageDirection.INBOUND, ["member-1"])).toBe(false);
+  });
+
+  it("marks an unread inbound thread with no readers as unread", () => {
+    expect(unreadAfterReclassify(InboxThreadFolder.INBOX, InboxMessageDirection.INBOUND, [])).toBe(true);
+    expect(unreadAfterReclassify(InboxThreadFolder.INBOX, InboxMessageDirection.INBOUND, undefined)).toBe(true);
+  });
+
+  it("never marks an outbound thread unread", () => {
+    expect(unreadAfterReclassify(InboxThreadFolder.INBOX, InboxMessageDirection.OUTBOUND, [])).toBe(false);
+  });
+
+  it("never marks a junk thread unread", () => {
+    expect(unreadAfterReclassify(InboxThreadFolder.JUNK, InboxMessageDirection.INBOUND, [])).toBe(false);
   });
 });
 
