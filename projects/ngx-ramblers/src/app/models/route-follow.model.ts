@@ -80,10 +80,12 @@ export interface RouteFollowSession {
   previewSpeed: number;
   previewMetres: number;
   visitedWaypointIds: string[];
+  recordedPoints?: RouteFollowPoint[];
 }
 
 export function isLiveFollowMode(mode: RouteFollowMode): boolean {
-  return mode === RouteFollowMode.FOLLOWING || mode === RouteFollowMode.PAUSED || mode === RouteFollowMode.PREVIEW;
+  return mode === RouteFollowMode.FOLLOWING || mode === RouteFollowMode.PAUSED
+    || mode === RouteFollowMode.PREVIEW || mode === RouteFollowMode.RECORDING;
 }
 
 export enum RouteFollowLocationError {

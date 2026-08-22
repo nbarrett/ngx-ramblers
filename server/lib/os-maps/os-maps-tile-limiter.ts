@@ -8,8 +8,8 @@ import { sendAdminAlertEmail } from "../alerts/admin-alerts";
 const warnLog = debug(envConfig.logNamespace("os-maps-tiles"));
 warnLog.enabled = true;
 
-export const OS_TILE_PER_MINUTE = 180;
-export const OS_TILE_PER_DAY = 4000;
+export const OS_TILE_PER_MINUTE = 1200;
+export const OS_TILE_PER_DAY = 20000;
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -65,23 +65,23 @@ export class MapTilesService {
     };
     if (provider === MapProvider.OS) {
       if (!this.osApiKeyConfigured()) {
-        return this.withBranding(L.tileLayer(this.osmUrl(), {
+        return this.withBranding(this.withTileRetry(L.tileLayer(this.osmUrl(), {
           ...options,
           attribution: "© OpenStreetMap (OS Maps unavailable)",
           maxZoom: 19,
           maxNativeZoom: 19
-        }), false);
+        })), false);
       } else {
-        return this.withBranding(L.tileLayer(this.osProxyUrl(style), {
+        return this.withBranding(this.withTileRetry(L.tileLayer(this.osProxyUrl(style), {
           ...options,
           attribution: this.osBranding.attributionHtml()
-        }), true);
+        })), true);
       }
     } else {
-      return this.withBranding(L.tileLayer(this.osmUrl(), {
+      return this.withBranding(this.withTileRetry(L.tileLayer(this.osmUrl(), {
         ...options,
         attribution: "© OpenStreetMap"
-      }), false);
+      })), false);
     }
   }
 
@@ -185,6 +185,43 @@ export class MapTilesService {
     } else {
       return 19;
     }
+  }
+
+  private static readonly MAX_TILE_RETRIES = 3;
+
+  private withTileRetry(layer: L.TileLayer): L.TileLayer {
+    const attempts = new WeakMap<HTMLImageElement, number>();
+    layer.on("tileload", (event: L.LeafletEvent) => {
+      const tile = (event as L.TileEvent).tile as HTMLImageElement;
+      if (tile) {
+        attempts.delete(tile);
+      }
+    });
+    layer.on("tileerror", (event: L.LeafletEvent) => {
+      const tile = (event as L.TileErrorEvent).tile as HTMLImageElement;
+      if (tile) {
+        const used = attempts.get(tile) ?? 0;
+        if (used < MapTilesService.MAX_TILE_RETRIES) {
+          attempts.set(tile, used + 1);
+          const baseSrc = this.stripRetryParam(tile.src);
+          window.setTimeout(() => {
+            if (this.stripRetryParam(tile.src) === baseSrc) {
+              const separator = baseSrc.includes("?") ? "&" : "?";
+              tile.src = `${baseSrc}${separator}retry=${used + 1}`;
+            }
+          }, this.tileRetryDelayMs(used));
+        }
+      }
+    });
+    return layer;
+  }
+
+  private stripRetryParam(src: string): string {
+    return src.replace(/[?&]retry=\d+/, "");
+  }
+
+  private tileRetryDelayMs(attempt: number): number {
+    return 800 * Math.pow(2, attempt) + Math.floor(Math.random() * 400);
   }
 
   private withBranding(layer: L.TileLayer, showOsLogo: boolean): L.TileLayer {

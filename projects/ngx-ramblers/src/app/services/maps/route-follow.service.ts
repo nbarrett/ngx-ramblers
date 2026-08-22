@@ -40,6 +40,7 @@ export class RouteFollowService {
   private waypoints: RouteFollowWaypoint[] = [];
   private visitedWaypointIds = new Set<string>();
   private watchId: number | null = null;
+  private readonly watchOptions: PositionOptions = {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000};
   private previewTimer: ReturnType<typeof setInterval> | null = null;
   private previewMetres = 0;
   private previewSpeedValue = ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
@@ -149,12 +150,44 @@ export class RouteFollowService {
     } else {
       this.applyMode(RouteFollowMode.RECORDING);
       void this.startCompass();
-      this.watchId = navigator.geolocation.watchPosition(
-        position => this.onPosition(position),
-        error => this.onPositionError(error),
-        {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000}
-      );
+      this.startWatch();
     }
+  }
+
+  restoreRecording(points: RouteFollowPoint[], visitedWaypointIds: string[]): void {
+    this.stopPreview();
+    this.visitedWaypointIds = new Set(visitedWaypointIds || []);
+    this.track = points || [];
+    this.cumulativeMetres = this.buildCumulative(this.track);
+    if (!navigator.geolocation) {
+      this.logger.error("restoreRecording: geolocation is not available");
+      this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
+    } else {
+      this.applyMode(RouteFollowMode.RECORDING);
+      void this.startCompass();
+      this.startWatch();
+    }
+  }
+
+  resumeWatchIfLive(): void {
+    if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
+      if (navigator.geolocation) {
+        this.startWatch();
+      }
+    }
+  }
+
+  isBusy(): boolean {
+    return this.state.mode !== RouteFollowMode.IDLE;
+  }
+
+  private startWatch(): void {
+    this.clearWatch();
+    this.watchId = navigator.geolocation.watchPosition(
+      position => this.onPosition(position),
+      error => this.onPositionError(error),
+      this.watchOptions
+    );
   }
 
   simplifiedTrack(spacingMetres: number, maxPoints: number): RouteFollowPoint[] {
@@ -276,12 +309,7 @@ export class RouteFollowService {
     } else {
       this.applyMode(RouteFollowMode.FOLLOWING);
       void this.startCompass();
-      this.clearWatch();
-      this.watchId = navigator.geolocation.watchPosition(
-        position => this.onPosition(position),
-        error => this.onPositionError(error),
-        {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000}
-      );
+      this.startWatch();
     }
   }
 
@@ -446,7 +474,12 @@ export class RouteFollowService {
     if (error.code === error.PERMISSION_DENIED) {
       this.applyLocationError(RouteFollowLocationError.DENIED);
     } else if (error.code === error.TIMEOUT) {
-      this.applyLocationError(RouteFollowLocationError.TIMEOUT);
+      if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
+        this.state = {...this.state, locationError: RouteFollowLocationError.TIMEOUT};
+        this.progressSubject.next(this.state);
+      } else {
+        this.applyLocationError(RouteFollowLocationError.TIMEOUT);
+      }
     } else {
       this.applyLocationError(RouteFollowLocationError.UNAVAILABLE);
     }
