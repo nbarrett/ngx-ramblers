@@ -35,13 +35,25 @@ function startLocationDescription(event: ExtendedGroupEvent): string {
   return [startLocation?.description, startLocation?.postcode].filter(Boolean).join(", ");
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_whole, code) => String.fromCharCode(Number(code)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 function plainTextDescription(event: ExtendedGroupEvent): string {
-  return (event?.groupEvent?.description || "")
-    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
-    .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
-    .replace(/[*_`>#]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return decodeHtmlEntities(
+    (event?.groupEvent?.description || "")
+      .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+      .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
+      .replace(/[*_`>#]/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+  ).trim();
 }
 
 export function defaultTemplateForEvent(event: ExtendedGroupEvent): string {

@@ -46,11 +46,21 @@ import {
         } @else {
           <div class="alert alert-warning d-flex align-items-start">
             <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
-            <div>
+            <div class="flex-grow-1">
               <strong>This is a Page post, not a Facebook Event</strong>
               <div>Meta's API does not allow any app to create a Facebook Event. This posts to the Page and links back
                 here.
               </div>
+              @if (instagramEnabled && event.imageCount === 0) {
+                <strong class="d-block mt-2">Add a photo to post to Instagram</strong>
+                <div>This {{ eventTypeLabel }} has no image, so Instagram can't be posted to. Add one to unlock
+                  Instagram — Facebook will still post with a link preview.
+                </div>
+                <button type="button" class="btn btn-primary btn-sm mt-2"
+                        [disabled]="uploadingImage" (click)="chooseImage()">
+                  <fa-icon [icon]="uploadingImage ? faSpinner : faUpload" class="me-1"/>{{ uploadingImage ? "Uploading" : "Add an image" }}
+                </button>
+              }
             </div>
           </div>
           @if (alreadyPublished && !event.captionChanged) {
@@ -70,21 +80,6 @@ import {
               <div>
                 <strong>Details have changed since this was posted</strong>
                 <div>Posting again will create a second post with the updated wording.</div>
-              </div>
-            </div>
-          }
-          @if (instagramEnabled && event.imageCount === 0) {
-            <div class="alert alert-warning d-flex align-items-start">
-              <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
-              <div class="flex-grow-1">
-                <strong>Add a photo to post to Instagram</strong>
-                <div>This {{ eventTypeLabel }} has no image, so Instagram can't be posted to. Add one to unlock
-                  Instagram — Facebook will still post with a link preview.
-                </div>
-                <button type="button" class="btn btn-primary btn-sm mt-2"
-                        [disabled]="uploadingImage" (click)="chooseImage()">
-                  <fa-icon [icon]="uploadingImage ? faSpinner : faUpload" class="me-1"/>{{ uploadingImage ? "Uploading" : "Add an image" }}
-                </button>
               </div>
             </div>
           }
