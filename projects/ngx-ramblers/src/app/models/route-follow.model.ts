@@ -270,7 +270,7 @@ export function followCacheKey(parts: {
   }
 }
 
-export const ROUTE_FOLLOW_NETWORK_TIMEOUT_MS = 3000;
+export const ROUTE_FOLLOW_NETWORK_TIMEOUT_MS = 12000;
 
 export function formatDataSize(bytes: number): string {
   if (bytes < 1024) {
