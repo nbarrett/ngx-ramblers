@@ -10,6 +10,7 @@
 6. **DRY** - always search for existing implementations before writing new code. Reuse and enhance, never duplicate
 7. **Never write "blacklist" or "whitelist"** (any form) in prose, tickets, commits, UI, or our identifiers. Prefer **deny / denied / deny list**, **allow / allowed / allow list**, or **block / blocked / suppressed** as fits. Third-party/wire API names (e.g. Brevo `emailBlacklisted`, Tagify `whitelist`) only at the mapping call site.
 8. **No stringly typed closed sets** - do not use string union types (`type X = "a" | "b"`) for fixed domain values (icons keys, modes, statuses, scopes, filters, layers, and similar). Use a **string enum** in a model file (`export enum X { A = "a", B = "b" }`) and reference `X.A` at call sites. One enum definition only; import it from models (including shared frontend models from the server). Exception: true open-ended user/API free text, or third-party wire types we cannot own.
+9. **Destructive operations require explicit same-session instruction** - never delete database config, environment secrets, or data unless the user asked for that specific deletion in the current session. A ticket existing is not an instruction to start it. Show exactly what would be deleted and wait for confirmation. Retirement sequencing: code stops reading a value first, that code ships to every environment, and only then is the value deleted - never the reverse. After removing any secret, immediately restart one affected app to prove it still boots; a deletion whose effect only appears at the next restart is a landmine (on 2026-08-23 secrets deleted the night before took down all 17 sites when a deploy restarted them).
 
 ## Project Overview
 
@@ -82,6 +83,7 @@ When the user asks to commit and push, use this domain language to determine dep
 - Push the commit to `main`
 - Wait for `build-push-and-deploy-ngx-ramblers-docker-image.yml` to complete successfully for that pushed commit
 - Trigger `deploy-to-environments.yml` with `environments=all` and `image_tag=<successful build run number>`
+- The `image_tag` must be a run number of `build-push-and-deploy-ngx-ramblers-docker-image.yml` and **no other workflow**. Every push also triggers CodeQL and other workflows whose run numbers look plausible but tag months-old images (on 2026-08-23 a CodeQL run number deployed a February image estate-wide). Get the number with `gh run list --workflow=build-push-and-deploy-ngx-ramblers-docker-image.yml --limit 1 --json number,headSha` and confirm the `headSha` matches the pushed commit. When in doubt use `image_tag=latest`, which always points at the newest successful build. The deploy workflow validates the tag and the deploy script asserts each app serves the requested build via `/api/version`
 - For terminal-driven flows, `npm run push` prompts for this on `main`
 - For agent-driven flows, use `npm run push -- --deploy-all-after-build` or the equivalent `gh` workflow dispatch sequence
 

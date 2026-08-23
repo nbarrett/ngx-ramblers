@@ -72,3 +72,10 @@ export enum PackageManager {
   NPM = "npm",
   PNPM = "pnpm"
 }
+
+export interface EstateHealthResult {
+  environment: string;
+  url: string;
+  healthy: boolean;
+  detail: string;
+}
