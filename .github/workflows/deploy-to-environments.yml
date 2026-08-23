@@ -9,16 +9,56 @@ on:
         default: 'all'
         type: string
       image_tag:
-        description: 'Docker image tag to deploy (e.g., latest or a previous run number)'
+        description: 'Docker image tag to deploy: latest, or a run number of the "Deploy and Build Docker Image and Deploy to Fly.io" workflow (NOT CodeQL or any other workflow)'
         required: true
         default: 'latest'
         type: string
+      allow_old_image:
+        description: 'Set true only for a deliberate rollback to an image older than the last 100 builds'
+        required: false
+        default: false
+        type: boolean
 
 env:
   NODE_VERSION: '24.14.0'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  validate-image-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate image_tag against the Docker build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          ALLOW_OLD_IMAGE: ${{ github.event.inputs.allow_old_image }}
+        run: |
+          BUILD_WORKFLOW="build-push-and-deploy-ngx-ramblers-docker-image.yml"
+          if [ "$IMAGE_TAG" = "latest" ]; then
+            echo "image_tag 'latest' always points at the newest successful build - OK"
+            exit 0
+          fi
+          if ! echo "$IMAGE_TAG" | grep -qE '^[0-9]+$'; then
+            echo "::error::image_tag '$IMAGE_TAG' must be 'latest' or a run number of the Docker build workflow"
+            exit 1
+          fi
+          NUMBERS=$(gh api "/repos/${{ github.repository }}/actions/workflows/$BUILD_WORKFLOW/runs?status=success&per_page=100" --jq '.workflow_runs[].run_number')
+          if [ -z "$NUMBERS" ]; then
+            echo "::error::could not list successful runs of the Docker build workflow - refusing to deploy an unvalidated image_tag"
+            exit 1
+          fi
+          LATEST=$(echo "$NUMBERS" | head -1)
+          if echo "$NUMBERS" | grep -qx "$IMAGE_TAG"; then
+            echo "image_tag $IMAGE_TAG is a successful Docker build run number (latest is $LATEST) - OK"
+            exit 0
+          fi
+          if [ "$ALLOW_OLD_IMAGE" = "true" ]; then
+            echo "::warning::image_tag $IMAGE_TAG is not among the last 100 successful Docker builds (latest is $LATEST) - deploying anyway because allow_old_image is set"
+            exit 0
+          fi
+          echo "::error::image_tag $IMAGE_TAG is not among the last 100 successful runs of the Docker build workflow (latest is $LATEST). Run numbers from other workflows (CodeQL, deploys) are NOT image tags. Get the correct number with: gh run list --workflow=$BUILD_WORKFLOW --limit 1 --json number. For a deliberate rollback to an older image, re-run with allow_old_image=true."
+          exit 1
+
   set-environments:
     runs-on: ubuntu-latest
     outputs:
@@ -53,7 +93,7 @@ jobs:
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   deploy:
-    needs: set-environments
+    needs: [set-environments, validate-image-tag]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

@@ -20,6 +20,7 @@ import { envConfig } from "../lib/env-config/env-config";
 import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase, parseSecretsFile } from "../lib/shared/secrets";
 import { configuredEnvironments } from "../lib/environments/environments-config";
 import { DEPLOYMENT_DEFAULTS, EnvironmentsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { BuildVersion } from "../../projects/ngx-ramblers/src/app/models/build-version.model";
 import { filterSecretsForSiteFlyDeploy } from "../lib/fly/fly-secrets-policy";
 import { pruneDisallowedFlySecrets } from "../lib/fly/fly-secrets-prune";
 
@@ -146,6 +147,26 @@ async function importSecrets(environmentName: string, appName: string): Promise<
   }
 }
 
+async function verifyDeployedBuildNumber(appName: string, imageTag: string, attempt = 1): Promise<void> {
+  const maxAttempts = 6;
+  const url = `https://${appName}.fly.dev/api/version`;
+  try {
+    const response = await fetch(url);
+    const buildVersion: BuildVersion = await response.json();
+    if (String(buildVersion.buildNumber) !== imageTag) {
+      throw new Error(`Deployed build mismatch on ${appName}: requested image tag ${imageTag} but ${url} reports build ${buildVersion.buildNumber}`);
+    }
+    debugLog(`Verified ${appName} is serving build ${imageTag}`);
+  } catch (error) {
+    if (attempt >= maxAttempts) {
+      throw error;
+    }
+    debugLog(`Build verification attempt ${attempt} of ${maxAttempts} for ${appName} failed (${error instanceof Error ? error.message : error}) - retrying in 10s`);
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    return verifyDeployedBuildNumber(appName, imageTag, attempt + 1);
+  }
+}
+
 async function deployToEnvironments(environmentsFilter: string[]): Promise<void> {
   if (process.env.ADMIN_MONGODB_URI) {
     process.env.MONGODB_URI = process.env.ADMIN_MONGODB_URI;
@@ -186,5 +207,8 @@ async function deployToEnvironments(environmentsFilter: string[]): Promise<void>
     await waitForImageAvailable(environmentConfig.appName, config.dockerImage);
     await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
     await ensureScale(environmentConfig.appName, environmentConfig.scaleCount, environmentConfig.memory);
+    if (imageTag && /^\d+$/.test(imageTag)) {
+      await verifyDeployedBuildNumber(environmentConfig.appName, imageTag);
+    }
   }
 }
