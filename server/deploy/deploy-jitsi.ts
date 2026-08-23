@@ -1,4 +1,5 @@
 import { dateTimeNowAsValue } from "../lib/shared/dates";
+import crypto from "crypto";
 import debug from "debug";
 import fs from "fs";
 import os from "os";
@@ -53,7 +54,10 @@ async function deployJitsi(): Promise<void> {
         JWT_APP_SECRET: jitsi.jwtAppSecret,
         PUBLIC_URL: publicUrl,
         JVB_ADVERTISE_IPS: advertiseIp,
-        DOCKER_HOST_ADDRESS: advertiseIp
+        DOCKER_HOST_ADDRESS: advertiseIp,
+        JICOFO_COMPONENT_SECRET: internalComponentSecret(jitsi.jwtAppSecret, "jicofo-component"),
+        JICOFO_AUTH_PASSWORD: internalComponentSecret(jitsi.jwtAppSecret, "jicofo-auth"),
+        JVB_AUTH_PASSWORD: internalComponentSecret(jitsi.jwtAppSecret, "jvb-auth")
       });
       runCommand(`flyctl config validate --config ${flyTomlPath} --app ${appName}`);
       runCommand(`flyctl deploy --app ${appName} --config ${flyTomlPath} --strategy immediate --wait-timeout 600`);
@@ -61,6 +65,10 @@ async function deployJitsi(): Promise<void> {
       debugLog(`Deployed self-hosted Jitsi ${appName} (public ${publicUrl}, media IP ${advertiseIp || "unset"})`);
     }
   }
+}
+
+function internalComponentSecret(base: string, purpose: string): string {
+  return crypto.createHash("sha256").update(`${base || "ngx-ramblers-jitsi"}:${purpose}`).digest("hex");
 }
 
 function ensureApp(appName: string, org: string): void {
