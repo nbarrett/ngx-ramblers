@@ -21,7 +21,11 @@ import {
   InboxUnreadCountsResponse,
   InboxViewScope,
   InboxCalendarReplyRequest,
-  InboxCalendarReplyResponse
+  InboxCalendarReplyResponse,
+  InboxThreadRemapRequest,
+  InboxThreadRemapResponse,
+  InboxThreadUpdateResult,
+  OrphanedInboxThreadsResponse
 } from "../../models/inbox.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { CommonDataService } from "../common-data-service";
@@ -159,6 +163,21 @@ export class InboxService {
     const query = params.length > 0 ? `?${params.join("&")}` : "";
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/threads${query}`));
     return response.response as InboxThreadListResponse;
+  }
+
+  async orphanedThreads(): Promise<OrphanedInboxThreadsResponse> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/orphaned-threads`));
+    return response.response as OrphanedInboxThreadsResponse;
+  }
+
+  async remapThreads(request: InboxThreadRemapRequest): Promise<InboxThreadRemapResponse> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/orphaned-threads/remap`, request));
+    return response.response as InboxThreadRemapResponse;
+  }
+
+  async restoreThreadsToInbox(threadIds: string[]): Promise<InboxThreadUpdateResult> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/orphaned-threads/restore-to-inbox`, {threadIds}));
+    return response.response as InboxThreadUpdateResult;
   }
 
   async getThread(threadId: string): Promise<InboxThreadMessagesResponse> {

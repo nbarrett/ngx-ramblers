@@ -1825,8 +1825,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.committeeConfig.fileTypes = [...this.committeeConfig.fileTypes].sort(sortBy("description"));
     this.notify.setBusy();
     return this.committeeConfigService.saveConfig(this.committeeConfig)
-      .then(response => {
+      .then(async response => {
         this.notify.success({title: "Committee settings", message: "Settings saved"});
+        await this.warnIfInboxThreadsOrphaned();
         return response;
       })
       .catch((error) => {
@@ -1834,6 +1835,20 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         return Promise.reject(error);
       })
       .finally(() => this.notify.clearBusy());
+  }
+
+  private async warnIfInboxThreadsOrphaned(): Promise<void> {
+    try {
+      const response = await this.inboxService.orphanedThreads();
+      if (response.totalCount > 0) {
+        this.notify.warning({
+          title: "Inbox conversations need remapping",
+          message: `${response.totalCount} inbox conversation${response.totalCount === 1 ? "" : "s"} now point at a mailbox that no longer exists and are hidden. Open the Email inbox to choose where each should go and remap them.`
+        });
+      }
+    } catch (error) {
+      this.logger.info("orphaned inbox-thread check skipped:", error);
+    }
   }
 
   cancel() {

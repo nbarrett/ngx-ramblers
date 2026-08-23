@@ -47,6 +47,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { AttachmentPreviewComponent } from "../../../modules/common/attachment-preview/attachment-preview";
 import { InboxCalendarInviteComponent } from "./inbox-calendar-invite";
+import { InboxOrphanedThreadsComponent } from "./inbox-orphaned-threads.component";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
@@ -54,7 +55,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent],
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
@@ -199,6 +200,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
           }
         </div>
       }
+      <app-inbox-orphaned-threads (remapped)="refresh()"/>
       @if (selectedAlias(); as alias) {
         <div class="alert alert-success py-2 inbox-alert">
           <fa-icon [icon]="faEnvelope" class="me-2"/>
