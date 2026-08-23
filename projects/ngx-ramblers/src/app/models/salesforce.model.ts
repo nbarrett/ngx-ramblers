@@ -6,7 +6,6 @@ export interface SalesforceConfig {
   enabled: boolean;
   unsubscribeWritebackEnabled?: boolean;
   lastSyncedAt?: number;
-  lastSyncCursor?: string | null;
 }
 
 export interface GroupCodeToken {
