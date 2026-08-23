@@ -319,6 +319,53 @@ export interface InboxThreadMessagesResponse {
   messages: InboxMessage[];
 }
 
+export interface InboxRemapCandidate {
+  roleType: string;
+  roleEmail: string;
+}
+
+export interface OrphanedInboxThread {
+  thread: InboxThread;
+  proposedRoleType: string | null;
+  proposedRoleEmail: string | null;
+}
+
+export interface OrphanedInboxThreadsResponse {
+  orphanedThreads: OrphanedInboxThread[];
+  totalCount: number;
+  affectedRoleTypes: string[];
+  remapCandidates: InboxRemapCandidate[];
+  folderlessThreadIds: string[];
+}
+
+export interface InboxThreadIdsRequest {
+  threadIds: string[];
+}
+
+export interface InboxThreadUpdateResult {
+  matched: number;
+  modified: number;
+}
+
+export interface InboxOrphanedThreadGroup {
+  roleType: string;
+  count: number;
+  threadIds: string[];
+  suggestedRoleType: string | null;
+  targetRoleType: string | null;
+}
+
+export interface InboxThreadRemapRequest {
+  threadIds: string[];
+  targetRoleType: string;
+}
+
+export interface InboxThreadRemapResponse {
+  matched: number;
+  modified: number;
+  targetRoleType: string;
+}
+
 export interface InboxReplyComposeRequest {
   threadId: string;
   messageId: string;

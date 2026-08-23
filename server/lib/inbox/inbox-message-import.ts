@@ -21,7 +21,8 @@ import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
-import { derivedAliasForEmail } from "./inbox-aliases";
+import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
+import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
@@ -180,19 +181,24 @@ export async function reclassifyOwnSentInboundMessages(internalEmails: Set<strin
       }
     });
   }, Promise.resolve());
+  const configuredRoleTypes = configuredRoleTypeSet(await derivedAliases());
   const threadIds = Array.from(new Set(ownSends.map(storedMessage => storedMessage.threadId).filter(Boolean)));
   await threadIds.reduce<Promise<void>>(async (previous, threadId) => {
     await previous;
-    await refreshThreadAfterOwnSentReclassify(threadId, internalEmails);
+    await refreshThreadAfterOwnSentReclassify(threadId, internalEmails, configuredRoleTypes);
   }, Promise.resolve());
   if (ownSends.length > 0) {
     debugLog(`reclassified ${pluraliseWithCount(ownSends.length, "own-sent inbox copy")} as outbound`);
   }
-  const backfilled = await backfillMissingSentFrom();
+  const backfilled = await backfillMissingSentFrom(configuredRoleTypes);
   return ownSends.length + backfilled;
 }
 
-async function backfillMissingSentFrom(): Promise<number> {
+export function configuredSenderRoleType(senderRoleType: string | null, configuredRoleTypes: Set<string>): string | null {
+  return senderRoleType && configuredRoleTypes.has(senderRoleType) ? senderRoleType : null;
+}
+
+async function backfillMissingSentFrom(configuredRoleTypes: Set<string>): Promise<number> {
   const threads = await inboxThreadModel.find({
     lastDirection: InboxMessageDirection.OUTBOUND,
     $or: [
@@ -212,9 +218,10 @@ async function backfillMissingSentFrom(): Promise<number> {
     if (sentFrom) {
       const senderAlias = await derivedAliasForEmail(sentFrom.email);
       const senderRoleType = senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias.roleType : null;
+      const safeRoleType = configuredSenderRoleType(senderRoleType, configuredRoleTypes);
       const updates: Record<string, unknown> = {
         sentFrom,
-        ...(senderRoleType && senderRoleType !== thread.roleType ? {roleType: senderRoleType} : {})
+        ...(safeRoleType && safeRoleType !== thread.roleType ? {roleType: safeRoleType} : {})
       };
       await inboxThreadModel.updateOne({_id: thread._id}, {$set: updates});
       progress.count += 1;
@@ -226,7 +233,7 @@ async function backfillMissingSentFrom(): Promise<number> {
   return progress.count;
 }
 
-async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEmails: Set<string>): Promise<void> {
+async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEmails: Set<string>, configuredRoleTypes: Set<string>): Promise<void> {
   const messages = await inboxMessageModel.find({threadId}).lean() as unknown as InboxMessage[];
   const latest = messages.reduce<InboxMessage | null>((current, candidate) => {
     const currentAt = current?.receivedAt ?? current?.sentAt ?? -1;
@@ -240,13 +247,14 @@ async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEma
     const sentFrom = lastDirection === InboxMessageDirection.OUTBOUND && latest.from?.email ? latest.from : null;
     const senderAlias = sentFrom ? await derivedAliasForEmail(sentFrom.email) : null;
     const senderRoleType = senderAlias && !isInboxGeneralRoleType(senderAlias.roleType) ? senderAlias.roleType : null;
+    const safeRoleType = configuredSenderRoleType(senderRoleType, configuredRoleTypes);
     await inboxThreadModel.updateOne({_id: threadId}, {
       $set: {
         lastDirection,
         unread: unreadAfterReclassify(thread?.folder, lastDirection, thread?.readByMemberIds),
         externalAddress,
         sentFrom,
-        ...(senderRoleType ? {roleType: senderRoleType} : {})
+        ...(safeRoleType ? {roleType: safeRoleType} : {})
       }
     });
   }

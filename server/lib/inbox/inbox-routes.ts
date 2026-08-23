@@ -30,11 +30,16 @@ import {
   InboxSyncMode,
   InboxThread,
   InboxThreadFolder,
+  InboxThreadIdsRequest,
   InboxThreadListResponse,
+  InboxThreadRemapRequest,
+  InboxThreadRemapResponse,
+  InboxThreadUpdateResult,
   InboxUnreadCountsResponse,
   InboxThreadMessagesResponse,
   InboxViewScope,
-  isInboxGeneralRoleType
+  isInboxGeneralRoleType,
+  OrphanedInboxThreadsResponse
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
@@ -46,6 +51,7 @@ import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correc
 import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireCanUpdateInboxRoleNotifications, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses, siteInternalEmails } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
+import { folderlessThreadIds, orphanedInboxThreads, remapCandidatesFrom, remapInboxThreads, restoreThreadsToInbox } from "./inbox-orphaned-threads";
 import {
   conversationCount,
   conversationCountsByRole,
@@ -830,6 +836,63 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
   } catch (error) {
     errorDebugLog("Error listing inbox threads:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.get("/orphaned-threads", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const [orphanedThreads, aliases, folderless] = await Promise.all([orphanedInboxThreads(), derivedAliases(), folderlessThreadIds()]);
+    const affectedRoleTypes = [...new Set(orphanedThreads.map(orphaned => orphaned.thread.roleType))];
+    const response: OrphanedInboxThreadsResponse = {
+      orphanedThreads,
+      totalCount: orphanedThreads.length,
+      affectedRoleTypes,
+      remapCandidates: remapCandidatesFrom(aliases),
+      folderlessThreadIds: folderless
+    };
+    res.json({request: {messageType}, response});
+  } catch (error) {
+    errorDebugLog("Error detecting orphaned inbox threads:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.post("/orphaned-threads/remap", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const request = req.body as InboxThreadRemapRequest;
+    if (!isArray(request?.threadIds) || request.threadIds.length === 0 || !isString(request?.targetRoleType)) {
+      res.status(400).json({request: {messageType}, error: "threadIds and a targetRoleType are required"});
+    } else {
+      const response: InboxThreadRemapResponse = await remapInboxThreads(request.threadIds, request.targetRoleType);
+      res.json({request: {messageType}, response});
+    }
+  } catch (error) {
+    errorDebugLog("Error remapping inbox threads:", (error as Error).message);
+    res.status(400).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.post("/orphaned-threads/restore-to-inbox", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const request = req.body as InboxThreadIdsRequest;
+    if (!isArray(request?.threadIds) || request.threadIds.length === 0) {
+      res.status(400).json({request: {messageType}, error: "threadIds are required"});
+    } else {
+      const response: InboxThreadUpdateResult = await restoreThreadsToInbox(request.threadIds);
+      res.json({request: {messageType}, response});
+    }
+  } catch (error) {
+    errorDebugLog("Error restoring inbox threads to the inbox folder:", (error as Error).message);
+    res.status(400).json({request: {messageType}, error: errorResponse(error)});
   }
 });
 
