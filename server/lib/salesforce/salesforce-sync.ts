@@ -162,7 +162,6 @@ export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Pr
   const updatedConfig: SalesforceConfig = {
     ...salesforceConfig,
     lastSyncedAt: dateTimeNowAsValue(),
-    lastSyncCursor: null,
   };
   await persistSalesforceConfig(updatedConfig);
   logComplete(audit, `Supporter snapshot complete: ${audit.members.length} records prepared in ${dateTimeNowAsValue() - startedAt}ms.`);

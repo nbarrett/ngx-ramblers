@@ -19,6 +19,7 @@ import {
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { parseGroupCodes, salesforceEndpointBaseUrl } from "./salesforce-config";
+import { redactCredentials } from "./salesforce-redaction";
 import {
   SalesforceClientResult,
   SalesforceListOptions,
@@ -66,7 +67,7 @@ function networkError<T>(error: unknown, startedAt: number): SalesforceClientRes
   return {
     status: axiosError.response?.status ?? 0,
     errorCode: axiosError.code ?? "NETWORK_ERROR",
-    errorMessage: axiosError.message || "Network request failed",
+    errorMessage: redactCredentials(axiosError.message || "Network request failed"),
     latencyMs: dateTimeNowAsValue() - startedAt,
   };
 }
