@@ -21,11 +21,12 @@ import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
+import { deliveredToFromMessage } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
 import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, committeeRolesByType, notifiedRecipientsForRole } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 const debugLog = debug(envConfig.logNamespace("inbox-message-import"));
 debugLog.enabled = true;
@@ -350,6 +351,10 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
     threadSet.lastDirection = InboxMessageDirection.INBOUND;
     threadSet.unread = true;
     threadSet.readByMemberIds = [];
+    const deliveredTo = deliveredToFromMessage(message, aliasConfig);
+    if (deliveredTo) {
+      threadSet.deliveredTo = deliveredTo;
+    }
   } else if (isJunk) {
     threadSet.lastDirection = InboxMessageDirection.INBOUND;
   }
@@ -387,9 +392,13 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
 async function notifyAssignedRoleMembers(aliasConfig: InboxAliasConfig, message: InboxMessage): Promise<void> {
   const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeConfig: CommitteeConfig = committeeConfigDocument?.value;
-  const assigneeIds = (committeeConfig?.roles ?? [])
-    .filter(role => role.type === aliasConfig.roleType && Boolean(role.memberId))
-    .map(role => role.memberId as string);
+  const rolesByType = committeeRolesByType(committeeConfig?.roles ?? []);
+  const role = rolesByType.get(aliasConfig.roleType);
+  const assigneeIds = role
+    ? Array.from(new Set(notifiedRecipientsForRole(role, rolesByType)
+      .map(recipient => recipient.memberId)
+      .filter((memberId): memberId is string => Boolean(memberId))))
+    : [];
   if (assigneeIds.length === 0) {
     return;
   }
@@ -537,6 +546,7 @@ async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage
     lastSeenAt: seenAt,
     lastDirection,
     sentFrom: lastDirection === InboxMessageDirection.OUTBOUND && message.from?.email ? message.from : null,
+    deliveredTo: lastDirection === InboxMessageDirection.INBOUND ? deliveredToFromMessage(message, aliasConfig) : null,
     unread: folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND
   });
   debugLog(`createThread: created thread ${created._id} with externalAddress=${JSON.stringify(externalAddress)} from=${JSON.stringify(message.from)} to=${JSON.stringify(message.to)} subject="${message.subject}" counterparty=${JSON.stringify(counterparty)}`);

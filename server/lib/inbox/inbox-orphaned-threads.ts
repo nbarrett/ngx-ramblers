@@ -14,10 +14,12 @@ export function isOrphanedRoleType(roleType: string, configuredRoleTypes: Set<st
 
 export function aliasesByRoleEmail(aliases: InboxAliasConfig[]): Map<string, InboxAliasConfig> {
   return aliases.reduce((map, alias) => {
-    const key = normaliseEmail(alias.roleEmail);
-    if (key && !map.has(key)) {
-      map.set(key, alias);
-    }
+    [alias.roleEmail, ...(alias.additionalEmails ?? [])].forEach(address => {
+      const key = normaliseEmail(address);
+      if (key && !map.has(key)) {
+        map.set(key, alias);
+      }
+    });
     return map;
   }, new Map<string, InboxAliasConfig>());
 }

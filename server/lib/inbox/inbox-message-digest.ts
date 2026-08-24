@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { Brevo, BrevoClient } from "@getbrevo/brevo";
 import { AdminProfilePath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember, InboxRoleRecipient, committeeRolesByType, notifiedRecipientsForRole, roleEmailAddresses, roleNotificationRecipients } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMessage, InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { brevoClient } from "../brevo/brevo-config";
@@ -31,8 +31,25 @@ interface DigestItem {
   role: CommitteeMember;
 }
 
-function digestRecipientEmail(role: CommitteeMember, member: Member | undefined): string {
-  return (role.inboxNotificationEmail?.trim() || member?.email || "").trim();
+interface DigestRecipient {
+  email: string;
+  name: string;
+}
+
+function digestRecipientFor(recipient: InboxRoleRecipient, subscriberById: Map<string, Member>): DigestRecipient | null {
+  if (recipient.memberId) {
+    const member = subscriberById.get(recipient.memberId);
+    const email = (recipient.email?.trim() || member?.email || "").trim();
+    if (!member || !email) {
+      return null;
+    } else {
+      const name = [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || email;
+      return {email, name};
+    }
+  } else {
+    const email = (recipient.email ?? "").trim();
+    return email ? {email, name: email} : null;
+  }
 }
 
 export async function runInboxMessageDigest(): Promise<number> {
@@ -56,14 +73,12 @@ export async function runInboxMessageDigest(): Promise<number> {
 
   const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
-  const rolesByType = (committeeConfiguration?.roles ?? []).reduce<Map<string, CommitteeMember>>((map, role) => {
-    map.set(role.type, role);
-    return map;
-  }, new Map());
+  const rolesByType = committeeRolesByType(committeeConfiguration?.roles ?? []);
 
   const candidateMemberIds = Array.from(new Set((committeeConfiguration?.roles ?? [])
-    .filter(role => role.inboxMessageNotifications === true)
-    .map(role => role.memberId)
+    .flatMap(role => roleNotificationRecipients(role))
+    .filter(recipient => recipient.notify)
+    .map(recipient => recipient.memberId)
     .filter((memberId): memberId is string => Boolean(memberId) && /^[0-9a-fA-F]{24}$/.test(memberId))));
   const subscribers = await memberModel.find({
     _id: {$in: candidateMemberIds}
@@ -75,7 +90,7 @@ export async function runInboxMessageDigest(): Promise<number> {
   }, new Map());
 
   const inboxRoutingAddresses = new Set<string>([
-    ...(committeeConfiguration?.roles ?? []).map(role => role.email).filter((email): email is string => Boolean(email)).map(normaliseEmail),
+    ...(committeeConfiguration?.roles ?? []).flatMap(role => roleEmailAddresses(role)).map(normaliseEmail),
     ...(await connectedInboxEmails(defaultTenantSlug())),
     ...(await derivedAliases()).map(alias => alias.roleEmail).filter((email): email is string => Boolean(email)).map(normaliseEmail)
   ]);
@@ -88,60 +103,55 @@ export async function runInboxMessageDigest(): Promise<number> {
   }
   const notifiableMessages = messages.filter(message => threadById.get(message.threadId)?.folder !== InboxThreadFolder.JUNK);
 
-  const itemsByMember = notifiableMessages.reduce<Map<string, DigestItem[]>>((map, message) => {
+  const itemsByRecipient = notifiableMessages.reduce<Map<string, { recipient: DigestRecipient; items: DigestItem[] }>>((map, message) => {
     const thread = threadById.get(message.threadId);
-    if (!thread) {
-      return map;
+    const role = thread ? rolesByType.get(thread.roleType) : null;
+    if (thread && role) {
+      notifiedRecipientsForRole(role, rolesByType)
+        .map(roleRecipient => digestRecipientFor(roleRecipient, subscriberById))
+        .filter((recipient): recipient is DigestRecipient => Boolean(recipient))
+        .filter(recipient => !isInboxRoutingAddress(recipient.email))
+        .forEach(recipient => {
+          const key = normaliseEmail(recipient.email);
+          const existing = map.get(key) ?? {recipient, items: []};
+          existing.items.push({message, thread, role});
+          map.set(key, existing);
+        });
     }
-    const role = rolesByType.get(thread.roleType);
-    if (!role?.memberId || role.inboxMessageNotifications !== true) {
-      return map;
-    }
-    const subscriber = subscriberById.get(role.memberId);
-    if (!subscriber) {
-      return map;
-    }
-    const recipientEmail = digestRecipientEmail(role, subscriber);
-    if (!recipientEmail || isInboxRoutingAddress(recipientEmail)) {
-      return map;
-    }
-    const existing = map.get(role.memberId) ?? [];
-    existing.push({message, thread, role});
-    map.set(role.memberId, existing);
     return map;
   }, new Map());
 
-  if (itemsByMember.size === 0) {
+  if (itemsByRecipient.size === 0) {
     await markMessagesNotified(messages, now);
     debugLog(`${pluraliseWithCount(messages.length, "message")} had no opted-in committee recipient; marked notified`);
     return 0;
+  } else {
+    return sendDigestEmails(itemsByRecipient, now);
   }
+}
 
+async function sendDigestEmails(itemsByRecipient: Map<string, { recipient: DigestRecipient; items: DigestItem[] }>, now: number): Promise<number> {
   const systemCfg = await systemConfig();
   const groupHref = systemCfg?.group?.href ?? "";
   const groupShortName = systemCfg?.group?.shortName ?? "NGX Ramblers";
   const client = await brevoClient();
 
   const sentMessageIds: string[] = [];
-  await Array.from(itemsByMember.entries()).reduce<Promise<void>>(async (acc, [memberId, items]) => {
+  await Array.from(itemsByRecipient.values()).reduce<Promise<void>>(async (acc, {recipient, items}) => {
     await acc;
-    const member = subscriberById.get(memberId);
-    if (!member) {
-      return;
-    }
     try {
-      await sendDigestEmail(client, member, items, groupHref, groupShortName);
+      await sendDigestEmail(client, recipient, items, groupHref, groupShortName);
       items.forEach(item => sentMessageIds.push((item.message as unknown as {_id?: {toString(): string}})._id?.toString() ?? ""));
     } catch (error) {
-      errorDebugLog(`digest send failed for member ${memberId}: ${(error as Error).message}`);
+      errorDebugLog(`digest send failed for recipient ${recipient.email}: ${(error as Error).message}`);
     }
   }, Promise.resolve());
 
-  const validIds = sentMessageIds.filter(Boolean);
+  const validIds = Array.from(new Set(sentMessageIds.filter(Boolean)));
   if (validIds.length > 0) {
     await inboxMessageModel.updateMany({_id: {$in: validIds}}, {$set: {notifiedAt: now}});
   }
-  debugLog(`sent ${pluraliseWithCount(itemsByMember.size, "digest email")} covering ${pluraliseWithCount(validIds.length, "message")}`);
+  debugLog(`sent ${pluraliseWithCount(itemsByRecipient.size, "digest email")} covering ${pluraliseWithCount(validIds.length, "message")}`);
   return validIds.length;
 }
 
@@ -153,18 +163,17 @@ async function markMessagesNotified(messages: InboxMessage[], now: number): Prom
   await inboxMessageModel.updateMany({_id: {$in: ids}}, {$set: {notifiedAt: now}});
 }
 
-async function sendDigestEmail(client: BrevoClient, member: Member, items: DigestItem[], groupHref: string, groupShortName: string): Promise<void> {
+async function sendDigestEmail(client: BrevoClient, recipient: DigestRecipient, items: DigestItem[], groupHref: string, groupShortName: string): Promise<void> {
   const role = items[0].role;
   const senderName = role.fullName || role.description || groupShortName;
   const senderEmail = role.email || `noreply@${(groupHref || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "ngx-ramblers.org.uk"}`;
   const conversationCount = new Set(items.map(item => digestDedupeKey(item))).size;
   const subject = `${pluraliseWithCount(conversationCount, "new inbox message")} for ${role.description || role.type}`;
   const htmlContent = buildDigestHtml(items, groupHref, groupShortName);
-  const recipientEmail = digestRecipientEmail(role, member);
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
     subject,
     sender: {name: senderName, email: senderEmail},
-    to: [{email: recipientEmail, name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || recipientEmail}],
+    to: [{email: recipient.email, name: recipient.name}],
     htmlContent
   };
   await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
@@ -204,7 +213,7 @@ function buildDigestHtml(items: DigestItem[], groupHref: string, groupShortName:
   const emailSubscriptionsLink = groupHref
     ? `<a href="${groupHref}/${AdminProfilePath.EMAIL_SUBSCRIPTIONS}" style="color:#c05711">Email Subscriptions</a>`
     : "Email Subscriptions";
-  const footer = `<p style="font-family:sans-serif;color:#888;font-size:0.85em">You're receiving this because you're assigned to the ${escapeHtml(items[0].role.description || items[0].role.type)} committee role and inbox notifications are enabled for it. You can change or turn off these notifications yourself on the ${emailSubscriptionsLink} page in your profile.</p>`;
+  const footer = `<p style="font-family:sans-serif;color:#888;font-size:0.85em">You're receiving this because inbox notifications for the ${escapeHtml(items[0].role.description || items[0].role.type)} committee role include this address. You can change or turn off these notifications yourself on the ${emailSubscriptionsLink} page in your profile.</p>`;
   return `<div style="max-width:640px">${heading}${rows}${allInboxLink}${footer}</div>`;
 }
 

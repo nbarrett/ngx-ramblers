@@ -27,7 +27,7 @@ import { BrandingMode, WorkflowAction } from "../../../../projects/ngx-ramblers/
 import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
 import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
-import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember, roleEmailAddresses, roleRecipientMemberIds } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -263,11 +263,17 @@ interface ResolvedSenderAddresses {
 
 function resolveUnbrandedRole(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], currentMemberId: string | null): CommitteeMember | undefined {
   if (!currentMemberId) return undefined;
-  const memberRoles = committeeRoles.filter(role => role.memberId === currentMemberId);
+  const memberRoles = committeeRoles.filter(role => roleRecipientMemberIds(role).includes(currentMemberId));
   if (request.unbrandedSenderRoleType) {
     return memberRoles.find(role => role.type === request.unbrandedSenderRoleType && !!role.email);
   }
   return memberRoles.find(role => !!role.email);
+}
+
+function resolveUnbrandedSenderEmail(request: BatchTransactionalSendRequest, role: CommitteeMember): string {
+  const requested = (request.unbrandedSenderEmail ?? "").trim().toLowerCase();
+  const matched = requested ? roleEmailAddresses(role).find(address => address.toLowerCase() === requested) : undefined;
+  return matched ?? role.email;
 }
 
 function resolveSenderAddresses(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], notifConfig: NotificationConfig | null, currentMemberId: string | null): ResolvedSenderAddresses | { error: string } {
@@ -275,9 +281,10 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
     const role = resolveUnbrandedRole(request, committeeRoles, currentMemberId);
     if (!role?.email) {
       return { error: "Cannot send unbranded email - you are not linked to a committee role with a valid email on this site. Unbranded sends must come from a verified committee role address." };
+    } else {
+      const fromAddress: EmailAddress = { name: role.fullName ?? "", email: resolveUnbrandedSenderEmail(request, role) };
+      return { sender: fromAddress, replyTo: fromAddress, bcc: [], senderRoleType: role.type ?? null };
     }
-    const fromAddress: EmailAddress = { name: role.fullName ?? "", email: role.email };
-    return { sender: fromAddress, replyTo: fromAddress, bcc: [], senderRoleType: role.type ?? null };
   }
   const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
   const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole || null;

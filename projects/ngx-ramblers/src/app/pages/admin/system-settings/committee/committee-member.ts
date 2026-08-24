@@ -3,11 +3,16 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
+  additionalEmailsFromMailboxList,
   BuiltInRole,
   CommitteeMember,
+  derivedFullNameAddress,
+  derivedRoleTypeAddress,
   EmailDerivation,
   ForwardEmailTarget,
-  RoleType
+  RoleType,
+  roleEmailAddresses,
+  uniqueCommitteeRoleType
 } from "../../../../models/committee.model";
 import { Member } from "../../../../models/member.model";
 import {
@@ -26,7 +31,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
-import { normaliseEmail, toDotCase, validEmail } from "../../../../functions/strings";
+import { addressOnDomain, normaliseEmail, toDotCase, validEmail } from "../../../../functions/strings";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
@@ -42,10 +47,12 @@ import { EmailRoutingLogComponent } from "./email-routing-log";
 import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faAdd, faFileImport, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { NgTemplateOutlet } from "@angular/common";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { AlertComponent } from "ngx-bootstrap/alert";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { RouterLink } from "@angular/router";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
 import { InboxReaderProvider } from "../../../../models/inbox.model";
@@ -128,9 +135,10 @@ export enum CommitteeMemberTab {
               <div class="col-sm-12 mt-2">
                 <div class="alert alert-warning d-flex align-items-center justify-content-between">
                   <span>An existing Cloudflare Worker <strong>{{ importableWorkerName() }}</strong> was found. You can import its recipients.</span>
-                  <button class="btn btn-primary btn-sm ms-3"
+                  <button class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2 ms-3"
                     [disabled]="importingRecipients"
                     (click)="importRecipientsFromWorker()">
+                    <fa-icon [icon]="faFileImport"/>
                     @if (importingRecipients) {
                       Importing...
                     } @else {
@@ -225,6 +233,7 @@ export enum CommitteeMemberTab {
           [(selectedTab)]="selectedTab"
           [queryParamKey]="StoredValue.SUB_TAB"
           [fullWidth]="true"/>
+        <div class="mt-3">
         @switch (selectedTab) {
           @case (CommitteeMemberTab.ROLE_DETAILS) {
             <app-content-text-editor standalone category="admin" name="committee-role-details-help" description="Role details help"/>
@@ -311,44 +320,71 @@ export enum CommitteeMemberTab {
             </div>
           }
           @case (CommitteeMemberTab.OUTBOUND_EMAIL) {
-            <app-content-text-editor standalone category="admin" name="committee-outbound-email-help" description="Outbound email help"/>
-            <hr/>
             <div class="row">
-              <div class="col d-flex align-items-end flex-wrap gap-3">
-                <div class="d-flex align-items-center gap-3">
-                  <label class="control-label mb-0">Derive sender email address from</label>
-                  <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="radio" [value]="EmailDerivation.ROLE"
-                      [(ngModel)]="committeeMember.emailDerivation"
-                      (ngModelChange)="deriveRoleEmail()"
-                      id="email-derivation-role-{{index}}">
-                    <label class="form-check-label" for="email-derivation-role-{{index}}">Role</label>
-                  </div>
-                  <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="radio" [value]="EmailDerivation.FULL_NAME"
-                      [(ngModel)]="committeeMember.emailDerivation"
-                      (ngModelChange)="deriveRoleEmail()"
-                      id="email-derivation-name-{{index}}">
-                    <label class="form-check-label" for="email-derivation-name-{{index}}">Full Name</label>
-                  </div>
-                </div>
-                <div class="form-group mb-0 flex-grow-1">
-                  <label for="committee-member-email-{{index}}"
-                  class="control-label">Sender Email</label>
-                  <input [(ngModel)]="committeeMember.email" [disabled]="committeeMember.vacant"
-                    (ngModelChange)="syncEmailDerivationFromEmail()"
-                    id="committee-member-email-{{index}}"
-                    [class.is-invalid]="committeeMember.email && !emailOnDomain()"
-                    type="text" class="form-control">
-                  @if (committeeMember.email && !emailOnDomain()) {
-                    <div class="invalid-feedback d-block">
-                      Sender email must end with {{ '@' + baseDomain }}
-                      &mdash; <a style="cursor: pointer; font-size: 0.85em" (click)="deriveRoleEmail()">fix it for me</a>
+              <div class="col-sm-12">
+                @if (hasDistinctGeneratedAddresses()) {
+                  <p>Two addresses are created automatically: <strong>{{ roleTypeAddress() }}</strong> from the role description, and <strong>{{ fullNameAddress() }}</strong> from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with both.</p>
+                } @else if (roleTypeAddress(); as roleAddress) {
+                  <p><strong>{{ roleAddress }}</strong> is created automatically from the role description. Incoming and outgoing mail for this role works with this address.</p>
+                } @else if (fullNameAddress(); as nameAddress) {
+                  <p><strong>{{ nameAddress }}</strong> is created automatically from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with this address.</p>
+                }
+                <p>Choose which address is the default sender. That is the From address when this role sends mail. All addresses will automatically use your group's domain. Register every address in Brevo with Create Senders before mail can be sent from it.</p>
+                <label class="control-label">Email addresses</label>
+                @if (mailboxAddresses.length === 0) {
+                  <p class="text-muted small mb-2">Add a role description or assign a member to generate addresses on @{{baseDomain}}.</p>
+                }
+                @for (address of mailboxAddresses; track address) {
+                  <div class="d-flex align-items-center gap-2 py-1">
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="radio"
+                        [name]="'default-sender-' + index"
+                        [id]="'default-sender-' + index + '-' + $index"
+                        [value]="address"
+                        [ngModel]="committeeMember.email"
+                        [ngModelOptions]="{standalone: true}"
+                        (ngModelChange)="setDefaultSender($event)"
+                        [disabled]="committeeMember.vacant">
+                      <label class="form-check-label" [for]="'default-sender-' + index + '-' + $index">{{ address }}</label>
                     </div>
-                  }
+                    @if (!isGeneratedMailboxAddress(address)) {
+                      <button type="button" class="btn btn-quiet btn-icon mailbox-remove"
+                        tooltip="Remove address" container="body"
+                        (click)="removeMailboxAddress(address)"
+                        [disabled]="committeeMember.vacant">
+                        <fa-icon [icon]="faTimes"/>
+                      </button>
+                    }
+                  </div>
+                }
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <div class="mailbox-local-part form-control"
+                    [class.is-invalid]="newMailboxAddress && !canAddMailboxAddress()"
+                    [class.disabled]="committeeMember.vacant"
+                    (click)="mailboxAddressInput.focus()">
+                    <input #mailboxAddressInput type="text" class="mailbox-local-part-input"
+                      [id]="'new-mailbox-address-' + index"
+                      [(ngModel)]="newMailboxAddress"
+                      [ngModelOptions]="{standalone: true}"
+                      [disabled]="committeeMember.vacant"
+                      autocomplete="one-time-code"
+                      [attr.data-lpignore]="'true'"
+                      spellcheck="false"
+                      (keyup.enter)="addMailboxAddress()">
+                    <span class="mailbox-local-part-overlay" aria-hidden="true"><span class="mailbox-local-part-sizer">{{ newMailboxAddress }}</span><span class="mailbox-local-part-domain">@{{baseDomain}}</span></span>
+                  </div>
+                  <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 flex-shrink-0" (click)="addMailboxAddress()"
+                    [disabled]="committeeMember.vacant || !canAddMailboxAddress()">
+                    <fa-icon [icon]="faAdd"/>Add
+                  </button>
                 </div>
+                @if (newMailboxAddress && !canAddMailboxAddress()) {
+                  <div class="invalid-feedback d-block">{{mailboxAddressError()}}</div>
+                }
               </div>
-              <div class="col-sm-12 mt-3" app-create-or-amend-sender [committeeRoleSender]="committeeMember"></div>
+              <div class="col-sm-12 mt-3" app-create-or-amend-sender
+                [committeeRoleSender]="committeeMember"
+                [mailboxAddresses]="mailboxAddresses"></div>
             </div>
           }
           @case (CommitteeMemberTab.INBOUND_FORWARDING) {
@@ -458,11 +494,12 @@ export enum CommitteeMemberTab {
               [routeType]="activeRouteType()"/>
           }
         }
+        </div>
       </div>
     }
     `,
     styleUrls: ["./committee-member.sass"],
-  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink]
+  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink, TooltipDirective]
 })
 export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberEditor", NgxLoggerLevel.ERROR);
@@ -514,6 +551,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       this.committeeMember.emailDerivation = EmailDerivation.ROLE;
     }
     this.syncEmailDerivationFromEmail();
+    this.syncMailboxAddresses();
     this.refreshTabs();
   }
   @Input() roles!: CommitteeMember[];
@@ -522,7 +560,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   builtInRoles: KeyValue<string>[] = enumKeyValues(BuiltInRole);
   protected readonly RoleType = RoleType;
   protected readonly ForwardEmailTarget = ForwardEmailTarget;
-  protected readonly EmailDerivation = EmailDerivation;
   protected readonly BuiltInRole = BuiltInRole;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
@@ -535,6 +572,12 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private workers: EmailWorkerScript[] = [];
   private catchAllRule: EmailRoutingRule = null;
   importingRecipients = false;
+  mailboxAddresses: string[] = [];
+  generatedMailboxAddresses: string[] = [];
+  newMailboxAddress = "";
+  protected readonly faAdd = faAdd;
+  protected readonly faFileImport = faFileImport;
+  protected readonly faTimes = faTimes;
   private recipientRegistrations = new Set<string>();
   readonly GMAIL_TOKEN_PREFIX = "gmail:";
   connectedGmailInboxes: string[] = [];
@@ -576,6 +619,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
         this.baseDomain = config?.baseDomain || "";
         this.syncEmailDerivationFromEmail();
+        this.syncMailboxAddresses();
         this.refreshTabs();
       })
     );
@@ -640,25 +684,142 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       this.committeeMember.fullName = null;
       this.committeeMember.email = null;
     }
+    this.syncMailboxAddresses();
   }
 
   changeDescription() {
-    this.committeeMember.type = this.stringUtils.kebabCase(this.committeeMember.description);
+    const takenTypes = (this.roles || [])
+      .filter((role, roleIndex) => roleIndex !== this.index)
+      .map(role => role.type);
+    this.committeeMember.type = uniqueCommitteeRoleType(
+      this.stringUtils.kebabCase(this.committeeMember.description),
+      takenTypes,
+      this.committeeMember.email
+    );
     this.deriveRoleEmail();
     this.changeNameAndDescription();
     this.syncEmailDerivationFromEmail();
+    this.syncMailboxAddresses();
   }
 
   changeNameAndDescription() {
     this.committeeMember.nameAndDescription = this.committeeConfigService.nameAndDescriptionFrom(this.committeeMember);
   }
 
+  roleTypeAddress(): string | null {
+    return derivedRoleTypeAddress(this.committeeMember, this.baseDomain);
+  }
+
+  fullNameAddress(): string | null {
+    return derivedFullNameAddress(this.committeeMember, this.baseDomain);
+  }
+
+  hasDistinctGeneratedAddresses(): boolean {
+    const roleAddress = this.roleTypeAddress();
+    const nameAddress = this.fullNameAddress();
+    return Boolean(roleAddress && nameAddress && normaliseEmail(roleAddress) !== normaliseEmail(nameAddress));
+  }
+
+  commitMailboxAddresses(): string[] {
+    if (this.canAddMailboxAddress()) {
+      this.addMailboxAddress();
+    } else {
+      this.syncMailboxAddresses();
+    }
+    return this.mailboxAddresses;
+  }
+
+  syncMailboxAddresses() {
+    const generated = [this.roleTypeAddress(), this.fullNameAddress()]
+      .filter((address): address is string => Boolean(address))
+      .reduce<string[]>((unique, address) => unique.some(existing => normaliseEmail(existing) === normaliseEmail(address)) ? unique : unique.concat(address), []);
+    this.generatedMailboxAddresses = generated;
+    this.mailboxAddresses = roleEmailAddresses(this.committeeMember, this.baseDomain);
+    this.ensureDefaultSender();
+    this.persistAdditionalEmails();
+  }
+
   deriveRoleEmail() {
-    const localPart = this.committeeMember.emailDerivation === EmailDerivation.FULL_NAME
-      ? toDotCase(this.committeeMember.fullName)
-      : this.committeeMember.type;
-    if (localPart) {
-      this.committeeMember.email = `${localPart}@${this.baseDomain}`;
+    const roleAddress = this.roleTypeAddress();
+    const nameAddress = this.fullNameAddress();
+    const current = normaliseEmail(this.committeeMember.email ?? "");
+    const generated = [roleAddress, nameAddress].map(address => normaliseEmail(address ?? "")).filter(Boolean);
+    if (!current || generated.includes(current)) {
+      const primary = this.committeeMember.emailDerivation === EmailDerivation.FULL_NAME
+        ? (nameAddress || roleAddress)
+        : (roleAddress || nameAddress);
+      if (primary) {
+        this.committeeMember.email = primary;
+      }
+    }
+    this.syncMailboxAddresses();
+  }
+
+  setDefaultSender(address: string) {
+    this.committeeMember.email = address;
+    this.syncEmailDerivationFromEmail();
+    this.persistAdditionalEmails();
+  }
+
+  isGeneratedMailboxAddress(address: string): boolean {
+    const wanted = normaliseEmail(address);
+    return this.generatedMailboxAddresses.some(generated => normaliseEmail(generated) === wanted);
+  }
+
+  typedMailboxAddress(): string | null {
+    return addressOnDomain(this.newMailboxAddress, this.baseDomain);
+  }
+
+  canAddMailboxAddress(): boolean {
+    const address = this.typedMailboxAddress();
+    return Boolean(address && !this.mailboxAddresses.some(existing => normaliseEmail(existing) === normaliseEmail(address)));
+  }
+
+  mailboxAddressError(): string {
+    if ((this.newMailboxAddress || "").includes("@")) {
+      return "Enter only the local part, not the domain.";
+    } else {
+      return "Enter a valid local part that is not already in the list.";
+    }
+  }
+
+  addMailboxAddress() {
+    const address = this.typedMailboxAddress();
+    if (this.canAddMailboxAddress() && address) {
+      this.committeeMember.additionalEmails = [...(this.committeeMember.additionalEmails ?? []), address];
+      this.newMailboxAddress = "";
+      this.syncMailboxAddresses();
+      if (!this.committeeMember.email) {
+        this.setDefaultSender(address);
+      }
+    }
+  }
+
+  removeMailboxAddress(address: string) {
+    const wanted = normaliseEmail(address);
+    this.committeeMember.additionalEmails = (this.committeeMember.additionalEmails ?? [])
+      .filter(email => normaliseEmail(email) !== wanted);
+    if (normaliseEmail(this.committeeMember.email ?? "") === wanted) {
+      this.committeeMember.email = null;
+    }
+    this.syncMailboxAddresses();
+  }
+
+  private persistAdditionalEmails() {
+    this.committeeMember.additionalEmails = additionalEmailsFromMailboxList(this.mailboxAddresses, this.committeeMember.email);
+  }
+
+  private ensureDefaultSender() {
+    const current = normaliseEmail(this.committeeMember.email ?? "");
+    const match = this.mailboxAddresses.find(address => normaliseEmail(address) === current);
+    if (match) {
+      if (match !== this.committeeMember.email) {
+        this.committeeMember.email = match;
+      }
+    } else if (current) {
+      this.mailboxAddresses = this.mailboxAddresses.concat(this.committeeMember.email);
+    } else if (this.mailboxAddresses.length > 0) {
+      this.setDefaultSender(this.mailboxAddresses[0]);
     }
   }
 

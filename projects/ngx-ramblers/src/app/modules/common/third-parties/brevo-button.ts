@@ -16,6 +16,16 @@ import { DockedTo } from "../../../models/docking.model";
       flex: 0 0 auto
       align-items: stretch
       max-width: 100%
+    :host(.w-100)
+      display: flex
+      width: 100%
+      flex: 1 1 auto
+    :host(.w-100) .brevo-dropdown
+      display: flex
+      width: 100%
+    :host(.w-100) ::ng-deep .btn
+      width: 100%
+      justify-content: center
     .image
       width: 17px
     .brevo-dropdown

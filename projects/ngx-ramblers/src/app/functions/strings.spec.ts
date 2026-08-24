@@ -1,6 +1,34 @@
-import { booleanOf, convertTitleToSlug, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote } from "./strings";
+import { addressOnDomain, booleanOf, convertTitleToSlug, emailLocalPart, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
 
 describe("strings", () => {
+
+  describe("emailLocalPart", () => {
+    it("takes the part before @ and ignores the domain", () => {
+      expect(emailLocalPart("Nick.Barrett@gmail.com")).toEqual("nick.barrett");
+      expect(emailLocalPart("nick")).toEqual("nick");
+    });
+  });
+
+  describe("validEmailLocalPart", () => {
+    it("accepts a normal local part and rejects spaces, a leading dot, or a domain", () => {
+      expect(validEmailLocalPart("walks.secretary")).toBe(true);
+      expect(validEmailLocalPart("nick barrett")).toBe(false);
+      expect(validEmailLocalPart(".nick")).toBe(false);
+      expect(validEmailLocalPart("nick@ngx-ramblers.org.uk")).toBe(false);
+    });
+  });
+
+  describe("addressOnDomain", () => {
+    it("builds the address on the group domain from a local part only", () => {
+      expect(addressOnDomain("Nick", "ngx-ramblers.org.uk")).toEqual("nick@ngx-ramblers.org.uk");
+    });
+
+    it("returns null when the typed value is not a local part", () => {
+      expect(addressOnDomain("nick@gmail.com", "ngx-ramblers.org.uk")).toBeNull();
+      expect(addressOnDomain("nick barrett", "ngx-ramblers.org.uk")).toBeNull();
+      expect(addressOnDomain("nick", "")).toBeNull();
+    });
+  });
 
   describe("endsWithEllipsis", () => {
     it("detects a trailing unicode ellipsis or three full stops", () => {

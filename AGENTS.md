@@ -7,10 +7,13 @@
 3. **No AI attribution in commits** - no `Co-Authored-By`, no `Generated with`, nothing. A `commit-msg` hook enforces this
 4. **No `console.log()`** - Frontend: use `Logger` via `LoggerFactory`. Backend: use `debug` module
 5. **Interfaces in model files only** - never define inline in components/services
-6. **DRY** - always search for existing implementations before writing new code. Reuse and enhance, never duplicate
+6. **DRY - never invent a second copy.** This is a 315,000-line codebase. A second list, helper, table, picker, or mapping function will diverge and cannot be kept in step. Before writing anything, search (`rg`) for the existing implementation. If one exists, **adapt it**: add an input, convert it to the house standard, embed it. Do not rebuild a slimmer version "for this screen".
+   **The failure that keeps happening:** needing senders on Committee Settings, reaching for `app-sortable-table`, and writing a new three-column table instead of embedding `app-mail-senders-list` (Mapped, delete, search and domain warning already existed). Critical Rule 10 (every data table is `app-sortable-table`) does **not** override this. Convert or wrap the existing feature component; do not start again.
+   If a genuine search finds nothing, say so and then write one. Never skip the search. Shipping a lookalike without the existing behaviour is a defect, not a smaller first step.
 7. **Never write "blacklist" or "whitelist"** (any form) in prose, tickets, commits, UI, or our identifiers. Prefer **deny / denied / deny list**, **allow / allowed / allow list**, or **block / blocked / suppressed** as fits. Third-party/wire API names (e.g. Brevo `emailBlacklisted`, Tagify `whitelist`) only at the mapping call site.
 8. **No stringly typed closed sets** - do not use string union types (`type X = "a" | "b"`) for fixed domain values (icons keys, modes, statuses, scopes, filters, layers, and similar). Use a **string enum** in a model file (`export enum X { A = "a", B = "b" }`) and reference `X.A` at call sites. One enum definition only; import it from models (including shared frontend models from the server). Exception: true open-ended user/API free text, or third-party wire types we cannot own.
 9. **Destructive operations require explicit same-session instruction** - never delete database config, environment secrets, or data unless the user asked for that specific deletion in the current session. A ticket existing is not an instruction to start it. Show exactly what would be deleted and wait for confirmation. Retirement sequencing: code stops reading a value first, that code ships to every environment, and only then is the value deleted - never the reverse. After removing any secret, immediately restart one affected app to prove it still boots; a deletion whose effect only appears at the next restart is a landmine (on 2026-08-23 secrets deleted the night before took down all 17 sites when a deploy restarted them).
+10. **Every data table is `app-sortable-table`** - never hand-roll a `<table>` for a list of records. New tables and any existing table you touch must use `app-sortable-table` (`modules/common/sortable-table/`). A raw `<table>` is only for a non-list layout (for example a two-column settings form with no rows a user would sort). Do not ship a static table "for now" and wait to be asked for sorting.
 
 ## Project Overview
 
@@ -152,6 +155,7 @@ Do not invent custom panels, headings, file inputs or layout wrappers. Every scr
 | Destructive/admin data actions (clear-down, delete) | Provide a **UI control** the user runs themselves, with an `alert-warning` confirm step. Never run a clear-down/delete from a script or DB shell on the user's behalf | Doing the deletion yourself, or shipping a backend endpoint with no button to reach it |
 | A multi-step / sequential flow (import, setup wizard) | PrimeNG `p-stepper` (`StepperModule`) with a `{key,label}[]` step list, `canAccessStep`/`goToStep` gating and `stepper-nav` Back/Next buttons; shared styles live in `assets/styles/stepper.sass` (already global). Copy from `walk-import.ts` or `volunteer-import-view.ts` | Stacking independent panels the user can click in any order, or a bespoke stepper |
 | Page shell, tabs, tables, buttons, dates | `<app-page>`, `tabset.custom-tabset`, `app-sortable-table`, the `buttons.sass` filled classes, the date enums above | Bootstrap defaults or bespoke equivalents |
+| A list of Brevo senders | `app-mail-senders-list` (`mail-senders-list.ts`). Embed it. Add an input if the screen needs a subset of chrome | A second senders table, even one built on `app-sortable-table` |
 
 **Rule of thumb:** if you are writing new CSS for a border, a heading bar, or a file picker, stop — a standard component already exists. Match the surrounding screens.
 
@@ -159,7 +163,11 @@ Do not invent custom panels, headings, file inputs or layout wrappers. Every scr
 
 Reaching for an established project component or visual style means inheriting **everything users already expect of it**, not just its appearance. Shipping the look without the behaviour is a defect, not a smaller first step. Do not wait to be asked for any of the following.
 
-**Tables.** Use `app-sortable-table` (`modules/common/sortable-table/`). A hand-rolled `<table>` is only acceptable for a fixed, non-tabular layout with no rows a user would ever want ordered. Every table inherits:
+**Tables.** Use `app-sortable-table` (`modules/common/sortable-table/`) for **every** list of records — including small embedded panels, admin lists, and tables with only a handful of rows. Do not reach for `ngx-data-table`, a hand-rolled `<table>`, or a Bootstrap table. A raw `<table>` is only acceptable for a layout that is not a list of records (for example a two-column settings form). When you touch an existing hand-rolled data table, convert it to `app-sortable-table` rather than adding columns to the old markup.
+
+If the feature already has a list component, that component **is** the table. Embed it. Do not stand up a new `app-sortable-table` of the same records (the Committee Settings senders list was this defect: `app-mail-senders-list` already existed). Rule 10 is how you render a table that does not yet exist, and how you convert a hand-rolled one you are already touching. It is not permission to clone a feature list.
+
+Every table inherits:
 
 - **Sortable column headings** on every column holding a sortable value — set `sortKey` on the `SortableTableColumn`. A column with no `sortKey` should be a deliberate decision (an actions or checkbox column), not an oversight
 - **Sort state reflected in the URL** via `StoredValue` query params, so a sorted view can be bookmarked and sent to somebody. Subscribe to `sortChange` and write the params; read them back on init to restore the sort

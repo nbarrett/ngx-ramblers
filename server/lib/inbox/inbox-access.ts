@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember, roleRecipientMemberIds } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { specialVisibilityGrants } from "./inbox-visibility-rules";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as config from "../mongo/controllers/config";
@@ -30,7 +30,7 @@ export function canUpdateInboxRoleNotifications(req: Request, role: CommitteeMem
     return true;
   }
   const memberId = member(req).memberId;
-  return Boolean(memberId && role.memberId === memberId);
+  return Boolean(memberId && roleRecipientMemberIds(role).includes(memberId));
 }
 
 export function requireCanUpdateInboxRoleNotifications(req: Request, res: Response, role: CommitteeMember | undefined, roleType: string): boolean {
@@ -53,7 +53,7 @@ export async function assignedInboxRoleTypesForMember(authenticatedMember: Parti
   const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeConfig: CommitteeConfig = committeeConfigDocument?.value;
   return (committeeConfig?.roles ?? [])
-    .filter(role => role.memberId === authenticatedMember.memberId)
+    .filter(role => Boolean(authenticatedMember.memberId) && roleRecipientMemberIds(role).includes(authenticatedMember.memberId))
     .map(role => role.type);
 }
 

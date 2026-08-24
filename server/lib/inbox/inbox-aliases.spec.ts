@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { CommitteeMember, ForwardEmailTarget } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
   cloudflareIngressAliasesFromMessage,
@@ -86,6 +86,14 @@ describe("inbox-aliases", () => {
       expect(result.map(alias => alias.roleType)).toEqual([inboxGeneralRoleTypeFor("cf1")]);
     });
 
+    it("maps mail addressed to an additional role address to the same role alias", async () => {
+      const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
+      const message = {to: [{email: "Tom@EKWG.co.uk"}], cc: []} as InboxMessage;
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk", fullName: "", additionalEmails: ["tom@ekwg.co.uk"]})], "ekwg");
+      expect(result.map(alias => alias.roleType)).toEqual(["secretary"]);
+      expect(result[0].additionalEmails).toEqual(["tom@ekwg.co.uk"]);
+    });
+
     it("maps mail only to the role whose address matches, not other roles held by the same member", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
       const message = {to: [{email: "nick.barrett@ekwg.co.uk"}], cc: []} as InboxMessage;
@@ -108,6 +116,18 @@ describe("inbox-aliases", () => {
       expect(aliases[0].roleType).toEqual("chairman");
       expect(aliases[0].roleEmail).toEqual("chairman@ekwg.co.uk");
       expect(aliases[0].mailboxConnectionId).toEqual("c1");
+    });
+
+    it("gives colliding role types distinct alias ids", () => {
+      const connections = connectionsByEmail([connection({id: "c1"})]);
+      const aliases = deriveAliasesFrom(connections, [
+        role({type: "system-administrator", email: "nick.barrett@nwkramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL}),
+        role({type: "system-administrator", email: "system.administrator@nwkramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})
+      ], "ekwg");
+      expect(aliases.map(alias => alias.id)).toEqual([
+        "system-administrator:nick.barrett@nwkramblers.org.uk",
+        "system-administrator:system.administrator@nwkramblers.org.uk"
+      ]);
     });
 
     it("excludes a CATCHALL role when there is more than one connection (no single catch-all)", () => {
@@ -203,6 +223,182 @@ describe("inbox-aliases", () => {
     it("still matches a role address when the Gmail inbox address is also present", () => {
       const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "walks@ekwg.co.uk"])]]);
       expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["walks@ekwg.co.uk", "chairman@ekwg.co.uk"], identities, ["walks@ekwg.co.uk"])).toEqual(true);
+    });
+
+  });
+
+  describe("roleEmailAddresses", () => {
+
+    it("returns the primary address plus additional addresses without duplicates", () => {
+      const addresses = roleEmailAddresses(role({
+        type: "secretary",
+        fullName: "",
+        email: "secretary@ekwg.co.uk",
+        additionalEmails: ["tom@ekwg.co.uk", "Secretary@EKWG.co.uk", ""]
+      }));
+      expect(addresses).toEqual(["secretary@ekwg.co.uk", "tom@ekwg.co.uk"]);
+    });
+
+    it("returns just the primary address when no additional addresses are configured", () => {
+      expect(roleEmailAddresses(role({type: "secretary", fullName: "", email: "secretary@ekwg.co.uk"}))).toEqual(["secretary@ekwg.co.uk"]);
+    });
+
+    it("adds the generated role and full-name addresses when they differ from the primary", () => {
+      expect(roleEmailAddresses(role({
+        type: "system-administrator",
+        fullName: "Nick Barrett",
+        email: "nick.barrett@nwkramblers.org.uk"
+      }))).toEqual([
+        "nick.barrett@nwkramblers.org.uk",
+        "system-administrator@nwkramblers.org.uk"
+      ]);
+    });
+
+    it("keeps a stored sender that is not a generated address", () => {
+      expect(roleEmailAddresses(role({
+        type: "walks-co-ordinator",
+        fullName: "Jane Doe",
+        email: "walks@ekwg.co.uk"
+      }))).toEqual([
+        "walks@ekwg.co.uk",
+        "walks-co-ordinator@ekwg.co.uk",
+        "jane.doe@ekwg.co.uk"
+      ]);
+    });
+
+  });
+
+  describe("additionalEmailsFromMailboxList", () => {
+
+    it("stores every address except the default sender so the list survives a reload", () => {
+      expect(additionalEmailsFromMailboxList([
+        "nick.barrett@ngx-ramblers.org.uk",
+        "system-administrator@ngx-ramblers.org.uk",
+        "ngx-project-lead@ngx-ramblers.org.uk"
+      ], "nick.barrett@ngx-ramblers.org.uk")).toEqual([
+        "system-administrator@ngx-ramblers.org.uk",
+        "ngx-project-lead@ngx-ramblers.org.uk"
+      ]);
+    });
+
+  });
+
+  describe("roleNotificationRecipients", () => {
+
+    it("derives the assigned member from legacy fields when no recipients are configured", () => {
+      const recipients = roleNotificationRecipients(role({memberId: "member-1", inboxMessageNotifications: true, inboxNotificationEmail: "override@x.com"}));
+      expect(recipients).toEqual([{memberId: "member-1", email: "override@x.com", notify: true}]);
+    });
+
+    it("combines the legacy assigned member with configured recipients", () => {
+      const recipients = roleNotificationRecipients(role({
+        memberId: "member-1",
+        inboxMessageNotifications: false,
+        inboxRecipients: [
+          {memberId: "member-2", email: null, notify: true},
+          {memberId: null, email: "plain@x.com", notify: true}
+        ]
+      }));
+      expect(recipients).toEqual([
+        {memberId: "member-1", email: null, notify: false},
+        {memberId: "member-2", email: null, notify: true},
+        {memberId: null, email: "plain@x.com", notify: true}
+      ]);
+    });
+
+    it("does not duplicate the assigned member when they are also a configured recipient", () => {
+      const recipients = roleNotificationRecipients(role({
+        memberId: "member-1",
+        inboxRecipients: [{memberId: "member-1", email: null, notify: true}]
+      }));
+      expect(recipients).toEqual([{memberId: "member-1", email: null, notify: true}]);
+    });
+
+    it("lists member ids across assigned member and configured recipients", () => {
+      const memberIds = roleRecipientMemberIds(role({
+        memberId: "member-1",
+        inboxRecipients: [
+          {memberId: "member-2", email: null, notify: false},
+          {memberId: null, email: "plain@x.com", notify: true}
+        ]
+      }));
+      expect(memberIds).toEqual(["member-1", "member-2"]);
+    });
+
+  });
+
+  describe("notifiedRecipientsForRole", () => {
+
+    it("uses the role's own opted-in recipients when no other role is referenced", () => {
+      const info = role({
+        type: "info",
+        memberId: null,
+        inboxRecipients: [
+          {memberId: "bob", email: null, notify: true},
+          {memberId: "graeme", email: null, notify: false}
+        ]
+      });
+      expect(notifiedRecipientsForRole(info, committeeRolesByType([info]))).toEqual([
+        {memberId: "bob", email: null, notify: true}
+      ]);
+    });
+
+    it("reuses the referenced role's extra recipients and ignores the referencing role's own list", () => {
+      const info = role({
+        type: "info",
+        memberId: null,
+        inboxRecipients: [
+          {memberId: "bob", email: null, notify: true},
+          {memberId: "ed", email: null, notify: true}
+        ]
+      });
+      const contactUs = role({
+        type: "contact-us",
+        memberId: "secretary",
+        inboxMessageNotifications: true,
+        inboxRecipientsFromRoleType: "info",
+        inboxRecipients: [{memberId: "leftover", email: null, notify: true}]
+      });
+      expect(notifiedRecipientsForRole(contactUs, committeeRolesByType([info, contactUs]))).toEqual([
+        {memberId: "bob", email: null, notify: true},
+        {memberId: "ed", email: null, notify: true}
+      ]);
+    });
+
+    it("omits the referenced role's assigned member from the reusable list", () => {
+      const treasurer = role({
+        type: "treasurer",
+        memberId: "michael",
+        inboxMessageNotifications: true,
+        inboxRecipients: [{memberId: "jack", email: null, notify: true}]
+      });
+      expect(reusableNotificationRecipients(treasurer)).toEqual([
+        {memberId: "jack", email: null, notify: true}
+      ]);
+    });
+
+  });
+
+  describe("uniqueCommitteeRoleType", () => {
+
+    it("keeps the preferred type when it is not already used", () => {
+      expect(uniqueCommitteeRoleType("system-administrator", ["treasurer"])).toEqual("system-administrator");
+    });
+
+    it("suffixes the email local part when the preferred type is already taken", () => {
+      expect(uniqueCommitteeRoleType("system-administrator", ["system-administrator"], "system.administrator@nwkramblers.org.uk"))
+        .toEqual("system-administrator-system-administrator");
+    });
+
+    it("keeps the first role and suffixes later duplicates", () => {
+      const uniqued = uniqueCommitteeRoleTypes([
+        role({type: "system-administrator", email: "nick.barrett@nwkramblers.org.uk", description: "System Administrator"}),
+        role({type: "system-administrator", email: "system.administrator@nwkramblers.org.uk", description: "System Administrator"})
+      ]);
+      expect(uniqued.map(item => item.type)).toEqual([
+        "system-administrator",
+        "system-administrator-system-administrator"
+      ]);
     });
 
   });

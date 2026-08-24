@@ -216,7 +216,7 @@ import { CommitteeConfigService } from "../../services/committee/commitee-config
 import { CommitteeQueryService } from "../../services/committee/committee-query.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { GoogleMapsService } from "../../services/google-maps.service";
-import { CommitteeFile, CommitteeMember, GroupEventSummary, Notification, NotificationItem } from "../../models/committee.model";
+import { CommitteeFile, CommitteeMember, GroupEventSummary, Notification, NotificationItem, roleEmailAddresses } from "../../models/committee.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { MediaQueryService } from "../../services/committee/media-query.service";
@@ -990,6 +990,18 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                         (ngModelChange)="onUnbrandedSenderRoleChange($event)">
                   @for (role of roleOptions; track role.type) {
                     <option [ngValue]="role.type">{{ role.description }} - {{ role.fullName || '—' }} &lt;{{ role.email }}&gt;</option>
+                  }
+                </select>
+              </fieldset>
+            }
+            @if (unbrandedSenderAddressOptions().length > 1) {
+              <fieldset class="email-composer-fieldset">
+                <legend>Send from which address?</legend>
+                <p class="text-muted small mb-2">This role has more than one email address - pick which one recipients should see.</p>
+                <select class="form-select" [ngModel]="resolvedUnbrandedSenderEmail()"
+                        (ngModelChange)="onUnbrandedSenderEmailChange($event)">
+                  @for (address of unbrandedSenderAddressOptions(); track address) {
+                    <option [ngValue]="address">{{ address }}</option>
                   }
                 </select>
               </fieldset>
@@ -4033,14 +4045,35 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected onUnbrandedSenderRoleChange(roleType: string): void {
     this.state.unbrandedSenderRoleType = roleType || null;
+    this.state.unbrandedSenderEmail = null;
+  }
+
+  protected unbrandedSenderAddressOptions(): string[] {
+    const role = this.resolvedUnbrandedRole();
+    return role ? roleEmailAddresses(role) : [];
+  }
+
+  protected onUnbrandedSenderEmailChange(email: string): void {
+    this.state.unbrandedSenderEmail = email || null;
+  }
+
+  protected resolvedUnbrandedSenderEmail(): string {
+    const role = this.resolvedUnbrandedRole();
+    if (!role?.email) {
+      return "";
+    } else {
+      const chosen = (this.state.unbrandedSenderEmail ?? "").trim().toLowerCase();
+      return roleEmailAddresses(role).find(address => address.toLowerCase() === chosen) ?? role.email;
+    }
   }
 
   protected unbrandedSenderInfo(): { name: string; email: string; description: string } {
     const role = this.resolvedUnbrandedRole();
     if (role?.email) {
-      return { name: role.fullName ?? "", email: role.email, description: role.description ?? "" };
+      return { name: role.fullName ?? "", email: this.resolvedUnbrandedSenderEmail(), description: role.description ?? "" };
+    } else {
+      return { name: "", email: "", description: "" };
     }
-    return { name: "", email: "", description: "" };
   }
 
   protected nameFromEmail(email: string): string {
@@ -4261,6 +4294,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.state.subject = reply.subject;
     if (reply.senderRoleType) {
       this.state.unbrandedSenderRoleType = reply.senderRoleType;
+      this.state.unbrandedSenderEmail = reply.senderRoleEmail ?? null;
     }
     const placeholder = "\n\n";
     const existingBody = this.state.introMarkdown ?? "";
@@ -5694,6 +5728,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.notificationConfigListing = this.state.notificationConfigListing;
     restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
     restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
+    restored.unbrandedSenderEmail = restored.unbrandedSenderEmail ?? null;
     restored.externalRecipients = restored.externalRecipients ?? [];
     restored.ccRecipients = restored.ccRecipients ?? [];
     restored.bccRecipients = restored.bccRecipients ?? [];
@@ -6421,6 +6456,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       bccRolesOverride: isUnbranded ? [] : (this.state.notificationConfig!.bccRoles ?? this.state.notificationConfig!.ccRoles ?? []),
       brandingMode: this.state.brandingMode,
       unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined,
+      unbrandedSenderEmail: isUnbranded ? this.resolvedUnbrandedSenderEmail() || undefined : undefined,
       inboxReplyContext: this.inboxReplyContext ?? undefined,
       attachments: this.state.attachments?.length ? this.state.attachments : undefined
     };

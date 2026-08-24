@@ -1,6 +1,6 @@
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig, CommitteeMember, ForwardEmailTarget } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember, ForwardEmailTarget, roleEmailAddresses, roleMatchesEmail, roleNotificationRecipients } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxMessage, InboxReaderProvider, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import * as config from "../mongo/controllers/config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
@@ -49,7 +49,7 @@ export function roleForwardingRecipients(role: CommitteeMember, linkedMemberEmai
 
 export async function legacyRoleForwardingRecipients(roleEmail: string): Promise<string[] | null> {
   const wanted = normaliseEmail(roleEmail);
-  const role = (await committeeRoles()).find(candidate => normaliseEmail(candidate.email) === wanted) ?? null;
+  const role = (await committeeRoles()).find(candidate => roleMatchesEmail(candidate, wanted)) ?? null;
   if (role) {
     const linkedMembers = await assignedMembersByMemberId([role.memberId]);
     const linkedMemberEmail = role.memberId ? linkedMembers.get(role.memberId)?.email ?? null : null;
@@ -78,25 +78,32 @@ export function generalAliasFor(connection: InboxMailboxConnection, tenantSlug: 
     tenantSlug,
     roleType: inboxGeneralRoleTypeFor(connectionId),
     roleEmail: connection.gmailAccountEmail ?? "",
+    additionalEmails: [],
     mailboxConnectionId: connectionId,
     enabled: true,
     inboxMessageNotifications: false,
     inboxNotificationEmail: null,
-    memberId: null
+    memberId: null,
+    recipients: [],
+    recipientsFromRoleType: null
   };
 }
 
 function roleAliasWith(role: CommitteeMember, mailboxConnectionId: string | null, tenantSlug: string): InboxAliasConfig {
+  const roleEmail = role.email ? normaliseEmail(role.email) : "";
   return {
-    id: role.type,
+    id: roleEmail ? `${role.type}:${roleEmail}` : role.type,
     tenantSlug,
     roleType: role.type,
     roleEmail: role.email,
+    additionalEmails: roleEmailAddresses(role).filter(address => normaliseEmail(address) !== normaliseEmail(role.email)),
     mailboxConnectionId,
     enabled: true,
     inboxMessageNotifications: role.inboxMessageNotifications === true,
     inboxNotificationEmail: role.inboxNotificationEmail?.trim() || null,
-    memberId: role.memberId ?? null
+    memberId: role.memberId ?? null,
+    recipients: roleNotificationRecipients(role),
+    recipientsFromRoleType: role.inboxRecipientsFromRoleType?.trim() || null
   };
 }
 
@@ -107,7 +114,7 @@ function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, ten
 export function cloudflareIngressAliasesFromMessage(message: InboxMessage, connection: InboxMailboxConnection, roles: CommitteeMember[], tenantSlug: string): InboxAliasConfig[] {
   const recipientEmails = messageRecipientEmails(message);
   const roleAliases = roles.reduce<InboxAliasConfig[]>((aliases, role) => {
-    const matches = recipientEmails.includes(normaliseEmail(role.email));
+    const matches = recipientEmails.some(recipientEmail => roleMatchesEmail(role, recipientEmail));
     return matches ? aliases.concat(roleAliasWith(role, connectionIdentifier(connection), tenantSlug)) : aliases;
   }, []);
   return roleAliases.length > 0 ? roleAliases : [generalAliasFor(connection, tenantSlug)];
@@ -179,7 +186,7 @@ export async function derivedAliases(): Promise<InboxAliasConfig[]> {
 export async function derivedAliasForEmail(email: string): Promise<InboxAliasConfig | null> {
   const wanted = normaliseEmail(email);
   const aliases = wanted ? await derivedAliases() : [];
-  return aliases.find(alias => normaliseEmail(alias.roleEmail) === wanted) ?? null;
+  return aliases.find(alias => [alias.roleEmail, ...alias.additionalEmails].some(address => normaliseEmail(address) === wanted)) ?? null;
 }
 
 export async function derivedAliasForRoleType(roleType: string): Promise<InboxAliasConfig | null> {
@@ -229,9 +236,7 @@ export async function roleIdentityEmailsByType(): Promise<Map<string, Set<string
   const roles = await committeeRoles();
   return roles.reduce((map, role) => {
     const identityEmails = new Set<string>();
-    if (role.email) {
-      identityEmails.add(normaliseEmail(role.email));
-    }
+    roleEmailAddresses(role).forEach(address => identityEmails.add(normaliseEmail(address)));
     if (role.forwardEmailCustom) {
       identityEmails.add(normaliseEmail(role.forwardEmailCustom));
     }
@@ -239,6 +244,11 @@ export async function roleIdentityEmailsByType(): Promise<Map<string, Set<string
     map.set(role.type, identityEmails);
     return map;
   }, new Map<string, Set<string>>());
+}
+
+export async function allRoleEmailAddresses(): Promise<string[]> {
+  const roles = await committeeRoles();
+  return Array.from(new Set(roles.flatMap(role => roleEmailAddresses(role)).map(normaliseEmail).filter(Boolean)));
 }
 
 export async function assignedMembersByMemberId(memberIds: (string | null | undefined)[]): Promise<Map<string, { name: string; email: string | null }>> {

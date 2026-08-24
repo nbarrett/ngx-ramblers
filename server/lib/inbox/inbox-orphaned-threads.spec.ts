@@ -9,11 +9,14 @@ function alias(roleType: string, roleEmail: string, enabled = true): InboxAliasC
     tenantSlug: "default",
     roleType,
     roleEmail,
+    additionalEmails: [],
     mailboxConnectionId: "conn-1",
     enabled,
     inboxMessageNotifications: false,
     inboxNotificationEmail: null,
-    memberId: null
+    memberId: null,
+    recipients: [],
+    recipientsFromRoleType: null
   };
 }
 

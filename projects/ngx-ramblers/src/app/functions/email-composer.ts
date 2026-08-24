@@ -345,6 +345,7 @@ export function defaultEmailComposerState(): EmailComposerState {
     releaseNoteUpdate: null,
     brandingMode: BrandingMode.BRANDED,
     unbrandedSenderRoleType: null,
+    unbrandedSenderEmail: null,
     recipientMode: RecipientMode.ENTIRE_LIST,
     selectedListId: null,
     narrowListId: null,

@@ -343,6 +343,7 @@ export interface EmailComposerState {
   releaseNoteUpdate: ReleaseNoteUpdateSettings | null;
   brandingMode: BrandingMode;
   unbrandedSenderRoleType: string | null;
+  unbrandedSenderEmail: string | null;
   recipientMode: RecipientMode;
   selectedListId: number | null;
   narrowListId: number | null;
@@ -476,6 +477,7 @@ export interface BatchTransactionalSendRequest {
   bccRolesOverride?: string[];
   brandingMode?: BrandingMode;
   unbrandedSenderRoleType?: string;
+  unbrandedSenderEmail?: string;
   inboxReplyContext?: InboxReplyOutboundContextLike;
 }
 

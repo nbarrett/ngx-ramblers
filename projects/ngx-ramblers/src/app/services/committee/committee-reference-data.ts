@@ -1,4 +1,4 @@
-import { BuiltInRole, CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
+import { BuiltInRole, CommitteeConfig, CommitteeMember, ExpensesConfig, roleRecipientMemberIds } from "../../models/committee.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
 import { isArray } from "es-toolkit/compat";
@@ -31,7 +31,7 @@ export class CommitteeReferenceData {
   loggedOnRoles(): CommitteeMember[] {
     const memberId = this.memberLoginService.loggedInMember().memberId;
     if (!memberId) return [];
-    return this.committeeMembers().filter(role => role.memberId === memberId);
+    return this.committeeMembers().filter(role => roleRecipientMemberIds(role).includes(memberId));
   }
 
   committeeMemberForMember(memberId: string): CommitteeMember {

@@ -42,7 +42,7 @@ import {
   OrphanedInboxThreadsResponse
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { normaliseEmail, validEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { sendCalendarReply } from "./inbox-calendar-reply";
 import { broadcast } from "../websockets/websocket-broadcaster";
@@ -66,7 +66,7 @@ import { dateTimeNow } from "../shared/dates";
 import * as systemConfig from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember, InboxRoleRecipient, roleEmailAddresses } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -114,14 +114,25 @@ function connectionId(connection: InboxMailboxConnection): string {
 }
 
 function sanitiseAlias(record: InboxAliasConfig, connection: InboxMailboxConnection | null): InboxAliasConfigView {
-  return {...record, mailboxConnection: connection ? sanitiseConnection(connection) : null, assignedMemberName: null, assignedMemberEmail: null};
+  return {
+    ...record,
+    mailboxConnection: connection ? sanitiseConnection(connection) : null,
+    assignedMemberName: null,
+    assignedMemberEmail: null,
+    recipients: (record.recipients ?? []).map(recipient => ({...recipient, memberName: null, memberEmail: null}))
+  };
 }
 
 async function withAssignedMemberNames(views: InboxAliasConfigView[]): Promise<InboxAliasConfigView[]> {
-  const membersByMemberId = await assignedMembersByMemberId(views.map(view => view.memberId));
+  const memberIds = views.flatMap(view => [view.memberId, ...view.recipients.map(recipient => recipient.memberId)]);
+  const membersByMemberId = await assignedMembersByMemberId(memberIds);
   return views.map(view => {
     const assigned = view.memberId ? membersByMemberId.get(view.memberId) ?? null : null;
-    return {...view, assignedMemberName: assigned?.name ?? null, assignedMemberEmail: assigned?.email ?? null};
+    const recipients = view.recipients.map(recipient => {
+      const recipientMember = recipient.memberId ? membersByMemberId.get(recipient.memberId) ?? null : null;
+      return {...recipient, memberName: recipientMember?.name ?? null, memberEmail: recipientMember?.email ?? null};
+    });
+    return {...view, assignedMemberName: assigned?.name ?? null, assignedMemberEmail: assigned?.email ?? null, recipients};
   });
 }
 
@@ -637,7 +648,9 @@ router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Resp
       visibleAliases = aliases;
     } else if (forMyAssignments) {
       const memberId = (req.user as Partial<MemberCookie>)?.memberId;
-      visibleAliases = aliases.filter(alias => Boolean(memberId) && alias.memberId === memberId && !isInboxGeneralRoleType(alias.roleType));
+      visibleAliases = aliases.filter(alias => Boolean(memberId)
+        && (alias.recipients ?? []).some(recipient => recipient.memberId === memberId)
+        && !isInboxGeneralRoleType(alias.roleType));
     } else {
       const allowedRoleTypes = await permittedInboxRoleTypes(req);
       visibleAliases = aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
@@ -724,6 +737,51 @@ router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), a
   }
 });
 
+function sameRecipientIdentity(recipient: InboxRoleRecipient, change: InboxRoleNotificationSetting): boolean {
+  if (change.memberId) {
+    return recipient.memberId === change.memberId;
+  } else {
+    return !recipient.memberId && normaliseEmail(recipient.email ?? "") === normaliseEmail(change.email ?? "");
+  }
+}
+
+function roleReferenceAssignment(change: InboxRoleNotificationSetting): boolean {
+  return change.recipientsFromRoleType !== undefined;
+}
+
+function roleForNotificationChange(roles: CommitteeMember[], change: InboxRoleNotificationSetting): CommitteeMember | null {
+  const ofType = roles.filter(candidate => candidate.type === change.roleType);
+  const wantedEmail = change.roleEmail ? normaliseEmail(change.roleEmail) : null;
+  const matched = wantedEmail
+    ? ofType.find(candidate => normaliseEmail(candidate.email) === wantedEmail)
+    : null;
+  return matched ?? ofType[0] ?? null;
+}
+
+function applyNotificationChange(role: CommitteeMember, change: InboxRoleNotificationSetting): void {
+  const overrideEmail = isString(change.notificationEmail) && change.notificationEmail.trim().length > 0 ? change.notificationEmail.trim() : null;
+  if (roleReferenceAssignment(change)) {
+    role.inboxRecipientsFromRoleType = change.recipientsFromRoleType?.trim() || undefined;
+  } else if (change.memberId && change.memberId === role.memberId) {
+    role.inboxMessageNotifications = change.notify === true;
+    role.inboxNotificationEmail = change.notify === true && overrideEmail ? overrideEmail : undefined;
+    role.inboxRecipients = (role.inboxRecipients ?? []).filter(recipient => recipient.memberId !== change.memberId);
+  } else {
+    const configured = role.inboxRecipients ?? [];
+    if (change.remove === true) {
+      role.inboxRecipients = configured.filter(recipient => !sameRecipientIdentity(recipient, change));
+    } else {
+      const entry: InboxRoleRecipient = change.memberId
+        ? {memberId: change.memberId, email: overrideEmail, notify: change.notify === true}
+        : {memberId: null, email: (change.email ?? "").trim(), notify: change.notify === true};
+      const exists = configured.some(recipient => sameRecipientIdentity(recipient, change));
+      role.inboxRecipients = exists
+        ? configured.map(recipient => sameRecipientIdentity(recipient, change) ? entry : recipient)
+        : configured.concat(entry);
+    }
+  }
+}
+
 router.put("/aliases/notifications", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
     const changes = req.body?.changes;
@@ -735,24 +793,30 @@ router.put("/aliases/notifications", authConfig.authenticate(), async (req: Requ
     const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
     const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
     const typedChanges = changes as InboxRoleNotificationSetting[];
+    const isAdmin = inboxConfigurationAdministrator(req);
+    const requesterId = (req.user as Partial<MemberCookie>)?.memberId;
     const disallowed = typedChanges.find(change => {
-      const role = roles.find(candidate => candidate.type === change.roleType);
-      return !role || !canUpdateInboxRoleNotifications(req, role);
+      const role = roleForNotificationChange(roles, change);
+      const permitted = Boolean(role) && (isAdmin || (Boolean(requesterId) && !roleReferenceAssignment(change) && change.memberId === requesterId && change.remove !== true && canUpdateInboxRoleNotifications(req, role)));
+      return !permitted;
     });
     if (disallowed) {
       res.status(403).json({request: {messageType}, error: "You can only change notification settings for roles assigned to you"});
       return;
     }
-    typedChanges.forEach(change => {
-      const role = roles.find(candidate => candidate.type === change.roleType);
-      if (role) {
-        role.inboxMessageNotifications = change.inboxMessageNotifications === true;
-        const email = change.inboxNotificationEmail;
-        role.inboxNotificationEmail = change.inboxMessageNotifications && isString(email) && email.trim().length > 0 ? email.trim() : undefined;
-      }
-    });
-    await config.createOrUpdateKey(ConfigKey.COMMITTEE, committeeConfiguration);
-    res.json({request: {messageType}, response: {updated: typedChanges.length}});
+    const invalidAddress = typedChanges.find(change => !roleReferenceAssignment(change) && !change.memberId && change.remove !== true && !validEmail((change.email ?? "").trim()));
+    if (invalidAddress) {
+      res.status(400).json({request: {messageType}, error: `${invalidAddress.email || "(empty)"} is not a valid email address`});
+    } else {
+      typedChanges.forEach(change => {
+        const role = roleForNotificationChange(roles, change);
+        if (role) {
+          applyNotificationChange(role, change);
+        }
+      });
+      await config.createOrUpdateKey(ConfigKey.COMMITTEE, committeeConfiguration);
+      res.json({request: {messageType}, response: {updated: typedChanges.length}});
+    }
   } catch (error) {
     errorDebugLog("Error updating inbox role notifications:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
@@ -1036,7 +1100,13 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
     if (correspondent && !isAutoReplyMessage(hydratedMessage) && hydratedMessage.direction === InboxMessageDirection.INBOUND) {
       await correctThreadExternalAddress(req.params.id, correspondent, internalEmails);
     }
-    const reply = buildComposeResponse(hydratedMessage, replyTo, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true);
+    const threadRole = rolesByType.get(thread.roleType);
+    const threadRoleAddresses = threadRole ? roleEmailAddresses(threadRole).map(normaliseEmail) : [];
+    const inboundRecipientEmails = [...(hydratedMessage.to ?? []), ...(hydratedMessage.cc ?? [])]
+      .filter(Boolean)
+      .map(address => normaliseEmail(address.email));
+    const receivedOnAddress = threadRoleAddresses.find(address => inboundRecipientEmails.includes(address)) ?? null;
+    const reply = buildComposeResponse(hydratedMessage, replyTo, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true, receivedOnAddress ?? alias.roleEmail);
     debugLog(`compose-reply: thread ${req.params.id} externalAddress=${JSON.stringify(thread.externalAddress)} reply.to=${JSON.stringify(reply.to)} message.from=${JSON.stringify(hydratedMessage.from)} message.replyTo=${JSON.stringify(hydratedMessage.replyTo)} messageId=${composeRequest?.messageId ?? "latest"}`);
     res.json({request: {messageType}, response: reply});
   } catch (error) {
@@ -1133,7 +1203,7 @@ router.post("/mailbox-connections/:id/sync", authConfig.authenticate(), async (r
   }
 });
 
-function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddress, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[], forward = false): InboxReplyComposeResponse {
+function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddress, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[], forward = false, senderRoleEmail: string = null): InboxReplyComposeResponse {
   const {inReplyTo, references, subject} = buildReplyHeaders(selectedMessage, forward);
   return {
     to: replyTo,
@@ -1143,6 +1213,7 @@ function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddre
     references,
     quotedHtml: forward ? buildQuotedForwardHtml(selectedMessage) : buildQuotedReplyHtml(selectedMessage),
     senderRoleType,
+    senderRoleEmail,
     threadId,
     aliasId,
     mailboxConnectionId,

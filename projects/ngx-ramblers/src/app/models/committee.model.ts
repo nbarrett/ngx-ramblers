@@ -1,4 +1,5 @@
 import { map } from "es-toolkit/compat";
+import { emailDomain, normaliseEmail, toDotCase, toKebabCase } from "../functions/strings";
 import { DateRangeUnit } from "./search.model";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
@@ -173,6 +174,12 @@ export enum EmailDerivation {
   FULL_NAME = "FULL_NAME"
 }
 
+export interface InboxRoleRecipient {
+  memberId: string | null;
+  email: string | null;
+  notify: boolean;
+}
+
 export interface CommitteeMember {
   description: string;
   email: string;
@@ -184,6 +191,7 @@ export interface CommitteeMember {
   roleType: RoleType;
   builtInRoleMapping?: BuiltInRole;
   emailDerivation?: EmailDerivation;
+  additionalEmails?: string[];
   forwardEmailTarget?: ForwardEmailTarget;
   forwardEmailCustom?: string;
   forwardEmailRecipients?: string[];
@@ -193,8 +201,123 @@ export interface CommitteeMember {
   contactUsRecipients?: string[];
   inboxMessageNotifications?: boolean;
   inboxNotificationEmail?: string;
+  inboxRecipients?: InboxRoleRecipient[];
+  inboxRecipientsFromRoleType?: string;
   inboxVisibleToAllRoles?: boolean;
   inboxVisibleToRoleTypes?: string[];
+}
+
+export function roleAddressDomain(role: CommitteeMember, domain?: string | null): string {
+  return (domain || emailDomain(role.email) || "").toLowerCase();
+}
+
+export function derivedRoleTypeAddress(role: CommitteeMember, domain?: string | null): string | null {
+  const resolvedDomain = roleAddressDomain(role, domain);
+  const localPart = (role.type || "").trim().toLowerCase();
+  if (!resolvedDomain || !localPart) {
+    return null;
+  } else {
+    return `${localPart}@${resolvedDomain}`;
+  }
+}
+
+export function derivedFullNameAddress(role: CommitteeMember, domain?: string | null): string | null {
+  const resolvedDomain = roleAddressDomain(role, domain);
+  const localPart = role.vacant ? "" : toDotCase(role.fullName || "");
+  if (!resolvedDomain || !localPart) {
+    return null;
+  } else {
+    return `${localPart}@${resolvedDomain}`;
+  }
+}
+
+export function roleEmailAddresses(role: CommitteeMember, domain?: string | null): string[] {
+  const addresses = [role.email, derivedRoleTypeAddress(role, domain), derivedFullNameAddress(role, domain), ...(role.additionalEmails ?? [])]
+    .map(address => (address ?? "").trim())
+    .filter(address => address.length > 0);
+  return addresses.reduce<string[]>((unique, address) => unique.some(existing => existing.toLowerCase() === address.toLowerCase()) ? unique : unique.concat(address), []);
+}
+
+export function roleMatchesEmail(role: CommitteeMember, email: string, domain?: string | null): boolean {
+  const wanted = normaliseEmail(email);
+  return Boolean(wanted) && roleEmailAddresses(role, domain).some(address => normaliseEmail(address) === wanted);
+}
+
+export function committeeRoleMatchingEmail(roles: CommitteeMember[], email: string, domain?: string | null): CommitteeMember | null {
+  return (roles ?? []).find(role => roleMatchesEmail(role, email, domain)) ?? null;
+}
+
+export function additionalEmailsFromMailboxList(addresses: string[], defaultEmail: string | null): string[] {
+  const defaultNormalised = normaliseEmail(defaultEmail ?? "");
+  return addresses.filter(address => {
+    const normalised = normaliseEmail(address);
+    return Boolean(normalised) && normalised !== defaultNormalised;
+  });
+}
+
+export function roleNotificationRecipients(role: CommitteeMember): InboxRoleRecipient[] {
+  const configured = role.inboxRecipients ?? [];
+  const primaryConfigured = Boolean(role.memberId) && configured.some(recipient => recipient.memberId === role.memberId);
+  const primary: InboxRoleRecipient[] = role.memberId && !primaryConfigured
+    ? [{memberId: role.memberId, email: role.inboxNotificationEmail?.trim() || null, notify: role.inboxMessageNotifications === true}]
+    : [];
+  return primary.concat(configured);
+}
+
+export function roleRecipientMemberIds(role: CommitteeMember): string[] {
+  return roleNotificationRecipients(role)
+    .map(recipient => recipient.memberId)
+    .filter((memberId): memberId is string => Boolean(memberId));
+}
+
+export function reusableNotificationRecipients(role: CommitteeMember): InboxRoleRecipient[] {
+  return roleNotificationRecipients(role)
+    .filter(recipient => recipient.notify)
+    .filter(recipient => !(role.memberId && recipient.memberId === role.memberId));
+}
+
+export function committeeRolesByType(roles: CommitteeMember[]): Map<string, CommitteeMember> {
+  return (roles ?? []).reduce<Map<string, CommitteeMember>>((map, role) => {
+    map.set(role.type, role);
+    return map;
+  }, new Map());
+}
+
+export function uniqueCommitteeRoleType(preferred: string, takenTypes: string[], email?: string | null): string {
+  const taken = (takenTypes || []).filter(Boolean);
+  if (!preferred || !taken.includes(preferred)) {
+    return preferred;
+  } else {
+    const localPart = (email || "").split("@")[0];
+    const fromEmail = localPart ? toKebabCase(localPart) : "";
+    const withEmail = fromEmail ? `${preferred}-${fromEmail}` : "";
+    if (withEmail && !taken.includes(withEmail)) {
+      return withEmail;
+    } else {
+      const numbered = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        .map(n => `${preferred}-${n}`)
+        .find(candidate => !taken.includes(candidate));
+      return numbered ?? `${preferred}-${taken.length + 1}`;
+    }
+  }
+}
+
+export function uniqueCommitteeRoleTypes(roles: CommitteeMember[]): CommitteeMember[] {
+  return (roles ?? []).reduce<CommitteeMember[]>((assigned, role) => {
+    const preferred = (role.type || toKebabCase(role.description || "")).trim();
+    const taken = assigned.map(existing => existing.type);
+    return assigned.concat({...role, type: uniqueCommitteeRoleType(preferred, taken, role.email)});
+  }, []);
+}
+
+export function notifiedRecipientsForRole(role: CommitteeMember, rolesByType: Map<string, CommitteeMember>): InboxRoleRecipient[] {
+  const referencedRoleType = role.inboxRecipientsFromRoleType?.trim();
+  const referencedRole = referencedRoleType ? rolesByType.get(referencedRoleType) : null;
+  if (referencedRole) {
+    return reusableNotificationRecipients(referencedRole);
+  } else {
+    return roleNotificationRecipients(role).filter(recipient => recipient.notify);
+  }
 }
 
 export interface CommitteeRecipientOption {

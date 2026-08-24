@@ -222,7 +222,7 @@ const ALL_SENDERS = "all";
           <select id="sender-filter" class="form-select" [(ngModel)]="senderFilter"
                   (ngModelChange)="onSenderFilterChange()">
             <option [ngValue]="ALL_SENDERS">All senders</option>
-            @for (sender of availableSenders; track sender.email) {
+            @for (sender of availableSenders; track sender.id ?? $index) {
               <option [ngValue]="sender.email">{{ sender.name }} &lt;{{ sender.email }}&gt;</option>
             }
           </select>

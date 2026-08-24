@@ -3,7 +3,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import { NgClass } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faRightFromBracket, faSave, faSpinner, faTimes, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
 
 enum FormSaveBusyAction {
@@ -24,6 +24,8 @@ enum FormSaveBusyAction {
               (click)="runSave()">
         @if (busyAction() === FormSaveBusyAction.SAVE) {
           <fa-icon [icon]="faSpinner" animation="spin"/>
+        } @else {
+          <fa-icon [icon]="faSave"/>
         }
         {{ saveLabel }}
       </button>
@@ -34,6 +36,8 @@ enum FormSaveBusyAction {
               (click)="runUndo()">
         @if (busyAction() === FormSaveBusyAction.UNDO) {
           <fa-icon [icon]="faSpinner" animation="spin"/>
+        } @else {
+          <fa-icon [icon]="faUndo"/>
         }
         {{ undoLabel }}
       </button>
@@ -46,6 +50,8 @@ enum FormSaveBusyAction {
                 (click)="runSaveAndExit()">
           @if (busyAction() === FormSaveBusyAction.SAVE_AND_EXIT) {
             <fa-icon [icon]="faSpinner" animation="spin"/>
+          } @else {
+            <fa-icon [icon]="faRightFromBracket"/>
           }
           {{ exitMenuLabel }}
         </button>
@@ -63,12 +69,15 @@ enum FormSaveBusyAction {
             <button type="button" class="dropdown-item d-inline-flex align-items-center gap-2" [disabled]="controlsDisabled()" (click)="runSaveAndExit()">
               @if (busyAction() === FormSaveBusyAction.SAVE_AND_EXIT) {
                 <fa-icon [icon]="faSpinner" animation="spin"/>
+              } @else {
+                <fa-icon [icon]="faRightFromBracket"/>
               }
               {{ saveAndExitLabel }}
             </button>
           </li>
           <li role="menuitem">
-            <button type="button" class="dropdown-item" [disabled]="controlsDisabled()" (click)="runCancel()">
+            <button type="button" class="dropdown-item d-inline-flex align-items-center gap-2" [disabled]="controlsDisabled()" (click)="runCancel()">
+              <fa-icon [icon]="faTimes"/>
               {{ cancelLabel }}
             </button>
           </li>
@@ -100,7 +109,11 @@ export class FormSaveActionsComponent {
   cancel = output<void>();
 
   busyAction = signal<FormSaveBusyAction | null>(null);
+  protected readonly faRightFromBracket = faRightFromBracket;
+  protected readonly faSave = faSave;
   protected readonly faSpinner = faSpinner;
+  protected readonly faTimes = faTimes;
+  protected readonly faUndo = faUndo;
   protected readonly FormSaveBusyAction = FormSaveBusyAction;
 
   controlsDisabled(): boolean {
