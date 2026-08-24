@@ -40,6 +40,16 @@ export const MEETUP_VENUE_HELP: ContentText = {
     "If you choose to publish this walk to Meetup, these details will be used to create a venue, so the name and address fields need to be as accurate as possible, so the venue can be created in the Meetup system. The best way to do this is to copy/paste the venue details from the pub or venue website into the correct fields below."
 };
 
+export const COMMITTEE_OUTBOUND_EMAIL_HELP: ContentText = {
+  name: "committee-outbound-email-help",
+  category: "admin",
+  text:
+    "* Each role has a list of email addresses on the group domain. The role address (from the role description) and, when a member is assigned, the full-name address are added automatically. Type extras in the same list.\n" +
+    "* Choose which address is the default sender. That is the From address when this role sends mail. Incoming and outgoing mail still works with every address in the list.\n" +
+    "* All addresses will automatically use your group's domain.\n" +
+    "* Use **Create Senders** below to register or verify every address in Brevo. A sender must be verified before emails can be sent from it."
+};
+
 export const GROUP_EVENT_VENUE_HELP: ContentText = {
   name: "group-event-venue-help",
   category: "admin",
@@ -223,14 +233,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
       "* **Role is vacant** — tick this to clear the member assignment and disable email-related fields until a new member is assigned.",
     category: "admin"
   },
-  {
-    name: "committee-outbound-email-help",
-    text: "* The **Sender Email** is the address that appears in the *From* field when emails are sent on behalf of this role.\n" +
-      "* It can be derived automatically from the **Role** name (e.g. `walks-secretary@yourdomain.org.uk`) or from the member's **Full Name** (e.g. `john.smith@yourdomain.org.uk`).\n" +
-      "* The email address must use your group's domain — addresses on other domains will be rejected by Brevo.\n" +
-      "* Use the **Create or Amend Sender** section below to register or verify the sender in Brevo. A sender must be verified before emails can be sent from this address.",
-    category: "admin"
-  },
+  COMMITTEE_OUTBOUND_EMAIL_HELP,
   {
     name: "committee-inbound-forwarding-help",
     text: "* Controls where incoming emails sent to this role's address are delivered.\n" +

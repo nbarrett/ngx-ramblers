@@ -1,5 +1,6 @@
 import { kebabCase } from "es-toolkit/compat";
-import { InboxAddress, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread } from "../models/inbox.model";
+import { InboxAddress, InboxAliasConfig, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, isInboxGeneralRoleType } from "../models/inbox.model";
+import { normaliseEmail } from "./strings";
 
 export const INBOX_SEND_COLLAPSE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -11,11 +12,71 @@ export function inboxThreadSlug(thread: InboxThread): string {
   return kebabCase(thread?.normalisedSubject || thread?.subject || "");
 }
 
+export function aliasMailboxAddresses(alias: Pick<InboxAliasConfig, "roleEmail" | "additionalEmails">): string[] {
+  return [alias.roleEmail, ...(alias.additionalEmails ?? [])]
+    .map(address => (address ?? "").trim())
+    .filter(address => address.length > 0)
+    .reduce<string[]>((unique, address) => unique.some(existing => existing.toLowerCase() === address.toLowerCase()) ? unique : unique.concat(address), []);
+}
+
+export function aliasMailboxHeading(alias: Pick<InboxAliasConfig, "roleType" | "roleEmail">): string {
+  if (isInboxGeneralRoleType(alias.roleType)) {
+    return "Other inbox mail";
+  } else {
+    return alias.roleEmail;
+  }
+}
+
+export function aliasMailboxExtraAddresses(alias: Pick<InboxAliasConfig, "roleType" | "roleEmail" | "additionalEmails">): string[] {
+  if (isInboxGeneralRoleType(alias.roleType)) {
+    return [];
+  } else {
+    return aliasMailboxAddresses(alias)
+      .filter(address => normaliseEmail(address) !== normaliseEmail(alias.roleEmail));
+  }
+}
+
+export function aliasMailboxLabel(alias: Pick<InboxAliasConfig, "roleType" | "roleEmail" | "additionalEmails">): string {
+  const extras = aliasMailboxExtraAddresses(alias);
+  if (extras.length === 0) {
+    return aliasMailboxHeading(alias);
+  } else {
+    return `${aliasMailboxHeading(alias)} + ${extras.length} more`;
+  }
+}
+
+export function aliasMailboxExtraCaption(alias: Pick<InboxAliasConfig, "roleType" | "roleEmail" | "additionalEmails">): string | null {
+  const extras = aliasMailboxExtraAddresses(alias);
+  if (extras.length === 0) {
+    return null;
+  } else if (extras.length === 1) {
+    return extras[0];
+  } else if (extras.length === 2) {
+    return `${extras[0]} and ${extras[1]}`;
+  } else {
+    return `${extras.slice(0, -1).join(", ")} and ${extras[extras.length - 1]}`;
+  }
+}
+
+export function deliveredToFromMessage(message: InboxMessage, alias: Pick<InboxAliasConfig, "roleEmail" | "additionalEmails">): InboxAddress | null {
+  const identity = new Set(aliasMailboxAddresses(alias).map(address => normaliseEmail(address)).filter(Boolean));
+  const match = [...(message.to ?? []), ...(message.cc ?? [])]
+    .find(address => identity.has(normaliseEmail(address?.email)));
+  if (match?.email) {
+    return match;
+  } else if (alias.roleEmail) {
+    return {name: null, email: alias.roleEmail};
+  } else {
+    return null;
+  }
+}
+
 export function inboxThreadRoleLine(thread: InboxThread, roleEmail: string | null): string | null {
   const sentFromEmail = thread?.sentFrom?.email || null;
+  const deliveredToEmail = thread?.deliveredTo?.email || null;
   return thread?.lastDirection === InboxMessageDirection.OUTBOUND
     ? ((sentFromEmail || roleEmail) ? `from ${sentFromEmail || roleEmail}` : null)
-    : (roleEmail ? `to ${roleEmail}` : null);
+    : ((deliveredToEmail || roleEmail) ? `to ${deliveredToEmail || roleEmail}` : null);
 }
 
 export function inboxMessageAt(message: InboxMessage | null | undefined): number {

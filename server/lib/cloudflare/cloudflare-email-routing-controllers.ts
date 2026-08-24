@@ -60,6 +60,8 @@ import {
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { configuredEnvironments } from "../environments/environments-config";
+import { allRoleEmailAddresses } from "../inbox/inbox-aliases";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const messageType = "cloudflare:email-routing";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -349,7 +351,16 @@ export async function postRouteToInbox(req: Request, res: Response): Promise<voi
     matchers: rule.matchers,
     actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}]
   })));
-  const routed = siteRules.map(literalMatcherValue).filter(Boolean);
+  const existingRuleAddresses = new Set(siteRules.map(rule => normaliseEmail(literalMatcherValue(rule) || "")).filter(Boolean));
+  const roleAddressesOnDomain = (await allRoleEmailAddresses()).filter(address => address.endsWith(`@${baseDomain}`));
+  const missingAddresses = roleAddressesOnDomain.filter(address => !existingRuleAddresses.has(address));
+  const createdRules = await Promise.all(missingAddresses.map(address => createEmailRoutingRule(cloudflareConfig, {
+    name: `Inbox ${address}`.slice(0, 100),
+    enabled: true,
+    matchers: [{type: EmailRoutingMatcherType.LITERAL, field: EmailRoutingMatcherField.TO, value: address}],
+    actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}]
+  })));
+  const routed = siteRules.map(literalMatcherValue).filter(Boolean).concat(createdRules.map(literalMatcherValue).filter(Boolean));
   const catchAllRouted = sharedInboxRouterRuleActive(catchAll);
   debugLog("Routed %d address(es) for %s to the inbox router: %o; shared catch-all active: %s", routed.length, baseDomain, routed, catchAllRouted);
   res.json({request: {messageType}, response: {scriptName, routed, catchAllRouted}});

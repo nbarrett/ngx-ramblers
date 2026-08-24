@@ -1,20 +1,25 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { AdminPlatformPath } from "../../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
   faAdd,
+  faCheck,
   faClose,
   faEdit,
   faExternalLinkAlt,
+  faSave,
   faSearch,
   faSort,
   faSortDown,
   faSortUp,
+  faSpinner,
+  faTimes,
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model";
 import {
+  additionalEmailsFromMailboxList,
   BuiltInRole,
   CommitteeConfig,
   CommitteeFileMeetingRole,
@@ -24,7 +29,10 @@ import {
   EmailDerivation,
   ForwardEmailTarget,
   Notification,
-  RoleType
+  RoleType,
+  roleEmailAddresses,
+  uniqueCommitteeRoleType,
+  uniqueCommitteeRoleTypes
 } from "../../../../models/committee.model";
 import { RANGE_UNIT_OPTIONS } from "../../../../models/search.model";
 import { Member } from "../../../../models/member.model";
@@ -201,8 +209,8 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                     <div>
                       @if (platformAdminEnabled && cloudflareEmailRoutingService.emailForwardingAvailable() && cloudflareRoutingUrl()) {
                         <a [href]="cloudflareRoutingUrl()" target="_blank"
-                           class="btn btn-sm btn-outline-cloudflare">
-                          <fa-icon [icon]="faExternalLinkAlt" class="me-1"></fa-icon>View Routing Rules in Cloudflare
+                           class="btn btn-sm btn-outline-cloudflare d-inline-flex align-items-center gap-2">
+                          <fa-icon [icon]="faExternalLinkAlt"/>View Routing Rules in Cloudflare
                         </a>
                       }
                       @if (platformAdminEnabled && cloudflareEmailRoutingService.emailForwardingAvailable() && !cloudflareRoutingUrl()) {
@@ -214,21 +222,21 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       }
                     </div>
                     <div class="d-flex gap-2">
-                      <button class="btn btn-success btn-sm" [disabled]="hasUnsavedRole() || !!editingRoleDraft"
+                      <button class="btn btn-success btn-sm d-inline-flex align-items-center gap-2" [disabled]="hasUnsavedRole() || !!editingRoleDraft"
                               (click)="createNewRole()" tooltip="Add a new committee role">
-                        <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add Role
+                        <fa-icon [icon]="faAdd"/>Add Role
                       </button>
-                      <button class="btn btn-success btn-sm" [disabled]="!!editingRoleDraft || !committeeMembersWithoutRole.length || !committeeRolesAlertDismissed"
+                      <button class="btn btn-success btn-sm d-inline-flex align-items-center gap-2" [disabled]="!!editingRoleDraft || !committeeMembersWithoutRole.length || !committeeRolesAlertDismissed"
                               (click)="addMissingCommitteeRoles()"
                               tooltip="Add a role for each member flagged as Committee Member in Member Admin who is not yet linked to a role">
-                        <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add missing roles
+                        <fa-icon [icon]="faAdd"/>Add missing roles
                         @if (committeeMembersWithoutRole.length) {
                           ({{ committeeMembersWithoutRole.length }})
                         }
                       </button>
-                      <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending || !domainForwardRules().length"
+                      <button class="btn btn-quiet btn-sm d-inline-flex align-items-center gap-2" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending || !domainForwardRules().length"
                               (click)="requestClearAllForwards()" tooltip="Delete every per-role Cloudflare forwarding rule for this domain so all role emails route via the single catch-all">
-                        <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Clear all forwards
+                        <fa-icon [icon]="faTrash"/>Clear all forwards
                       </button>
                     </div>
                   </div>
@@ -245,12 +253,14 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                         Forwarding rules for any other domain or subdomain are left untouched. This cannot be undone.
                       </div>
                       <div class="d-flex gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-danger" [disabled]="clearForwardsPending || !domainForwardRules().length"
+                        <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending || !domainForwardRules().length"
                                 (click)="clearAllForwards()">
-                          <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Delete {{ stringUtils.pluraliseWithCount(domainForwardRules().length, "forward") }}
+                          <fa-icon [icon]="faTrash"/>Delete {{ stringUtils.pluraliseWithCount(domainForwardRules().length, "forward") }}
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="clearForwardsPending"
-                                (click)="cancelClearAllForwards()">Cancel</button>
+                        <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending"
+                                (click)="cancelClearAllForwards()">
+                          <fa-icon [icon]="faTimes"/>Cancel
+                        </button>
                       </div>
                     </div>
                   }
@@ -285,11 +295,13 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                         }
                       </ul>
                       <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-primary" (click)="addMissingCommitteeRoles()">
-                          <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add {{ stringUtils.pluraliseWithCount(committeeMembersWithoutRole.length, "role") }}
+                        <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-2" (click)="addMissingCommitteeRoles()">
+                          <fa-icon [icon]="faAdd"/>Add {{ stringUtils.pluraliseWithCount(committeeMembersWithoutRole.length, "role") }}
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                (click)="committeeRolesAlertDismissed = true">Dismiss</button>
+                        <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2"
+                                (click)="committeeRolesAlertDismissed = true">
+                          <fa-icon [icon]="faTimes"/>Dismiss
+                        </button>
                       </div>
                     </div>
                   }
@@ -321,19 +333,19 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                       </a>
                                     }
                                     @if (workerDeleteConfirmPending === script.id) {
-                                      <button type="button" class="btn btn-sm btn-danger"
+                                      <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2"
                                         (click)="deleteWorkerScript(script.id)">
-                                        Confirm
+                                        <fa-icon [icon]="faCheck"/>Confirm
                                       </button>
-                                      <button type="button" class="btn btn-sm btn-outline-secondary"
+                                      <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2"
                                         (click)="cancelDeleteWorkerScript()">
-                                        Cancel
+                                        <fa-icon [icon]="faTimes"/>Cancel
                                       </button>
                                     } @else {
-                                      <button type="button" class="btn btn-sm btn-outline-danger"
+                                      <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2"
                                         [disabled]="workerDeletePending === script.id"
                                         (click)="requestDeleteWorkerScript(script.id)">
-                                        Delete
+                                        <fa-icon [icon]="faTrash"/>Delete
                                       </button>
                                     }
                                   </div>
@@ -395,8 +407,17 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                   <span class="badge bg-warning ms-2"
                                         [tooltip]="duplicateMemberIdTooltip(role)">Multiple role mappings</span>
                                 }
+                                @if (isDuplicateRoleType(role)) {
+                                  <span class="badge bg-warning ms-2"
+                                        [tooltip]="duplicateRoleTypeTooltip(role)">Shared role type</span>
+                                }
                               </td>
-                              <td class="small text-nowrap">{{ role.email || '\u2014' }}</td>
+                              <td class="small">
+                                <div class="text-nowrap">{{ role.email || '\u2014' }}</div>
+                                @if (roleExtraMailboxCount(role); as extraCount) {
+                                  <div class="text-muted" [tooltip]="roleExtraMailboxTooltip(role)" container="body">+ {{ extraCount }} more</div>
+                                }
+                              </td>
                               <td>{{ stringUtils.asTitle(role.roleType) }}</td>
                               <td>{{ role.description }}</td>
                               <td class="text-center">
@@ -460,9 +481,13 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                       <span class="ms-2">Are you sure you want to delete role "{{ pendingDeleteRole.description }}"
                                         ({{ pendingDeleteRole.fullName || 'vacant' }})?</span>
                                     </span>
-                                    <div class="btn-group btn-group-sm">
-                                      <button type="button" class="btn btn-danger" (click)="executeDeleteRole()">Delete</button>
-                                      <button type="button" class="btn btn-outline-secondary" (click)="cancelDeleteRole()">Cancel</button>
+                                    <div class="d-flex gap-2">
+                                      <button type="button" class="btn btn-danger d-inline-flex align-items-center gap-2" (click)="executeDeleteRole()">
+                                        <fa-icon [icon]="faTrash"/>Delete
+                                      </button>
+                                      <button type="button" class="btn btn-quiet d-inline-flex align-items-center gap-2" (click)="cancelDeleteRole()">
+                                        <fa-icon [icon]="faTimes"/>Cancel
+                                      </button>
                                     </div>
                                   </div>
                                 </td>
@@ -481,10 +506,14 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                             [roles]="committeeConfig.roles"
                                             [index]="editingRoleIndex()"/>
                       <div class="d-flex justify-content-end gap-2 mt-3 pe-2">
-                        <button type="button" class="btn btn-outline-secondary"
-                          (click)="cancelRoleEdit()">Cancel</button>
-                        <button type="button" class="btn btn-success"
-                          (click)="saveRoleEdit()">Save</button>
+                        <button type="button" class="btn btn-quiet d-inline-flex align-items-center gap-2"
+                          (click)="cancelRoleEdit()">
+                          <fa-icon [icon]="faTimes"/>Cancel
+                        </button>
+                        <button type="button" class="btn btn-success d-inline-flex align-items-center gap-2"
+                          (click)="saveRoleEditAndPersist()">
+                          <fa-icon [icon]="faSave"/>Save
+                        </button>
                       </div>
                     </div>
                   }
@@ -530,7 +559,12 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                               <label class="form-check-label" for="site-catch-all-drop">Drop (don't deliver unmatched mail)</label>
                             </div>
                             <div class="mt-3 d-flex gap-2">
-                              <button class="btn btn-success btn-sm" type="button" (click)="saveSiteCatchAll()" [disabled]="siteCatchAllSaving">
+                              <button class="btn btn-success btn-sm d-inline-flex align-items-center gap-2" type="button" (click)="saveSiteCatchAll()" [disabled]="siteCatchAllSaving">
+                                @if (siteCatchAllSaving) {
+                                  <fa-icon [icon]="faSpinner" animation="spin"/>
+                                } @else {
+                                  <fa-icon [icon]="faSave"/>
+                                }
                                 {{ siteCatchAllSaving ? "Saving..." : "Save catch-all" }}
                               </button>
                             </div>
@@ -561,7 +595,9 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                             </div>
                           }
                           @if (!editingCatchAll) {
-                            <button class="btn btn-sm btn-primary" type="button" (click)="startEditCatchAll()">Edit catch-all</button>
+                            <button class="btn btn-sm btn-primary d-inline-flex align-items-center gap-2" type="button" (click)="startEditCatchAll()">
+                              <fa-icon [icon]="faEdit"/>Edit catch-all
+                            </button>
                           } @else {
                             <div class="row g-2">
                               <div class="col-sm-4">
@@ -676,13 +712,18 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                 </div>
                               }
                               <div class="col-sm-12 mt-3 d-flex gap-2">
-                                <button class="btn btn-success btn-sm" type="button"
+                                <button class="btn btn-success btn-sm d-inline-flex align-items-center gap-2" type="button"
                                         (click)="saveCatchAll()" [disabled]="catchAllSaving">
+                                  @if (catchAllSaving) {
+                                    <fa-icon [icon]="faSpinner" animation="spin"/>
+                                  } @else {
+                                    <fa-icon [icon]="faSave"/>
+                                  }
                                   {{ catchAllSaving ? "Saving..." : "Save catch-all" }}
                                 </button>
-                                <button class="btn btn-outline-secondary btn-sm" type="button"
+                                <button class="btn btn-quiet btn-sm d-inline-flex align-items-center gap-2" type="button"
                                         (click)="cancelEditCatchAll()" [disabled]="catchAllSaving">
-                                  Cancel
+                                  <fa-icon [icon]="faTimes"/>Cancel
                                 </button>
                               </div>
                               @if (catchAllError) {
@@ -825,6 +866,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
     imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
+  @ViewChild(CommitteeMemberEditor) private roleEditor: CommitteeMemberEditor | null = null;
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
   public formSaveActions: FormSaveActions = {
     save: () => this.save(),
@@ -864,7 +906,11 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   protected readonly CommitteeFileMeetingRole = CommitteeFileMeetingRole;
   protected readonly faClose = faClose;
   protected readonly faAdd = faAdd;
+  protected readonly faCheck = faCheck;
   protected readonly faEdit = faEdit;
+  protected readonly faSave = faSave;
+  protected readonly faSpinner = faSpinner;
+  protected readonly faTimes = faTimes;
   protected readonly faTrash = faTrash;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
   protected readonly faSearch = faSearch;
@@ -1020,9 +1066,26 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       role.description?.toLowerCase().includes(term) ||
       role.fullName?.toLowerCase().includes(term) ||
       role.email?.toLowerCase().includes(term) ||
+      this.roleMailboxAddresses(role).some(address => address.toLowerCase().includes(term)) ||
       role.roleType?.toLowerCase().includes(term)
     );
     return this.sortRoles(filtered);
+  }
+
+  roleMailboxAddresses(role: CommitteeMember): string[] {
+    return roleEmailAddresses(role, this.baseDomain);
+  }
+
+  roleExtraMailboxAddresses(role: CommitteeMember): string[] {
+    return additionalEmailsFromMailboxList(this.roleMailboxAddresses(role), role.email);
+  }
+
+  roleExtraMailboxCount(role: CommitteeMember): number {
+    return this.roleExtraMailboxAddresses(role).length;
+  }
+
+  roleExtraMailboxTooltip(role: CommitteeMember): string {
+    return this.roleExtraMailboxAddresses(role).join(", ");
   }
 
   get vacantCount(): number {
@@ -1047,12 +1110,16 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     role.fullName = fullName;
     role.roleType = RoleType.COMMITTEE_MEMBER;
     role.description = fullName;
-    role.type = toKebabCase(fullName);
     role.emailDerivation = EmailDerivation.FULL_NAME;
     role.vacant = false;
     if (this.baseDomain) {
       role.email = `${toDotCase(fullName)}@${this.baseDomain}`;
     }
+    role.type = uniqueCommitteeRoleType(
+      toKebabCase(fullName),
+      (this.committeeConfig?.roles ?? []).map(existing => existing.type),
+      role.email
+    );
     role.nameAndDescription = this.committeeConfigService.nameAndDescriptionFrom(role);
     return role;
   }
@@ -1068,6 +1135,20 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   isDuplicateMemberIdRole(role: CommitteeMember): boolean {
     if (!role.memberId) return false;
     return (this.committeeConfig?.roles ?? []).filter(r => r.memberId === role.memberId).length > 1;
+  }
+
+  isDuplicateRoleType(role: CommitteeMember): boolean {
+    return Boolean(role.type) && (this.committeeConfig?.roles ?? []).filter(candidate => candidate.type === role.type).length > 1;
+  }
+
+  duplicateRoleTypeTooltip(role: CommitteeMember): string {
+    const others = (this.committeeConfig?.roles ?? [])
+      .filter(candidate => candidate !== role && candidate.type === role.type)
+      .map(candidate => candidate.email || candidate.description || candidate.fullName)
+      .filter(Boolean);
+    return others.length > 0
+      ? `Role type ${role.type} is also used by ${others.join(", ")}. Save Committee Settings to give each role its own type.`
+      : "";
   }
 
   duplicateMemberIdTooltip(role: CommitteeMember): string {
@@ -1700,24 +1781,41 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   saveRoleEdit() {
-    if (!this.editingRoleDraft) {
-      return;
-    }
-    if (this.editingRoleOriginal) {
-      const index = this.committeeConfig.roles.indexOf(this.editingRoleOriginal);
-      if (index >= 0) {
-        this.committeeConfig.roles = [
-          ...this.committeeConfig.roles.slice(0, index),
-          this.editingRoleDraft,
-          ...this.committeeConfig.roles.slice(index + 1)
-        ];
+    const mailboxList = this.roleEditor?.commitMailboxAddresses() ?? null;
+    if (this.editingRoleDraft) {
+      const takenTypes = (this.committeeConfig.roles ?? [])
+        .filter(role => role !== this.editingRoleOriginal)
+        .map(role => role.type);
+      this.editingRoleDraft.type = uniqueCommitteeRoleType(
+        this.editingRoleDraft.type || toKebabCase(this.editingRoleDraft.description),
+        takenTypes,
+        this.editingRoleDraft.email
+      );
+      this.editingRoleDraft.additionalEmails = additionalEmailsFromMailboxList(
+        mailboxList ?? roleEmailAddresses(this.editingRoleDraft, this.baseDomain),
+        this.editingRoleDraft.email
+      );
+      if (this.editingRoleOriginal) {
+        const index = this.committeeConfig.roles.indexOf(this.editingRoleOriginal);
+        if (index >= 0) {
+          this.committeeConfig.roles = [
+            ...this.committeeConfig.roles.slice(0, index),
+            this.editingRoleDraft,
+            ...this.committeeConfig.roles.slice(index + 1)
+          ];
+        }
+      } else {
+        this.committeeConfig.roles = [this.editingRoleDraft, ...this.committeeConfig.roles];
       }
-    } else {
-      this.committeeConfig.roles = [this.editingRoleDraft, ...this.committeeConfig.roles];
+      this.editingRoleOriginal = null;
+      this.editingRoleDraft = null;
+      this.updateQueryParams();
     }
-    this.editingRoleOriginal = null;
-    this.editingRoleDraft = null;
-    this.updateQueryParams();
+  }
+
+  saveRoleEditAndPersist() {
+    this.saveRoleEdit();
+    return this.save();
   }
 
   editingRoleHeading(): string {
@@ -1821,7 +1919,12 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   save() {
+    this.saveRoleEdit();
     this.logger.info("saving config", this.committeeConfig);
+    this.committeeConfig.roles = uniqueCommitteeRoleTypes(this.committeeConfig.roles).map(role => ({
+      ...role,
+      additionalEmails: additionalEmailsFromMailboxList(roleEmailAddresses(role, this.baseDomain), role.email)
+    }));
     this.committeeConfig.fileTypes = [...this.committeeConfig.fileTypes].sort(sortBy("description"));
     this.notify.setBusy();
     return this.committeeConfigService.saveConfig(this.committeeConfig)

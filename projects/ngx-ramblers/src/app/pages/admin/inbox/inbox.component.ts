@@ -11,7 +11,7 @@ import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { collapseInboxSends, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
+import { aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -77,7 +77,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 <option [ngValue]="InboxViewScope.ALL_ACCESSIBLE">Show all inbox messages</option>
                 <option [ngValue]="InboxViewScope.ASSIGNED_ROLES">Show my inbox messages</option>
               }
-              @for (alias of aliases; track alias.id) {
+              @for (alias of aliases; track alias.id || alias.roleEmail) {
                 <option [ngValue]="alias.roleType">{{ aliasLabel(alias) }}</option>
               }
               @if (canReadJunk) {
@@ -204,7 +204,10 @@ import { UIDateFormat } from "../../../models/date-format.model";
       @if (selectedAlias(); as alias) {
         <div class="alert alert-success py-2 inbox-alert">
           <fa-icon [icon]="faEnvelope" class="me-2"/>
-          <strong>Viewing mail for {{aliasLabel(alias)}}</strong>
+          <strong>Viewing mail for {{aliasHeading(alias)}}</strong>
+          @if (aliasExtraCaption(alias); as extras) {
+            <span class="ms-1">Mail to {{extras}} also appears in this inbox.</span>
+          }
           @if (!internalInbox && !alias.mailboxConnection?.hasRefreshToken) {
             <span class="ms-1">This mailbox is not connected yet.</span>
           }
@@ -977,7 +980,15 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   aliasLabel(alias: InboxAliasConfigView): string {
-    return isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail;
+    return aliasMailboxLabel(alias);
+  }
+
+  aliasHeading(alias: InboxAliasConfigView): string {
+    return aliasMailboxHeading(alias);
+  }
+
+  aliasExtraCaption(alias: InboxAliasConfigView): string | null {
+    return aliasMailboxExtraCaption(alias);
   }
 
   selectedRoleType(): string | null {
@@ -1555,7 +1566,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private replyAllRecipients(reply: InboxReplyComposeResponse, target: InboxMessage): InboxAddress[] {
-    return replyAllRecipients(reply, target, this.aliases.map(alias => alias.roleEmail));
+    return replyAllRecipients(reply, target, this.aliases.flatMap(alias => aliasMailboxAddresses(alias)));
   }
 
   formatAddresses(addresses: InboxAddress[]): string {
@@ -1661,7 +1672,11 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   recipientForThread(thread: InboxThread): string | null {
     const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
-    return alias && !isInboxGeneralRoleType(alias.roleType) ? alias.roleEmail : null;
+    if (!alias || isInboxGeneralRoleType(alias.roleType)) {
+      return null;
+    } else {
+      return thread.deliveredTo?.email || alias.roleEmail;
+    }
   }
 
   roleLineForThread(thread: InboxThread): string | null {

@@ -8,6 +8,10 @@ import {
   inboxThreadHeaderTo,
   inboxThreadId,
   inboxThreadMatchingSlug,
+  aliasMailboxExtraCaption,
+  aliasMailboxHeading,
+  aliasMailboxLabel,
+  deliveredToFromMessage,
   inboxThreadRoleLine,
   inboxThreadSlug,
   newestInboxMessage,
@@ -81,6 +85,84 @@ describe("inboxThreadRoleLine", () => {
     const incoming = thread({lastDirection: InboxMessageDirection.INBOUND});
     expect(inboxThreadRoleLine(incoming, "chairman@canterburyramblers.org.uk"))
       .toEqual("to chairman@canterburyramblers.org.uk");
+  });
+
+  it("uses the role address the inbound mail was sent to when the role has more than one", () => {
+    const incoming = thread({
+      lastDirection: InboxMessageDirection.INBOUND,
+      deliveredTo: {name: null, email: "nick.barrett@nwkramblers.org.uk"}
+    });
+    expect(inboxThreadRoleLine(incoming, "system-administrator@nwkramblers.org.uk"))
+      .toEqual("to nick.barrett@nwkramblers.org.uk");
+  });
+
+});
+
+describe("aliasMailboxLabel", () => {
+
+  it("names a role mailbox by its primary address", () => {
+    expect(aliasMailboxLabel({roleType: "chairman", roleEmail: "chairman@ekwg.co.uk", additionalEmails: []}))
+      .toEqual("chairman@ekwg.co.uk");
+  });
+
+  it("notes extra addresses on the same role mailbox", () => {
+    expect(aliasMailboxLabel({
+      roleType: "system-administrator",
+      roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
+      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+    })).toEqual("ngx-project-lead@ngx-ramblers.org.uk + 1 more");
+  });
+
+  it("keeps the catch-all mailbox as Other inbox mail", () => {
+    expect(aliasMailboxHeading({roleType: "_general_conn-1", roleEmail: "catchall@ekwg.co.uk"}))
+      .toEqual("Other inbox mail");
+    expect(aliasMailboxLabel({roleType: "_general_conn-1", roleEmail: "catchall@ekwg.co.uk", additionalEmails: ["extra@ekwg.co.uk"]}))
+      .toEqual("Other inbox mail");
+  });
+
+  it("lists extra addresses for the viewing banner", () => {
+    expect(aliasMailboxExtraCaption({
+      roleType: "chairman",
+      roleEmail: "chairman@ekwg.co.uk",
+      additionalEmails: ["nick.barrett@ekwg.co.uk", "walks@ekwg.co.uk"]
+    })).toEqual("nick.barrett@ekwg.co.uk and walks@ekwg.co.uk");
+  });
+
+});
+
+describe("deliveredToFromMessage", () => {
+
+  it("picks the matching extra role address from the inbound To list", () => {
+    const message = {
+      to: [{name: null, email: "Nick.Barrett@ngx-ramblers.org.uk"}],
+      cc: []
+    } as InboxMessage;
+    expect(deliveredToFromMessage(message, {
+      roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
+      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+    })?.email).toEqual("Nick.Barrett@ngx-ramblers.org.uk");
+  });
+
+  it("picks a matching extra address from Cc when To is someone else", () => {
+    const message = {
+      to: [{name: null, email: "someone@example.org"}],
+      cc: [{name: null, email: "nick.barrett@ngx-ramblers.org.uk"}]
+    } as InboxMessage;
+    expect(deliveredToFromMessage(message, {
+      roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
+      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+    })?.email).toEqual("nick.barrett@ngx-ramblers.org.uk");
+  });
+
+  it("falls back to the primary role address when none of the headers match", () => {
+    const message = {
+      to: [{name: null, email: "someone@example.org"}],
+      cc: []
+    } as InboxMessage;
+    expect(deliveredToFromMessage(message, {
+      roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
+      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+    })).toEqual({name: null, email: "ngx-project-lead@ngx-ramblers.org.uk"});
   });
 
 });

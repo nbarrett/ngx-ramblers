@@ -833,11 +833,23 @@ export interface Sender {
   email: string;
 }
 
+export interface SenderListRow extends Sender {
+  mapped: number;
+  mappedRoleDescription: string | null;
+  domainMismatch: boolean;
+  highlighted: boolean;
+}
+
 export enum SenderSortField {
   NAME = "name",
   EMAIL = "email",
   MAPPED = "mapped",
   ACTIVE = "active"
+}
+
+export enum SenderListScope {
+  THIS_ROLE = "this-role",
+  ALL = "all"
 }
 
 export enum BlockedContactReasonCode {

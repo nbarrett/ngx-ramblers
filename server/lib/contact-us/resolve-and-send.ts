@@ -10,7 +10,10 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import {
   CommitteeConfig,
   CommitteeMember,
-  ForwardEmailTarget
+  ForwardEmailTarget,
+  committeeRoleMatchingEmail,
+  roleEmailAddresses,
+  roleNotificationRecipients
 } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import {
   EmailAddress,
@@ -42,11 +45,7 @@ const debugLog = debug(envConfig.logNamespace("contact-us:resolve-recipients"));
 debugLog.enabled = true;
 
 function findRoleByEmail(roles: CommitteeMember[], email: string): CommitteeMember | null {
-  const target = normaliseEmail(email);
-  if (!target) {
-    return null;
-  }
-  return roles.find(role => normaliseEmail(role.email) === target) || null;
+  return committeeRoleMatchingEmail(roles, email);
 }
 
 function findRoleByType(roles: CommitteeMember[], roleType: string): CommitteeMember | null {
@@ -280,11 +279,14 @@ async function storeContactUsInInbox(
       tenantSlug,
       roleType: role.type,
       roleEmail: role.email,
+      additionalEmails: roleEmailAddresses(role).filter(address => normaliseEmail(address) !== normaliseEmail(role.email)),
       mailboxConnectionId: connectionId,
       enabled: true,
       inboxMessageNotifications: role.inboxMessageNotifications === true,
       inboxNotificationEmail: role.inboxNotificationEmail?.trim() || null,
-      memberId: role.memberId ?? null
+      memberId: role.memberId ?? null,
+      recipients: roleNotificationRecipients(role),
+      recipientsFromRoleType: role.inboxRecipientsFromRoleType?.trim() || null
     };
     const visitor = {
       name: emailRequest.replyTo?.name || null,

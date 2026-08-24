@@ -1,4 +1,5 @@
 import { Identifiable } from "./api-response.model";
+import { InboxRoleRecipient } from "./committee.model";
 
 export enum InboxMessageDirection {
   INBOUND = "inbound",
@@ -63,6 +64,12 @@ export enum InboxNotifyMode {
   OVERRIDE = "override"
 }
 
+export enum InboxNotifySource {
+  NONE = "none",
+  OWN = "own",
+  ANOTHER_ROLE = "another-role"
+}
+
 export enum InboxThreadFolder {
   INBOX = "inbox",
   JUNK = "junk"
@@ -99,27 +106,63 @@ export interface InboxAliasConfig extends Identifiable {
   tenantSlug: string;
   roleType: string;
   roleEmail: string;
+  additionalEmails: string[];
   mailboxConnectionId: string | null;
   enabled: boolean;
   inboxMessageNotifications: boolean;
   inboxNotificationEmail: string | null;
   memberId: string | null;
+  recipients: InboxRoleRecipient[];
+  recipientsFromRoleType: string | null;
 }
 
 export interface InboxJunkAccess {
   canReadJunk: boolean;
 }
 
-export interface InboxAliasConfigView extends InboxAliasConfig {
+export interface InboxAliasRecipientView extends InboxRoleRecipient {
+  memberName: string | null;
+  memberEmail: string | null;
+}
+
+export interface InboxAliasConfigView extends Omit<InboxAliasConfig, "recipients"> {
   mailboxConnection: InboxMailboxConnectionView | null;
   assignedMemberName: string | null;
   assignedMemberEmail: string | null;
+  recipients: InboxAliasRecipientView[];
 }
 
 export interface InboxRoleNotificationSetting {
   roleType: string;
-  inboxMessageNotifications: boolean;
-  inboxNotificationEmail: string | null;
+  roleEmail?: string | null;
+  memberId: string | null;
+  email: string | null;
+  notify: boolean;
+  notificationEmail: string | null;
+  remove?: boolean;
+  recipientsFromRoleType?: string | null;
+}
+
+export function inboxNotifyModeFor(recipient: Pick<InboxRoleRecipient, "notify" | "email"> | null, memberOptionAvailable = true): InboxNotifyMode {
+  if (!recipient?.notify) {
+    return InboxNotifyMode.NONE;
+  } else if (recipient.email) {
+    return InboxNotifyMode.OVERRIDE;
+  } else if (!memberOptionAvailable) {
+    return InboxNotifyMode.NONE;
+  } else {
+    return InboxNotifyMode.MEMBER;
+  }
+}
+
+export function memberNotificationSetting(roleType: string, recipient: InboxRoleRecipient): InboxRoleNotificationSetting {
+  return {
+    roleType,
+    memberId: recipient.memberId,
+    email: null,
+    notify: recipient.notify,
+    notificationEmail: recipient.notify ? recipient.email?.trim() || null : null
+  };
 }
 
 export enum GoogleCloudSetupStatusValue {
@@ -266,6 +309,7 @@ export interface InboxThread extends Identifiable {
   readByMemberIds?: string[];
   conversationKey?: string | null;
   sentFrom?: InboxAddress | null;
+  deliveredTo?: InboxAddress | null;
 }
 
 export interface InboxPendingDelete {
@@ -380,6 +424,7 @@ export interface InboxReplyComposeResponse {
   references: string[];
   quotedHtml: string;
   senderRoleType: string;
+  senderRoleEmail?: string;
   threadId: string;
   aliasId: string;
   mailboxConnectionId: string;

@@ -30,6 +30,30 @@ export function emailDomain(email: string): string {
   return at >= 0 ? normalised.slice(at + 1) : "";
 }
 
+export function emailLocalPart(value: string): string {
+  const typed = (value ?? "").trim().toLowerCase();
+  const at = typed.indexOf("@");
+  if (at >= 0) {
+    return typed.slice(0, at).trim();
+  } else {
+    return typed;
+  }
+}
+
+export function validEmailLocalPart(value: string): boolean {
+  return /^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test((value ?? "").trim().toLowerCase());
+}
+
+export function addressOnDomain(value: string, domain: string): string | null {
+  const local = (value ?? "").trim().toLowerCase();
+  const host = (domain ?? "").trim().toLowerCase();
+  if (!validEmailLocalPart(local) || !host) {
+    return null;
+  } else {
+    return `${local}@${host}`;
+  }
+}
+
 export function toSlug(input: string): string {
   if (!input) {
     return "";
