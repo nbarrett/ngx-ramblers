@@ -1,8 +1,11 @@
 import { Identifiable } from "./api-response.model";
 import { EmailAttachment } from "./mail.model";
 
+export const DEFAULT_GUEST_INSTRUCTIONS = "You do not need an account. When your browser asks, allow the camera and microphone so that others can see and hear you.";
+
 export interface VideoMeetingsConfig {
   brandName?: string;
+  guestInstructions?: string;
 }
 
 export interface VideoMeetingRuntimeConfig {
@@ -12,6 +15,7 @@ export interface VideoMeetingRuntimeConfig {
   publicHost: boolean;
   roomPrefix: string;
   brandName: string;
+  guestInstructions: string;
   startWithAudioMuted: boolean;
   startWithVideoMuted: boolean;
   enableNotes: boolean;

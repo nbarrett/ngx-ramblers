@@ -34,7 +34,7 @@ import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
 import { HasStyles, LinkStyle, ListStyle } from "../../models/content-text.model";
 import { AccessLevel } from "../../models/member-resource.model";
 import { migrateAllContactAccessLevels } from "../../functions/contact-details-access-level";
-import { VideoMeetingsConfig } from "../../models/video-meeting.model";
+import { DEFAULT_GUEST_INSTRUCTIONS, VideoMeetingsConfig } from "../../models/video-meeting.model";
 
 @Injectable({
   providedIn: "root"
@@ -349,7 +349,8 @@ export class SystemConfigService {
 
   public videoMeetingsDefaults(): VideoMeetingsConfig {
     return {
-      brandName: "Ramblers Video Meetings"
+      brandName: "Ramblers Video Meetings",
+      guestInstructions: DEFAULT_GUEST_INSTRUCTIONS
     };
   }
 
