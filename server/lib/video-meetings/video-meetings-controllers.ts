@@ -4,6 +4,10 @@ import { issueMeetingToken } from "./jitsi-jwt";
 import { sendGuestInviteEmail } from "./send-guest-invite-email";
 import committeeFile from "../mongo/models/committee-file";
 import { systemConfig } from "../config/system-config";
+import { queryKey } from "../mongo/controllers/config";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { EmailAddress } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
@@ -33,6 +37,18 @@ function issueGuestToken(room: string, name: string): string {
     user: {id: `guest-${room}`, name: name || "Guest", moderator: false},
     expirySeconds: GUEST_TOKEN_EXPIRY_SECONDS
   });
+}
+
+async function senderForMember(member: MemberCookie): Promise<EmailAddress | null> {
+  const memberId = member?.memberId;
+  if (!memberId) {
+    return null;
+  } else {
+    const committeeConfigDoc = await queryKey(ConfigKey.COMMITTEE);
+    const roles: CommitteeMember[] = (committeeConfigDoc?.value as CommitteeConfig)?.roles || [];
+    const role = roles.find(candidate => candidate.memberId === memberId && !!candidate.email);
+    return role ? {name: role.fullName, email: role.email} : null;
+  }
 }
 
 async function buildGuestLink(room: string, token: string | null): Promise<string> {
@@ -101,9 +117,11 @@ export async function handleGuestInvite(req: Request, res: Response): Promise<vo
       const runtime = await resolveVideoMeetingRuntime();
       const token = runtime.jwtRequired ? issueGuestToken(room, name) : null;
       const link = await buildGuestLink(room, token);
-      const inviter = memberName(memberFromRequest(req));
+      const member = memberFromRequest(req);
+      const inviter = memberName(member);
       const html = guestInviteHtml(link, inviter, runtime.brandName, runtime.guestInstructions);
-      const sent = await sendGuestInviteEmail(email, name, `You are invited to a ${runtime.brandName} video meeting`, html);
+      const sender = await senderForMember(member);
+      const sent = await sendGuestInviteEmail(sender, email, name, `You are invited to a ${runtime.brandName} video meeting`, html);
       res.status(200).json({sent, link, room});
     }
   } catch (error) {

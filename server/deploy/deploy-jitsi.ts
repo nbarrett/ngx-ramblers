@@ -60,9 +60,10 @@ async function deployJitsi(): Promise<void> {
         JVB_AUTH_PASSWORD: internalComponentSecret(jitsi.jwtAppSecret, "jvb-auth")
       });
       runCommand(`flyctl config validate --config ${flyTomlPath} --app ${appName}`);
-      runCommand(`flyctl deploy --app ${appName} --config ${flyTomlPath} --strategy immediate --wait-timeout 600`);
+      runCommand(`flyctl deploy --app ${appName} --config ${flyTomlPath} --strategy immediate --ha=false --wait-timeout 600`);
       runCommand(`flyctl scale memory ${memory} --app ${appName}`);
-      debugLog(`Deployed self-hosted Jitsi ${appName} (public ${publicUrl}, media IP ${advertiseIp || "unset"})`);
+      runCommand(`flyctl scale count 1 --app ${appName} --yes`);
+      debugLog(`Deployed self-hosted Jitsi ${appName} (public ${publicUrl}, media IP ${advertiseIp || "unset"}) - pinned to a single machine`);
     }
   }
 }

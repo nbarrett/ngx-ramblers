@@ -24,7 +24,7 @@ describe("issueMeetingToken", () => {
     expect(payload.room).toEqual("committee-2026");
   });
 
-  it("carries the user identity and moderator flag as strings in the Jitsi context", () => {
+  it("carries the user identity and a boolean moderator flag in the Jitsi context", () => {
     const token = issueMeetingToken({
       appId: APP_ID, appSecret: APP_SECRET, room: "r",
       user: {id: "m1", name: "Nick Barrett", email: "nick@example.com", moderator: true}, expirySeconds: 3600
@@ -33,15 +33,15 @@ describe("issueMeetingToken", () => {
     expect(payload.context.user.id).toEqual("m1");
     expect(payload.context.user.name).toEqual("Nick Barrett");
     expect(payload.context.user.email).toEqual("nick@example.com");
-    expect(payload.context.user.moderator).toEqual("true");
+    expect(payload.context.user.moderator).toEqual(true);
   });
 
-  it("marks a non-moderator guest with moderator false", () => {
+  it("marks a non-moderator guest with boolean moderator false so token moderation denies controls", () => {
     const token = issueMeetingToken({
       appId: APP_ID, appSecret: APP_SECRET, room: "r",
       user: {id: "guest-r", name: "Guest", moderator: false}, expirySeconds: 600
     });
-    expect(decode(token).context.user.moderator).toEqual("false");
+    expect(decode(token).context.user.moderator).toEqual(false);
   });
 
   it("defaults the room to the wildcard when none is supplied", () => {
