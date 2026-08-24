@@ -5,6 +5,7 @@ import { handleGuestInvite } from "./video-meetings-controllers";
 import * as videoMeetingsConfig from "./video-meetings-config";
 import * as guestInviteEmail from "./send-guest-invite-email";
 import * as systemConfigModule from "../config/system-config";
+import * as configModule from "../mongo/controllers/config";
 import { VideoMeetingRuntimeConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 function runtime(overrides: Partial<VideoMeetingRuntimeConfig> = {}): VideoMeetingRuntimeConfig {
@@ -59,14 +60,19 @@ describe("video-meetings guest invite endpoint", () => {
     expect(sendStub.called).toEqual(false);
   });
 
-  it("emails the guest a tokenless join link and reports it as sent when a provider is configured", async () => {
+  function stubCommitteeRoles(roles: any[]): void {
+    sandbox.stub(configModule, "queryKey").resolves({value: {roles}} as any);
+  }
+
+  it("sends from the inviting member's committee role email and reports it as sent when a provider is configured", async () => {
     sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime").resolves(runtime());
     sandbox.stub(systemConfigModule, "systemConfig").resolves({group: {href: "https://ngx.example.org"}} as any);
+    stubCommitteeRoles([{type: "secretary", memberId: "m1", email: "secretary@ngx.example.org", fullName: "Nick Barrett"}]);
     const sendStub = sandbox.stub(guestInviteEmail, "sendGuestInviteEmail").resolves(true);
     const res = mockResponse();
 
     await handleGuestInvite(
-      {body: {room: "committee-2026-08", email: "guest@example.org", name: "Guest One"}, user: {firstName: "Nick", lastName: "Barrett"}} as any,
+      {body: {room: "committee-2026-08", email: "guest@example.org", name: "Guest One"}, user: {memberId: "m1", firstName: "Nick", lastName: "Barrett"}} as any,
       res);
 
     expect(res.statusCode).toEqual(200);
@@ -74,7 +80,8 @@ describe("video-meetings guest invite endpoint", () => {
     expect(res.body.room).toEqual("committee-2026-08");
     expect(res.body.link).toEqual("https://ngx.example.org/video-meetings/guest/committee-2026-08");
     expect(sendStub.calledOnce).toEqual(true);
-    const [toEmail, toName, subject, html] = sendStub.firstCall.args;
+    const [sender, toEmail, toName, subject, html] = sendStub.firstCall.args;
+    expect(sender).toEqual({name: "Nick Barrett", email: "secretary@ngx.example.org"});
     expect(toEmail).toEqual("guest@example.org");
     expect(toName).toEqual("Guest One");
     expect(subject).toEqual("You are invited to a Test Ramblers video meeting");
@@ -83,13 +90,29 @@ describe("video-meetings guest invite endpoint", () => {
     expect(html).toContain("Configured joining guidance for guests.");
   });
 
+  it("passes a null sender when the inviting member holds no committee role with an email", async () => {
+    sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime").resolves(runtime());
+    sandbox.stub(systemConfigModule, "systemConfig").resolves({group: {href: "https://ngx.example.org"}} as any);
+    stubCommitteeRoles([{type: "secretary", memberId: "someone-else", email: "secretary@ngx.example.org", fullName: "Someone Else"}]);
+    const sendStub = sandbox.stub(guestInviteEmail, "sendGuestInviteEmail").resolves(false);
+    const res = mockResponse();
+
+    await handleGuestInvite({body: {room: "committee-2026-08", email: "guest@example.org"}, user: {memberId: "m1"}} as any, res);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.sent).toEqual(false);
+    expect(res.body.link).toEqual("https://ngx.example.org/video-meetings/guest/committee-2026-08");
+    expect(sendStub.firstCall.args[0]).toEqual(null);
+  });
+
   it("still returns a copyable link with sent:false when no mail provider is configured", async () => {
     sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime").resolves(runtime());
     sandbox.stub(systemConfigModule, "systemConfig").resolves({group: {href: "https://ngx.example.org"}} as any);
+    stubCommitteeRoles([{type: "secretary", memberId: "m1", email: "secretary@ngx.example.org", fullName: "Nick Barrett"}]);
     sandbox.stub(guestInviteEmail, "sendGuestInviteEmail").resolves(false);
     const res = mockResponse();
 
-    await handleGuestInvite({body: {room: "committee-2026-08", email: "guest@example.org"}} as any, res);
+    await handleGuestInvite({body: {room: "committee-2026-08", email: "guest@example.org"}, user: {memberId: "m1"}} as any, res);
 
     expect(res.statusCode).toEqual(200);
     expect(res.body.sent).toEqual(false);
@@ -102,10 +125,11 @@ describe("video-meetings guest invite endpoint", () => {
     sandbox.stub(videoMeetingsConfig, "jitsiJwtCredentials")
       .returns({appId: "ngx-ramblers", appSecret: "test-secret-value"});
     sandbox.stub(systemConfigModule, "systemConfig").resolves({group: {href: "https://ngx.example.org"}} as any);
+    stubCommitteeRoles([{type: "secretary", memberId: "m1", email: "secretary@ngx.example.org", fullName: "Nick Barrett"}]);
     sandbox.stub(guestInviteEmail, "sendGuestInviteEmail").resolves(true);
     const res = mockResponse();
 
-    await handleGuestInvite({body: {room: "committee-2026-08", email: "guest@example.org"}} as any, res);
+    await handleGuestInvite({body: {room: "committee-2026-08", email: "guest@example.org"}, user: {memberId: "m1"}} as any, res);
 
     expect(res.statusCode).toEqual(200);
     expect(res.body.link).toContain("https://ngx.example.org/video-meetings/guest/committee-2026-08?t=");

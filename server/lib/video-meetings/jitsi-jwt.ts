@@ -14,7 +14,7 @@ export function issueMeetingToken(options: IssueMeetingTokenOptions): string {
         name: user.name,
         email: user.email || undefined,
         avatar: user.avatar || undefined,
-        moderator: user.moderator ? "true" : "false"
+        moderator: !!user.moderator
       },
       features: {
         livestreaming: "false",

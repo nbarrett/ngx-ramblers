@@ -380,7 +380,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
           this.inviteEmail = "";
           this.inviteName = "";
         } else {
-          this.inviteStatus = "Email is not set up for this site — copy the link below and send it yourself.";
+          this.inviteStatus = "We could not send that automatically — copy the link below and send it yourself.";
           this.inviteLink = response.link;
         }
       } catch (error) {

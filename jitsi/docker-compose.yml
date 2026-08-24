@@ -24,6 +24,7 @@ services:
     environment:
       - ENABLE_AUTH
       - ENABLE_GUESTS
+      - ENABLE_AUTO_OWNER
       - AUTH_TYPE
       - JWT_APP_ID
       - JWT_APP_SECRET
@@ -57,6 +58,7 @@ services:
       - AUTH_TYPE
       - ENABLE_AUTH
       - ENABLE_GUESTS
+      - ENABLE_AUTO_OWNER
       - JWT_APP_ID
       - JWT_APP_SECRET
       - JWT_ACCEPTED_ISSUERS

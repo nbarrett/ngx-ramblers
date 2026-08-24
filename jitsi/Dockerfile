@@ -20,6 +20,7 @@ ENV XMPP_SERVER=localhost \
     ENABLE_XMPP_WEBSOCKET=1 \
     ENABLE_AUTH=1 \
     ENABLE_GUESTS=0 \
+    ENABLE_AUTO_OWNER=0 \
     AUTH_TYPE=jwt \
     JWT_APP_ID=ngx-ramblers \
     JWT_ACCEPTED_ISSUERS=ngx-ramblers \

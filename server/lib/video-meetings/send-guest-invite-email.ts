@@ -3,16 +3,18 @@ import { brevoClient, configuredBrevo } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
 import { systemConfig } from "../config/system-config";
 import { MailProvider } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { EmailAddress } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 
-export async function sendGuestInviteEmail(toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
+export async function sendGuestInviteEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
   const system = await systemConfig();
   const brevo = await configuredBrevo();
-  const available = system?.mailDefaults?.mailProvider === MailProvider.BREVO && !!brevo?.apiKey;
+  const available = system?.mailDefaults?.mailProvider === MailProvider.BREVO && !!brevo?.apiKey && !!sender?.email;
   if (available) {
     const client = await brevoClient();
     const email: Brevo.SendTransacEmailRequest = {
       subject,
-      sender: {email: "backup@ngx-ramblers.org.uk", name: system?.group?.longName || "Ramblers"},
+      sender: {email: sender.email, name: sender.name || system?.group?.longName || "Ramblers"},
+      replyTo: {email: sender.email, name: sender.name || system?.group?.longName || "Ramblers"},
       to: [{email: toEmail, name: toName || toEmail}],
       htmlContent: html
     };
