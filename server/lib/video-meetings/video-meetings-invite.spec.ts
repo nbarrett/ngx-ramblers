@@ -15,6 +15,7 @@ function runtime(overrides: Partial<VideoMeetingRuntimeConfig> = {}): VideoMeeti
     publicHost: true,
     roomPrefix: "",
     brandName: "Test Ramblers",
+    guestInstructions: "Configured joining guidance for guests.",
     startWithAudioMuted: false,
     startWithVideoMuted: false,
     enableNotes: false,
@@ -79,6 +80,7 @@ describe("video-meetings guest invite endpoint", () => {
     expect(subject).toEqual("You are invited to a Test Ramblers video meeting");
     expect(html).toContain("Nick Barrett");
     expect(html).toContain("https://ngx.example.org/video-meetings/guest/committee-2026-08");
+    expect(html).toContain("Configured joining guidance for guests.");
   });
 
   it("still returns a copyable link with sent:false when no mail provider is configured", async () => {

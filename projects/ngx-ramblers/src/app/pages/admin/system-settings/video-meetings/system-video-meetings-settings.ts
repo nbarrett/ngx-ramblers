@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SystemConfig } from "../../../../models/system.model";
+import { DEFAULT_GUEST_INSTRUCTIONS } from "../../../../models/video-meeting.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 
@@ -31,6 +32,23 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
               </div>
             </div>
           </div>
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label for="video-meetings-guest-instructions">Guest joining instructions</label>
+                <textarea [(ngModel)]="systemConfigInternal.videoMeetings.guestInstructions"
+                          id="video-meetings-guest-instructions"
+                          class="form-control input-sm" rows="3"
+                          [placeholder]="defaultGuestInstructions"></textarea>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="form-group">
+                The joining guidance included in guest invite emails and meeting invitations. Leave blank to use
+                the standard wording shown in the box.
+              </div>
+            </div>
+          </div>
         </div>
       }
     </div>`
@@ -38,6 +56,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
 export class SystemVideoMeetingsSettings implements OnInit {
 
   protected systemConfigInternal: SystemConfig;
+  protected readonly defaultGuestInstructions = DEFAULT_GUEST_INSTRUCTIONS;
   private systemConfigService = inject(SystemConfigService);
   private logger = inject(LoggerFactory).createLogger("SystemVideoMeetingsSettings", NgxLoggerLevel.ERROR);
 

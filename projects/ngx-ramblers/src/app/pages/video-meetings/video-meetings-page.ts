@@ -53,8 +53,12 @@ import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../function
                 <input id="start-title" class="form-control input-sm" [(ngModel)]="meetingTitle"
                        placeholder="e.g. August committee meeting">
               </div>
-              <button type="button" class="btn btn-primary mb-3" (click)="startMeeting()">
-                <fa-icon [icon]="faVideo" class="me-2"/>Start a video call now
+              <button type="button" class="btn btn-primary mb-3" [disabled]="starting" (click)="startMeeting()">
+                @if (starting) {
+                  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Starting your meeting…
+                } @else {
+                  <fa-icon [icon]="faVideo" class="me-2"/>Start a video call now
+                }
               </button>
               <div class="form-group">
                 <label for="joinRoom">Paste a meeting link, or type a room name</label>
@@ -93,6 +97,7 @@ export class VideoMeetingsPageComponent implements OnInit {
   config: VideoMeetingRuntimeConfig;
   joinRoom = "";
   meetingTitle = "";
+  starting = false;
 
   protected readonly faVideo = faVideo;
   protected readonly faRightToBracket = faRightToBracket;
@@ -104,6 +109,10 @@ export class VideoMeetingsPageComponent implements OnInit {
     this.meetingTitle = this.defaultMeetingTitle();
     try {
       this.config = await this.videoMeetingsService.config();
+      if (this.config?.enabled && !this.config.publicHost) {
+        this.videoMeetingsService.loadExternalApi(this.config.host)
+          .catch(error => this.logger.info("could not warm up the meeting server", error));
+      }
     } catch (error) {
       this.logger.error("failed to load video meeting config", error);
     }
@@ -120,6 +129,7 @@ export class VideoMeetingsPageComponent implements OnInit {
   }
 
   async startMeeting(): Promise<void> {
+    this.starting = true;
     const title = this.meetingTitle.trim() || this.defaultMeetingTitle();
     const now = this.dateUtils.nowAsValue();
     const dateSlug = videoMeetingDateSlug(this.dateUtils.asString(now, null, UIDateFormat.DISPLAY_DATE_NO_DAY));

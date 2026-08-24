@@ -42,11 +42,11 @@ async function buildGuestLink(room: string, token: string | null): Promise<strin
   return `${base}/video-meetings/guest/${encodeURIComponent(room)}${tokenQuery}`;
 }
 
-function guestInviteHtml(link: string, inviterName: string, brandName: string): string {
+function guestInviteHtml(link: string, inviterName: string, brandName: string, guestInstructions: string): string {
   return `<p>${inviterName} has invited you to a ${brandName} video meeting.</p>`
     + `<p><a href="${link}">Join the meeting</a></p>`
     + `<p>Or paste this link into your browser:<br>${link}</p>`
-    + `<p>No account is needed — click the link, allow your camera and microphone, and you are in.</p>`;
+    + `<p>${guestInstructions}</p>`;
 }
 
 export async function getVideoMeetingConfig(_req: Request, res: Response): Promise<void> {
@@ -102,7 +102,7 @@ export async function handleGuestInvite(req: Request, res: Response): Promise<vo
       const token = runtime.jwtRequired ? issueGuestToken(room, name) : null;
       const link = await buildGuestLink(room, token);
       const inviter = memberName(memberFromRequest(req));
-      const html = guestInviteHtml(link, inviter, runtime.brandName);
+      const html = guestInviteHtml(link, inviter, runtime.brandName, runtime.guestInstructions);
       const sent = await sendGuestInviteEmail(email, name, `You are invited to a ${runtime.brandName} video meeting`, html);
       res.status(200).json({sent, link, room});
     }

@@ -40,6 +40,7 @@ import {
 import { CommitteeDisplayService } from "../committee/committee-display.service";
 import { Subscription } from "rxjs";
 import {
+  DEFAULT_GUEST_INSTRUCTIONS,
   UpcomingBookedMeeting,
   VideoMeetingCancellationPerson,
   VideoMeetingInviteHandoff,
@@ -286,6 +287,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   private mailListUpdaterService = inject(MailListUpdaterService);
   private stringUtils = inject(StringUtilsService);
   private subscriptions: Subscription[] = [];
+  private guestInstructions = DEFAULT_GUEST_INSTRUCTIONS;
 
   showInvite = false;
   confirmingSend = false;
@@ -351,6 +353,9 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   async ngOnInit(): Promise<void> {
+    this.videoMeetingsService.config()
+      .then(config => this.guestInstructions = config?.guestInstructions || DEFAULT_GUEST_INSTRUCTIONS)
+      .catch(() => this.guestInstructions = DEFAULT_GUEST_INSTRUCTIONS);
     const planDate = this.uiActions.queryParameter(StoredValue.PLAN_DATE);
     const meetingType = this.uiActions.queryParameter(StoredValue.MEETING_TYPE);
     const committeeFileId = this.uiActions.queryParameter(StoredValue.COMMITTEE_FILE_ID);
@@ -846,7 +851,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
       location ? `**Where:** ${location}` : null
     ].filter(Boolean).join("\n\n");
     const guidance = joinUrl
-      ? `Open the link above to join the meeting. You do not need an account. When your browser asks, allow the camera and microphone so that others can see and hear you.`
+      ? `Open the link above to join the meeting. ${this.guestInstructions}`
       : `We look forward to seeing you there.`;
     return `You are invited to a committee meeting.\n\n`
       + `**When:** ${this.selectedDateLabel} at ${timeLabel}\n\n`

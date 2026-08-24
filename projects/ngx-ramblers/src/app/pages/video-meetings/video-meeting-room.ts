@@ -65,7 +65,7 @@ const TEAMS_LIKE_TOOLBAR = [
         @if (connecting && !error) {
           <div class="meeting-connecting">
             <div class="meeting-connecting-spinner"></div>
-            <span>Connecting to your meeting…</span>
+            <span>{{ connectingMessage }}</span>
           </div>
         }
 
@@ -136,6 +136,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   inviteStatus = "";
   inviteLink = "";
   connecting = false;
+  connectingMessage = "Connecting to your meeting…";
   fullscreen = false;
   coverHostBranding = false;
   speechCapture: MeetingSpeechCapture = {transcript: "", chat: ""};
@@ -144,6 +145,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private api: any;
   private transcriptLines: string[] = [];
   private chatLines: string[] = [];
+  private connectingTimers: number[] = [];
 
   protected readonly faComments = faComments;
   protected readonly faRightFromBracket = faRightFromBracket;
@@ -165,11 +167,11 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private async start(): Promise<void> {
     try {
+      this.showConnecting();
       this.config = await this.videoMeetingsService.config();
       if (this.config.enabled) {
         this.notesEnabled = this.config.enableNotes && !this.config.publicHost;
         if (jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.HOST_PAGE) {
-          this.connecting = true;
           window.location.assign(jitsiHostPageUrl(this.config.host, this.room, await this.meetingSubject()));
         } else {
           const token = await this.resolveToken();
@@ -177,12 +179,31 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
           await this.mountMeeting(token);
         }
       } else {
+        this.hideConnecting();
         this.error = "Video meetings are switched off for this site.";
       }
     } catch (error) {
       this.logger.error("failed to start meeting", error);
+      this.hideConnecting();
       this.error = "We could not start the meeting. Please try again, or contact an administrator if it keeps happening.";
     }
+  }
+
+  private showConnecting(): void {
+    this.connecting = true;
+    this.connectingMessage = "Connecting to your meeting…";
+    this.connectingTimers.push(window.setTimeout(() => this.zone.run(() => {
+      if (this.connecting) {
+        this.connectingMessage = "Starting the meeting server — this can take up to a minute…";
+      }
+    }), 8000));
+    this.connectingTimers.push(window.setTimeout(() => this.zone.run(() => this.hideConnecting()), 90000));
+  }
+
+  private hideConnecting(): void {
+    this.connecting = false;
+    this.connectingTimers.forEach(timer => window.clearTimeout(timer));
+    this.connectingTimers = [];
   }
 
   private async meetingSubject(): Promise<string> {
@@ -260,10 +281,14 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         displayName: [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName || "Member"
       };
     }
-    this.connecting = !options.configOverwrite.prejoinPageEnabled;
     this.api = new JitsiMeetExternalAPI(domain, options);
+    const iframe = this.api.getIFrame?.() as HTMLIFrameElement;
+    iframe?.addEventListener("load", () => this.zone.run(() => {
+      this.hideConnecting();
+      this.hideHostBranding();
+    }));
     this.api.addEventListener("videoConferenceJoined", () => this.zone.run(() => {
-      this.connecting = false;
+      this.hideConnecting();
       this.hideHostBranding();
       this.startCaptions();
     }));
@@ -278,12 +303,6 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.recordChat(lineFromJitsiChat(payload));
     }));
     this.hideHostBranding();
-    if (this.connecting) {
-      setTimeout(() => this.zone.run(() => {
-        this.connecting = false;
-        this.hideHostBranding();
-      }), 2000);
-    }
   }
 
   private startCaptions(): void {
@@ -386,6 +405,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngOnDestroy(): void {
+    this.hideConnecting();
     this.disposeApi();
   }
 }

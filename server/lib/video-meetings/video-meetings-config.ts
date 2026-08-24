@@ -3,7 +3,7 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { systemConfig } from "../config/system-config";
 import { configuredEnvironments } from "../environments/environments-config";
 import { JitsiConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import { DEFAULT_GUEST_INSTRUCTIONS, VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 const DEFAULT_PUBLIC_HOST = "https://meet.jit.si";
 
@@ -17,7 +17,7 @@ export function isPublicJitsiHost(host: string): boolean {
 }
 
 export async function resolveVideoMeetingRuntime(): Promise<VideoMeetingRuntimeConfig> {
-  const global: JitsiConfig = (await configuredEnvironments())?.jitsi;
+  const global: JitsiConfig = await globalJitsiConfig();
   const perSite: VideoMeetingsConfig = (await systemConfig())?.videoMeetings;
   const envHost = envConfig.value(Environment.JITSI_HOST_URL);
   const host = (envHost || global?.hostUrl || DEFAULT_PUBLIC_HOST).replace(/\/$/, "");
@@ -25,17 +25,26 @@ export async function resolveVideoMeetingRuntime(): Promise<VideoMeetingRuntimeC
   const publicHost = isPublicJitsiHost(host);
   const jwtRequired = !!(appId && appSecret) && !publicHost;
   return {
-    enabled: global?.enabled ?? false,
+    enabled: global?.enabled ?? !!envHost,
     host,
     jwtRequired,
     publicHost,
     roomPrefix: global?.roomPrefix || "ngx",
     brandName: perSite?.brandName || "Ramblers Video Meetings",
+    guestInstructions: perSite?.guestInstructions || DEFAULT_GUEST_INSTRUCTIONS,
     startWithAudioMuted: global?.startWithAudioMuted ?? false,
     startWithVideoMuted: global?.startWithVideoMuted ?? false,
     enableNotes: global?.enableNotes ?? true,
     enableLobby: global?.enableLobby ?? false
   };
+}
+
+async function globalJitsiConfig(): Promise<JitsiConfig> {
+  try {
+    return (await configuredEnvironments())?.jitsi;
+  } catch {
+    return undefined;
+  }
 }
 
 export function jitsiJwtCredentials(): { appId: string; appSecret: string } {
