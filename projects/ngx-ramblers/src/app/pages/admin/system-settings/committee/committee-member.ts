@@ -3,7 +3,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
-  additionalEmailsFromMailboxList,
   BuiltInRole,
   CommitteeMember,
   committeeRoleTypeFromDescription,
@@ -14,6 +13,7 @@ import {
   preferredCommitteeRoleType,
   RoleType,
   roleEmailAddresses,
+  roleMailboxExtras,
   uniqueCommitteeRoleType
 } from "../../../../models/committee.model";
 import { Member } from "../../../../models/member.model";
@@ -755,9 +755,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       .filter((address): address is string => Boolean(address))
       .reduce<string[]>((unique, address) => unique.some(existing => normaliseEmail(existing) === normaliseEmail(address)) ? unique : unique.concat(address), []);
     this.generatedMailboxAddresses = generated;
+    this.persistAdditionalEmails();
     this.mailboxAddresses = roleEmailAddresses(this.committeeMember, this.baseDomain);
     this.ensureDefaultSender();
-    this.persistAdditionalEmails();
   }
 
   deriveRoleEmail() {
@@ -875,7 +875,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   private persistAdditionalEmails() {
-    this.committeeMember.additionalEmails = additionalEmailsFromMailboxList(this.mailboxAddresses, this.committeeMember.email);
+    this.committeeMember.additionalEmails = roleMailboxExtras(this.committeeMember, this.baseDomain);
   }
 
   private ensureDefaultSender() {

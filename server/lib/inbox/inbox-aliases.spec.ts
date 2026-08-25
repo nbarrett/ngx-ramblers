@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRoleTypeFromDescription, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRoleTypeFromDescription, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleMailboxExtras, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
   cloudflareIngressAliasesFromMessage,
@@ -312,6 +312,44 @@ describe("inbox-aliases", () => {
         "system-administrator@ngx-ramblers.org.uk",
         "ngx-project-lead@ngx-ramblers.org.uk"
       ]);
+    });
+
+    it("also omits generated and superseded addresses when they are excluded", () => {
+      expect(additionalEmailsFromMailboxList([
+        "jack.yan@nwkramblers.org.uk",
+        "deputy-chairman-web-master@nwkramblers.org.uk",
+        "deputy-chairman-web-master-walk-register-and-statistic-ramblers@nwkramblers.org.uk"
+      ], "jack.yan@nwkramblers.org.uk", [
+        "deputy-chairman-web-master@nwkramblers.org.uk",
+        "deputy-chairman-web-master-walk-register-and-statistic-ramblers@nwkramblers.org.uk"
+      ])).toEqual([]);
+    });
+
+  });
+
+  describe("roleMailboxExtras", () => {
+
+    it("drops a leftover hyphen-trimmed role address after the title is shortened at a comma", () => {
+      expect(roleMailboxExtras(role({
+        type: "deputy-chairman-web-master",
+        description: "Deputy Chairman Web Master, Walk Register and Statistic Ramblers Group Walks Manager, Assistant Membership Secretary",
+        fullName: "Jack Yan",
+        email: "jack.yan@nwkramblers.org.uk",
+        additionalEmails: [
+          "deputy-chairman-web-master@nwkramblers.org.uk",
+          "deputy-chairman-web-master-walk-register-and-statistic-ramblers@nwkramblers.org.uk"
+        ]
+      }), "nwkramblers.org.uk")).toEqual([]);
+    });
+
+    it("keeps a typed extra that is not a leftover generated role address", () => {
+      expect(roleMailboxExtras(role({
+        type: "secretary",
+        description: "Secretary",
+        fullName: "Malcolm Todd",
+        email: "secretary@ekwg.co.uk",
+        additionalEmails: ["walks@ekwg.co.uk"]
+      }), "ekwg.co.uk")).toEqual(["walks@ekwg.co.uk"]);
     });
 
   });

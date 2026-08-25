@@ -19,7 +19,6 @@ import {
 import { NgxLoggerLevel } from "ngx-logger";
 import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model";
 import {
-  additionalEmailsFromMailboxList,
   BuiltInRole,
   CommitteeConfig,
   CommitteeFileMeetingRole,
@@ -32,6 +31,7 @@ import {
   RoleType,
   preferredCommitteeRoleType,
   roleEmailAddresses,
+  roleMailboxExtras,
   uniqueCommitteeRoleType,
   uniqueCommitteeRoleTypes
 } from "../../../../models/committee.model";
@@ -1078,7 +1078,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   roleExtraMailboxAddresses(role: CommitteeMember): string[] {
-    return additionalEmailsFromMailboxList(this.roleMailboxAddresses(role), role.email);
+    return roleMailboxExtras(role, this.baseDomain);
   }
 
   roleExtraMailboxCount(role: CommitteeMember): number {
@@ -1782,7 +1782,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   saveRoleEdit() {
-    const mailboxList = this.roleEditor?.commitMailboxAddresses() ?? null;
+    this.roleEditor?.commitMailboxAddresses();
     if (this.editingRoleDraft) {
       const takenTypes = (this.committeeConfig.roles ?? [])
         .filter(role => role !== this.editingRoleOriginal)
@@ -1792,10 +1792,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         takenTypes,
         this.editingRoleDraft.email
       );
-      this.editingRoleDraft.additionalEmails = additionalEmailsFromMailboxList(
-        mailboxList ?? roleEmailAddresses(this.editingRoleDraft, this.baseDomain),
-        this.editingRoleDraft.email
-      );
+      this.editingRoleDraft.additionalEmails = roleMailboxExtras(this.editingRoleDraft, this.baseDomain);
       if (this.editingRoleOriginal) {
         const index = this.committeeConfig.roles.indexOf(this.editingRoleOriginal);
         if (index >= 0) {
@@ -1924,7 +1921,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.logger.info("saving config", this.committeeConfig);
     this.committeeConfig.roles = uniqueCommitteeRoleTypes(this.committeeConfig.roles).map(role => ({
       ...role,
-      additionalEmails: additionalEmailsFromMailboxList(roleEmailAddresses(role, this.baseDomain), role.email)
+      additionalEmails: roleMailboxExtras(role, this.baseDomain)
     }));
     this.committeeConfig.fileTypes = [...this.committeeConfig.fileTypes].sort(sortBy("description"));
     this.notify.setBusy();
