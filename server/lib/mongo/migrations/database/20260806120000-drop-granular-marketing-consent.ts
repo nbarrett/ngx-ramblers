@@ -1,5 +1,6 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("drop-granular-marketing-consent");
 
@@ -24,7 +25,7 @@ export async function up(db: Db) {
   debugLog("deleted %d granular marketing consent sync notifications", notificationResult.deletedCount);
 
   const configResult = await db.collection("config")
-    .updateOne({key: "salesforce"}, {$unset: {"value.enableGranularConsent": ""}});
+    .updateOne({key: ConfigKey.SALESFORCE}, {$unset: {"value.enableGranularConsent": ""}});
   debugLog("cleared enableGranularConsent from %d salesforce config documents", configResult.modifiedCount);
 }
 

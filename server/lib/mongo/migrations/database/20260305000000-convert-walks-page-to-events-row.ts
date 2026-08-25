@@ -4,9 +4,10 @@ import { dateTimeNow } from "../../../shared/dates";
 import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 import { CONFIG_COLLECTION, PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("convert-walks-page-to-events-row");
-const SYSTEM_CONFIG_KEY = "system";
+const SYSTEM_CONFIG_KEY = ConfigKey.SYSTEM;
 const WALKS_ROOT_PATH = "walks";
 const WALKS_PAGE_HEADER_PATH = "walks#page-header";
 const WALKS_ACTION_BUTTONS_PATH = "walks#action-buttons";

@@ -3,10 +3,11 @@ import createMigrationLogger from "../migrations-logger";
 import { toPairs, keys } from "es-toolkit/compat";
 
 import { CONFIG_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("migrate-environment-and-api-keys");
-const SYSTEM_CONFIG_KEY = "system";
-const ENVIRONMENTS_CONFIG_KEY = "environments";
+const SYSTEM_CONFIG_KEY = ConfigKey.SYSTEM;
+const ENVIRONMENTS_CONFIG_KEY = ConfigKey.ENVIRONMENTS;
 
 export async function up(db: Db, client: MongoClient) {
   const collection = db.collection(CONFIG_COLLECTION);

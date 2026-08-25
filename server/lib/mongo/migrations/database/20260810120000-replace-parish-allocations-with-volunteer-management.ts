@@ -27,8 +27,8 @@ const membersPath = "admin/members#action-buttons";
 const volunteerManagementMenuItem = MEMBERS_MENU_ITEMS.find(item => item.href === AdminMembersPath.VOLUNTEERS);
 const myVolunteerInformationMenuItem = MEMBERS_MENU_ITEMS.find(item => item.href === AdminMembersPath.MY_VOLUNTEER_INFORMATION);
 
-const BREVO_CONFIG_KEY = "brevo";
-const COMMITTEE_CONFIG_KEY = "committee";
+const BREVO_CONFIG_KEY = ConfigKey.BREVO;
+const COMMITTEE_CONFIG_KEY = ConfigKey.COMMITTEE;
 const CONFIG_COLLECTION = "config";
 const NOTIFICATION_CONFIG_COLLECTION = "notificationConfigs";
 const APP_SHORT_NAME_PREFIX_PARAMETER = "systemMergeFields.APP_SHORTNAME";

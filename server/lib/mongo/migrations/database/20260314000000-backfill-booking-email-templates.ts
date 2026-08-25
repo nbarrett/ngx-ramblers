@@ -2,9 +2,10 @@ import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
 import { CONFIG_COLLECTION, CONTENT_TEXT_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("backfill-booking-email-templates");
-const BOOKING_CONFIG_KEY = "booking";
+const BOOKING_CONFIG_KEY = ConfigKey.BOOKING;
 
 const DEFAULT_TEMPLATES = {
   confirmation: `Hi {{ATTENDEE_NAME}},
