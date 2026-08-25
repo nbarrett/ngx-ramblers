@@ -13,22 +13,40 @@ jobs:
   check-estate-health:
     runs-on: ubuntu-latest
     steps:
+      - name: Skip while a deployment is running
+        id: deployments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deploy_workflows='["Deploy and Build Docker Image and Deploy to Fly.io","Deploy to Selected Environments","Build and Deploy Ramblers Upload Worker (manual)","Deploy Self-Hosted Jitsi (manual)"]'
+          active=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=50" \
+            --jq "[.workflow_runs[] | select((.status == \"in_progress\" or .status == \"queued\") and (.name as \$n | ${deploy_workflows} | index(\$n)))] | length")
+          echo "active=${active}" >> "$GITHUB_OUTPUT"
+          if [ "${active}" != "0" ]; then
+            echo "::notice::Skipping estate health check: ${active} deployment workflow run(s) in progress - machines are expected to restart during a deployment"
+          fi
+
       - name: Checkout repository
+        if: steps.deployments.outputs.active == '0'
         uses: actions/checkout@v6
 
       - name: Setup Node.js
+        if: steps.deployments.outputs.active == '0'
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install root dependencies
+        if: steps.deployments.outputs.active == '0'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
       - name: Install server dependencies
+        if: steps.deployments.outputs.active == '0'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
       - name: Check estate health
+        if: steps.deployments.outputs.active == '0'
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
         run: ./server/node_modules/.bin/tsx server/deploy/check-estate-health.ts
