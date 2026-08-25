@@ -12,6 +12,7 @@ import {
   memberNotificationSetting
 } from "../../../models/inbox.model";
 import { InboxNotifyModePicker } from "../../../shared/components/inbox-notify-mode-picker";
+import { emailDomain } from "../../../functions/strings";
 
 interface InboxNotifyBaseline {
   notify: boolean;
@@ -40,6 +41,7 @@ interface InboxNotifyBaseline {
                   <app-inbox-notify-mode-picker
                     [recipient]="myRecipient(alias)"
                     [idPrefix]="'profile-notify-' + alias.roleType"
+                    [groupDomain]="emailDomain(alias.roleEmail)"
                     memberLabel="me"/>
                   @if (otherRecipientLabels(alias).length > 0) {
                     <div class="small text-muted mt-1">
@@ -69,6 +71,7 @@ export class ProfileInboxNotificationsComponent implements OnInit {
   private memberLoginService = inject(MemberLoginService);
   protected readonly faInbox = faInbox;
   protected readonly faTriangleExclamation = faTriangleExclamation;
+  protected readonly emailDomain = emailDomain;
 
   public aliases: InboxAliasConfigView[] = [];
   protected saveError: string | null = null;

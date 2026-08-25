@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { InboxAliasRecipientView, InboxNotifyMode, inboxNotifyModeFor } from "../../models/inbox.model";
+import { emailIsOnDomain } from "../../functions/strings";
 
 @Component({
   selector: "app-inbox-notify-mode-picker",
@@ -13,7 +14,7 @@ import { InboxAliasRecipientView, InboxNotifyMode, inboxNotifyModeFor } from "..
                (change)="setMode(InboxNotifyMode.NONE)">
         <label class="form-check-label" [for]="idPrefix + '-none'">No notification</label>
       </div>
-      @if (showMemberOption) {
+      @if (memberOptionVisible()) {
         <div class="form-check">
           <input class="form-check-input" type="radio" [name]="idPrefix"
                  [id]="idPrefix + '-member'"
@@ -50,6 +51,7 @@ export class InboxNotifyModePicker {
   @Input() idPrefix = "inbox-notify";
   @Input() memberLabel = "the member";
   @Input() showMemberOption = true;
+  @Input() groupDomain: string | null = null;
   @Output() recipientChange = new EventEmitter<InboxNotifyMode>();
 
   private selected: InboxNotifyMode | null = null;
@@ -63,8 +65,23 @@ export class InboxNotifyModePicker {
     return this.recipientInternal;
   }
 
+  memberOptionVisible(): boolean {
+    if (!this.showMemberOption || !this.recipientInternal?.memberEmail) {
+      return false;
+    } else if (!this.groupDomain) {
+      return true;
+    } else {
+      return !emailIsOnDomain(this.recipientInternal.memberEmail, this.groupDomain);
+    }
+  }
+
   mode(): InboxNotifyMode {
-    return this.selected ?? inboxNotifyModeFor(this.recipientInternal, this.showMemberOption);
+    const resolved = this.selected ?? inboxNotifyModeFor(this.recipientInternal, this.memberOptionVisible());
+    if (resolved === InboxNotifyMode.MEMBER && !this.memberOptionVisible()) {
+      return InboxNotifyMode.OVERRIDE;
+    } else {
+      return resolved;
+    }
   }
 
   setMode(mode: InboxNotifyMode): void {

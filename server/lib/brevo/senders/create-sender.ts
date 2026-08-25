@@ -4,6 +4,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { EMAIL_LOCAL_PART_MAX_LENGTH, emailLocalPart, validEmailLocalPart } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { Sender } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { Brevo, BrevoClient } from "@getbrevo/brevo";
 
@@ -19,10 +20,18 @@ export async function registerBrevoSender(apiKey: string, name: string, email: s
 
 export async function createSender(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const brevoConfig = await configuredBrevo();
     const request: Sender = req.body;
-    const senderResponse = await registerBrevoSender(brevoConfig.apiKey, request.name, request.email);
-    successfulResponse({req, res, response: senderResponse, messageType, debugLog});
+    const local = emailLocalPart(request?.email || "");
+    if (!validEmailLocalPart(local)) {
+      const message = local.length > EMAIL_LOCAL_PART_MAX_LENGTH
+        ? `Sender email is not valid: the part before @ can be at most ${EMAIL_LOCAL_PART_MAX_LENGTH} characters (this one is ${local.length})`
+        : "Sender email is not valid";
+      res.status(400).json({request: {messageType}, error: {message}});
+    } else {
+      const brevoConfig = await configuredBrevo();
+      const senderResponse = await registerBrevoSender(brevoConfig.apiKey, request.name, request.email);
+      successfulResponse({req, res, response: senderResponse, messageType, debugLog});
+    }
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

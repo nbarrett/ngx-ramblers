@@ -6,10 +6,12 @@ import {
   additionalEmailsFromMailboxList,
   BuiltInRole,
   CommitteeMember,
+  committeeRoleTypeFromDescription,
   derivedFullNameAddress,
   derivedRoleTypeAddress,
   EmailDerivation,
   ForwardEmailTarget,
+  preferredCommitteeRoleType,
   RoleType,
   roleEmailAddresses,
   uniqueCommitteeRoleType
@@ -31,7 +33,17 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
-import { addressOnDomain, normaliseEmail, toDotCase, validEmail } from "../../../../functions/strings";
+import {
+  addressOnDomain,
+  EMAIL_LOCAL_PART_MAX_LENGTH,
+  emailLocalPart,
+  emailLocalPartLengthMessage,
+  normaliseEmail,
+  toDotCase,
+  toKebabCase,
+  validEmail,
+  validEmailLocalPart
+} from "../../../../functions/strings";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
@@ -269,6 +281,9 @@ export enum CommitteeMemberTab {
                          [disabled]="isContactUsSystemRole()"
                          id="committee-member-description-{{index}}"
                     type="text" class="form-control">
+                  @if (roleTypeAddressShortenedFromDescription()) {
+                    <p class="text-muted small mt-2 mb-0">The role email uses the first part of this description (before a comma or similar) so it stays a unique, valid address.</p>
+                  }
                 </div>
               </div>
             </div>
@@ -322,10 +337,17 @@ export enum CommitteeMemberTab {
           @case (CommitteeMemberTab.OUTBOUND_EMAIL) {
             <div class="row">
               <div class="col-sm-12">
+                @if (omittedGeneratedAddressWarning(); as warning) {
+                  <alert type="warning">
+                    <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                    <strong class="ms-2">Address too long to register</strong>
+                    <span class="ms-2">{{ warning }}</span>
+                  </alert>
+                }
                 @if (hasDistinctGeneratedAddresses()) {
-                  <p>Two addresses are created automatically: <strong>{{ roleTypeAddress() }}</strong> from the role description, and <strong>{{ fullNameAddress() }}</strong> from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with both.</p>
+                  <p>Two addresses are created automatically: <strong>{{ roleTypeAddress() }}</strong> from {{ roleTypeAddressSource() }}, and <strong>{{ fullNameAddress() }}</strong> from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with both.</p>
                 } @else if (roleTypeAddress(); as roleAddress) {
-                  <p><strong>{{ roleAddress }}</strong> is created automatically from the role description. Incoming and outgoing mail for this role works with this address.</p>
+                  <p><strong>{{ roleAddress }}</strong> is created automatically from {{ roleTypeAddressSource() }}. Incoming and outgoing mail for this role works with this address.</p>
                 } @else if (fullNameAddress(); as nameAddress) {
                   <p><strong>{{ nameAddress }}</strong> is created automatically from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with this address.</p>
                 }
@@ -550,6 +572,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     if (this.committeeMember && !this.committeeMember.emailDerivation) {
       this.committeeMember.emailDerivation = EmailDerivation.ROLE;
     }
+    this.syncRoleType();
     this.syncEmailDerivationFromEmail();
     this.syncMailboxAddresses();
     this.refreshTabs();
@@ -688,11 +711,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   changeDescription() {
-    const takenTypes = (this.roles || [])
-      .filter((role, roleIndex) => roleIndex !== this.index)
-      .map(role => role.type);
+    const takenTypes = this.takenRoleTypes();
     this.committeeMember.type = uniqueCommitteeRoleType(
-      this.stringUtils.kebabCase(this.committeeMember.description),
+      committeeRoleTypeFromDescription(this.committeeMember.description),
       takenTypes,
       this.committeeMember.email
     );
@@ -744,7 +765,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     const nameAddress = this.fullNameAddress();
     const current = normaliseEmail(this.committeeMember.email ?? "");
     const generated = [roleAddress, nameAddress].map(address => normaliseEmail(address ?? "")).filter(Boolean);
-    if (!current || generated.includes(current)) {
+    const currentInvalid = Boolean(current) && !validEmailLocalPart(emailLocalPart(current));
+    if (!current || currentInvalid || generated.includes(current)) {
       const primary = this.committeeMember.emailDerivation === EmailDerivation.FULL_NAME
         ? (nameAddress || roleAddress)
         : (roleAddress || nameAddress);
@@ -753,6 +775,46 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       }
     }
     this.syncMailboxAddresses();
+  }
+
+  omittedGeneratedAddressWarning(): string | null {
+    const nameLocal = this.committeeMember.vacant ? "" : toDotCase(this.committeeMember.fullName || "");
+    if (nameLocal && !validEmailLocalPart(nameLocal) && nameLocal.length > EMAIL_LOCAL_PART_MAX_LENGTH) {
+      return `This member's name is too long to use as an email address. The part before @ can be at most ${EMAIL_LOCAL_PART_MAX_LENGTH} characters; this one is ${nameLocal.length}. Add a shorter extra address.`;
+    } else {
+      return null;
+    }
+  }
+
+  roleTypeAddressShortenedFromDescription(): boolean {
+    const description = this.committeeMember.description || "";
+    const full = toKebabCase(description);
+    const shortened = committeeRoleTypeFromDescription(description);
+    return Boolean(full && shortened && full !== shortened);
+  }
+
+  roleTypeAddressSource(): string {
+    if (this.roleTypeAddressShortenedFromDescription()) {
+      return "the first part of the role description";
+    } else {
+      return "the role description";
+    }
+  }
+
+  private takenRoleTypes(): string[] {
+    return (this.roles || [])
+      .filter((role, roleIndex) => roleIndex !== this.index)
+      .map(role => role.type);
+  }
+
+  private syncRoleType() {
+    if (this.committeeMember) {
+      this.committeeMember.type = uniqueCommitteeRoleType(
+        preferredCommitteeRoleType(this.committeeMember),
+        this.takenRoleTypes(),
+        this.committeeMember.email
+      );
+    }
   }
 
   setDefaultSender(address: string) {
@@ -776,8 +838,15 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   mailboxAddressError(): string {
-    if ((this.newMailboxAddress || "").includes("@")) {
+    const typed = (this.newMailboxAddress || "").trim();
+    const lengthMessage = emailLocalPartLengthMessage(typed);
+    const address = this.typedMailboxAddress();
+    if (typed.includes("@")) {
       return "Enter only the local part, not the domain.";
+    } else if (lengthMessage) {
+      return lengthMessage;
+    } else if (address && this.mailboxAddresses.some(existing => normaliseEmail(existing) === normaliseEmail(address))) {
+      return "That address is already in the list.";
     } else {
       return "Enter a valid local part that is not already in the list.";
     }
@@ -811,12 +880,13 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
 
   private ensureDefaultSender() {
     const current = normaliseEmail(this.committeeMember.email ?? "");
-    const match = this.mailboxAddresses.find(address => normaliseEmail(address) === current);
+    const currentValid = Boolean(current) && validEmailLocalPart(emailLocalPart(current));
+    const match = currentValid ? this.mailboxAddresses.find(address => normaliseEmail(address) === current) : null;
     if (match) {
       if (match !== this.committeeMember.email) {
         this.committeeMember.email = match;
       }
-    } else if (current) {
+    } else if (currentValid && current) {
       this.mailboxAddresses = this.mailboxAddresses.concat(this.committeeMember.email);
     } else if (this.mailboxAddresses.length > 0) {
       this.setDefaultSender(this.mailboxAddresses[0]);

@@ -1,4 +1,4 @@
-import { addressOnDomain, booleanOf, convertTitleToSlug, emailLocalPart, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
+import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, firstLinkHref, firstLinkText, fitEmailLocalPart, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
 
 describe("strings", () => {
 
@@ -16,6 +16,41 @@ describe("strings", () => {
       expect(validEmailLocalPart(".nick")).toBe(false);
       expect(validEmailLocalPart("nick@ngx-ramblers.org.uk")).toBe(false);
     });
+
+    it("rejects a local part longer than 64 characters", () => {
+      expect(validEmailLocalPart("a".repeat(64))).toBe(true);
+      expect(validEmailLocalPart("a".repeat(65))).toBe(false);
+      expect(validEmailLocalPart("kent-area-representative-deputy-web-master-ramblers-group-walks-manager")).toBe(false);
+    });
+  });
+
+  describe("emailLocalPartLengthMessage", () => {
+    it("explains when the local part is longer than 64 characters", () => {
+      expect(emailLocalPartLengthMessage("kent-area-representative-deputy-web-master-ramblers-group-walks-manager"))
+        .toEqual("The part before @ can be at most 64 characters (this one is 71).");
+      expect(emailLocalPartLengthMessage("walks.secretary")).toBeNull();
+    });
+  });
+
+  describe("fitEmailLocalPart", () => {
+    it("leaves a short local part unchanged", () => {
+      expect(fitEmailLocalPart("kent-area-representative")).toEqual("kent-area-representative");
+    });
+
+    it("trims a long kebab at the last hyphen that still fits in 64 characters", () => {
+      expect(fitEmailLocalPart("kent-area-representative-deputy-web-master-ramblers-group-walks-manager"))
+        .toEqual("kent-area-representative-deputy-web-master-ramblers-group-walks");
+    });
+  });
+
+  describe("emailIsOnDomain", () => {
+    it("is true when the address uses the group domain", () => {
+      expect(emailIsOnDomain("nick.barrett@ngx-ramblers.org.uk", "ngx-ramblers.org.uk")).toBe(true);
+    });
+
+    it("is false for a personal address", () => {
+      expect(emailIsOnDomain("nick.barrett36@me.com", "ngx-ramblers.org.uk")).toBe(false);
+    });
   });
 
   describe("addressOnDomain", () => {
@@ -27,6 +62,10 @@ describe("strings", () => {
       expect(addressOnDomain("nick@gmail.com", "ngx-ramblers.org.uk")).toBeNull();
       expect(addressOnDomain("nick barrett", "ngx-ramblers.org.uk")).toBeNull();
       expect(addressOnDomain("nick", "")).toBeNull();
+    });
+
+    it("returns null when the local part is longer than 64 characters", () => {
+      expect(addressOnDomain("kent-area-representative-deputy-web-master-ramblers-group-walks-manager", "nwkramblers.org.uk")).toBeNull();
     });
   });
 
