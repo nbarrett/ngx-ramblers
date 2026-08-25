@@ -1,5 +1,5 @@
 import { map } from "es-toolkit/compat";
-import { emailDomain, normaliseEmail, toDotCase, toKebabCase } from "../functions/strings";
+import { addressOnDomain, emailDomain, emailLocalPart, fitEmailLocalPart, normaliseEmail, toDotCase, toKebabCase, validEmailLocalPart } from "../functions/strings";
 import { DateRangeUnit } from "./search.model";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
@@ -211,30 +211,54 @@ export function roleAddressDomain(role: CommitteeMember, domain?: string | null)
   return (domain || emailDomain(role.email) || "").toLowerCase();
 }
 
-export function derivedRoleTypeAddress(role: CommitteeMember, domain?: string | null): string | null {
-  const resolvedDomain = roleAddressDomain(role, domain);
-  const localPart = (role.type || "").trim().toLowerCase();
-  if (!resolvedDomain || !localPart) {
-    return null;
+const ROLE_DESCRIPTION_CLAUSE_SEPARATORS = [",", ";", ":", " & ", " / "];
+
+export function firstRoleDescriptionClause(description: string): string {
+  const text = (description || "").trim();
+  const cut = ROLE_DESCRIPTION_CLAUSE_SEPARATORS.reduce((earliest, separator) => {
+    const index = text.indexOf(separator);
+    if (index >= 0 && (earliest < 0 || index < earliest)) {
+      return index;
+    } else {
+      return earliest;
+    }
+  }, -1);
+  if (cut >= 0) {
+    return text.slice(0, cut).trim();
   } else {
-    return `${localPart}@${resolvedDomain}`;
+    return text;
   }
 }
 
-export function derivedFullNameAddress(role: CommitteeMember, domain?: string | null): string | null {
-  const resolvedDomain = roleAddressDomain(role, domain);
-  const localPart = role.vacant ? "" : toDotCase(role.fullName || "");
-  if (!resolvedDomain || !localPart) {
-    return null;
+export function committeeRoleTypeFromDescription(description: string): string {
+  return fitEmailLocalPart(toKebabCase(firstRoleDescriptionClause(description)));
+}
+
+export function preferredCommitteeRoleType(role: CommitteeMember): string {
+  const existing = (role.type || "").trim();
+  const fromDescription = committeeRoleTypeFromDescription(role.description || "");
+  if (validEmailLocalPart(existing)) {
+    return existing;
+  } else if (fromDescription) {
+    return fromDescription;
   } else {
-    return `${localPart}@${resolvedDomain}`;
+    return fitEmailLocalPart(existing);
   }
+}
+
+export function derivedRoleTypeAddress(role: CommitteeMember, domain?: string | null): string | null {
+  return addressOnDomain(preferredCommitteeRoleType(role), roleAddressDomain(role, domain));
+}
+
+export function derivedFullNameAddress(role: CommitteeMember, domain?: string | null): string | null {
+  const localPart = role.vacant ? "" : toDotCase(role.fullName || "");
+  return addressOnDomain(localPart, roleAddressDomain(role, domain));
 }
 
 export function roleEmailAddresses(role: CommitteeMember, domain?: string | null): string[] {
   const addresses = [role.email, derivedRoleTypeAddress(role, domain), derivedFullNameAddress(role, domain), ...(role.additionalEmails ?? [])]
     .map(address => (address ?? "").trim())
-    .filter(address => address.length > 0);
+    .filter(address => address.length > 0 && validEmailLocalPart(emailLocalPart(address)));
   return addresses.reduce<string[]>((unique, address) => unique.some(existing => existing.toLowerCase() === address.toLowerCase()) ? unique : unique.concat(address), []);
 }
 
@@ -304,7 +328,7 @@ export function uniqueCommitteeRoleType(preferred: string, takenTypes: string[],
 
 export function uniqueCommitteeRoleTypes(roles: CommitteeMember[]): CommitteeMember[] {
   return (roles ?? []).reduce<CommitteeMember[]>((assigned, role) => {
-    const preferred = (role.type || toKebabCase(role.description || "")).trim();
+    const preferred = preferredCommitteeRoleType(role);
     const taken = assigned.map(existing => existing.type);
     return assigned.concat({...role, type: uniqueCommitteeRoleType(preferred, taken, role.email)});
   }, []);

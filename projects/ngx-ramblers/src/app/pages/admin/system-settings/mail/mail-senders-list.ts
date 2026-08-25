@@ -18,7 +18,7 @@ import { MailMessagingService } from "../../../../services/mail/mail-messaging.s
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember, committeeRoleMatchingEmail, roleEmailAddresses } from "../../../../models/committee.model";
-import { normaliseEmail } from "../../../../functions/strings";
+import { emailLocalPart, emailLocalPartLengthMessage, normaliseEmail, validEmailLocalPart } from "../../../../functions/strings";
 import { Sender, SenderListRow, SenderListScope, SenderSortField, SendersResponse } from "../../../../models/mail.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -112,8 +112,8 @@ import { SectionToggleTab } from "../../../../models/section-toggle.model";
               <label for="sender-email">Email</label>
               <input [(ngModel)]="newSenderEmail" type="email" class="form-control input-sm" id="sender-email"
                 [placeholder]="emailPlaceholder()">
-              @if (domainMismatchMessage()) {
-                <small class="text-danger">{{ domainMismatchMessage() }}</small>
+              @if (senderEmailError()) {
+                <small class="text-danger">{{ senderEmailError() }}</small>
               }
             </div>
           </div>
@@ -437,20 +437,25 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
     return !this.newSenderName.trim() || !this.validEmail();
   }
 
-  domainMismatchMessage(): string {
+  senderEmailError(): string {
     const email = this.newSenderEmail?.trim();
-    if (!email || !email.includes("@") || !this.baseDomain) {
+    if (!email || !email.includes("@")) {
       return null;
-    } else if (!email.endsWith(`@${this.baseDomain}`)) {
-      return `Email must end with @${this.baseDomain}`;
     } else {
-      return null;
+      const lengthMessage = emailLocalPartLengthMessage(email);
+      if (lengthMessage) {
+        return lengthMessage;
+      } else if (this.baseDomain && !email.endsWith(`@${this.baseDomain}`)) {
+        return `Email must end with @${this.baseDomain}`;
+      } else {
+        return null;
+      }
     }
   }
 
   private validEmail(): boolean {
     const email = this.newSenderEmail.trim();
-    if (!email || !email.includes("@")) {
+    if (!email || !email.includes("@") || !validEmailLocalPart(emailLocalPart(email))) {
       return false;
     } else if (this.baseDomain) {
       return email.endsWith(`@${this.baseDomain}`);

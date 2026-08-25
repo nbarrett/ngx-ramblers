@@ -8,6 +8,7 @@ import { NonSensitiveCloudflareConfig } from "../../../models/cloudflare-email-r
 import { MailService } from "../../../services/mail/mail.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { CommitteeMember, roleEmailAddresses } from "../../../models/committee.model";
+import { emailLocalPart, validEmailLocalPart } from "../../../functions/strings";
 import { ALERT_ERROR, ALERT_SUCCESS } from "../../../models/alert-target.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { CloudflareEmailRoutingService } from "../../../services/cloudflare/cloudflare-email-routing.service";
@@ -220,7 +221,7 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
 
   missingSenderAddresses(): string[] {
     return this.sendersResponse
-      ? this.roleAddresses().filter(address => !this.senderMatchedByEmail(address))
+      ? this.roleAddresses().filter(address => !this.senderMatchedByEmail(address) && validEmailLocalPart(emailLocalPart(address)))
       : [];
   }
 

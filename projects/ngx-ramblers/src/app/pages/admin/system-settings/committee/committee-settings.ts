@@ -30,6 +30,7 @@ import {
   ForwardEmailTarget,
   Notification,
   RoleType,
+  preferredCommitteeRoleType,
   roleEmailAddresses,
   uniqueCommitteeRoleType,
   uniqueCommitteeRoleTypes
@@ -1787,7 +1788,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         .filter(role => role !== this.editingRoleOriginal)
         .map(role => role.type);
       this.editingRoleDraft.type = uniqueCommitteeRoleType(
-        this.editingRoleDraft.type || toKebabCase(this.editingRoleDraft.description),
+        preferredCommitteeRoleType(this.editingRoleDraft),
         takenTypes,
         this.editingRoleDraft.email
       );

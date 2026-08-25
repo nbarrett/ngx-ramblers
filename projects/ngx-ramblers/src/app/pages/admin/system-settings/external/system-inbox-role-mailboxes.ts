@@ -15,7 +15,7 @@ import {
 } from "../../../../models/inbox.model";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { RecipientMultiSelect } from "../committee/recipient-multi-select";
-import { normaliseEmail } from "../../../../functions/strings";
+import { emailDomain, normaliseEmail } from "../../../../functions/strings";
 
 @Component({
   selector: "app-system-inbox-role-mailboxes",
@@ -79,6 +79,7 @@ import { normaliseEmail } from "../../../../functions/strings";
                     [inputId]="'notify-' + key"
                     [recipients]="notifyEmailsFor(alias)"
                     [excludedEmails]="routingAddressList"
+                    [groupDomain]="mailboxDomain()"
                     placeholder="Add people to notify"
                     (recipientsChange)="notifyRecipientsChanged(alias, $event)"/>
                 }
@@ -188,6 +189,11 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
     }, new Map<string, string[]>());
     this.selectedSource.clear();
     this.saveError = null;
+  }
+
+  mailboxDomain(): string {
+    const withEmail = this.aliases.find(alias => alias.roleEmail);
+    return emailDomain(withEmail?.roleEmail) || "";
   }
 
   rowKey(alias: InboxAliasConfigView): string {

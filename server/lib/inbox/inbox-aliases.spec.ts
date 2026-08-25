@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRoleTypeFromDescription, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
   cloudflareIngressAliasesFromMessage,
@@ -266,6 +266,39 @@ describe("inbox-aliases", () => {
       ]);
     });
 
+    it("uses the first clause of a long role description as the generated address", () => {
+      const type = "kent-area-representative-deputy-web-master-ramblers-group-walks-manager";
+      expect(type.length).toEqual(71);
+      expect(roleEmailAddresses(role({
+        type,
+        description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
+        fullName: "Bob Tolson",
+        email: "bob.tolson@nwkramblers.org.uk"
+      }))).toEqual([
+        "bob.tolson@nwkramblers.org.uk",
+        "kent-area-representative@nwkramblers.org.uk"
+      ]);
+    });
+
+  });
+
+  describe("committeeRoleTypeFromDescription", () => {
+
+    it("takes the text before the first comma", () => {
+      expect(committeeRoleTypeFromDescription(
+        "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager"
+      )).toEqual("kent-area-representative");
+    });
+
+    it("takes the text before an ampersand when there is no comma", () => {
+      expect(committeeRoleTypeFromDescription("Deputy Web Master & Ramblers Group Walks Manager"))
+        .toEqual("deputy-web-master");
+    });
+
+    it("kebabs a short description unchanged", () => {
+      expect(committeeRoleTypeFromDescription("Walks Secretary")).toEqual("walks-secretary");
+    });
+
   });
 
   describe("additionalEmailsFromMailboxList", () => {
@@ -398,6 +431,37 @@ describe("inbox-aliases", () => {
       expect(uniqued.map(item => item.type)).toEqual([
         "system-administrator",
         "system-administrator-system-administrator"
+      ]);
+    });
+
+    it("rewrites a long stored type from the first clause of the description", () => {
+      const uniqued = uniqueCommitteeRoleTypes([
+        role({
+          type: "kent-area-representative-deputy-web-master-ramblers-group-walks-manager",
+          description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
+          email: "bob.tolson@nwkramblers.org.uk"
+        })
+      ]);
+      expect(uniqued[0].type).toEqual("kent-area-representative");
+    });
+
+    it("keeps later roles unique when they share the same first clause", () => {
+      const longType = "kent-area-representative-deputy-web-master-ramblers-group-walks-manager";
+      const uniqued = uniqueCommitteeRoleTypes([
+        role({
+          type: longType,
+          description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
+          email: "bob.tolson@nwkramblers.org.uk"
+        }),
+        role({
+          type: longType,
+          description: "Kent Area Representative, Social Secretary",
+          email: "jane.doe@nwkramblers.org.uk"
+        })
+      ]);
+      expect(uniqued.map(item => item.type)).toEqual([
+        "kent-area-representative",
+        "kent-area-representative-jane-doe"
       ]);
     });
 

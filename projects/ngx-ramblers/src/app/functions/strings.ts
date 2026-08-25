@@ -30,6 +30,11 @@ export function emailDomain(email: string): string {
   return at >= 0 ? normalised.slice(at + 1) : "";
 }
 
+export function emailIsOnDomain(email: string, domain: string): boolean {
+  const host = (domain || "").trim().toLowerCase();
+  return Boolean(host) && emailDomain(email) === host;
+}
+
 export function emailLocalPart(value: string): string {
   const typed = (value ?? "").trim().toLowerCase();
   const at = typed.indexOf("@");
@@ -40,8 +45,35 @@ export function emailLocalPart(value: string): string {
   }
 }
 
+export const EMAIL_LOCAL_PART_MAX_LENGTH = 64;
+
 export function validEmailLocalPart(value: string): boolean {
-  return /^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test((value ?? "").trim().toLowerCase());
+  const local = (value ?? "").trim().toLowerCase();
+  return local.length <= EMAIL_LOCAL_PART_MAX_LENGTH && /^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test(local);
+}
+
+export function emailLocalPartLengthMessage(value: string): string | null {
+  const local = emailLocalPart(value);
+  if (local.length > EMAIL_LOCAL_PART_MAX_LENGTH) {
+    return `The part before @ can be at most ${EMAIL_LOCAL_PART_MAX_LENGTH} characters (this one is ${local.length}).`;
+  } else {
+    return null;
+  }
+}
+
+export function fitEmailLocalPart(value: string): string {
+  const local = (value || "").trim().toLowerCase();
+  if (local.length <= EMAIL_LOCAL_PART_MAX_LENGTH) {
+    return local;
+  } else {
+    const cut = local.slice(0, EMAIL_LOCAL_PART_MAX_LENGTH);
+    const lastHyphen = cut.lastIndexOf("-");
+    if (lastHyphen > 0) {
+      return cut.slice(0, lastHyphen);
+    } else {
+      return cut;
+    }
+  }
 }
 
 export function addressOnDomain(value: string, domain: string): string | null {
