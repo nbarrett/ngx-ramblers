@@ -637,6 +637,15 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     if (this.isContactUsSystemRole() && !this.committeeMember.contactUsTarget) {
       this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
     }
+    if (!this.committeeMember.contactUsTarget && this.committeeMember.forwardEmailTarget) {
+      this.committeeMember.contactUsTarget = this.committeeMember.forwardEmailTarget;
+      if (this.committeeMember.contactUsTarget === ForwardEmailTarget.CUSTOM && !this.committeeMember.contactUsCustom) {
+        this.committeeMember.contactUsCustom = this.committeeMember.forwardEmailCustom;
+      }
+      if (this.committeeMember.contactUsTarget === ForwardEmailTarget.MULTIPLE && !this.committeeMember.contactUsRecipients?.length) {
+        this.committeeMember.contactUsRecipients = [...(this.committeeMember.forwardEmailRecipients || [])];
+      }
+    }
     this.refreshTabs();
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
