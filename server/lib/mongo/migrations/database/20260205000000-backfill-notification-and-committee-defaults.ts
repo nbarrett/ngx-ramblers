@@ -4,6 +4,7 @@ import { NOTIFICATION_CONFIG_DEFAULTS } from "../../../../../projects/ngx-ramble
 import { RoleType } from "../../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 import { CONFIG_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("backfill-notification-and-committee-defaults");
 
@@ -48,7 +49,7 @@ async function backfillNotificationDefaults(db: Db) {
 
 async function ensureEnquiriesRole(db: Db) {
   const configCollection = db.collection(CONFIG_COLLECTION);
-  const committeeConfig = await configCollection.findOne({ key: "committee" });
+  const committeeConfig = await configCollection.findOne({ key: ConfigKey.COMMITTEE });
 
   if (!committeeConfig) {
     debugLog("No committee config found, skipping enquiries role backfill");
@@ -75,7 +76,7 @@ async function ensureEnquiriesRole(db: Db) {
   };
 
   await configCollection.updateOne(
-    { key: "committee" },
+    { key: ConfigKey.COMMITTEE },
     { $push: { "value.roles": enquiriesRole } as any }
   );
 

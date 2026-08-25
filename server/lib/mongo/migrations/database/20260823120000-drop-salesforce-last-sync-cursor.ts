@@ -1,11 +1,12 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("drop-salesforce-last-sync-cursor");
 
 export async function up(db: Db) {
   const configResult = await db.collection("config")
-    .updateOne({key: "salesforce"}, {$unset: {"value.lastSyncCursor": ""}});
+    .updateOne({key: ConfigKey.SALESFORCE}, {$unset: {"value.lastSyncCursor": ""}});
   debugLog("cleared lastSyncCursor from %d salesforce config documents", configResult.modifiedCount);
 }
 

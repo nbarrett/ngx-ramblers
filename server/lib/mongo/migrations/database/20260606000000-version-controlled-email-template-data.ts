@@ -9,11 +9,12 @@ import {
   TemplateOverrideType
 } from "../../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { editableBodyMarkdown } from "../../../brevo/templates/editable-body";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("version-controlled-email-template-data");
 
 const EXTENDED_GROUP_EVENT_COLLECTION = "extendedGroupEvents";
-const BOOKING_CONFIG_KEY = "booking";
+const BOOKING_CONFIG_KEY = ConfigKey.BOOKING;
 const BOOKING_NOTIFICATION_SUBJECT = "Booking Notification";
 const DEFAULT_TEMPLATE_NAME = "fully-automated-text-body";
 

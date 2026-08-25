@@ -4,11 +4,12 @@ import createMigrationLogger from "../migrations-logger";
 import { ensureActionButton, removeActionButtonByHref } from "../shared/page-content-actions";
 
 import { CONFIG_COLLECTION, CONTENT_TEXT_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("default-booking-off-in-walks-config");
-const BOOKING_CONFIG_KEY = "booking";
-const WALKS_CONFIG_KEY = "walks";
-const BREVO_CONFIG_KEY = "brevo";
+const BOOKING_CONFIG_KEY = ConfigKey.BOOKING;
+const WALKS_CONFIG_KEY = ConfigKey.WALKS;
+const BREVO_CONFIG_KEY = ConfigKey.BREVO;
 const BOOKING_NOTIFICATION_SUBJECT = "Booking Notification";
 
 const DEFAULT_BOOKING = {
@@ -141,7 +142,7 @@ export async function up(db: Db) {
       debugLog("No Newsletter config found — using first available config as reference");
     }
     const reference = newsletter || await notificationConfigsCollection.findOne({});
-    const committeeConfig = await configCollection.findOne({key: "committee"});
+    const committeeConfig = await configCollection.findOne({key: ConfigKey.COMMITTEE});
     const allRoles: string[] = (committeeConfig?.value?.roles || []).map((r: any) => r.type).filter(Boolean);
     const walksRoles = allRoles.filter((role: string) => role.toLowerCase().includes("walk"));
     const signOffRoles = walksRoles.length > 0 ? walksRoles : (reference?.signOffRoles || ["membership"]);

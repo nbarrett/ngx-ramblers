@@ -1,11 +1,12 @@
 import { Db, MongoClient, ObjectId } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { CONFIG_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("centralise-video-meetings-into-committee-files");
 debugLog.enabled = true;
 
-const COMMITTEE_CONFIG_KEY = "committee";
+const COMMITTEE_CONFIG_KEY = ConfigKey.COMMITTEE;
 
 function meetingFrom(videoMeeting: any) {
   return {

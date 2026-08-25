@@ -2,14 +2,16 @@ import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { CONFIG_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
 import { brevoClient, configuredBrevo } from "../../../brevo/brevo-config";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { BuiltInRole } from "../../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 const debugLog = createMigrationLogger("rename-enquiries-to-contact-us");
-const COMMITTEE_CONFIG_KEY = "committee";
+const COMMITTEE_CONFIG_KEY = ConfigKey.COMMITTEE;
 const OLD_TYPE = "enquiries";
 const NEW_TYPE = "contact-us";
 const OLD_LABEL = "Enquiries";
 const NEW_LABEL = "Contact Us";
-const CONTACT_US_BUILT_IN_ROLE = "CONTACT_US";
+const CONTACT_US_BUILT_IN_ROLE = BuiltInRole.CONTACT_US;
 
 function nameAndDescriptionFrom(description: string, fullName: string): string {
   const desc = (description || "").trim();

@@ -4,13 +4,14 @@ import { createOrUpdateKey, queryKey } from "../../controllers/config";
 import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { DEFAULT_MEMBER_SYNC_POLICY } from "../../../../../projects/ngx-ramblers/src/app/models/member-sync-policy.model";
 import { MemberAuditFieldChange } from "../../../../../projects/ngx-ramblers/src/app/models/member.model";
+import { RoleType } from "../../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { ensureActionButton } from "../shared/page-content-actions";
 import { keys } from "es-toolkit/compat";
 
 const debugLog = createMigrationLogger("seed-member-sync-policy");
 
-const BREVO_CONFIG_KEY = "brevo";
-const COMMITTEE_CONFIG_KEY = "committee";
+const BREVO_CONFIG_KEY = ConfigKey.BREVO;
+const COMMITTEE_CONFIG_KEY = ConfigKey.COMMITTEE;
 const NOTIFICATION_CONFIG_COLLECTION = "notificationConfigs";
 const CONFIG_COLLECTION = "config";
 const MEMBER_UPDATE_AUDIT_COLLECTION = "memberUpdateAudit";
@@ -52,7 +53,7 @@ function resolveMembershipRole(committeeRoles: any[]): string | null {
   if (fallback?.type) {
     return fallback.type;
   }
-  const firstReal = roles.find(role => !role.vacant && role.roleType !== "SYSTEM_ROLE");
+  const firstReal = roles.find(role => !role.vacant && role.roleType !== RoleType.SYSTEM_ROLE);
   return firstReal?.type || null;
 }
 

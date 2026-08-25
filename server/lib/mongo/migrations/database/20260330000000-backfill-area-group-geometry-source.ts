@@ -1,9 +1,10 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { CONFIG_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("backfill-area-group-geometry-source");
-const SYSTEM_CONFIG_KEY = "system";
+const SYSTEM_CONFIG_KEY = ConfigKey.SYSTEM;
 const DEFAULT_GEOMETRY_SOURCE = "ons-districts";
 
 export async function up(db: Db) {

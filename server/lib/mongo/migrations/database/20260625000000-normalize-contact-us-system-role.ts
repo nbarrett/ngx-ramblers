@@ -1,12 +1,14 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { CONFIG_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { BuiltInRole, RoleType } from "../../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 const debugLog = createMigrationLogger("normalize-contact-us-system-role");
-const COMMITTEE_CONFIG_KEY = "committee";
+const COMMITTEE_CONFIG_KEY = ConfigKey.COMMITTEE;
 const CONTACT_US_TYPE = "contact-us";
-const CONTACT_US_BUILT_IN_ROLE = "CONTACT_US";
-const SYSTEM_ROLE = "SYSTEM_ROLE";
+const CONTACT_US_BUILT_IN_ROLE = BuiltInRole.CONTACT_US;
+const SYSTEM_ROLE = RoleType.SYSTEM_ROLE;
 const CONTACT_US_LABEL = "Contact Us";
 
 const NORMALISED_FIELDS = ["type", "builtInRoleMapping", "roleType", "description", "fullName", "nameAndDescription", "vacant"];

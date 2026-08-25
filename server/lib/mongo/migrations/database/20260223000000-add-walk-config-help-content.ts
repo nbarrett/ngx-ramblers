@@ -2,9 +2,10 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
 import { CONFIG_COLLECTION, CONTENT_TEXT_COLLECTION } from "../shared/collection-names";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = createMigrationLogger("add-walk-config-help-content");
-const WALKS_CONFIG_KEY = "walks";
+const WALKS_CONFIG_KEY = ConfigKey.WALKS;
 const WALKS_COLLECTION = "extendedGroupEvents";
 const CATEGORY = "walks-admin";
 const OLD_NAME = "meetup-settings-help";
