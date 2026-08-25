@@ -29,6 +29,13 @@ describe("additionalEmailsFromMailboxList", () => {
       "system-administrator@ngx-ramblers.org.uk",
       "ngx-project-lead@ngx-ramblers.org.uk"
     ]);
+    expect(additionalEmailsFromMailboxList([
+      "nick.barrett@ngx-ramblers.org.uk",
+      "system-administrator@ngx-ramblers.org.uk",
+      "ngx-project-lead@ngx-ramblers.org.uk"
+    ], "nick.barrett@ngx-ramblers.org.uk", ["system-administrator@ngx-ramblers.org.uk"])).toEqual([
+      "ngx-project-lead@ngx-ramblers.org.uk"
+    ]);
   });
 
 });

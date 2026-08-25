@@ -271,12 +271,43 @@ export function committeeRoleMatchingEmail(roles: CommitteeMember[], email: stri
   return (roles ?? []).find(role => roleMatchesEmail(role, email, domain)) ?? null;
 }
 
-export function additionalEmailsFromMailboxList(addresses: string[], defaultEmail: string | null): string[] {
-  const defaultNormalised = normaliseEmail(defaultEmail ?? "");
+export function additionalEmailsFromMailboxList(addresses: string[], defaultEmail: string | null, excludedEmails: string[] = []): string[] {
+  const excluded = [defaultEmail, ...(excludedEmails ?? [])]
+    .map(address => normaliseEmail(address ?? ""))
+    .filter(Boolean);
   return addresses.filter(address => {
     const normalised = normaliseEmail(address);
-    return Boolean(normalised) && normalised !== defaultNormalised;
+    return Boolean(normalised) && !excluded.includes(normalised);
   });
+}
+
+export function generatedRoleMailboxAddresses(role: CommitteeMember, domain?: string | null): string[] {
+  return [derivedRoleTypeAddress(role, domain), derivedFullNameAddress(role, domain)]
+    .filter((address): address is string => Boolean(address))
+    .reduce<string[]>((unique, address) => unique.some(existing => existing.toLowerCase() === address.toLowerCase()) ? unique : unique.concat(address), []);
+}
+
+export function isObsoleteGeneratedRoleLocalPart(local: string, role: CommitteeMember): boolean {
+  const wanted = (local || "").trim().toLowerCase();
+  const current = preferredCommitteeRoleType(role);
+  if (!wanted || wanted === current) {
+    return false;
+  } else {
+    const descriptionKebab = toKebabCase(role.description || "");
+    const first = committeeRoleTypeFromDescription(role.description || "");
+    const fullFit = fitEmailLocalPart(descriptionKebab);
+    if (wanted === fullFit && fullFit !== current) {
+      return true;
+    } else {
+      return Boolean(first && wanted.startsWith(`${first}-`) && (descriptionKebab === wanted || descriptionKebab.startsWith(`${wanted}-`)));
+    }
+  }
+}
+
+export function roleMailboxExtras(role: CommitteeMember, domain?: string | null): string[] {
+  const generated = generatedRoleMailboxAddresses(role, domain);
+  const obsolete = (role.additionalEmails ?? []).filter(address => isObsoleteGeneratedRoleLocalPart(emailLocalPart(address), role));
+  return additionalEmailsFromMailboxList(roleEmailAddresses(role, domain), role.email, generated.concat(obsolete));
 }
 
 export function roleNotificationRecipients(role: CommitteeMember): InboxRoleRecipient[] {
