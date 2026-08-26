@@ -8,5 +8,6 @@ export interface CmsImagePickerImage {
 export interface CmsImagePickerPage {
   path: string;
   label: string;
+  title: string;
   images: CmsImagePickerImage[];
 }
