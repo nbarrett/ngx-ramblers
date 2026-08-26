@@ -6,7 +6,7 @@ import { AiConnectionStatus, CoverImageCandidate } from "../../../projects/ngx-r
 import { signRamblersUploadBody } from "../ramblers/integration-worker-crypto";
 
 const debugLog = debug(envConfig.logNamespace("ai:worker-client"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export function integrationWorkerConfigured(): boolean {
   return !!(envConfig.value(Environment.INTEGRATION_WORKER_URL) && envConfig.value(Environment.INTEGRATION_WORKER_SHARED_SECRET));
@@ -18,12 +18,18 @@ async function callWorker<T>(operationPath: string, payload: object): Promise<T>
   const body = JSON.stringify(payload);
   const signature = signRamblersUploadBody(body, sharedSecret);
   const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/ai/${operationPath}`;
+  if (operationPath === "meeting-minutes") {
+    debugLog("callWorker:", {operationPath, bodyChars: body.length});
+  }
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {"content-type": "application/json", "x-ramblers-upload-signature": signature},
     body
   });
   const text = await response.text();
+  if (operationPath === "meeting-minutes") {
+    debugLog("callWorker result:", {operationPath, status: response.status, responseChars: text.length});
+  }
   if (!response.ok) {
     debugLog(operationPath, "failed", response.status, text.slice(0, 200));
     throw new Error(`Integration worker ai/${operationPath} failed with status ${response.status}: ${text.slice(0, 300)}`);
@@ -42,6 +48,11 @@ export async function meetingMinutesViaIntegrationWorker(
   chat: string,
   existingNotes: string
 ): Promise<string> {
+  debugLog("meetingMinutesViaIntegrationWorker:", {
+    transcriptChars: (transcript || "").length,
+    chatChars: (chat || "").length,
+    existingNotesChars: (existingNotes || "").length
+  });
   const result = await callWorker<{ output: string }>("meeting-minutes", {
     config,
     transcript,
@@ -49,6 +60,7 @@ export async function meetingMinutesViaIntegrationWorker(
     existingNotes,
     maxTokens: 2048
   });
+  debugLog("meetingMinutesViaIntegrationWorker: outputChars:", (result?.output || "").length);
   return result.output;
 }
 

@@ -74,12 +74,17 @@ router.post("/meeting-minutes", async (req: Request, res: Response) => {
       maxTokens?: number;
     };
     try {
+      const transcriptChars = (body?.transcript || "").length;
+      const chatChars = (body?.chat || "").length;
+      const existingNotesChars = (body?.existingNotes || "").length;
+      debugLog("meeting-minutes request:", {transcriptChars, chatChars, existingNotesChars, maxTokens: body?.maxTokens || 2048});
       const provider = aiProviderFor(body?.config);
       const output = await provider.generate({
         systemPrompt: meetingMinutesSystemPrompt(),
         input: meetingMinutesInput(body?.transcript || "", body?.chat || "", body?.existingNotes || ""),
         maxTokens: body?.maxTokens || 2048
       });
+      debugLog("meeting-minutes output:", {outputChars: (output || "").length});
       res.json({output});
     } catch (error) {
       debugLog("meeting-minutes error:", error);

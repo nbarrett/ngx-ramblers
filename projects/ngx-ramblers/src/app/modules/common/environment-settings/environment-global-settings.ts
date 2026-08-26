@@ -351,7 +351,7 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
           <div class="form-check">
             <input class="form-check-input" type="checkbox" [(ngModel)]="config.jitsi.enableLobby"
                    name="jitsiEnableLobby" id="jitsiEnableLobby">
-            <label class="form-check-label" for="jitsiEnableLobby">Show the pre-join lobby screen</label>
+            <label class="form-check-label" for="jitsiEnableLobby">Guests wait in a lobby until a host admits them</label>
           </div>
           <div class="form-check">
             <input class="form-check-input" type="checkbox" [(ngModel)]="config.jitsi.startWithAudioMuted"

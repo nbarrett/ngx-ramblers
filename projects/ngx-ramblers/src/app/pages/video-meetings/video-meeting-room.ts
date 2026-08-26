@@ -2,26 +2,62 @@ import { AfterViewInit, Component, ElementRef, inject, NgZone, OnDestroy, OnInit
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCompress, faComments, faExpand, faPaperPlane, faRightFromBracket, faUserPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowUpRightFromSquare,
+  faCompress,
+  faComments,
+  faCopy,
+  faExpand,
+  faPaperPlane,
+  faRightFromBracket,
+  faUserPlus,
+  faVideo,
+  faVolumeHigh,
+  faXmark
+} from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
+import { DateUtilsService } from "../../services/date-utils.service";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
+import { ClipboardService } from "../../services/clipboard.service";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { VideoMeetingNotesComponent } from "./video-meeting-notes";
-import { JitsiJoinMode, MeetingSpeechCapture, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
-import { jitsiHostPageUrl, jitsiJoinMode } from "../../functions/video-meeting-join";
+import {
+  JitsiJoinMode,
+  MeetingSpeechCapture,
+  MeetingSpeechRecognition,
+  VideoMeetingClient,
+  VideoMeetingMediaAction,
+  VideoMeetingMediaHelp,
+  VideoMeetingMediaIssue,
+  VideoMeetingRoomPhase,
+  VideoMeetingRuntimeConfig
+} from "../../models/video-meeting.model";
+import { AlertPanelVariant } from "../../models/alert-panel.model";
+import { applyJitsiIframeAllow, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode } from "../../functions/video-meeting-join";
+import {
+  activeMeetingRoom,
+  clientHintsFromWindow,
+  forgetActiveMeetingRoom,
+  forgetMeetingNotesStartedAt,
+  meetingNotesStartedAt,
+  rememberActiveMeetingRoom,
+  rememberMeetingNotesStartedAt,
+  shouldAutoJoinMeeting,
+  videoMeetingClient,
+  videoMeetingJoinActionLabel,
+  videoMeetingJoinGuidance,
+  videoMeetingJoinTitle,
+  videoMeetingMediaHelp
+} from "../../functions/video-meeting-client";
 import { StoredValue } from "../../models/ui-actions";
 import { AdminPath } from "../../models/admin-route-paths.model";
 import { appendUniqueLine, lineFromJitsiChat, lineFromJitsiTranscription } from "../../functions/video-meeting-minutes";
+import { createMeetingSpeechRecognition, finalSpeechLines } from "../../functions/video-meeting-speech";
 
 declare const JitsiMeetExternalAPI: any;
-
-const TEAMS_LIKE_TOOLBAR = [
-  "microphone", "camera", "desktop", "chat", "raisehand", "reactions",
-  "participants-pane", "tileview", "settings", "videoquality", "fullscreen", "hangup"
-];
 
 @Component({
   selector: "app-video-meeting-room",
@@ -45,15 +81,19 @@ const TEAMS_LIKE_TOOLBAR = [
           <fa-icon [icon]="fullscreen ? faCompress : faExpand"/>
           <span class="meeting-bar-label">{{ fullscreen ? "Restore" : "Full screen" }}</span>
         </button>
-        @if (!guest) {
+        @if (!guest && inMeeting) {
           <button type="button" class="meeting-bar-btn" [class.active]="showInvite" (click)="toggleInvite()">
             <fa-icon [icon]="faUserPlus"/>
             <span class="meeting-bar-label">Invite</span>
           </button>
         }
-        @if (notesEnabled) {
-          <button type="button" class="meeting-bar-btn" [class.active]="showNotes" (click)="toggleNotes()">
-            <fa-icon [icon]="faComments"/>
+        @if (notesEnabled && inMeeting) {
+          <button type="button" class="meeting-bar-btn notes-bar-btn" #notesButton
+                  [class.active]="showNotes || notesCapturing"
+                  [class.capturing]="notesCapturing" (click)="toggleNotes()">
+            <span class="notes-bar-icon">
+              <fa-icon [icon]="faComments"/>
+            </span>
             <span class="meeting-bar-label">Notes</span>
           </button>
         }
@@ -69,8 +109,70 @@ const TEAMS_LIKE_TOOLBAR = [
           </div>
         }
 
-        @if (showInvite || (showNotes && notesEnabled)) {
+        @if (phase === roomPhase.READY && !error) {
+          <div class="meeting-dialog-scrim"></div>
+          <div class="meeting-dialog join">
+            <div class="meeting-dialog-head">
+              <span>{{ joinTitle }}</span>
+            </div>
+            <div class="meeting-dialog-body">
+              <p class="meeting-join-lead">{{ joinGuidance }}</p>
+              @if (client.inAppBrowser) {
+                <button type="button" class="btn btn-primary w-100 meeting-join-action" (click)="copyMeetingLink()">
+                  <fa-icon [icon]="faCopy" class="me-2"/>{{ joinActionLabel }}
+                </button>
+                <button type="button" class="btn btn-quiet w-100 meeting-join-action mt-2" (click)="openInRecommendedBrowser()">
+                  <fa-icon [icon]="faArrowUpRightFromSquare" class="me-2"/>Open in {{ client.recommendedBrowserLabel }}
+                </button>
+              } @else {
+                <button type="button" class="btn btn-primary w-100 meeting-join-action" (click)="joinMeeting()">
+                  <fa-icon [icon]="faVideo" class="me-2"/>{{ joinActionLabel }}
+                </button>
+              }
+              @if (copyStatus) {
+                <p class="meeting-copy-status">{{ copyStatus }}</p>
+              }
+            </div>
+          </div>
+        }
+
+        @if (hearBanner) {
+          <div class="meeting-help-banner">
+            <app-alert-panel [title]="hearBanner.title" [icon]="faVolumeHigh" [variant]="alertWarning" actionsEnd>
+              {{ hearBanner.body }}
+              <button alertActions type="button" class="btn btn-quiet"
+                      (click)="runMediaAction(hearBanner.primaryAction)">
+                {{ hearBanner.primaryLabel }}
+              </button>
+            </app-alert-panel>
+          </div>
+        }
+
+        @if (showInvite || mediaDialog) {
           <div class="meeting-dialog-scrim" (click)="closePanels()"></div>
+        }
+
+        @if (mediaDialog) {
+          <div class="meeting-dialog">
+            <div class="meeting-dialog-body">
+              <app-alert-panel [title]="mediaDialog.title" [variant]="alertWarning">
+                {{ mediaDialog.body }}
+              </app-alert-panel>
+              <button type="button" class="btn btn-primary w-100 meeting-join-action mt-3"
+                      (click)="runMediaAction(mediaDialog.primaryAction)">
+                {{ mediaDialog.primaryLabel }}
+              </button>
+              @if (mediaDialog.secondaryAction) {
+                <button type="button" class="btn btn-quiet w-100 meeting-join-action mt-2"
+                        (click)="runMediaAction(mediaDialog.secondaryAction)">
+                  {{ mediaDialog.secondaryLabel }}
+                </button>
+              }
+              @if (copyStatus) {
+                <p class="meeting-copy-status">{{ copyStatus }}</p>
+              }
+            </div>
+          </div>
         }
 
         @if (!guest && showInvite) {
@@ -101,28 +203,29 @@ const TEAMS_LIKE_TOOLBAR = [
           </div>
         }
 
-        @if (notesEnabled && showNotes) {
-          <div class="meeting-dialog notes">
-            <button type="button" class="meeting-dialog-close floating" aria-label="Close" (click)="toggleNotes()">
-              <fa-icon [icon]="faXmark"/>
-            </button>
-            <app-video-meeting-notes [room]="room" [guest]="guest" [capture]="speechCapture"/>
-          </div>
-        }
       </div>
+      @if (notesEnabled) {
+        <app-video-meeting-notes [open]="showNotes" [room]="room" [guest]="guest" [capture]="speechCapture"
+                                 [minimiseTarget]="notesButton?.nativeElement || null"
+                                 (capturing)="notesCapturing = $event"
+                                 (dismiss)="closeNotes()"/>
+      }
     </div>`
 })
 export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingRoomComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingRoomComponent", NgxLoggerLevel.DEBUG);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private videoMeetingsService = inject(VideoMeetingsService);
   private committeeFileService = inject(CommitteeFileService);
   private memberLoginService = inject(MemberLoginService);
+  private clipboardService = inject(ClipboardService);
+  private dateUtils = inject(DateUtilsService);
   private zone = inject(NgZone);
 
   @ViewChild("jitsiContainer") private jitsiContainer: ElementRef<HTMLDivElement>;
+  @ViewChild("notesButton") notesButton: ElementRef<HTMLButtonElement>;
 
   room: string;
   displayTitle = "";
@@ -130,23 +233,43 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   error: string;
   notesEnabled = false;
   showNotes = false;
+  notesCapturing = false;
   showInvite = false;
   inviteEmail = "";
   inviteName = "";
   inviteStatus = "";
   inviteLink = "";
   connecting = false;
-  connectingMessage = "Connecting to your meeting…";
+  connectingMessage = "Preparing your meeting…";
   fullscreen = false;
   coverHostBranding = false;
-  speechCapture: MeetingSpeechCapture = {transcript: "", chat: ""};
+  copyStatus = "";
+  phase: VideoMeetingRoomPhase = VideoMeetingRoomPhase.PREPARING;
+  client: VideoMeetingClient = videoMeetingClient({userAgent: ""});
+  speechCapture: MeetingSpeechCapture = {transcript: "", chat: "", startedAt: null};
 
   private config: VideoMeetingRuntimeConfig;
   private api: any;
+  private token: string;
   private transcriptLines: string[] = [];
   private chatLines: string[] = [];
   private connectingTimers: number[] = [];
+  private mediaHelp: VideoMeetingMediaHelp | null = null;
+  private audioAvailable: boolean | null = null;
+  private videoAvailable: boolean | null = null;
+  private audioMuted: boolean | null = null;
+  private joinedMuted = false;
+  private remoteParticipantCount = 0;
+  private cannotHearDismissed = false;
+  private microphoneOffDismissed = false;
+  private leavingOnPurpose = false;
+  private recovering = false;
+  private speechRecognition: MeetingSpeechRecognition | null = null;
+  private listenForSpeech = false;
+  private captureStartedAt: number | null = null;
 
+  protected readonly roomPhase = VideoMeetingRoomPhase;
+  protected readonly alertWarning = AlertPanelVariant.WARNING;
   protected readonly faComments = faComments;
   protected readonly faRightFromBracket = faRightFromBracket;
   protected readonly faUserPlus = faUserPlus;
@@ -154,47 +277,107 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faExpand = faExpand;
   protected readonly faCompress = faCompress;
+  protected readonly faVideo = faVideo;
+  protected readonly faCopy = faCopy;
+  protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
+  protected readonly faVolumeHigh = faVolumeHigh;
+
+  get inMeeting(): boolean {
+    return this.phase === VideoMeetingRoomPhase.IN_MEETING;
+  }
+
+  get joinTitle(): string {
+    return videoMeetingJoinTitle(this.client);
+  }
+
+  get joinGuidance(): string {
+    return videoMeetingJoinGuidance(this.client);
+  }
+
+  get joinActionLabel(): string {
+    return videoMeetingJoinActionLabel(this.client);
+  }
+
+  get hearBanner(): VideoMeetingMediaHelp | null {
+    if (this.mediaHelp?.issue === VideoMeetingMediaIssue.CANNOT_HEAR) {
+      return this.mediaHelp;
+    } else {
+      return null;
+    }
+  }
+
+  get mediaDialog(): VideoMeetingMediaHelp | null {
+    if (this.mediaHelp?.issue === VideoMeetingMediaIssue.MEDIA_BLOCKED
+      || this.mediaHelp?.issue === VideoMeetingMediaIssue.MICROPHONE_OFF) {
+      return this.mediaHelp;
+    } else {
+      return null;
+    }
+  }
 
   ngOnInit(): void {
     this.room = this.route.snapshot.paramMap.get("room");
     this.displayTitle = (this.room || "").replace(/-/g, " ");
     this.guest = !!this.route.snapshot.data?.["guest"];
+    this.client = videoMeetingClient(clientHintsFromWindow(window));
+    this.fullscreen = this.client.coarsePointer;
   }
 
   async ngAfterViewInit(): Promise<void> {
-    await this.start();
+    await this.prepare();
   }
 
-  private async start(): Promise<void> {
+  private async prepare(): Promise<void> {
     try {
-      this.showConnecting();
+      this.phase = VideoMeetingRoomPhase.PREPARING;
+      this.showConnecting("Preparing your meeting…");
       this.config = await this.videoMeetingsService.config();
       if (this.config.enabled) {
         this.notesEnabled = this.config.enableNotes && !this.config.publicHost;
-        if (jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.HOST_PAGE) {
-          window.location.assign(jitsiHostPageUrl(this.config.host, this.room, await this.meetingSubject()));
-        } else {
-          const token = await this.resolveToken();
+        await this.meetingSubject();
+        if (jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.EMBED) {
+          this.token = await this.resolveToken();
           await this.videoMeetingsService.loadExternalApi(this.config.host);
-          await this.mountMeeting(token);
+        }
+        this.hideConnecting();
+        if (this.shouldAutoJoin()) {
+          this.joinMeeting();
+        } else {
+          this.phase = VideoMeetingRoomPhase.READY;
         }
       } else {
         this.hideConnecting();
+        this.phase = VideoMeetingRoomPhase.UNAVAILABLE;
         this.error = "Video meetings are switched off for this site.";
       }
     } catch (error) {
-      this.logger.error("failed to start meeting", error);
+      this.logger.error("failed to prepare meeting", error);
       this.hideConnecting();
+      this.phase = VideoMeetingRoomPhase.UNAVAILABLE;
       this.error = "We could not start the meeting. Please try again, or contact an administrator if it keeps happening.";
     }
   }
 
-  private showConnecting(): void {
+  joinMeeting(): void {
+    if (this.client.inAppBrowser) {
+      this.copyMeetingLink();
+    } else if (this.config && jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.HOST_PAGE) {
+      window.location.assign(jitsiHostPageUrl(this.config.host, this.room, this.displayTitle));
+    } else {
+      this.rememberThisRoom();
+      this.phase = VideoMeetingRoomPhase.JOINING;
+      this.showConnecting("Connecting to your meeting…");
+      this.mountMeeting(this.token);
+    }
+  }
+
+  private showConnecting(message: string): void {
+    this.hideConnecting();
     this.connecting = true;
-    this.connectingMessage = "Connecting to your meeting…";
+    this.connectingMessage = message;
     this.connectingTimers.push(window.setTimeout(() => this.zone.run(() => {
       if (this.connecting) {
-        this.connectingMessage = "Starting the meeting server — this can take up to a minute…";
+        this.connectingMessage = "Starting the meeting server - this can take up to a minute…";
       }
     }), 8000));
     this.connectingTimers.push(window.setTimeout(() => this.zone.run(() => this.hideConnecting()), 90000));
@@ -239,27 +422,15 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private async mountMeeting(token: string): Promise<void> {
+  private mountMeeting(token: string): void {
     const domain = new URL(this.config.host).host;
-    const subject = await this.meetingSubject();
     const options: any = {
       roomName: this.room,
       parentNode: this.jitsiContainer.nativeElement,
       width: "100%",
       height: "100%",
       jwt: token || undefined,
-      configOverwrite: {
-        prejoinPageEnabled: this.guest && this.config.enableLobby,
-        prejoinConfig: {enabled: this.guest && this.config.enableLobby},
-        startWithAudioMuted: this.config.startWithAudioMuted,
-        startWithVideoMuted: this.config.startWithVideoMuted,
-        disableDeepLinking: true,
-        defaultLogoUrl: "",
-        toolbarButtons: TEAMS_LIKE_TOOLBAR,
-        transcription: {enabled: true},
-        transcribingEnabled: true,
-        subject
-      },
+      configOverwrite: jitsiEmbedConfigOverwrite(this.config, this.displayTitle),
       interfaceConfigOverwrite: {
         SHOW_JITSI_WATERMARK: false,
         SHOW_WATERMARK_FOR_GUESTS: false,
@@ -283,16 +454,47 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
     this.api = new JitsiMeetExternalAPI(domain, options);
     const iframe = this.api.getIFrame?.() as HTMLIFrameElement;
+    applyJitsiIframeAllow(iframe);
     iframe?.addEventListener("load", () => this.zone.run(() => {
       this.hideConnecting();
       this.hideHostBranding();
     }));
-    this.api.addEventListener("videoConferenceJoined", () => this.zone.run(() => {
-      this.hideConnecting();
-      this.hideHostBranding();
-      this.startCaptions();
+    this.api.addEventListener("videoConferenceJoined", () => this.zone.run(() => this.onConferenceJoined()));
+    this.api.addEventListener("videoConferenceLeft", () => this.zone.run(() => this.recoverMeeting()));
+    this.api.addEventListener("readyToClose", () => this.zone.run(() => this.recoverMeeting()));
+    this.api.addEventListener("audioAvailabilityChanged", (payload: { available?: boolean }) => this.zone.run(() => {
+      if (payload?.available === false) {
+        this.audioAvailable = false;
+      } else if (payload?.available === true) {
+        this.audioAvailable = true;
+      }
+      this.refreshMediaHelp();
     }));
-    this.api.addEventListener("readyToClose", () => this.zone.run(() => this.leave()));
+    this.api.addEventListener("videoAvailabilityChanged", (payload: { available?: boolean }) => this.zone.run(() => {
+      if (payload?.available === false) {
+        this.videoAvailable = false;
+      } else if (payload?.available === true) {
+        this.videoAvailable = true;
+      }
+      this.refreshMediaHelp();
+    }));
+    this.api.addEventListener("audioMuteStatusChanged", (payload: { muted?: boolean }) => this.zone.run(() => {
+      this.audioMuted = !!payload?.muted;
+      if (!this.audioMuted) {
+        this.microphoneOffDismissed = true;
+      }
+      this.refreshMediaHelp();
+    }));
+    this.api.addEventListener("micError", () => this.zone.run(() => {
+      this.audioAvailable = false;
+      this.refreshMediaHelp();
+    }));
+    this.api.addEventListener("cameraError", () => this.zone.run(() => {
+      this.videoAvailable = false;
+      this.refreshMediaHelp();
+    }));
+    this.api.addEventListener("participantJoined", () => this.zone.run(() => this.refreshParticipantCount()));
+    this.api.addEventListener("participantLeft", () => this.zone.run(() => this.refreshParticipantCount()));
     this.api.addEventListener("transcriptionChunkReceived", (payload: unknown) => this.zone.run(() => {
       this.recordTranscript(lineFromJitsiTranscription(payload));
     }));
@@ -305,22 +507,187 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.hideHostBranding();
   }
 
-  private startCaptions(): void {
+  private async onConferenceJoined(): Promise<void> {
+    this.recovering = false;
+    this.hideConnecting();
+    this.hideHostBranding();
+    this.phase = VideoMeetingRoomPhase.IN_MEETING;
+
+    this.refreshParticipantCount();
     try {
-      this.api?.executeCommand?.("setSubtitles", true);
+      const muted = await this.api?.isAudioMuted?.();
+      this.audioMuted = !!muted;
+      this.joinedMuted = !!muted;
     } catch (error) {
-      this.logger.info("could not start meeting captions", error);
+      this.logger.info("could not read microphone state", error);
     }
+    this.refreshMediaHelp();
+    this.beginNotesCapture();
+    this.startMeetingSpeechCapture();
+  }
+
+  private refreshParticipantCount(): void {
+    const count = this.api?.getNumberOfParticipants?.();
+    if (count > 0) {
+      this.remoteParticipantCount = Math.max(0, count - 1);
+    } else {
+      this.remoteParticipantCount = 0;
+    }
+    this.refreshMediaHelp();
+  }
+
+  private refreshMediaHelp(): void {
+    this.mediaHelp = videoMeetingMediaHelp({
+      inMeeting: this.phase === VideoMeetingRoomPhase.IN_MEETING,
+      audioAvailable: this.audioAvailable,
+      videoAvailable: this.videoAvailable,
+      audioMuted: this.audioMuted,
+      joinedMuted: this.joinedMuted,
+      remoteParticipantCount: this.remoteParticipantCount,
+      cannotHearDismissed: this.cannotHearDismissed,
+      microphoneOffDismissed: this.microphoneOffDismissed,
+      coarsePointer: this.client.coarsePointer
+    }, this.client);
+  }
+
+  runMediaAction(action: VideoMeetingMediaAction): void {
+    if (action === VideoMeetingMediaAction.TURN_ON_MICROPHONE) {
+      this.turnOnMicrophone();
+    } else if (action === VideoMeetingMediaAction.TRY_AGAIN) {
+      this.tryAgain();
+    } else if (action === VideoMeetingMediaAction.COPY_LINK) {
+      this.copyMeetingLink();
+    } else if (action === VideoMeetingMediaAction.STAY_MUTED) {
+      this.microphoneOffDismissed = true;
+      this.refreshMediaHelp();
+    } else if (action === VideoMeetingMediaAction.DISMISS) {
+      this.cannotHearDismissed = true;
+      this.refreshMediaHelp();
+    } else {
+      this.logger.info("ignored meeting help action", action);
+    }
+  }
+
+  private turnOnMicrophone(): void {
+    try {
+      this.api?.executeCommand?.("toggleAudio");
+    } catch (error) {
+      this.logger.info("could not turn the microphone on", error);
+    }
+  }
+
+  private tryAgain(): void {
+    this.disposeApi();
+    this.audioAvailable = null;
+    this.videoAvailable = null;
+    this.audioMuted = null;
+    this.joinedMuted = false;
+    this.cannotHearDismissed = false;
+    this.microphoneOffDismissed = false;
+    this.mediaHelp = null;
+    this.phase = VideoMeetingRoomPhase.JOINING;
+    this.showConnecting("Connecting to your meeting…");
+    this.mountMeeting(this.token);
+  }
+
+  copyMeetingLink(): void {
+    const link = window.location.href;
+    this.clipboardService.copyToClipboard(link).then(() => {
+      if (this.clipboardService.clipboardText() === link) {
+        this.copyStatus = "Link copied. Paste it into " + this.client.recommendedBrowserLabel + ".";
+      } else {
+        this.copyStatus = "Copy this address from the bar at the top and open it in " + this.client.recommendedBrowserLabel + ".";
+      }
+    });
+  }
+
+  openInRecommendedBrowser(): void {
+    window.open(window.location.href, "_blank", "noopener");
+  }
+
+  private startMeetingSpeechCapture(): void {
+    this.stopMeetingSpeechCapture();
+    if (this.client.inAppBrowser) {
+      this.logger.info("not capturing speech in an in-app browser");
+    } else {
+      const recognition = createMeetingSpeechRecognition(window);
+      if (recognition) {
+        this.listenForSpeech = true;
+        this.speechRecognition = recognition;
+        recognition.onresult = event => this.zone.run(() => {
+          const lines = finalSpeechLines(event);
+          this.logger.debug("meeting speech capture heard", lines);
+          lines.forEach(line => this.recordTranscript(line));
+        });
+        recognition.onerror = event => this.zone.run(() => {
+          this.logger.debug("meeting speech capture error", event?.error);
+          if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
+            this.listenForSpeech = false;
+          }
+        });
+        recognition.onend = () => {
+          if (this.listenForSpeech && this.speechRecognition) {
+            try {
+              this.speechRecognition.start();
+            } catch (error) {
+              this.logger.info("could not restart meeting speech capture", error);
+            }
+          }
+        };
+        try {
+          recognition.start();
+          this.logger.debug("meeting speech capture started");
+        } catch (error) {
+          this.logger.debug("could not start meeting speech capture", error);
+          this.listenForSpeech = false;
+        }
+      }
+    }
+  }
+
+  private stopMeetingSpeechCapture(): void {
+    this.listenForSpeech = false;
+    if (this.speechRecognition) {
+      this.speechRecognition.onresult = null;
+      this.speechRecognition.onerror = null;
+      this.speechRecognition.onend = null;
+      try {
+        this.speechRecognition.stop();
+      } catch (error) {
+        this.logger.info("could not stop meeting speech capture", error);
+      }
+      this.speechRecognition = null;
+    }
+  }
+
+  private beginNotesCapture(): void {
+    const storage = this.meetingStorage();
+    if (this.captureStartedAt === null) {
+      this.captureStartedAt = (storage && meetingNotesStartedAt(this.room, storage))
+        || this.dateUtils.dateTimeNowAsValue();
+    }
+    if (storage) {
+      rememberMeetingNotesStartedAt(this.room, this.captureStartedAt, storage);
+    }
+    this.refreshSpeechCapture();
+  }
+
+  private refreshSpeechCapture(): void {
+    this.speechCapture = {
+      transcript: this.transcriptLines.join("\n"),
+      chat: this.chatLines.join("\n"),
+      startedAt: this.captureStartedAt
+    };
   }
 
   private recordTranscript(line: string | null): void {
     this.transcriptLines = appendUniqueLine(this.transcriptLines, line);
-    this.speechCapture = {transcript: this.transcriptLines.join("\n"), chat: this.chatLines.join("\n")};
+    this.refreshSpeechCapture();
   }
 
   private recordChat(line: string | null): void {
     this.chatLines = appendUniqueLine(this.chatLines, line);
-    this.speechCapture = {transcript: this.transcriptLines.join("\n"), chat: this.chatLines.join("\n")};
+    this.refreshSpeechCapture();
   }
 
   private hideHostBranding(): void {
@@ -346,6 +713,10 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     if (this.showNotes) {
       this.showInvite = false;
     }
+  }
+
+  closeNotes(): void {
+    this.showNotes = false;
   }
 
   toggleInvite(): void {
@@ -393,18 +764,65 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   leave(): void {
+    this.leavingOnPurpose = true;
+    this.forgetThisRoom();
     this.disposeApi();
     this.router.navigate([this.guest ? "/" : "/" + AdminPath.MEETINGS]);
   }
 
+  private recoverMeeting(): void {
+    if (this.leavingOnPurpose || this.recovering) {
+      this.logger.info("not recovering the meeting");
+    } else {
+      this.recovering = true;
+      this.disposeApi();
+      this.joinMeeting();
+    }
+  }
+
+  private shouldAutoJoin(): boolean {
+    const storage = this.meetingStorage();
+    const storedRoom = storage ? activeMeetingRoom(storage) : null;
+    return shouldAutoJoinMeeting(this.room, this.client, storedRoom);
+  }
+
+  private rememberThisRoom(): void {
+    const storage = this.meetingStorage();
+    if (storage) {
+      rememberActiveMeetingRoom(this.room, storage);
+    }
+  }
+
+  private forgetThisRoom(): void {
+    const storage = this.meetingStorage();
+    if (storage) {
+      forgetActiveMeetingRoom(storage);
+      forgetMeetingNotesStartedAt(this.room, storage);
+    }
+  }
+
+  private meetingStorage(): Storage | null {
+    try {
+      return window.sessionStorage;
+    } catch (error) {
+      this.logger.info("meeting room memory is not available", error);
+      return null;
+    }
+  }
+
   private disposeApi(): void {
+    this.stopMeetingSpeechCapture();
     if (this.api) {
       this.api.dispose();
       this.api = undefined;
     }
+    if (this.jitsiContainer?.nativeElement) {
+      this.jitsiContainer.nativeElement.replaceChildren();
+    }
   }
 
   ngOnDestroy(): void {
+    this.leavingOnPurpose = true;
     this.hideConnecting();
     this.disposeApi();
   }
