@@ -9,6 +9,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
 import { NgStyle } from "@angular/common";
 import { ContactUsModalService } from "../../pages/contact-us/contact-us-modal.service";
+import { buildContactUsHref } from "../../modules/common/tiptap-editor/contact-us-link";
 
 export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-us";
 
@@ -37,7 +38,7 @@ export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-
       </ul>
     }
     @if (format!=='list' && resolvedMember()) {
-      <a href="#" class="contact-us-link" (click)="openContact($event)">{{ displayText() }}</a>
+      <a [href]="contactHref()" class="contact-us-link" (click)="openContact($event)">{{ displayText() }}</a>
     }
     `,
     styleUrls: ["./contact-us.sass"],
@@ -105,13 +106,21 @@ export class ContactUsComponent implements OnInit, OnDestroy {
     return this.resolvedMember()?.email;
   }
 
+  contactHref(): string {
+    const member = this.resolvedMember();
+    if (member?.type) {
+      return buildContactUsHref(member.type, this.urlService.relativeUrl(), this.subject);
+    } else {
+      return "#";
+    }
+  }
+
   openContact(event: Event): void {
     event.preventDefault();
     const member = this.resolvedMember();
-    if (!member?.type) {
-      return;
+    if (member?.type) {
+      this.contactUsModalService.openContactModalForRole(member.type, this.subject || "", this.urlService.relativeUrl());
     }
-    this.contactUsModalService.openContactModalForRole(member.type, this.subject || "", this.urlService.relativeUrl());
   }
 
 }

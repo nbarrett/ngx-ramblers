@@ -6,12 +6,18 @@ export interface ContactUsLinkParts {
   redirect: string;
 }
 
-export function buildContactUsHref(roleType: string, redirectPath: string): string {
+export function buildContactUsHref(roleType: string, redirectPath: string, subject?: string): string {
   const role = (roleType || "").trim();
   const redirect = (redirectPath || "").trim().replace(/^\/+/, "");
-  return redirect && redirect !== BuiltInPath.HOME
+  const base = redirect && redirect !== BuiltInPath.HOME
     ? `?contact-us&role=${role}&redirect=${redirect}`
     : `?contact-us&role=${role}`;
+  const trimmedSubject = (subject || "").trim();
+  if (trimmedSubject) {
+    return `${base}&subject=${encodeURIComponent(trimmedSubject)}`;
+  } else {
+    return base;
+  }
 }
 
 export function parseContactUsHref(href: string): ContactUsLinkParts | null {

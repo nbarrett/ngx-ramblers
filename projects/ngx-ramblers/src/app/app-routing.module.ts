@@ -139,7 +139,7 @@ const routes: Routes = [
     matcher: hasDynamicPath,
     loadComponent: () => import("./pages/walks/walk-list/walk-view-selector")
       .then(m => m.WalksViewSelector),
-    canActivate: [SystemHealthyGuard, PageAccessGuard]
+    canActivate: [SystemHealthyGuard, PageAccessGuard, contactUsGuard]
   },
   {path: "**", redirectTo: "/"},
 ];

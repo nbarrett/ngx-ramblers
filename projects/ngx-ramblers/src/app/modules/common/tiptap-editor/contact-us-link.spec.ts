@@ -25,6 +25,15 @@ describe("contact-us-link", () => {
     expect(buildContactUsHref("support", "/home")).toBe("?contact-us&role=support");
   });
 
+  it("appends a subject when one is supplied", () => {
+    expect(buildContactUsHref("membership-secretary", "/admin/profile/email-subscriptions", "Mailing preferences enquiry")).toBe(
+      "?contact-us&role=membership-secretary&redirect=admin/profile/email-subscriptions&subject=Mailing%20preferences%20enquiry"
+    );
+    expect(buildContactUsHref("treasurer", "contact-us", "  ")).toBe(
+      "?contact-us&role=treasurer&redirect=contact-us"
+    );
+  });
+
   it("parses contact-us hrefs", () => {
     expect(parseContactUsHref("?contact-us&role=treasurer&redirect=contact-us")).toEqual({
       role: "treasurer",

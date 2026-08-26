@@ -9,6 +9,7 @@ import { AdminAuthGuard, MemberAdminAuthGuard, VolunteerAdminAuthGuard } from ".
 import { EnvironmentAdminGuard } from "../../guards/environment-admin-guard";
 import { MaintenanceGuard } from "../../guards/maintenance-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
+import { contactUsGuard } from "../../pages/contact-us/contact-us.guard";
 import {
   adminRelativePath,
   AdminPath,
@@ -39,17 +40,17 @@ const rp = adminRelativePath;
 
     {
       path: rp(AdminProfilePath.CONTACT_DETAILS), loadComponent: () => import("../../pages/admin/profile/contact-details.component")
-        .then(m => m.ContactDetailsComponent), canActivate: [SystemHealthyGuard, LoggedInGuard]
+        .then(m => m.ContactDetailsComponent), canActivate: [SystemHealthyGuard, LoggedInGuard, contactUsGuard]
     },
     {
       path: rp(AdminProfilePath.CHANGE_PASSWORD), loadComponent: () => import("../../pages/admin/profile/change-password.component")
-        .then(m => m.ChangePasswordComponent), canActivate: [SystemHealthyGuard, LoggedInGuard]
+        .then(m => m.ChangePasswordComponent), canActivate: [SystemHealthyGuard, LoggedInGuard, contactUsGuard]
     },
     {
       path: rp(AdminProfilePath.EMAIL_SUBSCRIPTIONS),
       loadComponent: () => import("../../pages/admin/profile/email-subscriptions.component")
         .then(m => m.EmailSubscriptionsComponent),
-      canActivate: [SystemHealthyGuard, LoggedInGuard]
+      canActivate: [SystemHealthyGuard, LoggedInGuard, contactUsGuard]
     },
     {
       path: rp(AdminProfilePath.EXPENSES) + "/:expense-id",
