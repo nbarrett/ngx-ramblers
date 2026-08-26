@@ -1,4 +1,11 @@
-import { JitsiJoinMode } from "../models/video-meeting.model";
+import { JitsiEmbedConfigOverwrite, JitsiJoinMode, VideoMeetingRuntimeConfig } from "../models/video-meeting.model";
+
+export const JITSI_IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
+
+export const JITSI_MEETING_TOOLBAR_BUTTONS = [
+  "microphone", "camera", "desktop", "chat", "raisehand", "reactions",
+  "participants-pane", "tileview", "settings", "videoquality", "fullscreen", "hangup"
+];
 
 export function jitsiJoinMode(publicHost: boolean): JitsiJoinMode {
   if (publicHost) {
@@ -52,4 +59,45 @@ export function videoMeetingDisplayName(title: string, meetingType?: string | nu
 
 export function videoMeetingDateSlug(displayDate: string): string {
   return (displayDate || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, subject: string): JitsiEmbedConfigOverwrite {
+  return {
+    prejoinPageEnabled: true,
+    prejoinConfig: {
+      enabled: true,
+      hideExtraJoinButtons: ["no-audio", "no-video"]
+    },
+    disableLobby: !config.enableLobby,
+    lobby: {
+      autoKnock: !!config.enableLobby,
+      enableChat: true
+    },
+    startWithAudioMuted: !!config.startWithAudioMuted,
+    startWithVideoMuted: !!config.startWithVideoMuted,
+    disableDeepLinking: true,
+    defaultLogoUrl: "",
+    toolbarButtons: JITSI_MEETING_TOOLBAR_BUTTONS,
+    toolbarConfig: {
+      alwaysVisible: true
+    },
+    transcription: {
+      enabled: false,
+      preferredLanguage: "en-GB",
+      disableClosedCaptions: true
+    },
+    transcribingEnabled: false,
+    disabledNotifications: [
+      "notify.TRANSCRIBING_FAILED",
+      "transcribing.failed"
+    ],
+    subject
+  };
+}
+
+export function applyJitsiIframeAllow(iframe: HTMLIFrameElement | null): void {
+  if (iframe) {
+    iframe.setAttribute("allow", JITSI_IFRAME_ALLOW);
+    iframe.setAttribute("allowfullscreen", "true");
+  }
 }

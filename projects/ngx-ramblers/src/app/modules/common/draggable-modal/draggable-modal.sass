@@ -1,3 +1,6 @@
+.draggable-modal
+  overscroll-behavior: none
+
 .draggable-modal .modal-title
   color: #fff
   flex: 1 1 auto
@@ -20,6 +23,52 @@
   display: flex
   flex-direction: column
 
+.draggable-modal .modal-minimise
+  transform-origin: center center
+
+.draggable-modal.minimise-pending .modal-minimise
+  opacity: 0
+
+.draggable-modal.minimise-expanding .modal-minimise
+  animation: draggable-modal-expand 320ms ease-out both
+
+.draggable-modal.minimise-collapsing .modal-minimise
+  animation: draggable-modal-minimise 320ms ease-in both
+
+.modal-backdrop.minimise-expanding
+  animation: draggable-modal-fade-in 320ms ease-out both
+
+.modal-backdrop.minimise-collapsing
+  animation: draggable-modal-fade-out 320ms ease-in both
+
+@keyframes draggable-modal-expand
+  from
+    opacity: 0
+    transform: translate(var(--minimise-x, 0px), var(--minimise-y, 0px)) scale(var(--minimise-scale, 0.08))
+  to
+    opacity: 1
+    transform: none
+
+@keyframes draggable-modal-minimise
+  from
+    opacity: 1
+    transform: none
+  to
+    opacity: 0
+    transform: translate(var(--minimise-x, 0px), var(--minimise-y, 0px)) scale(var(--minimise-scale, 0.08))
+
+@keyframes draggable-modal-fade-in
+  from
+    opacity: 0
+  to
+    opacity: 1
+
+@keyframes draggable-modal-fade-out
+  from
+    opacity: 1
+  to
+    opacity: 0
+
 .draggable-modal .modal-header
   cursor: move
 
@@ -27,6 +76,7 @@
   flex: 1 1 auto
   max-height: 60vh
   overflow: auto
+  overscroll-behavior: contain
   padding-bottom: 16px
 
 .draggable-modal .modal-content[style] .draggable-modal-body

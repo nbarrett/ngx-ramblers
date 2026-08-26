@@ -21,6 +21,7 @@ import { SystemSettingsTab } from "../../models/system.model";
 import { StoredValue } from "../../models/ui-actions";
 import { UIDateFormat } from "../../models/date-format.model";
 import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
+import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client";
 
 @Component({
   selector: "app-video-meetings-page",
@@ -152,6 +153,7 @@ export class VideoMeetingsPageComponent implements OnInit {
     } catch (error) {
       this.logger.error("failed to save meeting title", error);
     }
+    this.rememberRoom(room);
     this.router.navigate(["/" + AdminPath.MEETING_ROOM, room], {
       queryParams: {[StoredValue.MEETING_TITLE]: title}
     });
@@ -182,7 +184,16 @@ export class VideoMeetingsPageComponent implements OnInit {
   join(): void {
     const room = this.extractRoom(this.joinRoom);
     if (room) {
+      this.rememberRoom(room);
       this.router.navigate(["/" + AdminPath.MEETING_ROOM, room]);
+    }
+  }
+
+  private rememberRoom(room: string): void {
+    try {
+      rememberActiveMeetingRoom(room, window.sessionStorage);
+    } catch (error) {
+      this.logger.info("could not remember the meeting room", error);
     }
   }
 

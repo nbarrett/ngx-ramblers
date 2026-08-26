@@ -19,7 +19,7 @@ import {
 export class VideoMeetingsService {
   private http = inject(HttpClient);
   private urlService = inject(UrlService);
-  private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingsService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingsService", NgxLoggerLevel.DEBUG);
   private apiUrl = "/api/video-meetings";
   private notesUrl = "/api/database/meeting-notes";
   private externalApiPromises = new Map<string, Promise<void>>();
@@ -55,13 +55,25 @@ export class VideoMeetingsService {
     await firstValueFrom(this.http.delete(`${this.notesUrl}/${id}`));
   }
 
-  async writeMinutes(room: string, capture: MeetingSpeechCapture): Promise<MeetingNote> {
+  async writeMinutes(room: string, capture: MeetingSpeechCapture, existingNotes = ""): Promise<MeetingNote> {
     const request: MeetingMinutesRequest = {
       room,
       transcript: capture?.transcript || "",
-      chat: capture?.chat || ""
+      chat: capture?.chat || "",
+      existingNotes
     };
+    this.logger.debug("writeMinutes request:", {
+      room,
+      transcriptChars: request.transcript.length,
+      chatChars: request.chat.length,
+      existingNotesChars: request.existingNotes.length
+    });
     const response = await firstValueFrom(this.http.post<MeetingMinutesResponse>(`${this.apiUrl}/minutes`, request));
+    this.logger.debug("writeMinutes response:", {
+      room,
+      noteId: response?.note?.id,
+      noteChars: (response?.note?.text || "").length
+    });
     return response?.note;
   }
 

@@ -1,4 +1,4 @@
-import { isObject, isString } from "es-toolkit/compat";
+import { isNumber, isObject, isString } from "es-toolkit/compat";
 
 export const AI_MEETING_NOTE_AUTHOR = "AI notes";
 
@@ -61,7 +61,7 @@ function payloadData(payload: unknown): unknown {
 
 export function lineFromJitsiTranscription(payload: unknown): string | null {
   const data = payloadData(payload);
-  const text = firstString(data, ["message", "text", "transcript"]);
+  const text = firstString(data, ["message", "text", "transcript", "stable"]);
   if (!text) {
     return null;
   } else {
@@ -95,4 +95,41 @@ export function appendUniqueLine(lines: string[], line: string | null): string[]
   } else {
     return [...lines, line];
   }
+}
+
+export function meetingMinutesWriteError(error: unknown): string {
+  const status = isObject(error) ? (error as {status?: unknown}).status : null;
+  const body = isObject(error) ? (error as {error?: unknown}).error : null;
+  const fromBody = isObject(body) && isString((body as {message?: unknown}).message)
+    ? (body as {message: string}).message
+    : "";
+  const fromError = isObject(error) && isString((error as {message?: unknown}).message)
+    ? (error as {message: string}).message
+    : "";
+  const message = (fromBody || fromError).toLowerCase();
+  if (status === 503 || message.includes("not enabled")) {
+    return "Automatic notes need AI to be switched on for this site.";
+  } else if (status === 400 || message.includes("nothing to write")) {
+    return "There is no chat or typed note to capture yet. Manually add a note or use chat, then try again.";
+  } else if (message.includes("http failure") || (isNumber(status) && status >= 500)) {
+    return "The notes service did not respond. Try again in a moment.";
+  } else if (fromBody) {
+    return fromBody;
+  } else {
+    return "Try again in a moment.";
+  }
+}
+
+export function meetingNotesUpdatedMessage(durationLabel: string): string {
+  if (durationLabel) {
+    return `Notes updated from ${durationLabel} of the call.`;
+  } else {
+    return "Notes updated from the call.";
+  }
+}
+
+export function meetingMinutesWriteIsEmpty(error: unknown): boolean {
+  const status = isObject(error) ? (error as {status?: unknown}).status : null;
+  const message = meetingMinutesWriteError(error).toLowerCase();
+  return status === 400 || message.includes("no chat or typed note") || message.includes("nothing to write");
 }

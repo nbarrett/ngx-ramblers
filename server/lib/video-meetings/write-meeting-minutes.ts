@@ -17,7 +17,7 @@ import { MeetingNote, MeetingNoteSource } from "../../../projects/ngx-ramblers/s
 import { Ai } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:minutes"));
-debug.enabled = false;
+debug.enabled = true;
 
 export async function generateMeetingMinutes(
   ai: Ai,
@@ -25,7 +25,14 @@ export async function generateMeetingMinutes(
   chat: string,
   existingNotes: string
 ): Promise<string> {
-  if (integrationWorkerConfigured()) {
+  const viaWorker = integrationWorkerConfigured();
+  debug("generateMeetingMinutes:", {
+    viaWorker,
+    transcriptChars: (transcript || "").length,
+    chatChars: (chat || "").length,
+    existingNotesChars: (existingNotes || "").length
+  });
+  if (viaWorker) {
     return meetingMinutesViaIntegrationWorker(ai, transcript, chat, existingNotes);
   } else {
     return generate(ai, meetingMinutesSystemPrompt(), meetingMinutesInput(transcript, chat, existingNotes));
@@ -37,27 +44,49 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
   const transcript = (req.body?.transcript || "").toString();
   const chat = (req.body?.chat || "").toString();
   const ai = aiConfigFromEnvironment();
+  debug("writeMeetingMinutes:", {
+    room,
+    aiEnabled: ai.enabled,
+    transcriptChars: transcript.length,
+    chatChars: chat.length,
+    existingNotesChars: (req.body?.existingNotes || "").toString().length
+  });
   if (!room) {
+    debug("writeMeetingMinutes: rejected, room is required");
     res.status(400).json({message: "room is required"});
   } else if (!ai.enabled) {
+    debug("writeMeetingMinutes: rejected, AI is not enabled");
     res.status(503).json({message: "AI is not enabled in this environment"});
   } else {
     try {
       const existing = await meetingNote.find({room}).sort({createdAt: 1}).lean().exec();
-      const handwritten = existing
+      const fromDatabase = existing
         .filter(note => note.source !== MeetingNoteSource.AI)
         .map(note => `${note.authorName || "Member"}: ${note.text}`)
         .join("\n");
+      const fromRequest = (req.body?.existingNotes || "").toString();
+      const handwritten = fromDatabase.trim() || fromRequest.trim();
+      debug("writeMeetingMinutes: material:", {
+        room,
+        notesInRoom: existing.length,
+        fromDatabaseChars: fromDatabase.length,
+        fromRequestChars: fromRequest.length,
+        handwrittenChars: handwritten.length
+      });
       if (!transcript.trim() && !chat.trim() && !handwritten.trim()) {
+        debug("writeMeetingMinutes: nothing to write up yet");
         res.status(400).json({message: "Nothing to write up yet"});
       } else {
         const output = (await generateMeetingMinutes(ai, transcript, chat, handwritten))?.trim();
+        debug("writeMeetingMinutes: generated:", {room, outputChars: (output || "").length});
         if (!output) {
+          debug("writeMeetingMinutes: generated output was empty");
           res.status(502).json({message: "The notes came back empty"});
         } else {
           const member = req.user as MemberCookie;
-          const saved = await persistAiNote(room, output, member);
-          res.status(200).json({note: transforms.toObjectWithId(saved)});
+          const note = transforms.toObjectWithId(await persistAiNote(room, output, member));
+          debug("writeMeetingMinutes: saved:", {room, noteId: note.id, outputChars: output.length});
+          res.status(200).json({note});
         }
       }
     } catch (error) {

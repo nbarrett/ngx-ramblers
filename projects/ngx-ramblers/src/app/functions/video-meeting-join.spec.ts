@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { JitsiJoinMode } from "../models/video-meeting.model";
-import { jitsiHostPageUrl, jitsiJoinMode, suggestedVideoMeetingTitle, videoMeetingDisplayName, videoMeetingRoomSlug } from "./video-meeting-join";
+import { JitsiJoinMode, VideoMeetingRuntimeConfig } from "../models/video-meeting.model";
+import {
+  applyJitsiIframeAllow,
+  JITSI_IFRAME_ALLOW,
+  jitsiEmbedConfigOverwrite,
+  jitsiHostPageUrl,
+  jitsiJoinMode,
+  suggestedVideoMeetingTitle,
+  videoMeetingDisplayName,
+  videoMeetingRoomSlug
+} from "./video-meeting-join";
+
+function runtime(overrides: Partial<VideoMeetingRuntimeConfig> = {}): VideoMeetingRuntimeConfig {
+  return {
+    enabled: true,
+    host: "https://ngx-ramblers-jitsi.fly.dev",
+    jwtRequired: true,
+    publicHost: false,
+    roomPrefix: "ngx",
+    brandName: "Ramblers Video Meetings",
+    guestInstructions: "Allow the camera and microphone.",
+    startWithAudioMuted: false,
+    startWithVideoMuted: false,
+    enableNotes: true,
+    enableLobby: false,
+    ...overrides
+  };
+}
 
 describe("jitsiJoinMode", () => {
 
@@ -59,6 +85,45 @@ describe("videoMeetingRoomSlug", () => {
   it("builds a readable room from the brand, date and a short number", () => {
     expect(videoMeetingRoomSlug("Ramblers Video Meetings", "18-august-2026", "1847"))
       .toEqual("ramblers-video-meetings-18-august-2026-1847");
+  });
+
+});
+
+describe("jitsiEmbedConfigOverwrite", () => {
+
+  it("always shows a device preview and hides join-without-audio extras", () => {
+    const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Committee meeting");
+    expect(overwrite.prejoinPageEnabled).toEqual(true);
+    expect(overwrite.prejoinConfig.enabled).toEqual(true);
+    expect(overwrite.prejoinConfig.hideExtraJoinButtons).toEqual(["no-audio", "no-video"]);
+    expect(overwrite.transcription.enabled).toEqual(false);
+    expect(overwrite.transcription.disableClosedCaptions).toEqual(true);
+    expect(overwrite.transcribingEnabled).toEqual(false);
+    expect(overwrite.disableDeepLinking).toEqual(true);
+    expect(overwrite.toolbarConfig.alwaysVisible).toEqual(true);
+    expect(overwrite.subject).toEqual("Committee meeting");
+  });
+
+  it("leaves the lobby off unless that setting is on", () => {
+    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").disableLobby).toEqual(true);
+    expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").disableLobby).toEqual(false);
+    expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").lobby.autoKnock).toEqual(true);
+  });
+
+});
+
+describe("applyJitsiIframeAllow", () => {
+
+  it("asks the browser to allow camera, microphone and sound in the meeting frame", () => {
+    const attributes: Record<string, string> = {};
+    const iframe = {
+      setAttribute: (name: string, value: string) => {
+        attributes[name] = value;
+      }
+    } as HTMLIFrameElement;
+    applyJitsiIframeAllow(iframe);
+    expect(attributes.allow).toEqual(JITSI_IFRAME_ALLOW);
+    expect(attributes.allowfullscreen).toEqual("true");
   });
 
 });

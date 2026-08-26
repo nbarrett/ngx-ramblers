@@ -34,6 +34,8 @@ describe("issueMeetingToken", () => {
     expect(payload.context.user.name).toEqual("Nick Barrett");
     expect(payload.context.user.email).toEqual("nick@example.com");
     expect(payload.context.user.moderator).toEqual(true);
+    expect(payload.context.features.transcription).toEqual("false");
+    expect(payload.context.features.recording).toEqual("false");
   });
 
   it("marks a non-moderator guest with boolean moderator false so token moderation denies controls", () => {

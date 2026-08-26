@@ -45,7 +45,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
             <div class="col-sm-6">
               <div class="form-group">
                 The joining guidance included in guest invite emails and meeting invitations. Leave blank to use
-                the standard wording shown in the box.
+                the standard wording shown in the box, which covers Safari, Chrome and in-app browsers.
               </div>
             </div>
           </div>
