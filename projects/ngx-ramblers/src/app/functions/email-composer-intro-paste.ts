@@ -101,8 +101,10 @@ export function shouldRunIntroSmartPaste(brandingIsUnbranded: boolean, isInboxRe
   return brandingIsUnbranded && !isInboxReply;
 }
 
-export function subjectStillDefault(existingSubject: string, defaultConfigSubject: string): boolean {
-  return !existingSubject?.trim() || existingSubject.trim() === (defaultConfigSubject ?? "").trim();
+export function subjectStillDefault(existingSubject: string, defaultConfigSubject: string, generatedSubjects: string[] = []): boolean {
+  const existing = existingSubject?.trim();
+  const automaticSubjects = [defaultConfigSubject, ...generatedSubjects].map(subject => (subject ?? "").trim()).filter(Boolean);
+  return !existing || automaticSubjects.includes(existing);
 }
 
 export function planTitledIntroPaste(

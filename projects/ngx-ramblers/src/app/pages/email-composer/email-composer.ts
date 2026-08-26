@@ -3832,11 +3832,16 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected onIntroRawPaste(event: { text: string; html?: string; consume: () => void }): void {
     const titled = extractLeadingTitle(event.text, event.html);
+    const parsedHeaders = this.parseEmailHeadersFromMarkdown(event.text);
+    if (parsedHeaders?.subject && this.emailHeadersNearTop(event.text)) {
+      this.state.subject = parsedHeaders.subject;
+    }
     if (this.state.brandingMode === BrandingMode.UNBRANDED) {
       if (shouldRunIntroSmartPaste(true, !!this.inboxReplyContext)) {
         const existingIntro = this.state.introMarkdown ?? "";
         const hasExistingIntro = existingIntro.trim().length > 0;
-        if (titled) {
+        const parsed = parsedHeaders;
+        if (titled && !(parsed && this.emailHeadersNearTop(event.text))) {
           const plan = planTitledIntroPaste(event.text, titled, this.state.subject ?? "", this.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
           if (plan.apply) {
             event.consume();
@@ -3849,7 +3854,6 @@ export class EmailComposer implements OnInit, OnDestroy {
             queueMicrotask(() => this.introEditor?.focusAtStart());
           }
         } else {
-          const parsed = this.parseEmailHeadersFromMarkdown(event.text);
           if (parsed) {
             event.consume();
             const incomingAddresses = [...parsed.to, ...parsed.cc];
@@ -3864,7 +3868,7 @@ export class EmailComposer implements OnInit, OnDestroy {
             if (additions.length > 0) {
               this.state.externalRecipients = [...this.state.externalRecipients, ...additions];
             }
-            if (parsed.subject && !this.state.subject?.trim()) {
+            if (parsed.subject) {
               this.state.subject = parsed.subject;
             }
             if (!hasExistingIntro) {
@@ -3872,17 +3876,47 @@ export class EmailComposer implements OnInit, OnDestroy {
             }
             const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
             const forwardedMarkdown = this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
-            this.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, false);
+            this.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
             this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
             queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
           }
         }
+      } else if (this.inboxReplyContext) {
+        const parsed = parsedHeaders;
+        if (parsed && this.emailHeadersNearTop(event.text)) {
+          event.consume();
+          const existingIntro = this.state.introMarkdown ?? "";
+          const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
+          this.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, unwrappedBody, true);
+          queueMicrotask(() => this.introEditor?.focusAtStart());
+        }
       }
       this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
     }
-    if (titled && subjectStillDefault(this.state.subject ?? "", this.state.notificationConfig?.subject?.text ?? "")) {
+    if (titled && this.subjectStillAutomatic()) {
       this.state.subject = titled.title;
     }
+  }
+
+  private subjectStillAutomatic(): boolean {
+    const templateSubject = this.state.notificationConfig?.subject?.text ?? "";
+    const newsletterPeriod = this.state.compositionKind === EmailCompositionKind.NEWSLETTER ? this.newsletterPeriodDescription() : null;
+    const releaseNotePeriod = this.state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE ? this.releaseNoteUpdatePeriodDescription() : null;
+    const generatedSubjects = [
+      newsletterPeriod ? `What's coming up: ${newsletterPeriod}` : null,
+      releaseNotePeriod ? releaseNoteUpdateSubject(templateSubject, templateSubject, releaseNotePeriod) : null
+    ].filter((subject): subject is string => !!subject);
+    return subjectStillDefault(this.state.subject ?? "", templateSubject, generatedSubjects);
+  }
+
+  private emailHeadersNearTop(text: string): boolean {
+    const lines = (text ?? "").split(/\r?\n/);
+    const addressingHeader = /^(To|From|Cc|Bcc|Subject):\s*\S/i;
+    const firstHeaderIdx = lines.findIndex(line => addressingHeader.test(this.stripMarkdownDecorations(line)));
+    return firstHeaderIdx >= 0 && lines.slice(0, firstHeaderIdx).every(line => {
+      const stripped = this.stripMarkdownDecorations(line);
+      return stripped === "" || /^\s*#{1,6}\s/.test(line) || /^[A-Za-z][A-Za-z -]*:\s/.test(stripped);
+    });
   }
 
   private buildForwardedIntroMarkdown(headerLines: string[], body: string): string {
@@ -3958,8 +3992,11 @@ export class EmailComposer implements OnInit, OnDestroy {
       const key = headerMatch[1].toLowerCase();
       const merged = { ...headers, [key]: headers[key] ? `${headers[key]}, ${headerMatch[2].trim()}` : headerMatch[2].trim() };
       return this.collectHeaderLines(lines, index + 1, headerRegex, merged, bodyStartLine);
+    } else if (/^[A-Za-z][A-Za-z -]*:\s/.test(stripped)) {
+      return this.collectHeaderLines(lines, index + 1, headerRegex, headers, bodyStartLine);
+    } else {
+      return { headers, bodyStartLine: index };
     }
-    return { headers, bodyStartLine: index };
   }
 
   private findNextNonBlankLine(lines: string[], from: number): number {
@@ -3971,6 +4008,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     return line
       .replace(/^[\s>*_`#-]+/, "")
       .replace(/[*_`]+$/g, "")
+      .replace(/\*\*|__/g, "")
       .trim();
   }
 

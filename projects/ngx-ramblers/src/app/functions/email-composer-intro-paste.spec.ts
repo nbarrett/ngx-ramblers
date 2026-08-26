@@ -133,6 +133,12 @@ describe("email-composer-intro-paste", () => {
     it("is false when the subject has been personalised", () => {
       expect(subjectStillDefault("Re: Walk details", "Newsletter")).toBe(false);
     });
+
+    it("recognises an exact generated subject without treating custom text as automatic", () => {
+      const generated = ["What's new in NGX: 20 July to 20 August 2026"];
+      expect(subjectStillDefault(generated[0], "Newsletter", generated)).toBe(true);
+      expect(subjectStillDefault("Committee news", "Newsletter", generated)).toBe(false);
+    });
   });
 
   describe("planTitledIntroPaste", () => {
@@ -178,7 +184,11 @@ describe("email-composer-intro-paste", () => {
       expect(placeForwardedIntroMarkdown("   ", forwarded, true)).toBe(forwarded);
     });
 
-    it("appends below existing draft content by default", () => {
+    it("places the paste above existing draft content when preferred", () => {
+      expect(placeForwardedIntroMarkdown("My draft", forwarded, true)).toBe(`${forwarded}\nMy draft`);
+    });
+
+    it("appends below existing draft content when not preferred above", () => {
       expect(placeForwardedIntroMarkdown("My draft", forwarded, false)).toBe(`My draft${forwarded}`);
     });
 
