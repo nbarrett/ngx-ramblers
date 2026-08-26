@@ -19,8 +19,9 @@ import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { memberFullName } from "../../../functions/member-names";
-import { firstWalkLeaderName, jointWalkLeaderNames, normalisedWalkLeaderName } from "../../../functions/walks/joint-walk-leaders";
+import { firstWalkLeaderName, jointWalkLeaderNames } from "../../../functions/walks/joint-walk-leaders";
 import { MemberWithLabel } from "../../../models/member.model";
+import { EventDefaultsService } from "../../../services/event-defaults.service";
 
 @Component({
   selector: "app-walk-edit-leader",
@@ -245,6 +246,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   private applyingWalkLeaders = false;
   protected display = inject(WalkDisplayService);
+  private eventDefaultsService = inject(EventDefaultsService);
   private memberLoginService = inject(MemberLoginService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private walksReferenceService = inject(WalksReferenceService);
@@ -336,18 +338,8 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
 
   private applyWalkLeaders(selected: Member[]): void {
     this.applyingWalkLeaders = true;
-    const primary = selected[0];
-    const displayNames = selected.map(member => member.displayName || memberFullName(member)).filter(name => !!name);
-    const contactNames = selected.map(member => memberFullName(member)).filter(name => !!name);
     this.selectedWalkLeaderIds = selected.map(member => member.id);
-    this.displayedWalk.walk.fields.contactDetails.memberId = primary?.id || null;
-    this.displayedWalk.walk.fields.contactDetails.contactId = primary?.contactId ?? null;
-    this.displayedWalk.walk.fields.contactDetails.displayName = normalisedWalkLeaderName(displayNames.join("; "));
-    this.displayedWalk.walk.fields.contactDetails.phone = primary?.mobileNumber || null;
-    this.displayedWalk.walk.fields.contactDetails.email = primary?.email || null;
-    if (this.displayedWalk.walk.fields.publishing?.ramblers) {
-      this.displayedWalk.walk.fields.publishing.ramblers.contactName = contactNames.join("; ") || primary?.contactId || null;
-    }
+    this.eventDefaultsService.applyMembersAsWalkLeaders(this.displayedWalk.walk, selected);
     this.rebuildMemberLookupItems();
     this.applyingWalkLeaders = false;
   }

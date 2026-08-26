@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faCircleCheck, faCircleQuestion, faCircleXmark, faCompress, faExpand, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faCircleCheck, faCircleQuestion, faCircleXmark, faClone, faCompress, faExpand, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -25,12 +25,13 @@ import { SortableTableComponent } from "../../../modules/common/sortable-table/s
 import { SortableTableCellDirective, SortableTableHeaderCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { jointWalkLeaderNames, normaliseWalkLeaderNameForCompare } from "../../../functions/walks/joint-walk-leaders";
+import { jointWalkLeaderNames, normalisedWalkLeaderName, normaliseWalkLeaderNameForCompare } from "../../../functions/walks/joint-walk-leaders";
+import { memberFullName } from "../../../functions/member-names";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { FullNamePipe } from "../../../pipes/full-name.pipe";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { StepperModule } from "primeng/stepper";
-import { BulkLoadMemberAndMatchToWalk, MemberAction, MemberWithLabel } from "../../../models/member.model";
+import { BulkLoadMemberAndMatchToWalk, Member, MemberAction, MemberWithLabel } from "../../../models/member.model";
 import { MemberService } from "../../../services/member/member.service";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING } from "../../../models/table-filtering.model";
@@ -40,7 +41,8 @@ import { InputSource } from "../../../models/group-event.model";
 import { ImportStepperKey, ImportStepperStep } from "../../../models/import-stepper.model";
 import { WalkImportFilterMatch, WalkImportStepStatus } from "../../../models/walk-import.model";
 import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-selector/file-size-selector";
-import { first } from "es-toolkit/compat";
+import { first, isString } from "es-toolkit/compat";
+import { EventDefaultsService } from "../../../services/event-defaults.service";
 
 @Component({
   selector: "app-walk-import",
@@ -64,7 +66,7 @@ import { first } from "es-toolkit/compat";
                class="ms-2 btn btn-secondary">
       }</ng-template>
     <app-page autoTitle pageTitle="Walks Import" [showTitle]="false">
-      <app-maximisable-panel #matchPanel="maximisablePanel" [showToggleButton]="false">
+      <app-maximisable-panel id="walks-import-panel" #matchPanel="maximisablePanel" [showToggleButton]="false">
         <div panelControls class="d-flex justify-content-between align-items-center flex-wrap gap-2 w-100">
           <h1 class="mb-0">Walks Import</h1>
           <button type="button" class="btn btn-quiet d-none d-md-inline-block" (click)="matchPanel.toggle()"
@@ -201,13 +203,14 @@ import { first } from "es-toolkit/compat";
                                   <ng-template appSortableTableCell="walkMatch" let-row>
                                     <div class="walk-match-state"
                                          [class.walk-match-new]="walkMatchIsNew(row)"
+                                         [class.walk-match-changed]="walkMatchHasChanges(row)"
                                          [tooltip]="matchPanel.maximised ? null : walkMatchDetail(row)"
                                          container="body">{{ walkMatchLabel(row) }}</div>
                                     @if (matchPanel.maximised) {
                                       <div class="walk-match-detail">{{ walkMatchDetail(row) }}</div>
                                     }
                                   </ng-template>
-                                  <ng-template appSortableTableCell="leader" let-row>{{ row.event.groupEvent.walk_leader.name || "Not supplied" }}</ng-template>
+                                  <ng-template appSortableTableCell="leader" let-row>{{ effectiveWalkLeaderName(row) || "Not supplied" }}</ng-template>
                                   <ng-template appSortableTableCell="memberAllocation" let-row>
                                     <div class="d-flex align-items-center gap-2">
                                       <span class="member-match-indicator flex-shrink-0"
@@ -225,20 +228,21 @@ import { first } from "es-toolkit/compat";
                                         [searchable]="true"
                                         [clearable]="true"
                                         dropdownPosition="bottom"
-                                        placeholder="Select one or more members - first is primary"
+                                        [placeholder]="memberAllocationPlaceholder(row)"
                                         [ngModel]="memberIdsFor(row)"
                                         [ngModelOptions]="{standalone: true}"
                                         (ngModelChange)="onMembersChange(row, $event)">
                                         <ng-template ng-label-tmp let-item="item">{{ item | fullName }}</ng-template>
                                         <ng-template ng-option-tmp let-item="item">{{ item | fullName }}</ng-template>
                                       </ng-select>
+                                      @if (shouldShowApplyButton(row)) {
+                                        <button type="button" class="btn btn-primary btn-icon flex-shrink-0"
+                                                [tooltip]="applyCaption(row)" container="body"
+                                                (click)="applyMemberToOtherWalks(row)">
+                                          <fa-icon [icon]="faClone"/>
+                                        </button>
+                                      }
                                     </div>
-                                    @if (shouldShowApplyButton(row)) {
-                                      <button type="button" class="btn btn-sm btn-primary mt-2"
-                                              (click)="applyMemberToOtherWalks(row)">
-                                        {{ applyCaption(row) }}
-                                      </button>
-                                    }
                                   </ng-template>
                                 </app-sortable-table>
                               <div class="stepper-nav">
@@ -393,18 +397,49 @@ export class WalkImport implements OnInit, OnDestroy {
   }
 
   public walkMatchLabel(row: BulkLoadMemberAndMatchToWalk): string {
-    return this.walkMatchIsNew(row) ? "New walk" : "Updates existing walk";
+    if (this.walkMatchIsNew(row)) {
+      return "New walk";
+    } else if (this.walkMatchHasChanges(row)) {
+      return "Updates existing walk";
+    } else {
+      return "Matched, no changes";
+    }
+  }
+
+  public walkMatchHasChanges(row: BulkLoadMemberAndMatchToWalk): boolean {
+    return this.walkMatchFieldChanges(row).length > 0;
+  }
+
+  public walkMatchFieldChanges(row: BulkLoadMemberAndMatchToWalk) {
+    const existingWalk = this.walkMatchOutcome(row).existingWalk;
+    if (!existingWalk) {
+      return [];
+    } else {
+      return this.walksImportService.importFieldChanges(existingWalk, row.event, this.effectiveWalkLeaderName(row));
+    }
   }
 
   public walkMatchDetail(row: BulkLoadMemberAndMatchToWalk): string {
     const outcome = this.walkMatchOutcome(row);
     switch (outcome.matchType) {
       case WalkImportMatchType.WALK_ID:
-        return `Matched an existing walk by Walk ID ${outcome.existingWalk?.groupEvent?.id}. Its details will be updated in place.`;
+        return this.walkMatchUpdateDetail(row, `Matched an existing walk by Walk ID ${outcome.existingWalk?.groupEvent?.id}.`);
       case WalkImportMatchType.TITLE_AND_DATE:
-        return "Matched an existing walk by title and date (no Walk ID in the row). Its details will be updated in place.";
+        return this.walkMatchUpdateDetail(row, "Matched an existing walk by title and date (no Walk ID in the row).");
       default:
         return "No existing walk matched by Walk ID, or by title and date, so a new walk will be created. If it should have matched, check the Walk ID, title and date against the existing walk.";
+    }
+  }
+
+  private walkMatchUpdateDetail(row: BulkLoadMemberAndMatchToWalk, matchHow: string): string {
+    const changes = this.walkMatchFieldChanges(row);
+    const changeSummary = changes.map(change => this.walksImportService.describeImportFieldChange(change)).join("; ");
+    if (changes.length === 0) {
+      return `${matchHow} No changes detected.`;
+    } else if (this.walksImportService.leaderOnlyImportUpdate(this.walkMatchOutcome(row).existingWalk)) {
+      return `${matchHow} Will change ${changeSummary}. Other walk details stay as they are.`;
+    } else {
+      return `${matchHow} Will change ${changeSummary}.`;
     }
   }
 
@@ -426,6 +461,7 @@ export class WalkImport implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   protected stringUtilsService = inject(StringUtilsService);
   private fullNamePipe = inject(FullNamePipe);
+  private eventDefaultsService = inject(EventDefaultsService);
   public matchSortKey: string = this.route.snapshot.queryParamMap.get(StoredValue.SORT) || "event.groupEvent.start_date_time";
   public matchSortDirection: string = this.route.snapshot.queryParamMap.get(StoredValue.SORT_ORDER) || ASCENDING;
   public matchColumns: SortableTableColumn[] = [
@@ -439,6 +475,7 @@ export class WalkImport implements OnInit, OnDestroy {
   protected alertTarget: AlertTarget = {};
   protected notify: AlertInstance;
   faRemove = faRemove;
+  protected readonly faClone = faClone;
   protected readonly faCompress = faCompress;
   protected readonly faExpand = faExpand;
 
@@ -566,19 +603,21 @@ export class WalkImport implements OnInit, OnDestroy {
   public shouldShowApplyButton(bulkLoadMemberAndMatch: BulkLoadMemberAndMatchToWalk): boolean {
     if (this.lastUpdatedRow !== bulkLoadMemberAndMatch) {
       return false;
+    } else if (this.memberIdsFor(bulkLoadMemberAndMatch).length === 0) {
+      return false;
     } else {
       return this.otherMatchingWalkLeaderRows(bulkLoadMemberAndMatch).length > 0;
     }
   }
 
   applyCaption(bulkLoadMemberAndMatch: BulkLoadMemberAndMatchToWalk) {
-    return `Apply to ${this.stringUtilsService.pluraliseWithCount(this.otherMatchingWalkLeaderRows(bulkLoadMemberAndMatch).length, "other walk")} with leader ${bulkLoadMemberAndMatch.event.groupEvent.walk_leader.name || "Not supplied"}`;
+    return `Apply to ${this.stringUtilsService.pluraliseWithCount(this.otherMatchingWalkLeaderRows(bulkLoadMemberAndMatch).length, "other walk")} with leader ${this.importedWalkLeaderName(bulkLoadMemberAndMatch) || "Not supplied"}`;
   }
 
   public otherMatchingWalkLeaderRows(bulkLoadMemberAndMatch: BulkLoadMemberAndMatchToWalk): BulkLoadMemberAndMatchToWalk[] {
-    const walkLeaderName = bulkLoadMemberAndMatch.event.groupEvent.walk_leader.name.trim().toLowerCase();
+    const walkLeaderName = this.importedWalkLeaderName(bulkLoadMemberAndMatch).trim().toLowerCase();
     return this.importData.bulkLoadMembersAndMatchesToWalks.filter(row =>
-      row.event.groupEvent.walk_leader.name.trim().toLowerCase() === walkLeaderName &&
+      this.importedWalkLeaderName(row).trim().toLowerCase() === walkLeaderName &&
       !row.bulkLoadMemberAndMatch.member &&
       row !== bulkLoadMemberAndMatch);
   }
@@ -588,13 +627,15 @@ export class WalkImport implements OnInit, OnDestroy {
     if (!selectedMember) {
       this.logger.info("applyMemberToOtherWalks: No member provided, skipping apply");
     } else {
-      const walkLeaderName = bulkLoadMemberAndMatch.event.groupEvent.walk_leader.name;
+      const walkLeaderName = this.importedWalkLeaderName(bulkLoadMemberAndMatch);
+      const selectedIds = [...this.memberIdsFor(bulkLoadMemberAndMatch)];
       this.logger.info("applyMemberToOtherWalks: selectedMember:", selectedMember, "walkLeaderName:", walkLeaderName);
       this.otherMatchingWalkLeaderRows(bulkLoadMemberAndMatch).forEach(row => {
         row.bulkLoadMemberAndMatch.member = selectedMember;
         row.bulkLoadMemberAndMatch.memberMatch = MemberAction.matched;
         row.bulkLoadMemberAndMatch.tentative = false;
-        row.bulkLoadMemberAndMatch.selectedMemberIds = selectedMember.id ? [selectedMember.id] : [];
+        row.bulkLoadMemberAndMatch.selectedMemberIds = selectedIds;
+        this.applyMemberSelectionToWalk(row);
       });
     }
     this.lastUpdatedRow = null;
@@ -747,6 +788,15 @@ export class WalkImport implements OnInit, OnDestroy {
     return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.selectedMemberIds ?? [];
   }
 
+  protected memberAllocationPlaceholder(row: BulkLoadMemberAndMatchToWalk): string {
+    const name = this.importedWalkLeaderName(row).trim();
+    if (name && this.memberIdsFor(row).length === 0) {
+      return `${name} not found`;
+    } else {
+      return "Select one or more members - first is primary";
+    }
+  }
+
   private memberIdMatchingName(name: string): string {
     const normalised = normaliseWalkLeaderNameForCompare(name);
     return this.membersWithLabel.find(member =>
@@ -770,6 +820,7 @@ export class WalkImport implements OnInit, OnDestroy {
         bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
         bulkLoadMemberAndMatch.tentative = uniqueIds.length === 0 ? !!surnameSuggestionId : !!bulkLoadMemberAndMatch.tentative;
       }
+      this.applyMemberSelectionToWalk(row);
     });
   }
 
@@ -783,22 +834,58 @@ export class WalkImport implements OnInit, OnDestroy {
     return matches.length === 1 ? matches[0].id : null;
   }
 
-  public onMembersChange(bulkLoadMemberAndMatch: BulkLoadMemberAndMatchToWalk, memberIds: string[]): void {
-    const selectedIds = (memberIds || []).filter(id => !!id);
+  public onMembersChange(bulkLoadMemberAndMatch: BulkLoadMemberAndMatchToWalk, memberIds: string[] | Member[]): void {
+    const selectedIds = (memberIds || []).map(value => isString(value) ? value : value?.id).filter(id => !!id);
     bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.selectedMemberIds = selectedIds;
     const primary = selectedIds.length > 0 ? (this.membersWithLabel.find(member => member.id === selectedIds[0]) ?? null) : null;
     bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member = primary;
     bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.tentative = false;
+    this.applyMemberSelectionToWalk(bulkLoadMemberAndMatch);
     this.memberChange(bulkLoadMemberAndMatch);
   }
 
+  private importedWalkLeaderName(row: BulkLoadMemberAndMatchToWalk): string {
+    return row.importedWalkLeaderName
+      || this.walksImportService.walkLeaderNameFrom(row.event)
+      || "";
+  }
+
+  public effectiveWalkLeaderName(row: BulkLoadMemberAndMatchToWalk): string {
+    const selectedNames = this.selectedMembersFor(row)
+      .map(member => member.displayName || memberFullName(member))
+      .filter(name => !!name);
+    if (selectedNames.length > 0) {
+      return normalisedWalkLeaderName(selectedNames.join("; "));
+    } else {
+      return this.importedWalkLeaderName(row);
+    }
+  }
+
+  private selectedMembersFor(row: BulkLoadMemberAndMatchToWalk): MemberWithLabel[] {
+    return this.memberIdsFor(row)
+      .map(id => this.membersWithLabel.find(member => member.id === id))
+      .filter((member): member is MemberWithLabel => !!member);
+  }
+
+  private applyMemberSelectionToWalk(row: BulkLoadMemberAndMatchToWalk): void {
+    const selectedMembers = this.selectedMembersFor(row);
+    if (selectedMembers.length > 0) {
+      this.eventDefaultsService.applyMembersAsWalkLeaders(row.event, selectedMembers);
+    } else {
+      this.eventDefaultsService.restoreWalkLeaderName(row.event, this.importedWalkLeaderName(row));
+    }
+  }
+
   memberChange(bulkLoadMemberAndMatch: BulkLoadMemberAndMatchToWalk) {
-    this.lastUpdatedRow = bulkLoadMemberAndMatch;
     this.logger.info("memberChange: member:", bulkLoadMemberAndMatch?.bulkLoadMemberAndMatch?.member);
     if (bulkLoadMemberAndMatch?.bulkLoadMemberAndMatch?.member?.id) {
+      this.lastUpdatedRow = bulkLoadMemberAndMatch;
       this.logger.info("memberChange: setting member match to", MemberAction.matched, "for", this.fullNamePipe.transform(bulkLoadMemberAndMatch?.bulkLoadMemberAndMatch?.member));
       bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch = MemberAction.matched;
     } else {
+      if (this.lastUpdatedRow === bulkLoadMemberAndMatch) {
+        this.lastUpdatedRow = null;
+      }
       this.logger.info("memberChange: setting member match to", MemberAction.notFound, "as no member present");
       bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch = MemberAction.notFound;
     }

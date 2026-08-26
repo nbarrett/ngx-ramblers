@@ -117,9 +117,11 @@ export class EventImageSelectionForWalksManager implements OnInit {
     this.ramblersWalksAndEventsService.copyMediaIfApplicable(this.groupEvent, ramblersWalk.groupEvent, true);
   }
 
-  groupChange(apiResponse: RamblersGroupsApiResponse) {
+  groupChange(apiResponse: RamblersGroupsApiResponse | null) {
     this.logger.info("onChange of groupCode:apiResponse:", apiResponse, "imageConfig:", this.groupEvent.fields.imageConfig);
-    this.groupEvent.fields.imageConfig.importFrom.groupCode = apiResponse.group_code;
-    this.refreshRamblersWalks();
+    if (apiResponse) {
+      this.groupEvent.fields.imageConfig.importFrom.groupCode = apiResponse.group_code;
+      this.refreshRamblersWalks();
+    }
   }
 }

@@ -36,9 +36,11 @@ import { AlertInstance } from "../../../services/notifier.service";
                  [(ngModel)]="importTypeOptions.importType"/>
           <label class="form-check-label me-3 text-nowrap"
                  for="area-selection-mode">Import to Existing Group</label>
-          <app-group-selector class="flex-grow-1" dropdownPosition="top" [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
-                              [areaCode]="systemConfig.area.groupCode"
-                              [groupCode]="importTypeOptions.existingGroupCodeAndName.group_code"
+          <app-group-selector class="flex-grow-1" dropdownPosition="bottom"
+                              [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
+                              [areaCode]="systemConfig?.area?.groupCode"
+                              [groupCode]="existingGroupChosen ? importTypeOptions.existingGroupCodeAndName.group_code : null"
+                              placeholder="Select a group"
                               (groupChanged)="groupChange($event)"/>
         </div>
       </div>
@@ -54,21 +56,24 @@ import { AlertInstance } from "../../../services/notifier.service";
                  [value]="ImportType.UNLISTED_GROUP"
                  [disabled]="importData.importStage !== ImportStage.NONE"
                  [(ngModel)]="importTypeOptions.importType"/>
-          <label class="form-check-label me-3 text-nowrap" for="unlisted-group-name">
+          <label class="form-check-label me-3 text-nowrap flex-shrink-0" for="unlisted-group-name">
             Import to Unlisted Group Name</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE ||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
                  [(ngModel)]="importTypeOptions.unlistedGroupCodeAndName.group_name"
+                 (ngModelChange)="syncSelectedGroupToImportData()"
                  id="unlisted-group-name"
-                 class="form-control ms-2">
-          <label class="mx-3 text-nowrap" for="unlisted-group-code">Group Code</label>
+                 class="form-control ms-2 flex-grow-1"
+                 style="min-width: 0">
+          <label class="mx-3 text-nowrap flex-shrink-0" for="unlisted-group-code">Group Code</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
                  [(ngModel)]="importTypeOptions.unlistedGroupCodeAndName.group_code"
                  (ngModelChange)="onGroupCodeChange($event)"
                  maxlength="4"
                  id="unlisted-group-code"
-                 class="form-control">
+                 class="form-control flex-grow-1"
+                 style="min-width: 0">
         </div>
       </div>
     </div>
@@ -116,6 +121,7 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
   protected systemConfig: SystemConfig;
   protected importTypeOptions: ImportTypeOptions;
   protected importData: ImportData;
+  protected existingGroupChosen = false;
   @Input() protected notify: AlertInstance;
 
   @Output() postImportPreparation: EventEmitter<ImportData> = new EventEmitter();
@@ -140,6 +146,7 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
     const groupCode = value.toUpperCase().slice(0, 4);
     this.logger.info("onGroupCodeChange: value:", value, "groupCode:", groupCode);
     this.importTypeOptions.unlistedGroupCodeAndName.group_code = groupCode;
+    this.syncSelectedGroupToImportData();
   }
 
   public fileOver(e: any): void {
@@ -147,32 +154,45 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
   }
 
   browseToFile(fileElement: HTMLInputElement) {
-    fileElement.click();
+    if (this.importReady()) {
+      fileElement.click();
+    }
   }
 
 
   async onFileDropped(fileList: File[]) {
-    const firstFile: File = first(fileList);
-    this.importData.importStage = ImportStage.IMPORTING;
-    this.logger.info("filesDropped:", fileList, "firstFile:", firstFile);
-    this.notify.setBusy();
-    this.notify.progress({title: "Walks Import Initialisation", message: `importing file ${firstFile.name}...`});
-    this.messages = [];
-    this.importData.fileImportRows = await this.walksImportService.csvRowsFromFile(firstFile);
-    this.logger.info("importData.importData:", this.importData);
-    const extendedGroupEvents: ExtendedGroupEvent[] = this.importData.fileImportRows.map(row => this.walksImportService.csvRowToExtendedGroupEvent(row, this.importData.groupCodeAndName));
-    const importData: ImportData = await this.walksImportService.prepareImportOfEvents(this.importData, extendedGroupEvents);
-    if (this.readyToImport(importData)) {
-      this.postImportPreparation.emit(importData);
+    if (this.importReady()) {
+      const firstFile: File = first(fileList);
+      this.importData.importStage = ImportStage.IMPORTING;
+      this.logger.info("filesDropped:", fileList, "firstFile:", firstFile);
+      this.notify.setBusy();
+      this.notify.progress({title: "Walks Import Initialisation", message: `importing file ${firstFile.name}...`});
+      this.messages = [];
+      this.importData.fileImportRows = await this.walksImportService.csvRowsFromFile(firstFile);
+      this.logger.info("importData.importData:", this.importData);
+      const extendedGroupEvents: ExtendedGroupEvent[] = this.importData.fileImportRows.map(row => this.walksImportService.csvRowToExtendedGroupEvent(row, this.importData.groupCodeAndName));
+      const importData: ImportData = await this.walksImportService.prepareImportOfEvents(this.importData, extendedGroupEvents);
+      if (this.readyToImport(importData)) {
+        this.postImportPreparation.emit(importData);
+      }
     }
   }
 
   initialiseImportData() {
-    this.importTypeOptions = {
-      existingGroupCodeAndName: this.importData.groupCodeAndName,
-      unlistedGroupCodeAndName: {group_code: null, group_name: null},
-      importType: ImportType.EXISTING_GROUP
-    };
+    if (!this.importData || this.importData.importStage !== ImportStage.NONE) {
+      return;
+    } else {
+      this.existingGroupChosen = false;
+      this.importTypeOptions = {
+        existingGroupCodeAndName: {
+          group_code: this.importData.groupCodeAndName?.group_code || null,
+          group_name: this.importData.groupCodeAndName?.group_name || null
+        },
+        unlistedGroupCodeAndName: {group_code: null, group_name: null},
+        importType: ImportType.EXISTING_GROUP
+      };
+      this.syncSelectedGroupToImportData();
+    }
   }
 
   summary(bulkLoadMemberAndMatchToWalks: BulkLoadMemberAndMatchToWalk[]): number {
@@ -184,8 +204,17 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
     return true;
   }
 
-  groupChange($event: RamblersGroupsApiResponse) {
-    this.importTypeOptions.existingGroupCodeAndName.group_code = $event.group_code;
+  groupChange($event: RamblersGroupsApiResponse | null) {
+    if ($event) {
+      this.importTypeOptions.existingGroupCodeAndName.group_code = $event.group_code;
+      this.importTypeOptions.existingGroupCodeAndName.group_name = $event.name;
+      this.existingGroupChosen = true;
+    } else {
+      this.importTypeOptions.existingGroupCodeAndName.group_code = null;
+      this.importTypeOptions.existingGroupCodeAndName.group_name = null;
+      this.existingGroupChosen = false;
+    }
+    this.syncSelectedGroupToImportData();
     this.logger.info("groupChange:", $event);
   }
 
@@ -194,12 +223,33 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
       this.initialiseImportData();
     }
     this.importTypeOptions.importType = importType;
-    const groupCodeAndName: HasGroupCodeAndName = this.importTypeOptions.importType === ImportType.UNLISTED_GROUP ? this.importTypeOptions.unlistedGroupCodeAndName : this.importTypeOptions.existingGroupCodeAndName;
-    this.importData.groupCodeAndName = groupCodeAndName;
-    this.logger.info("importType:", importType, "this.importData:", this.importData, "groupCodeAndName:", groupCodeAndName);
+    this.syncSelectedGroupToImportData();
+    this.logger.info("importType:", importType, "this.importData:", this.importData, "groupCodeAndName:", this.importData.groupCodeAndName);
+  }
+
+  protected syncSelectedGroupToImportData() {
+    if (this.importTypeOptions.importType === ImportType.UNLISTED_GROUP) {
+      const group = this.importTypeOptions.unlistedGroupCodeAndName;
+      this.importData.groupCodeAndName = this.groupIsChosen(group) ? group : {group_code: null, group_name: null};
+    } else if (this.existingGroupChosen && this.groupIsChosen(this.importTypeOptions.existingGroupCodeAndName)) {
+      this.importData.groupCodeAndName = this.importTypeOptions.existingGroupCodeAndName;
+    } else {
+      this.importData.groupCodeAndName = {group_code: null, group_name: null};
+    }
+  }
+
+  private groupIsChosen(group: HasGroupCodeAndName): boolean {
+    return !!group?.group_code && !!group?.group_name;
   }
 
   importReady() {
-    return this?.importData?.importStage === ImportStage.NONE && !this.notify.alertTarget.busy && this.importData.groupCodeAndName?.group_name && this.importData.groupCodeAndName?.group_code;
+    const stageReady = this.importData?.importStage === ImportStage.NONE && !this.notify?.alertTarget?.busy;
+    if (!stageReady || !this.importTypeOptions) {
+      return false;
+    } else if (this.importTypeOptions.importType === ImportType.UNLISTED_GROUP) {
+      return this.groupIsChosen(this.importTypeOptions.unlistedGroupCodeAndName);
+    } else {
+      return this.existingGroupChosen && this.groupIsChosen(this.importTypeOptions.existingGroupCodeAndName);
+    }
   }
 }

@@ -240,6 +240,7 @@ export interface BulkLoadMemberAndMatchToWalk {
   include: boolean;
   bulkLoadMemberAndMatch: BulkLoadMemberAndMatch;
   event: ExtendedGroupEvent;
+  importedWalkLeaderName?: string;
 }
 
 export interface RamblersMemberAndContact {

@@ -15,6 +15,7 @@ import { DOCUMENT } from "@angular/common";
   styles: [`
     :host
       display: block
+      position: relative
     :host.maximised
       position: fixed
       inset: 0
@@ -22,7 +23,7 @@ import { DOCUMENT } from "@angular/common";
       background: #fff
       display: flex
       flex-direction: column
-      overflow: hidden
+      overflow: visible
     .maximisable-content
       display: contents
     :host.maximised .maximisable-content

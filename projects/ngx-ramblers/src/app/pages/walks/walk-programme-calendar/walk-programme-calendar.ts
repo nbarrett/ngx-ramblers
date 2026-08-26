@@ -8,10 +8,9 @@ import { faArrowLeft, faChevronLeft, faChevronRight, faTrash, faTriangleExclamat
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { chunk, first, last, uniq } from "es-toolkit/compat";
-import { PageComponent } from "../../../page/page.component";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
-import { WalkProgrammeViewSelector } from "../walk-programme-view-selector/walk-programme-view-selector";
+import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
 import { StoredValue } from "../../../models/ui-actions";
 import { CalendarColourBy } from "../../../models/walks-config.model";
 import {
@@ -67,13 +66,11 @@ const LEADER_GRADE_PALETTE: string[] = [
 @Component({
   selector: "app-walk-programme-calendar",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FormsModule, FontAwesomeModule, CdkDropListGroup, CdkDropList, CdkDrag, WalkProgrammeViewSelector, SectionToggle],
+  imports: [WalkProgrammePageComponent, FormsModule, FontAwesomeModule, CdkDropListGroup, CdkDropList, CdkDrag, SectionToggle],
   styleUrls: ["./walk-programme-calendar.sass"],
   template: `
-    <app-page autoTitle>
-      @if (!selectMode) {
-        <app-walk-programme-view-selector/>
-      } @else {
+    <app-walk-programme-page [showSelector]="!selectMode">
+      @if (selectMode) {
         <div class="select-mode-nav">
           <button type="button" class="btn pager-btn rounded" (click)="goBackFromSelect()">
             <fa-icon [icon]="faArrowLeft" class="me-2"/>Back
@@ -176,7 +173,7 @@ const LEADER_GRADE_PALETTE: string[] = [
           }
         </div>
       </div>
-    </app-page>
+    </app-walk-programme-page>
   `
 })
 export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {

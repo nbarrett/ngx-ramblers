@@ -10,6 +10,8 @@ import { SystemConfigService } from "./system/system-config.service";
 import { WalksConfigService } from "./system/walks-config.service";
 import { WalksConfig } from "../models/walks-config.model";
 import { Member } from "../models/member.model";
+import { memberFullName } from "../functions/member-names";
+import { normalisedWalkLeaderName } from "../functions/walks/joint-walk-leaders";
 import { DEFAULT_BASIC_EVENT_SELECTION } from "../models/search.model";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
@@ -98,6 +100,48 @@ export class EventDefaultsService {
       phone: member.mobileNumber
     };
   };
+
+  applyMembersAsWalkLeaders(walk: ExtendedGroupEvent, selected: Member[]): void {
+    if (selected.length > 0 && walk?.groupEvent) {
+      const primary = selected[0];
+      const displayNames = selected.map(member => member.displayName || memberFullName(member)).filter(name => !!name);
+      const contactNames = selected.map(member => memberFullName(member)).filter(name => !!name);
+      const jointDisplayName = normalisedWalkLeaderName(displayNames.join("; "));
+      const primaryContact = this.memberToContact(primary);
+      walk.groupEvent.walk_leader = {
+        ...primaryContact,
+        name: jointDisplayName || primaryContact.name
+      };
+      if (walk.fields) {
+        if (!walk.fields.contactDetails) {
+          walk.fields.contactDetails = this.defaultContactDetails();
+        }
+        walk.fields.contactDetails.memberId = primary.id || null;
+        walk.fields.contactDetails.contactId = primary.contactId ?? null;
+        walk.fields.contactDetails.displayName = jointDisplayName;
+        walk.fields.contactDetails.phone = primary.mobileNumber || null;
+        walk.fields.contactDetails.email = primary.email || null;
+        if (walk.fields.publishing?.ramblers) {
+          walk.fields.publishing.ramblers.contactName = contactNames.join("; ") || primary.contactId || null;
+        }
+      }
+    }
+  }
+
+  restoreWalkLeaderName(walk: ExtendedGroupEvent, name: string): void {
+    const restoredName = name || "";
+    walk.groupEvent.walk_leader = this.nameToContact(restoredName);
+    if (walk.fields?.contactDetails) {
+      walk.fields.contactDetails.memberId = null;
+      walk.fields.contactDetails.contactId = null;
+      walk.fields.contactDetails.displayName = restoredName || null;
+      walk.fields.contactDetails.email = null;
+      walk.fields.contactDetails.phone = null;
+    }
+    if (walk.fields?.publishing?.ramblers) {
+      walk.fields.publishing.ramblers.contactName = restoredName || null;
+    }
+  }
 
   public createDefault(overrides?: DeepPartial<ExtendedGroupEvent>) {
     const now = this.dateUtils.isoDateTimeNow();

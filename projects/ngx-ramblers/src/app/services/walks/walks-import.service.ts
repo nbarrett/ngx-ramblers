@@ -9,7 +9,7 @@ import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { Organisation, RootFolder, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { chunk, cloneDeep, toPairs, first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
+import { chunk, cloneDeep, toPairs, first, groupBy, isEqual, isString, last, omit, uniq } from "es-toolkit/compat";
 import { DateUtilsService } from "../date-utils.service";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
@@ -26,7 +26,7 @@ import {
 import { MemberNamingService } from "../member/member-naming.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
-import { Contact, LocationDetails, RamblersEventType, WalkStatus, WalkUploadColumnHeading } from "../../models/ramblers-walks-manager";
+import { Contact, LocationDetails, RamblersEventType, WalkEditField, WalkFieldChange, WalkStatus, WalkUploadColumnHeading } from "../../models/ramblers-walks-manager";
 import { AlertInstance } from "../notifier.service";
 import {
   ExtendedGroupEvent,
@@ -38,13 +38,18 @@ import {
 import { AwsFileUploadResponse, AwsFileUploadResponseData } from "../../models/aws-object.model";
 import { enumValues, TypedKeyValue } from "../../functions/enums";
 import { defaultDisplayName, mergeFieldsOnSync } from "../../functions/walks/ramblers-event.mapper";
+import { walksManagerWalkLeaderNameFromGroupEvent } from "../../functions/walks/walk-leader-fields";
 import { extractErrorMessage } from "../../functions/strings";
 import { normaliseMarkdownText } from "../../functions/markdown";
 import {
   firstWalkLeaderName,
   isJointWalkLeaderName,
-  normalisedWalkLeaderName
+  normalisedWalkLeaderName,
+  walkLeaderNamesMatch
 } from "../../functions/walks/joint-walk-leaders";
+import { changedFieldValues } from "../../functions/field-change";
+import { FieldChange } from "../../models/field-change.model";
+import { UIDateFormat } from "../../models/date-format.model";
 import {
   isTentativeLeaderMatch,
   leaderMatchResult,
@@ -178,7 +183,7 @@ export class WalksImportService {
     this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk?.groupEvent?.start_date_time), "walksWithContactId:", walksWithContactId);
     importData.messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
     importData.messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
-    const existingWalks: ExtendedGroupEvent[] = await this.allExistingWalksWithinRange(importData, firstWalk, lastWalk);
+    const existingWalks: ExtendedGroupEvent[] = await this.allExistingWalksWithinRange(importData, walksToImport);
     importData.existingWalksWithinRange = existingWalks;
     importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be updated; new walks will be added`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range");
@@ -205,7 +210,11 @@ export class WalksImportService {
       return {
         include: this.includeWalk(event, duplicateKeys),
         bulkLoadMemberAndMatch,
-        event
+        event,
+        importedWalkLeaderName: event.groupEvent?.walk_leader?.name
+          || event.fields?.contactDetails?.displayName
+          || event.fields?.publishing?.ramblers?.contactName
+          || ""
       };
     });
     importData.bulkLoadMembersAndMatchesToWalks = bulkLoadMembersAndMatchesToWalks;
@@ -214,16 +223,30 @@ export class WalksImportService {
     return Promise.resolve(importData);
   }
 
-  private async allExistingWalksWithinRange(importData: ImportData, firstWalk: ExtendedGroupEvent, lastWalk: ExtendedGroupEvent): Promise<ExtendedGroupEvent[]> {
+  private groupCodesOnWalks(walksToImport: ExtendedGroupEvent[], fallbackGroupCode: string): string[] {
+    const groupCodesFromEvents = uniq(walksToImport.map(walk => walk.groupEvent?.group_code).filter(groupCode => !!groupCode));
+    if (groupCodesFromEvents.length > 0) {
+      return groupCodesFromEvents;
+    } else if (fallbackGroupCode) {
+      return [fallbackGroupCode];
+    } else {
+      return [];
+    }
+  }
+
+  private async allExistingWalksWithinRange(importData: ImportData, walksToImport: ExtendedGroupEvent[]): Promise<ExtendedGroupEvent[]> {
+    const firstWalk = first(walksToImport);
+    const lastWalk = last(walksToImport);
     const firstWalkDate = this.dateUtils.asDateTime(firstWalk.groupEvent.start_date_time).startOf("day").toISODate();
     const dayAfterLastWalk = this.dateUtils.asDateTime(lastWalk.groupEvent.start_date_time).plus({days: 1}).startOf("day").toISODate();
+    const groupCodes = this.groupCodesOnWalks(walksToImport, importData.groupCodeAndName.group_code);
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptionsFrom({
       inputSource: importData.inputSource,
       suppressEventLinking: true,
-      groupCode: importData.groupCodeAndName.group_code,
       types: [RamblersEventType.GROUP_WALK],
       dataQueryOptions: {
         criteria: {
+          [GroupEventField.GROUP_CODE]: {$in: groupCodes},
           [GroupEventField.START_DATE]: {$gte: firstWalkDate, $lt: dayAfterLastWalk}
         },
         sort: {[GroupEventField.START_DATE]: 1},
@@ -232,7 +255,13 @@ export class WalksImportService {
           [GroupEventField.ID]: 1,
           [GroupEventField.TITLE]: 1,
           [GroupEventField.START_DATE]: 1,
-          [GroupEventField.GROUP_CODE]: 1
+          [GroupEventField.GROUP_CODE]: 1,
+          [GroupEventField.WALK_LEADER]: 1,
+          [GroupEventField.DESCRIPTION]: 1,
+          [GroupEventField.SHAPE]: 1,
+          [GroupEventField.DIFFICULTY]: 1,
+          [GroupEventField.DISTANCE_MILES]: 1,
+          [GroupEventField.DISTANCE_KM]: 1
         }
       }
     });
@@ -482,22 +511,24 @@ export class WalksImportService {
   }
 
   public existingWalkMatchResolver(existingWalks: ExtendedGroupEvent[]): (incomingWalk: ExtendedGroupEvent) => WalkMatchOutcome {
+    const groupCodeFor = (event: ExtendedGroupEvent): string => event?.groupEvent?.group_code || "";
+    const keyed = (event: ExtendedGroupEvent, id: string): string => `${groupCodeFor(event)}|${id}`;
     const existingById = new Map<string, ExtendedGroupEvent>(
       existingWalks
         .filter(walk => walk.groupEvent?.id)
-        .map(walk => [walk.groupEvent.id, walk])
+        .map(walk => [keyed(walk, walk.groupEvent.id), walk])
     );
     const existingByMigratedFromId = new Map<string, ExtendedGroupEvent>(
       existingWalks
         .filter(walk => walk.fields?.migratedFromId)
-        .map(walk => [walk.fields.migratedFromId, walk])
+        .map(walk => [keyed(walk, walk.fields.migratedFromId), walk])
     );
     const existingByMongoId = new Map<string, ExtendedGroupEvent>(
       existingWalks
         .filter(walk => walk.id)
-        .map(walk => [walk.id, walk])
+        .map(walk => [keyed(walk, walk.id), walk])
     );
-    const naturalKeyFor = (event: ExtendedGroupEvent): string => `${event?.groupEvent?.title?.trim()?.toLowerCase()}|${this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis()}`;
+    const naturalKeyFor = (event: ExtendedGroupEvent): string => `${groupCodeFor(event)}|${event?.groupEvent?.title?.trim()?.toLowerCase()}|${this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis()}`;
     const existingByNaturalKey = new Map<string, ExtendedGroupEvent>(
       existingWalks
         .filter(walk => walk.groupEvent?.title && walk.groupEvent?.start_date_time)
@@ -506,9 +537,9 @@ export class WalksImportService {
     return (incomingWalk: ExtendedGroupEvent): WalkMatchOutcome => {
       const idCandidates = [incomingWalk.groupEvent?.id, incomingWalk.fields?.migratedFromId].filter(candidate => !!candidate);
       const matchedById = idCandidates
-        .map(candidate => existingById.get(candidate)
-          || existingByMigratedFromId.get(candidate)
-          || (isMongoId(candidate) ? existingByMongoId.get(candidate) : null))
+        .map(candidate => existingById.get(keyed(incomingWalk, candidate))
+          || existingByMigratedFromId.get(keyed(incomingWalk, candidate))
+          || (isMongoId(candidate) ? existingByMongoId.get(keyed(incomingWalk, candidate)) : null))
         .find(match => !!match);
       const matchedByNaturalKey = matchedById ? null : existingByNaturalKey.get(naturalKeyFor(incomingWalk));
       if (matchedById) {
@@ -521,10 +552,82 @@ export class WalksImportService {
     };
   }
 
+  public leaderOnlyImportUpdate(existingWalk: ExtendedGroupEvent): boolean {
+    return !!existingWalk?.fields?.inputSource && existingWalk.fields.inputSource !== InputSource.FILE_IMPORT;
+  }
+
+  public importFieldChanges(existingWalk: ExtendedGroupEvent, incomingWalk: ExtendedGroupEvent, incomingWalkLeaderName?: string): WalkFieldChange[] {
+    if (!existingWalk) {
+      return [];
+    } else {
+      const leaderChange: FieldChange<WalkEditField, string> = {
+        field: WalkEditField.WALK_LEADERS,
+        from: this.walkLeaderNameFrom(existingWalk),
+        to: isString(incomingWalkLeaderName) ? incomingWalkLeaderName : this.walkLeaderNameFrom(incomingWalk)
+      };
+      const candidates: FieldChange<WalkEditField, string>[] = this.leaderOnlyImportUpdate(existingWalk)
+        ? [leaderChange]
+        : [
+          {field: WalkEditField.TITLE, from: existingWalk.groupEvent?.title || "", to: incomingWalk.groupEvent?.title || ""},
+          {field: WalkEditField.DATE, from: this.walkDateLabel(existingWalk), to: this.walkDateLabel(incomingWalk)},
+          {field: WalkEditField.START_TIME, from: this.walkTimeLabel(existingWalk), to: this.walkTimeLabel(incomingWalk)},
+          leaderChange,
+          {field: WalkEditField.DESCRIPTION, from: existingWalk.groupEvent?.description || "", to: incomingWalk.groupEvent?.description || ""},
+          {field: WalkEditField.WALK_TYPE, from: existingWalk.groupEvent?.shape || "", to: incomingWalk.groupEvent?.shape || ""},
+          {field: WalkEditField.DIFFICULTY, from: existingWalk.groupEvent?.difficulty?.description || "", to: incomingWalk.groupEvent?.difficulty?.description || ""},
+          {
+            field: WalkEditField.DISTANCE_MILES,
+            from: existingWalk.groupEvent?.distance_miles == null ? "" : String(existingWalk.groupEvent.distance_miles),
+            to: incomingWalk.groupEvent?.distance_miles == null ? "" : String(incomingWalk.groupEvent.distance_miles)
+          }
+        ];
+      return changedFieldValues(candidates, change => this.importFieldValuesEqual(change)).map(change => ({
+        field: change.field,
+        existingValue: change.from,
+        value: change.to
+      }));
+    }
+  }
+
+  public describeImportFieldChange(change: WalkFieldChange): string {
+    const from = (change.existingValue || "").trim() || "none";
+    const to = (change.value || "").trim() || "none";
+    return `${change.field} (${from} → ${to})`;
+  }
+
+  public walkLeaderNameFrom(walk: ExtendedGroupEvent): string {
+    return walksManagerWalkLeaderNameFromGroupEvent(walk?.groupEvent)
+      || (walk?.fields?.publishing?.ramblers?.contactName || "").trim()
+      || (walk?.fields?.contactDetails?.displayName || "").trim()
+      || "";
+  }
+
+  private walkDateLabel(walk: ExtendedGroupEvent): string {
+    return this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toFormat(UIDateFormat.DISPLAY_DATE);
+  }
+
+  private walkTimeLabel(walk: ExtendedGroupEvent): string {
+    return this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toFormat(UIDateFormat.RAMBLERS_TIME);
+  }
+
+  private importFieldValuesEqual(change: FieldChange<WalkEditField, string>): boolean {
+    if (change.field === WalkEditField.WALK_LEADERS) {
+      return walkLeaderNamesMatch(change.to, change.from);
+    } else if (change.field === WalkEditField.DISTANCE_MILES || change.field === WalkEditField.DISTANCE_KM) {
+      if (!change.from && !change.to) {
+        return true;
+      } else {
+        return Number(change.from) === Number(change.to);
+      }
+    } else {
+      return (change.from || "").trim().toLowerCase() === (change.to || "").trim().toLowerCase();
+    }
+  }
+
   private async applyWalkLeaderIfSuppliedAndMergeWalk(incomingWalk: ExtendedGroupEvent, existingWalkFor: (incomingWalk: ExtendedGroupEvent) => ExtendedGroupEvent, member?: Member, overwriteContactDetailsWithMember = true): Promise<ExtendedGroupEvent> {
     const existingWalk = existingWalkFor(incomingWalk);
     if (existingWalk) {
-      const leaderOnlyUpdate = existingWalk.fields?.inputSource && existingWalk.fields.inputSource !== InputSource.FILE_IMPORT;
+      const leaderOnlyUpdate = this.leaderOnlyImportUpdate(existingWalk);
       const mergedWalk: ExtendedGroupEvent = leaderOnlyUpdate
         ? this.leaderOnlyMergedWalk(existingWalk, incomingWalk)
         : {
@@ -640,6 +743,8 @@ export class WalksImportService {
     });
 
     const walkId = csv[WalkUploadColumnHeading.WALK_ID];
+    const groupCode = csv[WalkUploadColumnHeading.GROUP_CODE] || groupCodeAndName.group_code;
+    const groupName = csv[WalkUploadColumnHeading.GROUP_NAME] || groupCodeAndName.group_name;
     const distanceMiles = this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_MILES]);
     const distanceKm = this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_KM]);
     const effectiveDistanceMiles = distanceMiles || (distanceKm ? this.distanceValidationService.convertKmToMiles(distanceKm) : 0);
@@ -653,8 +758,8 @@ export class WalksImportService {
       duration: 0,
       external_url: "",
       facilities: [],
-      group_code: groupCodeAndName.group_code,
-      group_name: groupCodeAndName.group_name,
+      group_code: groupCode,
+      group_name: groupName,
       item_type: RamblersEventType.GROUP_WALK,
       linked_event: null,
       media: [],

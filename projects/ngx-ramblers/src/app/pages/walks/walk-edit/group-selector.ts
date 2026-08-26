@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { GroupEventField } from "../../../models/walk.model";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
@@ -7,6 +7,7 @@ import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NgTemplateOutlet } from "@angular/common";
+import { sortBy } from "../../../functions/arrays";
 
 @Component({
   selector: "app-group-selector",
@@ -27,7 +28,7 @@ import { NgTemplateOutlet } from "@angular/common";
                  [clearable]="true"
                  [disabled]="disabled"
                  [loading]="loadingGroups"
-                 placeholder="Select one or more groups..."
+                 [placeholder]="placeholder"
                  [ngModel]="groupCode"
                  (ngModelChange)="groupChange($event)">
       </ng-select>
@@ -42,7 +43,7 @@ import { NgTemplateOutlet } from "@angular/common";
     }
   `
 })
-export class GroupSelector implements OnInit {
+export class GroupSelector implements OnInit, OnChanges {
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSelector", NgxLoggerLevel.ERROR);
   loadingGroups = false;
@@ -53,13 +54,26 @@ export class GroupSelector implements OnInit {
   @Input() label!: string;
   @Input() groupCode!: string;
   @Input() areaCode!: string;
-  @Output() groupChanged: EventEmitter<RamblersGroupsApiResponse> = new EventEmitter();
+  @Input() placeholder = "Select a group";
+  @Output() groupChanged: EventEmitter<RamblersGroupsApiResponse | null> = new EventEmitter();
   @Output() areaChanged: EventEmitter<RamblersGroupsApiResponse> = new EventEmitter();
   @Input() disabled!: boolean;
-  @Input() dropdownPosition: DropdownPosition = "auto";
+  @Input() dropdownPosition: DropdownPosition = "bottom";
 
   async ngOnInit() {
     this.logger.info("ngOnInit:areaCode:", this.areaCode, "groupCodes:", this.groupCode, "firstGroupCode:", this.firstGroupCode());
+    await this.loadGroupsIfPossible();
+  }
+
+  async ngOnChanges(changes: SimpleChanges) {
+    if (changes.areaCode && !changes.areaCode.firstChange) {
+      await this.loadGroupsIfPossible();
+    } else if (changes.groupCode && !changes.groupCode.firstChange && changes.groupCode.currentValue !== changes.groupCode.previousValue) {
+      this.updateSelectedGroupCodes();
+    }
+  }
+
+  private async loadGroupsIfPossible() {
     if (this.areaCode) {
       await this.queryGroups(this.areaCode);
       this.updateSelectedGroupCodes();
@@ -84,7 +98,7 @@ export class GroupSelector implements OnInit {
         this.groups = await this.ramblersWalksAndEventsService.listRamblersGroups([group]);
         this.availableGroups = this.groups.filter(group => group.scope === "G").map(group => ({
           ...group, ngSelectAttributes: {label: `${group.name} (${group.group_code})`}
-        }));
+        })).sort(sortBy("name", "group_code"));
         this.areaGroup = this.groups.find(group => group.scope === "A");
         this.logger.info("Searched for group:", group, "returned:", this.groups, "areaGroup:", this.areaGroup);
         if (this.areaGroup) {
@@ -109,6 +123,7 @@ export class GroupSelector implements OnInit {
       this.groupChanged.emit(group);
     } else {
       this.logger.info("onChange of groupCode:", groupCode, "no group found");
+      this.groupChanged.emit(null);
     }
   }
 }
