@@ -189,6 +189,11 @@ export async function derivedAliasForEmail(email: string): Promise<InboxAliasCon
   return aliases.find(alias => [alias.roleEmail, ...alias.additionalEmails].some(address => normaliseEmail(address) === wanted)) ?? null;
 }
 
+export function aliasForRoleType(aliases: InboxAliasConfig[], roleType: string | null | undefined): InboxAliasConfig | null {
+  const wanted = (roleType ?? "").trim();
+  return wanted ? aliases.find(alias => alias.roleType === wanted) ?? null : null;
+}
+
 export async function derivedAliasForRoleType(roleType: string): Promise<InboxAliasConfig | null> {
   if (isInboxGeneralRoleType(roleType)) {
     const tenantSlug = defaultTenantSlug();
@@ -205,7 +210,7 @@ export async function derivedAliasForRoleType(roleType: string): Promise<InboxAl
     return ownerConnection ? generalAliasFor(ownerConnection, tenantSlug) : null;
   }
   const aliases = await derivedAliases();
-  return aliases.find(alias => alias.roleType === roleType) ?? null;
+  return aliasForRoleType(aliases, roleType);
 }
 
 export async function derivedAliasesForConnection(connection: InboxMailboxConnection): Promise<InboxAliasConfig[]> {
@@ -218,6 +223,16 @@ export async function derivedAliasesForConnection(connection: InboxMailboxConnec
   const connectionId = connectionIdentifier(connection);
   return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug)
     .filter(alias => alias.mailboxConnectionId === connectionId);
+}
+
+export async function aliasesForMailbox(connection: InboxMailboxConnection): Promise<InboxAliasConfig[]> {
+  const gmailAliases = await derivedAliasesForConnection(connection);
+  if (gmailAliases.length > 0) {
+    return gmailAliases;
+  } else {
+    const connectionId = connectionIdentifier(connection);
+    return (await derivedAliases()).filter(alias => alias.mailboxConnectionId === connectionId);
+  }
 }
 
 export async function generalInboxForwardAddress(tenantSlug: string): Promise<string | null> {

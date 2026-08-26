@@ -148,7 +148,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
             }
           }
           @if (!mobile) {
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="syncAndRefresh()" [disabled]="busy" tooltip="Synchronise connected mailboxes and refresh the inbox">
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="syncAndRefresh()" [disabled]="busy" tooltip="Reload conversations and the open message, and fetch any new mail from connected mailboxes">
               <fa-icon [icon]="faRotateRight"/>Refresh
             </button>
           }
@@ -894,29 +894,25 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = junkResponse.unreadCount;
         this.threadListTotalCount = junkResponse.totalCount;
-        if (!this.selectedThreadId && this.threads.length > 0) {
-          await this.openThread(this.threads[0], false);
+        await this.reloadVisibleConversation(this.threads[0] ?? null);
+      } else {
+        if (this.aliases.length === 1) {
+          this.selectedMailboxView = this.aliases[0].roleType;
+        } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
+          && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)) {
+          this.selectedMailboxView = InboxViewScope.ALL_ACCESSIBLE;
         }
-        return;
-      }
-      if (this.aliases.length === 1) {
-        this.selectedMailboxView = this.aliases[0].roleType;
-      } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
-        && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)) {
-        this.selectedMailboxView = InboxViewScope.ALL_ACCESSIBLE;
-      }
-      const roleType = this.selectedRoleType();
-      const scope = roleType ? null : this.selectedMailboxView as InboxViewScope;
-      const listResponse = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD);
-      this.threads = listResponse.threads;
-      this.threadListUnreadCount = listResponse.unreadCount;
-      this.threadListTotalCount = listResponse.totalCount;
-      const requestedThread = await this.threadRequestedInUrl(roleType, scope);
-      if (!this.selectedThreadId && (requestedThread || this.threads.length > 0)) {
-        if (this.mobile && requestedThread) {
+        const roleType = this.selectedRoleType();
+        const scope = roleType ? null : this.selectedMailboxView as InboxViewScope;
+        const listResponse = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD);
+        this.threads = listResponse.threads;
+        this.threadListUnreadCount = listResponse.unreadCount;
+        this.threadListTotalCount = listResponse.totalCount;
+        const requestedThread = await this.threadRequestedInUrl(roleType, scope);
+        if (this.mobile && !this.selectedThreadId && requestedThread) {
           this.mobileShowDetail = true;
         }
-        await this.openThread(requestedThread ?? this.threads[0], false);
+        await this.reloadVisibleConversation(requestedThread);
       }
     } catch (error) {
       this.notify.error({title: "Inbox", message: (error as Error).message});
@@ -929,19 +925,29 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   async syncAndRefresh(): Promise<void> {
-    this.busy = true;
     try {
       const connectionIds = Array.from(new Set(this.aliases
         .filter(alias => alias.mailboxConnection?.hasRefreshToken && alias.mailboxConnectionId)
         .map(alias => alias.mailboxConnectionId as string)));
       await Promise.all(connectionIds.map(connectionId => this.inboxService.syncConnection(connectionId)));
     } catch (error) {
-      this.notify.error({title: "Inbox", message: (error as Error).message});
       this.logger.error("Failed to synchronise inbox mailboxes:", error);
-    } finally {
-      this.busy = false;
     }
     await this.refresh();
+  }
+
+  private async reloadVisibleConversation(fallback: InboxThread | null): Promise<void> {
+    const selectedId = this.selectedThreadId;
+    if (selectedId) {
+      const updated = this.matchingThread(this.threads, selectedId);
+      if (updated) {
+        await this.openThread(updated, false);
+      } else if (this.selectedThread) {
+        await this.openThread({...this.selectedThread, id: selectedId} as InboxThread, false);
+      }
+    } else if (fallback || this.threads.length > 0) {
+      await this.openThread(fallback ?? this.threads[0], false);
+    }
   }
 
   get canLoadMoreConversations(): boolean {
@@ -1771,8 +1777,5 @@ export class InboxComponent implements OnInit, OnDestroy {
   private async handleNewMessageEvent(event: InboxNewMessageEvent): Promise<void> {
     this.logger.info("Inbox websocket event:", event);
     await this.refresh();
-    if (event.messageId && this.selectedThreadId === event.threadId) {
-      await this.openThread({...this.selectedThread!, id: this.selectedThreadId} as InboxThread);
-    }
   }
 }

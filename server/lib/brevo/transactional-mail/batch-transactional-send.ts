@@ -64,6 +64,7 @@ import {
 import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
 import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-message-import";
 import { protectedEmailSendError } from "../../salesforce/salesforce-permissions";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };
@@ -72,6 +73,7 @@ interface AuthenticatedRequest extends Request {
 const messageType = "brevo:batch-transactional-send";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
+const writebackErrorLog = createErrorDebugLog("inbox-writeback");
 
 const SEND_DELAY_MS = 400;
 const JOB_RETENTION_MS = 30 * 60 * 1000;
@@ -347,68 +349,69 @@ async function volunteerMergeFieldSource(request: BatchTransactionalSendRequest)
   }
 }
 
-async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, renderedHtmlContent: string, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger, senderRoleType: string | null): Promise<void> {
+async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, renderedHtmlContent: string, brevoMessageId: string | null, senderRoleType: string | null): Promise<void> {
   const context = request.inboxReplyContext;
-  const writebackRoleType = context?.aliasId ?? senderRoleType;
-  if (!writebackRoleType) {
-    return;
-  }
-  try {
-    const alias = await derivedAliasForRoleType(writebackRoleType);
-    if (!alias) {
-      transactionalDebugLog("inbox writeback: no alias found for roleType", writebackRoleType);
-      return;
-    }
-    const mailboxConnectionId = context?.mailboxConnectionId ?? alias.mailboxConnectionId ?? null;
-    const mailboxConnectionDoc = mailboxConnectionId
-      ? await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean()
-      : null;
-    const outboundMessageId = brevoMessageId
-      ? (brevoMessageId.startsWith("<") ? brevoMessageId : `<${brevoMessageId}>`)
-      : `<${randomUUID()}@ngx-ramblers.org.uk>`;
-    const sentAt = dateTimeNow().toMillis();
-    let gmailMessageId: string | null = null;
-    if (mailboxConnectionDoc?.oauthRefreshTokenEncrypted && mailboxConnectionDoc.provider === InboxReaderProvider.GMAIL_API) {
-      try {
-        const rfc822 = buildRfc822(emailRequest, renderedHtmlContent, outboundMessageId, context?.inReplyTo ?? "", context?.references ?? [], sentAt);
-        gmailMessageId = await insertSentCopy(mailboxConnectionDoc, rfc822);
-      } catch (writeBackError) {
-        transactionalDebugLog("inbox writeback: insertSentCopy failed", (writeBackError as Error).message);
+  const mailboxRoleType = senderRoleType || context?.senderRoleType || null;
+  if (!mailboxRoleType) {
+    writebackErrorLog("inbox writeback skipped: no sender role type on send", emailRequest.subject);
+  } else {
+    try {
+      const alias = await derivedAliasForRoleType(mailboxRoleType);
+      if (!alias) {
+        writebackErrorLog("inbox writeback: no mailbox for role type", mailboxRoleType, emailRequest.subject);
+      } else {
+        const mailboxConnectionId = context?.mailboxConnectionId ?? alias.mailboxConnectionId ?? null;
+        const mailboxConnectionDoc = mailboxConnectionId
+          ? await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean()
+          : null;
+        const outboundMessageId = brevoMessageId
+          ? (brevoMessageId.startsWith("<") ? brevoMessageId : `<${brevoMessageId}>`)
+          : `<${randomUUID()}@ngx-ramblers.org.uk>`;
+        const sentAt = dateTimeNow().toMillis();
+        const gmailInsert = {id: null as string | null};
+        if (mailboxConnectionDoc?.oauthRefreshTokenEncrypted && mailboxConnectionDoc.provider === InboxReaderProvider.GMAIL_API) {
+          try {
+            const rfc822 = buildRfc822(emailRequest, renderedHtmlContent, outboundMessageId, context?.inReplyTo ?? "", context?.references ?? [], sentAt);
+            gmailInsert.id = await insertSentCopy(mailboxConnectionDoc, rfc822);
+          } catch (writeBackError) {
+            writebackErrorLog("inbox writeback: insertSentCopy failed", (writeBackError as Error).message);
+          }
+        }
+        const outboundMessage: InboxMessage = {
+          threadId: context?.threadId ?? "",
+          mailboxConnectionId,
+          direction: InboxMessageDirection.OUTBOUND,
+          messageId: outboundMessageId,
+          inReplyTo: context?.inReplyTo ?? null,
+          references: context?.references ?? [],
+          from: {name: emailRequest.sender?.name ?? null, email: emailRequest.sender?.email ?? ""},
+          to: (emailRequest.to ?? []).map(address => ({name: address.name ?? null, email: address.email})),
+          cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
+          subject: emailRequest.subject,
+          bodyHtml: renderedHtmlContent || null,
+          bodyText: null,
+          receivedAt: null,
+          sentAt,
+          externalSource: mailboxConnectionDoc?.provider ?? InboxReaderProvider.GMAIL_API,
+          externalId: gmailInsert.id,
+          attachments: (emailRequest.attachments ?? []).map(attachment => ({
+            filename: attachment.name,
+            contentType: "application/octet-stream",
+            sizeBytes: attachment.sizeBytes ?? 0,
+            s3Key: attachment.url.split("api/aws/s3/")[1] ?? "",
+            contentId: null
+          }))
+        };
+        if (context) {
+          await recordOutboundReply(alias, outboundMessage, context.threadId);
+        } else {
+          const internalEmails = mailboxConnectionDoc ? await internalEmailsForConnection(mailboxConnectionDoc) : undefined;
+          await recordOutboundMessage(alias, outboundMessage, internalEmails);
+        }
       }
+    } catch (error) {
+      writebackErrorLog("inbox writeback failed:", (error as Error).message, emailRequest.subject);
     }
-    const outboundMessage: InboxMessage = {
-      threadId: context?.threadId ?? "",
-      mailboxConnectionId,
-      direction: InboxMessageDirection.OUTBOUND,
-      messageId: outboundMessageId,
-      inReplyTo: context?.inReplyTo ?? null,
-      references: context?.references ?? [],
-      from: {name: emailRequest.sender?.name ?? null, email: emailRequest.sender?.email ?? ""},
-      to: (emailRequest.to ?? []).map(address => ({name: address.name ?? null, email: address.email})),
-      cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
-      subject: emailRequest.subject,
-      bodyHtml: renderedHtmlContent || null,
-      bodyText: null,
-      receivedAt: null,
-      sentAt,
-      externalSource: mailboxConnectionDoc?.provider ?? InboxReaderProvider.GMAIL_API,
-      externalId: gmailMessageId,
-      attachments: (emailRequest.attachments ?? []).map(attachment => ({
-        filename: attachment.name,
-        contentType: "application/octet-stream",
-        sizeBytes: attachment.sizeBytes ?? 0,
-        s3Key: attachment.url.split("api/aws/s3/")[1] ?? "",
-        contentId: null
-      }))
-    };
-    if (context) {
-      await recordOutboundReply(alias, outboundMessage, context.threadId);
-    } else {
-      const internalEmails = mailboxConnectionDoc ? await internalEmailsForConnection(mailboxConnectionDoc) : undefined;
-      await recordOutboundMessage(alias, outboundMessage, internalEmails);
-    }
-  } catch (error) {
-    transactionalDebugLog("inbox writeback failed:", (error as Error).message);
   }
 }
 
@@ -632,7 +635,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
-        await performInboxWriteback(request, emailRequest, sendResult.renderedHtmlContent, sendResult?.body?.messageId ?? null, debugLog, senderRoleType);
+        await performInboxWriteback(request, emailRequest, sendResult.renderedHtmlContent, sendResult?.body?.messageId ?? null, senderRoleType);
         if (item.kind === "external" && currentMemberId) {
           await recordSendUsage({
             email: item.recipient.email,
@@ -691,7 +694,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         const sentAt = dateTimeNow().toMillis();
         externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
         progress.sentCount += externalEntries.length;
-        await performInboxWriteback(request, externalEmailRequest, externalSendResult.renderedHtmlContent, externalSendResult?.body?.messageId ?? null, debugLog, senderRoleType);
+        await performInboxWriteback(request, externalEmailRequest, externalSendResult.renderedHtmlContent, externalSendResult?.body?.messageId ?? null, senderRoleType);
         if (currentMemberId) {
           await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
             await acc;

@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { derivedAliasesForConnection, generalAliasFor, internalDomainsForConnection, internalEmailsForConnection, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { aliasesForMailbox, defaultTenantSlug, derivedAliasesForConnection, generalAliasFor, internalDomainsForConnection, internalEmailsForConnection, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import {
   InboxAliasConfig,
   InboxAliasConnectionStatus,
@@ -62,6 +62,23 @@ export async function pollAllAliases(): Promise<InboxPollResult[]> {
     const result = await pollConnection(connectionRecord as InboxMailboxConnection);
     return accumulator.concat(result);
   }, Promise.resolve([]));
+}
+
+export async function recoverRecentSentCompositions(): Promise<number> {
+  const connections = await inboxMailboxConnectionModel.find({
+    tenantSlug: defaultTenantSlug(),
+    enabled: true
+  }).lean();
+  return connections.reduce<Promise<number>>(async (acc, connectionRecord) => {
+    const recoveredCount = await acc;
+    const connection = connectionRecord as InboxMailboxConnection;
+    const aliases = await aliasesForMailbox(connection);
+    const recovered = await reconcileRecentSentCompositions(connection, aliases);
+    if (recovered > 0) {
+      debugLog(`sent-composition recovery for ${connection.gmailAccountEmail ?? connection.provider}: recovered ${pluraliseWithCount(recovered, "sent message")}`);
+    }
+    return recoveredCount + recovered;
+  }, Promise.resolve(0));
 }
 
 export async function pollConnection(connection: InboxMailboxConnection): Promise<InboxPollResult> {
@@ -504,17 +521,22 @@ export function startInboxPolling(intervalMs: number = 30_000): void {
     return;
   }
   debugLog(`inbox polling starting (every ${intervalMs}ms)`);
-  pollTimer = setInterval(() => {
+  const run = () => {
     if (pollInProgress) {
       return;
     }
     pollInProgress = true;
-    pollAllAliases()
+    Promise.all([
+      pollAllAliases(),
+      recoverRecentSentCompositions()
+    ])
       .catch(error => errorDebugLog("Polling iteration failed:", (error as Error).message))
       .finally(() => {
         pollInProgress = false;
       });
-  }, intervalMs);
+  };
+  run();
+  pollTimer = setInterval(run, intervalMs);
 }
 
 export function stopInboxPolling(): void {

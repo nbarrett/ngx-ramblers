@@ -484,6 +484,7 @@ export interface BatchTransactionalSendRequest {
 export interface InboxReplyOutboundContextLike {
   threadId: string;
   aliasId: string;
+  senderRoleType: string;
   mailboxConnectionId: string;
   inboxMessageId: string;
   inReplyTo: string;

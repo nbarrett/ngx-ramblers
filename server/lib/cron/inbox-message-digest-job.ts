@@ -1,7 +1,7 @@
 import debug from "debug";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { envConfig } from "../env-config/env-config";
-import { googleInboxConfigured } from "../inbox/inbox-runtime";
+import { inboxPollingEnabled } from "../inbox/inbox-runtime";
 import { registerScheduledTask } from "./scheduled-task-registry";
 
 const debugLog = debug(envConfig.logNamespace("cron:inbox-message-digest"));
@@ -18,13 +18,13 @@ export async function scheduleInboxMessageDigest(): Promise<void> {
       enabled: true,
       run: async () => {
         debugLog("starting scheduled inbox message digest");
-        if (!await googleInboxConfigured()) {
-          debugLog("Inbox message digest skipped - Google Inbox OAuth is not configured");
-          return;
+        if (!await inboxPollingEnabled()) {
+          debugLog("Inbox message digest skipped - no enabled mailbox connection on this site");
+        } else {
+          const { runInboxMessageDigest } = await import("../inbox/inbox-message-digest");
+          const count = await runInboxMessageDigest();
+          debugLog(`inbox message digest completed: ${pluraliseWithCount(count, "message")} covered`);
         }
-        const { runInboxMessageDigest } = await import("../inbox/inbox-message-digest");
-        const count = await runInboxMessageDigest();
-        debugLog(`inbox message digest completed: ${pluraliseWithCount(count, "message")} covered`);
       }
     });
     debugLog(`inbox message digest cron scheduled: ${cronExpression}`);
