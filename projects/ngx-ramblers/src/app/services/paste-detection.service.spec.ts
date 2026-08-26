@@ -213,4 +213,19 @@ Hever Castle`;
     });
 
   });
+
+  describe("looksLikeMarkdown", () => {
+    it("treats prose whose only markdown is web or mailto links as markdown", () => {
+      expect(service.looksLikeMarkdown("Raise a ticket with [the training team](mailto:training@example.com) to get access.")).toBe(true);
+      expect(service.looksLikeMarkdown("The [release note](https://www.ngx-ramblers.org.uk/how-to) explains how it works.")).toBe(true);
+    });
+
+    it("does not treat a bracketed aside with a plain-word target as markdown on its own", () => {
+      expect(service.looksLikeMarkdown("I checked the [appendix](section) before replying.")).toBe(false);
+    });
+
+    it("still requires a second signal for plain text", () => {
+      expect(service.looksLikeMarkdown("Thanks for telling me all that, and it stays between us.")).toBe(false);
+    });
+  });
 });

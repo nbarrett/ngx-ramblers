@@ -161,7 +161,8 @@ export class PasteDetectionService {
     const mergeField = longEnough && /\{\{\s*[^}]+?\s*\}\}/.test(text) ? 2 : 0;
     const bold = longEnough && /\*\*\S[^*]*\S\*\*/.test(text) ? 1 : 0;
     const code = longEnough && /`[^`\n]+`/.test(text) ? 1 : 0;
-    const link = longEnough && /\[[^\]]+\]\([^)]+\)/.test(text) ? 1 : 0;
+    const link = longEnough && /\[[^\]]+]\((https?:\/\/|mailto:|tel:|[\/?#])[^)]*\)/.test(text) ? 2
+      : longEnough && /\[[^\]]+\]\([^)]+\)/.test(text) ? 1 : 0;
     const score = heading + bullet + numbered + quote + fence + image + table + mergeField + bold + code + link;
     return longEnough && score >= 2;
   }
