@@ -927,8 +927,16 @@ export class RamblersWalksAndEventsService {
     return transformed;
   }
 
-  public walkUploadHeadings(includeWalkId = false) {
-    return enumValues(WalkUploadColumnHeading).filter(heading => includeWalkId || heading !== WalkUploadColumnHeading.WALK_ID);
+  public walkUploadHeadings(includeWalkId = false, includeGroup = false) {
+    return enumValues(WalkUploadColumnHeading).filter(heading => {
+      if (heading === WalkUploadColumnHeading.WALK_ID) {
+        return includeWalkId;
+      } else if (heading === WalkUploadColumnHeading.GROUP_CODE || heading === WalkUploadColumnHeading.GROUP_NAME) {
+        return includeGroup;
+      } else {
+        return true;
+      }
+    });
   }
 
   public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExportData {
@@ -1259,6 +1267,8 @@ export class RamblersWalksAndEventsService {
     const walkAscent: WalkAscent = this.ascentValidationService.parse(extendedGroupEvent);
     this.logger.debug("walkAscent:", walkAscent);
     const walkDescription = await this.walkDescription(extendedGroupEvent);
+    csvRecord[WalkUploadColumnHeading.GROUP_CODE] = extendedGroupEvent?.groupEvent?.group_code || "";
+    csvRecord[WalkUploadColumnHeading.GROUP_NAME] = extendedGroupEvent?.groupEvent?.group_name || "";
     csvRecord[WalkUploadColumnHeading.DATE] = this.walkDate(extendedGroupEvent, DateFormat.WALKS_MANAGER_CSV);
     csvRecord[WalkUploadColumnHeading.TITLE] = this.walkTitle(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.DESCRIPTION] = walkDescription;

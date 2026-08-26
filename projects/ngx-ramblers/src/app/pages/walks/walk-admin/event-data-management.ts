@@ -468,7 +468,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
     }));
     const walksFile: CsvZipFileWithCount = {
       name: `${this.exportFileNameFor(stat)}.csv`,
-      content: csvContentFrom(rows, this.csvOptionsFor(this.ramblersWalksAndEventsService.walkUploadHeadings(this.includeWalkIds))),
+      content: csvContentFrom(rows, this.csvOptionsFor(this.ramblersWalksAndEventsService.walkUploadHeadings(this.includeWalkIds, true))),
       eventCount: rows.length
     };
     const imageRows: WalkImageRow[] = this.includeImages ? events.flatMap(event => this.walkImageRowsFor(event)) : [];

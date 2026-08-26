@@ -6,7 +6,7 @@ import { of } from "rxjs";
 import { vi } from "vitest";
 import { InputSource } from "../../models/group-event.model";
 import { Member, MemberAction } from "../../models/member.model";
-import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { RamblersEventType, WalkEditField } from "../../models/ramblers-walks-manager";
 import { EventType, WalkImportMatchType } from "../../models/walk.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
@@ -221,7 +221,28 @@ describe("WalksImportService Walks Manager matching", () => {
             displayName: member.displayName,
             email: member.email,
             phone: member.mobileNumber
-        })
+        }),
+        applyMembersAsWalkLeaders: (walk: any, selected: Member[]) => {
+            if (selected.length > 0) {
+                const names = selected.map(member => member.displayName).filter(name => !!name);
+                walk.groupEvent.walk_leader = eventDefaultsService.memberToContact(selected[0]);
+                walk.groupEvent.walk_leader.name = names.join("; ");
+                walk.fields.contactDetails = eventDefaultsService.contactDetailsFrom(selected[0]);
+                walk.fields.contactDetails.displayName = names.join("; ");
+                if (walk.fields.publishing?.ramblers) {
+                    walk.fields.publishing.ramblers.contactName = names.join("; ");
+                }
+            }
+        },
+        restoreWalkLeaderName: (walk: any, name: string) => {
+            walk.groupEvent.walk_leader = eventDefaultsService.nameToContact(name || "");
+            if (walk.fields?.contactDetails) {
+                walk.fields.contactDetails.displayName = name || null;
+            }
+            if (walk.fields?.publishing?.ramblers) {
+                walk.fields.publishing.ramblers.contactName = name || null;
+            }
+        }
     };
 
     const mediaQueryService = {
@@ -326,6 +347,7 @@ describe("WalksImportService Walks Manager matching", () => {
 
         expect(row.bulkLoadMemberAndMatch.memberMatch).toEqual(MemberAction.found);
         expect(row.bulkLoadMemberAndMatch.member?.id).toEqual(matchingMember.id);
+        expect(row.importedWalkLeaderName).toEqual(walk.groupEvent.walk_leader?.name || walk.fields.contactDetails.displayName);
     });
 
     it("loads existing walks stored as ISO strings across the complete file import date range", async () => {
@@ -348,14 +370,14 @@ describe("WalksImportService Walks Manager matching", () => {
             "Date": "2023-05-21",
             "Start time": "10:30",
             "Walk leaders": "Pauline Lax; Alistair Lax"
-        }, systemConfig.group);
+        }, {group_code: systemConfig.group.groupCode, group_name: systemConfig.group.longName});
         const lastIncomingWalk = service.csvRowToExtendedGroupEvent({
             "Walk ID": "100121572",
             "Title": "Thames Path and Mad Duck",
             "Date": "2023-07-06",
             "Start time": "10:30",
             "Walk leaders": "Diana Lincoln"
-        }, systemConfig.group);
+        }, {group_code: systemConfig.group.groupCode, group_name: systemConfig.group.longName});
 
         const result = await service.prepareImportOfEvents(
             service.importDataDefaults(InputSource.FILE_IMPORT),
@@ -365,11 +387,68 @@ describe("WalksImportService Walks Manager matching", () => {
         expect(localWalksAndEventsService.allWithPagination).toHaveBeenCalledTimes(1);
         const query = vi.mocked(localWalksAndEventsService.allWithPagination).mock.lastCall[0];
         expect(query.criteria).toEqual({
+            "groupEvent.group_code": {$in: ["EKWG"]},
             "groupEvent.start_date_time": {$gte: "2023-05-21", $lt: "2023-07-07"}
         });
         expect(result.existingWalksWithinRange).toEqual([firstExistingWalk, lastExistingWalk]);
         expect(service.existingWalkResolver(result.existingWalksWithinRange)(firstIncomingWalk)).toBe(firstExistingWalk);
         expect(service.existingWalkResolver(result.existingWalksWithinRange)(lastIncomingWalk)).toBe(lastExistingWalk);
+    });
+
+    it("uses the group on each csv row when loading existing walks, not the import picker group", async () => {
+        const service = TestBed.inject(WalksImportService);
+        const existingWalk = walksManagerWalk();
+        existingWalk.groupEvent.id = "100129480";
+        existingWalk.groupEvent.title = "Appledore Circular - EVENING WALK";
+        existingWalk.groupEvent.group_code = "KT50";
+        existingWalk.groupEvent.group_name = "East Kent Walking Group";
+        existingWalk.groupEvent.start_date_time = "2023-05-10T18:30:00";
+        localWalksAndEventsService.allWithPagination.mockResolvedValue({
+            response: [existingWalk],
+            pagination: {total: 1}
+        });
+        const incomingWalk = service.csvRowToExtendedGroupEvent({
+            "Walk ID": "100129480",
+            "Group code": "KT50",
+            "Group name": "East Kent Walking Group",
+            "Title": "Appledore Circular - EVENING WALK",
+            "Date": "2023-05-10",
+            "Start time": "18:30",
+            "Walk leaders": "Nick Barrett"
+        }, {group_code: "KT", group_name: "NGX-Ramblers"});
+        const importData = service.importDataDefaults(InputSource.FILE_IMPORT);
+        importData.groupCodeAndName = {group_code: "KT", group_name: "NGX-Ramblers"};
+
+        const result = await service.prepareImportOfEvents(importData, [incomingWalk]);
+
+        const query = vi.mocked(localWalksAndEventsService.allWithPagination).mock.lastCall[0];
+        expect(query.criteria).toEqual({
+            "groupEvent.group_code": {$in: ["KT50"]},
+            "groupEvent.start_date_time": {$gte: "2023-05-10", $lt: "2023-05-11"}
+        });
+        expect(incomingWalk.groupEvent.group_code).toEqual("KT50");
+        expect(result.existingWalksWithinRange).toEqual([existingWalk]);
+        expect(service.existingWalkResolver(result.existingWalksWithinRange)(incomingWalk)).toBe(existingWalk);
+        expect(service.existingWalkMatchResolver(result.existingWalksWithinRange)(incomingWalk).matchType)
+            .toEqual(WalkImportMatchType.WALK_ID);
+    });
+
+    it("queries existing walks by the groups on the imported events when the csv has no Walk IDs", async () => {
+        const service = TestBed.inject(WalksImportService);
+        const incomingWalk = service.csvRowToExtendedGroupEvent({
+            "Title": "Coastal Walk",
+            "Date": "2023-05-21",
+            "Start time": "10:30",
+            "Walk leaders": "Alex Example"
+        }, {group_code: systemConfig.group.groupCode, group_name: systemConfig.group.longName});
+
+        await service.prepareImportOfEvents(service.importDataDefaults(InputSource.FILE_IMPORT), [incomingWalk]);
+
+        const query = vi.mocked(localWalksAndEventsService.allWithPagination).mock.lastCall[0];
+        expect(query.criteria).toEqual({
+            "groupEvent.group_code": {$in: ["EKWG"]},
+            "groupEvent.start_date_time": {$gte: "2023-05-21", $lt: "2023-05-22"}
+        });
     });
 
     it("saves unmatched Walks Manager walks without creating members", async () => {
@@ -503,6 +582,17 @@ describe("WalksImportService Walks Manager matching", () => {
             const result = service.csvRowToExtendedGroupEvent(csvRow("Sarah Mitchell"), groupCodeAndName);
             expect(result.groupEvent.walk_leader.name).toEqual("Sarah Mitchell");
             expect(result.fields.contactDetails.displayName).toEqual("Sarah M");
+        });
+
+        it("keeps the group from the csv row instead of the import picker group", () => {
+            const service = TestBed.inject(WalksImportService);
+            const result = service.csvRowToExtendedGroupEvent({
+                ...csvRow("Nick Barrett"),
+                "Group code": "KT50",
+                "Group name": "East Kent Walking Group"
+            }, {group_code: "KT", group_name: "NGX-Ramblers"});
+            expect(result.groupEvent.group_code).toEqual("KT50");
+            expect(result.groupEvent.group_name).toEqual("East Kent Walking Group");
         });
 
         it("matches the first listed joint leader to a member in prepareImportOfEvents", async () => {
@@ -702,6 +792,16 @@ describe("WalksImportService Walks Manager matching", () => {
             expect(resolver(incoming)).toBe(existingWalk);
         });
 
+        it("does not resolve a Walk ID against an existing walk in a different group", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.groupEvent.group_code = "KT50";
+            const incoming = incomingCsvWalk("wm-1");
+            incoming.groupEvent.group_code = "KT02";
+            const resolver = service.existingWalkResolver([existingWalk]);
+            expect(resolver(incoming)).toBeNull();
+        });
+
         it("returns no match when neither ids nor title and date correspond", () => {
             const service = TestBed.inject(WalksImportService);
             const resolver = service.existingWalkResolver([walksManagerWalk({ id: mongoId })]);
@@ -734,6 +834,109 @@ describe("WalksImportService Walks Manager matching", () => {
             const outcome = resolver(incomingCsvWalk("no-such-id"));
             expect(outcome.matchType).toEqual(WalkImportMatchType.NONE);
             expect(outcome.existingWalk).toBeNull();
+        });
+
+        it("reports only the walk leader change for a walks-manager walk, even if the csv title differs", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            const incoming = incomingCsvWalk("wm-1");
+            const changes = service.importFieldChanges(existingWalk, incoming);
+            expect(service.leaderOnlyImportUpdate(existingWalk)).toBe(true);
+            expect(changes).toEqual([{
+                field: WalkEditField.WALK_LEADERS,
+                existingValue: "Alex Example",
+                value: "Sarah Mitchell"
+            }]);
+            expect(service.describeImportFieldChange(changes[0])).toEqual("walk leaders (Alex Example → Sarah Mitchell)");
+        });
+
+        it("reports no field changes when the csv walk leader already matches the existing walk", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.groupEvent.walk_leader = {
+                is_overridden: false,
+                id: null,
+                name: "Sarah Mitchell",
+                telephone: null,
+                has_email: false
+            };
+            const changes = service.importFieldChanges(existingWalk, incomingCsvWalk("wm-1"));
+            expect(changes).toEqual([]);
+        });
+
+        it("reads an existing walk leader stored as a contact list", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.groupEvent.walk_leader = [{
+                is_overridden: false,
+                id: null,
+                name: "Alex Example",
+                telephone: null,
+                has_email: false
+            }];
+            existingWalk.fields.contactDetails.displayName = null;
+            existingWalk.fields.publishing.ramblers.contactName = null;
+            const incoming = incomingCsvWalk("wm-1");
+            incoming.groupEvent.walk_leader.name = "Alex Example";
+            expect(service.walkLeaderNameFrom(existingWalk)).toEqual("Alex Example");
+            expect(service.importFieldChanges(existingWalk, incoming)).toEqual([]);
+        });
+
+        it("reports walk leader changes using a member-allocation name instead of the csv name", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.groupEvent.walk_leader = {
+                is_overridden: false,
+                id: null,
+                name: "Nick Barrett",
+                telephone: null,
+                has_email: false
+            };
+            const incoming = incomingCsvWalk("wm-1");
+            incoming.groupEvent.walk_leader.name = "Nick Barrett";
+            const changes = service.importFieldChanges(existingWalk, incoming, "Nick Barrett; Membership NGX; NGX Chairman");
+            expect(changes).toEqual([{
+                field: WalkEditField.WALK_LEADERS,
+                existingValue: "Nick Barrett",
+                value: "Nick Barrett; Membership NGX; NGX Chairman"
+            }]);
+        });
+
+        it("reports walk leader changes using the incoming walk leader after it is updated", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.groupEvent.walk_leader = {
+                is_overridden: false,
+                id: null,
+                name: null,
+                telephone: null,
+                has_email: false
+            };
+            existingWalk.fields.contactDetails.displayName = null;
+            existingWalk.fields.publishing.ramblers.contactName = null;
+            const incoming = incomingCsvWalk("wm-1");
+            incoming.groupEvent.walk_leader.name = "Nick Barrett; Membership NGX; NGX Chairman";
+            incoming.fields.contactDetails.displayName = "Nick Barrett; Membership NGX; NGX Chairman";
+            incoming.fields.publishing.ramblers.contactName = "Nick Barrett; Membership NGX; NGX Chairman";
+            const changes = service.importFieldChanges(existingWalk, incoming);
+            expect(changes).toEqual([{
+                field: WalkEditField.WALK_LEADERS,
+                existingValue: "",
+                value: "Nick Barrett; Membership NGX; NGX Chairman"
+            }]);
+            expect(service.describeImportFieldChange(changes[0])).toEqual("walk leaders (none → Nick Barrett; Membership NGX; NGX Chairman)");
+        });
+
+        it("reports title and leader changes when re-importing over a file-imported walk", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = incomingCsvWalk("wm-1");
+            existingWalk.id = mongoId;
+            existingWalk.groupEvent.title = "Coastal Walk";
+            existingWalk.groupEvent.walk_leader.name = "Alex Example";
+            existingWalk.fields.inputSource = InputSource.FILE_IMPORT;
+            const changes = service.importFieldChanges(existingWalk, incomingCsvWalk("wm-1"));
+            expect(service.leaderOnlyImportUpdate(existingWalk)).toBe(false);
+            expect(changes.map(change => change.field)).toEqual([WalkEditField.TITLE, WalkEditField.WALK_LEADERS]);
         });
 
         it("updates only leader details on a matched walks-manager walk, preserving its groupEvent", async () => {

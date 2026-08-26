@@ -95,7 +95,7 @@
   flex-direction: column
   gap: var(--space-3)
 
-.programme-sticky
+.programme-sticky-slot
   display: flex
   flex-direction: column
   gap: var(--space-3)
@@ -191,17 +191,6 @@
   color: var(--rsm-muted)
 
 @media (max-width: 768px)
-  .programme-sticky
-    position: static !important
-    top: auto !important
-  .view-row
-    flex-direction: column
-    align-items: stretch
-    app-walk-programme-view-selector,
-    app-date-range-direction-selector
-      width: 100%
-    app-date-range-direction-selector
-      margin-left: 0
   .stat-grid
     grid-template-columns: repeat(2, minmax(0, 1fr))
   .range-controls
@@ -267,13 +256,3 @@
 @media (max-width: 768px)
   .walk-rows.with-thumbnails .walk-row
     grid-template-columns: minmax(0, 1fr)
-
-.view-row
-  display: flex
-  align-items: center
-  gap: var(--space-3)
-  flex-wrap: wrap
-  app-walk-programme-view-selector
-    flex: 0 0 auto
-  app-date-range-direction-selector
-    margin-left: auto

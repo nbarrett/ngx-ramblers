@@ -2,7 +2,6 @@
   display: flex
   flex-direction: column
   gap: var(--space-4)
-  margin-top: var(--space-4)
 
 .status-filter
   display: flex
@@ -10,14 +9,6 @@
   gap: var(--space-2)
 
 @media (max-width: 768px)
-  .view-row
-    flex-direction: column
-    align-items: stretch
-    app-walk-programme-view-selector,
-    app-date-range-direction-selector
-      width: 100%
-    app-date-range-direction-selector
-      margin-left: 0
   .programme-map
     app-date-range-selector,
     app-section-toggle
@@ -26,13 +17,3 @@
     overflow-x: auto
     flex-wrap: nowrap
     padding-bottom: var(--space-1)
-
-.view-row
-  display: flex
-  align-items: center
-  gap: var(--space-3)
-  flex-wrap: wrap
-  app-walk-programme-view-selector
-    flex: 0 0 auto
-  app-date-range-direction-selector
-    margin-left: auto

@@ -5,10 +5,9 @@ import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { DateTime } from "luxon";
-import { PageComponent } from "../../../page/page.component";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
-import { WalkProgrammeViewSelector } from "../walk-programme-view-selector/walk-programme-view-selector";
+import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
 import { DateRangeDirectionSelector } from "../../../components/date-range-selector/date-range-direction-selector";
 import { WalksMapView } from "../walk-list/walks-map-view";
 import { DateRange } from "../../../components/date-range-slider/date-range-slider";
@@ -38,16 +37,13 @@ const ALL_STATUSES = "all-statuses";
 @Component({
   selector: "app-walk-programme-map",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, WalksMapView, DateRangeSelector, FontAwesomeModule, WalkProgrammeViewSelector, SectionToggle, DateRangeDirectionSelector],
+  imports: [WalkProgrammePageComponent, WalksMapView, DateRangeSelector, FontAwesomeModule, SectionToggle, DateRangeDirectionSelector],
   styleUrls: ["./walk-programme-map.sass"],
   template: `
-    <app-page autoTitle>
-      <div class="view-row">
-          <app-walk-programme-view-selector/>
-          <app-date-range-direction-selector [minDate]="minDate" [maxDate]="maxDate"
-                                             [direction]="dateRangeDirection"
-                                             (directionChange)="onDirectionChange($event)"/>
-        </div>
+    <app-walk-programme-page>
+      <app-date-range-direction-selector programmeChrome [minDate]="minDate" [maxDate]="maxDate"
+                                         [direction]="dateRangeDirection"
+                                         (directionChange)="onDirectionChange($event)"/>
       <div class="programme-map">
         <app-date-range-selector [minDate]="minDate" [maxDate]="maxDate" [direction]="dateRangeDirection"
                                  [range]="range" (rangeChange)="onRangeChange($event)"/>
@@ -67,7 +63,7 @@ const ALL_STATUSES = "all-statuses";
                               (selected)="onMapSelect($event)"/>
         }
       </div>
-    </app-page>
+    </app-walk-programme-page>
   `
 })
 export class WalkProgrammeMapComponent implements OnInit, OnDestroy {

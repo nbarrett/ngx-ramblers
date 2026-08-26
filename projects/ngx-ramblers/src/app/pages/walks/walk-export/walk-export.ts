@@ -1,4 +1,3 @@
-import { Location } from "@angular/common";
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
@@ -44,7 +43,6 @@ import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfig } from "../../../models/system.model";
-import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -71,6 +69,7 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
+import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
 
 const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
   [StoredValue.STATUS]: "status",
@@ -82,7 +81,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
 @Component({
   selector: "app-walk-export",
   template: `
-    <app-page pageTitle="Walk Exports">
+    <app-walk-programme-page>
       <tabset class="custom-tabset">
         <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_SELECTION"
              (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_SELECTION)" heading="Walk upload selection">
@@ -174,11 +173,6 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                          class="btn btn-primary w-100"/>
                 </div>
               }
-              <div class="col mb-2">
-                <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
-                       title="Back to walks"
-                       class="btn btn-primary w-100"/>
-              </div>
               <div class="col-lg-6 d-sm-none"></div>
             </div>
             <div class="row mt-2">
@@ -359,17 +353,6 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                                title="View Serenity report for this session"
                                class="btn btn-primary w-100"/>
                       </div>
-                      <div class="col-12 col-sm-6 mb-2">
-                        <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
-                               title="Return to walks admin"
-                               class="btn btn-primary w-100"/>
-                      </div>
-                    } @else {
-                      <div class="col-12 mb-2">
-                        <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
-                               title="Return to walks admin"
-                               class="btn btn-primary w-100"/>
-                      </div>
                     }
                   </div>
                 </div>
@@ -421,7 +404,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
           </div>
         </tab>
       </tabset>
-    </app-page>`,
+    </app-walk-programme-page>`,
   styles: [`
     .filename-select
       width: 100%
@@ -512,7 +495,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
         max-width: 100% !important
   `],
   styleUrls: ["./walk-export.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
+  imports: [WalkProgrammePageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
 })
 
 export class WalkExport implements OnInit, OnDestroy {
@@ -531,7 +514,6 @@ export class WalkExport implements OnInit, OnDestroy {
   public display: WalkDisplayService = inject(WalkDisplayService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
-  private location = inject(Location);
   private urlService: UrlService = inject(UrlService);
   public distanceValidationService = inject(DistanceValidationService);
   private downloadStatusService = inject(ServerDownloadStatusService);
@@ -1023,10 +1005,6 @@ export class WalkExport implements OnInit, OnDestroy {
 
   exportableWalks(): WalkExportData[] {
     return this.ramblersWalksAndEventsService.selectedExportableWalks(this.walksForExport);
-  }
-
-  navigateBackToWalksAdmin() {
-    this.location.back();
   }
 
   openReport(audit: RamblersUploadAudit, event: MouseEvent) {

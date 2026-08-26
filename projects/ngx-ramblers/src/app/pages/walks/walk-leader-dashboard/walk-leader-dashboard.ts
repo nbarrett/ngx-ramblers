@@ -4,8 +4,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faArrowLeft, faCircleExclamation, faHandshake, faPenToSquare, faPersonHiking, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { PageComponent } from "../../../page/page.component";
-import { WalkProgrammeViewSelector } from "../walk-programme-view-selector/walk-programme-view-selector";
+import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
 import { Member } from "../../../models/member.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { DisplayedWalk, EventType } from "../../../models/walk.model";
@@ -23,16 +22,13 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 @Component({
   selector: "app-walk-leader-dashboard",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, NgTemplateOutlet, FontAwesomeModule, WalkProgrammeViewSelector],
+  imports: [WalkProgrammePageComponent, NgTemplateOutlet, FontAwesomeModule],
   styleUrls: ["./walk-leader-dashboard.sass"],
   template: `
-    <app-page autoTitle>
-      <div class="leader-navigation">
-        <app-walk-programme-view-selector/>
-        <button type="button" class="btn pager-btn rounded my-walks-back" (click)="goBack()">
-          <fa-icon [icon]="faArrowLeft" class="me-2"/>{{ display.returnToPreviousViewLabel() }}
-        </button>
-      </div>
+    <app-walk-programme-page>
+      <button programmeChrome type="button" class="btn pager-btn rounded my-walks-back" (click)="goBack()">
+        <fa-icon [icon]="faArrowLeft" class="me-2"/>{{ display.returnToPreviousViewLabel() }}
+      </button>
       <div class="leader">
         <div class="leader-intro">
           <p>Your walks in one place: what you are leading, anything still needing detail or approval, and slots you can
@@ -81,7 +77,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
         }
 
       </div>
-    </app-page>
+    </app-walk-programme-page>
 
     <ng-template #walkRow let-displayedWalk let-showEdit="showEdit" let-slot="slot">
       <div class="walk-row" role="button" tabindex="0" [style.--status-colour]="descriptorFor(displayedWalk).colour"

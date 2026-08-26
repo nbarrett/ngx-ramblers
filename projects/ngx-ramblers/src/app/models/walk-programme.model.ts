@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { EventSource, ExtendedGroupEvent } from "./group-event.model";
-import { WalksAdminSegment, WALKS_LEADER_SEGMENT } from "./walks-route-paths.model";
+import { WalksAdminSegment, WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT } from "./walks-route-paths.model";
 import { LinkSource } from "./walk.model";
 
 export enum ProgrammeOverviewStatus {
@@ -214,7 +214,8 @@ export enum ProgrammeViewKey {
   CALENDAR = "calendar",
   MAP = "map",
   LEADER = "leader",
-  EXPORT = "export"
+  EXPORT = "export",
+  ADMIN = "admin"
 }
 
 export interface ProgrammeView {
@@ -222,14 +223,16 @@ export interface ProgrammeView {
   segment: string;
   label: string;
   localPopulationOnly?: boolean;
+  adminOnly?: boolean;
 }
 
 export const PROGRAMME_VIEWS: ProgrammeView[] = [
+  {view: ProgrammeViewKey.LEADER, segment: WALKS_LEADER_SEGMENT, label: "My Walks"},
   {view: ProgrammeViewKey.OVERVIEW, segment: WalksAdminSegment.PROGRAMME, label: "Overview"},
   {view: ProgrammeViewKey.CALENDAR, segment: WalksAdminSegment.CALENDAR, label: "Calendar"},
   {view: ProgrammeViewKey.MAP, segment: WalksAdminSegment.MAP, label: "Map"},
-  {view: ProgrammeViewKey.LEADER, segment: WALKS_LEADER_SEGMENT, label: "My Walks"},
-  {view: ProgrammeViewKey.EXPORT, segment: WalksAdminSegment.EXPORT, label: "Export", localPopulationOnly: true}
+  {view: ProgrammeViewKey.EXPORT, segment: WalksAdminSegment.EXPORT, label: "Export", adminOnly: true},
+  {view: ProgrammeViewKey.ADMIN, segment: WALKS_ADMIN_SEGMENT, label: "Admin", adminOnly: true}
 ];
 
 export interface DateRangeBounds {

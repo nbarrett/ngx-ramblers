@@ -5,8 +5,7 @@ import { faArrowRightToBracket, faChevronLeft, faChevronRight, faCircleExclamati
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { DateTime } from "luxon";
-import { PageComponent } from "../../../page/page.component";
-import { WalkProgrammeViewSelector } from "../walk-programme-view-selector/walk-programme-view-selector";
+import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
 import { DateRangeDirectionSelector } from "../../../components/date-range-selector/date-range-direction-selector";
 import { DateRange } from "../../../components/date-range-slider/date-range-slider";
 import { DateRangeSelector } from "../../../components/date-range-selector/date-range-selector";
@@ -40,16 +39,13 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 @Component({
   selector: "app-walk-programme-overview",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, DateRangeSelector, FontAwesomeModule, WalkProgrammeViewSelector, DateRangeDirectionSelector],  styleUrls: ["./walk-programme-overview.sass"],
+  imports: [WalkProgrammePageComponent, DateRangeSelector, FontAwesomeModule, DateRangeDirectionSelector],  styleUrls: ["./walk-programme-overview.sass"],
   template: `
-    <app-page autoTitle>
-      <div class="programme-sticky sticky-toolbar">
-        <div class="view-row">
-          <app-walk-programme-view-selector/>
-          <app-date-range-direction-selector [minDate]="minDate" [maxDate]="maxDate"
-                                             [direction]="dateRangeDirection"
-                                             (directionChange)="onDirectionChange($event)"/>
-        </div>
+    <app-walk-programme-page sticky>
+      <app-date-range-direction-selector programmeChrome [minDate]="minDate" [maxDate]="maxDate"
+                                         [direction]="dateRangeDirection"
+                                         (directionChange)="onDirectionChange($event)"/>
+      <div programmeSticky class="programme-sticky-slot">
         <div class="programme-toolbar">
           <app-date-range-selector class="range-controls" [minDate]="minDate" [maxDate]="maxDate"
                                    [direction]="dateRangeDirection" [range]="range"
@@ -171,7 +167,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
           }
         }
       </div>
-    </app-page>
+    </app-walk-programme-page>
   `
 })
 export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
