@@ -30,11 +30,8 @@ export async function googleInboxConfigured(): Promise<boolean> {
 }
 
 export async function inboxPollingEnabled(): Promise<boolean> {
-  const [mailboxConnections, googleConfigured] = await Promise.all([
-    collectionCount("inboxMailboxConnections", {enabled: true, oauthRefreshTokenEncrypted: {$ne: null}}),
-    googleInboxConfigured()
-  ]);
-  const enabled = googleConfigured && mailboxConnections > 0;
-  debugLog("polling check:", {mailboxConnections, googleConfigured, enabled});
+  const mailboxConnections = await collectionCount("inboxMailboxConnections", {enabled: true});
+  const enabled = mailboxConnections > 0;
+  debugLog("polling check:", {mailboxConnections, enabled});
   return enabled;
 }

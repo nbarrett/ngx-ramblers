@@ -196,7 +196,9 @@ import {
   extractLeadingTitle,
   placeForwardedIntroMarkdown,
   planTitledIntroPaste,
-  shouldRunIntroSmartPaste
+  shouldRunIntroSmartPaste,
+  subjectStillDefault,
+  subjectTextFromPaste
 } from "../../functions/email-composer-intro-paste";
 import { parseEmailAddressList } from "../../functions/email-addresses";
 import { InboxAttachment, InboxReplyComposeResponse, InboxReplyOutboundContext } from "../../models/inbox.model";
@@ -1288,7 +1290,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             <label for="email-subject">Subject line</label>
             <input id="email-subject" type="text" class="form-control" [(ngModel)]="state.subject"
                    [class.is-invalid]="!state.subject?.trim()"
-                   placeholder="Enter the subject as it will appear in inboxes"/>
+                   placeholder="Enter the subject as it will appear in inboxes"
+                   (paste)="onSubjectPaste($event)"/>
             @if (!state.subject?.trim()) {
               <small class="text-danger">Subject line is required</small>
             }
@@ -3815,14 +3818,26 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.introEditorRef;
   }
 
-  protected onIntroRawPaste(event: { text: string; consume: () => void }): void {
+  protected onSubjectPaste(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    const html = event.clipboardData?.getData("text/html") ?? "";
+    const plain = subjectTextFromPaste(text, html);
+    const input = event.target as HTMLInputElement;
+    const current = this.state.subject ?? "";
+    const start = input.selectionStart ?? current.length;
+    const end = input.selectionEnd ?? start;
+    event.preventDefault();
+    this.state.subject = `${current.slice(0, start)}${plain}${current.slice(end)}`;
+  }
+
+  protected onIntroRawPaste(event: { text: string; html?: string; consume: () => void }): void {
+    const titled = extractLeadingTitle(event.text, event.html);
     if (this.state.brandingMode === BrandingMode.UNBRANDED) {
       if (shouldRunIntroSmartPaste(true, !!this.inboxReplyContext)) {
         const existingIntro = this.state.introMarkdown ?? "";
         const hasExistingIntro = existingIntro.trim().length > 0;
-        const titled = extractLeadingTitle(event.text);
         if (titled) {
-          const plan = planTitledIntroPaste(event.text, titled, this.state.subject ?? "", hasExistingIntro);
+          const plan = planTitledIntroPaste(event.text, titled, this.state.subject ?? "", this.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
           if (plan.apply) {
             event.consume();
             if (plan.subject) {
@@ -3864,6 +3879,9 @@ export class EmailComposer implements OnInit, OnDestroy {
         }
       }
       this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
+    }
+    if (titled && subjectStillDefault(this.state.subject ?? "", this.state.notificationConfig?.subject?.text ?? "")) {
+      this.state.subject = titled.title;
     }
   }
 
@@ -4307,6 +4325,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.inboxReplyContext = {
       threadId: reply.threadId,
       aliasId: reply.aliasId,
+      senderRoleType: reply.senderRoleType,
       mailboxConnectionId: reply.mailboxConnectionId,
       inboxMessageId: reply.inboxMessageId,
       inReplyTo: reply.inReplyTo,

@@ -437,6 +437,7 @@ export interface InboxReplyComposeResponse {
 export interface InboxReplyOutboundContext {
   threadId: string;
   aliasId: string;
+  senderRoleType: string;
   mailboxConnectionId: string;
   inboxMessageId: string;
   inReplyTo: string;

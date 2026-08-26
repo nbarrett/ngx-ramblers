@@ -3,6 +3,7 @@ import { describe, it } from "mocha";
 import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRoleTypeFromDescription, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleMailboxExtras, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
+  aliasForRoleType,
   cloudflareIngressAliasesFromMessage,
   connectionIdentifier,
   deriveAliasesFrom,
@@ -128,6 +129,15 @@ describe("inbox-aliases", () => {
         "system-administrator:nick.barrett@nwkramblers.org.uk",
         "system-administrator:system.administrator@nwkramblers.org.uk"
       ]);
+    });
+
+    it("looks up a mailbox by committee role type, not by the alias list id", () => {
+      const aliases = deriveAliasesFrom(connectionsByEmail([connection({id: "c1"})]), [
+        role({type: "ngx-project-lead", email: "nick.barrett@ngx-ramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})
+      ], "default");
+      expect(aliases[0].id).toEqual("ngx-project-lead:nick.barrett@ngx-ramblers.org.uk");
+      expect(aliasForRoleType(aliases, "ngx-project-lead")?.roleEmail).toEqual("nick.barrett@ngx-ramblers.org.uk");
+      expect(aliasForRoleType(aliases, aliases[0].id)).toEqual(null);
     });
 
     it("excludes a CATCHALL role when there is more than one connection (no single catch-all)", () => {
