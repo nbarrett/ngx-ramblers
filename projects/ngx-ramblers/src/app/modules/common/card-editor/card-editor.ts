@@ -1,10 +1,9 @@
 import { Component, EventEmitter, HostListener, inject, Input, OnInit, Output } from "@angular/core";
-import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
   ICON_COLOURS,
-  ImageFit,
   ImageType,
   PageContent,
   PageContentColumn,
@@ -36,7 +35,7 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
-import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
+import { ColumnImageDisplaySettingsComponent } from "../column-image-display-settings/column-image-display-settings";
 import { ClipboardService } from "../../../services/clipboard.service";
 import { FileUtilsService } from "../../../file-utils.service";
 
@@ -194,63 +193,11 @@ import { FileUtilsService } from "../../../file-utils.service";
                      type="text">
             </div>
             @if (imageSourceOrPreview()) {
-              <div class="form-group">
-                <label class="form-label"
-                       [for]="idFor('image-fit')">Image Fit</label>
-                <select [ngModel]="imageFit()"
-                        (ngModelChange)="onImageFitChanged($event)"
-                        [id]="idFor('image-fit')"
-                        class="form-control input-sm">
-                  <option [ngValue]="ImageFit.COVER">Crop to fill</option>
-                  <option [ngValue]="ImageFit.CONTAIN">Show entire image</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <div class="form-check form-check-inline">
-                  <input [id]="idFor('image-padding')"
-                         type="checkbox"
-                         class="form-check-input"
-                         [checked]="imagePaddingEnabled()"
-                         (change)="onImagePaddingChanged($event)">
-                  <label class="form-check-label"
-                         [for]="idFor('image-padding')">
-                    Image padding</label>
-                </div>
-              </div>
-              @if (imagePaddingEnabled()) {
-                <div class="form-group">
-                  <label class="form-label"
-                         [for]="idFor('image-padding-size')">Padding Size</label>
-                  <input [(ngModel)]="column.imagePadding"
-                         [id]="idFor('image-padding-size')"
-                         min="0"
-                         max="48"
-                         class="form-control input-sm"
-                         type="number">
-                </div>
-              }
-              <div class="form-group">
-                <label class="form-label">Focal Point</label>
-                <app-focal-point-picker
-                  [imageSrc]="focalPointImageSource()"
-                  [minZoom]="0.2"
-                  [maxPreviewHeight]="260"
-                  [focalPoint]="column.imageFocalPoint || defaultFocalPoint"
-                  (focalPointChange)="onFocalPointChange($event)">
-                </app-focal-point-picker>
-              </div>
-              @if (imageSettingsChanged()) {
-                <div class="form-group">
-                  <button type="button"
-                          class="badge-button border-0"
-                          tooltip="Reset image fit, padding and focal point to their defaults"
-                          container="body"
-                          (click)="resetImageSettings()">
-                    <fa-icon [icon]="faRotateLeft"></fa-icon>
-                    <span>Back to default</span>
-                  </button>
-                </div>
-              }
+              <app-column-image-display-settings
+                [column]="column"
+                [imageSrc]="imageSourceOrPreview()"
+                [idPrefix]="idFor('image-display')"
+                [maxPreviewHeight]="260"/>
             }
             <div class="form-group">
               <div class="form-check form-check-inline mb-0">
@@ -360,7 +307,7 @@ import { FileUtilsService } from "../../../file-utils.service";
       border-bottom-left-radius: 0.375rem
       border-bottom-right-radius: 0.375rem
   `],
-  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, ContentTextEditor, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, FocalPointPickerComponent]
+  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, ContentTextEditor, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, ColumnImageDisplaySettingsComponent]
 })
 export class CardEditorComponent implements OnInit {
 
@@ -408,7 +355,6 @@ export class CardEditorComponent implements OnInit {
   public faArrowDown: IconDefinition = faArrowDown;
   public faArrowsUpDown: IconDefinition = faArrowsUpDown;
   public faRemove: IconDefinition = faRemove;
-  public faRotateLeft: IconDefinition = faRotateLeft;
   public imageType: ImageType;
   public routerLink: string;
   private uniqueCheckboxId: string;
@@ -416,8 +362,6 @@ export class CardEditorComponent implements OnInit {
 
   protected readonly ImageType = ImageType;
   protected readonly ICON_COLOURS = ICON_COLOURS;
-  protected readonly ImageFit = ImageFit;
-  protected readonly defaultFocalPoint: FocalPoint = { x: 50, y: 50, zoom: 1 };
 
   columnClass(): string {
     const custom = this.column?.styles?.class;
@@ -549,10 +493,6 @@ export class CardEditorComponent implements OnInit {
     }
   }
 
-  focalPointImageSource(): string {
-    return this.urlService.imageSource(this.imageSourceOrPreview());
-  }
-
   onShowPlaceholderImageChanged(event: Event) {
     const target = event.target as HTMLInputElement;
     this.column.showPlaceholderImage = target.checked;
@@ -567,37 +507,6 @@ export class CardEditorComponent implements OnInit {
 
   onImageAspectRatioChanged(dimensions: DescribedDimensions) {
     this.column.imageAspectRatio = dimensions;
-  }
-
-  imageFit(): ImageFit {
-    return this.column?.imageFit || ImageFit.COVER;
-  }
-
-  onImageFitChanged(imageFit: ImageFit) {
-    this.column.imageFit = imageFit;
-  }
-
-  imagePaddingEnabled(): boolean {
-    return (this.column?.imagePadding || 0) > 0;
-  }
-
-  onImagePaddingChanged(event: Event) {
-    const target = event.target as HTMLInputElement;
-    this.column.imagePadding = target.checked ? (this.column.imagePadding || 16) : 0;
-  }
-
-  onFocalPointChange(focalPoint: FocalPoint) {
-    this.column.imageFocalPoint = focalPoint || null;
-  }
-
-  imageSettingsChanged(): boolean {
-    return !!this.column?.imageFit || (this.column?.imagePadding || 0) > 0 || !!this.column?.imageFocalPoint;
-  }
-
-  resetImageSettings() {
-    this.column.imageFit = null;
-    this.column.imagePadding = null;
-    this.column.imageFocalPoint = null;
   }
 
   @HostListener("paste", ["$event"])

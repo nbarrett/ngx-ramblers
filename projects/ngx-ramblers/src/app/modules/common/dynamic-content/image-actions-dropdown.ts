@@ -24,6 +24,11 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
           <li role="menuitem">
             <a (click)="replace.emit()" class="dropdown-item">Replace image</a>
           </li>
+          @if (hasFixedHeight) {
+            <li role="menuitem">
+              <a (click)="clearHeight.emit()" class="dropdown-item">Reset height</a>
+            </li>
+          }
           <li role="menuitem">
             <a (click)="remove.emit()" class="dropdown-item text-danger">Remove image</a>
           </li>
@@ -36,9 +41,11 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
 export class ImageActionsDropdownComponent {
   @Input() fullWidth = false;
   @Input() hasImage = false;
+  @Input() hasFixedHeight = false;
   @Input() buttonClass = "badge-button border-0";
   @Output() edit = new EventEmitter<void>();
   @Output() replace = new EventEmitter<void>();
   @Output() remove = new EventEmitter<void>();
+  @Output() clearHeight = new EventEmitter<void>();
   faImage = faImage;
 }

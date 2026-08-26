@@ -16,7 +16,7 @@ import {
   ColumnMappingContext,
   ContentTextStyles,
   EM_DASH_WITH_SPACES,
-  FragmentWithLabel, MigrationTemplateSourceType,
+  FragmentWithLabel, ImageFit, MigrationTemplateSourceType,
   NestedRowContentSource,
   PageContent,
   PageContentColumn,
@@ -58,6 +58,7 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { YoutubeInputComponent } from "../youtube-input/youtube-input";
 import { ResizerComponent } from "../resizer/resizer";
+import { ColumnImageDisplaySettingsComponent } from "../column-image-display-settings/column-image-display-settings";
 import { ClipboardService } from "../../../services/clipboard.service";
 
 @Component({
@@ -235,9 +236,11 @@ import { ClipboardService } from "../../../services/clipboard.service";
                         }
                         @if (controlsShown(column) && !isNarrow(column)) {
                           <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
+                                                      [hasFixedHeight]="!!column.imageHeight"
                                                       (edit)="editImage(rowIndex, columnIndex)"
                                                       (replace)="replaceImage(column, rowIndex, columnIndex)"
-                                                      (remove)="removeImage(column)"/>
+                                                      (remove)="removeImage(column)"
+                                                      (clearHeight)="column.imageHeight = null"/>
                           <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
                                                 [pageContent]="pageContent" [column]="column" [row]="row"
                                                 [fullWidth]="false" [showRowActions]="false"/>
@@ -324,7 +327,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                         </select>
                       </ng-template>
                       <ng-template #cardImageBlock>
-                        <div>
+                        <div class="column-image-frame">
                           <app-card-image class="w-100"
                                           [borderRadius]="column.imageBorderRadius"
                                           [padding]="column.imagePadding"
@@ -340,7 +343,11 @@ import { ClipboardService } from "../../../services/clipboard.service";
                               [size]="column.imageHeight || 200"
                               [minSize]="50"
                               [maxSize]="800"
-                              (sizeChange)="column.imageHeight = $event"
+                              [label]="column.imageHeight ? null : 'auto'"
+                              [canClear]="!!column.imageHeight"
+                              resizeHint="Drag to change the image height"
+                              (sizeChange)="onImageHeightChange(column, $event)"
+                              (sizeClear)="column.imageHeight = null"
                               compact/>
                           }
                         </div>
@@ -467,14 +474,21 @@ import { ClipboardService } from "../../../services/clipboard.service";
                                                        [dimensionsDescription]="column.imageAspectRatio?.description"
                                                        (dimensionsChanged)="onImageAspectRatioChanged(column, $event)"></app-aspect-ratio-selector>
                           </div>
+                          <app-column-image-display-settings
+                            [column]="column"
+                            [imageSrc]="imageDisplay(rowIndex, columnIndex, column).url"
+                            [idPrefix]="checkboxId('image-display', columnIndex)"
+                            [previewHeight]="column.imageHeight"/>
                         }
                         @if (isNarrow(column)) {
                           <div class="d-flex gap-2 mt-2" [ngClass]="'flex-column'">
                             <div class="w-100">
                               <app-image-actions-dropdown [fullWidth]="true" [hasImage]="!!column.imageSource"
+                                                          [hasFixedHeight]="!!column.imageHeight"
                                                           (edit)="editImage(rowIndex, columnIndex)"
                                                           (replace)="replaceImage(column, rowIndex, columnIndex)"
-                                                          (remove)="removeImage(column)"/>
+                                                          (remove)="removeImage(column)"
+                                                          (clearHeight)="column.imageHeight = null"/>
                             </div>
                             <div class="w-100">
                               <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
@@ -815,7 +829,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [ContentTextEditor, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent]
+    imports: [ContentTextEditor, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent, ColumnImageDisplaySettingsComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -969,6 +983,16 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       columnIndex,
       editActive: true
     }, this.pageContentEditEvents);
+  }
+
+  onImageHeightChange(column: PageContentColumn, height: number) {
+    column.imageHeight = height;
+    if (!column.imageFit) {
+      column.imageFit = ImageFit.COVER;
+    }
+    if (!column.imageFocalPoint) {
+      column.imageFocalPoint = {x: 50, y: 50, zoom: 1};
+    }
   }
 
   removeImage(column: PageContentColumn) {

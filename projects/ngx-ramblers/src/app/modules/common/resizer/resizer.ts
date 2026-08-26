@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, HostBinding, inject, Input, NgZone
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isUndefined } from "es-toolkit/compat";
 import { PageContentColumn } from "../../../models/content-text.model";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 export enum ResizerOrientation {
   HORIZONTAL = "horizontal",
@@ -21,15 +22,25 @@ export enum ResizerMode {
 
 @Component({
   selector: "app-resizer",
-  imports: [],
+  imports: [TooltipDirective],
   template: `
     <div class="resizer-surface"
+         [tooltip]="resizeHint"
+         [isDisabled]="!resizeHint"
+         container="body"
          (mousedown)="onMouseDown($event)"
          (touchstart)="onTouchStart($event)">
       @if (variant === ResizerVariant.TAB) {
         <div class="resizer-grip">
           <span class="grip-dots">⋯⋯⋯</span>
           <span class="resizer-value">{{ displayLabel() }}</span>
+          @if (canClear) {
+            <button type="button" class="resizer-clear"
+                    (mousedown)="onClearMouseDown($event)"
+                    (click)="onClear($event)">
+              Reset
+            </button>
+          }
         </div>
       } @else if (variant === ResizerVariant.BAR) {
         <span class="resizer-glyph">{{ orientation === ResizerOrientation.VERTICAL ? "⋯" : "⋮" }}</span>
@@ -107,6 +118,20 @@ export enum ResizerMode {
       color: #666
       min-width: 40px
       text-align: center
+    .resizer-clear
+      appearance: none
+      background: none
+      border: 0
+      padding: 0
+      margin: 0 0 0 4px
+      font-size: 10px
+      font-weight: 600
+      line-height: 1
+      color: #2f5e43
+      cursor: pointer
+    .resizer-clear:hover
+      color: #1b3a28
+      text-decoration: underline
     .grip-dots
       letter-spacing: 1px
     .resize-handle
@@ -165,8 +190,15 @@ export class ResizerComponent implements OnDestroy {
 
   @Output() sizeChange = new EventEmitter<number>();
   @Output() resizeEnd = new EventEmitter<number>();
+  @Output() sizeClear = new EventEmitter<void>();
+  @Input() resizeHint: string = null;
+
+  @Input("canClear") set canClearValue(value: boolean) {
+    this.canClear = coerceBooleanProperty(value);
+  }
 
   compact = false;
+  canClear = false;
   isResizing = false;
 
   private start = 0;
@@ -205,6 +237,10 @@ export class ResizerComponent implements OnDestroy {
     return this.compact;
   }
 
+  @HostBinding("class.can-clear") get showsClear(): boolean {
+    return this.canClear;
+  }
+
   ngOnDestroy(): void {
     this.cleanup();
   }
@@ -226,6 +262,17 @@ export class ResizerComponent implements OnDestroy {
     document.addEventListener("mouseup", this.onMouseUp);
   }
 
+  onClearMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  onClear(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.clearSize();
+  }
+
   onTouchStart(event: TouchEvent): void {
     this.begin(this.coordinate(event.touches[0].clientX, event.touches[0].clientY));
     document.addEventListener("touchmove", this.onTouchMove);
@@ -234,6 +281,16 @@ export class ResizerComponent implements OnDestroy {
 
   private coordinate(clientX: number, clientY: number): number {
     return this.orientation === ResizerOrientation.HORIZONTAL ? clientX : clientY;
+  }
+
+  private clearSize(): void {
+    if (this.mode === ResizerMode.GRID) {
+      this.cleanup();
+    } else {
+      this.isResizing = false;
+      this.cleanup();
+      this.sizeClear.emit();
+    }
   }
 
   private begin(position: number): void {

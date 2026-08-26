@@ -4,12 +4,14 @@ import { CmsImagePickerImage, CmsImagePickerPage } from "../models/cms-image-pic
 import { PageContent } from "../models/content-text.model";
 import { LocationExtractionService } from "./location-extraction.service";
 import { PageContentService } from "./page-content.service";
+import { StringUtilsService } from "./string-utils.service";
 import { UrlService } from "./url.service";
 
 @Injectable({providedIn: "root"})
 export class CmsPageImageService {
   private pageContentService = inject(PageContentService);
   private locationExtractionService = inject(LocationExtractionService);
+  private stringUtils = inject(StringUtilsService);
   private urlService = inject(UrlService);
 
   async pagesNear(startingPagePaths: string[]): Promise<CmsImagePickerPage[]> {
@@ -43,7 +45,16 @@ export class CmsPageImageService {
   }
 
   private pageWithImages(page: PageContent): CmsImagePickerPage {
-    return {path: page.path, label: this.pageLabel(page.path), images: this.imagesFromPage(page)};
+    return {path: page.path, label: this.pageLabel(page.path), title: this.pageTitle(page), images: this.imagesFromPage(page)};
+  }
+
+  private pageTitle(page: PageContent): string {
+    const albumTitle = page.rows?.find(row => row.carousel?.title)?.carousel?.title;
+    const heading = page.rows
+      ?.flatMap(row => row.columns ?? [])
+      .map(column => column.contentText?.match(/^#\s+(.+)$/m)?.[1]?.trim())
+      .find(Boolean);
+    return this.stringUtils.stripMarkdown(albumTitle || heading || this.pageLabel(page.path));
   }
 
   private pageLabel(path: string): string {

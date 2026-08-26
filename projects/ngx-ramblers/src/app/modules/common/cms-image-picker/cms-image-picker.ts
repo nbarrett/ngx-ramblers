@@ -57,7 +57,7 @@ import { DraggableModalComponent } from "../draggable-modal/draggable-modal";
           <label for="cms-image-page" class="form-label">Page containing the image</label>
           <select id="cms-image-page" class="form-select mb-3" [(ngModel)]="selectedPagePath">
             @for (page of pages; track page.path) {
-              <option [ngValue]="page.path">{{ page.label }} — {{ page.images.length }} image{{ page.images.length === 1 ? "" : "s" }}</option>
+              <option [ngValue]="page.path">{{ page.title }} — {{ page.label }} — {{ page.images.length }} image{{ page.images.length === 1 ? "" : "s" }}</option>
             }
           </select>
           <div class="cms-image-grid">
