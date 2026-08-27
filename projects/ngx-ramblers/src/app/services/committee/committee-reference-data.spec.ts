@@ -87,6 +87,12 @@ describe("CommitteeReferenceData", () => {
     expect(service.contactUsField("membership", "fullName")).toEqual("Jenny Brown");
   });
 
+  it("committeeMemberForMember finds the role by the member's id", () => {
+    const service: CommitteeReferenceData = CommitteeReferenceData.create(mockData, null);
+    expect(service.committeeMemberForMember("578bb704bd966f28bff5081b")).toEqual(EXPECTED_NIC);
+    expect(service.committeeMemberForMember("missing")).toEqual(undefined);
+  });
+
   it("committeeMemberForPreferredRoles prefers the first matching role with an email", () => {
     const service: CommitteeReferenceData = CommitteeReferenceData.create(mockData, null);
     expect(service.committeeMemberForPreferredRoles("membership,secretary,contact-us").type).toEqual("membership");

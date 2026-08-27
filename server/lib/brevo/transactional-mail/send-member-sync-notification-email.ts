@@ -6,6 +6,7 @@ import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/conf
 import { EmailAddress, NotificationConfig, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { outboundEmailForMember } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
@@ -101,9 +102,8 @@ function buildBodyHtml(notifications: MemberSyncNotification[], contactDetailsUr
 }
 
 export async function sendMemberSyncNotificationEmail(member: Member, notifications: MemberSyncNotification[]): Promise<boolean> {
-  if (!member?.email || notifications.length === 0) {
-    return false;
-  }
+  let sent = false;
+  if (member && notifications.length > 0) {
   const brevoConfig = await configuredBrevo();
   const configId = brevoConfig?.memberSyncNotificationConfigId;
   if (!configId) {
@@ -121,6 +121,8 @@ export async function sendMemberSyncNotificationEmail(member: Member, notificati
   const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeCfg: CommitteeConfig = committeeConfigDoc?.value;
   const committeeRoles: CommitteeMember[] = committeeCfg?.roles || [];
+  const toEmail = outboundEmailForMember(member, committeeRoles);
+  if (toEmail) {
   const sender = emailAddressForRole(committeeRoles, notifConfig.senderRole);
   if (!sender) {
     debugLog("no sender email resolved for senderRole", notifConfig.senderRole, "- skipping member sync notification email for", member.email);
@@ -166,18 +168,22 @@ export async function sendMemberSyncNotificationEmail(member: Member, notificati
   const emailRequest: SendSmtpEmailRequest = {
     subject,
     sender,
-    to: [{email: member.email, name: params.memberMergeFields.FULL_NAME}],
+    to: [{email: toEmail, name: params.memberMergeFields.FULL_NAME}],
     replyTo,
     params,
     templateName: TEMPLATE_NAME
   };
   try {
     await sendTransactionalEmailRequest(emailRequest, debugLog);
-    debugLog("member sync notification email sent to", member.email, "for", notifications.length, "fields");
-    return true;
+    debugLog("member sync notification email sent to", toEmail, "for", notifications.length, "fields");
+    sent = true;
   } catch (error: any) {
-    logBrevoError(messageType, error, {email: member.email});
+    logBrevoError(messageType, error, {email: toEmail});
     debugLog("error sending member sync notification email:", error?.body || error?.message || error);
-    return false;
   }
+  } else {
+    debugLog("no email resolved for member sync notification - skipping", member.id);
+  }
+  }
+  return sent;
 }
