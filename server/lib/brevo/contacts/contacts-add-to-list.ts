@@ -15,7 +15,8 @@ export async function contactsAddToList(req: Request, res: Response, next: NextF
     const client = await brevoClient();
     const request: ContactsAddOrRemoveRequest = req.body;
     const listId: number = request.listId;
-    const response = await scheduleBrevo(() => client.contacts.addContactToList({listId, body: {ids: request.ids}}));
+    const body = (request.emails ?? []).length > 0 ? {emails: request.emails} : {ids: request.ids ?? []};
+    const response = await scheduleBrevo(() => client.contacts.addContactToList({listId, body}));
     successfulResponse({req, res, response, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

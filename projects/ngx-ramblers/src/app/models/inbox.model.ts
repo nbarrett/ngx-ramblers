@@ -1,5 +1,16 @@
 import { Identifiable } from "./api-response.model";
-import { InboxRoleRecipient } from "./committee.model";
+import { CommitteeAssignedMailboxGroup, CommitteeMember, InboxRoleRecipient } from "./committee.model";
+
+export interface ProfileAssignedRoleMailbox {
+  role: CommitteeMember;
+  alias: InboxAliasConfigView | null;
+  group: CommitteeAssignedMailboxGroup;
+}
+
+export interface InboxNotifyBaseline {
+  notify: boolean;
+  notificationEmail: string | null;
+}
 
 export enum InboxMessageDirection {
   INBOUND = "inbound",

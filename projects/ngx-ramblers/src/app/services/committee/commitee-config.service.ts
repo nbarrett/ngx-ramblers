@@ -1,7 +1,8 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, RoleType } from "../../models/committee.model";
+import { applyCommitteeRoleDefaultSender, BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, RoleType, roleEmailAddresses } from "../../models/committee.model";
+import { normaliseEmail } from "../../functions/strings";
 import { ConfigKey } from "../../models/config.model";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -18,6 +19,7 @@ export class CommitteeConfigService {
   private memberLoginService = inject(MemberLoginService);
   private committeeReferenceDataSubject = new ReplaySubject<CommitteeReferenceData>();
   private committeeCommitteeConfigSubject = new ReplaySubject<CommitteeConfig>();
+  private latestConfig: CommitteeConfig | null = null;
 
   constructor() {
     this.refreshConfig();
@@ -53,8 +55,7 @@ export class CommitteeConfigService {
     }).then((queriedConfig: CommitteeConfig) => {
       const committeeConfig = this.applyNameAndDescription(this.migrateConfig(queriedConfig));
       this.logger.info("notifying subscribers with committeeConfig:", committeeConfig);
-      this.committeeReferenceDataSubject.next(CommitteeReferenceData.create(committeeConfig, this.memberLoginService));
-      this.committeeCommitteeConfigSubject.next(committeeConfig);
+      this.publishConfig(committeeConfig);
     });
   }
 
@@ -129,6 +130,43 @@ export class CommitteeConfigService {
 
   saveConfig(config: CommitteeConfig) {
     return this.config.saveConfig<CommitteeConfig>(ConfigKey.COMMITTEE, config);
+  }
+
+  applyDefaultSender(roleType: string, email: string): Promise<void> {
+    const config = this.latestConfig;
+    const currentRole = config?.roles.find(role => role.type === roleType) ?? null;
+    if (!this.memberLoginService.allowMemberAdminEdits()) {
+      return Promise.reject("You cannot change committee email addresses here.");
+    } else if (!config || !currentRole) {
+      return Promise.reject("Committee settings could not be loaded.");
+    } else {
+      const updatedRole = applyCommitteeRoleDefaultSender(currentRole, email);
+      const nextEmails = roleEmailAddresses(updatedRole).map(address => normaliseEmail(address));
+      const lost = roleEmailAddresses(currentRole).filter(address => !nextEmails.includes(normaliseEmail(address)));
+      if (lost.length > 0) {
+        return Promise.reject("That change would remove an address from the role, so it was not saved.");
+      } else {
+        const next = {
+          ...config,
+          roles: config.roles.map(role => role.type === roleType ? updatedRole : role)
+        };
+        this.publishConfig(next);
+        return this.saveConfig(next)
+          .then(() => {
+            this.refreshConfig();
+          })
+          .catch(error => {
+            this.refreshConfig();
+            return Promise.reject(error);
+          });
+      }
+    }
+  }
+
+  private publishConfig(committeeConfig: CommitteeConfig): void {
+    this.latestConfig = committeeConfig;
+    this.committeeReferenceDataSubject.next(CommitteeReferenceData.create(committeeConfig, this.memberLoginService));
+    this.committeeCommitteeConfigSubject.next(committeeConfig);
   }
 
   public committeeReferenceDataEvents(): Observable<CommitteeReferenceData> {

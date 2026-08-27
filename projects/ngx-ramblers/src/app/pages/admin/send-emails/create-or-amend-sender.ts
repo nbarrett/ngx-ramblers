@@ -1,4 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -33,6 +34,7 @@ import { MailSendersListComponent } from "../system-settings/mail/mail-senders-l
       display: flex
     `],
     template: `
+    @if (!omitSenders) {
     <ng-template #viewSendersButton>
       <button type="button" class="btn btn-quiet d-flex align-items-center justify-content-center gap-2 w-100" (click)="toggleAllSenders()">
         <fa-icon [icon]="showingSenders ? faChevronUp : faList"/>
@@ -137,6 +139,7 @@ import { MailSendersListComponent } from "../system-settings/mail/mail-senders-l
           [editingRoleType]="senderCommitteeMemberInternal?.type"
           (sendersChanged)="onSendersChanged($event)"/>
       </div>
+    }
     }`,
     imports: [AlertComponent, FontAwesomeModule, BrevoButtonComponent, NgTemplateOutlet, MailSendersListComponent]
 })
@@ -170,6 +173,12 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
     this.roleMailboxAddresses = value ?? [];
     this.notifySenderExists();
   }
+
+  @Input("omitSenders") set omitSendersValue(omitSenders: boolean) {
+    this.omitSenders = coerceBooleanProperty(omitSenders);
+  }
+
+  omitSenders = false;
 
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
 

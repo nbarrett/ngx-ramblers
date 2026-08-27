@@ -9,6 +9,7 @@ import { volunteerAudience } from "../../functions/volunteer-audiences";
 import { VolunteerAudience, VolunteerAudienceType, VolunteerManagementSnapshot } from "../../models/volunteer-management.model";
 import { volunteerLetterSeed } from "../../functions/volunteer-letters";
 import { volunteerMergeFieldsFor } from "../../functions/volunteer-management";
+import { committeeRoleEmailDiffersFromPersonal, memberHoldsCommitteeRole } from "../../functions/committee-members";
 import { HttpClient } from "@angular/common/http";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { switchMap } from "rxjs/operators";
@@ -69,6 +70,8 @@ import {
   ComposerExternalRecipient,
   ComposerFragment,
   ComposerFragmentKind,
+  ComposerSenderIdentity,
+  ComposerSenderKind,
   DateInputMode,
   DEFAULT_COLUMN_GAP_PX,
   DragHoverPosition,
@@ -99,6 +102,7 @@ import {
   EmailComposerContextSource,
   PreviewStepDirection,
   PROMOTIONAL_LANGUAGE_PATTERN,
+  RecipientAddressMode,
   RecipientField,
   RecipientMode,
   REPLY_OR_FORWARD_SUBJECT_PATTERN,
@@ -116,7 +120,9 @@ import {
 } from "../../models/email-composer.model";
 import {
   buildDefaultFragmentOrder,
+  composerSenderIdentities,
   defaultEmailComposerState,
+  syncedRecipientAddressMode,
   defaultNewsletterSettings,
   defaultReleaseNoteUpdateDefaults,
   defaultReleaseNoteUpdateSettings,
@@ -148,6 +154,7 @@ import {
 import { eventsForPurpose } from "../../functions/newsletter-purpose";
 import {
   BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
+  COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME,
   ComposerRoleDefaults,
   CreateCampaignRequest,
   ListInfo,
@@ -905,6 +912,21 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </div>
           </div>
         }
+        @if (committeeRoleSendOffered()) {
+          <div class="row mt-3">
+            <div class="col-sm-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="send-to-role-addresses"
+                       [checked]="state.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE"
+                       (change)="onSendToCommitteeRoleAddressesChange($event)">
+                <label class="form-check-label" for="send-to-role-addresses">
+                  Send to committee role addresses
+                </label>
+              </div>
+              <small class="text-muted">Everyone on this send is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.</small>
+            </div>
+          </div>
+        }
       </div>
     </ng-template>
 
@@ -912,7 +934,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       <div class="email-composer-section" [class.email-composer-section-busy]="creatingReleaseNoteUpdate"
            [attr.inert]="creatingReleaseNoteUpdate ? '' : null" [attr.aria-busy]="creatingReleaseNoteUpdate">
         <h3>Sender &amp; Template</h3>
-        <p class="text-muted small mb-3">Pick the email type (which determines the visual template, banner and any built-in content), then choose who the email is from, who replies should go to, and which committee roles sign off.</p>
+        <p class="text-muted small mb-3">Pick the email type (which determines the visual template, banner and any built-in content), then choose which of your addresses the email is from, who replies should go to, and which committee roles sign off.</p>
         <fieldset class="email-composer-fieldset">
           <legend>Style</legend>
           <div>
@@ -968,14 +990,19 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         }
         @if (state.notificationConfig && state.brandingMode !== BrandingMode.UNBRANDED) {
           <fieldset class="email-composer-fieldset">
-            <legend>Sender, reply-to and sign-off</legend>
+            <legend>Sender, reply to and sign-off</legend>
             <p class="text-muted small mb-2">{{ composerRoleDefaultsHelp() }}</p>
             <app-sender-replies-and-sign-off
               [mailMessagingConfig]="mailMessagingConfig"
               [notificationConfig]="state.notificationConfig"
               [signOffRolesOverride]="state.signoffRoles"
               (signOffRolesOverrideChange)="state.signoffRoles = $event"
+              [senderIdentities]="brandedSenderIdentities()"
+              [senderEmail]="resolvedBrandedSenderEmail()"
+              (senderEmailChange)="onBrandedSenderEmailChange($event)"
               [allowSelectAllAsMe]="true"
+              [omitSender]="true"
+              omitSenders
               (senderExists)="senderExists = $event"
               (rolesChanged)="onSignoffRolesChanged()"/>
           </fieldset>
@@ -2294,9 +2321,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   private notify!: AlertInstance;
   private subscriptions: Subscription[] = [];
   private pollSubscription: Subscription | null = null;
+  private recipientAddressModeTouched = false;
 
   protected readonly EmailComposerStepKey = EmailComposerStepKey;
   protected readonly RecipientMode = RecipientMode;
+  protected readonly RecipientAddressMode = RecipientAddressMode;
   protected readonly EventInclusionMode = EventInclusionMode;
   protected readonly ComposerFragmentKind = ComposerFragmentKind;
   protected readonly DateInputMode = DateInputMode;
@@ -2391,6 +2420,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
       this.committeeReferenceData = data;
+      this.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
@@ -2408,6 +2438,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       };
       this.autoSelectNotificationConfig();
       this.applyDefaultListIfNeeded();
+      this.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
@@ -2421,6 +2452,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.allMembers = await this.memberService.privilegedFields();
     await this.applyVolunteerAudience();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
+    this.syncRecipientAddressMode();
     try {
       this.memberBulkLoadDateMap = await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
     } catch (error) {
@@ -3672,6 +3704,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         && lists.some(list => list.id === this.state.selectedListId);
       if (!selectionStillValid) {
         this.state.selectedListId = lists.length > 0 ? lists[0].id : null;
+        this.recipientAddressModeTouched = false;
       }
     }
   }
@@ -3681,7 +3714,33 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected nonEmptyLists(): ListInfo[] {
-    return this.availableLists().filter(list => this.subscribedMemberCount(list) > 0);
+    return this.availableLists()
+      .filter(list => list.name !== COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME)
+      .filter(list => this.subscribedMemberCount(list) > 0);
+  }
+
+  private campaignRoleAddressMembers(): Member[] {
+    const listId = this.state.selectedListId;
+    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
+    return listId === null
+      ? []
+      : this.members
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId))
+        .filter(member => committeeRoleEmailDiffersFromPersonal(member, roles));
+  }
+
+  private async campaignExclusionListId(emails: string[]): Promise<number | null> {
+    const resolved = {listId: null as number | null};
+    if (emails.length > 0) {
+      const lists = await this.mailService.queryLists();
+      const existing = (lists.lists ?? []).find(list => list.name === COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME);
+      const created = existing ? null : await this.mailService.createList({name: COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME});
+      resolved.listId = existing?.id ?? created?.id ?? null;
+      if (resolved.listId !== null) {
+        await this.mailService.addContactsToList({listId: resolved.listId, emails});
+      }
+    }
+    return resolved.listId;
   }
 
   protected narrowMembersExpanded: boolean = false;
@@ -3793,8 +3852,10 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.sendingChannel = mode === RecipientMode.ENTIRE_LIST ? SendingChannel.CAMPAIGN : SendingChannel.TRANSACTIONAL_BATCH;
       if (mode === RecipientMode.ENTIRE_LIST) {
         this.state.preFilterKey = null;
+        this.recipientAddressModeTouched = false;
       }
       this.applyDefaultListIfNeeded();
+      this.syncRecipientAddressMode();
       this.syncStateToUrl({
         [StoredValue.EMAIL_TYPE]: kebabCase(mode),
         [StoredValue.PRE_FILTER]: mode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null
@@ -4132,6 +4193,78 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
+  protected committeeRoleSendOffered(): boolean {
+    const members = this.recipientsForAddressMode();
+    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
+    const externals = this.state.externalRecipients?.length ?? 0;
+    return members.length > 0
+      && externals === 0
+      && members.every(member => memberHoldsCommitteeRole(member, roles));
+  }
+
+  protected onSendToCommitteeRoleAddressesChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.recipientAddressModeTouched = true;
+    this.state.recipientAddressMode = checked ? RecipientAddressMode.COMMITTEE_ROLE : RecipientAddressMode.PERSONAL;
+  }
+
+  private syncRecipientAddressMode(): void {
+    this.state.recipientAddressMode = syncedRecipientAddressMode({
+      committeeRoleSendOffered: this.committeeRoleSendOffered(),
+      preselectCommitteeRole: !this.recipientAddressModeTouched && this.state.recipientMode === RecipientMode.ENTIRE_LIST,
+      current: this.state.recipientAddressMode
+    });
+  }
+
+  private useCommitteeRoleAddresses(): boolean {
+    return this.committeeRoleSendOffered() && this.state.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE;
+  }
+
+  private recipientsForAddressMode(): Member[] {
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+      const listId = this.state.selectedListId;
+      return listId === null
+        ? []
+        : this.members.filter(member => this.mailListUpdaterService.memberSubscribed(member, listId));
+    } else {
+      const ids = new Set(this.state.selectedMemberIds ?? []);
+      return this.allMembers.filter(member => ids.has(member.id));
+    }
+  }
+
+  protected brandedSenderIdentities(): ComposerSenderIdentity[] {
+    const loggedIn = this.memberLoginService.loggedInMember();
+    const contactName = `${loggedIn?.firstName || ""} ${loggedIn?.lastName || ""}`.trim()
+      || this.loggedInMemberRecord?.displayName
+      || "";
+    return composerSenderIdentities({
+      contactEmail: this.loggedInMemberRecord?.email ?? null,
+      contactName,
+      roles: this.committeeReferenceData?.committeeMembers() ?? [],
+      memberId: loggedIn?.memberId ?? this.loggedInMemberRecord?.id ?? null
+    });
+  }
+
+  protected resolvedBrandedSenderEmail(): string {
+    const identities = this.brandedSenderIdentities();
+    const chosen = (this.state.brandedSenderEmail ?? "").trim().toLowerCase();
+    const matched = identities.find(identity => identity.email.toLowerCase() === chosen);
+    return (matched ?? identities[0])?.email ?? "";
+  }
+
+  protected onBrandedSenderEmailChange(email: string): void {
+    this.state.brandedSenderEmail = email || null;
+    const identity = this.brandedSenderIdentities().find(item => item.email.toLowerCase() === (email ?? "").toLowerCase());
+    if (identity?.roleType && this.state.notificationConfig) {
+      this.state.notificationConfig.senderRole = identity.roleType;
+    }
+  }
+
+  private resolvedBrandedSenderIdentity(): ComposerSenderIdentity | null {
+    const email = this.resolvedBrandedSenderEmail();
+    return this.brandedSenderIdentities().find(identity => identity.email.toLowerCase() === email.toLowerCase()) ?? null;
+  }
+
   protected nameFromEmail(email: string): string {
     const localPart = email.split("@")[0] ?? "";
     if (!localPart) return "";
@@ -4163,7 +4296,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   selectList(list: ListInfo): void {
+    if (this.state.selectedListId !== list.id) {
+      this.recipientAddressModeTouched = false;
+    }
     this.state.selectedListId = list.id;
+    this.syncRecipientAddressMode();
     this.syncStateToUrl({ [StoredValue.LIST_ID]: list.id?.toString() });
   }
 
@@ -4453,6 +4590,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   onSelectedMemberIdsChange(ids: string[]): void {
     this.state.selectedMemberIds = ids;
+    this.syncRecipientAddressMode();
   }
 
   protected priorSendExclusions: PriorSendExclusion[] = [];
@@ -4863,8 +5001,8 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected composerRoleDefaultsHelp(): string {
     return this.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER
-      ? "This email type defaults Sender and Sign-off to your committee roles when available. Reply-To starts blank so replies go to the From address unless you set one. Click Select All As Me to re-apply your roles."
-      : "This email type uses the Sender, Reply-To and Sign-off roles saved in Mail Settings. Click Select All As Me if you want this send to use your roles instead.";
+      ? "Reply-To starts blank so replies go to the From address unless you set one. Click Select All As Me to apply your committee roles to sign-off."
+      : "Reply-To and Sign-off start from Mail Settings. Click Select All As Me if you want sign-off to use your roles instead.";
   }
 
   private applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
@@ -4890,6 +5028,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.state.selectedMemberIds = [];
       }
       this.applyForcedMemberSelection();
+      this.syncRecipientAddressMode();
     }
   }
 
@@ -5227,8 +5366,12 @@ export class EmailComposer implements OnInit, OnDestroy {
       return errors;
     } else {
       if (!this.state.notificationConfig.templateName) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
-      if (!this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender role for this email type is not set up - configure it in ", "Mail Settings"));
-      if (!this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
+      if (this.brandedSenderIdentities().length === 0) {
+        errors.push("You need a contact email or a committee role address before you can send.");
+      }
+      const usingContactSender = this.resolvedBrandedSenderIdentity()?.kind === ComposerSenderKind.CONTACT;
+      if (!usingContactSender && !this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender address is not registered in Brevo - configure it in ", "Mail Settings"));
+      if (!usingContactSender && !this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
       const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
       const roleExists = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role);
       const roleHasEmail = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role && !!member.email);
@@ -5238,9 +5381,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       };
       const senderLabel = roleDescription(this.state.notificationConfig.senderRole);
       const replyToLabel = roleDescription(this.state.notificationConfig.replyToRole);
-      if (this.state.notificationConfig.senderRole && !roleExists(this.state.notificationConfig.senderRole)) {
+      if (!usingContactSender && this.state.notificationConfig.senderRole && !roleExists(this.state.notificationConfig.senderRole)) {
         errors.push(this.errorWithMailSettingsLink(`Sender role "${senderLabel}" is not a committee member - pick a different role below, or assign someone to it in `, "Mail Settings"));
-      } else if (this.state.notificationConfig.senderRole && !roleHasEmail(this.state.notificationConfig.senderRole)) {
+      } else if (!usingContactSender && this.state.notificationConfig.senderRole && !roleHasEmail(this.state.notificationConfig.senderRole)) {
         errors.push(this.errorWithMailSettingsLink(`Sender role "${senderLabel}" has no email address - pick a different role below, or set an email for it in `, "Mail Settings"));
       }
       if (this.state.notificationConfig.replyToRole && !roleExists(this.state.notificationConfig.replyToRole)) {
@@ -5786,6 +5929,11 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
     restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
     restored.unbrandedSenderEmail = restored.unbrandedSenderEmail ?? null;
+    restored.brandedSenderEmail = restored.brandedSenderEmail ?? null;
+    restored.recipientAddressMode = restored.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE
+      ? RecipientAddressMode.COMMITTEE_ROLE
+      : RecipientAddressMode.PERSONAL;
+    this.recipientAddressModeTouched = true;
     restored.externalRecipients = restored.externalRecipients ?? [];
     restored.ccRecipients = restored.ccRecipients ?? [];
     restored.bccRecipients = restored.bccRecipients ?? [];
@@ -5871,6 +6019,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       await this.resolveCommitteeFiles(allIds);
     }
     this.applyDefaultListIfNeeded();
+    this.syncRecipientAddressMode();
   }
 
   protected async deleteDraft(id: string): Promise<void> {
@@ -5892,6 +6041,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.forcedMemberId = null;
     this.routeCompositionKey = null;
     this.state = defaultEmailComposerState();
+    this.recipientAddressModeTouched = false;
     if (this.mailMessagingConfig) {
       this.state.notificationConfigListing = {
         mailMessagingConfig: this.mailMessagingConfig,
@@ -6356,6 +6506,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       campaignTop,
       campaignBottom
     );
+    const roleMembers = this.useCommitteeRoleAddresses() ? this.campaignRoleAddressMembers() : [];
+    const exclusionListId = await this.campaignExclusionListId(roleMembers.map(member => member.email).filter((email): email is string => !!email));
     const request: CreateCampaignRequest = {
       createAsDraft: false,
       templateName: this.state.notificationConfig!.templateName,
@@ -6366,13 +6518,20 @@ export class EmailComposer implements OnInit, OnDestroy {
       name: this.state.subject,
       tag: NGX_BREVO_CAMPAIGN_TAG,
       params,
-      recipients: { listIds: [this.state.selectedListId!] },
+      recipients: {
+        listIds: [this.state.selectedListId!],
+        ...(exclusionListId !== null ? {exclusionListIds: [exclusionListId]} : {})
+      },
       replyTo: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.replyToRole, "email")
         || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email")
         || "",
       sender: {
-        email: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email") ?? "",
-        name: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "fullName") ?? ""
+        email: this.resolvedBrandedSenderIdentity()?.email
+          || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email")
+          || "",
+        name: this.resolvedBrandedSenderIdentity()?.name
+          || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "fullName")
+          || ""
       },
       subject: this.state.subject
     };
@@ -6380,14 +6539,19 @@ export class EmailComposer implements OnInit, OnDestroy {
     const campaignId: number = created?.responseBody?.id;
     await this.mailService.sendCampaign({ campaignId });
     const postSendSummary = await this.applyCampaignPostSendActions();
-    this.campaignSendComplete = true;
-    this.sendInProgress = false;
-    await this.recordSentToHistory();
-    this.notify.hide();
-    this.notify.success({
-      title: "Campaign sent",
-      message: (overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`) + postSendSummary
-    });
+    const roleMemberIds = roleMembers.map(member => member.id).filter((id): id is string => !!id);
+    if (roleMemberIds.length > 0) {
+      await this.startBatchTransactionalSend(roleMemberIds);
+    } else {
+      this.campaignSendComplete = true;
+      this.sendInProgress = false;
+      await this.recordSentToHistory();
+      this.notify.hide();
+      this.notify.success({
+        title: "Campaign sent",
+        message: (overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`) + postSendSummary
+      });
+    }
   }
 
   private async applyCampaignPostSendActions(): Promise<string> {
@@ -6490,7 +6654,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
-  private async startBatchTransactionalSend(): Promise<void> {
+  private async startBatchTransactionalSend(memberIds: string[] = this.state.selectedMemberIds): Promise<void> {
     await this.resolveCommitteeFileLinksForSend();
     const { top, bottom, combined } = this.composedBodyParts();
     const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
@@ -6503,7 +6667,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       htmlBody: combined,
       htmlBodyTop: top,
       htmlBodyBottom: bottom,
-      memberIds: this.state.selectedMemberIds,
+      memberIds,
       narrowListId: this.state.narrowListId,
       externalRecipients: isUnbranded ? this.state.externalRecipients : undefined,
       ccRecipients: this.state.ccRecipients?.length ? this.state.ccRecipients : undefined,
@@ -6514,6 +6678,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       brandingMode: this.state.brandingMode,
       unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined,
       unbrandedSenderEmail: isUnbranded ? this.resolvedUnbrandedSenderEmail() || undefined : undefined,
+      senderEmailOverride: isUnbranded ? undefined : this.resolvedBrandedSenderIdentity()?.email,
+      senderNameOverride: isUnbranded ? undefined : this.resolvedBrandedSenderIdentity()?.name,
+      useCommitteeRoleAddresses: this.useCommitteeRoleAddresses(),
       inboxReplyContext: this.inboxReplyContext ?? undefined,
       attachments: this.state.attachments?.length ? this.state.attachments : undefined
     };

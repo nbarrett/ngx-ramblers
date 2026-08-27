@@ -29,6 +29,8 @@ export const MAIL_SETTINGS_TAB_REDIRECTS: Record<string, string> = {
   "notifications": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS)
 };
 
+export const COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME = "NGX committee role-address campaign exclusion";
+
 export interface NotificationSubject {
   prefixParameter: string;
   text: string;
@@ -1304,7 +1306,8 @@ export interface ContactsDeleteRequest {
 }
 
 export interface ContactsAddOrRemoveRequest extends HasListId {
-  ids: number[];
+  ids?: number[];
+  emails?: string[];
 }
 
 export interface HasListType {
