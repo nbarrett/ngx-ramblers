@@ -525,38 +525,55 @@ function workerImageNeedsRebuild(image: ImageInfo): boolean {
   return watchPaths.some(filePath => newestMtimeMs(filePath) > image.createdAtMs);
 }
 
-async function ensureLocalPlaywrightBrowser(logFilePath: string | null): Promise<void> {
-  log("Ensuring local Playwright browser is installed...");
-  const args = ["exec", "playwright", "install", "chromium"];
-  const logStream = logFilePath ? fs.createWriteStream(logFilePath, { flags: "a" }) : undefined;
-  if (logStream) {
-    logStream.write(`\n[playwright install] ${new Date().toISOString()} npm ${args.join(" ")}\n`);
-  }
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("npm", args, {
-      cwd: path.join(PROJECT_ROOT, "server"),
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    child.stdout?.on("data", (d: Buffer) => {
-      const text = d.toString();
-      process.stdout.write(text);
-      logStream?.write(d);
-    });
-    child.stderr?.on("data", (d: Buffer) => {
-      const text = d.toString();
-      process.stderr.write(text);
-      logStream?.write(d);
-    });
-    child.on("error", reject);
-    child.on("exit", code => {
-      logStream?.end();
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Playwright browser install failed with code ${code}`));
-      }
-    });
+function playwrightCliPath(): string {
+  return path.join(PROJECT_ROOT, "server/node_modules/.bin/playwright");
+}
+
+function localPlaywrightChromiumInstalled(): boolean {
+  const result = spawnSync(process.execPath, ["-e", "const {chromium}=require(\"playwright\"); process.exit(require(\"fs\").existsSync(chromium.executablePath())?0:1)"], {
+    cwd: path.join(PROJECT_ROOT, "server"),
+    stdio: "ignore"
   });
+  return result.status === 0;
+}
+
+async function ensureLocalPlaywrightBrowser(logFilePath: string | null): Promise<void> {
+  if (localPlaywrightChromiumInstalled()) {
+    log("Playwright Chromium already installed, skipping download");
+  } else {
+    log("Installing Playwright Chromium for the in-process worker...");
+    const playwrightBin = playwrightCliPath();
+    const args = ["install", "chromium"];
+    const logStream = logFilePath ? fs.createWriteStream(logFilePath, { flags: "a" }) : undefined;
+    if (logStream) {
+      logStream.write(`\n[playwright install] ${new Date().toISOString()} ${playwrightBin} ${args.join(" ")}\n`);
+    }
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(playwrightBin, args, {
+        cwd: path.join(PROJECT_ROOT, "server"),
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+      child.stdout?.on("data", (d: Buffer) => {
+        const text = d.toString();
+        process.stdout.write(text);
+        logStream?.write(d);
+      });
+      child.stderr?.on("data", (d: Buffer) => {
+        const text = d.toString();
+        process.stderr.write(text);
+        logStream?.write(d);
+      });
+      child.on("error", reject);
+      child.on("exit", code => {
+        logStream?.end();
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Playwright browser install failed with code ${code}`));
+        }
+      });
+    });
+  }
 }
 
 async function buildWorkerImage(chromeVersion: string, workerLogPath: string | null): Promise<void> {
