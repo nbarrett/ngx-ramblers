@@ -3,6 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { MailConfig } from "../../models/mail.model";
+import { MemberResourcesReferenceDataService } from "../member/member-resources-reference-data.service";
 
 @Injectable({
   providedIn: "root"
@@ -10,10 +11,19 @@ import { MailConfig } from "../../models/mail.model";
 export class MailLinkService {
   private logger: Logger = inject(LoggerFactory).createLogger("MailLinkService", NgxLoggerLevel.ERROR);
   private mailConfigService = inject(MailConfigService);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private config: MailConfig;
+  private platformAdminEnabled = false;
 
   constructor() {
     this.queryConfig();
+    this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(enabled => {
+      this.platformAdminEnabled = enabled;
+    });
+  }
+
+  get canNavigateToBrevo(): boolean {
+    return this.platformAdminEnabled;
   }
 
   queryConfig(): void {
@@ -73,7 +83,9 @@ export class MailLinkService {
   }
 
   public openUrl(url: string, target?: string): void {
-    window.open(url, target || "_blank");
+    if (this.platformAdminEnabled && url) {
+      window.open(url, target || "_blank");
+    }
   }
 
 }

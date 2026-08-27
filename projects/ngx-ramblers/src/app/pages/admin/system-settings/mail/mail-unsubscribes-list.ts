@@ -329,7 +329,7 @@ const ALL_SENDERS = "all";
               @for (contact of filteredUnsubscribes(); track trackByContact($index, contact)) {
                 <tr>
                   <td class="name-cell col-name">
-                    @if (contact.brevoContactId) {
+                    @if (contact.brevoContactId && mailLinkService.canNavigateToBrevo) {
                       <a [href]="mailLinkService.contactView(contact.brevoContactId)"
                          target="_blank"
                          rel="noopener"
