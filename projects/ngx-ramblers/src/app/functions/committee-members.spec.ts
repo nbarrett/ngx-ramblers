@@ -1,9 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { additionalEmailsFromMailboxList, CommitteeMember, committeeRoleMatchingEmail, RoleType } from "../models/committee.model";
 import {
+  additionalEmailsFromMailboxList,
+  applyCommitteeRoleDefaultSender,
+  CommitteeMailboxKind,
+  CommitteeMember,
+  committeeMailboxKind,
+  committeeRoleMatchingEmail,
+  RoleType,
+  roleEmailAddresses
+} from "../models/committee.model";
+import { ComposerSenderKind } from "../models/email-composer.model";
+import { composerSenderIdentities } from "./email-composer";
+import {
+  committeeAssignedEmailsForMemberId,
+  committeeAssignedMailboxGroupsForMemberId,
+  committeeMembersSettingsQueryParams,
   committeeMemberTrackKey,
+  committeeOutboundEmailQueryParams,
   committeeRoleEmailDiffersFromPersonal,
   committeeRoleForMemberId,
+  committeeRoleList,
+  memberHoldsCommitteeRole,
   memberRecordId,
   outboundEmailForMember,
   outboundEmailForRecipient,
@@ -23,6 +40,27 @@ describe("uniqueCommitteeMembersByType", () => {
       member("support", "Nick", "nick-id")
     ]);
     expect(unique.map(role => role.fullName)).toEqual(["Tom", "Liz"]);
+  });
+});
+
+describe("committeeMembersSettingsQueryParams", () => {
+
+  it("opens the role outbound email tab when a single role type is given", () => {
+    expect(committeeMembersSettingsQueryParams("ngx-project-lead")).toEqual(committeeOutboundEmailQueryParams("ngx-project-lead"));
+  });
+
+  it("opens the committee members tab when no single role applies", () => {
+    expect(committeeMembersSettingsQueryParams(null)).toEqual({tab: "committee-members"});
+  });
+});
+
+describe("committeeRoleList", () => {
+
+  it("joins role descriptions with commas", () => {
+    expect(committeeRoleList([
+      {roleType: "ngx-project-lead", roleDescription: "NGX Project Lead", fullName: "Nick", addresses: []},
+      {roleType: "treasurer", roleDescription: "Treasurer", fullName: "Sam", addresses: []}
+    ])).toEqual("NGX Project Lead, Treasurer");
   });
 });
 
@@ -48,6 +86,38 @@ describe("additionalEmailsFromMailboxList", () => {
 
 });
 
+describe("composerSenderIdentities", () => {
+
+  it("lists contact email then each committee address assigned to the member", () => {
+    const chairman = member("chairman", "Liz Chair", "liz-id");
+    const identities = composerSenderIdentities({
+      contactEmail: "liz@gmail.com",
+      contactName: "Liz Chair",
+      roles: [chairman],
+      memberId: "liz-id"
+    });
+    expect(identities[0]).toEqual({
+      kind: ComposerSenderKind.CONTACT,
+      email: "liz@gmail.com",
+      name: "Liz Chair",
+      label: "Contact email <liz@gmail.com>",
+      roleType: null
+    });
+    expect(identities.some(identity => identity.email === "chairman@example.com" && identity.kind === ComposerSenderKind.COMMITTEE_ROLE)).toEqual(true);
+  });
+
+  it("does not duplicate the contact email when it is already a committee address", () => {
+    const chairman = member("chairman", "Liz Chair", "liz-id");
+    const identities = composerSenderIdentities({
+      contactEmail: "chairman@example.com",
+      contactName: "Liz Chair",
+      roles: [chairman],
+      memberId: "liz-id"
+    });
+    expect(identities.filter(identity => identity.email.toLowerCase() === "chairman@example.com")).toHaveLength(1);
+  });
+});
+
 describe("committeeMemberTrackKey", () => {
 
   it("distinguishes two members who share a role type", () => {
@@ -68,7 +138,7 @@ describe("outboundEmailForMember", () => {
   });
 
   it("reads the mongo id rather than member.memberId on the member record", () => {
-    expect(memberRecordId({id: "liz-id", memberId: undefined, email: "liz@gmail.com"})).toEqual("liz-id");
+    expect(memberRecordId({id: "liz-id", memberId: undefined})).toEqual("liz-id");
     expect(committeeRoleForMemberId([chairman], "liz-id")?.type).toEqual("chairman");
   });
 
@@ -89,6 +159,82 @@ describe("outboundEmailForMember", () => {
     expect(committeeRoleEmailDiffersFromPersonal({id: "liz-id", email: "liz@gmail.com"}, [chairman])).toEqual(true);
     expect(committeeRoleEmailDiffersFromPersonal({id: "liz-id", email: "chairman@example.com"}, [chairman])).toEqual(false);
     expect(committeeRoleEmailDiffersFromPersonal({id: "walker-id", email: "walker@gmail.com"}, [chairman])).toEqual(false);
+  });
+
+  it("lists every committee address assigned to a member, including extras on the role", () => {
+    const chair = {...chairman, description: "Chairman", additionalEmails: ["chair-extra@example.com"]};
+    const emails = committeeAssignedEmailsForMemberId([chair, walks], "liz-id").map(entry => entry.email);
+    expect(emails).toContain("chairman@example.com");
+    expect(emails).toContain("chair-extra@example.com");
+    expect(committeeAssignedEmailsForMemberId([chair, walks], "walker-id")).toEqual([]);
+  });
+
+  it("groups assigned addresses under the role and labels how each one is used", () => {
+    const chair = {
+      ...chairman,
+      description: "Chairman",
+      additionalEmails: ["chair-extra@example.com"]
+    };
+    const groups = committeeAssignedMailboxGroupsForMemberId([chair, walks], "liz-id");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].roleDescription).toEqual("Chairman");
+    expect(groups[0].addresses).toEqual([
+      {email: "chairman@example.com", kind: CommitteeMailboxKind.DEFAULT_SENDER, generated: true},
+      {email: "liz.chair@example.com", kind: CommitteeMailboxKind.MEMBER_NAME, generated: true},
+      {email: "chair-extra@example.com", kind: CommitteeMailboxKind.EXTRA, generated: false}
+    ]);
+    expect(committeeMailboxKind(chair, "chairman@example.com")).toEqual(CommitteeMailboxKind.DEFAULT_SENDER);
+    expect(committeeMailboxKind(chair, "liz.chair@example.com")).toEqual(CommitteeMailboxKind.MEMBER_NAME);
+    expect(committeeMailboxKind(chair, "chair-extra@example.com")).toEqual(CommitteeMailboxKind.EXTRA);
+  });
+
+  it("switches the default sender to an extra address on the role", () => {
+    const chair = {
+      ...chairman,
+      description: "Chairman",
+      additionalEmails: ["chair-extra@example.com"]
+    };
+    const updated = applyCommitteeRoleDefaultSender(chair, "chair-extra@example.com");
+    expect(updated.email).toEqual("chair-extra@example.com");
+    expect(committeeMailboxKind(updated, "chair-extra@example.com")).toEqual(CommitteeMailboxKind.DEFAULT_SENDER);
+    expect(committeeMailboxKind(updated, "chairman@example.com")).toEqual(CommitteeMailboxKind.ROLE_NAME);
+  });
+
+  it("keeps a previous extra default when switching back to a generated address", () => {
+    const chair = {
+      ...chairman,
+      description: "Chairman",
+      additionalEmails: ["chair-extra@example.com"]
+    };
+    const extraDefault = applyCommitteeRoleDefaultSender(chair, "chair-extra@example.com");
+    const restored = applyCommitteeRoleDefaultSender(extraDefault, chair.email);
+    expect(restored.email).toEqual(chair.email);
+    expect(restored.additionalEmails).toContain("chair-extra@example.com");
+    const emails = committeeAssignedMailboxGroupsForMemberId([restored], "liz-id")[0].addresses.map(item => item.email);
+    expect(emails).toContain("chairman@example.com");
+    expect(emails).toContain("liz.chair@example.com");
+    expect(emails).toContain("chair-extra@example.com");
+  });
+
+  it("does not drop extras when the default sender moves between extra addresses", () => {
+    const chair = {
+      ...chairman,
+      description: "Chairman",
+      additionalEmails: ["chair-extra@example.com", "chair-other@example.com"]
+    };
+    const first = applyCommitteeRoleDefaultSender(chair, "chair-extra@example.com");
+    const second = applyCommitteeRoleDefaultSender(first, "chair-other@example.com");
+    const emails = roleEmailAddresses(second);
+    expect(second.email).toEqual("chair-other@example.com");
+    expect(emails).toContain("chair-extra@example.com");
+    expect(emails).toContain("chair-other@example.com");
+    expect(emails).toContain("chairman@example.com");
+    expect(second.additionalEmails).toContain("chair-extra@example.com");
+  });
+
+  it("treats a member as a committee holder only when they are assigned to a role", () => {
+    expect(memberHoldsCommitteeRole({id: "liz-id"}, [chairman, walks])).toEqual(true);
+    expect(memberHoldsCommitteeRole({id: "walker-id"}, [chairman, walks])).toEqual(false);
   });
 
   it("rewrites a booking attendee matched by member id or by personal email", () => {
@@ -150,6 +296,12 @@ describe("committeeRoleMatchingEmail", () => {
 
   it("maps the generated role-type address", () => {
     expect(committeeRoleMatchingEmail(roles, "ngx-project-lead@ngx-ramblers.org.uk")?.type).toEqual("ngx-project-lead");
+  });
+
+  it("labels the default sender, role-name address and extras on the project lead role", () => {
+    expect(committeeMailboxKind(projectLead, "nick.barrett@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.DEFAULT_SENDER);
+    expect(committeeMailboxKind(projectLead, "ngx-project-lead@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.ROLE_NAME);
+    expect(committeeMailboxKind(projectLead, "nix@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.EXTRA);
   });
 
   it("maps extra mailbox addresses stored on the role", () => {

@@ -1,52 +1,67 @@
-import { Component, inject, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faInbox, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelope, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import {
   InboxAliasConfigView,
   InboxAliasRecipientView,
+  InboxNotifyBaseline,
   InboxRoleNotificationSetting,
-  memberNotificationSetting
+  memberNotificationSetting,
+  ProfileAssignedRoleMailbox
 } from "../../../models/inbox.model";
 import { InboxNotifyModePicker } from "../../../shared/components/inbox-notify-mode-picker";
 import { emailDomain } from "../../../functions/strings";
-
-interface InboxNotifyBaseline {
-  notify: boolean;
-  notificationEmail: string | null;
-}
+import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
+import {
+  CommitteeAssignedMailboxGroup,
+  CommitteeMember
+} from "../../../models/committee.model";
+import { committeeAssignedMailboxGroupsForMemberId, committeeRoleList } from "../../../functions/committee-members";
+import { CommitteeMailboxAdminCopyComponent } from "../../../shared/components/committee-mailbox-admin-copy";
+import { CommitteeRoleMailboxesComponent } from "../../../shared/components/committee-role-mailboxes";
 
 @Component({
   selector: "app-profile-inbox-notifications",
   template: `
-    @if (aliases.length > 0) {
+    @if (assignedRoleMailboxes().length > 0) {
       <div class="row thumbnail-heading-frame">
-        <div class="thumbnail-heading">Inbox notifications</div>
+        <div class="thumbnail-heading">Committee emails</div>
         <div class="col-12">
           <div class="row align-items-start">
             <div class="col-sm-3 text-center">
-              <fa-icon [icon]="faInbox" class="fa-5x admin-icon"></fa-icon>
+              <fa-icon [icon]="faEnvelope" class="fa-5x admin-icon"></fa-icon>
             </div>
             <div class="col-sm-9">
-              <p class="text-muted">
-                For committee role addresses assigned to you, choose whether to be emailed when new mail arrives:
-                no notification, your member address, or a different address. Use Save below to apply changes.
+              <p class="text-muted mb-0">
+                Mail sent to {{ roleList() }} is handled as {{ roleAgreement() }}.
+                Choose whether to be emailed when new mail arrives: no notification, your member address, or a different address.
+                Use Save or Save and exit below to apply changes.
+                <app-committee-mailbox-admin-copy
+                  [roleType]="assignedRoleMailboxes().length === 1 ? assignedRoleMailboxes()[0].group.roleType : null"
+                  showReadOnly/>
               </p>
-              @for (alias of aliases; track alias.id || alias.roleEmail) {
-                <div class="py-2 border-top">
-                  <div class="fw-semibold mb-1">{{alias.roleEmail}}</div>
-                  <app-inbox-notify-mode-picker
-                    [recipient]="myRecipient(alias)"
-                    [idPrefix]="'profile-notify-' + alias.roleType"
-                    [groupDomain]="emailDomain(alias.roleEmail)"
-                    memberLabel="me"/>
-                  @if (otherRecipientLabels(alias).length > 0) {
-                    <div class="small text-muted mt-1">
-                      Also assigned to this role: {{ otherRecipientLabels(alias).join(", ") }}
-                    </div>
+              @for (row of assignedRoleMailboxes(); track row.role.type) {
+                <div class="border-top">
+                  <app-committee-role-mailboxes
+                    [groups]="[row.group]"
+                    [showHeading]="assignedRoleMailboxes().length > 1"/>
+                  @if (myRecipient(row.alias); as recipient) {
+                    <app-inbox-notify-mode-picker
+                      class="d-block mt-2"
+                      [recipient]="recipient"
+                      [idPrefix]="'profile-notify-' + row.role.type"
+                      [groupDomain]="emailDomain(row.role.email || row.group.addresses[0]?.email)"
+                      memberLabel="me"/>
+                    @if (otherRecipientLabels(row.alias).length > 0) {
+                      <div class="mt-1">
+                        Also assigned to this role: {{ otherRecipientLabels(row.alias).join(", ") }}
+                      </div>
+                    }
                   }
                 </div>
               }
@@ -62,32 +77,66 @@ interface InboxNotifyBaseline {
     }
   `,
   styleUrls: ["../admin/admin.component.sass"],
-  imports: [FontAwesomeModule, InboxNotifyModePicker]
+  imports: [FontAwesomeModule, InboxNotifyModePicker, CommitteeMailboxAdminCopyComponent, CommitteeRoleMailboxesComponent]
 })
-export class ProfileInboxNotificationsComponent implements OnInit {
+export class ProfileInboxNotificationsComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("ProfileInboxNotificationsComponent", NgxLoggerLevel.ERROR);
   private inboxService = inject(InboxService);
   private memberLoginService = inject(MemberLoginService);
-  protected readonly faInbox = faInbox;
+  private committeeConfigService = inject(CommitteeConfigService);
+  protected readonly faEnvelope = faEnvelope;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly emailDomain = emailDomain;
 
   public aliases: InboxAliasConfigView[] = [];
   protected saveError: string | null = null;
   private baseline = new Map<string, InboxNotifyBaseline>();
+  private committeeRoles: CommitteeMember[] = [];
+  private subscriptions: Subscription[] = [];
 
   async ngOnInit(): Promise<void> {
+    this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(referenceData => {
+      this.committeeRoles = referenceData.committeeMembers();
+    }));
+    this.committeeConfigService.refreshConfig();
     await this.reload();
+  }
+
+  protected roleList(): string {
+    return committeeRoleList(this.assignedRoleMailboxes().map(row => row.group));
+  }
+
+  protected roleAgreement(): string {
+    return this.assignedRoleMailboxes().length === 1 ? "that committee role" : "those committee roles";
+  }
+
+  protected assignedRoleMailboxes(): ProfileAssignedRoleMailbox[] {
+    return committeeAssignedMailboxGroupsForMemberId(this.committeeRoles, this.myMemberId())
+      .map(group => {
+        const role = this.committeeRoles.find(item => item.type === group.roleType) ?? null;
+        return {
+          role,
+          alias: this.aliases.find(item => item.roleType === group.roleType) ?? null,
+          group
+        };
+      })
+      .filter((row): row is ProfileAssignedRoleMailbox => Boolean(row.role));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   private myMemberId(): string | null {
     return this.memberLoginService.loggedInMember()?.memberId ?? null;
   }
 
-  myRecipient(alias: InboxAliasConfigView): InboxAliasRecipientView | null {
+  myRecipient(alias: InboxAliasConfigView | null): InboxAliasRecipientView | null {
     const memberId = this.myMemberId();
-    return alias.recipients.find(recipient => Boolean(memberId) && recipient.memberId === memberId) ?? null;
+    return alias && memberId
+      ? alias.recipients.find(recipient => recipient.memberId === memberId) ?? null
+      : null;
   }
 
   otherRecipientLabels(alias: InboxAliasConfigView): string[] {

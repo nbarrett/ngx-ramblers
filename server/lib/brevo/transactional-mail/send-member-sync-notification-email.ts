@@ -6,7 +6,7 @@ import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/conf
 import { EmailAddress, NotificationConfig, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { outboundEmailForMember } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
+
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
@@ -22,6 +22,7 @@ import { accountMergeFieldsFor } from "../account/account";
 import { configuredBrevo } from "../brevo-config";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { AdminProfilePath } from "../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
+import { appliedFromHeadOfficeHelpHtml } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-account.model";
 
 const messageType = "brevo:send-member-sync-notification-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -76,7 +77,7 @@ function buildBodyHtml(notifications: MemberSyncNotification[], contactDetailsUr
   const appliedFields = notifications.filter(notification => notification.resolution === MemberSyncNotificationResolution.APPLIED_FROM_HEAD_OFFICE);
   const keptFields = notifications.filter(notification => notification.resolution === MemberSyncNotificationResolution.KEPT_LOCAL_DIVERGENCE);
   const appliedParagraph = appliedFields.length > 0
-    ? "<p>The fields marked <strong>Applied locally (from Head Office)</strong> are now maintained at Ramblers Head Office. To change these, please contact Head Office directly.</p>"
+    ? appliedFromHeadOfficeHelpHtml()
     : "";
   const keptParagraph = keptFields.length > 0
     ? "<p>The fields marked <strong>Kept (you may want to review)</strong> still differ from what Head Office holds. You can correct these yourself on the site using the button below.</p>"
@@ -121,7 +122,7 @@ export async function sendMemberSyncNotificationEmail(member: Member, notificati
   const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeCfg: CommitteeConfig = committeeConfigDoc?.value;
   const committeeRoles: CommitteeMember[] = committeeCfg?.roles || [];
-  const toEmail = outboundEmailForMember(member, committeeRoles);
+  const toEmail = member.email ?? "";
   if (toEmail) {
   const sender = emailAddressForRole(committeeRoles, notifConfig.senderRole);
   if (!sender) {

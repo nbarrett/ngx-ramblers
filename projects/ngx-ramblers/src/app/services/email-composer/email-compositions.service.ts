@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionKind, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse, PreviousNewsletter, PreviousReleaseNoteUpdate } from "../../models/email-composer.model";
+import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionKind, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse, PreviousNewsletter, PreviousReleaseNoteUpdate, RecipientAddressMode } from "../../models/email-composer.model";
 import { ApiResponse } from "../../models/api-response.model";
 import { EmailAttachment } from "../../models/mail.model";
 import { CommonDataService } from "../common-data-service";
@@ -151,7 +151,9 @@ export class EmailCompositionsService {
       brandingMode: state.brandingMode,
       unbrandedSenderRoleType: state.unbrandedSenderRoleType ?? null,
       unbrandedSenderEmail: state.unbrandedSenderEmail ?? null,
+      brandedSenderEmail: state.brandedSenderEmail ?? null,
       recipientMode: state.recipientMode,
+      recipientAddressMode: state.recipientAddressMode ?? RecipientAddressMode.PERSONAL,
       selectedListId: state.selectedListId,
       narrowListId: state.narrowListId,
       selectedMemberIds: [...(state.selectedMemberIds ?? [])],

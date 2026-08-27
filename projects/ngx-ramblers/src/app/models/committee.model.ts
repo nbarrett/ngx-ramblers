@@ -93,6 +93,14 @@ export enum CommitteeFileKind {
   COMPOSED = "composed"
 }
 
+export enum CommitteeMemberTab {
+  ROLE_DETAILS = "Role Details",
+  OUTBOUND_EMAIL = "Outbound Email",
+  INBOUND_FORWARDING = "Inbound Forwarding",
+  CONTACT_US = "Contact Us",
+  EMAIL_LOGS = "Email Logs"
+}
+
 
 export interface DocumentConversionResponse {
   markdown: string;
@@ -281,6 +289,61 @@ export function additionalEmailsFromMailboxList(addresses: string[], defaultEmai
   });
 }
 
+export enum CommitteeMailboxKind {
+  DEFAULT_SENDER = "default-sender",
+  ROLE_NAME = "role-name",
+  MEMBER_NAME = "member-name",
+  EXTRA = "extra"
+}
+
+export interface CommitteeMailboxAddress {
+  email: string;
+  kind: CommitteeMailboxKind;
+  generated: boolean;
+}
+
+export interface CommitteeAssignedMailboxGroup {
+  roleType: string;
+  roleDescription: string;
+  fullName: string;
+  addresses: CommitteeMailboxAddress[];
+}
+
+export interface CommitteeAssignedEmail {
+  email: string;
+  roleDescription: string;
+  roleType: string;
+}
+
+export interface CommitteeMailboxDefaultChange {
+  roleType: string;
+  email: string;
+}
+
+export function committeeMailboxKind(role: CommitteeMember, email: string, domain?: string | null): CommitteeMailboxKind {
+  const wanted = normaliseEmail(email);
+  const roleName = normaliseEmail(derivedRoleTypeAddress(role, domain) || "");
+  const memberName = normaliseEmail(derivedFullNameAddress(role, domain) || "");
+  if (wanted && wanted === normaliseEmail(role.email)) {
+    return CommitteeMailboxKind.DEFAULT_SENDER;
+  } else if (wanted && wanted === roleName) {
+    return CommitteeMailboxKind.ROLE_NAME;
+  } else if (wanted && wanted === memberName) {
+    return CommitteeMailboxKind.MEMBER_NAME;
+  } else {
+    return CommitteeMailboxKind.EXTRA;
+  }
+}
+
+export function committeeMailboxAddresses(role: CommitteeMember, emails?: string[], domain?: string | null): CommitteeMailboxAddress[] {
+  const generated = generatedRoleMailboxAddresses(role, domain).map(address => normaliseEmail(address));
+  return (emails ?? roleEmailAddresses(role, domain)).map(email => ({
+    email,
+    kind: committeeMailboxKind(role, email, domain),
+    generated: generated.includes(normaliseEmail(email))
+  }));
+}
+
 export function generatedRoleMailboxAddresses(role: CommitteeMember, domain?: string | null): string[] {
   return [derivedRoleTypeAddress(role, domain), derivedFullNameAddress(role, domain)]
     .filter((address): address is string => Boolean(address))
@@ -308,6 +371,24 @@ export function roleMailboxExtras(role: CommitteeMember, domain?: string | null)
   const generated = generatedRoleMailboxAddresses(role, domain);
   const obsolete = (role.additionalEmails ?? []).filter(address => isObsoleteGeneratedRoleLocalPart(emailLocalPart(address), role));
   return additionalEmailsFromMailboxList(roleEmailAddresses(role, domain), role.email, generated.concat(obsolete));
+}
+
+export function applyCommitteeRoleDefaultSender(role: CommitteeMember, address: string, domain?: string | null): CommitteeMember {
+  const local = emailLocalPart(address).toLowerCase();
+  const roleLocal = (role.type || "").toLowerCase();
+  const nameLocal = toDotCase(role.fullName || "").toLowerCase();
+  const emailDerivation = local && roleLocal && local === roleLocal
+    ? EmailDerivation.ROLE
+    : local && nameLocal && local === nameLocal
+      ? EmailDerivation.FULL_NAME
+      : role.emailDerivation;
+  const updated = {
+    ...role,
+    email: address,
+    emailDerivation,
+    additionalEmails: roleEmailAddresses(role, domain)
+  };
+  return {...updated, additionalEmails: roleMailboxExtras(updated, domain)};
 }
 
 export function roleNotificationRecipients(role: CommitteeMember): InboxRoleRecipient[] {

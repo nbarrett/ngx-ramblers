@@ -27,6 +27,24 @@ export enum RecipientMode {
   SELECTED_MEMBERS = "selected-members"
 }
 
+export enum RecipientAddressMode {
+  PERSONAL = "personal",
+  COMMITTEE_ROLE = "committee-role"
+}
+
+export enum ComposerSenderKind {
+  CONTACT = "contact",
+  COMMITTEE_ROLE = "committee-role"
+}
+
+export interface ComposerSenderIdentity {
+  kind: ComposerSenderKind;
+  email: string;
+  name: string;
+  label: string;
+  roleType: string | null;
+}
+
 export enum AddresseeType {
   FIRST_NAME = "first-name",
   HI_ALL = "hi-all",
@@ -344,7 +362,9 @@ export interface EmailComposerState {
   brandingMode: BrandingMode;
   unbrandedSenderRoleType: string | null;
   unbrandedSenderEmail: string | null;
+  brandedSenderEmail: string | null;
   recipientMode: RecipientMode;
+  recipientAddressMode: RecipientAddressMode;
   selectedListId: number | null;
   narrowListId: number | null;
   selectedMemberIds: string[];
@@ -478,6 +498,9 @@ export interface BatchTransactionalSendRequest {
   brandingMode?: BrandingMode;
   unbrandedSenderRoleType?: string;
   unbrandedSenderEmail?: string;
+  senderEmailOverride?: string;
+  senderNameOverride?: string;
+  useCommitteeRoleAddresses?: boolean;
   inboxReplyContext?: InboxReplyOutboundContextLike;
 }
 

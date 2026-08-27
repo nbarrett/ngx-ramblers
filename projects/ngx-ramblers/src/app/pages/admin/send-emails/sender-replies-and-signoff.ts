@@ -3,6 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { isString } from "es-toolkit/compat";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { ComposerRoleDefaults, MailMessagingConfig, NotificationConfig } from "../../../models/mail.model";
+import { ComposerSenderIdentity } from "../../../models/email-composer.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CommitteeMember } from "../../../models/committee.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -16,6 +17,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
     selector: "app-sender-replies-and-sign-off",
     template: `
     <div class="row" app-create-or-amend-sender (senderExists)="senderExists.emit($event)"
+    [omitSenders]="omitSenders"
     [committeeRoleSender]="committeeRoleSender"></div>
     @if (notificationConfig) {
       @if (allowSelectAllAsMe) {
@@ -49,6 +51,30 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
         </div>
       }
       <div class="row">
+        @if (senderIdentities) {
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="send-from">Send from</label>
+              @if (senderIdentities.length > 0) {
+                <select class="form-control input-sm" id="send-from"
+                  [ngModel]="senderEmail"
+                  (ngModelChange)="senderEmailChange.emit($event)">
+                  @for (identity of senderIdentities; track identity.kind + identity.email) {
+                    <option [ngValue]="identity.email">{{ identity.label }}</option>
+                  }
+                </select>
+              } @else {
+                <div class="alert alert-warning d-flex align-items-start mb-0">
+                  <div>
+                    <strong class="d-block">No sender address</strong>
+                    You need a contact email or a committee role address before you can send.
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        @if (!omitSender) {
         <div class="col-sm-6">
           <div class="form-group">
             <label for="sender">Sender</label>
@@ -58,7 +84,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
               class="form-control input-sm">
               @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
                 <option
-                  [ngValue]="role.type">{{ role.nameAndDescription }}
+                  [ngValue]="role.type">{{ role.nameAndDescription }}{{ role.email ? " (" + role.email + ")" : "" }}
                 </option>
               }
             </select>
@@ -72,6 +98,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
             }
           </div>
         </div>
+        }
         @if (!omitBcc) {
           <div class="col-sm-6">
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
@@ -92,7 +119,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
                 <option [ngValue]="''">Same as sender (no separate Reply-To)</option>
                 @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
                   <option
-                    [ngValue]="role.type">{{ role.nameAndDescription }}
+                    [ngValue]="role.type">{{ role.nameAndDescription }}{{ role.email ? " (" + role.email + ")" : "" }}
                   </option>
                 }
               </select>
@@ -154,6 +181,14 @@ export class SenderRepliesAndSignoff implements OnInit {
     this.omitBcc = coerceBooleanProperty(omitBcc);
   }
 
+  @Input("omitSender") set omitSenderValue(omitSender: boolean) {
+    this.omitSender = coerceBooleanProperty(omitSender);
+  }
+
+  @Input("omitSenders") set omitSendersValue(omitSenders: boolean) {
+    this.omitSenders = coerceBooleanProperty(omitSenders);
+  }
+
   @Input("allowSelectAllAsMe") set allowSelectAllAsMeValue(allowSelectAllAsMe: boolean) {
     this.allowSelectAllAsMe = coerceBooleanProperty(allowSelectAllAsMe);
   }
@@ -165,9 +200,14 @@ export class SenderRepliesAndSignoff implements OnInit {
   private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.ERROR );
   public omitSignOff: boolean;
   public omitBcc: boolean;
+  public omitSender: boolean;
+  public omitSenders = true;
   public allowSelectAllAsMe: boolean;
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
   @Output() rolesChanged: EventEmitter<void> = new EventEmitter();
+  @Input() senderIdentities: ComposerSenderIdentity[] | null = null;
+  @Input() senderEmail: string | null = null;
+  @Output() senderEmailChange: EventEmitter<string> = new EventEmitter();
   @Input() signOffRolesOverride: string[] | null = null;
   @Output() signOffRolesOverrideChange: EventEmitter<string[]> = new EventEmitter();
   private memberLoginService = inject(MemberLoginService);

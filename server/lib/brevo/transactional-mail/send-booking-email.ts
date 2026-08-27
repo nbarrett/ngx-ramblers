@@ -12,9 +12,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { outboundEmailForRecipient } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
-import { member as memberModel } from "../../mongo/models/member";
-import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
+
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
@@ -79,16 +77,7 @@ export async function buildBookingEmailRequest(
 
   const sender: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.senderRole);
   const replyTo: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.replyToRole);
-  const committeeMemberIds = committeeRoles.map(role => role.memberId).filter((memberId): memberId is string => !!memberId);
-  const committeePeople: Member[] = committeeMemberIds.length > 0
-    ? await memberModel.find({_id: {$in: committeeMemberIds}}).lean().then(docs => docs.map(transforms.toObjectWithId) as Member[])
-    : [];
-  const attendeeEmail = outboundEmailForRecipient({
-    memberId: primaryAttendee.memberId,
-    email: primaryAttendee.email,
-    roles: committeeRoles,
-    members: committeePeople
-  });
+  const attendeeEmail = primaryAttendee.email ?? "";
   const to: EmailAddress[] = attendeeEmail
     ? [{email: attendeeEmail, name: primaryAttendee.displayName}]
     : [];

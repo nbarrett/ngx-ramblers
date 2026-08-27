@@ -11,6 +11,10 @@ import { FormsModule } from "@angular/forms";
 
 @Component({
     selector: "app-mail-subscription-setting",
+    styles: [`
+      :host
+        display: block
+    `],
     template: `
     @if (subscription && this.mailMessagingConfig) {
       <div class="form-check">

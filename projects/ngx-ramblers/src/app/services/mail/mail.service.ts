@@ -113,6 +113,10 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/lists/create`, listCreateRequest))).response;
   }
 
+  async addContactsToList(request: ContactsAddOrRemoveRequest): Promise<ContactAddOrRemoveResponse> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/add-to-list`, request))).response;
+  }
+
   async updateList(listUpdateRequest: ListUpdateRequest): Promise<ListCreateResponse> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/lists/update`, listUpdateRequest))).response;
   }

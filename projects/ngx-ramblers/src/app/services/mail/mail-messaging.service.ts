@@ -33,7 +33,7 @@ import {
   TemplateOverrideType
 } from "../../models/mail.model";
 import { CommitteeMember } from "../../models/committee.model";
-import { outboundEmailForMember } from "../../functions/committee-members";
+
 import { resolveContactUsRecipientAddresses } from "../../functions/contact-us-delivery";
 import { resolveAccentColor } from "../../models/email-accent-palette";
 import { NotificationHost } from "../../models/notification-host.model";
@@ -487,7 +487,7 @@ export class MailMessagingService {
 
   public committeeOutboundOrPersonalAddress(member: Member): EmailAddress {
     return {
-      email: outboundEmailForMember(member, this.mailMessagingConfig?.committeeReferenceData?.committeeMembers() ?? []),
+      email: member.email,
       name: this.fullNamePipe.transform(member)
     };
   }

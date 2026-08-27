@@ -1,4 +1,6 @@
 import { BrandingMode } from "../models/mail.model";
+import { CommitteeMember } from "../models/committee.model";
+import { committeeAssignedEmailsForMemberId } from "./committee-members";
 import {
   AddresseeType,
   ArticleBlock,
@@ -6,6 +8,8 @@ import {
   ArticleBlockPosition,
   ComposerFragment,
   ComposerFragmentKind,
+  ComposerSenderIdentity,
+  ComposerSenderKind,
   DEFAULT_COLUMN_GAP_PX,
   DEFAULT_NEWSLETTER_CADENCE,
   DEFAULT_RELEASE_NOTE_UPDATE_PERIOD_AMOUNT,
@@ -16,6 +20,7 @@ import {
   EmailCompositionKind,
   EventInclusionMode,
   NewsletterSettings,
+  RecipientAddressMode,
   RecipientMode,
   ReleaseNoteUpdateCategory,
   ReleaseNoteUpdateConfiguration,
@@ -337,6 +342,47 @@ export function releaseNoteUpdateSettingsFrom(raw: any): ReleaseNoteUpdateSettin
   };
 }
 
+export function composerSenderIdentities(options: {
+  contactEmail: string | null;
+  contactName: string;
+  roles: CommitteeMember[];
+  memberId: string | null;
+}): ComposerSenderIdentity[] {
+  const contact = (options.contactEmail ?? "").trim();
+  const committee = committeeAssignedEmailsForMemberId(options.roles, options.memberId).map(entry => ({
+    kind: ComposerSenderKind.COMMITTEE_ROLE,
+    email: entry.email,
+    name: options.contactName,
+    label: `${entry.roleDescription} <${entry.email}>`,
+    roleType: entry.roleType
+  }));
+  const contactAlreadyListed = contact && committee.some(identity => identity.email.toLowerCase() === contact.toLowerCase());
+  const personal: ComposerSenderIdentity[] = contact && !contactAlreadyListed
+    ? [{
+      kind: ComposerSenderKind.CONTACT,
+      email: contact,
+      name: options.contactName,
+      label: `Contact email <${contact}>`,
+      roleType: null
+    }]
+    : [];
+  return personal.concat(committee);
+}
+
+export function syncedRecipientAddressMode(options: {
+  committeeRoleSendOffered: boolean;
+  preselectCommitteeRole: boolean;
+  current: RecipientAddressMode;
+}): RecipientAddressMode {
+  if (!options.committeeRoleSendOffered) {
+    return RecipientAddressMode.PERSONAL;
+  } else if (options.preselectCommitteeRole) {
+    return RecipientAddressMode.COMMITTEE_ROLE;
+  } else {
+    return options.current;
+  }
+}
+
 export function defaultEmailComposerState(): EmailComposerState {
   return {
     context: { source: EmailComposerContextSource.ADMIN },
@@ -346,7 +392,9 @@ export function defaultEmailComposerState(): EmailComposerState {
     brandingMode: BrandingMode.BRANDED,
     unbrandedSenderRoleType: null,
     unbrandedSenderEmail: null,
+    brandedSenderEmail: null,
     recipientMode: RecipientMode.ENTIRE_LIST,
+    recipientAddressMode: RecipientAddressMode.PERSONAL,
     selectedListId: null,
     narrowListId: null,
     selectedMemberIds: [],

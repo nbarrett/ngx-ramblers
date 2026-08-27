@@ -33,7 +33,7 @@ import { emailIsOnDomain } from "../../functions/strings";
         <label class="form-check-label" [for]="idPrefix + '-override'">Notify a different address</label>
       </div>
       @if (mode() === InboxNotifyMode.OVERRIDE) {
-        <input type="email" class="form-control form-control-sm mt-1" style="max-width: 22rem"
+        <input type="email" class="form-control input-sm mt-1" style="max-width: 22rem"
                [id]="idPrefix + '-email'"
                placeholder="personal email"
                [(ngModel)]="recipient.email"

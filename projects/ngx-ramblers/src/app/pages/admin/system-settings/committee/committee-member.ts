@@ -5,7 +5,11 @@ import { ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.mo
 import {
   BuiltInRole,
   CommitteeMember,
+  CommitteeMemberTab,
   committeeRoleTypeFromDescription,
+  applyCommitteeRoleDefaultSender,
+  CommitteeAssignedMailboxGroup,
+  committeeMailboxAddresses,
   derivedFullNameAddress,
   derivedRoleTypeAddress,
   EmailDerivation,
@@ -59,24 +63,16 @@ import { EmailRoutingLogComponent } from "./email-routing-log";
 import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faAdd, faFileImport, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faFileImport } from "@fortawesome/free-solid-svg-icons";
 import { NgTemplateOutlet } from "@angular/common";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { AlertComponent } from "ngx-bootstrap/alert";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { RouterLink } from "@angular/router";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
 import { InboxReaderProvider } from "../../../../models/inbox.model";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
-
-export enum CommitteeMemberTab {
-  ROLE_DETAILS = "Role Details",
-  OUTBOUND_EMAIL = "Outbound Email",
-  INBOUND_FORWARDING = "Inbound Forwarding",
-  CONTACT_US = "Contact Us",
-  EMAIL_LOGS = "Email Logs"
-}
+import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/committee-role-mailboxes";
 
 @Component({
     selector: "app-committee-member",
@@ -355,29 +351,15 @@ export enum CommitteeMemberTab {
                 <label class="control-label">Email addresses</label>
                 @if (mailboxAddresses.length === 0) {
                   <p class="text-muted small mb-2">Add a role description or assign a member to generate addresses on @{{baseDomain}}.</p>
-                }
-                @for (address of mailboxAddresses; track address) {
-                  <div class="d-flex align-items-center gap-2 py-1">
-                    <div class="form-check mb-0">
-                      <input class="form-check-input" type="radio"
-                        [name]="'default-sender-' + index"
-                        [id]="'default-sender-' + index + '-' + $index"
-                        [value]="address"
-                        [ngModel]="committeeMember.email"
-                        [ngModelOptions]="{standalone: true}"
-                        (ngModelChange)="setDefaultSender($event)"
-                        [disabled]="committeeMember.vacant">
-                      <label class="form-check-label" [for]="'default-sender-' + index + '-' + $index">{{ address }}</label>
-                    </div>
-                    @if (!isGeneratedMailboxAddress(address)) {
-                      <button type="button" class="btn btn-quiet btn-icon mailbox-remove"
-                        tooltip="Remove address" container="body"
-                        (click)="removeMailboxAddress(address)"
-                        [disabled]="committeeMember.vacant">
-                        <fa-icon [icon]="faTimes"/>
-                      </button>
-                    }
-                  </div>
+                } @else {
+                  <app-committee-role-mailboxes
+                    [groups]="[mailboxGroup()]"
+                    [persist]="false"
+                    [showHeading]="false"
+                    [allowRemove]="true"
+                    [disabled]="committeeMember.vacant"
+                    (defaultChange)="setDefaultSender($event.email)"
+                    (addressRemove)="removeMailboxAddress($event)"/>
                 }
                 <div class="d-flex align-items-center gap-2 mt-2">
                   <div class="mailbox-local-part form-control"
@@ -521,7 +503,7 @@ export enum CommitteeMemberTab {
     }
     `,
     styleUrls: ["./committee-member.sass"],
-  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink, TooltipDirective]
+  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink, CommitteeRoleMailboxesComponent]
 })
 export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberEditor", NgxLoggerLevel.ERROR);
@@ -600,7 +582,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   newMailboxAddress = "";
   protected readonly faAdd = faAdd;
   protected readonly faFileImport = faFileImport;
-  protected readonly faTimes = faTimes;
   private recipientRegistrations = new Set<string>();
   readonly GMAIL_TOKEN_PREFIX = "gmail:";
   connectedGmailInboxes: string[] = [];
@@ -827,14 +808,20 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   setDefaultSender(address: string) {
-    this.committeeMember.email = address;
-    this.syncEmailDerivationFromEmail();
-    this.persistAdditionalEmails();
+    const updated = applyCommitteeRoleDefaultSender(this.committeeMember, address, this.baseDomain);
+    this.committeeMember.email = updated.email;
+    this.committeeMember.emailDerivation = updated.emailDerivation;
+    this.committeeMember.additionalEmails = updated.additionalEmails;
+    this.mailboxAddresses = roleEmailAddresses(this.committeeMember, this.baseDomain);
   }
 
-  isGeneratedMailboxAddress(address: string): boolean {
-    const wanted = normaliseEmail(address);
-    return this.generatedMailboxAddresses.some(generated => normaliseEmail(generated) === wanted);
+  protected mailboxGroup(): CommitteeAssignedMailboxGroup {
+    return {
+      roleType: this.committeeMember.type,
+      roleDescription: this.committeeMember.description || this.committeeMember.type,
+      fullName: this.committeeMember.fullName || "",
+      addresses: committeeMailboxAddresses(this.committeeMember, this.mailboxAddresses, this.baseDomain)
+    };
   }
 
   typedMailboxAddress(): string | null {
