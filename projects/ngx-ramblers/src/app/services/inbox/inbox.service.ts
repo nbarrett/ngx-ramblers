@@ -197,6 +197,11 @@ export class InboxService {
     await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/threads/${threadId}`));
   }
 
+  async permanentlyDeleteThreads(threadIds: string[]): Promise<InboxThreadUpdateResult> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/delete`, {threadIds}));
+    return response.response as InboxThreadUpdateResult;
+  }
+
   async moveThreadToInbox(threadId: string): Promise<void> {
     await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/move-to-inbox`, {}));
   }

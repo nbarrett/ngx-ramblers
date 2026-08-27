@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread } from "../models/inbox.model";
+import { hiddenInboxFolders, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxThreadFolder } from "../models/inbox.model";
 import {
   collapseInboxSends,
   inboxMessageAt,
@@ -364,6 +364,14 @@ describe("collapseInboxSends", () => {
     const first = outbound({messageId: "<early@mail>", sentAt: 0, bodyHtml: "<p>Same</p>"});
     const later = outbound({messageId: "<late@mail>", sentAt: 5 * 60 * 1000 + 1, bodyHtml: "<p>Same</p>"});
     expect(collapseInboxSends([first, later]).map(message => message.messageId)).toEqual(["<early@mail>", "<late@mail>"]);
+  });
+
+});
+
+describe("hiddenInboxFolders", () => {
+
+  it("keeps junk and deleted out of the live inbox", () => {
+    expect(hiddenInboxFolders()).toEqual([InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]);
   });
 
 });

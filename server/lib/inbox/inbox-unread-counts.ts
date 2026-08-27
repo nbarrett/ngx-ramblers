@@ -44,7 +44,7 @@ export function unreadConversationFilter(roleTypes: string[] | string, memberId:
   return {
     tenantSlug: defaultTenantSlug(),
     roleType: isArray(roleTypes) ? {$in: roleTypes} : roleTypes,
-    folder: {$ne: InboxThreadFolder.JUNK},
+    folder: {$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]},
     ...unreadConditionForMember(memberId)
   };
 }

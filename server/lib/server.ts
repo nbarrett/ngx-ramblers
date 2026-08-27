@@ -146,14 +146,17 @@ async function scheduleInboxBackgroundWork(): Promise<void> {
   const [
     { scheduleInboxTokenHealthCheck },
     { scheduleInboxMessageDigest },
+    { scheduleInboxDeletedPurge },
     { inboxPollingEnabled }
   ] = await Promise.all([
     import("./cron/inbox-token-health-check-job"),
     import("./cron/inbox-message-digest-job"),
+    import("./cron/inbox-deleted-purge-job"),
     import("./inbox/inbox-runtime")
   ]);
   await scheduleInboxTokenHealthCheck();
   await scheduleInboxMessageDigest();
+  await scheduleInboxDeletedPurge();
   const pollerEnabled = await inboxPollingEnabled();
   if (pollerEnabled) {
     const { startInboxPolling } = await import("./inbox/inbox-poller");

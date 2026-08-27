@@ -160,6 +160,7 @@ export interface GmailMessagePart {
 
 export interface GmailMessage {
   id?: string | null;
+  threadId?: string | null;
   internalDate?: string | null;
   payload?: GmailMessagePart | null;
 }

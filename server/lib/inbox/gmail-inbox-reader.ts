@@ -338,7 +338,8 @@ export function parseGmailMessage(payload: GmailMessage): InboxMessage {
   const messageId = headers.get(GmailHeader.MESSAGE_ID) ?? "";
   const inReplyTo = headers.get(GmailHeader.IN_REPLY_TO) ?? null;
   const references = (headers.get(GmailHeader.REFERENCES) ?? "").split(/\s+/).filter(token => token.length > 0);
-  const conversationKey = headers.get(GmailHeader.CONVERSATION_KEY) ?? null;
+  const conversationKey = headers.get(GmailHeader.CONVERSATION_KEY)
+    ?? (payload.threadId ? `gmail:${payload.threadId}` : null);
   const fromHeader = headers.get(GmailHeader.FROM) ?? "";
   const replyToHeader = headers.get(GmailHeader.REPLY_TO) ?? "";
   const toHeader = headers.get(GmailHeader.TO) ?? "";

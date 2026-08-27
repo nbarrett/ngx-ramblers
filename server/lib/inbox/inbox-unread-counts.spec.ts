@@ -73,7 +73,7 @@ describe("inbox-unread-counts", () => {
     it("should match any of several roles and always exclude junk", () => {
       const filter = unreadConversationFilter(["secretary", "chair"], "me");
       expect(filter.roleType).toEqual({$in: ["secretary", "chair"]});
-      expect(filter.folder).toEqual({$ne: InboxThreadFolder.JUNK});
+      expect(filter.folder).toEqual({$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]});
       expect(filter.$or).toEqual([
         {lastDirection: InboxMessageDirection.OUTBOUND, unread: true},
         {lastDirection: {$ne: InboxMessageDirection.OUTBOUND}, readByMemberIds: {$ne: "me"}}
@@ -87,7 +87,7 @@ describe("inbox-unread-counts", () => {
 
     it("should exclude junk even when counting globally for a role", () => {
       const filter = unreadConversationFilter("secretary", null);
-      expect(filter.folder).toEqual({$ne: InboxThreadFolder.JUNK});
+      expect(filter.folder).toEqual({$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]});
       expect(filter.unread).toBe(true);
     });
 
