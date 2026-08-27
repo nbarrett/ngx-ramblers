@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
@@ -83,6 +83,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
               @if (canReadJunk) {
                 <option [ngValue]="InboxThreadFolder.JUNK">Junk mail</option>
               }
+              <option [ngValue]="InboxThreadFolder.DELETED">Deleted</option>
             </select>
           }
           <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions" [class.inbox-reading-actions]="readingOnMobile">
@@ -227,6 +228,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                 <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
                        (ngModelChange)="onConversationSearchChange($event)"
+                       [disabled]="selectingAllConversations"
                        placeholder="Search conversations...">
               </div>
               @if (!mobile || conversationSearchTerm) {
@@ -240,12 +242,16 @@ import { UIDateFormat } from "../../../models/date-format.model";
             <div class="d-flex align-items-center gap-2 px-2 pb-2 inbox-list-toolbar">
               <input type="checkbox" class="form-check-input mt-0" id="inbox-select-all"
                      [checked]="allSelected()"
-                     [indeterminate]="selectedThreadIds.size > 0 && !allSelected()"
+                     [indeterminate]="selectedConversationCount > 0 && !allSelected()"
                      (change)="toggleSelectAll()">
-              @if (selectedThreadIds.size > 0) {
+              @if (selectedConversationCount > 0) {
                 <div class="btn-group" dropdown [isDisabled]="busy">
                   <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
-                    <fa-icon [icon]="faListCheck" class="me-2"/>{{selectedThreadIds.size}} selected
+                    @if (deletingSelected) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Deleting {{selectedConversationCount}}…
+                    } @else {
+                      <fa-icon [icon]="faListCheck" class="me-2"/>{{selectedConversationCount}} selected
+                    }
                   </button>
                   <ul *dropdownMenu class="dropdown-menu" role="menu">
                     <li role="menuitem"><button class="dropdown-item" type="button" (click)="markSelected(false)"><fa-icon [icon]="faEnvelopeOpen" class="me-2"/>Mark as read</button></li>
@@ -253,12 +259,45 @@ import { UIDateFormat } from "../../../models/date-format.model";
                     @if (viewingJunk) {
                       <li role="menuitem"><button class="dropdown-item" type="button" (click)="moveSelectedJunk()"><fa-icon [icon]="faInbox" class="me-2"/>Not junk — move to inbox</button></li>
                     }
+                    @if (viewingDeleted) {
+                      <li role="menuitem"><button class="dropdown-item" type="button" (click)="restoreSelectedDeleted()"><fa-icon [icon]="faInbox" class="me-2"/>Restore to inbox</button></li>
+                    }
                     <li><hr class="dropdown-divider"></li>
                     <li role="menuitem"><button class="dropdown-item text-danger" type="button" (click)="deleteSelected()"><fa-icon [icon]="faTrash" class="me-2"/>Delete</button></li>
                   </ul>
                 </div>
               } @else {
                 <label class="text-muted small mb-0" for="inbox-select-all">Select all</label>
+              }
+            </div>
+          }
+          @if ((allSelected() || selectingAllConversations) && (canLoadMoreConversations || selectingAllConversations)) {
+            <div class="alert alert-warning d-flex align-items-start gap-2 mx-2 mb-2 px-2 py-2">
+              <fa-icon [icon]="faTriangleExclamation" class="mt-1"/>
+              <div class="flex-grow-1">
+                <strong class="d-block">{{selectedConversationCount}} visible {{conversationSearchTerm.trim() ? (selectedConversationCount === 1 ? "match" : "matches") : (selectedConversationCount === 1 ? "conversation" : "conversations")}} selected</strong>
+                @if (conversationSearchTerm.trim()) {
+                  More conversations have not been loaded yet and may also match this search.
+                } @else {
+                  {{threadListTotalCount - selectedConversationCount}} more conversations are available in this view.
+                }
+                <button type="button" class="btn btn-link p-0 align-baseline" [disabled]="selectingAllConversations" (click)="selectAllAvailableConversations()">
+                  @if (selectingAllConversations) {
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>Finding conversations…
+                  } @else {
+                    {{conversationSearchTerm.trim() ? "Select all matches" : "Select all " + threadListTotalCount}}
+                  }
+                </button>
+              </div>
+            </div>
+          }
+          @if (allAvailableSelected) {
+            <div class="alert alert-success d-flex align-items-start gap-2 mx-2 mb-2 px-2 py-2">
+              <fa-icon [icon]="faCircleCheck" class="mt-1"/>
+              @if (conversationSearchTerm.trim()) {
+                <div><strong class="d-block">All matching conversations selected</strong>{{selectedConversationCount}} {{selectedConversationCount === 1 ? "conversation matches" : "conversations match"}} “{{conversationSearchTerm.trim()}}”.</div>
+              } @else {
+                <div><strong class="d-block">All conversations selected</strong>{{selectedConversationCount}} conversations in this view are selected.</div>
               }
             </div>
           }
@@ -304,7 +343,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
               </div>
             </div>
           }
-          @if (canLoadMoreConversations) {
+          @if (canLoadMoreConversations && !conversationSearchTerm.trim()) {
             <div class="d-flex justify-content-center p-2">
               <button type="button" class="btn btn-quiet" [disabled]="busy" (click)="loadMoreConversations()">
                 Show next {{nextConversationPageSize}}
@@ -344,6 +383,16 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 <button class="btn btn-sm btn-grey-danger text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="deleteCurrentThread()">
                   <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
                   Delete
+                </button>
+              }
+              @if (selectedThread.folder === InboxThreadFolder.DELETED) {
+                <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="moveSelectedToInbox()">
+                  <fa-icon [icon]="faInbox" class="me-1"></fa-icon>
+                  Restore
+                </button>
+                <button class="btn btn-sm btn-grey-danger text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="deleteCurrentThread()">
+                  <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
+                  Delete forever
                 </button>
               }
             </div>
@@ -503,6 +552,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faSearch = faSearch;
   protected readonly faFilter = faFilter;
   protected readonly faListCheck = faListCheck;
+  protected readonly faCircleCheck = faCircleCheck;
+  protected readonly faSpinner = faSpinner;
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
@@ -566,7 +617,15 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   onConversationSearchChange(term: string): void {
     this.conversationSearchTerm = term;
+    this.selectedThreadIds.clear();
+    this.allAvailableSelected = false;
     this.invalidateFilteredThreads();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {[StoredValue.SEARCH]: term.trim() || null},
+      queryParamsHandling: "merge",
+      replaceUrl: true
+    });
   }
 
   @HostBinding("class.inbox-reading")
@@ -608,6 +667,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     return this.selectedMailboxView === InboxThreadFolder.JUNK;
   }
 
+  get viewingDeleted(): boolean {
+    return this.selectedMailboxView === InboxThreadFolder.DELETED;
+  }
+
   public aliases: InboxAliasConfigView[] = [];
   public canReadJunk = false;
   private _threads: InboxThread[] = [];
@@ -632,6 +695,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
   public busy = false;
+  public deletingSelected = false;
+  public selectingAllConversations = false;
+  public allAvailableSelected = false;
   public loadedOnce = false;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -887,6 +953,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (!this.mailboxViewInitialised) {
         this.applyMailboxViewFromUrl();
         this.applyReadFilterFromUrl();
+        this.applyConversationSearchFromUrl();
         this.mailboxViewInitialised = true;
       }
       if (this.viewingJunk && this.canReadJunk) {
@@ -895,11 +962,19 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.threadListUnreadCount = junkResponse.unreadCount;
         this.threadListTotalCount = junkResponse.totalCount;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
+      } else if (this.viewingDeleted) {
+        const deletedResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, false, null, InboxThreadFolder.DELETED);
+        this.threads = deletedResponse.threads;
+        this.threadListUnreadCount = deletedResponse.unreadCount;
+        this.threadListTotalCount = deletedResponse.totalCount;
+        await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else {
         if (this.aliases.length === 1) {
           this.selectedMailboxView = this.aliases[0].roleType;
         } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
-          && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)) {
+          && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)
+          && this.selectedMailboxView !== InboxThreadFolder.JUNK
+          && this.selectedMailboxView !== InboxThreadFolder.DELETED) {
           this.selectedMailboxView = InboxViewScope.ALL_ACCESSIBLE;
         }
         const roleType = this.selectedRoleType();
@@ -967,8 +1042,16 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.busy = true;
     try {
       const roleType = this.selectedRoleType();
-      const scope = roleType ? null : this.selectedMailboxView as InboxViewScope;
-      const folder = this.viewingJunk ? InboxThreadFolder.JUNK : null;
+      const scope = roleType
+        ? null
+        : this.viewingJunk || this.viewingDeleted
+          ? InboxViewScope.ALL_ACCESSIBLE
+          : this.selectedMailboxView as InboxViewScope;
+      const folder = this.viewingJunk
+        ? InboxThreadFolder.JUNK
+        : this.viewingDeleted
+          ? InboxThreadFolder.DELETED
+          : null;
       const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length);
       this.threads = this.threads.concat(response.threads);
       this.threadListUnreadCount = response.unreadCount;
@@ -998,7 +1081,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   selectedRoleType(): string | null {
-    return values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
+    return values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope) || this.viewingJunk || this.viewingDeleted
       ? null
       : this.selectedMailboxView;
   }
@@ -1161,7 +1244,13 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  private applyConversationSearchFromUrl(): void {
+    this.conversationSearchTerm = String(this.route.snapshot.queryParams[StoredValue.SEARCH] ?? "");
+    this.invalidateFilteredThreads();
+  }
+
   toggleThreadSelection(thread: InboxThread): void {
+    this.allAvailableSelected = false;
     const siblings = this.siblingConversationThreads(thread);
     const currentlySelected = siblings.every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));
     siblings.forEach(candidate => {
@@ -1175,14 +1264,63 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   allSelected(): boolean {
-    return this.threads.length > 0 && this.threads.every(thread => this.selectedThreadIds.has(this.threadIdOf(thread)));
+    return this.filteredThreads.length > 0 && this.filteredThreads.every(thread => this.conversationSelected(thread));
+  }
+
+  get selectedConversationCount(): number {
+    return this.conversationRepresentatives(this.threads).filter(thread => this.conversationSelected(thread)).length;
   }
 
   toggleSelectAll(): void {
+    this.allAvailableSelected = false;
+    const filteredThreadIds = this.filteredThreads
+      .flatMap(thread => this.siblingConversationThreads(thread))
+      .map(thread => this.threadIdOf(thread));
     if (this.allSelected()) {
-      this.selectedThreadIds.clear();
+      filteredThreadIds.forEach(id => this.selectedThreadIds.delete(id));
     } else {
-      this.selectedThreadIds = new Set(this.threads.map(thread => this.threadIdOf(thread)));
+      filteredThreadIds.forEach(id => this.selectedThreadIds.add(id));
+    }
+  }
+
+  async selectAllAvailableConversations(): Promise<void> {
+    this.selectingAllConversations = true;
+    this.busy = true;
+    try {
+      await this.loadEveryRemainingConversation();
+      this.filteredThreads
+        .flatMap(thread => this.siblingConversationThreads(thread))
+        .map(thread => this.threadIdOf(thread))
+        .forEach(id => this.selectedThreadIds.add(id));
+      this.allAvailableSelected = true;
+    } catch (error) {
+      this.notify.error({title: "Select matching conversations", message: (error as Error).message});
+      this.logger.error("Failed to select every matching conversation:", error);
+    } finally {
+      this.busy = false;
+      this.selectingAllConversations = false;
+    }
+  }
+
+  private async loadEveryRemainingConversation(): Promise<void> {
+    const roleType = this.selectedRoleType();
+    const scope = roleType
+      ? null
+      : this.viewingJunk || this.viewingDeleted
+        ? InboxViewScope.ALL_ACCESSIBLE
+        : this.selectedMailboxView as InboxViewScope;
+    const folder = this.viewingJunk
+      ? InboxThreadFolder.JUNK
+      : this.viewingDeleted
+        ? InboxThreadFolder.DELETED
+        : null;
+    const pageSize = 200;
+    const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, pageSize, folder, this.threads.length);
+    this.threads = this.threads.concat(response.threads);
+    this.threadListUnreadCount = response.unreadCount;
+    this.threadListTotalCount = response.totalCount;
+    if (response.threads.length === pageSize) {
+      await this.loadEveryRemainingConversation();
     }
   }
 
@@ -1191,9 +1329,14 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (ids.length === 0) {
       return;
     }
+    this.deletingSelected = true;
     this.busy = true;
     try {
-      await Promise.all(ids.map(id => this.inboxService.deleteThread(id)));
+      if (this.viewingDeleted) {
+        await this.inboxService.permanentlyDeleteThreads(ids);
+      } else {
+        await Promise.all(ids.map(id => this.inboxService.deleteThread(id)));
+      }
       if (this.selectedThreadId && ids.includes(this.selectedThreadId)) {
         this.selectedThread = null;
         this.selectedThreadId = null;
@@ -1201,13 +1344,15 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.loadingThread = false;
       }
       this.selectedThreadIds.clear();
+      this.allAvailableSelected = false;
       await this.refresh();
-      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} deleted`});
+      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} ${this.viewingDeleted ? "permanently deleted" : "moved to Deleted"}`});
     } catch (error) {
       this.notify.error({title: "Delete", message: (error as Error).message});
       this.logger.error("Failed to delete conversations:", error);
     } finally {
       this.busy = false;
+      this.deletingSelected = false;
     }
   }
 
@@ -1249,6 +1394,30 @@ export class InboxComponent implements OnInit, OnDestroy {
     } catch (error) {
       this.notify.error({title: "Not junk", message: (error as Error).message});
       this.logger.error("Failed to move conversations out of junk:", error);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async restoreSelectedDeleted(): Promise<void> {
+    const ids = [...this.selectedThreadIds];
+    if (ids.length === 0) {
+      return;
+    }
+    this.busy = true;
+    try {
+      await Promise.all(ids.map(id => this.inboxService.moveThreadToInbox(id)));
+      if (this.selectedThreadId && ids.includes(this.selectedThreadId)) {
+        this.selectedThread = null;
+        this.selectedThreadId = null;
+        this.clearSelectedMessages();
+      }
+      this.selectedThreadIds.clear();
+      await this.refresh();
+      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} restored to the inbox`});
+    } catch (error) {
+      this.notify.error({title: "Restore", message: (error as Error).message});
+      this.logger.error("Failed to restore conversations:", error);
     } finally {
       this.busy = false;
     }
@@ -1350,7 +1519,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.pendingDelete = null;
     try {
       await this.inboxService.deleteThread(pending.threadId);
-      this.notify.success({title: "Inbox", message: "Conversation deleted"});
+      this.notify.success({title: "Inbox", message: this.viewingDeleted ? "Conversation permanently deleted" : "Conversation moved to Deleted"});
     } catch (error) {
       const insertionIndex = Math.max(0, pending.insertionIndex);
       this.threads = [...this.threads.slice(0, insertionIndex), ...pending.removedThreads, ...this.threads.slice(insertionIndex)];
@@ -1432,7 +1601,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.selectedThread = null;
         this.selectedThreadId = null;
       }
-      this.notify.success({title: "Inbox", message: "Conversation deleted"});
+      this.notify.success({title: "Inbox", message: this.viewingDeleted ? "Conversation permanently deleted" : "Conversation moved to Deleted"});
     } catch (error) {
       this.notify.error({title: "Delete", message: (error as Error).message});
       this.logger.error("Failed to delete conversation:", error);

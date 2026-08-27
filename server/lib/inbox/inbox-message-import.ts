@@ -9,6 +9,7 @@ import {
   InboxMessageDirection,
   InboxNewMessageEvent,
   InboxThread,
+  hiddenInboxFolders,
   InboxThreadFolder,
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
@@ -24,6 +25,7 @@ import { sendInboxPushToMember } from "./inbox-web-push";
 import { deliveredToFromMessage } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
 import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
+import { isRecordedDeletedInbound } from "./inbox-deleted";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, committeeRolesByType, notifiedRecipientsForRole } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
@@ -295,7 +297,7 @@ export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number
 
 export function unreadAfterReclassify(folder: InboxThreadFolder | undefined, lastDirection: InboxMessageDirection, readByMemberIds: string[] | undefined): boolean {
   const alreadyReadByMember = (readByMemberIds?.length ?? 0) > 0;
-  return folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND && !alreadyReadByMember;
+  return folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && lastDirection === InboxMessageDirection.INBOUND && !alreadyReadByMember;
 }
 
 async function aliasForOwnSentCopy(fallback: InboxAliasConfig, message: InboxMessage): Promise<InboxAliasConfig> {
@@ -304,13 +306,22 @@ async function aliasForOwnSentCopy(fallback: InboxAliasConfig, message: InboxMes
 }
 
 export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX, internalEmails?: Set<string>): Promise<InboxMessage> {
-  const outbound = folder !== InboxThreadFolder.JUNK && isOwnSentCopy(message, internalEmails)
+  const skipped = await isRecordedDeletedInbound(aliasConfig.tenantSlug, message);
+  const outbound = !skipped && folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && isOwnSentCopy(message, internalEmails)
     ? outboundCopyFromInbound(message, internalEmails)
     : null;
   const storedOutbound = outbound
     ? await recordOutboundMessage(await aliasForOwnSentCopy(aliasConfig, outbound), outbound, internalEmails)
     : null;
-  return outbound ? (storedOutbound ?? outbound) : storeReceivedInboundMessage(aliasConfig, message, folder, internalEmails);
+  const stored = skipped
+    ? message
+    : outbound
+      ? (storedOutbound ?? outbound)
+      : await storeReceivedInboundMessage(aliasConfig, message, folder, internalEmails);
+  if (skipped) {
+    debugLog(`storeInboundMessage: skipping deleted identity message=${message.messageId} externalId=${message.externalId}`);
+  }
+  return stored;
 }
 
 async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder, internalEmails?: Set<string>): Promise<InboxMessage> {
@@ -482,9 +493,9 @@ async function persistOutboundOnThread(aliasConfig: InboxAliasConfig, replyMessa
 }
 
 async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder, counterparty?: InboxAddress): Promise<InboxThread | null> {
-  const folderFilter = folder === InboxThreadFolder.JUNK
-    ? {folder: InboxThreadFolder.JUNK}
-    : {folder: {$ne: InboxThreadFolder.JUNK}};
+  const folderFilter = folder === InboxThreadFolder.JUNK || folder === InboxThreadFolder.DELETED
+    ? {folder}
+    : {folder: {$nin: hiddenInboxFolders()}};
   if (message.conversationKey) {
     const threadByKey = await inboxThreadModel.findOne({
       tenantSlug: aliasConfig.tenantSlug,

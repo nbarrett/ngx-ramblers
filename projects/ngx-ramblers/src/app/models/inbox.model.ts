@@ -83,7 +83,14 @@ export enum InboxNotifySource {
 
 export enum InboxThreadFolder {
   INBOX = "inbox",
-  JUNK = "junk"
+  JUNK = "junk",
+  DELETED = "deleted"
+}
+
+export const INBOX_DELETED_RETENTION_DAYS = 30;
+
+export function hiddenInboxFolders(): InboxThreadFolder[] {
+  return [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED];
 }
 
 export interface InboxMailboxConnection extends Identifiable {
@@ -312,6 +319,7 @@ export interface InboxThread extends Identifiable {
   subject: string;
   normalisedSubject: string;
   folder?: InboxThreadFolder;
+  deletedAt?: number | null;
   messageIds: string[];
   firstSeenAt: number;
   lastSeenAt: number;
@@ -321,6 +329,15 @@ export interface InboxThread extends Identifiable {
   conversationKey?: string | null;
   sentFrom?: InboxAddress | null;
   deliveredTo?: InboxAddress | null;
+}
+
+export interface InboxDeletedIdentity extends Identifiable {
+  tenantSlug: string;
+  threadId: string;
+  messageIds: string[];
+  externalIds: string[];
+  conversationKeys: string[];
+  deletedAt: number;
 }
 
 export interface InboxPendingDelete {

@@ -15,6 +15,7 @@ const inboxThreadSchema = new mongoose.Schema({
   subject: {type: String, default: ""},
   normalisedSubject: {type: String, default: ""},
   folder: {type: String, default: "inbox", index: true},
+  deletedAt: {type: Number, default: null},
   messageIds: [{type: String}],
   firstSeenAt: {type: Number, required: true},
   lastSeenAt: {type: Number, required: true, index: true},

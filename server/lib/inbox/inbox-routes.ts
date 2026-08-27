@@ -44,6 +44,7 @@ import {
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { normaliseEmail, validEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
+import { permanentlyDeleteThread, recordThreadDeletion, restoreDeletedThread } from "./inbox-deleted";
 import { sendCalendarReply } from "./inbox-calendar-reply";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
@@ -67,6 +68,7 @@ import * as systemConfig from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember, InboxRoleRecipient, roleEmailAddresses } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { permanentlyDeleteSelectedThreads } from "./inbox-delete-controller";
 
 const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -884,7 +886,9 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
     const scopeFilter: Record<string, unknown> = {
       tenantSlug: defaultTenantSlug(),
       roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
-      folder: {$ne: InboxThreadFolder.JUNK}
+      folder: req.query.folder === InboxThreadFolder.DELETED
+        ? InboxThreadFolder.DELETED
+        : {$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]}
     };
     const filter = req.query.unreadOnly === "true"
       ? {...scopeFilter, ...unreadConditionForMember(memberId)}
@@ -959,6 +963,8 @@ router.post("/orphaned-threads/restore-to-inbox", authConfig.authenticate(), asy
     res.status(400).json({request: {messageType}, error: errorResponse(error)});
   }
 });
+
+router.post("/threads/delete", authConfig.authenticate(), permanentlyDeleteSelectedThreads);
 
 router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
@@ -1129,9 +1135,13 @@ router.delete("/threads/:id", authConfig.authenticate(), async (req: Request, re
           trashMessage(connection, externalId).catch(trashError => debugLog(`trash failed for ${externalId}: ${(trashError as Error).message}`))));
       }
     }
-    await inboxMessageModel.deleteMany({threadId: req.params.id});
-    const result = await inboxThreadModel.deleteOne({_id: req.params.id, tenantSlug: defaultTenantSlug()});
-    res.json({request: {messageType}, response: {deletedCount: result.deletedCount}});
+    if (thread.folder === InboxThreadFolder.DELETED) {
+      await permanentlyDeleteThread(req.params.id);
+      res.json({request: {messageType}, response: {deletedCount: 1}});
+    } else {
+      await recordThreadDeletion(thread, storedMessages, req.params.id);
+      res.json({request: {messageType}, response: {deletedCount: 1}});
+    }
   } catch (error) {
     errorDebugLog("Error deleting inbox thread:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
@@ -1147,10 +1157,12 @@ router.post("/threads/:id/move-to-inbox", authConfig.authenticate(), async (req:
     if (!thread) {
       return;
     }
-    if (thread.folder !== InboxThreadFolder.JUNK) {
+    if (thread.folder === InboxThreadFolder.DELETED) {
+      await restoreDeletedThread(req.params.id);
+      res.json({request: {messageType}, response: {moved: true, roleType: thread.roleType}});
+    } else if (thread.folder !== InboxThreadFolder.JUNK) {
       res.json({request: {messageType}, response: {moved: false, roleType: thread.roleType}});
-      return;
-    }
+    } else {
     const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
     const connection = await resolveThreadConnection(thread, storedMessages);
     if (!connection) {
@@ -1162,6 +1174,7 @@ router.post("/threads/:id/move-to-inbox", authConfig.authenticate(), async (req:
     const roleType = await resolveInboxRoleTypeForThread(connection, storedMessages, thread.roleType);
     await inboxThreadModel.updateOne({_id: req.params.id, tenantSlug: defaultTenantSlug()}, {$set: {folder: InboxThreadFolder.INBOX, roleType, unread: true, readByMemberIds: []}});
     res.json({request: {messageType}, response: {moved: true, roleType}});
+    }
   } catch (error) {
     errorDebugLog("Error moving inbox thread to inbox:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});

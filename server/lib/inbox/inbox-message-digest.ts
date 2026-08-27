@@ -101,7 +101,10 @@ export async function runInboxMessageDigest(): Promise<number> {
     await markMessagesNotified(junkMessages, now);
     debugLog(`excluded ${pluraliseWithCount(junkMessages.length, "junk-filed message")} from digest`);
   }
-  const notifiableMessages = messages.filter(message => threadById.get(message.threadId)?.folder !== InboxThreadFolder.JUNK);
+  const notifiableMessages = messages.filter(message => {
+    const folder = threadById.get(message.threadId)?.folder;
+    return folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED;
+  });
 
   const itemsByRecipient = notifiableMessages.reduce<Map<string, { recipient: DigestRecipient; items: DigestItem[] }>>((map, message) => {
     const thread = threadById.get(message.threadId);
