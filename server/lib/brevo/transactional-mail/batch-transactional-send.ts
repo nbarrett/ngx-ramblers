@@ -28,6 +28,7 @@ import { recordMemberEmailSends } from "../../mongo/controllers/member-email-sen
 import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
 import { CommitteeConfig, CommitteeMember, roleEmailAddresses, roleRecipientMemberIds } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { outboundEmailForMember } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -229,6 +230,14 @@ function memberSuppressionReason(member: Member, referenceListId: number | null)
   return hasGenuineUnsubscribe && !subscriptions.some(subscription => subscription.subscribed)
     ? "Already unsubscribed from all mailing lists"
     : null;
+}
+
+function keepPersonalAddress(notifConfig: NotificationConfig | null): boolean {
+  return !!notifConfig?.preSendActions?.includes(WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID);
+}
+
+function recipientEmailForMember(member: Member, committeeRoles: CommitteeMember[], notifConfig: NotificationConfig | null): string {
+  return keepPersonalAddress(notifConfig) ? (member.email ?? "") : outboundEmailForMember(member, committeeRoles);
 }
 
 function memberSkipReason(member: Member, referenceListId: number | null, respectEmailBlocks: boolean, respectHeadOfficeConsent: boolean): string | null {
@@ -527,7 +536,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       const memberRecord = membersById.get(id);
       return {
         memberId: id,
-        email: memberRecord?.email ?? "",
+        email: memberRecord ? recipientEmailForMember(memberRecord, committeeRoles, notifConfig) : "",
         fullName: memberFullName(memberRecord),
         status: BatchSendEntryStatus.Pending
       } satisfies BatchSendProgressEntry;
@@ -564,7 +573,8 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           progress.failedCount += 1;
           continue;
         }
-        if (!memberRecord.email) {
+        const memberRecipientEmail = recipientEmailForMember(memberRecord, committeeRoles, notifConfig);
+        if (!memberRecipientEmail) {
           entry.status = BatchSendEntryStatus.Skipped;
           entry.errorMessage = "No email address";
           entry.notEmailable = true;
@@ -611,7 +621,9 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         };
         const subject = notifConfig ? buildSubject(notifConfig, request.subject, params) : request.subject;
         params.messageMergeFields.subject = subject;
-        const recipientEmail = item.kind === "member" ? item.memberRecord.email : item.recipient.email;
+        const recipientEmail = item.kind === "member"
+          ? recipientEmailForMember(item.memberRecord, committeeRoles, notifConfig)
+          : item.recipient.email;
         const replyHeaders = request.inboxReplyContext
           ? {"In-Reply-To": request.inboxReplyContext.inReplyTo, "References": request.inboxReplyContext.references.join(" ")}
           : undefined;

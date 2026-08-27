@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { additionalEmailsFromMailboxList, CommitteeMember, committeeRoleMatchingEmail, RoleType } from "../models/committee.model";
-import { committeeMemberTrackKey, uniqueCommitteeMembersByType } from "./committee-members";
+import {
+  committeeMemberTrackKey,
+  committeeRoleEmailDiffersFromPersonal,
+  committeeRoleForMemberId,
+  memberRecordId,
+  outboundEmailForMember,
+  outboundEmailForRecipient,
+  uniqueCommitteeMembersByType
+} from "./committee-members";
 
 function member(type: string, fullName: string, memberId?: string) {
   return {type, fullName, email: `${type}@example.com`, description: type, roleType: RoleType.COMMITTEE_MEMBER, memberId};
@@ -46,6 +54,62 @@ describe("committeeMemberTrackKey", () => {
     const tom = member("support", "Tom", "tom-id");
     const nick = member("support", "Nick", "nick-id");
     expect(committeeMemberTrackKey(tom)).not.toEqual(committeeMemberTrackKey(nick));
+  });
+});
+
+describe("outboundEmailForMember", () => {
+
+  const chairman = member("chairman", "Liz Chair", "liz-id");
+  const walks = member("walks", "Sam Walks", "sam-id");
+  const vacant = {...member("secretary", "Nobody"), memberId: "empty-id", email: ""};
+
+  it("uses the role address when the member holds a role with an email", () => {
+    expect(outboundEmailForMember({id: "liz-id", email: "liz@gmail.com"}, [chairman, walks])).toEqual("chairman@example.com");
+  });
+
+  it("reads the mongo id rather than member.memberId on the member record", () => {
+    expect(memberRecordId({id: "liz-id", memberId: undefined, email: "liz@gmail.com"})).toEqual("liz-id");
+    expect(committeeRoleForMemberId([chairman], "liz-id")?.type).toEqual("chairman");
+  });
+
+  it("falls back to the personal address when they hold no role", () => {
+    expect(outboundEmailForMember({id: "walker-id", email: "walker@gmail.com"}, [chairman])).toEqual("walker@gmail.com");
+  });
+
+  it("falls back to the personal address when the role has no email", () => {
+    expect(outboundEmailForMember({id: "empty-id", email: "secretary@gmail.com"}, [vacant])).toEqual("secretary@gmail.com");
+  });
+
+  it("uses the first role that has an email when the member holds more than one", () => {
+    const second = member("treasurer", "Liz Chair", "liz-id");
+    expect(outboundEmailForMember({id: "liz-id", email: "liz@gmail.com"}, [chairman, second])).toEqual("chairman@example.com");
+  });
+
+  it("is true only when the role address is different from the personal address", () => {
+    expect(committeeRoleEmailDiffersFromPersonal({id: "liz-id", email: "liz@gmail.com"}, [chairman])).toEqual(true);
+    expect(committeeRoleEmailDiffersFromPersonal({id: "liz-id", email: "chairman@example.com"}, [chairman])).toEqual(false);
+    expect(committeeRoleEmailDiffersFromPersonal({id: "walker-id", email: "walker@gmail.com"}, [chairman])).toEqual(false);
+  });
+
+  it("rewrites a booking attendee matched by member id or by personal email", () => {
+    expect(outboundEmailForRecipient({
+      memberId: "liz-id",
+      email: "liz@gmail.com",
+      roles: [chairman],
+      members: [{id: "liz-id", email: "liz@gmail.com"}]
+    })).toEqual("chairman@example.com");
+    expect(outboundEmailForRecipient({
+      memberId: null,
+      email: "liz@gmail.com",
+      roles: [chairman],
+      members: [{id: "liz-id", email: "liz@gmail.com"}]
+    })).toEqual("chairman@example.com");
+    expect(outboundEmailForRecipient({
+      memberId: null,
+      email: "guest@gmail.com",
+      roles: [chairman],
+      members: [{id: "liz-id", email: "liz@gmail.com"}]
+    })).toEqual("guest@gmail.com");
   });
 });
 
