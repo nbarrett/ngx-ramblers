@@ -35,32 +35,33 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                 <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x admin-icon"></fa-icon>
               </div>
               <div class="col-sm-9">
-                <p>You can change your emailing preferences at any time using the subscription checkboxes
-                below:</p>
-                @if (marketingConsentBlocksSubscribe()) {
-                  <div class="alert alert-warning small mb-3">
-                    <strong>Head office marketing consent is not given.</strong>
-                    While this site respects that consent, you cannot turn list subscriptions on. You can still turn off any list you are already subscribed to.
-                  </div>
-                } @else if (member?.emailMarketingConsent === false) {
-                  <div class="alert alert-warning small mb-3">
-                    <strong>Head office marketing consent is not given.</strong>
-                    Lists that require that consent cannot be turned on. Other lists may still be available. You can turn off any list you are already subscribed to.
-                  </div>
-                }
-                @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
-                  <app-email-subscriptions-mailchimp [member]="member"/>
-                }
-                @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
-                  @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription.id) {
-                    <div>
-                      <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
-                    </div>
-                  }
-                }
-                <p class="mt-3 mb-0">If you have any other queries about your mailing preferences, please contact our
+                <p class="text-muted mb-2">You can change your emailing preferences at any time using the subscription checkboxes below.</p>
+                <p class="text-muted mb-0">If you have any other queries about your mailing preferences, please contact our
                   <app-contact-us [subject]="'Mailing preferences enquiry'"></app-contact-us>.
                 </p>
+                <div class="border-top">
+                  @if (marketingConsentBlocksSubscribe()) {
+                    <div class="alert alert-warning small mb-3">
+                      <strong>Head office marketing consent is not given.</strong>
+                      While this site respects that consent, you cannot turn list subscriptions on. You can still turn off any list you are already subscribed to.
+                    </div>
+                  } @else if (member?.emailMarketingConsent === false) {
+                    <div class="alert alert-warning small mb-3">
+                      <strong>Head office marketing consent is not given.</strong>
+                      Lists that require that consent cannot be turned on. Other lists may still be available. You can turn off any list you are already subscribed to.
+                    </div>
+                  }
+                  @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
+                    <app-email-subscriptions-mailchimp [member]="member"/>
+                  }
+                  @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
+                    @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription.id) {
+                      <div>
+                        <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
+                      </div>
+                    }
+                  }
+                </div>
               </div>
             </div>
           </div>

@@ -6,6 +6,12 @@ export enum MemberSyncPolicyMode {
   SKIP = "skip",
 }
 
+export const HEAD_OFFICE_ALWAYS_LOCKED_FIELDS = ["membershipNumber", "membershipExpiryDate"];
+
+export function isHeadOfficeLockedField(fieldName: string, mode: MemberSyncPolicyMode): boolean {
+  return HEAD_OFFICE_ALWAYS_LOCKED_FIELDS.includes(fieldName) || mode === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE;
+}
+
 export interface MemberSyncPolicy {
   defaultMode: MemberSyncPolicyMode;
   overrides: Record<string, MemberSyncPolicyMode>;
