@@ -33,7 +33,7 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
             Refresh
           </button>
         }
-        @if (contactId) {
+        @if (contactId && mailLinkService.canNavigateToBrevo) {
           <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
              target="_blank"
              rel="noopener"
@@ -41,7 +41,7 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
             <fa-icon [icon]="faExternalLinkAlt" class="me-1"></fa-icon>
             Open in Brevo
           </a>
-        } @else {
+        } @else if (!contactId) {
           <span class="text-muted small">Contact not in Brevo - email activity history shown below where available</span>
         }
       </div>
@@ -190,7 +190,7 @@ export class BrevoContactViewComponent implements OnChanges {
   private brevoContactService = inject(BrevoContactService);
   private dateUtils = inject(DateUtilsService);
   private sanitizer = inject(DomSanitizer);
-  private mailLinkService = inject(MailLinkService);
+  protected mailLinkService = inject(MailLinkService);
 
   @Input() contactId: number | null = null;
   @Input() contactEmail: string | null = null;

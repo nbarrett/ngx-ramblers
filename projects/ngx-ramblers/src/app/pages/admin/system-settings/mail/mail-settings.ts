@@ -277,9 +277,11 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
                             class="form-control input-sm" id="base-url"
                             placeholder="The Base Url for the Mail Application">
-                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                            (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
-                          [title]="'View'"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
+                            [title]="'View'"/>
+                          }
                         </div>
                       </div>
                       <div class="form-group">
@@ -288,9 +290,11 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.myBaseUrl" type="text"
                             class="form-control input-sm" id="my-base-url"
                             placeholder="The Base Url for My Mail Application">
-                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
-                            (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
-                          [title]="'View'"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
+                            [title]="'View'"/>
+                          }
                         </div>
                       </div>
                       <div class="form-group">
@@ -300,9 +304,11 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                             class="form-control input-sm" id="editor-url"
                             autocomplete="off"
                             placeholder="The Base Url for editor of The Mail Application">
-                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
-                            (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
-                          [title]="'View'"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
+                            [title]="'View'"/>
+                          }
                         </div>
                       </div>
                       <div class="form-group">
@@ -317,9 +323,11 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                             autocomplete="off"
                             [ignorePasswordManagers]="true"
                             placeholder="The API key for the mail api"/>
-                          <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                            (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
-                          [title]="'View'"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
+                            [title]="'View'"/>
+                          }
                         </div>
                       </div>
                       <div class="form-group">
@@ -329,9 +337,11 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                             class="form-control input-sm" id="smtp-user"
                             autocomplete="off"
                             placeholder="Brevo SMTP login (your Brevo account email, used to relay raw MIME for shared-inbox forwarding)">
-                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                            (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
-                          [title]="'View'"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
+                            [title]="'View'"/>
+                          }
                         </div>
                       </div>
                       <div class="form-group">
@@ -345,9 +355,11 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                             autocomplete="off"
                             [ignorePasswordManagers]="true"
                             placeholder="Brevo SMTP key (separate from the API Key above)"/>
-                          <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                            (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
-                          [title]="'View'"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
+                            [title]="'View'"/>
+                          }
                         </div>
                       </div>
                       <div class="form-group">
@@ -380,8 +392,10 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                           <div class="alert alert-danger mb-0 p-4">
                             <h5><fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>Failed to load Brevo account</h5>
                             <p class="mb-2"><strong>Error:</strong> {{ mailMessagingConfig.brevo.accountError }}</p>
-                            <app-brevo-button button title="Open Brevo Account"
-                              (click)="mailLinkService.openUrl(mailLinkService.appUrl())"/>
+                            @if (mailLinkService.canNavigateToBrevo) {
+                              <app-brevo-button button title="Open Brevo Account"
+                                (click)="mailLinkService.openUrl(mailLinkService.appUrl())"/>
+                            }
                           </div>
                         </div>
                       </div>
@@ -450,8 +464,10 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                         </div>
                         <div class="col">
                           <div class="form-group">
-                            <app-brevo-button button title="Edit Account Profile Information"
-                            (click)="editAccountProfileInformation()"/>
+                            @if (mailLinkService.canNavigateToBrevo) {
+                              <app-brevo-button button title="Edit Account Profile Information"
+                              (click)="editAccountProfileInformation()"/>
+                            }
                           </div>
                         </div>
                       </div>

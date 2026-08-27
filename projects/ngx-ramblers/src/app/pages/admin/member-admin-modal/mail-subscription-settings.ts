@@ -86,9 +86,11 @@ import { DESCENDING } from "../../../models/table-filtering.model";
               (selectedTabChange)="onSubTabChange($event)"
               [queryParamKey]="subTabQueryParam"
               [fullWidth]="false"/>
-            <app-brevo-button button [disabled]="!member?.mail?.id"
-              (click)="viewBrevoContact(member?.mail?.id)"
-              [title]="linkTitle()"/>
+            @if (mailLinkService.canNavigateToBrevo) {
+              <app-brevo-button button [disabled]="!member?.mail?.id"
+                (click)="viewBrevoContact(member?.mail?.id)"
+                [title]="linkTitle()"/>
+            }
           </div>
         </div>
         <div class="row mt-3">
@@ -205,7 +207,9 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   }
 
   viewBrevoContact(id: number) {
-    return id ? window.open(`${this.mailLinkService.contactView(id)}`) : null;
+    if (id) {
+      this.mailLinkService.openUrl(this.mailLinkService.contactView(id));
+    }
   }
 
   blockReasonLabel(block: MemberEmailBlock): string {

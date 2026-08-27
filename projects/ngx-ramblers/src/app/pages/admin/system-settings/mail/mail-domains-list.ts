@@ -3,6 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
+import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { apexHost } from "../../../../functions/hosts";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
@@ -100,7 +101,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                   <fa-icon [icon]="domainAuthResult.authenticated ? faCheck : faExclamationTriangle" class="me-2"></fa-icon>
                   <strong>{{ domainAuthResult.authenticated ? 'Domain Authenticated' : 'Authentication Pending' }}:</strong>
                   {{ domainAuthResult.message }}
-                  @if (domainAuthResult.brevoDomainsUrl) {
+                  @if (domainAuthResult.brevoDomainsUrl && mailLinkService.canNavigateToBrevo) {
                     <a [href]="domainAuthResult.brevoDomainsUrl" target="_blank" class="ms-1">Open Brevo Domains</a>
                   }
                 </div>
@@ -328,6 +329,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MailDomainsListComponent", NgxLoggerLevel.ERROR);
   private mailService = inject(MailService);
+  protected mailLinkService = inject(MailLinkService);
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   protected stringUtilsService = inject(StringUtilsService);
   private mailMessagingService = inject(MailMessagingService);

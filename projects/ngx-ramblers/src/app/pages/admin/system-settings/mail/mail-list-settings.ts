@@ -55,9 +55,11 @@ import { booleanOf } from "../../../../functions/strings";
                     <app-brevo-button button title="Edit"
                                       (click)="beginEdit()"/>
                   }
-                  <app-brevo-button class="ms-2" button title="View"
-                                    (click)="viewList(list.id)"
-                                    [disabled]="listEditOrDeleteDisabled()"/>
+                  @if (mailLinkService.canNavigateToBrevo) {
+                    <app-brevo-button class="ms-2" button title="View"
+                                      (click)="viewList(list.id)"
+                                      [disabled]="listEditOrDeleteDisabled()"/>
+                  }
                   <app-brevo-button class="ms-2" button [title]="'Delete'"
                                     (click)="deleteList(list.id)"
                                     [disabled]="listEditOrDeleteDisabled()"/>
@@ -157,7 +159,7 @@ export class MailListSettingsComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MailListSettingsComponent", NgxLoggerLevel.ERROR);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
-  private mailLinkService = inject(MailLinkService);
+  protected mailLinkService = inject(MailLinkService);
   private mailService = inject(MailService);
   private listSubscriberService = inject(ListSubscriberService);
   private mailListUpdaterService = inject(MailListUpdaterService);
@@ -231,7 +233,7 @@ export class MailListSettingsComponent implements OnInit {
       } else {
         this.notify.hide();
         this.logger.info("viewList:id", id, "id", id);
-        return window.open(this.mailLinkService.listView(id), "_blank");
+        this.mailLinkService.openUrl(this.mailLinkService.listView(id));
       }
     }
   }
