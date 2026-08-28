@@ -4209,9 +4209,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private syncRecipientAddressMode(): void {
+    const listTargetedSend = this.state.recipientMode === RecipientMode.ENTIRE_LIST
+      || (this.state.brandingMode === BrandingMode.UNBRANDED && this.state.narrowListId !== null);
     this.state.recipientAddressMode = syncedRecipientAddressMode({
       committeeRoleSendOffered: this.committeeRoleSendOffered(),
-      preselectCommitteeRole: !this.recipientAddressModeTouched && this.state.recipientMode === RecipientMode.ENTIRE_LIST,
+      preselectCommitteeRole: !this.recipientAddressModeTouched && listTargetedSend,
       current: this.state.recipientAddressMode
     });
   }
@@ -4329,6 +4331,7 @@ export class EmailComposer implements OnInit, OnDestroy {
           this.state.selectedListId = numeric;
         } else {
           this.state.narrowListId = numeric;
+          this.narrowMembersExpanded = true;
         }
       }
     }
