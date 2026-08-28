@@ -1,4 +1,5 @@
 import { envConfig } from "../env-config/env-config";
+import { dateTimeNow } from "../shared/dates";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember, ForwardEmailTarget, roleEmailAddresses, roleMatchesEmail, roleNotificationRecipients } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxMessage, InboxReaderProvider, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
@@ -167,7 +168,27 @@ export async function cloudflareIngressConnectionId(tenantSlug: string): Promise
   return connection ? connectionIdentifier(connection) : null;
 }
 
+const DERIVED_ALIAS_CACHE_TTL_MS = 15 * 1000;
+const derivedAliasCache: {aliases: InboxAliasConfig[] | null; expiresAt: number} = {aliases: null, expiresAt: 0};
+
+export function clearDerivedAliasCache(): void {
+  derivedAliasCache.aliases = null;
+  derivedAliasCache.expiresAt = 0;
+}
+
 export async function derivedAliases(): Promise<InboxAliasConfig[]> {
+  const now = dateTimeNow().toMillis();
+  if (derivedAliasCache.aliases && now < derivedAliasCache.expiresAt) {
+    return derivedAliasCache.aliases;
+  } else {
+    const aliases = await computeDerivedAliases();
+    derivedAliasCache.aliases = aliases;
+    derivedAliasCache.expiresAt = now + DERIVED_ALIAS_CACHE_TTL_MS;
+    return aliases;
+  }
+}
+
+async function computeDerivedAliases(): Promise<InboxAliasConfig[]> {
   const tenantSlug = defaultTenantSlug();
   const roles = await committeeRoles();
   if (await cloudflareIngressProviderActive()) {
@@ -178,9 +199,10 @@ export async function derivedAliases(): Promise<InboxAliasConfig[]> {
     const connectionId = connection ? connectionIdentifier(connection) : null;
     const roleAliases = roles.map(role => roleAliasWith(role, connectionId, tenantSlug));
     return connection ? roleAliases.concat(generalAliasFor(connection, tenantSlug)) : roleAliases;
+  } else {
+    const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
+    return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug);
   }
-  const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
-  return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug);
 }
 
 export async function derivedAliasForEmail(email: string): Promise<InboxAliasConfig | null> {

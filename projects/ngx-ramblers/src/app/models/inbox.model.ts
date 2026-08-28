@@ -83,8 +83,19 @@ export enum InboxNotifySource {
 
 export enum InboxThreadFolder {
   INBOX = "inbox",
+  SENT = "sent",
   JUNK = "junk",
   DELETED = "deleted"
+}
+
+export enum InboxMailboxLabelMode {
+  ROLE = "role",
+  PERSON = "person"
+}
+
+export enum InboxSentViewMode {
+  MESSAGES = "messages",
+  CONVERSATIONS = "conversations"
 }
 
 export const INBOX_DELETED_RETENTION_DAYS = 30;
@@ -329,6 +340,8 @@ export interface InboxThread extends Identifiable {
   conversationKey?: string | null;
   sentFrom?: InboxAddress | null;
   deliveredTo?: InboxAddress | null;
+  lastOutboundAt?: number;
+  sentMessageId?: string;
 }
 
 export interface InboxDeletedIdentity extends Identifiable {

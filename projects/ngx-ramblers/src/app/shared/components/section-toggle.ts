@@ -30,6 +30,9 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
       border-radius: 0
       border-right: 2px solid var(--ramblers-colour-sunrise)
       white-space: nowrap
+    .section-toggle.small .btn
+      padding: 0.15rem 0.5rem
+      font-size: 0.85rem
     .section-toggle .btn:last-child
       border-right: none
     .section-toggle-swatch
@@ -54,6 +57,7 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
   `],
   template: `
     <div class="btn-group section-toggle" [class.full-width]="fullWidth"
+         [class.small]="small"
          [class.stack-on-mobile]="stackOnMobile" role="group">
       @for (tab of normalizedTabs; track tab.value) {
         <button type="button"
@@ -107,6 +111,7 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   @Input() selectedTab: T;
   @Input() queryParamKey: StoredValue | null = null;
   @Input({transform: booleanAttribute}) fullWidth = false;
+  @Input({transform: booleanAttribute}) small = false;
   @Input({transform: booleanAttribute}) stackOnMobile = false;
   @Input({transform: booleanAttribute}) disabled = false;
   @Output() selectedTabChange = new EventEmitter<T>();

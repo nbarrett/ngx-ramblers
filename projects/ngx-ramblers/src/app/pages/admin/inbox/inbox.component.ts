@@ -1,17 +1,19 @@
-import { Component, HostBinding, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, inject, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faGripLines, faIdBadge, faInbox, faListCheck, faPaperclip, faPaperPlane, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { isUndefined, kebabCase, values } from "es-toolkit/compat";
+import { isUndefined, kebabCase, uniqBy, values } from "es-toolkit/compat";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
+import { aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowTo, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -28,8 +30,11 @@ import {
   InboxThread,
   InboxThreadFolder,
   InboxViewScope,
+  InboxMailboxLabelMode,
+  InboxSentViewMode,
   InboxReadFilter,
   InboxReaderProvider,
+  hiddenInboxFolders,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
 import { BrandingMode } from "../../../models/mail.model";
@@ -55,17 +60,32 @@ import { UIDateFormat } from "../../../models/date-format.model";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent, SectionToggle],
   styleUrls: ["./inbox.component.sass"],
   template: `
-    <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
+    <app-page pageTitle="Mail" [showTitle]="false" [showBreadcrumb]="!mobile">
       <app-maximisable-panel #panel="maximisablePanel" class="inbox-scroll-contained"
                              [showHeader]="!readingOnMobile || !compactDetailHeader"
                              [showToggleButton]="false">
       <div panelControls class="d-flex gap-2 align-items-center flex-grow-1 inbox-toolbar">
           @if (!readingOnMobile) {
             <div class="d-flex align-items-center gap-2 flex-shrink-0 inbox-toolbar-brand">
+              @if (mobile) {
+                <button class="inbox-nav-toggle flex-shrink-0" type="button" aria-label="Show folders" (click)="mobileNavOpen = true">
+                  <fa-icon [icon]="faBars"/>
+                </button>
+              }
               <fa-icon [icon]="faInbox" class="ramblers" size="lg"></fa-icon>
+              @if (!mobile) {
+                <span class="inbox-toolbar-title">Mail</span>
+              }
+              @if (!mobile) {
+                <button class="inbox-nav-toggle flex-shrink-0" type="button" (click)="toggleNavCollapsed()"
+                        [class.active]="!navCollapsed" [attr.aria-pressed]="!navCollapsed"
+                        [tooltip]="navCollapsed ? 'Show folders' : 'Hide folders'">
+                  <fa-icon [icon]="navCollapsed ? faBars : faTableColumns"/>
+                </button>
+              }
             </div>
           }
           @if (aliases.length > 0 && !readingOnMobile) {
@@ -78,8 +98,9 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 <option [ngValue]="InboxViewScope.ASSIGNED_ROLES">Show my inbox messages</option>
               }
               @for (alias of aliases; track alias.id || alias.roleEmail) {
-                <option [ngValue]="alias.roleType">{{ aliasLabel(alias) }}</option>
+                <option [ngValue]="alias.roleType">{{ aliasDisplayLabel(alias) }}</option>
               }
+              <option [ngValue]="InboxThreadFolder.SENT">Sent</option>
               @if (canReadJunk) {
                 <option [ngValue]="InboxThreadFolder.JUNK">Junk mail</option>
               }
@@ -120,30 +141,34 @@ import { UIDateFormat } from "../../../models/date-format.model";
             <button type="button" class="btn btn-quiet inbox-filter-toggle d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" [class.active]="readFilter === InboxReadFilter.UNREAD"
                     (click)="toggleUnreadFilter()"
                     [tooltip]="readFilter === InboxReadFilter.UNREAD ? 'Showing unread only — click to show all' : 'Show unread only'">
-              <fa-icon [icon]="faFilter"/>{{ readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All conversations' }}
+              <fa-icon [icon]="faFilter"/>{{ readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All' }}
             </button>
           }
           @if (threads.length > 0 && !mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleMessageSort()"
                     [tooltip]="messageSortDescending ? 'Showing newest first — click for oldest first' : 'Showing oldest first — click for newest first'">
-              <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort"/>{{ messageSortDescending ? 'Newest first' : 'Oldest first' }}
+              <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort"/>{{ messageSortDescending ? 'Newest' : 'Oldest' }}
             </button>
           }
           @if (!mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
               <fa-icon [icon]="stackedLayout ? faTableColumns : faTableList"/>
-              {{ stackedLayout ? 'Side-by-side' : 'Stacked' }}
+              {{ stackedLayout ? 'Split' : 'Stacked' }}
+            </button>
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleDensity()" [tooltip]="compactList ? 'Switch to comfortable rows with subject and preview lines' : 'Switch to compact single-line rows'">
+              <fa-icon [icon]="compactList ? faTableList : faGripLines"/>
+              {{ compactList ? 'Roomy' : 'Compact' }}
             </button>
           }
           @if ((pushStatus$ | async); as pushStatus) {
             @if (pushStatus.supported && !mobile) {
               @if (pushStatus.subscribed) {
                 <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="disableBrowserNotifications()" [disabled]="busy" tooltip="Stop showing browser notifications for new inbox messages">
-                  <fa-icon [icon]="faBellSlash"/>Notifications
+                  <fa-icon [icon]="faBellSlash"/>Alerts
                 </button>
               } @else if (pushStatus.permission !== 'denied') {
                 <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="enableBrowserNotifications()" [disabled]="busy" tooltip="Get a desktop or phone notification when new inbox mail arrives">
-                  <fa-icon [icon]="faBell"/>Notifications
+                  <fa-icon [icon]="faBell"/>Alerts
                 </button>
               }
             }
@@ -163,10 +188,13 @@ import { UIDateFormat } from "../../../models/date-format.model";
       @if (mobile && mobileFiltersOpen && !mobileShowDetail) {
         <div class="inbox-mobile-filters">
           <button type="button" class="btn btn-quiet inbox-filter-toggle" [class.active]="readFilter === InboxReadFilter.UNREAD" (click)="toggleUnreadFilter()">
-            <fa-icon [icon]="faFilter" class="me-1"/>{{readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All conversations'}}
+            <fa-icon [icon]="faFilter" class="me-1"/>{{readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All'}}
           </button>
           <button type="button" class="btn btn-quiet" (click)="toggleMessageSort()">
-            <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest first' : 'Oldest first'}}
+            <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest' : 'Oldest'}}
+          </button>
+          <button type="button" class="btn btn-quiet" (click)="toggleDensity()">
+            <fa-icon [icon]="compactList ? faTableList : faGripLines" class="me-1"/>{{ compactList ? 'Roomy' : 'Compact' }}
           </button>
           <button type="button" class="btn btn-quiet" (click)="syncAndRefresh()" [disabled]="busy">
             <fa-icon [icon]="faRotateRight" class="me-1"/>Refresh
@@ -214,22 +242,126 @@ import { UIDateFormat } from "../../../models/date-format.model";
           }
         </div>
       }
-      <div class="inbox-layout" [class.stacked]="stackedLayout"
+      <div #inboxShell class="inbox-shell">
+        @if (!mobile && !navCollapsed && aliases.length > 0) {
+          <div class="thumbnail-heading-frame-compact inbox-pane inbox-nav" [style.flex]="'0 0 ' + navSize + 'px'">
+            <div class="thumbnail-heading">Folders</div>
+            <ng-container [ngTemplateOutlet]="folderNavContent"/>
+          </div>
+          <app-resizer [variant]="ResizerVariant.BAR"
+                       [orientation]="ResizerOrientation.HORIZONTAL"
+                       [size]="navSize"
+                       [minSize]="minNavSize"
+                       [maxSize]="maxNavSize"
+                       (sizeChange)="onNavSizeChange($event)"
+                       (resizeEnd)="persistNavSize()"/>
+        }
+        @if (mobile && mobileNavOpen) {
+          <div class="inbox-drawer-backdrop" (click)="mobileNavOpen = false"></div>
+          <div class="inbox-drawer" role="dialog" aria-label="Mail folders">
+            <div class="inbox-drawer-header">
+              <span class="inbox-toolbar-title">Mail</span>
+              <button class="inbox-nav-toggle" type="button" aria-label="Close folders" (click)="mobileNavOpen = false">
+                <fa-icon [icon]="faXmark"/>
+              </button>
+            </div>
+            <ng-container [ngTemplateOutlet]="folderNavContent"/>
+          </div>
+        }
+        <ng-template #folderNavContent>
+            <div class="inbox-nav-mode">
+              <app-section-toggle small
+                [tabs]="mailboxLabelTabs"
+                [selectedTab]="mailboxLabelMode"
+                [queryParamKey]="StoredValue.MAILBOX_LABELS"
+                (selectedTabChange)="onMailboxLabelModeChange($event)"/>
+            </div>
+            <div class="inbox-nav-tree">
+              <div class="inbox-nav-row">
+                <button class="inbox-nav-twisty" type="button" (click)="inboxNodeExpanded = !inboxNodeExpanded"
+                        [attr.aria-expanded]="inboxNodeExpanded" aria-label="Expand inbox mailboxes">
+                  <fa-icon [icon]="inboxNodeExpanded ? faChevronDown : faChevronRight"/>
+                </button>
+                <button class="inbox-nav-node" type="button" [class.active]="inboxNodeActive"
+                        (click)="selectMailboxView(InboxViewScope.ALL_ACCESSIBLE)">
+                  <fa-icon [icon]="faInbox" class="me-2"/><span class="inbox-nav-label">Inbox</span>
+                  @if (unreadTotal > 0) {
+                    <span class="inbox-nav-count">{{ unreadTotal }}</span>
+                  }
+                </button>
+              </div>
+              @if (inboxNodeExpanded) {
+                @if (aliases.length > 1) {
+                  <button class="inbox-nav-node inbox-nav-child" type="button"
+                          [class.active]="selectedMailboxView === InboxViewScope.ASSIGNED_ROLES"
+                          (click)="selectMailboxView(InboxViewScope.ASSIGNED_ROLES)">
+                    <fa-icon [icon]="faUser" class="inbox-nav-node-icon"/>
+                    <span class="inbox-nav-label">My mailboxes</span>
+                  </button>
+                }
+                @for (alias of aliases; track alias.id || alias.roleEmail) {
+                  <button class="inbox-nav-node inbox-nav-child" type="button"
+                          [class.active]="selectedMailboxView === alias.roleType"
+                          [tooltip]="aliasLabel(alias)" [placement]="panel.maximised ? 'right' : 'left'" container="body"
+                          (click)="selectMailboxView(alias.roleType)">
+                    <fa-icon [icon]="faEnvelope" class="inbox-nav-node-icon"/>
+                    <span class="inbox-nav-label">{{ aliasDisplayLabel(alias) }}</span>
+                    @if (unreadForRole(alias.roleType) > 0) {
+                      <span class="inbox-nav-count">{{ unreadForRole(alias.roleType) }}</span>
+                    }
+                  </button>
+                }
+              }
+              <div class="inbox-nav-row">
+                <span class="inbox-nav-twisty"></span>
+                <button class="inbox-nav-node" type="button" [class.active]="viewingSent"
+                        (click)="selectMailboxView(InboxThreadFolder.SENT)">
+                  <fa-icon [icon]="faPaperPlane" class="me-2"/><span class="inbox-nav-label">Sent</span>
+                </button>
+              </div>
+              @if (canReadJunk) {
+                <div class="inbox-nav-row">
+                  <span class="inbox-nav-twisty"></span>
+                  <button class="inbox-nav-node" type="button" [class.active]="viewingJunk"
+                          (click)="selectMailboxView(InboxThreadFolder.JUNK)">
+                    <fa-icon [icon]="faBan" class="me-2"/><span class="inbox-nav-label">Junk</span>
+                  </button>
+                </div>
+              }
+              <div class="inbox-nav-row">
+                <span class="inbox-nav-twisty"></span>
+                <button class="inbox-nav-node" type="button" [class.active]="viewingDeleted"
+                        (click)="selectMailboxView(InboxThreadFolder.DELETED)">
+                  <fa-icon [icon]="faTrash" class="me-2"/><span class="inbox-nav-label">Deleted</span>
+                </button>
+              </div>
+            </div>
+        </ng-template>
+      <div #inboxLayout class="inbox-layout" [class.stacked]="stackedLayout"
            [style.grid-template-columns]="gridTemplateColumns"
            [style.grid-template-rows]="gridTemplateRows">
         @if (!mobile || !mobileShowDetail) {
         <div class="thumbnail-heading-frame-compact inbox-pane" [class.inbox-list-flush]="mobile">
           @if (!mobile) {
-            <div class="thumbnail-heading">Conversations</div>
+            <div class="thumbnail-heading">{{ viewingSent && sentViewMode === InboxSentViewMode.MESSAGES ? 'Sent messages' : 'Conversations' }}</div>
           }
           @if (threadListTotalCount > 0 || conversationSearchTerm) {
             <div class="p-2">
-              <div class="input-group input-group-sm">
-                <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
-                       (ngModelChange)="onConversationSearchChange($event)"
-                       [disabled]="selectingAllConversations"
-                       placeholder="Search conversations...">
+              <div class="d-flex align-items-center gap-2">
+                @if (viewingSent) {
+                  <app-section-toggle small class="inbox-sent-view-mode flex-shrink-0"
+                    [tabs]="sentViewTabs"
+                    [selectedTab]="sentViewMode"
+                    [queryParamKey]="StoredValue.SENT_VIEW"
+                    (selectedTabChange)="onSentViewModeChange($event)"/>
+                }
+                <div class="input-group input-group-sm flex-grow-1">
+                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                  <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
+                         (ngModelChange)="onConversationSearchChange($event)"
+                         [disabled]="selectingAllConversations"
+                         placeholder="Search conversations...">
+                </div>
               </div>
               @if (!mobile || conversationSearchTerm) {
                 <div class="small text-muted mt-1">
@@ -237,9 +369,17 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 </div>
               }
             </div>
+          } @else if (viewingSent) {
+            <div class="p-2">
+              <app-section-toggle small class="inbox-sent-view-mode"
+                [tabs]="sentViewTabs"
+                [selectedTab]="sentViewMode"
+                [queryParamKey]="StoredValue.SENT_VIEW"
+                (selectedTabChange)="onSentViewModeChange($event)"/>
+            </div>
           }
           @if (threads.length > 0) {
-            <div class="d-flex align-items-center gap-2 px-2 pb-2 inbox-list-toolbar">
+            <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
               <input type="checkbox" class="form-check-input mt-0" id="inbox-select-all"
                      [checked]="allSelected()"
                      [indeterminate]="selectedConversationCount > 0 && !allSelected()"
@@ -301,7 +441,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
               }
             </div>
           }
-          <div class="inbox-thread-list" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)">
+          <div class="inbox-thread-list" [class.inbox-list-compact]="compactList" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)">
           @if (threadListTotalCount === 0) {
             <div class="p-3 text-muted">No conversations yet. Once an alias is connected and synced, threads will appear here.</div>
           } @else if (filteredThreads.length === 0) {
@@ -316,9 +456,9 @@ import { UIDateFormat } from "../../../models/date-format.model";
               <div class="p-3 text-muted">No conversations.</div>
             }
           }
-          @for (thread of filteredThreads; track threadIdOf(thread)) {
+          @for (thread of filteredThreads; track threadRowKey(thread)) {
             <div class="inbox-thread-row d-flex align-items-center gap-2"
-                 [class.active]="threadIdOf(thread) === selectedThreadId"
+                 [class.active]="threadRowActive(thread)"
                  [class.unread]="conversationUnread(thread)"
                  [attr.data-thread-id]="threadIdOf(thread)"
                  (touchstart)="startThreadSwipe($event)"
@@ -332,13 +472,13 @@ import { UIDateFormat } from "../../../models/date-format.model";
                   @if (conversationUnread(thread)) {
                     <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                   }
-                  <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress?.name ?? thread.externalAddress?.email ?? 'No external address'}}</div>
-                  <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
+                  <div class="inbox-thread-from flex-grow-1 text-truncate">{{ viewingSent ? sentFromLabel(thread) : (threadRowFrom(thread) || 'No external address') }}</div>
+                  <div class="inbox-thread-time flex-shrink-0">{{(viewingSent ? thread.lastOutboundAt || thread.lastSeenAt : thread.lastSeenAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
                 </div>
                 <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 <div class="inbox-thread-preview">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? 'Last message sent by you' : 'Latest incoming message'}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
-                @if (roleLineForThread(thread); as roleLine) {
-                  <div class="inbox-thread-recipient text-truncate">{{roleLine}}</div>
+                @if (threadRowTo(thread); as toLabel) {
+                  <div class="inbox-thread-recipient text-truncate">to {{ toLabel }}</div>
                 }
               </div>
             </div>
@@ -359,7 +499,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                        [size]="listSize"
                        [minSize]="minListSize"
                        [maxSize]="maxListSize"
-                       (sizeChange)="listSize = $event"
+                       (sizeChange)="onListSizeChange($event)"
                        (resizeEnd)="persistListSize()"/>
         }
         @if (!mobile || mobileShowDetail) {
@@ -404,7 +544,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
             <div class="text-muted">Loading conversation...</div>
           } @else {
             @for (message of displayMessages; track message.messageId) {
-              <div class="inbox-message" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND" [class.collapsed]="!isMessageExpanded(message)">
+              <div class="inbox-message" [attr.data-message-id]="message.messageId" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND" [class.collapsed]="!isMessageExpanded(message)">
                 <div class="inbox-message-headers inbox-message-toggle d-flex align-items-start gap-2" (click)="toggleMessage(message)">
                   <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
                   <div class="flex-grow-1 min-w-0">
@@ -494,6 +634,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
         </div>
         }
       </div>
+      </div>
       </app-maximisable-panel>
       @if (pendingDelete) {
         <div class="inbox-undo-bar" role="status">
@@ -518,7 +659,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
     </app-page>
   `
 })
-export class InboxComponent implements OnInit, OnDestroy {
+export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly UIDateFormat = UIDateFormat;
 
   private logger: Logger = inject(LoggerFactory).createLogger("InboxComponent", NgxLoggerLevel.ERROR);
@@ -540,10 +681,16 @@ export class InboxComponent implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   protected numberUtils = inject(NumberUtilsService);
   protected readonly faInbox = faInbox;
+  protected readonly faBars = faBars;
+  protected readonly faBan = faBan;
+  protected readonly faPaperPlane = faPaperPlane;
   protected readonly faPenToSquare = faPenToSquare;
   protected readonly faReply = faReply;
   protected readonly faRotateRight = faRotateRight;
   protected readonly faEnvelope = faEnvelope;
+  protected readonly faUser = faUser;
+  protected readonly faXmark = faXmark;
+  protected readonly faGripLines = faGripLines;
   protected readonly faEnvelopeOpen = faEnvelopeOpen;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faTableColumns = faTableColumns;
@@ -572,6 +719,17 @@ export class InboxComponent implements OnInit, OnDestroy {
   public messageSortDescending = true;
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
+  protected readonly InboxMailboxLabelMode = InboxMailboxLabelMode;
+  protected readonly InboxSentViewMode = InboxSentViewMode;
+  protected readonly StoredValue = StoredValue;
+  protected readonly mailboxLabelTabs: SectionToggleTab[] = [
+    {value: InboxMailboxLabelMode.ROLE, label: "Role", icon: faIdBadge},
+    {value: InboxMailboxLabelMode.PERSON, label: "Person", icon: faUser}
+  ];
+  protected readonly sentViewTabs: SectionToggleTab[] = [
+    {value: InboxSentViewMode.MESSAGES, label: "Messages", icon: faPaperPlane},
+    {value: InboxSentViewMode.CONVERSATIONS, label: "Conversations", icon: faInbox}
+  ];
   protected readonly InboxReadFilter = InboxReadFilter;
   protected readonly InboxThreadFolder = InboxThreadFolder;
   protected readonly ResizerOrientation = ResizerOrientation;
@@ -671,6 +829,30 @@ export class InboxComponent implements OnInit, OnDestroy {
     return this.selectedMailboxView === InboxThreadFolder.DELETED;
   }
 
+  get viewingSent(): boolean {
+    return this.selectedMailboxView === InboxThreadFolder.SENT;
+  }
+
+  get inboxNodeActive(): boolean {
+    return this.selectedMailboxView === InboxViewScope.ALL_ACCESSIBLE;
+  }
+
+  selectMailboxView(view: string): void {
+    this.selectedMailboxView = view;
+    this.mobileNavOpen = false;
+    if (this.mobile) {
+      this.mobileShowDetail = false;
+    }
+    void this.roleMailboxChanged();
+  }
+
+  toggleNavCollapsed(): void {
+    this.navCollapsed = !this.navCollapsed;
+    if (!isUndefined(window)) {
+      window.localStorage.setItem(InboxComponent.NAV_KEY, this.navCollapsed ? "collapsed" : "expanded");
+    }
+  }
+
   public aliases: InboxAliasConfigView[] = [];
   public canReadJunk = false;
   private _threads: InboxThread[] = [];
@@ -712,6 +894,44 @@ export class InboxComponent implements OnInit, OnDestroy {
   public readonly minListSize = 140;
   private static readonly LAYOUT_KEY = "inbox-layout";
   private static readonly SIZE_KEY = "inbox-list-size";
+  private static readonly NAV_KEY = "inbox-nav";
+  private static readonly NAV_SIZE_KEY = "inbox-nav-size";
+  private static readonly DENSITY_KEY = "inbox-list-density";
+  public compactList = false;
+  public mailboxLabelMode: InboxMailboxLabelMode = InboxMailboxLabelMode.ROLE;
+  public sentViewMode: InboxSentViewMode = InboxSentViewMode.MESSAGES;
+  public mobileNavOpen = false;
+  public sentFocusMessageId: string | null = null;
+  public unreadTotal = 0;
+  public unreadByRole = new Map<string, number>();
+  public navCollapsed = false;
+  public inboxNodeExpanded = true;
+  public navSize = 220;
+  public readonly minNavSize = 150;
+
+  get maxNavSize(): number {
+    if (isUndefined(window)) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return window.innerWidth * 0.5;
+  }
+  @ViewChild("inboxLayout") set inboxLayout(ref: ElementRef<HTMLElement> | null) {
+    this.inboxLayoutRef = ref;
+    this.observeLayoutSize();
+  }
+
+  @ViewChild("inboxShell") set inboxShell(ref: ElementRef<HTMLElement> | null) {
+    this.inboxShellRef = ref;
+    this.observeLayoutSize();
+  }
+
+  private inboxLayoutRef: ElementRef<HTMLElement> | null = null;
+  private inboxShellRef: ElementRef<HTMLElement> | null = null;
+  private zone = inject(NgZone);
+  private layoutResizeObserver: ResizeObserver | null = null;
+  private listRatio: number | null = null;
+  private navRatio: number | null = null;
+  private splitterDragging = false;
   private static readonly DELETE_UNDO_MS = 6000;
   private static readonly THREAD_PAGE_SIZE = 50;
   private static readonly SWIPE_THRESHOLD_PX = 72;
@@ -739,6 +959,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe(config =>
       this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS));
+    this.subscriptions.push(this.inboxNotificationService.total$.subscribe(total => this.unreadTotal = total));
+    this.subscriptions.push(this.inboxNotificationService.breakdown$.subscribe(rows =>
+      this.unreadByRole = new Map(rows.map(row => [row.roleType, row.unreadCount]))));
     this.updateMobile();
     this.restoreLayout();
     await this.refresh();
@@ -776,6 +999,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    this.layoutResizeObserver?.disconnect();
     if (this.pendingDelete) {
       clearTimeout(this.pendingDelete.timer);
       void this.commitPendingDelete();
@@ -900,7 +1124,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       await Promise.all(siblings.map(sibling => markUnread
         ? this.inboxService.markThreadUnread(this.threadIdOf(sibling))
         : this.inboxService.markThreadRead(this.threadIdOf(sibling))));
-      await this.refresh();
+      await this.refresh(false);
       this.notify.success({title: "Inbox", message: `Conversation marked as ${markUnread ? "unread" : "read"}`});
     } catch (error) {
       this.notify.error({title: "Inbox", message: (error as Error).message});
@@ -920,6 +1144,79 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!isUndefined(window)) {
       window.localStorage.setItem(InboxComponent.SIZE_KEY, String(Math.round(this.listSize)));
     }
+    const span = this.layoutSpan();
+    if (span > 0) {
+      this.listRatio = this.listSize / span;
+    }
+    this.splitterDragging = false;
+  }
+
+  persistNavSize(): void {
+    if (!isUndefined(window)) {
+      window.localStorage.setItem(InboxComponent.NAV_SIZE_KEY, String(Math.round(this.navSize)));
+    }
+    const width = this.shellWidth();
+    if (width > 0) {
+      this.navRatio = this.navSize / width;
+    }
+    this.splitterDragging = false;
+    this.applyPaneRatios();
+  }
+
+  ngAfterViewInit(): void {
+    this.observeLayoutSize();
+  }
+
+  private observeLayoutSize(): void {
+    if (!isUndefined(window) && "ResizeObserver" in window && this.inboxLayoutRef?.nativeElement) {
+      this.layoutResizeObserver?.disconnect();
+      this.layoutResizeObserver = new ResizeObserver(() => this.zone.run(() => this.applyPaneRatios()));
+      this.layoutResizeObserver.observe(this.inboxLayoutRef.nativeElement);
+      if (this.inboxShellRef?.nativeElement) {
+        this.layoutResizeObserver.observe(this.inboxShellRef.nativeElement);
+      }
+      this.applyPaneRatios();
+    }
+  }
+
+  private layoutSpan(): number {
+    const rect = this.inboxLayoutRef?.nativeElement?.getBoundingClientRect();
+    return rect ? (this.stackedLayout ? rect.height : rect.width) : 0;
+  }
+
+  private shellWidth(): number {
+    return this.inboxShellRef?.nativeElement?.getBoundingClientRect()?.width ?? 0;
+  }
+
+  private applyPaneRatios(): void {
+    if (!this.splitterDragging) {
+      const width = this.shellWidth();
+      if (width > 0 && !this.mobile && !this.navCollapsed) {
+        if (this.navRatio === null) {
+          this.navRatio = this.navSize / width;
+        } else {
+          this.navSize = Math.min(Math.max(Math.round(this.navRatio * width), this.minNavSize), this.maxNavSize);
+        }
+      }
+      const span = this.layoutSpan();
+      if (span > 0 && !this.mobile) {
+        if (this.listRatio === null) {
+          this.listRatio = this.listSize / span;
+        } else {
+          this.listSize = Math.min(Math.max(Math.round(this.listRatio * span), this.minListSize), this.maxListSize);
+        }
+      }
+    }
+  }
+
+  onNavSizeChange(size: number): void {
+    this.splitterDragging = true;
+    this.navSize = size;
+  }
+
+  onListSizeChange(size: number): void {
+    this.splitterDragging = true;
+    this.listSize = size;
   }
 
   private restoreLayout(): void {
@@ -929,14 +1226,26 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.stackedLayout = window.localStorage.getItem(InboxComponent.LAYOUT_KEY) === "stacked";
     const storedSize = Number(window.localStorage.getItem(InboxComponent.SIZE_KEY));
     this.listSize = Number.isFinite(storedSize) && storedSize >= this.minListSize ? storedSize : this.defaultListSize();
+    this.navCollapsed = window.localStorage.getItem(InboxComponent.NAV_KEY) === "collapsed";
+    this.compactList = window.localStorage.getItem(InboxComponent.DENSITY_KEY) === "compact";
+    const storedNavSize = Number(window.localStorage.getItem(InboxComponent.NAV_SIZE_KEY));
+    this.navSize = Number.isFinite(storedNavSize) && storedNavSize >= this.minNavSize ? Math.min(storedNavSize, this.maxNavSize) : this.navSize;
   }
 
   private defaultListSize(): number {
     return this.stackedLayout ? 240 : 352;
   }
 
+  toggleDensity(): void {
+    this.compactList = !this.compactList;
+    if (!isUndefined(window)) {
+      window.localStorage.setItem(InboxComponent.DENSITY_KEY, this.compactList ? "compact" : "comfortable");
+    }
+  }
+
   toggleLayout(): void {
     this.stackedLayout = !this.stackedLayout;
+    this.listRatio = null;
     this.listSize = this.defaultListSize();
     if (!isUndefined(window)) {
       window.localStorage.setItem(InboxComponent.LAYOUT_KEY, this.stackedLayout ? "stacked" : "side-by-side");
@@ -944,12 +1253,14 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  async refresh(): Promise<void> {
+  async refresh(reloadAccess = true): Promise<void> {
     this.busy = true;
     try {
-      const [aliases, canReadJunk] = await Promise.all([this.inboxService.listAliases(), this.inboxService.junkAccessible()]);
-      this.aliases = aliases;
-      this.canReadJunk = canReadJunk;
+      if (reloadAccess || this.aliases.length === 0) {
+        const [aliases, canReadJunk] = await Promise.all([this.inboxService.listAliases(), this.inboxService.junkAccessible()]);
+        this.aliases = aliases;
+        this.canReadJunk = canReadJunk;
+      }
       if (!this.mailboxViewInitialised) {
         this.applyMailboxViewFromUrl();
         this.applyReadFilterFromUrl();
@@ -957,22 +1268,29 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.mailboxViewInitialised = true;
       }
       if (this.viewingJunk && this.canReadJunk) {
-        const junkResponse = await this.inboxService.listThreads(null, null, false, null, InboxThreadFolder.JUNK);
+        const junkResponse = await this.inboxService.listThreads(null, null, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.JUNK);
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = junkResponse.unreadCount;
         this.threadListTotalCount = junkResponse.totalCount;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else if (this.viewingDeleted) {
-        const deletedResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, false, null, InboxThreadFolder.DELETED);
+        const deletedResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.DELETED);
         this.threads = deletedResponse.threads;
         this.threadListUnreadCount = deletedResponse.unreadCount;
         this.threadListTotalCount = deletedResponse.totalCount;
+        await this.reloadVisibleConversation(this.threads[0] ?? null);
+      } else if (this.viewingSent) {
+        const sentResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.SENT);
+        this.threads = sentResponse.threads;
+        this.threadListUnreadCount = sentResponse.unreadCount;
+        this.threadListTotalCount = sentResponse.totalCount;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else {
         if (this.aliases.length === 1) {
           this.selectedMailboxView = this.aliases[0].roleType;
         } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
           && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)
+          && this.selectedMailboxView !== InboxThreadFolder.SENT
           && this.selectedMailboxView !== InboxThreadFolder.JUNK
           && this.selectedMailboxView !== InboxThreadFolder.DELETED) {
           this.selectedMailboxView = InboxViewScope.ALL_ACCESSIBLE;
@@ -1044,14 +1362,16 @@ export class InboxComponent implements OnInit, OnDestroy {
       const roleType = this.selectedRoleType();
       const scope = roleType
         ? null
-        : this.viewingJunk || this.viewingDeleted
+        : this.viewingSent || this.viewingJunk || this.viewingDeleted
           ? InboxViewScope.ALL_ACCESSIBLE
           : this.selectedMailboxView as InboxViewScope;
-      const folder = this.viewingJunk
-        ? InboxThreadFolder.JUNK
-        : this.viewingDeleted
-          ? InboxThreadFolder.DELETED
-          : null;
+      const folder = this.viewingSent
+        ? InboxThreadFolder.SENT
+        : this.viewingJunk
+          ? InboxThreadFolder.JUNK
+          : this.viewingDeleted
+            ? InboxThreadFolder.DELETED
+            : null;
       const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length);
       this.threads = this.threads.concat(response.threads);
       this.threadListUnreadCount = response.unreadCount;
@@ -1072,6 +1392,25 @@ export class InboxComponent implements OnInit, OnDestroy {
     return aliasMailboxLabel(alias);
   }
 
+  aliasDisplayLabel(alias: InboxAliasConfigView): string {
+    if (isInboxGeneralRoleType(alias.roleType)) {
+      return "Other inbox mail";
+    } else if (this.mailboxLabelMode === InboxMailboxLabelMode.PERSON) {
+      return alias.assignedMemberName || this.stringUtils.asTitle(alias.roleType);
+    } else {
+      return this.stringUtils.asTitle(alias.roleType);
+    }
+  }
+
+  onMailboxLabelModeChange(mode: InboxMailboxLabelMode): void {
+    this.mailboxLabelMode = mode;
+  }
+
+  onSentViewModeChange(mode: InboxSentViewMode): void {
+    this.sentViewMode = mode;
+    this.invalidateFilteredThreads();
+  }
+
   aliasHeading(alias: InboxAliasConfigView): string {
     return aliasMailboxHeading(alias);
   }
@@ -1081,7 +1420,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   selectedRoleType(): string | null {
-    return values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope) || this.viewingJunk || this.viewingDeleted
+    return values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope) || this.viewingSent || this.viewingJunk || this.viewingDeleted
       ? null
       : this.selectedMailboxView;
   }
@@ -1097,7 +1436,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       queryParamsHandling: "merge",
       replaceUrl: true
     });
-    await this.refresh();
+    await this.refresh(false);
   }
 
   private mailboxViewParam(): string {
@@ -1115,6 +1454,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
     if (values(InboxViewScope).includes(param as InboxViewScope)) {
       this.selectedMailboxView = param;
+    } else if (hiddenInboxFolders().concat(InboxThreadFolder.SENT).includes(param as InboxThreadFolder)) {
+      this.selectedMailboxView = param;
     } else {
       const alias = this.aliases.find(candidate => candidate.roleEmail.split("@")[0] === param);
       if (alias) {
@@ -1125,6 +1466,19 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   threadIdOf(thread: InboxThread): string {
     return inboxThreadId(thread);
+  }
+
+  threadRowKey(thread: InboxThread): string {
+    return `${this.threadIdOf(thread)}${thread.sentMessageId ?? ""}`;
+  }
+
+  unreadForRole(roleType: string): number {
+    return this.unreadByRole.get(roleType) ?? 0;
+  }
+
+  threadRowActive(thread: InboxThread): boolean {
+    return this.threadIdOf(thread) === this.selectedThreadId
+      && (!this.viewingSent || (thread.sentMessageId ?? null) === this.sentFocusMessageId);
   }
 
   siblingConversationThreads(thread: InboxThread): InboxThread[] {
@@ -1158,18 +1512,33 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private conversationRepresentatives(threads: InboxThread[]): InboxThread[] {
-    const seenKeys = new Set<string>();
-    const representatives: InboxThread[] = [];
-    threads.forEach(thread => {
-      const key = thread.conversationKey;
-      if (!key) {
-        representatives.push(thread);
-      } else if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-        representatives.push(this.representativeThread(this.siblingsByConversationKey.get(key) ?? [thread]));
-      }
-    });
-    return representatives;
+    if (this.viewingSent && this.sentViewMode === InboxSentViewMode.MESSAGES) {
+      return threads;
+    } else if (this.viewingSent) {
+      const seenKeys = new Set<string>();
+      return threads.filter(thread => {
+        const key = thread.conversationKey || thread.normalisedSubject || this.threadIdOf(thread);
+        if (seenKeys.has(key)) {
+          return false;
+        } else {
+          seenKeys.add(key);
+          return true;
+        }
+      });
+    } else {
+      const seenKeys = new Set<string>();
+      const representatives: InboxThread[] = [];
+      threads.forEach(thread => {
+        const key = thread.conversationKey;
+        if (!key) {
+          representatives.push(thread);
+        } else if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          representatives.push(this.representativeThread(this.siblingsByConversationKey.get(key) ?? [thread]));
+        }
+      });
+      return representatives;
+    }
   }
 
   conversationUnread(thread: InboxThread): boolean {
@@ -1233,7 +1602,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       queryParamsHandling: "merge",
       replaceUrl: true
     });
-    void this.refresh();
+    void this.refresh(false);
   }
 
   private applyReadFilterFromUrl(): void {
@@ -1306,14 +1675,16 @@ export class InboxComponent implements OnInit, OnDestroy {
     const roleType = this.selectedRoleType();
     const scope = roleType
       ? null
-      : this.viewingJunk || this.viewingDeleted
+      : this.viewingSent || this.viewingJunk || this.viewingDeleted
         ? InboxViewScope.ALL_ACCESSIBLE
         : this.selectedMailboxView as InboxViewScope;
-    const folder = this.viewingJunk
-      ? InboxThreadFolder.JUNK
-      : this.viewingDeleted
-        ? InboxThreadFolder.DELETED
-        : null;
+    const folder = this.viewingSent
+      ? InboxThreadFolder.SENT
+      : this.viewingJunk
+        ? InboxThreadFolder.JUNK
+        : this.viewingDeleted
+          ? InboxThreadFolder.DELETED
+          : null;
     const pageSize = 200;
     const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, pageSize, folder, this.threads.length);
     this.threads = this.threads.concat(response.threads);
@@ -1345,7 +1716,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       this.selectedThreadIds.clear();
       this.allAvailableSelected = false;
-      await this.refresh();
+      await this.refresh(false);
       this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} ${this.viewingDeleted ? "permanently deleted" : "moved to Deleted"}`});
     } catch (error) {
       this.notify.error({title: "Delete", message: (error as Error).message});
@@ -1365,7 +1736,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     try {
       await Promise.all(ids.map(id => unread ? this.inboxService.markThreadUnread(id) : this.inboxService.markThreadRead(id)));
       this.selectedThreadIds.clear();
-      await this.refresh();
+      await this.refresh(false);
       this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} marked as ${unread ? "unread" : "read"}`});
     } catch (error) {
       this.notify.error({title: unread ? "Mark as unread" : "Mark as read", message: (error as Error).message});
@@ -1389,7 +1760,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.clearSelectedMessages();
       }
       this.selectedThreadIds.clear();
-      await this.refresh();
+      await this.refresh(false);
       this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} moved out of junk into the inbox`});
     } catch (error) {
       this.notify.error({title: "Not junk", message: (error as Error).message});
@@ -1413,7 +1784,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.clearSelectedMessages();
       }
       this.selectedThreadIds.clear();
-      await this.refresh();
+      await this.refresh(false);
       this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} restored to the inbox`});
     } catch (error) {
       this.notify.error({title: "Restore", message: (error as Error).message});
@@ -1435,7 +1806,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedThreadId = null;
       this.clearSelectedMessages();
       this.mobileShowDetail = false;
-      await this.refresh();
+      await this.refresh(false);
       this.notify.success({title: "Inbox", message: "Moved out of junk into the inbox"});
     } catch (error) {
       this.notify.error({title: "Not junk", message: (error as Error).message});
@@ -1573,6 +1944,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  private scrollMessageIntoView(messageId: string): void {
+    setTimeout(() => document.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`)?.scrollIntoView({block: "start"}), 0);
+  }
+
   private scrollThreadRowIntoView(listElement: HTMLElement, threadId: string): void {
     listElement.querySelector(`[data-thread-id="${threadId}"]`)?.scrollIntoView({block: "nearest"});
   }
@@ -1592,7 +1967,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
       this.selectedThread = nextThread;
       this.clearSelectedMessages();
-      await this.refresh();
+      await this.refresh(false);
       const refreshed = nextThread ? this.filteredThreads.find(thread => this.threadIdOf(thread) === this.threadIdOf(nextThread)) : null;
       if (refreshed) {
         await this.openThread(refreshed);
@@ -1611,8 +1986,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   async openThread(thread: InboxThread, markRead = true): Promise<void> {
-    const siblings = this.siblingConversationThreads(thread);
-    const representative = this.representativeThread(siblings);
+    this.sentFocusMessageId = this.viewingSent ? thread.sentMessageId ?? null : null;
+    const siblings = uniqBy(this.siblingConversationThreads(thread), sibling => this.threadIdOf(sibling));
+    const representative = this.viewingSent ? thread : this.representativeThread(siblings);
     const threadId = this.threadIdOf(representative);
     const requestId = this.openThreadRequestId + 1;
     this.openThreadRequestId = requestId;
@@ -1641,9 +2017,21 @@ export class InboxComponent implements OnInit, OnDestroy {
         ? this.selectedMessages.reduce((latest, candidate) =>
           (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest.receivedAt ?? latest.sentAt ?? 0) ? candidate : latest)
         : null;
-      this.expandedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
-      this.openedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
+      const sentFocus = this.sentFocusMessageId
+        ? this.selectedMessages.find(message => message.messageId === this.sentFocusMessageId) ?? null
+        : null;
+      const outboundMessages = this.selectedMessages.filter(message => message.direction === InboxMessageDirection.OUTBOUND && !message.autoReply);
+      const newestOutbound = outboundMessages.length
+        ? outboundMessages.reduce((latest, candidate) =>
+          (candidate.sentAt ?? candidate.receivedAt ?? 0) > (latest.sentAt ?? latest.receivedAt ?? 0) ? candidate : latest)
+        : null;
+      const focusMessage = this.viewingSent ? sentFocus ?? newestOutbound ?? newestMessage : newestMessage;
+      this.expandedMessageIds = new Set(focusMessage ? [focusMessage.messageId] : []);
+      this.openedMessageIds = new Set(focusMessage ? [focusMessage.messageId] : []);
       this.loadingThread = false;
+      if (this.viewingSent && focusMessage) {
+        this.scrollMessageIntoView(focusMessage.messageId);
+      }
       this.markThreadsRead(markRead ? siblings : []);
     } catch (error) {
       if (requestId !== this.openThreadRequestId) {
@@ -1858,6 +2246,27 @@ export class InboxComponent implements OnInit, OnDestroy {
     return inboxThreadRoleLine(thread, this.recipientForThread(thread));
   }
 
+  threadRowFrom(thread: InboxThread): string | null {
+    return inboxThreadRowFrom(thread, this.recipientForThread(thread));
+  }
+
+  sentFromLabel(thread: InboxThread): string {
+    const senderEmail = (thread.sentFrom?.email || "").toLowerCase();
+    const alias = this.aliases.find(candidate =>
+      [candidate.roleEmail, ...(candidate.additionalEmails ?? [])].some(email => (email || "").toLowerCase() === senderEmail));
+    if (alias) {
+      return this.aliasDisplayLabel(alias);
+    } else if (thread.roleType && !isInboxGeneralRoleType(thread.roleType)) {
+      return this.stringUtils.asTitle(thread.roleType);
+    } else {
+      return thread.sentFrom?.name || thread.sentFrom?.email || "Unknown sender";
+    }
+  }
+
+  threadRowTo(thread: InboxThread): string | null {
+    return inboxThreadRowTo(thread, this.recipientForThread(thread));
+  }
+
   selectedThreadOutboundOnly(): boolean {
     return this.selectedMessages.length > 0 && this.selectedMessages.every(message => message.direction === InboxMessageDirection.OUTBOUND);
   }
@@ -1945,6 +2354,6 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private async handleNewMessageEvent(event: InboxNewMessageEvent): Promise<void> {
     this.logger.info("Inbox websocket event:", event);
-    await this.refresh();
+    await this.refresh(false);
   }
 }

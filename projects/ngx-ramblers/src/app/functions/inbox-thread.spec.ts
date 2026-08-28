@@ -6,6 +6,8 @@ import {
   inboxMessageMatchingId,
   inboxThreadHeaderFrom,
   inboxThreadHeaderTo,
+  inboxThreadRowFrom,
+  inboxThreadRowTo,
   inboxThreadId,
   inboxThreadMatchingSlug,
   aliasMailboxExtraCaption,
@@ -374,4 +376,33 @@ describe("hiddenInboxFolders", () => {
     expect(hiddenInboxFolders()).toEqual([InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]);
   });
 
+});
+
+describe("inboxThreadRowFrom and inboxThreadRowTo", () => {
+  const inbound = {
+    lastDirection: InboxMessageDirection.INBOUND,
+    externalAddress: {name: "Jane Member", email: "jane@example.com"},
+    deliveredTo: {name: "Treasurer", email: "treasurer@group.org.uk"}
+  } as InboxThread;
+  const outbound = {
+    lastDirection: InboxMessageDirection.OUTBOUND,
+    externalAddress: {name: "Jane Member", email: "jane@example.com"},
+    sentFrom: {name: "Treasurer", email: "treasurer@group.org.uk"}
+  } as InboxThread;
+
+  it("shows the correspondent as From and our address as To for an inbound thread", () => {
+    expect(inboxThreadRowFrom(inbound, "treasurer@group.org.uk")).toBe("Jane Member");
+    expect(inboxThreadRowTo(inbound, "treasurer@group.org.uk")).toBe("treasurer@group.org.uk");
+  });
+
+  it("shows our address as From and the correspondent as To for an outbound thread", () => {
+    expect(inboxThreadRowFrom(outbound, null)).toBe("Treasurer");
+    expect(inboxThreadRowTo(outbound, null)).toBe("Jane Member");
+  });
+
+  it("falls back to the role email when the outbound sender is missing", () => {
+    const bare = {lastDirection: InboxMessageDirection.OUTBOUND, externalAddress: {name: "", email: "jane@example.com"}} as InboxThread;
+    expect(inboxThreadRowFrom(bare, "treasurer@group.org.uk")).toBe("treasurer@group.org.uk");
+    expect(inboxThreadRowTo(bare, null)).toBe("jane@example.com");
+  });
 });

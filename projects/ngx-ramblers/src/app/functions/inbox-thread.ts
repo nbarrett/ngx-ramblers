@@ -88,6 +88,18 @@ export function newestInboxMessage(messages: InboxMessage[] | null | undefined):
     !latest || inboxMessageAt(candidate) > inboxMessageAt(latest) ? candidate : latest, null);
 }
 
+export function inboxThreadRowFrom(thread: InboxThread, roleEmail: string | null): string | null {
+  return thread?.lastDirection === InboxMessageDirection.OUTBOUND
+    ? thread?.sentFrom?.name || thread?.sentFrom?.email || roleEmail
+    : thread?.externalAddress?.name || thread?.externalAddress?.email || null;
+}
+
+export function inboxThreadRowTo(thread: InboxThread, roleEmail: string | null): string | null {
+  return thread?.lastDirection === InboxMessageDirection.OUTBOUND
+    ? thread?.externalAddress?.name || thread?.externalAddress?.email || null
+    : thread?.deliveredTo?.email || roleEmail;
+}
+
 export function inboxThreadHeaderFrom(messages: InboxMessage[] | null | undefined): InboxAddress | null {
   const latest = newestInboxMessage(messages);
   return latest?.from?.email ? latest.from : null;
