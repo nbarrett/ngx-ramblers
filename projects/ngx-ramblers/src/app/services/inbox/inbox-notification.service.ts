@@ -78,9 +78,13 @@ export class InboxNotificationService implements OnDestroy {
 
   private async refreshFromServer(): Promise<void> {
     try {
-      const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(InboxViewScope.ALL_ACCESSIBLE), this.inboxService.listAliases()]);
-      this.roleLabels.clear();
-      aliases.forEach(alias => this.roleLabels.set(alias.roleType, isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail));
+      const counts = await this.inboxService.unreadCounts(InboxViewScope.ALL_ACCESSIBLE);
+      const unknownRoleType = counts.byRole.some(row => !this.roleLabels.has(row.roleType));
+      if (this.roleLabels.size === 0 || unknownRoleType) {
+        const aliases = await this.inboxService.listAliases();
+        this.roleLabels.clear();
+        aliases.forEach(alias => this.roleLabels.set(alias.roleType, isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail));
+      }
       this.perRoleUnread.clear();
       counts.byRole.forEach(row => this.perRoleUnread.set(row.roleType, row.unreadCount));
       this.publishTotal(counts.total);
