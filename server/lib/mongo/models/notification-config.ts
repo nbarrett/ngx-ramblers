@@ -31,6 +31,10 @@ const notificationConfigSchema = new mongoose.Schema({
   defaultListing: {type: Boolean},
   omitComposeStep: {type: Boolean},
   omitEventsStep: {type: Boolean},
+  composerDrafting: {
+    offerDraftedIntro: {type: Boolean},
+    onlyApprovedWalks: {type: Boolean}
+  },
   createdAt: {type: Number},
   createdBy: {type: String},
   updatedAt: {type: Number},

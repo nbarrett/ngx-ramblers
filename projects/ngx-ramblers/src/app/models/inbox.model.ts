@@ -93,7 +93,7 @@ export enum InboxMailboxLabelMode {
   PERSON = "person"
 }
 
-export enum InboxSentViewMode {
+export enum InboxGroupingMode {
   MESSAGES = "messages",
   CONVERSATIONS = "conversations"
 }

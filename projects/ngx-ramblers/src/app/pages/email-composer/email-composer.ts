@@ -155,6 +155,7 @@ import { eventsForPurpose } from "../../functions/newsletter-purpose";
 import {
   BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
   COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME,
+  ComposerDrafting,
   ComposerRoleDefaults,
   CreateCampaignRequest,
   ListInfo,
@@ -980,11 +981,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               [notificationConfig]="state.notificationConfig"
               [notificationConfigListing]="state.notificationConfigListing"
               [showBranding]="true"/>
-            @if (draftingOffered()) {
-              <ng-container *ngTemplateOutlet="newsletterStartUi"/>
-            }
-            @if (platformAdminEnabled || releaseNoteUpdateMode()) {
-              <ng-container *ngTemplateOutlet="releaseNoteUpdateStartUi"/>
+            @if (draftingOffered() || platformAdminEnabled || newsletterMode() || releaseNoteUpdateMode()) {
+              <ng-container *ngTemplateOutlet="composerStartUi"/>
             }
           </fieldset>
         }
@@ -1055,79 +1053,70 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       </div>
     </ng-template>
 
-    <ng-template #newsletterStartUi>
+    <ng-template #composerStartUi>
       <div class="mt-3 pt-3 border-top">
         @if (newsletterMode()) {
           <div class="email-composer-validation-summary">
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ newsletterWindowTitle() }}</h5>
             <div>{{ newsletterWindowDescription() }} The period, the events and the drafted intro can all be changed further on.</div>
           </div>
-        } @else {
-          <p class="text-muted small mb-3">Have the coming walks and social events pulled in for you, with an intro drafted from them. Everything stays editable afterwards.</p>
-          <div class="row mb-3">
-            <div class="col-sm-12">
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" id="newsletter-start-period" name="newsletter-start-mode"
-                       [checked]="newsletterStartMode === NewsletterStartMode.PERIOD"
-                       (change)="newsletterStartMode = NewsletterStartMode.PERIOD">
-                <label class="form-check-label" for="newsletter-start-period">Create a newsletter for a period</label>
-              </div>
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" id="newsletter-start-free-text" name="newsletter-start-mode"
-                       [checked]="newsletterStartMode === NewsletterStartMode.FREE_TEXT"
-                       (change)="newsletterStartMode = NewsletterStartMode.FREE_TEXT">
-                <label class="form-check-label" for="newsletter-start-free-text">Create one from free text</label>
-              </div>
-            </div>
-          </div>
-          <div class="row align-items-end">
-            @if (newsletterStartMode === NewsletterStartMode.PERIOD) {
-              <div class="col-sm-6 col-lg-4">
-                <label for="newsletter-start-period-select">Create a newsletter covering:</label>
-                <ng-select id="newsletter-start-period-select"
-                           [items]="newsletterPeriodOptions"
-                           bindLabel="periodLabel"
-                           bindValue="key"
-                           [clearable]="false"
-                           [searchable]="false"
-                           [(ngModel)]="newsletterStartPeriod"/>
-              </div>
-            } @else {
-              <div class="col-sm-8 col-lg-6">
-                <label for="newsletter-free-text">Describe the newsletter you want:</label>
-                <input id="newsletter-free-text" type="text" class="form-control"
-                       placeholder="everything up to the end of September, and mention the coach trip"
-                       [(ngModel)]="newsletterFreeText">
-              </div>
-            }
-            <div class="col-sm-4 mt-3 mt-sm-0">
-              <button type="button" class="btn btn-primary"
-                      [disabled]="creatingNewsletter || !templateStepValid()"
-                      [title]="templateStepValid() ? '' : templateStepValidationMessage()"
-                      (click)="createNewsletter()">
-                <fa-icon [icon]="creatingNewsletter ? faSpinner : faWandMagicSparkles" [spin]="creatingNewsletter" class="me-1"/>
-                {{ creatingNewsletter ? "Creating…" : "Create newsletter" }}
-              </button>
-            </div>
-          </div>
-          @if (!templateStepValid()) {
-            <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
-          }
-        }
-      </div>
-    </ng-template>
-
-    <ng-template #releaseNoteUpdateStartUi>
-      <div class="mt-3 pt-3 border-top">
-        @if (releaseNoteUpdateMode() && !creatingReleaseNoteUpdate) {
+        } @else if (releaseNoteUpdateMode() && !creatingReleaseNoteUpdate) {
           <div class="email-composer-validation-summary">
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ releaseNoteUpdateWindowTitle() }}</h5>
             <div>{{ releaseNoteUpdateWindowDescription() }} The drafted copy stays editable on the Compose step, and nothing is sent until you review it.</div>
           </div>
           <ng-container *ngTemplateOutlet="previousReleaseNoteUpdateUi"/>
         } @else {
-          <p class="text-muted small mb-3">Draft a short update for chairs, webmasters and committee members about what has shipped on NGX since the last one. You review and edit it before anything goes out.</p>
-          <ng-container *ngTemplateOutlet="releaseNoteUpdateSettingsUi; context: {showCreateButton: true}"/>
+          <p class="text-muted small mb-3">{{ startModeHint() }}</p>
+          <div class="row mb-3">
+            <div class="col-sm-12">
+              @for (mode of availableStartModes(); track mode) {
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" [id]="'composer-start-' + mode" name="composer-start-mode"
+                         [checked]="effectiveStartMode() === mode"
+                         (change)="newsletterStartMode = mode">
+                  <label class="form-check-label" [for]="'composer-start-' + mode">{{ startModeLabel(mode) }}</label>
+                </div>
+              }
+            </div>
+          </div>
+          @if (effectiveStartMode() === NewsletterStartMode.UPDATE) {
+            <ng-container *ngTemplateOutlet="releaseNoteUpdateSettingsUi; context: {showCreateButton: true}"/>
+          } @else {
+            <div class="row align-items-end">
+              @if (effectiveStartMode() === NewsletterStartMode.PERIOD) {
+                <div class="col-sm-6 col-lg-4">
+                  <label for="newsletter-start-period-select">Create a newsletter covering:</label>
+                  <ng-select id="newsletter-start-period-select"
+                             [items]="newsletterPeriodOptions"
+                             bindLabel="periodLabel"
+                             bindValue="key"
+                             [clearable]="false"
+                             [searchable]="false"
+                             [(ngModel)]="newsletterStartPeriod"/>
+                </div>
+              } @else {
+                <div class="col-sm-8 col-lg-6">
+                  <label for="newsletter-free-text">Describe the newsletter you want:</label>
+                  <input id="newsletter-free-text" type="text" class="form-control"
+                         placeholder="everything up to the end of September, and mention the coach trip"
+                         [(ngModel)]="newsletterFreeText">
+                </div>
+              }
+              <div class="col-sm-4 mt-3 mt-sm-0">
+                <button type="button" class="btn btn-primary"
+                        [disabled]="creatingNewsletter || !templateStepValid()"
+                        [title]="templateStepValid() ? '' : templateStepValidationMessage()"
+                        (click)="createNewsletter()">
+                  <fa-icon [icon]="creatingNewsletter ? faSpinner : faWandMagicSparkles" [spin]="creatingNewsletter" class="me-1"/>
+                  {{ creatingNewsletter ? "Creating…" : "Create newsletter" }}
+                </button>
+              </div>
+            </div>
+            @if (!templateStepValid()) {
+              <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
+            }
+          }
         }
       </div>
     </ng-template>
@@ -1495,40 +1484,62 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                       <ng-container *ngTemplateOutlet="releaseNoteUpdateComposeUi"/>
                     }
                     @if (newsletterMode()) {
-                      <div class="row mb-2">
-                        <div class="col-sm-6 col-lg-4">
-                          <label for="draft-purpose">What should the intro do?</label>
-                          <ng-select id="draft-purpose"
-                                     [items]="draftPurposeOptions"
-                                     bindLabel="label"
-                                     bindValue="key"
-                                     [clearable]="false"
-                                     [searchable]="false"
-                                     [(ngModel)]="draftPurpose"/>
-                          <div class="text-muted small mt-1">{{ draftPurposeHint() }}</div>
+                      <div class="mb-2">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="composer-offer-drafted-intro"
+                                 [checked]="composerDrafting().offerDraftedIntro"
+                                 (change)="setOfferDraftedIntro($any($event.target).checked)">
+                          <label class="form-check-label" for="composer-offer-drafted-intro">
+                            <strong>Offer a drafted intro</strong> — the coming walks and social events are pulled in for you, with an intro drafted from them. Everything stays editable afterwards.
+                          </label>
                         </div>
-                      </div>
-                      <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
-                        <button type="button" class="btn btn-primary btn-sm"
-                                [disabled]="draftingIntro || selectedGroupEventCount() === 0"
-                                (click)="draftNewsletterIntro()">
-                          <fa-icon [icon]="draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="draftingIntro" class="me-1"/>
-                          {{ draftingIntro ? "Drafting…" : introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
-                        </button>
-                        @if (introDraftUndoAvailable()) {
-                          <button type="button" class="btn btn-sunset btn-sm" (click)="undoDraftedIntro()">
-                            <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
-                          </button>
+                        @if (composerDrafting().offerDraftedIntro) {
+                          <div class="form-check ms-4 mt-1">
+                            <input class="form-check-input" type="checkbox" id="composer-only-approved-walks"
+                                   [checked]="composerDrafting().onlyApprovedWalks"
+                                   (change)="setOnlyApprovedWalks($any($event.target).checked)">
+                            <label class="form-check-label" for="composer-only-approved-walks">
+                              Only include walks that have been approved, so the draft does not mention walks still awaiting their details
+                            </label>
+                          </div>
                         }
-                        @let draftEventCount = eventsForDraftPurpose().length;
-                        <span class="text-muted small">
-                          @if (draftEventCount === 0) {
-                            Nothing on the Events step matches {{ draftPurposeLabel() }} yet.
-                          } @else {
-                            Written from {{ draftEventCount }} of the {{ selectedGroupEventCount() }} selected {{ selectedGroupEventCount() === 1 ? "event" : "events" }}. Read it before you send.
-                          }
-                        </span>
                       </div>
+                      @if (composerDrafting().offerDraftedIntro) {
+                        <div class="row mb-2">
+                          <div class="col-sm-6 col-lg-4">
+                            <label for="draft-purpose">What should the intro do?</label>
+                            <ng-select id="draft-purpose"
+                                       [items]="draftPurposeOptions"
+                                       bindLabel="label"
+                                       bindValue="key"
+                                       [clearable]="false"
+                                       [searchable]="false"
+                                       [(ngModel)]="draftPurpose"/>
+                            <div class="text-muted small mt-1">{{ draftPurposeHint() }}</div>
+                          </div>
+                        </div>
+                        <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
+                          <button type="button" class="btn btn-primary btn-sm"
+                                  [disabled]="draftingIntro || selectedGroupEventCount() === 0"
+                                  (click)="draftNewsletterIntro()">
+                            <fa-icon [icon]="draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="draftingIntro" class="me-1"/>
+                            {{ draftingIntro ? "Drafting…" : introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
+                          </button>
+                          @if (introDraftUndoAvailable()) {
+                            <button type="button" class="btn btn-sunset btn-sm" (click)="undoDraftedIntro()">
+                              <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
+                            </button>
+                          }
+                          @let draftEventCount = eventsForDraftPurpose().length;
+                          <span class="text-muted small">
+                            @if (draftEventCount === 0) {
+                              Nothing on the Events step matches {{ draftPurposeLabel() }} yet.
+                            } @else {
+                              Written from {{ draftEventCount }} of the {{ selectedGroupEventCount() }} selected {{ selectedGroupEventCount() === 1 ? "event" : "events" }}. Read it before you send.
+                            }
+                          </span>
+                        </div>
+                      }
                     }
                     <app-tiptap-markdown-editor #introEditor
                                                 [value]="state.introMarkdown"
@@ -2902,6 +2913,46 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.state.notificationConfig?.composerDrafting?.offerDraftedIntro === true;
   }
 
+  protected availableStartModes(): NewsletterStartMode[] {
+    return [
+      ...(this.draftingOffered() ? [NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT] : []),
+      ...(this.platformAdminEnabled ? [NewsletterStartMode.UPDATE] : [])
+    ];
+  }
+
+  protected effectiveStartMode(): NewsletterStartMode {
+    const available = this.availableStartModes();
+    return available.includes(this.newsletterStartMode) ? this.newsletterStartMode : (available[0] ?? NewsletterStartMode.PERIOD);
+  }
+
+  protected startModeLabel(mode: NewsletterStartMode): string {
+    return mode === NewsletterStartMode.PERIOD ? "Create a newsletter for a period"
+      : mode === NewsletterStartMode.FREE_TEXT ? "Create one from free text"
+        : "Create a platform update";
+  }
+
+  protected startModeHint(): string {
+    return this.effectiveStartMode() === NewsletterStartMode.UPDATE
+      ? "Draft a short update for chairs, webmasters and committee members about what has shipped on NGX since the last one. You review and edit it before anything goes out."
+      : "Have the coming walks and social events pulled in for you, with an intro drafted from them. Everything stays editable afterwards.";
+  }
+
+  protected composerDrafting(): ComposerDrafting {
+    return this.state.notificationConfig?.composerDrafting ?? {offerDraftedIntro: true, onlyApprovedWalks: true};
+  }
+
+  protected setOfferDraftedIntro(offerDraftedIntro: boolean): void {
+    if (this.state.notificationConfig) {
+      this.state.notificationConfig.composerDrafting = {...this.composerDrafting(), offerDraftedIntro};
+    }
+  }
+
+  protected setOnlyApprovedWalks(onlyApprovedWalks: boolean): void {
+    if (this.state.notificationConfig) {
+      this.state.notificationConfig.composerDrafting = {...this.composerDrafting(), onlyApprovedWalks};
+    }
+  }
+
   protected async onNewsletterModeToggled(enabled: boolean): Promise<void> {
     this.state.compositionKind = enabled ? EmailCompositionKind.NEWSLETTER : EmailCompositionKind.STANDARD;
     if (enabled) {
@@ -3101,7 +3152,10 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected eventsForDraftPurpose(): NewsletterIntroEvent[] {
-    return eventsForPurpose(this.newsletterIntroEvents(), this.draftPurpose);
+    const events = this.composerDrafting().onlyApprovedWalks
+      ? this.newsletterIntroEvents().filter(event => !event.awaitingDetails)
+      : this.newsletterIntroEvents();
+    return eventsForPurpose(events, this.draftPurpose);
   }
 
   protected async draftNewsletterIntro(): Promise<void> {
