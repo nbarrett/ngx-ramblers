@@ -104,6 +104,27 @@ describe("jitsiEmbedConfigOverwrite", () => {
     expect(overwrite.subject).toEqual("Committee meeting");
   });
 
+  it("offers Follow Me so a moderator can present a shared screen to everyone", () => {
+    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").followMeEnabled).toEqual(true);
+  });
+
+  it("joins normally with sound by default", () => {
+    const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Meeting");
+    expect(overwrite.startSilent).toEqual(false);
+    expect(overwrite.startWithAudioMuted).toEqual(false);
+  });
+
+  it("joins silent and muted for a companion device in the same room, to stop echo", () => {
+    const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Meeting", false, true);
+    expect(overwrite.startSilent).toEqual(true);
+    expect(overwrite.startWithAudioMuted).toEqual(true);
+  });
+
+  it("lets the toolbar auto-hide on touch devices so it does not sit over faces in landscape", () => {
+    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting", true).toolbarConfig.alwaysVisible).toEqual(false);
+    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting", false).toolbarConfig.alwaysVisible).toEqual(true);
+  });
+
   it("leaves the lobby off unless that setting is on", () => {
     expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").disableLobby).toEqual(true);
     expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").disableLobby).toEqual(false);

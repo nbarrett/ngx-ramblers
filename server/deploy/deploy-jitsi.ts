@@ -9,7 +9,7 @@ import { envConfig } from "../lib/env-config/env-config";
 import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { configuredEnvironments } from "../lib/environments/environments-config";
 import { FlyioMemory, FLYIO_DEFAULTS } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { runCommand } from "../lib/fly/fly-commands";
+import { ensureScale, runCommand } from "../lib/fly/fly-commands";
 import { autoDeployEnvFrom } from "./auto-deploy-target";
 
 const debugLog = debug(envConfig.logNamespace("deploy-jitsi"));
@@ -61,8 +61,7 @@ async function deployJitsi(): Promise<void> {
       });
       runCommand(`flyctl config validate --config ${flyTomlPath} --app ${appName}`);
       runCommand(`flyctl deploy --app ${appName} --config ${flyTomlPath} --strategy immediate --ha=false --wait-timeout 600`);
-      runCommand(`flyctl scale memory ${memory} --app ${appName}`);
-      runCommand(`flyctl scale count 1 --app ${appName} --yes`);
+      await ensureScale(appName, FLYIO_DEFAULTS.SCALE_COUNT, memory);
       debugLog(`Deployed self-hosted Jitsi ${appName} (public ${publicUrl}, media IP ${advertiseIp || "unset"}) - pinned to a single machine`);
     }
   }

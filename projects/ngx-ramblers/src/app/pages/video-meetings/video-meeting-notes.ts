@@ -2,7 +2,7 @@ import { booleanAttribute, ChangeDetectorRef, Component, ElementRef, EventEmitte
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
-import { faPaperPlane, faTrash, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faPaperPlane, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
@@ -29,14 +29,7 @@ import { DraggableModalComponent } from "../../modules/common/draggable-modal/dr
       <div modalBody class="notes-modal-body">
         @if (canUseAi && !guest) {
           <app-thumbnail-heading-frame heading="From the call" [compact]="true">
-            <div class="form-check">
-              <input [(ngModel)]="autoWrite"
-                     type="checkbox" class="form-check-input"
-                     id="auto-meeting-notes"
-                     (ngModelChange)="autoWriteChange($event)">
-              <label class="form-check-label" for="auto-meeting-notes">Automatically capture notes from the call</label>
-            </div>
-            <p class="notes-capture">{{ captureSummary }}</p>
+            <p class="notes-capture">Notes are captured automatically from everyone's voice and the chat while the meeting is on, and written up for you. {{ captureSummary }}</p>
           </app-thumbnail-heading-frame>
         } @else if (!guest && aiChecked && !canUseAi) {
           <app-alert-panel title="Automatic notes are unavailable">
@@ -88,17 +81,6 @@ import { DraggableModalComponent } from "../../modules/common/draggable-modal/dr
         <span modalFooter class="notes-write-status me-auto">{{ writeMessage }}</span>
       }
       <button modalFooter type="button" class="btn btn-quiet" (click)="dismiss.emit()">Close</button>
-      @if (canUseAi && !guest) {
-        <button modalFooter type="button" class="btn btn-primary notes-action" [disabled]="manualWrite || adding"
-                (click)="writeMinutes(false)">
-          @if (manualWrite) {
-            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          } @else {
-            <fa-icon [icon]="faWandMagicSparkles" class="me-2"/>
-          }
-          Automatically capture notes
-        </button>
-      }
     </app-draggable-modal>`
 })
 export class VideoMeetingNotesComponent implements OnInit, OnDestroy {
@@ -156,7 +138,6 @@ export class VideoMeetingNotesComponent implements OnInit, OnDestroy {
 
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faTrash = faTrash;
-  protected readonly faWandMagicSparkles = faWandMagicSparkles;
   protected readonly MeetingNoteSource = MeetingNoteSource;
   protected readonly MeetingNotesWriteOutcome = MeetingNotesWriteOutcome;
   protected readonly alertDanger = AlertPanelVariant.DANGER;
@@ -165,7 +146,7 @@ export class VideoMeetingNotesComponent implements OnInit, OnDestroy {
     const spoken = this.lineCount(this.speech.transcript);
     const chat = this.lineCount(this.speech.chat);
     if (spoken === 0 && chat === 0) {
-      return "The call is not turned into text yet. Use chat or manually add a note, then capture notes from the call.";
+      return "Waiting to hear the conversation. As people talk or use chat, it is captured for you.";
     } else if (spoken > 0 && chat > 0) {
       return `Heard ${this.lineLabel(spoken)} from the call and ${this.lineLabel(chat)} from chat.`;
     } else if (spoken > 0) {
@@ -193,15 +174,6 @@ export class VideoMeetingNotesComponent implements OnInit, OnDestroy {
     this.stopAutoWrite();
     this.capturingPulse = {token: this.capturingPulse.token + 1, until: 0};
     this.capturing.emit(false);
-  }
-
-  autoWriteChange(enabled: boolean): void {
-    this.autoWrite = enabled;
-    if (enabled) {
-      this.startAutoWrite();
-    } else {
-      this.stopAutoWrite();
-    }
   }
 
   private startAutoWrite(): void {

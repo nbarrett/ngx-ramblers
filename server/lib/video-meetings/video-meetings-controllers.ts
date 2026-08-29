@@ -24,6 +24,18 @@ function memberName(member: MemberCookie): string {
   return [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName || "Member";
 }
 
+export function guestDisplayName(name: string, email: string): string {
+  const trimmedName = (name || "").trim();
+  if (trimmedName) {
+    return trimmedName;
+  } else {
+    const localPart = (email || "").trim().split("@")[0];
+    const words = localPart.split(/[._+-]+/).filter(Boolean)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1));
+    return words.join(" ") || "Guest";
+  }
+}
+
 function memberFromRequest(req: Request): MemberCookie {
   return (req as Request & { user?: MemberCookie }).user;
 }
@@ -115,13 +127,14 @@ export async function handleGuestInvite(req: Request, res: Response): Promise<vo
       res.status(400).json({message: "room and email are required"});
     } else {
       const runtime = await resolveVideoMeetingRuntime();
-      const token = runtime.jwtRequired ? issueGuestToken(room, name) : null;
+      const displayName = guestDisplayName(name, email);
+      const token = runtime.jwtRequired ? issueGuestToken(room, displayName) : null;
       const link = await buildGuestLink(room, token);
       const member = memberFromRequest(req);
       const inviter = memberName(member);
       const html = guestInviteHtml(link, inviter, runtime.brandName, runtime.guestInstructions);
       const sender = await senderForMember(member);
-      const sent = await sendGuestInviteEmail(sender, email, name, `You are invited to a ${runtime.brandName} video meeting`, html);
+      const sent = await sendGuestInviteEmail(sender, email, displayName, `You are invited to a ${runtime.brandName} video meeting`, html);
       res.status(200).json({sent, link, room});
     }
   } catch (error) {

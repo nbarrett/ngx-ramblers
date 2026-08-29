@@ -160,6 +160,44 @@ function threadIdString(thread: InboxThread): string {
   return (thread.id ?? (thread as unknown as {_id: {toString(): string}})._id).toString();
 }
 
+function escapeSearchRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function messageSearchOr(rx: {$regex: string; $options: string}): Record<string, unknown>[] {
+  return [
+    {subject: rx},
+    {bodyText: rx},
+    {"from.email": rx},
+    {"from.name": rx},
+    {"to.email": rx},
+    {"to.name": rx},
+    {"cc.email": rx}
+  ];
+}
+
+async function threadSearchFilter(baseFilter: Record<string, unknown>, search: unknown): Promise<Record<string, unknown>> {
+  const term = isString(search) ? escapeSearchRegex(search.trim()) : "";
+  if (!term) {
+    return baseFilter;
+  } else {
+    const rx = {$regex: term, $options: "i"};
+    const matchingThreadIds = await inboxMessageModel.distinct("threadId", {
+      $or: messageSearchOr(rx)
+    });
+    return {
+      ...baseFilter,
+      $or: [
+        {normalisedSubject: rx},
+        {subject: rx},
+        {"externalAddress.name": rx},
+        {"externalAddress.email": rx},
+        {_id: {$in: matchingThreadIds}}
+      ]
+    };
+  }
+}
+
 async function withResolvedDisplayRecipients(threads: InboxThread[]): Promise<InboxThread[]> {
   const backingAddresses = await siteInternalEmails();
   const connections = await inboxMailboxConnectionModel.find({tenantSlug: defaultTenantSlug()}).select("gmailAccountEmail").lean() as {gmailAccountEmail: string | null}[];
@@ -900,7 +938,7 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
         res.status(403).json({request: {messageType}, error: "You do not have access to junk mail"});
       } else {
         const junkMemberId = requestingMemberId(req);
-        const junkFilter = {tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK};
+        const junkFilter = await threadSearchFilter({tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK}, req.query.search);
         const junkListFilter = req.query.unreadOnly === "true"
           ? {...junkFilter, ...unreadConditionForMember(junkMemberId)}
           : junkFilter;
@@ -927,7 +965,11 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
           : allowedRoleTypes;
         const memberId = requestingMemberId(req);
         if (req.query.folder === InboxThreadFolder.SENT) {
-          const outboundMessages = await inboxMessageModel.find({direction: InboxMessageDirection.OUTBOUND, autoReply: {$ne: true}})
+          const sentSearchTermRaw = isString(req.query.search) ? req.query.search.trim() : "";
+          const outboundFilter: Record<string, unknown> = sentSearchTermRaw
+            ? {direction: InboxMessageDirection.OUTBOUND, autoReply: {$ne: true}, $or: messageSearchOr({$regex: escapeSearchRegex(sentSearchTermRaw), $options: "i"})}
+            : {direction: InboxMessageDirection.OUTBOUND, autoReply: {$ne: true}};
+          const outboundMessages = await inboxMessageModel.find(outboundFilter)
             .select("threadId messageId subject to sentAt receivedAt direction").lean();
           const sentThreadIds = Array.from(new Set(outboundMessages.map(message => String(message.threadId))));
           const sentFilter: Record<string, unknown> = {
@@ -948,13 +990,14 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
           };
           res.json({request: {messageType}, response: sentResponse});
         } else {
-          const scopeFilter: Record<string, unknown> = {
+          const roleScopeFilter: Record<string, unknown> = {
             tenantSlug: defaultTenantSlug(),
             roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
             folder: req.query.folder === InboxThreadFolder.DELETED
               ? InboxThreadFolder.DELETED
               : {$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]}
           };
+          const scopeFilter = await threadSearchFilter(roleScopeFilter, req.query.search);
           const filter = req.query.unreadOnly === "true"
             ? {...scopeFilter, ...unreadConditionForMember(memberId)}
             : scopeFilter;
