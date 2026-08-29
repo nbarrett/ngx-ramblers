@@ -15,8 +15,8 @@ primary_region = "lhr"
   internal_port = 80
   force_https = true
   auto_start_machines = true
-  auto_stop_machines = true
-  min_machines_running = 0
+  auto_stop_machines = false
+  min_machines_running = 1
 
 [[services]]
   protocol = "udp"

@@ -6,6 +6,9 @@ import { aiConfigFromEnvironment } from "../ai/ai-config";
 import { generate } from "../ai/ai-generation";
 import { integrationWorkerConfigured, meetingMinutesViaIntegrationWorker } from "../ai/ai-worker-client";
 import { meetingNote } from "../mongo/models/meeting-note";
+import { meetingTranscriptLine } from "../mongo/models/meeting-transcript";
+import { joinTranscriptLines } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
+import { MeetingTranscriptLine } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 import * as transforms from "../mongo/controllers/transforms";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import {
@@ -41,13 +44,13 @@ export async function generateMeetingMinutes(
 
 export async function writeMeetingMinutes(req: Request, res: Response): Promise<void> {
   const room = (req.body?.room || "").trim();
-  const transcript = (req.body?.transcript || "").toString();
+  const requestTranscript = (req.body?.transcript || "").toString();
   const chat = (req.body?.chat || "").toString();
   const ai = aiConfigFromEnvironment();
   debug("writeMeetingMinutes:", {
     room,
     aiEnabled: ai.enabled,
-    transcriptChars: transcript.length,
+    requestTranscriptChars: requestTranscript.length,
     chatChars: chat.length,
     existingNotesChars: (req.body?.existingNotes || "").toString().length
   });
@@ -66,9 +69,13 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
         .join("\n");
       const fromRequest = (req.body?.existingNotes || "").toString();
       const handwritten = fromDatabase.trim() || fromRequest.trim();
+      const pooled = await meetingTranscriptLine.find({room}).sort({at: 1}).lean().exec() as unknown as MeetingTranscriptLine[];
+      const transcript = joinTranscriptLines(pooled).trim() || requestTranscript;
       debug("writeMeetingMinutes: material:", {
         room,
         notesInRoom: existing.length,
+        pooledTranscriptLines: pooled.length,
+        transcriptChars: transcript.length,
         fromDatabaseChars: fromDatabase.length,
         fromRequestChars: fromRequest.length,
         handwrittenChars: handwritten.length

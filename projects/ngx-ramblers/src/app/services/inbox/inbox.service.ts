@@ -140,8 +140,11 @@ export class InboxService {
     return (response.response as { importedCount: number }).importedCount;
   }
 
-  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null, offset: number | null = null): Promise<InboxThreadListResponse> {
+  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null, offset: number | null = null, search: string | null = null): Promise<InboxThreadListResponse> {
     const params: string[] = [];
+    if (search?.trim()) {
+      params.push(`search=${encodeURIComponent(search.trim())}`);
+    }
     if (folder) {
       params.push(`folder=${encodeURIComponent(folder)}`);
     }

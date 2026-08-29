@@ -61,7 +61,7 @@ export function videoMeetingDateSlug(displayDate: string): string {
   return (displayDate || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, subject: string): JitsiEmbedConfigOverwrite {
+export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, subject: string, coarsePointer = false, silent = false): JitsiEmbedConfigOverwrite {
   return {
     prejoinPageEnabled: true,
     prejoinConfig: {
@@ -73,14 +73,16 @@ export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, sub
       autoKnock: !!config.enableLobby,
       enableChat: true
     },
-    startWithAudioMuted: !!config.startWithAudioMuted,
+    startWithAudioMuted: !!config.startWithAudioMuted || silent,
     startWithVideoMuted: !!config.startWithVideoMuted,
+    startSilent: silent,
     disableDeepLinking: true,
     defaultLogoUrl: "",
     toolbarButtons: JITSI_MEETING_TOOLBAR_BUTTONS,
     toolbarConfig: {
-      alwaysVisible: true
+      alwaysVisible: !coarsePointer
     },
+    followMeEnabled: true,
     transcription: {
       enabled: false,
       preferredLanguage: "en-GB",

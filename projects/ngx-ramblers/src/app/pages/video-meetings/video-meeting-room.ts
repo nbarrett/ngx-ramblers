@@ -13,6 +13,7 @@ import {
   faUserPlus,
   faVideo,
   faVolumeHigh,
+  faVolumeXmark,
   faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -28,6 +29,7 @@ import {
   JitsiJoinMode,
   MeetingSpeechCapture,
   MeetingSpeechRecognition,
+  SameRoomDetector,
   VideoMeetingClient,
   VideoMeetingMediaAction,
   VideoMeetingMediaHelp,
@@ -37,6 +39,7 @@ import {
 } from "../../models/video-meeting.model";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
 import { applyJitsiIframeAllow, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode } from "../../functions/video-meeting-join";
+import { createSameRoomDetector } from "../../functions/same-room-detector";
 import {
   activeMeetingRoom,
   clientHintsFromWindow,
@@ -128,6 +131,13 @@ declare const JitsiMeetExternalAPI: any;
                 <button type="button" class="btn btn-primary w-100 meeting-join-action" (click)="joinMeeting()">
                   <fa-icon [icon]="faVideo" class="me-2"/>{{ joinActionLabel }}
                 </button>
+                <button type="button" class="btn btn-quiet w-100 meeting-join-action mt-2" (click)="joinSilent()">
+                  <fa-icon [icon]="faVolumeXmark" class="me-2"/>Join without sound
+                </button>
+                <p class="meeting-same-room-note">
+                  Already in the same room as someone who has joined? Join without sound so the audio stays on one
+                  device in the room. You will still see everyone and can type in chat, without adding to the echo.
+                </p>
               }
               @if (copyStatus) {
                 <p class="meeting-copy-status">{{ copyStatus }}</p>
@@ -143,6 +153,19 @@ declare const JitsiMeetExternalAPI: any;
               <button alertActions type="button" class="btn btn-quiet"
                       (click)="runMediaAction(hearBanner.primaryAction)">
                 {{ hearBanner.primaryLabel }}
+              </button>
+            </app-alert-panel>
+          </div>
+        }
+
+        @if (sameRoomPrompt) {
+          <div class="meeting-help-banner">
+            <app-alert-panel title="Another device in this room?" [icon]="faVolumeXmark" [variant]="alertWarning"
+                             actionsEnd>
+              It sounds like another device in this room is in the call, which is what causes the echo. Silence this
+              device to fix it - the audio stays on the other device, and you can still see everyone and use chat.
+              <button alertActions type="button" class="btn btn-quiet" (click)="dismissSameRoom()">Keep sound</button>
+              <button alertActions type="button" class="btn btn-quiet" (click)="switchToSilent()">Silence this device
               </button>
             </app-alert-panel>
           </div>
@@ -242,6 +265,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   connecting = false;
   connectingMessage = "Preparing your meeting…";
   fullscreen = false;
+  silentJoin = false;
+  sameRoomPrompt = false;
   coverHostBranding = false;
   copyStatus = "";
   phase: VideoMeetingRoomPhase = VideoMeetingRoomPhase.PREPARING;
@@ -267,6 +292,12 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private speechRecognition: MeetingSpeechRecognition | null = null;
   private listenForSpeech = false;
   private captureStartedAt: number | null = null;
+  private sameRoomDetector: SameRoomDetector | null = null;
+  private localDisplayName = "";
+  private pooledTranscript = "";
+  private transcriptUploadBuffer: string[] = [];
+  private transcriptUploadTimer: number | null = null;
+  private transcriptPullTimer: number | null = null;
 
   protected readonly roomPhase = VideoMeetingRoomPhase;
   protected readonly alertWarning = AlertPanelVariant.WARNING;
@@ -281,6 +312,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   protected readonly faCopy = faCopy;
   protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
   protected readonly faVolumeHigh = faVolumeHigh;
+  protected readonly faVolumeXmark = faVolumeXmark;
 
   get inMeeting(): boolean {
     return this.phase === VideoMeetingRoomPhase.IN_MEETING;
@@ -371,6 +403,11 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  joinSilent(): void {
+    this.silentJoin = true;
+    this.joinMeeting();
+  }
+
   private showConnecting(message: string): void {
     this.hideConnecting();
     this.connecting = true;
@@ -430,7 +467,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       width: "100%",
       height: "100%",
       jwt: token || undefined,
-      configOverwrite: jitsiEmbedConfigOverwrite(this.config, this.displayTitle),
+      configOverwrite: jitsiEmbedConfigOverwrite(this.config, this.displayTitle, this.client.coarsePointer, this.silentJoin),
       interfaceConfigOverwrite: {
         SHOW_JITSI_WATERMARK: false,
         SHOW_WATERMARK_FOR_GUESTS: false,
@@ -443,6 +480,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         JITSI_WATERMARK_LINK: "",
         MOBILE_APP_PROMO: false,
         TILE_VIEW_MAX_COLUMNS: 3,
+        AUTO_PIN_LATEST_SCREEN_SHARE: "true",
         DEFAULT_BACKGROUND: "#1a1a1a"
       }
     };
@@ -459,7 +497,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.hideConnecting();
       this.hideHostBranding();
     }));
-    this.api.addEventListener("videoConferenceJoined", () => this.zone.run(() => this.onConferenceJoined()));
+    this.api.addEventListener("videoConferenceJoined", (payload: { displayName?: string }) => this.zone.run(() => this.onConferenceJoined(payload)));
     this.api.addEventListener("videoConferenceLeft", () => this.zone.run(() => this.recoverMeeting()));
     this.api.addEventListener("readyToClose", () => this.zone.run(() => this.recoverMeeting()));
     this.api.addEventListener("audioAvailabilityChanged", (payload: { available?: boolean }) => this.zone.run(() => {
@@ -507,11 +545,12 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.hideHostBranding();
   }
 
-  private async onConferenceJoined(): Promise<void> {
+  private async onConferenceJoined(payload?: { displayName?: string }): Promise<void> {
     this.recovering = false;
     this.hideConnecting();
     this.hideHostBranding();
     this.phase = VideoMeetingRoomPhase.IN_MEETING;
+    this.localDisplayName = (payload?.displayName || "").trim() || this.fallbackDisplayName();
 
     this.refreshParticipantCount();
     try {
@@ -524,6 +563,55 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.refreshMediaHelp();
     this.beginNotesCapture();
     this.startMeetingSpeechCapture();
+    this.startTranscriptPull();
+    void this.startSameRoomDetection();
+  }
+
+  private fallbackDisplayName(): string {
+    if (this.guest) {
+      return "Guest";
+    } else {
+      const member = this.memberLoginService.loggedInMember();
+      return [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName || "Member";
+    }
+  }
+
+  private async startSameRoomDetection(): Promise<void> {
+    this.stopSameRoomDetection();
+    if (!this.silentJoin && !this.client.inAppBrowser) {
+      const detector = createSameRoomDetector(window, {
+        onDetected: () => this.zone.run(() => this.onSameRoomDetected())
+      });
+      const started = await detector.start();
+      if (started) {
+        this.sameRoomDetector = detector;
+      }
+    }
+  }
+
+  private onSameRoomDetected(): void {
+    this.stopSameRoomDetection();
+    this.sameRoomPrompt = true;
+  }
+
+  private stopSameRoomDetection(): void {
+    if (this.sameRoomDetector) {
+      this.sameRoomDetector.stop();
+      this.sameRoomDetector = null;
+    }
+  }
+
+  switchToSilent(): void {
+    this.sameRoomPrompt = false;
+    this.silentJoin = true;
+    this.disposeApi();
+    this.phase = VideoMeetingRoomPhase.JOINING;
+    this.showConnecting("Switching to no sound…");
+    this.mountMeeting(this.token);
+  }
+
+  dismissSameRoom(): void {
+    this.sameRoomPrompt = false;
   }
 
   private refreshParticipantCount(): void {
@@ -674,7 +762,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private refreshSpeechCapture(): void {
     this.speechCapture = {
-      transcript: this.transcriptLines.join("\n"),
+      transcript: this.pooledTranscript.trim() || this.transcriptLines.join("\n"),
       chat: this.chatLines.join("\n"),
       startedAt: this.captureStartedAt
     };
@@ -683,6 +771,55 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private recordTranscript(line: string | null): void {
     this.transcriptLines = appendUniqueLine(this.transcriptLines, line);
     this.refreshSpeechCapture();
+    this.queueTranscriptUpload(line);
+  }
+
+  private queueTranscriptUpload(line: string | null): void {
+    const text = (line || "").trim();
+    if (text) {
+      this.transcriptUploadBuffer = [...this.transcriptUploadBuffer, text];
+      if (this.transcriptUploadTimer === null) {
+        this.transcriptUploadTimer = window.setTimeout(() => this.zone.run(() => this.flushTranscriptUpload()), 2000);
+      }
+    }
+  }
+
+  private flushTranscriptUpload(): void {
+    if (this.transcriptUploadTimer !== null) {
+      window.clearTimeout(this.transcriptUploadTimer);
+      this.transcriptUploadTimer = null;
+    }
+    const pending = this.transcriptUploadBuffer;
+    this.transcriptUploadBuffer = [];
+    if (pending.length && this.room) {
+      void this.videoMeetingsService.appendTranscript(this.room, this.localDisplayName, pending)
+        .catch(error => this.logger.info("could not upload transcript lines", error));
+    }
+  }
+
+  private startTranscriptPull(): void {
+    this.stopTranscriptPull();
+    if (!this.guest && this.notesEnabled) {
+      void this.pullPooledTranscript();
+      this.transcriptPullTimer = window.setInterval(() => this.zone.run(() => this.pullPooledTranscript()), 8000);
+    }
+  }
+
+  private async pullPooledTranscript(): Promise<void> {
+    try {
+      const response = await this.videoMeetingsService.transcriptForRoom(this.room);
+      this.pooledTranscript = response?.transcript || "";
+      this.refreshSpeechCapture();
+    } catch (error) {
+      this.logger.info("could not read pooled transcript", error);
+    }
+  }
+
+  private stopTranscriptPull(): void {
+    if (this.transcriptPullTimer !== null) {
+      window.clearInterval(this.transcriptPullTimer);
+      this.transcriptPullTimer = null;
+    }
   }
 
   private recordChat(line: string | null): void {
@@ -812,6 +949,9 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private disposeApi(): void {
     this.stopMeetingSpeechCapture();
+    this.stopSameRoomDetection();
+    this.stopTranscriptPull();
+    this.flushTranscriptUpload();
     if (this.api) {
       this.api.dispose();
       this.api = undefined;

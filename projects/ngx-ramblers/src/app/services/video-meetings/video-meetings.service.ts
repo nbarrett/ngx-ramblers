@@ -11,6 +11,7 @@ import {
   MeetingMinutesResponse,
   MeetingNote,
   MeetingSpeechCapture,
+  MeetingTranscriptResponse,
   VideoMeetingRuntimeConfig,
   VideoMeetingTokenResponse
 } from "../../models/video-meeting.model";
@@ -75,6 +76,20 @@ export class VideoMeetingsService {
       noteChars: (response?.note?.text || "").length
     });
     return response?.note;
+  }
+
+  async appendTranscript(room: string, authorName: string, lines: string[]): Promise<number> {
+    const response = (room && lines?.length)
+      ? await firstValueFrom(this.http.post<{ saved: number }>(`${this.apiUrl}/transcript`, {room, authorName, lines}))
+      : null;
+    return response?.saved || 0;
+  }
+
+  async transcriptForRoom(room: string): Promise<MeetingTranscriptResponse> {
+    const response = room
+      ? await firstValueFrom(this.http.get<MeetingTranscriptResponse>(`${this.apiUrl}/transcript`, {params: {room}}))
+      : null;
+    return response || {transcript: "", lines: 0};
   }
 
   generateRoomName(label: string, dateSlug: string): string {

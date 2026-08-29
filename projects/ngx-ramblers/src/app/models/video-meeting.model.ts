@@ -159,12 +159,14 @@ export interface JitsiEmbedConfigOverwrite {
   };
   startWithAudioMuted: boolean;
   startWithVideoMuted: boolean;
+  startSilent: boolean;
   disableDeepLinking: boolean;
   defaultLogoUrl: string;
   toolbarButtons: string[];
   toolbarConfig: {
     alwaysVisible: boolean;
   };
+  followMeEnabled: boolean;
   transcription: {
     enabled: boolean;
     preferredLanguage: string;
@@ -264,6 +266,24 @@ export interface MeetingMinutesResponse {
   note: MeetingNote;
 }
 
+export interface MeetingTranscriptLine {
+  room: string;
+  authorName?: string;
+  text: string;
+  at: number;
+}
+
+export interface MeetingTranscriptAppendRequest {
+  room: string;
+  authorName: string;
+  lines: string[];
+}
+
+export interface MeetingTranscriptResponse {
+  transcript: string;
+  lines: number;
+}
+
 export interface JitsiTokenUser {
   id: string;
   name: string;
@@ -284,4 +304,18 @@ export interface VideoMeetingIdentity {
   displayName: string;
   email?: string;
   avatarUrl?: string;
+}
+
+export interface BeaconDetectionOptions {
+  absoluteThresholdDb: number;
+  prominenceDb: number;
+}
+
+export interface SameRoomDetectorOptions {
+  onDetected: () => void;
+}
+
+export interface SameRoomDetector {
+  start(): Promise<boolean>;
+  stop(): void;
 }

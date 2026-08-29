@@ -12,7 +12,7 @@ const MOTION_MS = 320;
   template: `
     @if (shown) {
       <div class="modal fade show d-block draggable-modal" tabindex="-1"
-           [class.minimise-pending]="motion === DraggableModalMotion.IDLE && wantedOpen && !!minimiseTarget"
+           [class.minimise-pending]="expandPending"
            [class.minimise-expanding]="motion === DraggableModalMotion.EXPANDING"
            [class.minimise-collapsing]="motion === DraggableModalMotion.MINIMISING"
            (mousedown)="onBackdropMouseDown($event)">
@@ -59,6 +59,7 @@ export class DraggableModalComponent implements OnDestroy {
   private injector = inject(Injector);
   private motionEnd = {token: 0};
   protected wantedOpen = false;
+  protected expandPending = false;
   private wheelListener = (event: WheelEvent): void => {
     this.containDocumentScroll(event);
   };
@@ -81,6 +82,7 @@ export class DraggableModalComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.wantedOpen = false;
     this.shown = false;
+    this.expandPending = false;
     this.syncPageScrollLock(false);
   }
 
@@ -109,20 +111,26 @@ export class DraggableModalComponent implements OnDestroy {
 
   private playExpand(): void {
     if (this.minimiseTarget) {
+      this.expandPending = true;
       this.motion = DraggableModalMotion.IDLE;
       afterNextRender(() => {
         if (this.wantedOpen && this.shown) {
           this.applyOriginVars();
+          this.expandPending = false;
           this.motion = DraggableModalMotion.EXPANDING;
           this.scheduleMotionEnd();
+        } else {
+          this.expandPending = false;
         }
       }, {injector: this.injector});
     } else {
+      this.expandPending = false;
       this.motion = DraggableModalMotion.IDLE;
     }
   }
 
   private playMinimise(): void {
+    this.expandPending = false;
     if (this.minimiseTarget) {
       this.applyOriginVars();
       this.motion = DraggableModalMotion.MINIMISING;

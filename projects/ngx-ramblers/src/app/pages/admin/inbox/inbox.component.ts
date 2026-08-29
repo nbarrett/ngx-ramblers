@@ -782,13 +782,19 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.conversationSearchTerm = term;
     this.selectedThreadIds.clear();
     this.allAvailableSelected = false;
-    this.invalidateFilteredThreads();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {[StoredValue.SEARCH]: term.trim() || null},
       queryParamsHandling: "merge",
       replaceUrl: true
     });
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+    this.searchDebounceTimer = setTimeout(() => {
+      this.searchDebounceTimer = null;
+      void this.refresh(false);
+    }, 300);
   }
 
   @HostBinding("class.inbox-reading")
@@ -931,6 +937,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   public mobileNavOpen = false;
   public mailboxAlertVisible = true;
   private mailboxAlertTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   public sentFocusMessageId: string | null = null;
   public unreadTotal = 0;
   public unreadByRole = new Map<string, number>();
@@ -1033,6 +1040,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.layoutResizeObserver?.disconnect();
     if (this.mailboxAlertTimer) {
       clearTimeout(this.mailboxAlertTimer);
+    }
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
     }
     if (this.pendingDelete) {
       clearTimeout(this.pendingDelete.timer);
@@ -1304,19 +1314,19 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.mailboxViewInitialised = true;
       }
       if (this.viewingJunk && this.canReadJunk) {
-        const junkResponse = await this.inboxService.listThreads(null, null, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.JUNK);
+        const junkResponse = await this.inboxService.listThreads(null, null, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.JUNK, null, this.conversationSearchTerm);
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = junkResponse.unreadCount;
         this.threadListTotalCount = junkResponse.totalCount;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else if (this.viewingDeleted) {
-        const deletedResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.DELETED);
+        const deletedResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.DELETED, null, this.conversationSearchTerm);
         this.threads = deletedResponse.threads;
         this.threadListUnreadCount = deletedResponse.unreadCount;
         this.threadListTotalCount = deletedResponse.totalCount;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else if (this.viewingSent) {
-        const sentResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.SENT);
+        const sentResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.SENT, null, this.conversationSearchTerm);
         this.threads = sentResponse.threads;
         this.threadListUnreadCount = sentResponse.unreadCount;
         this.threadListTotalCount = sentResponse.totalCount;
@@ -1333,7 +1343,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         const roleType = this.selectedRoleType();
         const scope = roleType ? null : this.selectedMailboxView as InboxViewScope;
-        const listResponse = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD);
+        const listResponse = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, null, null, null, this.conversationSearchTerm);
         this.threads = listResponse.threads;
         this.threadListUnreadCount = listResponse.unreadCount;
         this.threadListTotalCount = listResponse.totalCount;
@@ -1408,7 +1418,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           : this.viewingDeleted
             ? InboxThreadFolder.DELETED
             : null;
-      const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length);
+      const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length, this.conversationSearchTerm);
       this.threads = this.threads.concat(response.threads);
       this.threadListUnreadCount = response.unreadCount;
       this.threadListTotalCount = response.totalCount;
@@ -1590,13 +1600,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.siblingConversationThreads(thread).every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));
   }
 
-  private conversationMatchesTerm(thread: InboxThread, term: string): boolean {
-    return (thread.normalisedSubject ?? "").toLowerCase().includes(term)
-      || (thread.externalAddress?.name ?? "").toLowerCase().includes(term)
-      || (thread.externalAddress?.email ?? "").toLowerCase().includes(term)
-      || (thread.roleType ?? "").toLowerCase().includes(term);
-  }
-
   get conversationCountCaption(): string {
     const shown = this.filteredThreads.length;
     const unreadOnly = this.readFilter === InboxReadFilter.UNREAD;
@@ -1619,13 +1622,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private computeFilteredThreads(): InboxThread[] {
     const representatives = this.conversationRepresentatives(this.threads);
-    const byReadState = representatives.filter(representative =>
+    const matched = representatives.filter(representative =>
       this.readFilter === InboxReadFilter.ALL
       || this.siblingConversationThreads(representative).some(candidate =>
         this.readFilter === InboxReadFilter.UNREAD ? candidate.unread : !candidate.unread));
-    const term = this.conversationSearchTerm?.trim().toLowerCase();
-    const matched = !term ? byReadState : byReadState.filter(representative =>
-      this.siblingConversationThreads(representative).some(candidate => this.conversationMatchesTerm(candidate, term)));
     return matched.sort((left, right) => {
       const leftAt = left.lastSeenAt ?? left.firstSeenAt ?? 0;
       const rightAt = right.lastSeenAt ?? right.firstSeenAt ?? 0;
@@ -1726,7 +1726,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           ? InboxThreadFolder.DELETED
           : null;
     const pageSize = 200;
-    const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, pageSize, folder, this.threads.length);
+    const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, pageSize, folder, this.threads.length, this.conversationSearchTerm);
     this.threads = this.threads.concat(response.threads);
     this.threadListUnreadCount = response.unreadCount;
     this.threadListTotalCount = response.totalCount;

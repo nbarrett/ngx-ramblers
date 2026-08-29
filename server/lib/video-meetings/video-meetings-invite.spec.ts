@@ -1,7 +1,7 @@
 import expect from "expect";
 import sinon from "sinon";
 import { afterEach, beforeEach, describe, it } from "mocha";
-import { handleGuestInvite } from "./video-meetings-controllers";
+import { guestDisplayName, handleGuestInvite } from "./video-meetings-controllers";
 import * as videoMeetingsConfig from "./video-meetings-config";
 import * as guestInviteEmail from "./send-guest-invite-email";
 import * as systemConfigModule from "../config/system-config";
@@ -144,4 +144,21 @@ describe("video-meetings guest invite endpoint", () => {
     expect(res.statusCode).toEqual(500);
     expect(res.body.message).toEqual("Failed to send guest invite");
   });
+});
+
+describe("guestDisplayName", () => {
+
+  it("uses the supplied name when one is given", () => {
+    expect(guestDisplayName("Duncan Reid", "someone@example.org")).toEqual("Duncan Reid");
+  });
+
+  it("derives a readable name from the email when no name is supplied, so guests are not shown as 'guest'", () => {
+    expect(guestDisplayName("", "duncan.reid@example.org")).toEqual("Duncan Reid");
+    expect(guestDisplayName("  ", "lindsay_stewart@example.org")).toEqual("Lindsay Stewart");
+  });
+
+  it("falls back to Guest when there is nothing to work from", () => {
+    expect(guestDisplayName("", "")).toEqual("Guest");
+  });
+
 });
