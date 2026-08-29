@@ -93,7 +93,8 @@ export const DEFAULT_RELEASE_NOTE_UPDATE_PERIOD_UNIT = DateRangeUnit.MONTHS;
 
 export enum NewsletterStartMode {
   PERIOD = "period",
-  FREE_TEXT = "free-text"
+  FREE_TEXT = "free-text",
+  UPDATE = "update"
 }
 
 export interface NewsletterSettings {

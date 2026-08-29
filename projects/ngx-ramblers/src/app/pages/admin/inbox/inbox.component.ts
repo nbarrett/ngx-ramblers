@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faGripLines, faIdBadge, faInbox, faListCheck, faPaperclip, faPaperPlane, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperclip, faPaperPlane, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, uniqBy, values } from "es-toolkit/compat";
@@ -31,7 +31,7 @@ import {
   InboxThreadFolder,
   InboxViewScope,
   InboxMailboxLabelMode,
-  InboxSentViewMode,
+  InboxGroupingMode,
   InboxReadFilter,
   InboxReaderProvider,
   hiddenInboxFolders,
@@ -231,16 +231,23 @@ import { UIDateFormat } from "../../../models/date-format.model";
       }
       <app-inbox-orphaned-threads (remapped)="refresh()"/>
       @if (selectedAlias(); as alias) {
-        <div class="alert alert-success py-2 inbox-alert">
-          <fa-icon [icon]="faEnvelope" class="me-2"/>
-          <strong>Viewing mail for {{aliasHeading(alias)}}</strong>
-          @if (aliasExtraCaption(alias); as extras) {
-            <span class="ms-1">Mail to {{extras}} also appears in this inbox.</span>
-          }
-          @if (!internalInbox && !alias.mailboxConnection?.hasRefreshToken) {
-            <span class="ms-1">This mailbox is not connected yet.</span>
-          }
-        </div>
+        @if (mailboxAlertVisible) {
+          <div class="alert alert-success py-2 inbox-alert d-flex align-items-start">
+            <fa-icon [icon]="faEnvelope" class="me-2 mt-1"/>
+            <div class="flex-grow-1">
+              <strong>Viewing mail for {{aliasHeading(alias)}}</strong>
+              @if (aliasExtraCaption(alias); as extras) {
+                <span class="ms-1">Mail to {{extras}} also appears in this inbox.</span>
+              }
+              @if (!internalInbox && !alias.mailboxConnection?.hasRefreshToken) {
+                <span class="ms-1">This mailbox is not connected yet.</span>
+              }
+            </div>
+            <button class="inbox-nav-toggle flex-shrink-0 ms-2" type="button" aria-label="Dismiss" (click)="dismissMailboxAlert()">
+              <fa-icon [icon]="faXmark"/>
+            </button>
+          </div>
+        }
       }
       <div #inboxShell class="inbox-shell">
         @if (!mobile && !navCollapsed && aliases.length > 0) {
@@ -343,18 +350,16 @@ import { UIDateFormat } from "../../../models/date-format.model";
         @if (!mobile || !mobileShowDetail) {
         <div class="thumbnail-heading-frame-compact inbox-pane" [class.inbox-list-flush]="mobile">
           @if (!mobile) {
-            <div class="thumbnail-heading">{{ viewingSent && sentViewMode === InboxSentViewMode.MESSAGES ? 'Sent messages' : 'Conversations' }}</div>
+            <div class="thumbnail-heading">{{ groupingMode === InboxGroupingMode.MESSAGES ? 'Messages' : 'Conversations' }}</div>
           }
           @if (threadListTotalCount > 0 || conversationSearchTerm) {
             <div class="p-2">
               <div class="d-flex align-items-center gap-2">
-                @if (viewingSent) {
-                  <app-section-toggle small class="inbox-sent-view-mode flex-shrink-0"
-                    [tabs]="sentViewTabs"
-                    [selectedTab]="sentViewMode"
-                    [queryParamKey]="StoredValue.SENT_VIEW"
-                    (selectedTabChange)="onSentViewModeChange($event)"/>
-                }
+                <app-section-toggle small class="inbox-grouping-mode flex-shrink-0"
+                  [tabs]="groupingTabs"
+                  [selectedTab]="groupingMode"
+                  [queryParamKey]="StoredValue.MAIL_GROUPING"
+                  (selectedTabChange)="onGroupingModeChange($event)"/>
                 <div class="input-group input-group-sm flex-grow-1">
                   <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                   <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
@@ -369,13 +374,13 @@ import { UIDateFormat } from "../../../models/date-format.model";
                 </div>
               }
             </div>
-          } @else if (viewingSent) {
+          } @else {
             <div class="p-2">
-              <app-section-toggle small class="inbox-sent-view-mode"
-                [tabs]="sentViewTabs"
-                [selectedTab]="sentViewMode"
-                [queryParamKey]="StoredValue.SENT_VIEW"
-                (selectedTabChange)="onSentViewModeChange($event)"/>
+              <app-section-toggle small class="inbox-grouping-mode"
+                [tabs]="groupingTabs"
+                [selectedTab]="groupingMode"
+                [queryParamKey]="StoredValue.MAIL_GROUPING"
+                (selectedTabChange)="onGroupingModeChange($event)"/>
             </div>
           }
           @if (threads.length > 0) {
@@ -720,15 +725,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
   protected readonly InboxMailboxLabelMode = InboxMailboxLabelMode;
-  protected readonly InboxSentViewMode = InboxSentViewMode;
+  protected readonly InboxGroupingMode = InboxGroupingMode;
   protected readonly StoredValue = StoredValue;
   protected readonly mailboxLabelTabs: SectionToggleTab[] = [
     {value: InboxMailboxLabelMode.ROLE, label: "Role", icon: faIdBadge},
     {value: InboxMailboxLabelMode.PERSON, label: "Person", icon: faUser}
   ];
-  protected readonly sentViewTabs: SectionToggleTab[] = [
-    {value: InboxSentViewMode.MESSAGES, label: "Messages", icon: faPaperPlane},
-    {value: InboxSentViewMode.CONVERSATIONS, label: "Conversations", icon: faInbox}
+  protected readonly groupingTabs: SectionToggleTab[] = [
+    {value: InboxGroupingMode.MESSAGES, label: "Messages", icon: faTableList},
+    {value: InboxGroupingMode.CONVERSATIONS, label: "Conversations", icon: faLayerGroup}
   ];
   protected readonly InboxReadFilter = InboxReadFilter;
   protected readonly InboxThreadFolder = InboxThreadFolder;
@@ -846,6 +851,28 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.roleMailboxChanged();
   }
 
+  showMailboxAlert(): void {
+    this.mailboxAlertVisible = true;
+    if (this.mailboxAlertTimer) {
+      clearTimeout(this.mailboxAlertTimer);
+      this.mailboxAlertTimer = null;
+    }
+    if (this.mobile) {
+      this.mailboxAlertTimer = setTimeout(() => {
+        this.mailboxAlertVisible = false;
+        this.mailboxAlertTimer = null;
+      }, 4000);
+    }
+  }
+
+  dismissMailboxAlert(): void {
+    this.mailboxAlertVisible = false;
+    if (this.mailboxAlertTimer) {
+      clearTimeout(this.mailboxAlertTimer);
+      this.mailboxAlertTimer = null;
+    }
+  }
+
   toggleNavCollapsed(): void {
     this.navCollapsed = !this.navCollapsed;
     if (!isUndefined(window)) {
@@ -896,11 +923,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly SIZE_KEY = "inbox-list-size";
   private static readonly NAV_KEY = "inbox-nav";
   private static readonly NAV_SIZE_KEY = "inbox-nav-size";
+  private static readonly GROUPING_KEY = "inbox-grouping-mode";
   private static readonly DENSITY_KEY = "inbox-list-density";
   public compactList = false;
   public mailboxLabelMode: InboxMailboxLabelMode = InboxMailboxLabelMode.ROLE;
-  public sentViewMode: InboxSentViewMode = InboxSentViewMode.MESSAGES;
+  public groupingMode: InboxGroupingMode = InboxGroupingMode.CONVERSATIONS;
   public mobileNavOpen = false;
+  public mailboxAlertVisible = true;
+  private mailboxAlertTimer: ReturnType<typeof setTimeout> | null = null;
   public sentFocusMessageId: string | null = null;
   public unreadTotal = 0;
   public unreadByRole = new Map<string, number>();
@@ -965,6 +995,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.updateMobile();
     this.restoreLayout();
     await this.refresh();
+    this.showMailboxAlert();
     await this.pushSubscriptionService.refresh();
     await this.webSocketClientService.connect();
     this.subscriptions.push(this.webSocketClientService.receiveMessages<InboxNewMessageEvent>(MessageType.INBOX_NEW_MESSAGE)
@@ -1000,6 +1031,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
     this.layoutResizeObserver?.disconnect();
+    if (this.mailboxAlertTimer) {
+      clearTimeout(this.mailboxAlertTimer);
+    }
     if (this.pendingDelete) {
       clearTimeout(this.pendingDelete.timer);
       void this.commitPendingDelete();
@@ -1227,6 +1261,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const storedSize = Number(window.localStorage.getItem(InboxComponent.SIZE_KEY));
     this.listSize = Number.isFinite(storedSize) && storedSize >= this.minListSize ? storedSize : this.defaultListSize();
     this.navCollapsed = window.localStorage.getItem(InboxComponent.NAV_KEY) === "collapsed";
+    const storedGrouping = window.localStorage.getItem(InboxComponent.GROUPING_KEY);
+    this.groupingMode = values(InboxGroupingMode).includes(storedGrouping as InboxGroupingMode) ? storedGrouping as InboxGroupingMode : InboxGroupingMode.CONVERSATIONS;
     this.compactList = window.localStorage.getItem(InboxComponent.DENSITY_KEY) === "compact";
     const storedNavSize = Number(window.localStorage.getItem(InboxComponent.NAV_SIZE_KEY));
     this.navSize = Number.isFinite(storedNavSize) && storedNavSize >= this.minNavSize ? Math.min(storedNavSize, this.maxNavSize) : this.navSize;
@@ -1406,8 +1442,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mailboxLabelMode = mode;
   }
 
-  onSentViewModeChange(mode: InboxSentViewMode): void {
-    this.sentViewMode = mode;
+  onGroupingModeChange(mode: InboxGroupingMode): void {
+    this.groupingMode = mode;
+    if (!isUndefined(window)) {
+      window.localStorage.setItem(InboxComponent.GROUPING_KEY, mode);
+    }
     this.invalidateFilteredThreads();
   }
 
@@ -1426,6 +1465,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async roleMailboxChanged(): Promise<void> {
+    this.showMailboxAlert();
     this.selectedThread = null;
     this.selectedThreadId = null;
     this.clearSelectedMessages();
@@ -1512,7 +1552,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private conversationRepresentatives(threads: InboxThread[]): InboxThread[] {
-    if (this.viewingSent && this.sentViewMode === InboxSentViewMode.MESSAGES) {
+    if (this.groupingMode === InboxGroupingMode.MESSAGES) {
       return threads;
     } else if (this.viewingSent) {
       const seenKeys = new Set<string>();

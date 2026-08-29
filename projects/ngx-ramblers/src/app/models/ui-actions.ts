@@ -177,7 +177,7 @@ export enum StoredValue {
   SENDER = "sender",
   SENDERS_SCOPE = "senders-scope",
   SENDERS_SEARCH = "senders-search",
-  SENT_VIEW = "sent-view",
+  MAIL_GROUPING = "mail-grouping",
   SENDERS_SORT = "senders-sort",
   SENDERS_SORT_ORDER = "senders-sort-order",
   SESSION = "session",
