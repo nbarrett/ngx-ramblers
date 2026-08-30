@@ -136,13 +136,13 @@ describe("deliveredToFromMessage", () => {
 
   it("picks the matching extra role address from the inbound To list", () => {
     const message = {
-      to: [{name: null, email: "Nick.Barrett@ngx-ramblers.org.uk"}],
+      to: [{name: null, email: "Member.One@ngx-ramblers.org.uk"}],
       cc: []
     } as InboxMessage;
     expect(deliveredToFromMessage(message, {
       roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
       additionalEmails: ["member.one@ngx-ramblers.org.uk"]
-    })?.email).toEqual("Nick.Barrett@ngx-ramblers.org.uk");
+    })?.email).toEqual("Member.One@ngx-ramblers.org.uk");
   });
 
   it("picks a matching extra address from Cc when To is someone else", () => {

@@ -5,6 +5,7 @@ import { firstValueFrom, Observable, Subject } from "rxjs";
 import { isString } from "es-toolkit/compat";
 import { ApiResponse } from "../../models/api-response.model";
 import {
+  AdminPasswordResetResult,
   ApexRedirectResponse,
   CreateEnvironmentResponse,
   CustomDomainEligibilityResponse,
@@ -338,14 +339,7 @@ export class EnvironmentSetupService {
     return response as unknown as { success: boolean; message: string; seededCount?: number; skippedCount?: number };
   }
 
-  async adminPasswordReset(environmentName: string): Promise<{
-    success: boolean;
-    message: string;
-    resetUrl?: string;
-    flyResetUrl?: string;
-    userName?: string;
-    email?: string;
-  }> {
+  async adminPasswordReset(environmentName: string): Promise<AdminPasswordResetResult> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
       this.http.post<ApiResponse>(`${this.BASE_URL}/admin-password-reset/${environmentName}`, {}, this.opts),

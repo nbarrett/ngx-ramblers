@@ -674,6 +674,29 @@ export interface ResumeOptions {
   runFlyDeployment: boolean;
 }
 
+export interface EnvironmentModifyOptions extends ResumeOptions {
+  copyStandardAssets: boolean;
+  setupSubdomain: boolean;
+  includeSamplePages: boolean;
+  includeNotificationConfigs: boolean;
+  authenticateBrevoDomain: boolean;
+}
+
+export interface EnvironmentAppResult {
+  environmentName: string;
+  appName: string;
+  appUrl: string;
+}
+
+export interface AdminPasswordResetResult {
+  success: boolean;
+  message: string;
+  resetUrl?: string;
+  flyResetUrl?: string;
+  userName?: string;
+  email?: string;
+}
+
 export interface EnvironmentResult {
   success: boolean;
   environmentName: string;
@@ -801,6 +824,20 @@ export enum FlyOrgMigrationPhase {
   COMPLETE = "complete"
 }
 
+export interface FlyOrgMigrateForm {
+  oldApiKey: string;
+  oldOrganisation: string;
+  oldAppName: string;
+  newApiKey: string;
+  newOrganisation: string;
+  newAppName: string;
+}
+
+export interface FlyOrgMigrateOptions {
+  destroyOldApp: boolean;
+  reattachSubdomain: boolean;
+}
+
 export interface FlyOrgMigrationStatus {
   environmentName: string;
   phase: FlyOrgMigrationPhase;
@@ -837,6 +874,7 @@ export interface EnvironmentStatus {
   flyAppDeployed: boolean;
   standardAssetsPresent: boolean;
   subdomainConfigured: boolean;
+  subdomainOptional: boolean;
   brevoDomainAuthenticated: boolean;
   hostnameProblemCount: number;
 }
@@ -846,9 +884,45 @@ export enum HostnameHealth {
   REDIRECTING = "redirecting",
   NO_DNS = "no-dns",
   REDIRECT_TARGET_MISSING = "redirect-target-missing",
+  REDIRECT_NOT_PROXIED = "redirect-not-proxied",
+  REDIRECT_PENDING = "redirect-pending",
+  NOT_CREATED = "not-created",
   UNREACHABLE = "unreachable",
   ZONE_NOT_FOUND = "zone-not-found",
   UNKNOWN = "unknown"
+}
+
+export enum HostnameSituationKind {
+  NONE_TO_CHECK = "none-to-check",
+  WRONG_SITE_URL = "wrong-site-url",
+  SITE_NOT_LIVE_SETUP_SUBDOMAIN = "site-not-live-setup-subdomain",
+  SITE_NOT_LIVE_DEPLOY = "site-not-live-deploy",
+  SITE_NOT_LIVE_ATTACH_DOMAIN = "site-not-live-attach-domain",
+  SITE_NOT_LIVE_CHECK_DOMAIN = "site-not-live-check-domain",
+  SITE_NOT_LIVE_EXTERNAL_DNS = "site-not-live-external-dns",
+  LIVE = "live",
+  LIVE_SET_SITE_URL = "live-set-site-url",
+  LIVE_REDIRECT_WAITING = "live-redirect-waiting",
+  LIVE_REDIRECT_BROKEN = "live-redirect-broken",
+  LIVE_REDIRECT_TARGET_MISSING = "live-redirect-target-missing",
+  LIVE_BOTH_SERVING = "live-both-serving",
+  LIVE_REMOVE_SUBDOMAIN = "live-remove-subdomain",
+  LIVE_CHECK_CUSTOM_DOMAIN = "live-check-custom-domain",
+  LIVE_SETUP_PAIR_REDIRECT = "live-setup-pair-redirect"
+}
+
+export enum HostnameSituationAlert {
+  SUCCESS = "alert-success",
+  WARNING = "alert-warning",
+  DANGER = "alert-danger"
+}
+
+export interface HostnameSituation {
+  kind: HostnameSituationKind;
+  title: string;
+  detail: string;
+  action: string | null;
+  alert: HostnameSituationAlert;
 }
 
 export enum HostnameOrigin {
@@ -911,6 +985,9 @@ export const hostnameHealthLabels: Record<HostnameHealth, string> = {
   [HostnameHealth.REDIRECTING]: "Redirecting",
   [HostnameHealth.NO_DNS]: "No DNS record",
   [HostnameHealth.REDIRECT_TARGET_MISSING]: "Redirect missing",
+  [HostnameHealth.REDIRECT_NOT_PROXIED]: "Redirect not live",
+  [HostnameHealth.REDIRECT_PENDING]: "Waiting",
+  [HostnameHealth.NOT_CREATED]: "Not created",
   [HostnameHealth.UNREACHABLE]: "Unreachable",
   [HostnameHealth.ZONE_NOT_FOUND]: "No Cloudflare zone",
   [HostnameHealth.UNKNOWN]: "Unknown"

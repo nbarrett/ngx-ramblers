@@ -4,7 +4,7 @@ import { configuredEnvironments } from "../environments/environments-config";
 import { listDnsRecords, zoneForHostname } from "../cloudflare/cloudflare-dns";
 import { getDynamicRedirectRules } from "../cloudflare/cloudflare-redirect-rules";
 import { apexWwwSibling } from "../cloudflare/hostname-siblings";
-import { CloudflareDnsConfig, CloudflareZone, DnsRecordResult, DynamicRedirectRule } from "../cloudflare/cloudflare.model";
+import { CloudflareDnsConfig, CloudflareZone, DynamicRedirectRule, REDIRECT_PLACEHOLDER_IPV4 } from "../cloudflare/cloudflare.model";
 import { connectToEnvironmentMongo, EnvironmentNotFoundError } from "./environment-context";
 import { dateTimeNowAsValue } from "../shared/dates";
 import {
@@ -16,13 +16,13 @@ import {
   HostnameOrigin,
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { hostnameNeedsAction } from "../../../projects/ngx-ramblers/src/app/functions/hostname-situation";
 import { CustomDomainEntry, EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { dnsProviderFromNameservers, hostFromUrl, ramblersNationalUrl, relatedEnvironmentName } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { nameserversForHostname, publicAddressRecord } from "../shared/dns-nameservers";
 
 const debugLog = debug(envConfig.logNamespace("hostname-health"));
 
-const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";
 const HTTP_PROBE_TIMEOUT_MS = 8000;
 
 enum HttpProbeMethod {
@@ -183,7 +183,13 @@ function redirectTargetFor(hostname: string, rules: DynamicRedirectRule[]): stri
   return target ? target[1] : "";
 }
 
-function classify(hostname: string, records: DnsRecordResult[], redirectRuleTarget: string, httpStatus: number, httpRedirectLocation: string): { health: HostnameHealth; message: string } {
+export function classifyHostnameHealth(
+  hostname: string,
+  records: { type: string; content: string; proxied?: boolean }[],
+  redirectRuleTarget: string,
+  httpStatus: number,
+  httpRedirectLocation: string
+): { health: HostnameHealth; message: string } {
   const primaryRecord = records.find(record => ["A", "AAAA", "CNAME"].includes(record.type));
   if (!primaryRecord) {
     return {
@@ -195,15 +201,25 @@ function classify(hostname: string, records: DnsRecordResult[], redirectRuleTarg
       health: HostnameHealth.REDIRECT_TARGET_MISSING,
       message: `${hostname} points at the redirect placeholder but no redirect rule exists, so every request times out with a 522`
     };
-  } else if (redirectRuleTarget) {
+  } else if (redirectRuleTarget && !primaryRecord.proxied && (httpStatus < 200 || httpStatus >= 400)) {
+    return {
+      health: HostnameHealth.REDIRECT_NOT_PROXIED,
+      message: `Visitors cannot reach this address. It should send them to https://${redirectRuleTarget}.`
+    };
+  } else if (redirectRuleTarget && primaryRecord.proxied && httpStatus >= 300 && httpStatus < 400) {
     return {
       health: HostnameHealth.REDIRECTING,
       message: `Redirects to https://${redirectRuleTarget} via a Cloudflare rule`
     };
+  } else if (redirectRuleTarget && primaryRecord.proxied && httpStatus === 0) {
+    return {
+      health: HostnameHealth.REDIRECT_PENDING,
+      message: `Set to send visitors to https://${redirectRuleTarget}. Cloudflare has not finished HTTPS yet.`
+    };
   } else if (httpStatus >= 300 && httpStatus < 400 && httpRedirectLocation) {
     return {
       health: HostnameHealth.REDIRECTING,
-      message: `Redirects to ${httpRedirectLocation} — sent by the site itself, not a Cloudflare rule, so nothing needs setting up here`
+      message: `Redirects to ${httpRedirectLocation} (sent by the site itself, not a Cloudflare rule, so nothing needs setting up here)`
     };
   } else if (httpStatus >= 200 && httpStatus < 400) {
     return {
@@ -287,7 +303,7 @@ async function statusFor(
     const records = await listDnsRecords(cloudflareConfig, hostname);
     const redirectRuleTarget = redirectTargetFor(hostname, rules);
     const { httpStatus, httpRedirectLocation } = await probeHttp(hostname);
-    const { health, message } = classify(hostname, records, redirectRuleTarget, httpStatus, httpRedirectLocation);
+    const { health, message } = classifyHostnameHealth(hostname, records, redirectRuleTarget, httpStatus, httpRedirectLocation);
     const primaryRecord = records.find(record => ["A", "AAAA", "CNAME"].includes(record.type));
     return withDnsProvider({
       hostname,
@@ -380,17 +396,67 @@ export async function environmentHostnameHealth(environmentName: string): Promis
     const targetStatuses = targetSettled
       .filter((result): result is PromiseFulfilledResult<HostnameStatus> => result.status === "fulfilled")
       .map(result => result.value);
-    const hostnames = annotateNationalSiteUrl(validateRedirectTargets([...checked, ...targetStatuses]));
+    const hostnames = annotateOptionalPairHost(annotateOptionalEnvironmentSubdomain(annotateNationalSiteUrl(validateRedirectTargets([...checked, ...targetStatuses]))));
 
     return {
       environmentName,
       siteUrl: siteHostname,
       relatedGroupSiteUrl,
       hostnames,
-      problemCount: hostnames.filter(hostname => !hostname.healthy).length,
+      problemCount: hostnames.filter(hostnameNeedsAction).length,
       checkedAt: dateTimeNowAsValue()
     };
   }
+}
+
+const neverCreatedStates = [HostnameHealth.NO_DNS, HostnameHealth.ZONE_NOT_FOUND];
+
+export function annotateOptionalPairHost(hostnames: HostnameStatus[]): HostnameStatus[] {
+  const siteServed = hostnames.some(hostname =>
+    hostname.healthy && hostname.health === HostnameHealth.SERVING);
+  return hostnames.map(status => {
+    if (status.origin !== HostnameOrigin.SIBLING) {
+      return status;
+    } else if (!siteServed) {
+      return status;
+    } else if (status.healthy) {
+      return status;
+    } else if (!neverCreatedStates.includes(status.health)) {
+      return status;
+    } else {
+      return {
+        ...status,
+        health: HostnameHealth.NOT_CREATED,
+        healthy: true,
+        message: "Not created. Optional: the site is already served on another address."
+      };
+    }
+  });
+}
+
+export function annotateOptionalEnvironmentSubdomain(hostnames: HostnameStatus[]): HostnameStatus[] {
+  const siteServedElsewhere = hostnames.some(hostname =>
+    hostname.healthy
+    && hostname.health === HostnameHealth.SERVING
+    && hostname.origin !== HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
+  return hostnames.map(status => {
+    if (status.origin !== HostnameOrigin.ENVIRONMENT_SUBDOMAIN) {
+      return status;
+    } else if (status.healthy) {
+      return status;
+    } else if (!siteServedElsewhere) {
+      return status;
+    } else if (!neverCreatedStates.includes(status.health)) {
+      return status;
+    } else {
+      return {
+        ...status,
+        health: HostnameHealth.NOT_CREATED,
+        healthy: true,
+        message: "Not created. Optional: the site is already served on another address."
+      };
+    }
+  });
 }
 
 function annotateNationalSiteUrl(hostnames: HostnameStatus[]): HostnameStatus[] {

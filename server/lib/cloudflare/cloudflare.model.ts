@@ -27,6 +27,16 @@ export enum DnsRecordType {
   MX = "MX",
 }
 
+export const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";
+
+export enum RedirectPlaceholderPlan {
+  LEAVE_PROXIED_CNAME = "leave-proxied-cname",
+  REPLACE_DNS_ONLY_CNAME = "replace-dns-only-cname",
+  CREATE_PLACEHOLDER = "create-placeholder",
+  LEAVE_PROXIED_A = "leave-proxied-a",
+  PROXY_EXISTING_A = "proxy-existing-a"
+}
+
 export interface DnsRecord {
   type: DnsRecordType;
   name: string;
