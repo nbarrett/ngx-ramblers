@@ -141,9 +141,9 @@ Use this guide to assign the right privileges.
     it("should detect images in real-world Eden Valley markdown", () => {
       const markdown = `Eden Valley Walk
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/hever01.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/hever01.jpg)
 
 Hever Castle`;
 

@@ -164,8 +164,8 @@ describe("backup-paths", () => {
     });
 
     it("extracts multi-segment environment when dbName hint supplied", () => {
-      const result = extractSourceEnvironmentFromBackupName("2026-04-11-00-00-00-berkshire-weekend-walkers-ngx-ramblers", "ngx-ramblers");
-      expect(result).toEqual("berkshire-weekend-walkers");
+      const result = extractSourceEnvironmentFromBackupName("2026-04-11-00-00-00-group-one-walkers-ngx-ramblers", "ngx-ramblers");
+      expect(result).toEqual("group-one-walkers");
     });
 
     it("falls back to last-dash split when no dbName hint", () => {

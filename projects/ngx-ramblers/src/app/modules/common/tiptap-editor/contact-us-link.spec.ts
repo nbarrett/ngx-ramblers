@@ -39,7 +39,7 @@ describe("contact-us-link", () => {
       role: "treasurer",
       redirect: "contact-us"
     });
-    expect(parseContactUsHref("https://www.ekwg.co.uk/?contact-us&role=chairman&redirect=home")).toEqual({
+    expect(parseContactUsHref("https://www.example.co.uk/?contact-us&role=chairman&redirect=home")).toEqual({
       role: "chairman",
       redirect: "home"
     });

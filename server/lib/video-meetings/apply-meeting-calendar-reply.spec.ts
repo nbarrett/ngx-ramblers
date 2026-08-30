@@ -13,7 +13,7 @@ function replyIcs(status: string): string {
     "BEGIN:VCALENDAR",
     "METHOD:REPLY",
     "BEGIN:VEVENT",
-    `UID:meeting-${MEETING_ID}@ekwg.co.uk`,
+    `UID:meeting-${MEETING_ID}@example.co.uk`,
     `ATTENDEE;CN=Jordan Guest;PARTSTAT=${status}:mailto:guest@example.com`,
     "END:VEVENT",
     "END:VCALENDAR"
@@ -29,7 +29,7 @@ function message(): InboxMessage {
     inReplyTo: null,
     references: [],
     from: {email: "guest@example.com", name: "Jordan Guest"},
-    to: [{email: "secretary@ekwg.co.uk", name: "Secretary"}],
+    to: [{email: "secretary@example.co.uk", name: "Secretary"}],
     cc: [],
     subject: "Accepted: Committee meeting",
     bodyHtml: null,

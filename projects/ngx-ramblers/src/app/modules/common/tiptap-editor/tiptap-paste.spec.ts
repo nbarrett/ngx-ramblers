@@ -49,7 +49,7 @@ describe("stripIncompatibleTextMarks", () => {
 describe("htmlHasRichFormatting", () => {
 
   it("detects links so rich text paste keeps them", () => {
-    expect(htmlHasRichFormatting("<p>See <a href=\"https://www.ekwg.co.uk/\">here</a> for details</p>")).toBe(true);
+    expect(htmlHasRichFormatting("<p>See <a href=\"https://www.example.co.uk/\">here</a> for details</p>")).toBe(true);
   });
 
   it("detects bold, italic, headings, lists, quotes and images", () => {
@@ -76,8 +76,8 @@ describe("htmlHasRichFormatting", () => {
 describe("sanitiseHtmlForPaste", () => {
 
   it("keeps href when stripping presentation attributes", () => {
-    const sanitised = sanitiseHtmlForPaste("<a href=\"https://kent.ngx-ramblers.org.uk/\" style=\"color:red\" width=\"40\">Kent</a>");
-    expect(sanitised).toContain("href=\"https://kent.ngx-ramblers.org.uk/\"");
+    const sanitised = sanitiseHtmlForPaste("<a href=\"https://group.ngx-ramblers.org.uk/\" style=\"color:red\" width=\"40\">Kent</a>");
+    expect(sanitised).toContain("href=\"https://group.ngx-ramblers.org.uk/\"");
     expect(sanitised).not.toContain("style");
     expect(sanitised).not.toContain("width");
   });

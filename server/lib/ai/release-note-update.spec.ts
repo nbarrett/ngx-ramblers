@@ -135,14 +135,14 @@ describe("release-note-update", () => {
 
   describe("buildReleaseNoteUpdateInput", () => {
     it("says when the window is empty", () => {
-      const input = buildReleaseNoteUpdateInput([], "1 August to 16 August 2026", "East Kent", null, defaultReleaseNoteUpdateDefaults());
+      const input = buildReleaseNoteUpdateInput([], "1 August to 16 August 2026", "Example Group", null, defaultReleaseNoteUpdateDefaults());
       expect(input).toContain("Curated release notes in the period: 0");
       expect(input).toContain("There are no curated release notes in this period.");
     });
 
     it("lists candidates and sender guidance", () => {
-      const input = buildReleaseNoteUpdateInput([candidate()], "1 August to 16 August 2026", "East Kent", "Keep it short", defaultReleaseNoteUpdateDefaults());
-      expect(input).toContain("Group: East Kent");
+      const input = buildReleaseNoteUpdateInput([candidate()], "1 August to 16 August 2026", "Example Group", "Keep it short", defaultReleaseNoteUpdateDefaults());
+      expect(input).toContain("Group: Example Group");
       expect(input).toContain("Guidance from the sender: Keep it short");
       expect(input).toContain("Release note id 1:");
       expect(input).not.toContain(candidate().path);

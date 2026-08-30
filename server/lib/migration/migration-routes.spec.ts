@@ -69,7 +69,7 @@ describe("HTML to Markdown Conversion", () => {
     });
 
     it("should convert navigation link 'Home' to markdown link", () => {
-      expect(markdown).toMatch(/\[Home\]\(http:\/\/www\.kentramblers\.org\.uk\)/);
+      expect(markdown).toMatch(/\[Home\]\(http:\/\/www\.archive\.example\.org\.uk\)/);
     });
 
     it("should convert navigation link 'News' to markdown link", () => {
@@ -81,7 +81,7 @@ describe("HTML to Markdown Conversion", () => {
     });
 
     it("should convert email link to markdown link", () => {
-      expect(markdown).toMatch(/\[info@kentramblers\.org\.uk\]\(mailto:info@kentramblers\.org\.uk\)/);
+      expect(markdown).toMatch(/\[info@archive\.example\.org\.uk\]\(mailto:info@archive\.example\.org\.uk\)/);
     });
 
     it("should convert 'join us' link to markdown link", () => {

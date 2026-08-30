@@ -26,15 +26,15 @@ describe("classifyTransactionalOrigin", () => {
 
   it("treats login and committee subjects as composer sends without inbox reply evidence", () => {
     expect(classifyTransactionalOrigin({
-      subject: "Finchley & Hornsey Group - Your NGX-Ramblers Login - Nick Barrett",
+      subject: "Example Group - Your NGX-Ramblers Login - Member One",
       hasInboxOutbound: false
     })).toBe(TransactionalEmailOrigin.COMPOSER);
     expect(classifyTransactionalOrigin({
-      subject: "Finchley & Hornsey Group - Follow on from demo & Your NGX-Ramblers Login - Justin Lumley",
+      subject: "Example Group - Follow on from demo & Your NGX-Ramblers Login - Member Two",
       hasInboxOutbound: false
     })).toBe(TransactionalEmailOrigin.COMPOSER);
     expect(isSystemSubject(
-      "Finchley & Hornsey Group - Your NGX-Ramblers Login - Nick Barrett"
+      "Example Group - Your NGX-Ramblers Login - Member One"
     )).toBe(false);
   });
 

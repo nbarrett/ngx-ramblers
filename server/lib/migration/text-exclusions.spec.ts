@@ -73,16 +73,16 @@ describe("text-exclusions.pattern removal", () => {
 describe("text-exclusions.images", () => {
   it("removeExcludedImages removes bare and link-wrapped", () => {
     const ex = [
-      "https://www.kentramblers.org.uk/banners/autumn_oasts.jpg",
-      "https://www.kentramblers.org.uk/Books/images/trvwwk_cover_front.jpg"
+      "https://www.archive.example.org.uk/banners/autumn_oasts.jpg",
+      "https://www.archive.example.org.uk/Books/images/trvwwk_cover_front.jpg"
     ];
     const input = [
-      "![banner](https://www.kentramblers.org.uk/banners/autumn_oasts.jpg)",
-      "[![](https://www.kentramblers.org.uk/Books/images/trvwwk_cover_front.jpg)](../../Books/index.htm)",
-      "![keep](https://www.kentramblers.org.uk/KentWalks/DVP/images/route.gif)"
+      "![banner](https://www.archive.example.org.uk/banners/autumn_oasts.jpg)",
+      "[![](https://www.archive.example.org.uk/Books/images/trvwwk_cover_front.jpg)](../../Books/index.htm)",
+      "![keep](https://www.archive.example.org.uk/KentWalks/DVP/images/route.gif)"
     ].join("\n\n");
     const out = removeExcludedImages(input, ex);
-    expect(collapseExcessBlankLines(out)).toEqual("\n\n![keep](https://www.kentramblers.org.uk/KentWalks/DVP/images/route.gif)");
+    expect(collapseExcessBlankLines(out)).toEqual("\n\n![keep](https://www.archive.example.org.uk/KentWalks/DVP/images/route.gif)");
   });
 });
 
@@ -99,15 +99,15 @@ describe("text-exclusions.applyTextExclusions", () => {
       "",
       "[Path Problems](../../path_problems/index.htm)",
       "",
-      "![](https://www.kentramblers.org.uk/banners/autumn_oasts.jpg)",
+      "![](https://www.archive.example.org.uk/banners/autumn_oasts.jpg)",
       "",
-      "![](https://www.kentramblers.org.uk/KentWalks/DVP/images/route.gif)",
+      "![](https://www.archive.example.org.uk/KentWalks/DVP/images/route.gif)",
       "",
       "The Darent Valley Path starts alternatively at Sevenoaks Station or Chipstead."
     ].join("\n");
     const out = applyTextExclusions(input, {
       excludeImageUrls: [
-        "https://www.kentramblers.org.uk/banners/autumn_oasts.jpg"
+        "https://www.archive.example.org.uk/banners/autumn_oasts.jpg"
       ]
     });
     expect(out.includes("Path Problems")).toBeFalsy();
@@ -223,7 +223,7 @@ describe("text-exclusions.firstSentenceFrom", () => {
       "",
       "Elham Valley Way",
       "",
-      "![](https://www.kentramblers.org.uk/KentWalks/EVW/images/EVW_banner.jpg)",
+      "![](https://www.archive.example.org.uk/KentWalks/EVW/images/EVW_banner.jpg)",
       "",
       "Step out and explore the Kent countryside by following one of the most popular of the county's recreation routes.",
       "More text."

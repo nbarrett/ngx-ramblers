@@ -39,7 +39,7 @@ import {
 import { configuredBrevo } from "../../brevo/brevo-config";
 import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
 import { findDomainByName } from "../../brevo/domains/domain-management";
-import { hostnameHealth } from "../hostname-health-controllers";
+import { hostnameHealth, probeCustomDomain } from "../hostname-health-controllers";
 import { environmentHostnameHealth, updateEnvironmentSiteUrl } from "../hostname-health";
 import { appIpAddresses, queryCertificates } from "../../fly/fly-certificates";
 import { probeFlyOrgMigrationStatus } from "../../fly/fly-org-migration";
@@ -425,29 +425,24 @@ router.get("/environment-details/:environmentName", async (req: Request, res: Re
     const { envConfigData, secrets } = await loadEnvironmentContext(environmentName);
     const brevoConfig = await configuredBrevo();
 
-    let ramblersInfoFromDb: { areaCode?: string; areaName?: string; groupCode?: string; groupName?: string } = {};
-    const needsRamblersInfoFallback = !secrets.secrets.RAMBLERS_GROUP_CODE
-      || !secrets.secrets.RAMBLERS_GROUP_NAME
-      || !secrets.secrets.RAMBLERS_AREA_CODE
-      || !secrets.secrets.RAMBLERS_AREA_NAME;
-    if (needsRamblersInfoFallback) {
+    let ramblersInfoFromDb: { areaCode?: string; areaName?: string; groupCode?: string; groupName?: string; siteHref?: string } = {};
+    try {
+      const { client, db } = await connectToEnvironmentMongo(envConfigData);
       try {
-        const { client, db } = await connectToEnvironmentMongo(envConfigData);
-        try {
-          const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
-          const systemConfig: any = systemConfigDoc?.value;
-          ramblersInfoFromDb = {
-            groupCode: systemConfig?.group?.groupCode,
-            groupName: systemConfig?.group?.longName,
-            areaCode: systemConfig?.area?.shortName,
-            areaName: systemConfig?.area?.longName
-          };
-        } finally {
-          await client.close();
-        }
-      } catch (error) {
-        debugLog("Could not load Ramblers info from source DB systemConfig:", error.message);
+        const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
+        const systemConfig: any = systemConfigDoc?.value;
+        ramblersInfoFromDb = {
+          groupCode: systemConfig?.group?.groupCode,
+          groupName: systemConfig?.group?.longName,
+          areaCode: systemConfig?.area?.shortName,
+          areaName: systemConfig?.area?.longName,
+          siteHref: systemConfig?.group?.href || ""
+        };
+      } finally {
+        await client.close();
       }
+    } catch (error) {
+      debugLog("Could not load Ramblers info from source DB systemConfig:", error.message);
     }
 
     const details = {
@@ -490,7 +485,8 @@ router.get("/environment-details/:environmentName", async (req: Request, res: Re
         areaName: secrets.secrets.RAMBLERS_AREA_NAME || ramblersInfoFromDb.areaName || "",
         groupCode: secrets.secrets.RAMBLERS_GROUP_CODE || ramblersInfoFromDb.groupCode || "",
         groupName: secrets.secrets.RAMBLERS_GROUP_NAME || ramblersInfoFromDb.groupName || ""
-      }
+      },
+      siteHref: ramblersInfoFromDb.siteHref || ""
     };
 
     debugLog("Returning environment details for:", environmentName);
@@ -977,6 +973,8 @@ router.post("/remove-subdomain/:environmentName", async (req: Request, res: Resp
   }
 });
 
+router.post("/probe-custom-domain/:environmentName", requireSetupAccess, probeCustomDomain);
+
 router.post("/add-custom-domain/:environmentName", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
@@ -992,10 +990,13 @@ router.post("/add-custom-domain/:environmentName", async (req: Request, res: Res
 
     await loadEnvironmentContext(environmentName);
     const result = await addCustomDomainForEnvironment(environmentName, hostname);
+    const pendingMessage = result.entry?.message;
 
     res.json({
       success: true,
-      message: `Custom domain ${result.hostname} attached`,
+      message: pendingMessage
+        ? `Custom domain ${result.hostname}: ${pendingMessage}`
+        : `Custom domain ${result.hostname} attached`,
       hostname: result.hostname,
       entry: result.entry,
       logs: result.logs

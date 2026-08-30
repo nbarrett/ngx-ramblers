@@ -10,6 +10,12 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import {
   CloneType,
   createEmptySetupRequest,
+  defaultFullDuplicateEnvironmentName,
+  ENVIRONMENT_SUBDOMAIN_BASE,
+  environmentSubdomainHostname,
+  flySafeResourceName,
+  isFullDuplicate,
+  SandboxHostnameMode,
   EnvironmentDefaults,
   EnvironmentSetupRequest,
   EnvironmentSetupResult,
@@ -24,7 +30,7 @@ import {
   SetupWarning,
   ValidationResult
 } from "../../../models/environment-setup.model";
-import { FlyioMemory } from "../../../models/environment-config.model";
+import { FLYIO_DEFAULTS, FlyioMemory } from "../../../models/environment-config.model";
 import { enumKeyValues } from "../../../functions/enums";
 import { StoredValue } from "../../../models/ui-actions";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -278,19 +284,130 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                         }
                                       }
                                       @if (cloneType === CloneType.FULL_DUPLICATE) {
-                                        <div class="alert alert-success mb-3">
-                                          <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                                          Full duplicate of <strong>{{ cloneSourceEnv.name }}</strong>.
-                                          All configuration, database content and assets will be copied to the new environment.
-                                          Set a new environment name, database and admin user in the following steps.
+                                        <div class="thumbnail-heading-frame mb-3">
+                                          <div class="thumbnail-heading">Hostname</div>
+                                          <p class="text-muted">One action copies the database, deploys Fly and creates Cloudflare DNS for the hostname you pick.</p>
+                                          <div class="form-check mb-3">
+                                            <input class="form-check-input" type="radio" name="sandboxHostnameMode"
+                                                   id="hostnameGroupDomain"
+                                                   [checked]="sandboxHostnameMode === SandboxHostnameMode.GROUP_DOMAIN"
+                                                   [disabled]="!groupDomainHostname"
+                                                   (change)="setSandboxHostnameMode(SandboxHostnameMode.GROUP_DOMAIN)">
+                                            <label class="form-check-label" for="hostnameGroupDomain">
+                                              <strong>Staging on the live site's domain</strong>
+                                              @if (groupDomainHostname) {
+                                                <div class="small">{{ groupDomainHostname }}</div>
+                                                <div class="small text-muted">A staging host on the group's own website domain. This is the usual sandbox to send to a committee.</div>
+                                              } @else {
+                                                <div class="small text-muted">The source site has no website address, so this option is unavailable.</div>
+                                              }
+                                            </label>
+                                          </div>
+                                          <div class="form-check mb-3">
+                                            <input class="form-check-input" type="radio" name="sandboxHostnameMode"
+                                                   id="hostnameStaging"
+                                                   [checked]="sandboxHostnameMode === SandboxHostnameMode.STAGING_PREFIX"
+                                                   (change)="setSandboxHostnameMode(SandboxHostnameMode.STAGING_PREFIX)">
+                                            <label class="form-check-label" for="hostnameStaging">
+                                              <strong>Staging on {{ subdomainBase }}</strong>
+                                              <div class="small">{{ stagingHostname }}</div>
+                                              <div class="small text-muted">A platform hostname, not the group's own domain.</div>
+                                            </label>
+                                          </div>
+                                          <div class="form-check mb-3">
+                                            <input class="form-check-input" type="radio" name="sandboxHostnameMode"
+                                                   id="hostnameCustom"
+                                                   [checked]="sandboxHostnameMode === SandboxHostnameMode.CUSTOM_NAME"
+                                                   (change)="setSandboxHostnameMode(SandboxHostnameMode.CUSTOM_NAME)">
+                                            <label class="form-check-label" for="hostnameCustom">
+                                              <strong>Another name on {{ subdomainBase }}</strong>
+                                              <div class="small text-muted">Same create (database, Fly, Cloudflare) under a platform name you choose.</div>
+                                            </label>
+                                          </div>
+                                          @if (sandboxHostnameMode === SandboxHostnameMode.CUSTOM_NAME) {
+                                            <div class="row mb-3">
+                                              <div class="col-md-8">
+                                                <label for="custom-sandbox-name">Environment name</label>
+                                                <div class="input-group">
+                                                  <input id="custom-sandbox-name" class="form-control"
+                                                         [(ngModel)]="customSandboxName"
+                                                         (ngModelChange)="onCustomSandboxNameChange($event)"
+                                                         [placeholder]="'e.g. ' + customSandboxNameExample">
+                                                  <span class="input-group-text">.{{ subdomainBase }}</span>
+                                                </div>
+                                                <small class="form-text text-muted">Will be {{ sandboxHostname }}</small>
+                                              </div>
+                                            </div>
+                                          }
+                                          <div class="form-check mb-3">
+                                            <input [(ngModel)]="request.options.copySourceBucket"
+                                                   type="checkbox" class="form-check-input" id="copy-source-bucket-sandbox">
+                                            <label class="form-check-label" for="copy-source-bucket-sandbox">
+                                              Copy files into a new S3 bucket (default is to share the live bucket)
+                                            </label>
+                                          </div>
+                                          <div class="row mb-3">
+                                            <div class="col-md-8">
+                                              <label for="sandbox-flyio-token">Fly token for this sandbox</label>
+                                              <app-secret-input [(ngModel)]="request.serviceConfigs.flyio.personalAccessToken"
+                                                                id="sandbox-flyio-token"
+                                                                placeholder="Token for the Fly account that should host the sandbox">
+                                              </app-secret-input>
+                                              <small class="form-text text-muted">
+                                                Use a different Fly account from the live site. Reusing the live token puts a second machine on that account and a free plan will start billing.
+                                                Create a token at
+                                                <a href="https://fly.io/user/personal_access_tokens" target="_blank" rel="noopener">fly.io/user/personal_access_tokens</a>.
+                                              </small>
+                                            </div>
+                                          </div>
+                                          <div class="row mb-3">
+                                            <div class="col-md-6">
+                                              <label for="sandbox-fly-org">Fly organisation</label>
+                                              <input id="sandbox-fly-org" class="form-control"
+                                                     [(ngModel)]="request.environmentBasics.organisation"
+                                                     placeholder="personal">
+                                              <small class="form-text text-muted">Organisation slug on the account that owns the token above. Use personal if there isn't one.</small>
+                                            </div>
+                                          </div>
+                                          <div class="alert alert-warning d-flex align-items-start mb-0">
+                                            <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
+                                            <div>
+                                              <strong>This copy cannot act as the live site.</strong>
+                                              Mail, Walks Manager publish and inbox connections are disconnected. Members keep their existing passwords.
+                                            </div>
+                                          </div>
                                         </div>
+                                        @if (validationResults.length > 0) {
+                                          <div class="alert mt-3"
+                                               [ngClass]="allValid ? 'alert-success' : 'alert-danger'">
+                                            <strong>{{ allValid ? "Ready to create" : "Needs attention" }}</strong>
+                                            <ul class="mb-0 mt-2">
+                                              @for (result of validationResults; track result.message) {
+                                                <li [ngClass]="result.valid ? 'text-success' : 'text-danger'">
+                                                  {{ result.message }}
+                                                </li>
+                                              }
+                                            </ul>
+                                          </div>
+                                        }
                                       }
                                     }
                                     <div class="stepper-nav">
                                       <button type="button" class="btn btn-quiet" (click)="cancel()">Cancel</button>
-                                      <button type="button" class="btn btn-primary" (click)="goToStep(1)"
-                                              [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
-                                      </button>
+                                      @if (fullDuplicate) {
+                                        <button type="button" class="btn btn-primary"
+                                                (click)="createFullDuplicateSandbox()"
+                                                [disabled]="!canCreateFullDuplicateSandbox">
+                                          @if (creating) {
+                                            <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                          }
+                                          Create sandbox
+                                        </button>
+                                      } @else {
+                                        <button type="button" class="btn btn-primary" (click)="goToStep(1)"
+                                                [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
+                                        </button>
+                                      }
                                     </div>
                                   }
                                   @if (setupMode === SetupMode.CREATE) {
@@ -400,7 +517,10 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <label for="env-name">Environment Name</label>
                                     <input [(ngModel)]="request.environmentBasics.environmentName"
                                            type="text" class="form-control" id="env-name"
-                                           placeholder="e.g. surrey" (change)="updateAppName()">
+                                           [placeholder]="'e.g. ' + environmentNameExample" (change)="updateAppName()">
+                                    @if (request.options.setupSubdomain && request.environmentBasics.environmentName) {
+                                      <small class="form-text text-muted">Subdomain: {{ sandboxHostname }}</small>
+                                    }
                                   </div>
                                   <div class="col-md-4">
                                     <label for="app-name">Fly.io App Name</label>
@@ -505,11 +625,28 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
 
                               <div class="row thumbnail-heading-frame">
                                 <div class="thumbnail-heading">AWS Configuration</div>
+                                @if (fullDuplicate) {
+                                  <div class="form-check mb-3">
+                                    <input [(ngModel)]="request.options.copySourceBucket"
+                                           type="checkbox" class="form-check-input" id="copy-source-bucket-aws">
+                                    <label class="form-check-label" for="copy-source-bucket-aws">Copy files into a new S3 bucket rather than sharing the live one</label>
+                                  </div>
+                                  @if (!request.options.copySourceBucket) {
+                                    <div class="alert alert-warning d-flex align-items-start mb-3">
+                                      <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
+                                      <div>
+                                        <strong>Sharing the live S3 bucket.</strong>
+                                        Existing images and files will appear on the sandbox. A file upload or replace here writes to the live site's storage.
+                                      </div>
+                                    </div>
+                                  }
+                                }
                                 <div class="row">
                                   <div class="col-md-6">
-                                    <label for="aws-bucket">S3 Bucket Name (will be auto-created)</label>
+                                    <label for="aws-bucket">S3 Bucket Name{{ fullDuplicate && !request.options.copySourceBucket ? " (shared with source)" : " (will be auto-created)" }}</label>
                                     <input [(ngModel)]="request.serviceConfigs.aws.bucket"
-                                           type="text" class="form-control" id="aws-bucket">
+                                           type="text" class="form-control" id="aws-bucket"
+                                           [disabled]="fullDuplicate && !request.options.copySourceBucket">
                                   </div>
                                   <div class="col-md-6">
                                     <label for="aws-region">Region</label>
@@ -601,47 +738,62 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                               </div>
                               <div class="text-muted mt-2">
                                 <fa-icon [icon]="faExclamationCircle" class="me-1"></fa-icon>
-                                A password reset link will be provided after environment creation.
+                                @if (fullDuplicate) {
+                                  Existing members keep their passwords. This admin is added only if they are not already on the source site, in which case a password reset link is provided.
+                                } @else {
+                                  A password reset link will be provided after environment creation.
+                                }
                               </div>
 
                               <div class="row thumbnail-heading-frame mt-3">
                                 <div class="thumbnail-heading">Options</div>
-                                <div class="form-check">
-                                  <input [(ngModel)]="request.options.includeSamplePages"
-                                         type="checkbox" class="form-check-input" id="include-pages">
-                                  <label class="form-check-label" for="include-pages">Include sample page content</label>
-                                </div>
-                                <div class="form-check">
-                                  <input [(ngModel)]="request.options.includeNotificationConfigs"
-                                         type="checkbox" class="form-check-input" id="include-notifs">
-                                  <label class="form-check-label" for="include-notifs">Include notification
-                                    configs</label>
-                                </div>
+                                @if (!fullDuplicate) {
+                                  <div class="form-check">
+                                    <input [(ngModel)]="request.options.includeSamplePages"
+                                           type="checkbox" class="form-check-input" id="include-pages">
+                                    <label class="form-check-label" for="include-pages">Include sample page content</label>
+                                  </div>
+                                  <div class="form-check">
+                                    <input [(ngModel)]="request.options.includeNotificationConfigs"
+                                           type="checkbox" class="form-check-input" id="include-notifs">
+                                    <label class="form-check-label" for="include-notifs">Include notification
+                                      configs</label>
+                                  </div>
+                                }
                                 <div class="form-check">
                                   <input [(ngModel)]="request.options.skipFlyDeployment"
                                          type="checkbox" class="form-check-input" id="skip-fly">
                                   <label class="form-check-label" for="skip-fly">Skip Fly.io deployment (database init
                                     only)</label>
                                 </div>
-                                <div class="form-check">
-                                  <input [(ngModel)]="request.options.copyStandardAssets"
-                                         type="checkbox" class="form-check-input" id="copy-assets">
-                                  <label class="form-check-label" for="copy-assets">Copy standard assets (logos, icons, backgrounds)</label>
-                                </div>
+                                @if (!fullDuplicate) {
+                                  <div class="form-check">
+                                    <input [(ngModel)]="request.options.copyStandardAssets"
+                                           type="checkbox" class="form-check-input" id="copy-assets">
+                                    <label class="form-check-label" for="copy-assets">Copy standard assets (logos, icons, backgrounds)</label>
+                                  </div>
+                                }
                                 <div class="form-check">
                                   <input [(ngModel)]="request.options.setupSubdomain"
                                          type="checkbox" class="form-check-input" id="setup-subdomain">
-                                  <label class="form-check-label" for="setup-subdomain">Setup subdomain (DNS + SSL certificate)</label>
-                                </div>
-                                <div class="form-check">
-                                  <input [(ngModel)]="request.options.authenticateBrevoDomain"
-                                         (ngModelChange)="brevoDomainAuthOptionTouched = true"
-                                         type="checkbox" class="form-check-input" id="authenticate-brevo-domain">
-                                  <label class="form-check-label" for="authenticate-brevo-domain">
-                                    Authenticate Brevo sending domain
-                                    <span class="small text-muted">(after deploy and subdomain)</span>
+                                  <label class="form-check-label" for="setup-subdomain">
+                                    Setup subdomain (DNS + SSL certificate)
+                                    @if (request.environmentBasics.environmentName) {
+                                      <span class="small text-muted"> — {{ sandboxHostname }}</span>
+                                    }
                                   </label>
                                 </div>
+                                @if (!fullDuplicate) {
+                                  <div class="form-check">
+                                    <input [(ngModel)]="request.options.authenticateBrevoDomain"
+                                           (ngModelChange)="brevoDomainAuthOptionTouched = true"
+                                           type="checkbox" class="form-check-input" id="authenticate-brevo-domain">
+                                    <label class="form-check-label" for="authenticate-brevo-domain">
+                                      Authenticate Brevo sending domain
+                                      <span class="small text-muted">(after deploy and subdomain)</span>
+                                    </label>
+                                  </div>
+                                }
                               </div>
                               <div class="stepper-nav">
                                 <button type="button" class="btn btn-quiet" (click)="goToStep(1)">Back</button>
@@ -670,6 +822,10 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <dd class="col-sm-8">{{ request.environmentBasics.environmentName }}</dd>
                                     <dt class="col-sm-4">App Name</dt>
                                     <dd class="col-sm-8">{{ request.environmentBasics.appName }}</dd>
+                                    @if (request.options.setupSubdomain) {
+                                      <dt class="col-sm-4">Subdomain</dt>
+                                      <dd class="col-sm-8">{{ sandboxHostname }}</dd>
+                                    }
                                     <dt class="col-sm-4">Memory</dt>
                                     <dd class="col-sm-8">{{ request.environmentBasics.memory }}</dd>
                                     <dt class="col-sm-4">Instances</dt>
@@ -697,18 +853,27 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
 
                                   <h5>Options</h5>
                                   <dl class="row">
-                                    <dt class="col-sm-6">Sample Pages</dt>
-                                    <dd class="col-sm-6">{{ request.options.includeSamplePages ? 'Yes' : 'No' }}</dd>
-                                    <dt class="col-sm-6">Notification Configs</dt>
-                                    <dd class="col-sm-6">{{ request.options.includeNotificationConfigs ? 'Yes' : 'No' }}</dd>
+                                    @if (fullDuplicate) {
+                                      <dt class="col-sm-6">Clone type</dt>
+                                      <dd class="col-sm-6">Full duplicate</dd>
+                                      <dt class="col-sm-6">Source</dt>
+                                      <dd class="col-sm-6">{{ request.sourceEnvironmentName }}</dd>
+                                      <dt class="col-sm-6">S3 files</dt>
+                                      <dd class="col-sm-6">{{ request.options.copySourceBucket ? 'Copy to a new bucket' : 'Share the live bucket' }}</dd>
+                                    } @else {
+                                      <dt class="col-sm-6">Sample Pages</dt>
+                                      <dd class="col-sm-6">{{ request.options.includeSamplePages ? 'Yes' : 'No' }}</dd>
+                                      <dt class="col-sm-6">Notification Configs</dt>
+                                      <dd class="col-sm-6">{{ request.options.includeNotificationConfigs ? 'Yes' : 'No' }}</dd>
+                                      <dt class="col-sm-6">Copy Standard Assets</dt>
+                                      <dd class="col-sm-6">{{ request.options.copyStandardAssets ? 'Yes' : 'No' }}</dd>
+                                      <dt class="col-sm-6">Authenticate Brevo Domain</dt>
+                                      <dd class="col-sm-6">{{ request.options.authenticateBrevoDomain ? 'Yes' : 'No' }}</dd>
+                                    }
                                     <dt class="col-sm-6">Skip Fly.io</dt>
                                     <dd class="col-sm-6">{{ request.options.skipFlyDeployment ? 'Yes' : 'No' }}</dd>
-                                    <dt class="col-sm-6">Copy Standard Assets</dt>
-                                    <dd class="col-sm-6">{{ request.options.copyStandardAssets ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Setup Subdomain</dt>
                                     <dd class="col-sm-6">{{ request.options.setupSubdomain ? 'Yes' : 'No' }}</dd>
-                                    <dt class="col-sm-6">Authenticate Brevo Domain</dt>
-                                    <dd class="col-sm-6">{{ request.options.authenticateBrevoDomain ? 'Yes' : 'No' }}</dd>
                                   </dl>
                                 </div>
                               </div>
@@ -946,6 +1111,9 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   selectedExistingEnv: ExistingEnvironment | null = null;
   cloneSourceEnv: ExistingEnvironment | null = null;
   cloneType = CloneType.SAME_GROUP;
+  sandboxHostnameMode = SandboxHostnameMode.GROUP_DOMAIN;
+  customSandboxName = "";
+  sourceSiteHref: string | null = null;
   loadingCloneDetails = false;
   resumeOptions = {
     runValidation: false,
@@ -975,6 +1143,51 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     return this.selectedExistingEnv !== null;
   }
 
+  get fullDuplicate(): boolean {
+    return isFullDuplicate(this.request);
+  }
+
+  readonly subdomainBase = ENVIRONMENT_SUBDOMAIN_BASE;
+
+  get sandboxHostname(): string {
+    if (this.sandboxHostnameMode === SandboxHostnameMode.GROUP_DOMAIN && this.groupDomainHostname) {
+      return this.groupDomainHostname;
+    } else {
+      return environmentSubdomainHostname(this.request.environmentBasics.environmentName);
+    }
+  }
+
+  get stagingHostname(): string {
+    return this.cloneSourceEnv
+      ? environmentSubdomainHostname(defaultFullDuplicateEnvironmentName(this.cloneSourceEnv.name))
+      : "";
+  }
+
+  get groupDomainHostname(): string | null {
+    return this.urlService.stagingHostForSite(this.sourceSiteHref);
+  }
+
+  get environmentNameExample(): string {
+    return this.cloneSourceEnv?.name || "group-one";
+  }
+
+  get customSandboxNameExample(): string {
+    return this.cloneSourceEnv ? `${this.cloneSourceEnv.name}-demo` : "group-one-demo";
+  }
+
+  get canCreateFullDuplicateSandbox(): boolean {
+    return this.fullDuplicate
+      && !!this.cloneSourceEnv
+      && !this.loadingCloneDetails
+      && !this.creating
+      && !!this.request.serviceConfigs.ramblers.apiKey
+      && this.hasServicesConfigured()
+      && !!this.request.environmentBasics.environmentName
+      && this.request.environmentBasics.environmentName !== this.cloneSourceEnv.name
+      && !!this.request.serviceConfigs.flyio?.personalAccessToken
+      && (this.sandboxHostnameMode !== SandboxHostnameMode.GROUP_DOMAIN || !!this.groupDomainHostname);
+  }
+
   get creating(): boolean {
     return this.operationInProgress === OperationInProgress.CREATING;
   }
@@ -991,7 +1204,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     return this.operationInProgress !== OperationInProgress.NONE;
   }
 
-  stepperSteps: EnvironmentSetupStepperStep[] = [
+  private readonly standardStepperSteps: EnvironmentSetupStepperStep[] = [
     {key: EnvironmentSetupStepperKey.RAMBLERS_SELECTION, label: "Group Selection"},
     {key: EnvironmentSetupStepperKey.SERVICES_CONFIG, label: "Environment & Services"},
     {key: EnvironmentSetupStepperKey.ADMIN_USER, label: "Admin & Options"},
@@ -999,7 +1212,19 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     {key: EnvironmentSetupStepperKey.PROGRESS, label: "Deploy"}
   ];
 
+  get stepperSteps(): EnvironmentSetupStepperStep[] {
+    if (this.fullDuplicate) {
+      return [
+        {key: EnvironmentSetupStepperKey.RAMBLERS_SELECTION, label: "Sandbox"},
+        {key: EnvironmentSetupStepperKey.PROGRESS, label: "Create"}
+      ];
+    } else {
+      return this.standardStepperSteps;
+    }
+  }
+
   protected readonly EnvironmentSetupStepperKey = EnvironmentSetupStepperKey;
+  protected readonly SandboxHostnameMode = SandboxHostnameMode;
   protected readonly faCheck = faCheck;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
@@ -1151,6 +1376,9 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     if (mode === SetupMode.CREATE) {
       this.selectedExistingEnv = null;
       this.cloneSourceEnv = null;
+      this.request.cloneType = null;
+      this.request.sourceEnvironmentName = null;
+      this.request.options.copySourceBucket = false;
     } else if (mode === SetupMode.CLONE) {
       this.selectedExistingEnv = null;
       this.cloneSourceEnv = null;
@@ -1168,6 +1396,11 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
   setCloneType(type: CloneType): void {
     this.cloneType = type;
+    this.request.cloneType = type;
+    this.sandboxHostnameMode = SandboxHostnameMode.GROUP_DOMAIN;
+    this.customSandboxName = "";
+    this.stepperActiveIndex = 0;
+    this.applyFullDuplicateOptions();
     if (type === CloneType.DIFFERENT_GROUP) {
       this.request.ramblersInfo = { areaCode: "", areaName: "", groupCode: "", groupName: "" };
       this.selectedGroup = null;
@@ -1178,12 +1411,102 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     }
   }
 
+  private applyFullDuplicateOptions(): void {
+    if (this.cloneType === CloneType.FULL_DUPLICATE) {
+      this.request.options.copySourceBucket = false;
+      this.request.options.copyStandardAssets = false;
+      this.request.options.includeSamplePages = false;
+      this.request.options.includeNotificationConfigs = false;
+      this.request.options.authenticateBrevoDomain = false;
+      this.request.options.setupSubdomain = true;
+      this.request.options.skipFlyDeployment = false;
+    } else {
+      this.request.options.copySourceBucket = false;
+      this.request.options.copyStandardAssets = true;
+      this.request.options.includeSamplePages = true;
+      this.request.options.includeNotificationConfigs = true;
+    }
+  }
+
+  setSandboxHostnameMode(mode: SandboxHostnameMode): void {
+    this.sandboxHostnameMode = mode;
+    this.applySandboxHostname();
+  }
+
+  onCustomSandboxNameChange(value: string): void {
+    this.customSandboxName = value;
+    if (this.sandboxHostnameMode === SandboxHostnameMode.CUSTOM_NAME) {
+      this.request.environmentBasics.environmentName = value;
+      this.updateAppName();
+    }
+  }
+
+  private applySandboxHostname(): void {
+    if (this.cloneSourceEnv) {
+      if (this.sandboxHostnameMode === SandboxHostnameMode.CUSTOM_NAME) {
+        this.request.environmentBasics.environmentName = this.customSandboxName;
+        this.request.options.setupSubdomain = true;
+        this.request.options.customDomainHostname = null;
+      } else if (this.sandboxHostnameMode === SandboxHostnameMode.GROUP_DOMAIN) {
+        this.request.environmentBasics.environmentName = defaultFullDuplicateEnvironmentName(this.cloneSourceEnv.name);
+        this.request.options.setupSubdomain = false;
+        this.request.options.customDomainHostname = this.groupDomainHostname;
+      } else {
+        this.request.environmentBasics.environmentName = defaultFullDuplicateEnvironmentName(this.cloneSourceEnv.name);
+        this.request.options.setupSubdomain = true;
+        this.request.options.customDomainHostname = null;
+      }
+    }
+    this.updateAppName();
+    this.request.options.skipFlyDeployment = false;
+  }
+
+  private goToProgressStep(): void {
+    const progressIndex = this.stepperSteps.findIndex(step => step.key === EnvironmentSetupStepperKey.PROGRESS);
+    this.goToStep(progressIndex >= 0 ? progressIndex : this.stepperSteps.length - 1);
+  }
+
+  async createFullDuplicateSandbox(): Promise<void> {
+    this.applySandboxHostname();
+    if (!this.canCreateFullDuplicateSandbox) {
+      this.notify.error({
+        title: "Cannot create sandbox",
+        message: "Choose a source, a hostname, and wait for configuration to finish loading."
+      });
+    } else {
+      try {
+        await this.useMyCredentials();
+        if (!this.hasAdminConfigured()) {
+          this.notify.error({
+            title: "Admin user",
+            message: "Could not use your signed-in account as the sandbox admin."
+          });
+        } else {
+          await this.validateRequest();
+          if (!this.allValid) {
+            this.notify.error({
+              title: "Validation failed",
+              message: "Fix the problems listed below, then create the sandbox again."
+            });
+          } else {
+            await this.createEnvironment();
+          }
+        }
+      } catch (error) {
+        this.notify.error({title: "Create sandbox failed", message: this.extractErrorDetail(error)});
+      }
+    }
+  }
+
   async onCloneSourceSelected(env: ExistingEnvironment): Promise<void> {
     if (!env) return;
     this.loadingCloneDetails = true;
     try {
       const details = await this.environmentSetupService.environmentDetails(env.name);
       this.request = createEmptySetupRequest();
+      this.request.cloneType = this.cloneType;
+      this.request.sourceEnvironmentName = env.name;
+      this.applyFullDuplicateOptions();
       this.request.ramblersInfo.areaCode = details.ramblersInfo.areaCode;
       this.request.ramblersInfo.areaName = details.ramblersInfo.areaName;
       this.request.ramblersInfo.groupCode = details.ramblersInfo.groupCode;
@@ -1197,10 +1520,15 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.request.serviceConfigs.ramblers.apiKey = details.serviceConfigs.ramblers.apiKey
         || this.systemConfig?.national?.walksManager?.apiKey
         || "";
-      this.request.serviceConfigs.flyio.personalAccessToken = details.serviceConfigs.flyio.personalAccessToken;
       this.request.environmentBasics.memory = details.environmentBasics.memory;
       this.request.environmentBasics.scaleCount = details.environmentBasics.scaleCount;
-      this.request.environmentBasics.organisation = details.environmentBasics.organisation;
+      if (this.cloneType === CloneType.FULL_DUPLICATE) {
+        this.request.serviceConfigs.flyio.personalAccessToken = "";
+        this.request.environmentBasics.organisation = FLYIO_DEFAULTS.ORGANISATION;
+      } else {
+        this.request.serviceConfigs.flyio.personalAccessToken = details.serviceConfigs.flyio.personalAccessToken;
+        this.request.environmentBasics.organisation = details.environmentBasics.organisation;
+      }
       if (details.serviceConfigs.osMaps?.apiKey) {
         this.request.serviceConfigs.osMaps = { apiKey: details.serviceConfigs.osMaps.apiKey };
       }
@@ -1210,11 +1538,19 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
           secretKey: details.serviceConfigs.recaptcha.secretKey
         };
       }
-      if (details.serviceConfigs.brevo?.apiKey) {
+      if (details.serviceConfigs.brevo?.apiKey && this.cloneType !== CloneType.FULL_DUPLICATE) {
         this.request.options.authenticateBrevoDomain = true;
       }
-      this.request.environmentBasics.environmentName = `${env.name}-copy`;
-      this.updateAppName();
+      this.sourceSiteHref = details.siteHref || null;
+      if (this.cloneType === CloneType.FULL_DUPLICATE) {
+        this.sandboxHostnameMode = this.groupDomainHostname
+          ? SandboxHostnameMode.GROUP_DOMAIN
+          : SandboxHostnameMode.STAGING_PREFIX;
+        this.applySandboxHostname();
+      } else {
+        this.request.environmentBasics.environmentName = `${env.name}-copy`;
+        this.updateAppName();
+      }
       this.apiKeyValid = !!this.request.serviceConfigs.ramblers.apiKey;
       this.logger.info("Pre-filled request from environment:", env.name);
     } catch (error) {
@@ -1385,7 +1721,13 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   stepHint(key: EnvironmentSetupStepperKey): string {
     switch (key) {
       case EnvironmentSetupStepperKey.RAMBLERS_SELECTION:
-        return this.selectedGroup ? `Selected: ${this.selectedGroup.name}` : "Enter API key and select group";
+        if (this.fullDuplicate) {
+          return this.request.environmentBasics.environmentName
+            ? this.sandboxHostname
+            : "Choose a hostname and create the sandbox";
+        } else {
+          return this.selectedGroup ? `Selected: ${this.selectedGroup.name}` : "Enter API key and select group";
+        }
       case EnvironmentSetupStepperKey.SERVICES_CONFIG:
         return this.request.environmentBasics.appName ? `App: ${this.request.environmentBasics.appName}` : "Configure environment and services";
       case EnvironmentSetupStepperKey.ADMIN_USER:
@@ -1578,14 +1920,15 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   private prefixedName(envName: string, maxLength: number): string {
-    const prefixed = `ngx-ramblers-${envName}`;
+    const safe = flySafeResourceName(envName);
+    const prefixed = `ngx-ramblers-${safe}`;
     if (prefixed.length <= maxLength) {
       return prefixed;
+    } else if (safe.length <= maxLength) {
+      return safe;
+    } else {
+      return safe.substring(0, maxLength);
     }
-    if (envName.length <= maxLength) {
-      return envName;
-    }
-    return envName.substring(0, maxLength);
   }
 
   async validateMongodb() {
@@ -1636,7 +1979,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     this.setupWarnings = [];
     this.setupError = null;
     this.progressMessages = [];
-    this.goToStep(4);
+    this.goToProgressStep();
 
     if (this.wsConnected) {
       this.websocketService.sendMessage(EventType.ENVIRONMENT_CREATE, {

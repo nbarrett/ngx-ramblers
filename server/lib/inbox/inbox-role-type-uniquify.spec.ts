@@ -10,7 +10,7 @@ import {
 function role(overrides: Partial<CommitteeMember>): CommitteeMember {
   return {
     type: "chairman",
-    email: "chairman@ekwg.co.uk",
+    email: "chairman@example.co.uk",
     fullName: "Chair Person",
     vacant: false,
     forwardEmailTarget: ForwardEmailTarget.CATCHALL,
@@ -24,7 +24,7 @@ describe("inbox-role-type-uniquify", () => {
 
     it("does not emit a change when every role type is already unique and a valid local part", () => {
       const changes = committeeRoleTypeChanges([
-        role({type: "ngx-project-lead", email: "nick.barrett@ngx-ramblers.org.uk"}),
+        role({type: "ngx-project-lead", email: "member.one@ngx-ramblers.org.uk"}),
         role({type: "chairman", email: "chairman@ngx-ramblers.org.uk"})
       ]);
       expect(changes).toEqual([]);
@@ -36,26 +36,26 @@ describe("inbox-role-type-uniquify", () => {
         role({
           type: longType,
           description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
-          email: "bob.tolson@nwkramblers.org.uk"
+          email: "member.two@example.org.uk"
         })
       ]);
       expect(changes).toEqual([{
         from: longType,
         to: "kent-area-representative",
-        emails: expect.arrayContaining(["bob.tolson@nwkramblers.org.uk"]),
+        emails: expect.arrayContaining(["member.two@example.org.uk"]),
         remapAllThreads: true
       }]);
     });
 
     it("keeps the first duplicate type and remaps later roles by their mailbox addresses", () => {
       const changes = committeeRoleTypeChanges([
-        role({type: "system-administrator", email: "nick.barrett@nwkramblers.org.uk", description: "System Administrator"}),
-        role({type: "system-administrator", email: "system.administrator@nwkramblers.org.uk", description: "System Administrator"})
+        role({type: "system-administrator", email: "member.one@example.org.uk", description: "System Administrator"}),
+        role({type: "system-administrator", email: "system.administrator@example.org.uk", description: "System Administrator"})
       ]);
       expect(changes).toEqual([{
         from: "system-administrator",
         to: "system-administrator-system-administrator",
-        emails: expect.arrayContaining(["system.administrator@nwkramblers.org.uk"]),
+        emails: expect.arrayContaining(["system.administrator@example.org.uk"]),
         remapAllThreads: false
       }]);
     });
@@ -70,11 +70,11 @@ describe("inbox-role-type-uniquify", () => {
         role({
           type: longType,
           description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
-          email: "bob.tolson@nwkramblers.org.uk"
+          email: "member.two@example.org.uk"
         }),
         role({
           type: "walks",
-          email: "walks@nwkramblers.org.uk",
+          email: "walks@example.org.uk",
           inboxRecipientsFromRoleType: longType
         })
       ]);
@@ -84,9 +84,9 @@ describe("inbox-role-type-uniquify", () => {
 
     it("leaves a notify-from-role pointer on a shared type pointing at the role that kept it", () => {
       const uniqued = committeeRolesWithUniqueTypes([
-        role({type: "system-administrator", email: "nick.barrett@nwkramblers.org.uk", description: "System Administrator"}),
-        role({type: "system-administrator", email: "system.administrator@nwkramblers.org.uk", description: "System Administrator"}),
-        role({type: "walks", email: "walks@nwkramblers.org.uk", inboxRecipientsFromRoleType: "system-administrator"})
+        role({type: "system-administrator", email: "member.one@example.org.uk", description: "System Administrator"}),
+        role({type: "system-administrator", email: "system.administrator@example.org.uk", description: "System Administrator"}),
+        role({type: "walks", email: "walks@example.org.uk", inboxRecipientsFromRoleType: "system-administrator"})
       ]);
       expect(uniqued.map(item => item.type)).toEqual([
         "system-administrator",
@@ -112,22 +112,22 @@ describe("inbox-role-type-uniquify", () => {
       const change = {
         from: "system-administrator",
         to: "system-administrator-system-administrator",
-        emails: ["system.administrator@nwkramblers.org.uk"],
+        emails: ["system.administrator@example.org.uk"],
         remapAllThreads: false
       };
       expect(threadMatchesRoleTypeChange(
-        {roleType: "system-administrator", deliveredTo: {name: null, email: "system.administrator@nwkramblers.org.uk"}},
+        {roleType: "system-administrator", deliveredTo: {name: null, email: "system.administrator@example.org.uk"}},
         [],
         change
       )).toEqual(true);
       expect(threadMatchesRoleTypeChange(
-        {roleType: "system-administrator", deliveredTo: {name: null, email: "nick.barrett@nwkramblers.org.uk"}},
+        {roleType: "system-administrator", deliveredTo: {name: null, email: "member.one@example.org.uk"}},
         [],
         change
       )).toEqual(false);
       expect(threadMatchesRoleTypeChange(
         {roleType: "system-administrator"},
-        ["system.administrator@nwkramblers.org.uk"],
+        ["system.administrator@example.org.uk"],
         change
       )).toEqual(true);
     });
@@ -135,8 +135,8 @@ describe("inbox-role-type-uniquify", () => {
     it("does not move a thread that is already on another role", () => {
       expect(threadMatchesRoleTypeChange(
         {roleType: "walks"},
-        ["system.administrator@nwkramblers.org.uk"],
-        {from: "system-administrator", to: "system-administrator-system-administrator", emails: ["system.administrator@nwkramblers.org.uk"], remapAllThreads: false}
+        ["system.administrator@example.org.uk"],
+        {from: "system-administrator", to: "system-administrator-system-administrator", emails: ["system.administrator@example.org.uk"], remapAllThreads: false}
       )).toEqual(false);
     });
 

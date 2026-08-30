@@ -1,5 +1,8 @@
 export {
   EnvironmentSetupRequest,
+  CloneType,
+  flySafeResourceName,
+  isFullDuplicate,
   RamblersInfo,
   EnvironmentBasics,
   ServiceConfigs,

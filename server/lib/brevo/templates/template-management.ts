@@ -4,7 +4,7 @@ import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { logBrevoError } from "../common/error-log";
 import { systemConfig } from "../../config/system-config";
-import { apexHost } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { apexHostFromUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import {
   CreateTemplateRequest,
   CreateTemplateResponse,
@@ -35,7 +35,7 @@ async function preferredSenderDomain(): Promise<string | null> {
     if (!href) {
       return null;
     }
-    return apexHost(new URL(href).hostname);
+    return apexHostFromUrl(href);
   } catch (error) {
     logBrevoError(messageType, error);
     debugLog("preferredSenderDomain: unable to derive domain", error);

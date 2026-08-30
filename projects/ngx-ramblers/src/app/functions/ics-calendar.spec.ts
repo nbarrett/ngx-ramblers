@@ -105,7 +105,7 @@ describe("parseIcsCalendar", () => {
     "DTEND:20260826T110000Z",
     "SUMMARY:Microsoft Teams Meeting",
     "ORGANIZER;CN=Ciaran Evans:mailto:Ciaran.Evans@ramblers.org.uk",
-    "ATTENDEE;CN=Nick Barrett;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:nick.barrett@ngx-ramblers.org.uk",
+    "ATTENDEE;CN=Nick Barrett;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:member.one@ngx-ramblers.org.uk",
     "SEQUENCE:0",
     "STATUS:CONFIRMED",
     "END:VEVENT",
@@ -119,7 +119,7 @@ describe("parseIcsCalendar", () => {
     expect(invite.events[0].organiserEmail).toEqual("Ciaran.Evans@ramblers.org.uk");
     expect(invite.events[0].uid).toEqual("315409108105984@teams.microsoft.com");
     expect(invite.events[0].attendees).toEqual([{
-      email: "nick.barrett@ngx-ramblers.org.uk",
+      email: "member.one@ngx-ramblers.org.uk",
       name: "Nick Barrett",
       rsvp: true,
       partStat: CalendarRsvpStatus.NEEDS_ACTION
@@ -158,7 +158,7 @@ describe("calendarReplyDocument", () => {
     ].join("\n"))[0];
     const document = calendarReplyDocument(
       event,
-      {email: "nick.barrett@ngx-ramblers.org.uk", name: "Nick Barrett"},
+      {email: "member.one@ngx-ramblers.org.uk", name: "Nick Barrett"},
       CalendarRsvpStatus.ACCEPTED,
       DateTime.fromISO("2026-08-19T16:13:00Z", {zone: "utc"}).toMillis()
     );
@@ -166,7 +166,7 @@ describe("calendarReplyDocument", () => {
     expect(unfolded).toContain("METHOD:REPLY");
     expect(unfolded).toContain("UID:abc123@example.org");
     expect(unfolded).toContain("PARTSTAT=ACCEPTED");
-    expect(unfolded).toContain("mailto:nick.barrett@ngx-ramblers.org.uk");
+    expect(unfolded).toContain("mailto:member.one@ngx-ramblers.org.uk");
     expect(unfolded).toContain("ORGANIZER;CN=Ciaran Evans:mailto:Ciaran.Evans@ramblers.org.uk");
     expect(calendarRsvpSubject(CalendarRsvpStatus.ACCEPTED, "Microsoft Teams Meeting")).toEqual("Accepted: Microsoft Teams Meeting");
     expect(calendarRsvpSubject(CalendarRsvpStatus.DECLINED, "Microsoft Teams Meeting")).toEqual("Declined: Microsoft Teams Meeting");
@@ -181,7 +181,7 @@ describe("calendarReplyResponses", () => {
       "BEGIN:VCALENDAR",
       "METHOD:REPLY",
       "BEGIN:VEVENT",
-      "UID:meeting-507f1f77bcf86cd799439011@ekwg.co.uk",
+      "UID:meeting-507f1f77bcf86cd799439011@example.co.uk",
       "ATTENDEE;CN=Jordan Guest;PARTSTAT=ACCEPTED:mailto:guest@example.com",
       "END:VEVENT",
       "END:VCALENDAR"
@@ -198,7 +198,7 @@ describe("calendarReplyResponses", () => {
       "BEGIN:VCALENDAR",
       "METHOD:REQUEST",
       "BEGIN:VEVENT",
-      "UID:meeting-507f1f77bcf86cd799439011@ekwg.co.uk",
+      "UID:meeting-507f1f77bcf86cd799439011@example.co.uk",
       "ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:guest@example.com",
       "END:VEVENT",
       "END:VCALENDAR"
@@ -211,7 +211,7 @@ describe("calendarReplyResponses", () => {
 describe("committeeFileIdFromMeetingUid", () => {
 
   it("reads the committee file id from a meeting UID", () => {
-    expect(committeeFileIdFromMeetingUid("meeting-507f1f77bcf86cd799439011@ekwg.co.uk"))
+    expect(committeeFileIdFromMeetingUid("meeting-507f1f77bcf86cd799439011@example.co.uk"))
       .toEqual("507f1f77bcf86cd799439011");
     expect(committeeFileIdFromMeetingUid("315409108105984@teams.microsoft.com")).toBeNull();
   });
@@ -228,7 +228,7 @@ describe("meetingRoomFromCalendarEvent", () => {
       allDay: false,
       location: null,
       description: null,
-      url: "https://www.ekwg.co.uk/video-meetings/guest/committee-meeting-18-august-2026",
+      url: "https://www.example.co.uk/video-meetings/guest/committee-meeting-18-august-2026",
       status: null,
       organiser: null,
       organiserEmail: null,

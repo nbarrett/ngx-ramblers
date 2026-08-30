@@ -65,7 +65,7 @@ function writeManifest(destSecretsDir: string, environment: string, appName: str
 export function createNewContributorEnvCommand(): Command {
   return new Command("new-contributor-env")
     .description("Create or refresh a local single-group contributor checkout and start it")
-    .argument("<environment>", "group environment name, e.g. pang-valley")
+    .argument("<environment>", "group environment name, e.g. group-one")
     .argument("<destination>", "path for the contributor checkout")
     .option("--no-start", "assemble the checkout but do not start the stack")
     .action((environment: string, destination: string, options: { start: boolean }) => {

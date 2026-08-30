@@ -18,8 +18,8 @@ describe("event-images", () => {
   });
 
   it("builds an absolute url against the supplied base", () => {
-    expect(absoluteImageUrl("walk-images/abc.jpeg", "https://www.ekwg.co.uk"))
-      .toEqual("https://www.ekwg.co.uk/api/aws/s3/walk-images/abc.jpeg");
+    expect(absoluteImageUrl("walk-images/abc.jpeg", "https://www.example.co.uk"))
+      .toEqual("https://www.example.co.uk/api/aws/s3/walk-images/abc.jpeg");
   });
 
   it("builds a localhost url when that is the base, so previews load while developing", () => {
@@ -28,7 +28,7 @@ describe("event-images", () => {
   });
 
   it("leaves a remote url alone apart from encoding spaces", () => {
-    expect(absoluteImageUrl("https://images.ramblers.org.uk/a b.jpg", "https://www.ekwg.co.uk"))
+    expect(absoluteImageUrl("https://images.ramblers.org.uk/a b.jpg", "https://www.example.co.uk"))
       .toEqual("https://images.ramblers.org.uk/a%20b.jpg");
   });
 
@@ -41,13 +41,13 @@ describe("event-images", () => {
         ]
       }
     } as unknown as ExtendedGroupEvent;
-    expect(eventImages(event, "https://www.ekwg.co.uk").map(image => image.url)).toEqual([
-      "https://www.ekwg.co.uk/api/aws/s3/walk-images/medium.jpeg",
-      "https://www.ekwg.co.uk/api/aws/s3/walk-images/only.jpeg"
+    expect(eventImages(event, "https://www.example.co.uk").map(image => image.url)).toEqual([
+      "https://www.example.co.uk/api/aws/s3/walk-images/medium.jpeg",
+      "https://www.example.co.uk/api/aws/s3/walk-images/only.jpeg"
     ]);
   });
 
   it("returns nothing when the event has no media", () => {
-    expect(eventImages({groupEvent: {}} as unknown as ExtendedGroupEvent, "https://www.ekwg.co.uk")).toEqual([]);
+    expect(eventImages({groupEvent: {}} as unknown as ExtendedGroupEvent, "https://www.example.co.uk")).toEqual([]);
   });
 });

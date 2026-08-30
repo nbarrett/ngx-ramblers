@@ -7,7 +7,7 @@ import { NonSensitiveCloudflareConfig } from "./cloudflare.model";
 import { decryptCloudflareConfig } from "./cloudflare-crypto";
 import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
-import { apexHost } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { apexHostFromUrl } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare-config"));
 debugLog.enabled = true;
@@ -49,12 +49,14 @@ async function primaryHostFromSystemConfig(): Promise<string | null> {
   try {
     const sysConfig = await systemConfig();
     if (sysConfig?.group?.href) {
-      return apexHost(new URL(sysConfig.group.href).hostname);
+      return apexHostFromUrl(sysConfig.group.href);
+    } else {
+      return null;
     }
   } catch (err) {
     debugLog("Could not derive primary host from system config:", err.message);
+    return null;
   }
-  return null;
 }
 
 export async function nonSensitiveCloudflareConfig(): Promise<NonSensitiveCloudflareConfig> {

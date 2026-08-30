@@ -7,6 +7,7 @@ import { ApiResponse } from "../../models/api-response.model";
 import {
   ApexRedirectResponse,
   CreateEnvironmentResponse,
+  CustomDomainEligibilityResponse,
   CustomDomainResponse,
   EnvironmentDefaults,
   EnvironmentSetupRequest,
@@ -233,6 +234,7 @@ export class EnvironmentSetupService {
       flyio: { personalAccessToken: string };
     };
     ramblersInfo: { areaCode: string; areaName: string; groupCode: string; groupName: string };
+    siteHref: string;
   }> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
@@ -414,6 +416,15 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as { success: boolean; message: string; hostname?: string; logs?: string[] };
+  }
+
+  async probeCustomDomain(environmentName: string, hostname: string): Promise<CustomDomainEligibilityResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/probe-custom-domain/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as CustomDomainEligibilityResponse;
   }
 
   async addCustomDomain(environmentName: string, hostname: string): Promise<CustomDomainResponse> {

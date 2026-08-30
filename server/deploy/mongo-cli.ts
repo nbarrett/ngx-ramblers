@@ -51,7 +51,7 @@ async function main() {
   program
     .command("backup")
     .description("Backup DB/collections from envs")
-    .requiredOption("--env <env>", "Env name (e.g., ekwg-prod) or \"all\" for all envs")
+    .requiredOption("--env <env>", "Env name (e.g., group-prod) or \"all\" for all envs")
     .option("--db <db>", "Specific DB (default: from config)")
     .option("--collections <list>", "Comma-separated collections (default: all)")
     .option("--scale-down", "Scale to 0 during backup (revert after)", false)
@@ -145,7 +145,7 @@ async function main() {
     .command("restore")
     .description("Restore DB/collections to an env")
     .requiredOption("--env <env>", "Target env name")
-    .requiredOption("--from <path>", "Dump directory name (e.g., backups/2025-10-29-ekwg-prod)")
+    .requiredOption("--from <path>", "Dump directory name (e.g., backups/2025-10-29-group-prod)")
     .option("--db <db>", "Target DB (default: from config)")
     .option("--collections <list>", "Comma-separated collections to restore (default: all)")
     .option("--drop", "Drop collections before restore", true)

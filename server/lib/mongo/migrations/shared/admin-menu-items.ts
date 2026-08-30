@@ -67,7 +67,7 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     title: "Email subscriptions",
     icon: "faEnvelopeOpenText",
     href: AdminProfilePath.EMAIL_SUBSCRIPTIONS,
-    contentText: "Subscribe to or unsubscribe from EKWG mailing lists for walks, social and general comms"
+    contentText: "Subscribe to or unsubscribe from your group's mailing lists for walks, social and general comms"
   },
   {
     accessLevel: "loggedInMember",
@@ -344,7 +344,7 @@ export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [
     title: "Email subscriptions",
     icon: "faEnvelopeOpenText",
     href: AdminProfilePath.EMAIL_SUBSCRIPTIONS,
-    contentText: "Subscribe to or unsubscribe from EKWG mailing lists for walks, social and general comms"
+    contentText: "Subscribe to or unsubscribe from your group's mailing lists for walks, social and general comms"
   },
   {
     accessLevel: "loggedInMember",
