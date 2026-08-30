@@ -139,16 +139,16 @@ describe("localCalendarHref", () => {
 
   const chromeMac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
   const safariMac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
-  const origin = "https://www.ekwg.co.uk";
+  const origin = "https://www.example.co.uk";
 
   it("hands Chrome on a Mac a webcal link so Calendar.app opens instead of a download", () => {
     expect(localCalendarHref("/api/calendar/event/walk-1", {userAgent: chromeMac, origin}))
-      .toEqual("webcal://www.ekwg.co.uk/api/calendar/event/walk-1");
+      .toEqual("webcal://www.example.co.uk/api/calendar/event/walk-1");
   });
 
   it("keeps an https link in Safari so Calendar.app can import the event", () => {
     expect(localCalendarHref("/api/calendar/event/walk-1", {userAgent: safariMac, origin}))
-      .toEqual("https://www.ekwg.co.uk/api/calendar/event/walk-1");
+      .toEqual("https://www.example.co.uk/api/calendar/event/walk-1");
   });
 
 });

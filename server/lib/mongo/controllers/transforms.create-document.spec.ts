@@ -26,7 +26,7 @@ describe("transforms.createDocument", () => {
         "mailchimpLists.socialEvents.leid": "321760737",
         "mailchimpLists.socialEvents.subscribed": true,
         "mailchimpLists.socialEvents.updated": false,
-        "mailchimpLists.walks.email": "nick.barrett@example.co.ukss",
+        "mailchimpLists.walks.email": "member.one@example.co.ukss",
         "mailchimpLists.walks.lastUpdated": 1578250663257,
         "mailchimpLists.walks.leid": "321760733",
         "mailchimpLists.walks.subscribed": true,
@@ -41,7 +41,7 @@ describe("transforms.createDocument", () => {
           "updated": false,
           "leid": "321760733",
           "lastUpdated": 1578250663257,
-          "email": "nick.barrett@example.co.ukss"
+          "email": "member.one@example.co.ukss"
         },
         "socialEvents": {
           "subscribed": true,
@@ -68,16 +68,16 @@ describe("transforms.createDocument", () => {
         "groupMember": true,
         "id": "56410469e4b039fe9dc75388",
         "lastName": "Barrett EK",
-        "mailchimpLists.general.email": "nick.barrett@example.co.uk",
+        "mailchimpLists.general.email": "member.one@example.co.uk",
         "mailchimpLists.general.lastUpdated": 1578250719650,
         "mailchimpLists.general.leid": "321760741",
         "mailchimpLists.general.subscribed": true,
         "mailchimpLists.general.updated": false,
-        "mailchimpLists.socialEvents.email": "nick.barrett@example.co.uk",
+        "mailchimpLists.socialEvents.email": "member.one@example.co.uk",
         "mailchimpLists.socialEvents.leid": "321760737",
         "mailchimpLists.socialEvents.subscribed": true,
         "mailchimpLists.socialEvents.updated": false,
-        "mailchimpLists.walks.email": "nick.barrett@example.co.uk",
+        "mailchimpLists.walks.email": "member.one@example.co.uk",
         "mailchimpLists.walks.lastUpdated": 1578250663257,
         "mailchimpLists.walks.leid": "321760733",
         "mailchimpLists.walks.updated": false,
@@ -88,7 +88,7 @@ describe("transforms.createDocument", () => {
         "memberId": "533dae09e4b06994571391ae",
         "membershipNumber": "NICKA1234",
         "mobileNumber": "07887 444 5972",
-        "nameAlias": "ekwg",
+        "nameAlias": "group",
         "password": "p",
         "passwordExpired": true,
         "postcode": "SS9 3AF",
@@ -113,20 +113,20 @@ describe("transforms.createDocument", () => {
           "updated": false,
           "leid": "321760733",
           "lastUpdated": 1578250663257,
-          "email": "nick.barrett@example.co.uk"
+          "email": "member.one@example.co.uk"
         },
         "socialEvents": {
           "subscribed": true,
           "updated": false,
           "leid": "321760737",
-          "email": "nick.barrett@example.co.uk"
+          "email": "member.one@example.co.uk"
         },
         "general": {
           "subscribed": true,
           "updated": false,
           "leid": "321760741",
           "lastUpdated": 1578250719650,
-          "email": "nick.barrett@example.co.uk"
+          "email": "member.one@example.co.uk"
         }
       },
       "mailchimpSegmentIds": {
@@ -158,7 +158,7 @@ describe("transforms.createDocument", () => {
       "updatedBy": "533dae09e4b06994571391ae",
       "walkChangeNotifications": true,
       "displayName": "Nick EK",
-      "nameAlias": "ekwg",
+      "nameAlias": "group",
       "contactId": "87654321",
       "createdDate": 1512604800000,
       "firstName": "Nick EK",

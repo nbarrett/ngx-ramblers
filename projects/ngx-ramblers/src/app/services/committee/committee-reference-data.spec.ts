@@ -61,7 +61,7 @@ const mockData: CommitteeConfig = {
       type: "support",
       description: "Technical Support",
       fullName: "Nick Barrett",
-      email: "nick.barrett@example.co.uk",
+      email: "member.one@example.co.uk",
       memberId: "52ab5d94e4b0f92ce9a5caee"
     }
   ],

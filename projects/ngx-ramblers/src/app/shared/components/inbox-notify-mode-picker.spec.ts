@@ -17,7 +17,7 @@ describe("InboxNotifyModePicker", () => {
   it("hides Notify me when the member address is on the group domain", () => {
     const picker = new InboxNotifyModePicker();
     picker.groupDomain = "ngx-ramblers.org.uk";
-    picker.recipient = recipient("nick.barrett@ngx-ramblers.org.uk");
+    picker.recipient = recipient("member.one@ngx-ramblers.org.uk");
     expect(picker.memberOptionVisible()).toBe(false);
   });
 

@@ -22,6 +22,7 @@ import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
 import { FALLBACK_MEDIA } from "../models/walk.model";
 import { isMeetupUrl as isMeetupUrlFn } from "../functions/walks/ramblers-event.mapper";
+import { apexHostFromUrl, hostFromUrl, stagingHostForSiteHref } from "../functions/hosts";
 
 @Injectable({
   providedIn: "root"
@@ -129,8 +130,16 @@ export class UrlService {
     return url.hostname === "localhost" || url.hostname === "127.0.0.1";
   }
 
+  apexHostFromUrl(url: string | undefined | null): string {
+    return apexHostFromUrl(url);
+  }
+
+  stagingHostForSite(siteHref: string | undefined | null): string | null {
+    return stagingHostForSiteHref(siteHref);
+  }
+
   baseDomain(): string {
-    const hostname = this.group?.href ? new URL(this.group.href).hostname : window.location.hostname;
+    const hostname = this.group?.href ? hostFromUrl(this.group.href) : window.location.hostname;
     const parts = hostname.split(".");
     return parts.length >= 3 && parts[parts.length - 2].length <= 3
       ? parts.slice(-3).join(".")

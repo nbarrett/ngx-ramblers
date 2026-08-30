@@ -9,6 +9,8 @@ export interface EnvironmentSetupRequest {
   serviceConfigs: ServiceConfigs;
   adminUser: AdminUserConfig;
   options: SetupOptions;
+  cloneType?: CloneType | null;
+  sourceEnvironmentName?: string | null;
 }
 
 export interface RamblersInfo {
@@ -109,6 +111,8 @@ export interface SetupOptions {
   skipFlyDeployment: boolean;
   copyStandardAssets: boolean;
   setupSubdomain: boolean;
+  copySourceBucket: boolean;
+  customDomainHostname: string | null;
 }
 
 export enum SetupStepStatus {
@@ -475,6 +479,22 @@ export interface CustomDomainResponse {
   logs?: string[];
 }
 
+export interface CustomDomainEligibility {
+  hostname: string;
+  managedByThisAccount: boolean;
+  dnsProvider: DnsProvider;
+  dnsProviderLabel: string;
+  nameservers: string[];
+  zoneName: string | null;
+  message: string;
+}
+
+export interface CustomDomainEligibilityResponse extends ApiResponse {
+  success: boolean;
+  message?: string;
+  eligibility?: CustomDomainEligibility;
+}
+
 export interface ApexRedirectResponse {
   success: boolean;
   message: string;
@@ -733,6 +753,8 @@ export enum SetupStep {
   UPDATE_CONFIGS_JSON = "update-configs-json",
   UPDATE_ENVIRONMENTS_CONFIG = "update-environments-config",
   INITIALISE_DATABASE = "initialise-database",
+  CLONE_SOURCE_DATABASE = "clone-source-database",
+  ISOLATE_SANDBOX = "isolate-sandbox",
   AUTHENTICATE_BREVO_DOMAIN = "authenticate-brevo-domain",
   IMPORT_SECRETS = "import-secrets",
   DEPLOY_APP = "deploy-app",
@@ -757,6 +779,12 @@ export enum CloneType {
   SAME_GROUP = "same-group",
   DIFFERENT_GROUP = "different-group",
   FULL_DUPLICATE = "full-duplicate"
+}
+
+export enum SandboxHostnameMode {
+  GROUP_DOMAIN = "group-domain",
+  STAGING_PREFIX = "staging-prefix",
+  CUSTOM_NAME = "custom-name"
 }
 
 export enum ManageAction {
@@ -831,6 +859,20 @@ export enum HostnameOrigin {
   REDIRECT_TARGET = "redirect-target"
 }
 
+export enum DnsProvider {
+  CLOUDFLARE = "cloudflare",
+  STACK_DNS = "stack-dns",
+  OTHER = "other",
+  UNKNOWN = "unknown"
+}
+
+export const dnsProviderLabels: Record<DnsProvider, string> = {
+  [DnsProvider.CLOUDFLARE]: "Cloudflare",
+  [DnsProvider.STACK_DNS]: "StackDNS",
+  [DnsProvider.OTHER]: "Other",
+  [DnsProvider.UNKNOWN]: "Unknown"
+};
+
 export interface HostnameStatus {
   hostname: string;
   origin: HostnameOrigin;
@@ -842,12 +884,16 @@ export interface HostnameStatus {
   redirectRuleTarget: string;
   httpStatus: number;
   httpRedirectLocation: string;
+  nameservers: string[];
+  dnsProvider: DnsProvider;
+  dnsProviderLabel: string;
   message: string;
 }
 
 export interface HostnameHealthReport {
   environmentName: string;
   siteUrl: string;
+  relatedGroupSiteUrl: string;
   hostnames: HostnameStatus[];
   problemCount: number;
   checkedAt: number;
@@ -917,7 +963,29 @@ export function createEmptySetupRequest(): EnvironmentSetupRequest {
       authenticateBrevoDomain: false,
       skipFlyDeployment: false,
       copyStandardAssets: true,
-      setupSubdomain: false
-    }
+      setupSubdomain: false,
+      copySourceBucket: false,
+      customDomainHostname: null
+    },
+    cloneType: null,
+    sourceEnvironmentName: null
   };
+}
+
+export function isFullDuplicate(request: EnvironmentSetupRequest): boolean {
+  return request.cloneType === CloneType.FULL_DUPLICATE;
+}
+
+export const ENVIRONMENT_SUBDOMAIN_BASE = "ngx-ramblers.org.uk";
+
+export function defaultFullDuplicateEnvironmentName(sourceEnvironmentName: string): string {
+  return `staging.${sourceEnvironmentName}`;
+}
+
+export function environmentSubdomainHostname(environmentName: string, baseDomain = ENVIRONMENT_SUBDOMAIN_BASE): string {
+  return `${environmentName}.${baseDomain}`;
+}
+
+export function flySafeResourceName(environmentName: string): string {
+  return (environmentName || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
 }

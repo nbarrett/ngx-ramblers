@@ -90,7 +90,7 @@ describe("meetingIcalDocument", () => {
   const JOIN = "https://example.org/video-meetings/guest/r";
 
   it("wraps a single VEVENT in a VCALENDAR with the meeting summary and uid", () => {
-    const ics = meetingIcalDocument({uid: "meeting-r@example.org", title: "Committee Meeting", startTime: START, url: JOIN}, "EKWG meetings");
+    const ics = meetingIcalDocument({uid: "meeting-r@example.org", title: "Committee Meeting", startTime: START, url: JOIN}, "Group meetings");
     expect(ics).toContain("BEGIN:VCALENDAR");
     expect(ics).toContain("BEGIN:VEVENT");
     expect(ics).toContain("END:VEVENT");

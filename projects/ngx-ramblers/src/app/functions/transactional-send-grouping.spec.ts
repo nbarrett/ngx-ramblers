@@ -17,14 +17,14 @@ function email(partial: Partial<BrevoTransactionalEmailSummary> & Pick<BrevoTran
 describe("subjectStemFromTransactional", () => {
   it("strips the personalised name suffix when prefix and subject are present", () => {
     expect(subjectStemFromTransactional(
-      "Finchley & Hornsey Group - Follow on from demo & Your NGX-Ramblers Login - Justin Lumley"
-    )).toBe("Finchley & Hornsey Group - Follow on from demo & Your NGX-Ramblers Login");
+      "Example Group - Follow on from demo & Your NGX-Ramblers Login - Justin Lumley"
+    )).toBe("Example Group - Follow on from demo & Your NGX-Ramblers Login");
   });
 
   it("leaves reply and un-suffixed subjects unchanged", () => {
     expect(subjectStemFromTransactional("Re: Testing inbox works okay")).toBe("Re: Testing inbox works okay");
-    expect(subjectStemFromTransactional("Finchley & Hornsey Group - Your NGX-Ramblers Login")).toBe(
-      "Finchley & Hornsey Group - Your NGX-Ramblers Login"
+    expect(subjectStemFromTransactional("Example Group - Your NGX-Ramblers Login")).toBe(
+      "Example Group - Your NGX-Ramblers Login"
     );
   });
 });

@@ -124,6 +124,6 @@ describe("slugRegexFor", () => {
   it("still matches the exact slug when a longer sibling exists", () => {
     const regex = slugRegexFor("community-cafe-walk");
     expect(regex.test("community-cafe-walk")).toBe(true);
-    expect(regex.test("https://pang-valley.ngx-ramblers.org.uk/walks/community-cafe-walk")).toBe(true);
+    expect(regex.test("https://group.ngx-ramblers.org.uk/walks/community-cafe-walk")).toBe(true);
   });
 });

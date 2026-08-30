@@ -4,6 +4,7 @@ import {
   CreateBucketCommand,
   CreateBucketCommandInput,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutBucketCorsCommand,
   PutPublicAccessBlockCommand,
   S3Client
@@ -415,6 +416,38 @@ export function generateAwsCredentialsResult(
 export const STANDARD_ASSETS = {
   sourceBucket: "ngx-ramblers-demo-staging"
 };
+
+async function listBucketKeys(s3Client: S3Client, bucket: string, continuationToken?: string): Promise<string[]> {
+  const page = await s3Client.send(new ListObjectsV2Command({
+    Bucket: bucket,
+    ContinuationToken: continuationToken
+  }));
+  const keys = (page.Contents || []).map(object => object.Key).filter((key): key is string => !!key);
+  if (page.IsTruncated && page.NextContinuationToken) {
+    return keys.concat(await listBucketKeys(s3Client, bucket, page.NextContinuationToken));
+  } else {
+    return keys;
+  }
+}
+
+export async function copyAllS3Objects(
+  adminConfig: AwsAdminConfig,
+  sourceBucket: string,
+  targetBucket: string
+): Promise<{ copied: number }> {
+  const s3Client = createS3Client(adminConfig);
+  const keys = await listBucketKeys(s3Client, sourceBucket);
+  debugLog("Copying %d objects from %s to %s", keys.length, sourceBucket, targetBucket);
+  await keys.reduce<Promise<void>>(async (previous, key) => {
+    await previous;
+    await s3Client.send(new CopyObjectCommand({
+      Bucket: targetBucket,
+      Key: key,
+      CopySource: `${sourceBucket}/${encodeURIComponent(key).replace(/%2F/g, "/")}`
+    }));
+  }, Promise.resolve());
+  return { copied: keys.length };
+}
 
 export async function copyStandardAssets(
   adminConfig: AwsAdminConfig,

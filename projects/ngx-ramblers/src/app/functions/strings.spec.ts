@@ -45,7 +45,7 @@ describe("strings", () => {
 
   describe("emailIsOnDomain", () => {
     it("is true when the address uses the group domain", () => {
-      expect(emailIsOnDomain("nick.barrett@ngx-ramblers.org.uk", "ngx-ramblers.org.uk")).toBe(true);
+      expect(emailIsOnDomain("member.one@ngx-ramblers.org.uk", "ngx-ramblers.org.uk")).toBe(true);
     });
 
     it("is false for a personal address", () => {
@@ -65,7 +65,7 @@ describe("strings", () => {
     });
 
     it("returns null when the local part is longer than 64 characters", () => {
-      expect(addressOnDomain("kent-area-representative-deputy-web-master-ramblers-group-walks-manager", "nwkramblers.org.uk")).toBeNull();
+      expect(addressOnDomain("kent-area-representative-deputy-web-master-ramblers-group-walks-manager", "example.org.uk")).toBeNull();
     });
   });
 

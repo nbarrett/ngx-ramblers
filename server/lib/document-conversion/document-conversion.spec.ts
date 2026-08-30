@@ -52,7 +52,7 @@ describe("convertBufferToMarkdown for Word documents", () => {
           <w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Zoom Link: </w:t></w:r>
           <w:hyperlink r:id="rId2"><w:r><w:t>Join the meeting</w:t></w:r></w:hyperlink>
         </w:p>
-        <w:p><w:r><w:t xml:space="preserve">Developed since last meeting: onboarding </w:t></w:r><w:hyperlink r:id="rId3"><w:r><w:t>northwestkent.ngx-ramblers.org.uk</w:t></w:r></w:hyperlink></w:p>
+        <w:p><w:r><w:t xml:space="preserve">Developed since last meeting: onboarding </w:t></w:r><w:hyperlink r:id="rId3"><w:r><w:t>group.ngx-ramblers.org.uk</w:t></w:r></w:hyperlink></w:p>
         <w:p><w:r><w:t>The Ramblers' Association is a registered charity (England and Wales no 1093577).</w:t></w:r></w:p>
       </w:body>
     </w:document>`;
@@ -60,13 +60,13 @@ describe("convertBufferToMarkdown for Word documents", () => {
   const relationshipsXml = `<?xml version="1.0"?>
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
       <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://us06web.zoom.us/j/3706479967" TargetMode="External"/>
-      <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://www.northwestkent.ngx-ramblers.org.uk/" TargetMode="External"/>
+      <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://www.group.ngx-ramblers.org.uk/" TargetMode="External"/>
     </Relationships>`;
 
   it("preserves embedded hyperlinks as markdown links", async () => {
     const result = await convertBufferToMarkdown(minimalDocx(documentXml, relationshipsXml), "agenda.docx");
     expect(result.markdown).toContain("[Join the meeting](https://us06web.zoom.us/j/3706479967)");
-    expect(result.markdown).toContain("[northwestkent.ngx-ramblers.org.uk](https://www.northwestkent.ngx-ramblers.org.uk/)");
+    expect(result.markdown).toContain("[group.ngx-ramblers.org.uk](https://www.group.ngx-ramblers.org.uk/)");
   });
 
   it("promotes the leading bold paragraph to the title and suggests it", async () => {

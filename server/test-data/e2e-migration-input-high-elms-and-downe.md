@@ -1,11 +1,11 @@
 Walk 7   body { font-family: Arial, Helvetica, sans-serif; font-size: small; font-weight: normal; font-style: normal; font-variant: normal; text-transform: none; color: #000000; text-decoration: none; } h2 {font-family: BitterBold; color: #008080; font-size: large;} h3 {font-family: BitterBold; color: #006b4a; font-size: medium;} h4 {color: #000000; font-size: 100%;} .lmenu {line-height: 110%; text-align: Left; margin-top: 7; margin-bottom: 7;} .auto-style5 { font-size: x-small; } .auto-style6 { text-align: center; }
 
-[![](../../ramblers-logo.gif)](http://www.kentramblers.org.uk)
+[![](../../ramblers-logo.gif)](http://www.archive.example.org.uk)
 
 # Kent Ramblers Walk 7
 
 
-[Home](http://www.kentramblers.org.uk)
+[Home](http://www.archive.example.org.uk)
 
 [News](../news/index.htm)
 
@@ -80,7 +80,7 @@ In addition to the walking routes on our web site we have published three popula
 
 * * *
 
-Please report any problems with this walk to [info@kentramblers.org.uk](mailto:info@kentramblers.org.uk).
+Please report any problems with this walk to [info@archive.example.org.uk](mailto:info@archive.example.org.uk).
 
 * * *
 

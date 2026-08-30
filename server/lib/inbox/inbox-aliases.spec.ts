@@ -16,8 +16,8 @@ import {
 function connection(overrides: Partial<InboxMailboxConnection>): InboxMailboxConnection {
   return {
     id: "conn-1",
-    tenantSlug: "ekwg",
-    gmailAccountEmail: "inbox@ekwg.co.uk",
+    tenantSlug: "group",
+    gmailAccountEmail: "inbox@example.co.uk",
     enabled: true,
     importAllMessages: false,
     ...overrides
@@ -27,7 +27,7 @@ function connection(overrides: Partial<InboxMailboxConnection>): InboxMailboxCon
 function role(overrides: Partial<CommitteeMember>): CommitteeMember {
   return {
     type: "chairman",
-    email: "chairman@ekwg.co.uk",
+    email: "chairman@example.co.uk",
     fullName: "Chair Person",
     vacant: false,
     forwardEmailTarget: ForwardEmailTarget.CATCHALL,
@@ -75,34 +75,34 @@ describe("inbox-aliases", () => {
 
     it("maps role-address mail to the matching role alias", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
-      const message = {to: [{email: "secretary@ekwg.co.uk"}], cc: []} as InboxMessage;
-      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], "ekwg");
+      const message = {to: [{email: "secretary@example.co.uk"}], cc: []} as InboxMessage;
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@example.co.uk"})], "group");
       expect(result.map(alias => alias.roleType)).toEqual(["secretary"]);
     });
 
     it("maps unmatched catch-all mail to the general alias", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
-      const message = {to: [{email: "unknown@ekwg.co.uk"}], cc: []} as InboxMessage;
-      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], "ekwg");
+      const message = {to: [{email: "unknown@example.co.uk"}], cc: []} as InboxMessage;
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@example.co.uk"})], "group");
       expect(result.map(alias => alias.roleType)).toEqual([inboxGeneralRoleTypeFor("cf1")]);
     });
 
     it("maps mail addressed to an additional role address to the same role alias", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
-      const message = {to: [{email: "Tom@EKWG.co.uk"}], cc: []} as InboxMessage;
-      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk", fullName: "", additionalEmails: ["tom@ekwg.co.uk"]})], "ekwg");
+      const message = {to: [{email: "Tom@example.co.uk"}], cc: []} as InboxMessage;
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@example.co.uk", fullName: "", additionalEmails: ["tom@example.co.uk"]})], "group");
       expect(result.map(alias => alias.roleType)).toEqual(["secretary"]);
-      expect(result[0].additionalEmails).toEqual(["tom@ekwg.co.uk"]);
+      expect(result[0].additionalEmails).toEqual(["tom@example.co.uk"]);
     });
 
     it("maps mail only to the role whose address matches, not other roles held by the same member", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
-      const message = {to: [{email: "nick.barrett@ekwg.co.uk"}], cc: []} as InboxMessage;
+      const message = {to: [{email: "member.one@example.co.uk"}], cc: []} as InboxMessage;
       const roles = [
-        role({type: "membership", email: "nick.barrett@ekwg.co.uk", memberId: "member-nick"}),
-        role({type: "walks", email: "walks@ekwg.co.uk", memberId: "member-nick"})
+        role({type: "membership", email: "member.one@example.co.uk", memberId: "member-nick"}),
+        role({type: "walks", email: "walks@example.co.uk", memberId: "member-nick"})
       ];
-      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, roles, "ekwg");
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, roles, "group");
       expect(result.map(alias => alias.roleType)).toEqual(["membership"]);
     });
 
@@ -112,73 +112,73 @@ describe("inbox-aliases", () => {
 
     it("maps a CATCHALL role to the sole connection", () => {
       const connections = connectionsByEmail([connection({id: "c1"})]);
-      const aliases = deriveAliasesFrom(connections, [role({type: "chairman", email: "chairman@ekwg.co.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})], "ekwg");
+      const aliases = deriveAliasesFrom(connections, [role({type: "chairman", email: "chairman@example.co.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})], "group");
       expect(aliases.length).toEqual(1);
       expect(aliases[0].roleType).toEqual("chairman");
-      expect(aliases[0].roleEmail).toEqual("chairman@ekwg.co.uk");
+      expect(aliases[0].roleEmail).toEqual("chairman@example.co.uk");
       expect(aliases[0].mailboxConnectionId).toEqual("c1");
     });
 
     it("gives colliding role types distinct alias ids", () => {
       const connections = connectionsByEmail([connection({id: "c1"})]);
       const aliases = deriveAliasesFrom(connections, [
-        role({type: "system-administrator", email: "nick.barrett@nwkramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL}),
-        role({type: "system-administrator", email: "system.administrator@nwkramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})
-      ], "ekwg");
+        role({type: "system-administrator", email: "member.one@example.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL}),
+        role({type: "system-administrator", email: "system.administrator@example.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})
+      ], "group");
       expect(aliases.map(alias => alias.id)).toEqual([
-        "system-administrator:nick.barrett@nwkramblers.org.uk",
-        "system-administrator:system.administrator@nwkramblers.org.uk"
+        "system-administrator:member.one@example.org.uk",
+        "system-administrator:system.administrator@example.org.uk"
       ]);
     });
 
     it("looks up a mailbox by committee role type, not by the alias list id", () => {
       const aliases = deriveAliasesFrom(connectionsByEmail([connection({id: "c1"})]), [
-        role({type: "ngx-project-lead", email: "nick.barrett@ngx-ramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})
+        role({type: "ngx-project-lead", email: "member.one@ngx-ramblers.org.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})
       ], "default");
-      expect(aliases[0].id).toEqual("ngx-project-lead:nick.barrett@ngx-ramblers.org.uk");
-      expect(aliasForRoleType(aliases, "ngx-project-lead")?.roleEmail).toEqual("nick.barrett@ngx-ramblers.org.uk");
+      expect(aliases[0].id).toEqual("ngx-project-lead:member.one@ngx-ramblers.org.uk");
+      expect(aliasForRoleType(aliases, "ngx-project-lead")?.roleEmail).toEqual("member.one@ngx-ramblers.org.uk");
       expect(aliasForRoleType(aliases, aliases[0].id)).toEqual(null);
     });
 
     it("excludes a CATCHALL role when there is more than one connection (no single catch-all)", () => {
-      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "a@ekwg.co.uk"}), connection({id: "c2", gmailAccountEmail: "b@ekwg.co.uk"})]);
-      const aliases = deriveAliasesFrom(connections, [role({forwardEmailTarget: ForwardEmailTarget.CATCHALL})], "ekwg");
+      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "a@example.co.uk"}), connection({id: "c2", gmailAccountEmail: "b@example.co.uk"})]);
+      const aliases = deriveAliasesFrom(connections, [role({forwardEmailTarget: ForwardEmailTarget.CATCHALL})], "group");
       expect(aliases).toEqual([]);
     });
 
     it("maps a CUSTOM forward email to the matching connection, normalising case", () => {
-      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@ekwg.co.uk"})]);
-      const aliases = deriveAliasesFrom(connections, [role({type: "secretary", email: "secretary@ekwg.co.uk", forwardEmailTarget: ForwardEmailTarget.CUSTOM, forwardEmailCustom: "Shared@EKWG.co.uk"})], "ekwg");
+      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@example.co.uk"})]);
+      const aliases = deriveAliasesFrom(connections, [role({type: "secretary", email: "secretary@example.co.uk", forwardEmailTarget: ForwardEmailTarget.CUSTOM, forwardEmailCustom: "Shared@example.co.uk"})], "group");
       expect(aliases.length).toEqual(1);
       expect(aliases[0].roleType).toEqual("secretary");
       expect(aliases[0].mailboxConnectionId).toEqual("c1");
     });
 
     it("maps a MULTIPLE role on its first recipient", () => {
-      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@ekwg.co.uk"})]);
-      const aliases = deriveAliasesFrom(connections, [role({type: "social", email: "social@ekwg.co.uk", forwardEmailTarget: ForwardEmailTarget.MULTIPLE, forwardEmailRecipients: ["shared@ekwg.co.uk", "other@x.com"]})], "ekwg");
+      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@example.co.uk"})]);
+      const aliases = deriveAliasesFrom(connections, [role({type: "social", email: "social@example.co.uk", forwardEmailTarget: ForwardEmailTarget.MULTIPLE, forwardEmailRecipients: ["shared@example.co.uk", "other@x.com"]})], "group");
       expect(aliases.length).toEqual(1);
       expect(aliases[0].mailboxConnectionId).toEqual("c1");
     });
 
     it("excludes a role whose target email matches no connection", () => {
-      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@ekwg.co.uk"})]);
-      const aliases = deriveAliasesFrom(connections, [role({forwardEmailTarget: ForwardEmailTarget.CUSTOM, forwardEmailCustom: "nobody@x.com"})], "ekwg");
+      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@example.co.uk"})]);
+      const aliases = deriveAliasesFrom(connections, [role({forwardEmailTarget: ForwardEmailTarget.CUSTOM, forwardEmailCustom: "nobody@x.com"})], "group");
       expect(aliases).toEqual([]);
     });
 
     it("adds a general alias for an import-all connection", () => {
-      const connections = connectionsByEmail([connection({id: "c9", gmailAccountEmail: "all@ekwg.co.uk", importAllMessages: true})]);
-      const aliases = deriveAliasesFrom(connections, [], "ekwg");
+      const connections = connectionsByEmail([connection({id: "c9", gmailAccountEmail: "all@example.co.uk", importAllMessages: true})]);
+      const aliases = deriveAliasesFrom(connections, [], "group");
       expect(aliases.length).toEqual(1);
       expect(aliases[0].roleType).toEqual(inboxGeneralRoleTypeFor("c9"));
-      expect(aliases[0].roleEmail).toEqual("all@ekwg.co.uk");
+      expect(aliases[0].roleEmail).toEqual("all@example.co.uk");
       expect(aliases[0].mailboxConnectionId).toEqual("c9");
     });
 
     it("returns role aliases and general aliases together", () => {
-      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@ekwg.co.uk", importAllMessages: true})]);
-      const aliases = deriveAliasesFrom(connections, [role({type: "chairman", email: "chairman@ekwg.co.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})], "ekwg");
+      const connections = connectionsByEmail([connection({id: "c1", gmailAccountEmail: "shared@example.co.uk", importAllMessages: true})]);
+      const aliases = deriveAliasesFrom(connections, [role({type: "chairman", email: "chairman@example.co.uk", forwardEmailTarget: ForwardEmailTarget.CATCHALL})], "group");
       expect(aliases.map(alias => alias.roleType)).toEqual(["chairman", inboxGeneralRoleTypeFor("c1")]);
     });
 
@@ -187,9 +187,9 @@ describe("inbox-aliases", () => {
   describe("generalAliasFor", () => {
 
     it("builds an enabled general alias keyed on the connection id", () => {
-      const alias = generalAliasFor(connection({id: "c1", gmailAccountEmail: "all@ekwg.co.uk"}), "ekwg");
+      const alias = generalAliasFor(connection({id: "c1", gmailAccountEmail: "all@example.co.uk"}), "group");
       expect(alias.roleType).toEqual(inboxGeneralRoleTypeFor("c1"));
-      expect(alias.roleEmail).toEqual("all@ekwg.co.uk");
+      expect(alias.roleEmail).toEqual("all@example.co.uk");
       expect(alias.mailboxConnectionId).toEqual("c1");
       expect(alias.enabled).toEqual(true);
     });
@@ -207,32 +207,32 @@ describe("inbox-aliases", () => {
 
   describe("roleMatchesMessageAddresses", () => {
 
-    const identityEmailsByType = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "chair.forward@ekwg.co.uk"])]]);
+    const identityEmailsByType = new Map<string, Set<string>>([["chairman", new Set(["chairman@example.co.uk", "chair.forward@example.co.uk"])]]);
 
     it("matches when a message address is the role email or a forward address", () => {
-      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["chair.forward@ekwg.co.uk"], identityEmailsByType)).toEqual(true);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@example.co.uk", ["chair.forward@example.co.uk"], identityEmailsByType)).toEqual(true);
     });
 
     it("does not match a personal member address that is not a role or forward address", () => {
-      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["nick.barrett@ekwg.co.uk"], identityEmailsByType)).toEqual(false);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@example.co.uk", ["member.one@example.co.uk"], identityEmailsByType)).toEqual(false);
     });
 
     it("does not match when no message address belongs to the role", () => {
-      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["someone@else.com"], identityEmailsByType)).toEqual(false);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@example.co.uk", ["someone@else.com"], identityEmailsByType)).toEqual(false);
     });
 
     it("falls back to the role email when the role has no identity set", () => {
-      expect(roleMatchesMessageAddresses("treasurer", "treasurer@ekwg.co.uk", ["treasurer@ekwg.co.uk"], identityEmailsByType)).toEqual(true);
+      expect(roleMatchesMessageAddresses("treasurer", "treasurer@example.co.uk", ["treasurer@example.co.uk"], identityEmailsByType)).toEqual(true);
     });
 
     it("does not match an excluded Gmail inbox address", () => {
-      const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "walks@ekwg.co.uk"])]]);
-      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["walks@ekwg.co.uk"], identities, ["walks@ekwg.co.uk"])).toEqual(false);
+      const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@example.co.uk", "walks@example.co.uk"])]]);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@example.co.uk", ["walks@example.co.uk"], identities, ["walks@example.co.uk"])).toEqual(false);
     });
 
     it("still matches a role address when the Gmail inbox address is also present", () => {
-      const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "walks@ekwg.co.uk"])]]);
-      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["walks@ekwg.co.uk", "chairman@ekwg.co.uk"], identities, ["walks@ekwg.co.uk"])).toEqual(true);
+      const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@example.co.uk", "walks@example.co.uk"])]]);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@example.co.uk", ["walks@example.co.uk", "chairman@example.co.uk"], identities, ["walks@example.co.uk"])).toEqual(true);
     });
 
   });
@@ -243,24 +243,24 @@ describe("inbox-aliases", () => {
       const addresses = roleEmailAddresses(role({
         type: "secretary",
         fullName: "",
-        email: "secretary@ekwg.co.uk",
-        additionalEmails: ["tom@ekwg.co.uk", "Secretary@EKWG.co.uk", ""]
+        email: "secretary@example.co.uk",
+        additionalEmails: ["tom@example.co.uk", "Secretary@example.co.uk", ""]
       }));
-      expect(addresses).toEqual(["secretary@ekwg.co.uk", "tom@ekwg.co.uk"]);
+      expect(addresses).toEqual(["secretary@example.co.uk", "tom@example.co.uk"]);
     });
 
     it("returns just the primary address when no additional addresses are configured", () => {
-      expect(roleEmailAddresses(role({type: "secretary", fullName: "", email: "secretary@ekwg.co.uk"}))).toEqual(["secretary@ekwg.co.uk"]);
+      expect(roleEmailAddresses(role({type: "secretary", fullName: "", email: "secretary@example.co.uk"}))).toEqual(["secretary@example.co.uk"]);
     });
 
     it("adds the generated role and full-name addresses when they differ from the primary", () => {
       expect(roleEmailAddresses(role({
         type: "system-administrator",
-        fullName: "Nick Barrett",
-        email: "nick.barrett@nwkramblers.org.uk"
+        fullName: "Member One",
+        email: "member.one@example.org.uk"
       }))).toEqual([
-        "nick.barrett@nwkramblers.org.uk",
-        "system-administrator@nwkramblers.org.uk"
+        "member.one@example.org.uk",
+        "system-administrator@example.org.uk"
       ]);
     });
 
@@ -268,11 +268,11 @@ describe("inbox-aliases", () => {
       expect(roleEmailAddresses(role({
         type: "walks-co-ordinator",
         fullName: "Jane Doe",
-        email: "walks@ekwg.co.uk"
+        email: "walks@example.co.uk"
       }))).toEqual([
-        "walks@ekwg.co.uk",
-        "walks-co-ordinator@ekwg.co.uk",
-        "jane.doe@ekwg.co.uk"
+        "walks@example.co.uk",
+        "walks-co-ordinator@example.co.uk",
+        "jane.doe@example.co.uk"
       ]);
     });
 
@@ -282,11 +282,11 @@ describe("inbox-aliases", () => {
       expect(roleEmailAddresses(role({
         type,
         description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
-        fullName: "Bob Tolson",
-        email: "bob.tolson@nwkramblers.org.uk"
+        fullName: "Member Two",
+        email: "member.two@example.org.uk"
       }))).toEqual([
-        "bob.tolson@nwkramblers.org.uk",
-        "kent-area-representative@nwkramblers.org.uk"
+        "member.two@example.org.uk",
+        "kent-area-representative@example.org.uk"
       ]);
     });
 
@@ -315,10 +315,10 @@ describe("inbox-aliases", () => {
 
     it("stores every address except the default sender so the list survives a reload", () => {
       expect(additionalEmailsFromMailboxList([
-        "nick.barrett@ngx-ramblers.org.uk",
+        "member.one@ngx-ramblers.org.uk",
         "system-administrator@ngx-ramblers.org.uk",
         "ngx-project-lead@ngx-ramblers.org.uk"
-      ], "nick.barrett@ngx-ramblers.org.uk")).toEqual([
+      ], "member.one@ngx-ramblers.org.uk")).toEqual([
         "system-administrator@ngx-ramblers.org.uk",
         "ngx-project-lead@ngx-ramblers.org.uk"
       ]);
@@ -326,12 +326,12 @@ describe("inbox-aliases", () => {
 
     it("also omits generated and superseded addresses when they are excluded", () => {
       expect(additionalEmailsFromMailboxList([
-        "jack.yan@nwkramblers.org.uk",
-        "deputy-chairman-web-master@nwkramblers.org.uk",
-        "deputy-chairman-web-master-walk-register-and-statistic-ramblers@nwkramblers.org.uk"
-      ], "jack.yan@nwkramblers.org.uk", [
-        "deputy-chairman-web-master@nwkramblers.org.uk",
-        "deputy-chairman-web-master-walk-register-and-statistic-ramblers@nwkramblers.org.uk"
+        "member.three@example.org.uk",
+        "deputy-chairman-web-master@example.org.uk",
+        "deputy-chairman-web-master-walk-register-and-statistic-ramblers@example.org.uk"
+      ], "member.three@example.org.uk", [
+        "deputy-chairman-web-master@example.org.uk",
+        "deputy-chairman-web-master-walk-register-and-statistic-ramblers@example.org.uk"
       ])).toEqual([]);
     });
 
@@ -343,13 +343,13 @@ describe("inbox-aliases", () => {
       expect(roleMailboxExtras(role({
         type: "deputy-chairman-web-master",
         description: "Deputy Chairman Web Master, Walk Register and Statistic Ramblers Group Walks Manager, Assistant Membership Secretary",
-        fullName: "Jack Yan",
-        email: "jack.yan@nwkramblers.org.uk",
+        fullName: "Member Three",
+        email: "member.three@example.org.uk",
         additionalEmails: [
-          "deputy-chairman-web-master@nwkramblers.org.uk",
-          "deputy-chairman-web-master-walk-register-and-statistic-ramblers@nwkramblers.org.uk"
+          "deputy-chairman-web-master@example.org.uk",
+          "deputy-chairman-web-master-walk-register-and-statistic-ramblers@example.org.uk"
         ]
-      }), "nwkramblers.org.uk")).toEqual([]);
+      }), "example.org.uk")).toEqual([]);
     });
 
     it("keeps a typed extra that is not a leftover generated role address", () => {
@@ -357,9 +357,9 @@ describe("inbox-aliases", () => {
         type: "secretary",
         description: "Secretary",
         fullName: "Malcolm Todd",
-        email: "secretary@ekwg.co.uk",
-        additionalEmails: ["walks@ekwg.co.uk"]
-      }), "ekwg.co.uk")).toEqual(["walks@ekwg.co.uk"]);
+        email: "secretary@example.co.uk",
+        additionalEmails: ["walks@example.co.uk"]
+      }), "example.co.uk")).toEqual(["walks@example.co.uk"]);
     });
 
   });
@@ -467,14 +467,14 @@ describe("inbox-aliases", () => {
     });
 
     it("suffixes the email local part when the preferred type is already taken", () => {
-      expect(uniqueCommitteeRoleType("system-administrator", ["system-administrator"], "system.administrator@nwkramblers.org.uk"))
+      expect(uniqueCommitteeRoleType("system-administrator", ["system-administrator"], "system.administrator@example.org.uk"))
         .toEqual("system-administrator-system-administrator");
     });
 
     it("keeps the first role and suffixes later duplicates", () => {
       const uniqued = uniqueCommitteeRoleTypes([
-        role({type: "system-administrator", email: "nick.barrett@nwkramblers.org.uk", description: "System Administrator"}),
-        role({type: "system-administrator", email: "system.administrator@nwkramblers.org.uk", description: "System Administrator"})
+        role({type: "system-administrator", email: "member.one@example.org.uk", description: "System Administrator"}),
+        role({type: "system-administrator", email: "system.administrator@example.org.uk", description: "System Administrator"})
       ]);
       expect(uniqued.map(item => item.type)).toEqual([
         "system-administrator",
@@ -487,7 +487,7 @@ describe("inbox-aliases", () => {
         role({
           type: "kent-area-representative-deputy-web-master-ramblers-group-walks-manager",
           description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
-          email: "bob.tolson@nwkramblers.org.uk"
+          email: "member.two@example.org.uk"
         })
       ]);
       expect(uniqued[0].type).toEqual("kent-area-representative");
@@ -499,12 +499,12 @@ describe("inbox-aliases", () => {
         role({
           type: longType,
           description: "Kent Area Representative, Deputy Web Master & Ramblers Group Walks Manager",
-          email: "bob.tolson@nwkramblers.org.uk"
+          email: "member.two@example.org.uk"
         }),
         role({
           type: longType,
           description: "Kent Area Representative, Social Secretary",
-          email: "jane.doe@nwkramblers.org.uk"
+          email: "jane.doe@example.org.uk"
         })
       ]);
       expect(uniqued.map(item => item.type)).toEqual([

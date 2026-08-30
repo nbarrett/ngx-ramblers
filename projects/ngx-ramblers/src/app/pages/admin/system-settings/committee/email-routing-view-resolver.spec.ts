@@ -56,27 +56,27 @@ function destination(email: string, verified: boolean): DestinationAddress {
 
 describe("roleEmailFor", () => {
   it("returns null for null member", () => {
-    expect(roleEmailFor(null, "ekwg.co.uk")).toBeNull();
+    expect(roleEmailFor(null, "example.co.uk")).toBeNull();
   });
 
   it("returns the stored email when it ends with @baseDomain", () => {
-    const member = {type: "walks-co-ordinator", email: "walks@ekwg.co.uk"} as CommitteeMember;
-    expect(roleEmailFor(member, "ekwg.co.uk")).toBe("walks@ekwg.co.uk");
+    const member = {type: "walks-co-ordinator", email: "walks@example.co.uk"} as CommitteeMember;
+    expect(roleEmailFor(member, "example.co.uk")).toBe("walks@example.co.uk");
   });
 
   it("derives from type@baseDomain when stored email does not match the domain", () => {
     const member = {type: "walks-co-ordinator", email: "walks@old-domain.co.uk"} as CommitteeMember;
-    expect(roleEmailFor(member, "ekwg.co.uk")).toBe("walks-co-ordinator@ekwg.co.uk");
+    expect(roleEmailFor(member, "example.co.uk")).toBe("walks-co-ordinator@example.co.uk");
   });
 
   it("derives from type@baseDomain when stored email is empty", () => {
     const member = {type: "chairman", email: ""} as CommitteeMember;
-    expect(roleEmailFor(member, "ekwg.co.uk")).toBe("chairman@ekwg.co.uk");
+    expect(roleEmailFor(member, "example.co.uk")).toBe("chairman@example.co.uk");
   });
 
   it("returns null when neither stored email nor type are usable", () => {
     const member = {type: "", email: ""} as CommitteeMember;
-    expect(roleEmailFor(member, "ekwg.co.uk")).toBeNull();
+    expect(roleEmailFor(member, "example.co.uk")).toBeNull();
   });
 });
 
@@ -90,8 +90,8 @@ describe("resolveRouting", () => {
 
   it("returns NONE when no rules match and no catch-all is configured", () => {
     const result = resolveRouting({
-      roleEmail: "chairman@ekwg.co.uk",
-      rules: [forwardRule("treasurer@ekwg.co.uk", "treas@gmail.com")],
+      roleEmail: "chairman@example.co.uk",
+      rules: [forwardRule("treasurer@example.co.uk", "treas@gmail.com")],
       catchAllRule: null
     });
     expect(result.resolution).toBe(RoutingResolution.NONE);
@@ -99,7 +99,7 @@ describe("resolveRouting", () => {
 
   it("returns CATCH_ALL when no literal rule matches but a catch-all is enabled", () => {
     const result = resolveRouting({
-      roleEmail: "chairman@ekwg.co.uk",
+      roleEmail: "chairman@example.co.uk",
       rules: [],
       catchAllRule: catchAllForwardRule("nick@gmail.com")
     });
@@ -109,7 +109,7 @@ describe("resolveRouting", () => {
 
   it("ignores catch-all when it is disabled", () => {
     const result = resolveRouting({
-      roleEmail: "chairman@ekwg.co.uk",
+      roleEmail: "chairman@example.co.uk",
       rules: [],
       catchAllRule: catchAllForwardRule("nick@gmail.com", false)
     });
@@ -117,9 +117,9 @@ describe("resolveRouting", () => {
   });
 
   it("returns DIRECT when a literal rule matches the role email exactly", () => {
-    const rule = forwardRule("walks@ekwg.co.uk", "kerry@yahoo.co.uk");
+    const rule = forwardRule("walks@example.co.uk", "kerry@yahoo.co.uk");
     const result = resolveRouting({
-      roleEmail: "walks@ekwg.co.uk",
+      roleEmail: "walks@example.co.uk",
       rules: [rule],
       catchAllRule: catchAllForwardRule("nick@gmail.com")
     });
@@ -129,9 +129,9 @@ describe("resolveRouting", () => {
   });
 
   it("matches case-insensitively (matcher-side casing)", () => {
-    const rule = forwardRule("WALKS@EKWG.CO.UK", "kerry@yahoo.co.uk");
+    const rule = forwardRule("WALKS@EXAMPLE.CO.UK", "kerry@yahoo.co.uk");
     const result = resolveRouting({
-      roleEmail: "walks@ekwg.co.uk",
+      roleEmail: "walks@example.co.uk",
       rules: [rule],
       catchAllRule: null
     });
@@ -139,9 +139,9 @@ describe("resolveRouting", () => {
   });
 
   it("matches case-insensitively (roleEmail-side casing)", () => {
-    const rule = forwardRule("walks@ekwg.co.uk", "kerry@yahoo.co.uk");
+    const rule = forwardRule("walks@example.co.uk", "kerry@yahoo.co.uk");
     const result = resolveRouting({
-      roleEmail: "Walks@EKWG.co.uk",
+      roleEmail: "Walks@example.co.uk",
       rules: [rule],
       catchAllRule: null
     });
@@ -150,10 +150,10 @@ describe("resolveRouting", () => {
 
   it("does not conflate sibling rules that forward to the same destination", () => {
     const ngxMembership = forwardRule("membership@ngx-ramblers.org.uk", "nick@gmail.com");
-    const boltonMembership = forwardRule("membership@bolton.ngx-ramblers.org.uk", "nick@gmail.com");
+    const groupMembership = forwardRule("membership@group.ngx-ramblers.org.uk", "nick@gmail.com");
     const result = resolveRouting({
       roleEmail: "membership@ngx-ramblers.org.uk",
-      rules: [boltonMembership, ngxMembership],
+      rules: [groupMembership, ngxMembership],
       catchAllRule: null
     });
     expect(result.matchingRule).toBe(ngxMembership);
@@ -162,21 +162,21 @@ describe("resolveRouting", () => {
   it("returns NONE for an unmatched roleEmail even when other rules forward to the same destination", () => {
     const result = resolveRouting({
       roleEmail: "chairman@ngx-ramblers.org.uk",
-      rules: [forwardRule("membership@bolton.ngx-ramblers.org.uk", "nick@gmail.com")],
+      rules: [forwardRule("membership@group.ngx-ramblers.org.uk", "nick@gmail.com")],
       catchAllRule: null
     });
     expect(result.resolution).toBe(RoutingResolution.NONE);
   });
 
   it("returns WORKER and the worker script name when the matching rule has a worker action", () => {
-    const rule = workerRule("enquiries@ekwg.co.uk", "email-fwd-ekwg-co-uk-enquiries");
+    const rule = workerRule("enquiries@example.co.uk", "email-fwd-example-co-uk-enquiries");
     const result = resolveRouting({
-      roleEmail: "enquiries@ekwg.co.uk",
+      roleEmail: "enquiries@example.co.uk",
       rules: [rule],
       catchAllRule: null
     });
     expect(result.resolution).toBe(RoutingResolution.WORKER);
-    expect(result.workerScriptName).toBe("email-fwd-ekwg-co-uk-enquiries");
+    expect(result.workerScriptName).toBe("email-fwd-example-co-uk-enquiries");
     expect(result.effectiveDestination).toBeNull();
   });
 
@@ -189,7 +189,7 @@ describe("resolveRouting", () => {
       actions: [{type: EmailRoutingActionType.FORWARD, value: ["nick@gmail.com"]}]
     };
     const result = resolveRouting({
-      roleEmail: "walks@ekwg.co.uk",
+      roleEmail: "walks@example.co.uk",
       rules: [allMatcher],
       catchAllRule: null
     });

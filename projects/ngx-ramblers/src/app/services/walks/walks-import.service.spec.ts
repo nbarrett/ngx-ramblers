@@ -32,9 +32,9 @@ import { DateTime } from "luxon";
 describe("WalksImportService Walks Manager matching", () => {
     const systemConfig = {
         group: {
-            shortName: "EKWG",
-            longName: "East Kent Weekend Group",
-            groupCode: "EKWG"
+            shortName: "EXAM",
+            longName: "Example Walking Group",
+            groupCode: "EXAM"
         },
         area: {
             groupCode: "SE"
@@ -266,8 +266,8 @@ describe("WalksImportService Walks Manager matching", () => {
                 id: "wm-1",
                 item_type: RamblersEventType.GROUP_WALK,
                 title: "Coastal Walk",
-                group_code: "EKWG",
-                group_name: "East Kent Weekend Group",
+                group_code: "EXAM",
+                group_name: "Example Walking Group",
                 area_code: "SE",
                 start_date_time: "2026-03-10T09:00:00",
                 end_date_time: "2026-03-10T13:00:00",
@@ -387,7 +387,7 @@ describe("WalksImportService Walks Manager matching", () => {
         expect(localWalksAndEventsService.allWithPagination).toHaveBeenCalledTimes(1);
         const query = vi.mocked(localWalksAndEventsService.allWithPagination).mock.lastCall[0];
         expect(query.criteria).toEqual({
-            "groupEvent.group_code": {$in: ["EKWG"]},
+            "groupEvent.group_code": {$in: ["EXAM"]},
             "groupEvent.start_date_time": {$gte: "2023-05-21", $lt: "2023-07-07"}
         });
         expect(result.existingWalksWithinRange).toEqual([firstExistingWalk, lastExistingWalk]);
@@ -401,7 +401,7 @@ describe("WalksImportService Walks Manager matching", () => {
         existingWalk.groupEvent.id = "100129480";
         existingWalk.groupEvent.title = "Appledore Circular - EVENING WALK";
         existingWalk.groupEvent.group_code = "KT50";
-        existingWalk.groupEvent.group_name = "East Kent Walking Group";
+        existingWalk.groupEvent.group_name = "Example Walking Group";
         existingWalk.groupEvent.start_date_time = "2023-05-10T18:30:00";
         localWalksAndEventsService.allWithPagination.mockResolvedValue({
             response: [existingWalk],
@@ -410,7 +410,7 @@ describe("WalksImportService Walks Manager matching", () => {
         const incomingWalk = service.csvRowToExtendedGroupEvent({
             "Walk ID": "100129480",
             "Group code": "KT50",
-            "Group name": "East Kent Walking Group",
+            "Group name": "Example Walking Group",
             "Title": "Appledore Circular - EVENING WALK",
             "Date": "2023-05-10",
             "Start time": "18:30",
@@ -446,7 +446,7 @@ describe("WalksImportService Walks Manager matching", () => {
 
         const query = vi.mocked(localWalksAndEventsService.allWithPagination).mock.lastCall[0];
         expect(query.criteria).toEqual({
-            "groupEvent.group_code": {$in: ["EKWG"]},
+            "groupEvent.group_code": {$in: ["EXAM"]},
             "groupEvent.start_date_time": {$gte: "2023-05-21", $lt: "2023-05-22"}
         });
     });
@@ -518,8 +518,8 @@ describe("WalksImportService Walks Manager matching", () => {
                     id: null,
                     item_type: RamblersEventType.GROUP_WALK,
                     title: "Downland Walk",
-                    group_code: "EKWG",
-                    group_name: "East Kent Weekend Group",
+                    group_code: "EXAM",
+                    group_name: "Example Walking Group",
                     area_code: "SE",
                     start_date_time: "2026-04-10T10:00:00",
                     end_date_time: "2026-04-10T14:00:00",
@@ -568,7 +568,7 @@ describe("WalksImportService Walks Manager matching", () => {
             };
         }
 
-        const groupCodeAndName = { group_code: "EKWG", group_name: "East Kent Weekend Group" };
+        const groupCodeAndName = { group_code: "EXAM", group_name: "Example Walking Group" };
 
         it("normalises joint walk leaders from csv rows into walk_leader name and abbreviates the contact display name", () => {
             const service = TestBed.inject(WalksImportService);
@@ -589,10 +589,10 @@ describe("WalksImportService Walks Manager matching", () => {
             const result = service.csvRowToExtendedGroupEvent({
                 ...csvRow("Nick Barrett"),
                 "Group code": "KT50",
-                "Group name": "East Kent Walking Group"
+                "Group name": "Example Walking Group"
             }, {group_code: "KT", group_name: "NGX-Ramblers"});
             expect(result.groupEvent.group_code).toEqual("KT50");
-            expect(result.groupEvent.group_name).toEqual("East Kent Walking Group");
+            expect(result.groupEvent.group_name).toEqual("Example Walking Group");
         });
 
         it("matches the first listed joint leader to a member in prepareImportOfEvents", async () => {
@@ -719,8 +719,8 @@ describe("WalksImportService Walks Manager matching", () => {
                     id: null,
                     item_type: RamblersEventType.GROUP_WALK,
                     title: "Re-imported Title",
-                    group_code: "EKWG",
-                    group_name: "East Kent Weekend Group",
+                    group_code: "EXAM",
+                    group_name: "Example Walking Group",
                     area_code: "SE",
                     start_date_time: "2026-03-10T09:00:00",
                     end_date_time: "2026-03-10T13:00:00",

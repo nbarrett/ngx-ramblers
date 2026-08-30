@@ -117,7 +117,7 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
         </div>
 
         <p class="volunteer-credit">
-          <fa-icon [icon]="faAward" class="me-1"/>Modelled on the rights-of-way volunteer management system that <a href="mailto:robert.peel@kentramblers.org.uk">Robert Peel</a> of <a href="https://www.kentramblers.org.uk" target="_blank" rel="noopener">Kent Ramblers</a> has built and refined over many years. This work follows his design closely, with our thanks.
+          <fa-icon [icon]="faAward" class="me-1"/>Modelled on a rights-of-way volunteer management system that Robert Peel has built and refined over many years. This work follows his design closely, with our thanks.
         </p>
 
         @if (errorMessage) {

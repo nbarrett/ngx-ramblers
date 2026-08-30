@@ -799,7 +799,7 @@ describe("RamblersWalksAndEventsService", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const display = TestBed.inject(WalkDisplayService);
       vi.spyOn(display, "walkPublicLink").mockReturnValue("http://localhost:4200/walks/coastal-walk");
-      const walkExport = service.toWalkExport(publishedWalk({}, {external_url: "https://www.ekwg.co.uk/walks/coastal-walk"}) as any);
+      const walkExport = service.toWalkExport(publishedWalk({}, {external_url: "https://www.example.co.uk/walks/coastal-walk"}) as any);
 
       expect(walkExport.fieldChanges).toEqual([]);
       expect(walkExport.editInPlace).toBe(false);
@@ -808,8 +808,8 @@ describe("RamblersWalksAndEventsService", () => {
     it("reports a website link that points at a different walk", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const display = TestBed.inject(WalkDisplayService);
-      vi.spyOn(display, "walkPublicLink").mockReturnValue("https://www.ekwg.co.uk/walks/coastal-walk-revised");
-      const walkExport = service.toWalkExport(publishedWalk({}, {external_url: "https://www.ekwg.co.uk/walks/coastal-walk"}) as any);
+      vi.spyOn(display, "walkPublicLink").mockReturnValue("https://www.example.co.uk/walks/coastal-walk-revised");
+      const walkExport = service.toWalkExport(publishedWalk({}, {external_url: "https://www.example.co.uk/walks/coastal-walk"}) as any);
 
       expect(walkExport.fieldChanges.map(change => change.field)).toEqual([WalkEditField.WEBSITE_LINK]);
     });

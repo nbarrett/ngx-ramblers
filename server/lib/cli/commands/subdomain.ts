@@ -27,6 +27,8 @@ import {
 import { ApexRedirectOperationResult, ApexRedirectRemovalResult, CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
 import { apexWwwSibling } from "../../cloudflare/hostname-siblings";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import { dnsProviderFromNameservers, hostFromUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { nameserversForHostname } from "../../shared/dns-nameservers";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
 
@@ -237,6 +239,8 @@ export async function removeSubdomainForEnvironment(environmentName: string): Pr
     step("  - No Fly.io API token — skipping certificate deletion");
   }
 
+  await clearGroupHrefIfHostname(step, envConfig, fullHostname);
+
   step(`Done: NGX subdomain ${fullHostname} removed`);
   return { hostname: fullHostname, logs };
 }
@@ -360,6 +364,33 @@ function subdomainLabelForHostname(hostname: string, zone: CloudflareZone): stri
   return hostname;
 }
 
+async function logExternalDnsInstructions(
+  step: (msg: string) => void,
+  hostname: string,
+  appName: string,
+  ips: AppIpAddresses,
+  cert?: Pick<CertificateInfo, "dnsValidationHostname" | "dnsValidationTarget">
+): Promise<void> {
+  const flyCnameTarget = `${appName}.fly.dev`;
+  const nameservers = await nameserversForHostname(hostname);
+  step(`No Cloudflare zone covers ${hostname}. DNS is hosted elsewhere, so records were not changed.`);
+  if (nameservers.length > 0) {
+    const provider = dnsProviderFromNameservers(nameservers);
+    step(`DNS provider: ${provider.label}${provider.ours ? "" : " (not Cloudflare)"}`);
+    step(`Public nameservers: ${nameservers.join(", ")}`);
+  }
+  step(`At that DNS host, point ${hostname} at this Fly app:`);
+  step(`  CNAME ${hostname} -> ${flyCnameTarget}`);
+  if (ips.ipv4) {
+    step(`  or A ${hostname} -> ${ips.ipv4}`);
+  }
+  const validationHost = cert?.dnsValidationHostname?.replace(/\.$/, "");
+  const validationTarget = cert?.dnsValidationTarget?.replace(/\.$/, "");
+  if (validationHost && validationTarget) {
+    step(`  CNAME ${validationHost} -> ${validationTarget} (Fly certificate check)`);
+  }
+}
+
 export async function addCustomDomainForEnvironment(environmentName: string, hostnameInput: string): Promise<CustomDomainOperationResult> {
   const logs: string[] = [];
   const step = (msg: string) => { logs.push(msg); log(msg); };
@@ -394,10 +425,11 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
 
   step("Resolving Cloudflare zone for hostname...");
   const zone = await zoneForHostname(environmentsConfig.cloudflare.apiToken, hostname);
-  if (!zone) {
-    throw new Error(`No Cloudflare zone found that covers hostname ${hostname}. Add the zone in Cloudflare first.`);
+  if (zone) {
+    step(`  ✓ Zone ${zone.name} (${zone.id})`);
+  } else {
+    step(`  - No Cloudflare zone covers ${hostname}; Fly certificate will still be requested`);
   }
-  step(`  ✓ Zone ${zone.name} (${zone.id})`);
 
   step("Getting Fly.io IP addresses...");
   const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
@@ -412,31 +444,31 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
   }
   if (ips.ipv6) step(`  ✓ Fly IPv6: ${ips.ipv6}`);
 
-  const cloudflareConfig: CloudflareDnsConfig = {
-    apiToken: environmentsConfig.cloudflare.apiToken,
-    zoneId: zone.id
-  };
-
-  const recordName = subdomainLabelForHostname(hostname, zone);
-
-  step("Reconciling DNS records to point at Fly...");
-  const existingRecords = await listDnsRecords(cloudflareConfig, hostname);
-  const isApex = hostname === zone.name;
+  const isApex = !!zone && hostname === zone.name;
   const flyCnameTarget = `${appName}.fly.dev`;
 
-  if (isApex) {
-    for (const stale of existingRecords.filter(record => record.type === "CNAME")) {
-      await deleteDnsRecord(cloudflareConfig, stale.id);
-      step(`  ✓ Removed stale CNAME ${hostname} -> ${stale.content} (apex needs A/AAAA)`);
+  if (zone) {
+    const cloudflareConfig: CloudflareDnsConfig = {
+      apiToken: environmentsConfig.cloudflare.apiToken,
+      zoneId: zone.id
+    };
+    const recordName = subdomainLabelForHostname(hostname, zone);
+    step("Reconciling DNS records to point at Fly...");
+    const existingRecords = await listDnsRecords(cloudflareConfig, hostname);
+    if (isApex) {
+      for (const stale of existingRecords.filter(record => record.type === "CNAME")) {
+        await deleteDnsRecord(cloudflareConfig, stale.id);
+        step(`  ✓ Removed stale CNAME ${hostname} -> ${stale.content} (apex needs A/AAAA)`);
+      }
+      await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.A, ips.ipv4, existingRecords);
+      await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
+    } else {
+      for (const stale of existingRecords.filter(record => record.type === "A" || record.type === "AAAA")) {
+        await deleteDnsRecord(cloudflareConfig, stale.id);
+        step(`  ✓ Removed stale ${stale.type} ${hostname} -> ${stale.content} (subdomain uses CNAME)`);
+      }
+      await reconcileCnameRecord(step, cloudflareConfig, recordName, hostname, flyCnameTarget, existingRecords);
     }
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.A, ips.ipv4, existingRecords);
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
-  } else {
-    for (const stale of existingRecords.filter(record => record.type === "A" || record.type === "AAAA")) {
-      await deleteDnsRecord(cloudflareConfig, stale.id);
-      step(`  ✓ Removed stale ${stale.type} ${hostname} -> ${stale.content} (subdomain uses CNAME)`);
-    }
-    await reconcileCnameRecord(step, cloudflareConfig, recordName, hostname, flyCnameTarget, existingRecords);
   }
 
   step("Requesting Fly certificate...");
@@ -454,15 +486,32 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
     const cert = certs.find(item => item.hostname === hostname);
     if (cert) {
       step(`  ✓ Fly certificate status: ${cert.clientStatus}`);
-      await reconcileFlyValidationRecords(step, cloudflareConfig, zone, hostname, cert);
+      if (zone) {
+        const cloudflareConfig: CloudflareDnsConfig = {
+          apiToken: environmentsConfig.cloudflare.apiToken,
+          zoneId: zone.id
+        };
+        await reconcileFlyValidationRecords(step, cloudflareConfig, zone, hostname, cert);
+      } else {
+        await logExternalDnsInstructions(step, hostname, appName, ips, cert);
+      }
 
       const certsAfter = await queryCertificates(flyConfig);
       const certRefreshed = certsAfter.find(item => item.hostname === hostname) || cert;
       if (certRefreshed.clientStatus !== cert.clientStatus) {
         step(`  ✓ Fly certificate status now: ${certRefreshed.clientStatus}`);
       }
-      statusMessage = certRefreshed.clientStatus?.toLowerCase() === "ready" ? undefined : "Fly is validating — DNS propagation usually takes 1–5 minutes";
-      status = certRefreshed.clientStatus?.toLowerCase() === "ready" ? CustomDomainStatus.ATTACHED : CustomDomainStatus.PENDING;
+      if (certRefreshed.clientStatus?.toLowerCase() === "ready") {
+        status = CustomDomainStatus.ATTACHED;
+        statusMessage = zone ? undefined : `Certificate ready. If https://${hostname} is not this app yet, point DNS at ${flyCnameTarget}`;
+      } else {
+        status = CustomDomainStatus.PENDING;
+        statusMessage = zone
+          ? "Fly is validating — DNS propagation usually takes 1–5 minutes"
+          : `Point ${hostname} at ${flyCnameTarget} (or A ${ips.ipv4}) at the current DNS host so Fly can finish the certificate`;
+      }
+    } else if (!zone) {
+      await logExternalDnsInstructions(step, hostname, appName, ips);
     }
   } catch (error) {
     status = CustomDomainStatus.FAILED;
@@ -474,7 +523,7 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
       hostname,
       addedAt: dateTimeNowAsValue(),
       status,
-      zoneId: zone.id,
+      zoneId: zone?.id,
       message: statusMessage
     };
     await persistCustomDomainEntry(environmentName, entry);
@@ -484,13 +533,15 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
     hostname,
     addedAt: dateTimeNowAsValue(),
     status,
-    zoneId: zone.id,
+    zoneId: zone?.id,
     message: statusMessage
   };
 
   const existingDomains = (environmentsConfig.environments || []).find(env => env.environment === environmentName)?.customDomains || [];
-  const attachedApex = existingDomains.find(entry =>
-    entry.hostname !== hostname && entry.status === CustomDomainStatus.ATTACHED && entry.hostname === zone.name);
+  const attachedApex = zone
+    ? existingDomains.find(entry =>
+      entry.hostname !== hostname && entry.status === CustomDomainStatus.ATTACHED && entry.hostname === zone.name)
+    : undefined;
   const shouldUpdateHref = isApex || !attachedApex;
 
   if (shouldUpdateHref && envConfig.mongo?.cluster && envConfig.mongo?.db) {
@@ -501,14 +552,18 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
     step("  ⚠ Could not update Group Web URL automatically (no MongoDB config on this env). Set it manually in Admin → System Settings → Group → Web URL.");
   }
 
-  try {
-    await applyDomainRedirectHygiene(step, environmentsConfig, environmentName, hostname, zone);
-  } catch (error) {
-    step(`  ⚠ Apex/www redirect reconciliation skipped: ${redirectErrorDetail(error)}`);
+  if (zone) {
+    try {
+      await applyDomainRedirectHygiene(step, environmentsConfig, environmentName, hostname, zone);
+    } catch (error) {
+      step(`  ⚠ Apex/www redirect reconciliation skipped: ${redirectErrorDetail(error)}`);
+    }
+  } else {
+    step("  - Apex/www redirect skipped (no Cloudflare zone)");
   }
 
   step(`Done: https://${hostname}`);
-  return { hostname, zoneId: zone.id, appName, entry: finalEntry, logs };
+  return { hostname, zoneId: zone?.id, appName, entry: finalEntry, logs };
 }
 
 async function updateGroupHref(
@@ -538,6 +593,37 @@ async function updateGroupHref(
     }
   } finally {
     await client.close();
+  }
+}
+
+async function clearGroupHrefIfHostname(
+  step: (msg: string) => void,
+  envConfig: { mongo?: { cluster?: string; db?: string; username?: string; password?: string } } | null | undefined,
+  hostname: string
+): Promise<void> {
+  if (envConfig?.mongo?.cluster && envConfig.mongo.db) {
+    const mongoUri = buildMongoUri({
+      cluster: envConfig.mongo.cluster,
+      username: envConfig.mongo.username || "",
+      password: envConfig.mongo.password || "",
+      database: envConfig.mongo.db
+    });
+    const { client, db } = await connectToDatabase({ uri: mongoUri, database: envConfig.mongo.db });
+    try {
+      const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
+      const currentHost = hostFromUrl(systemConfigDoc?.value?.group?.href);
+      if (currentHost === hostname) {
+        await db.collection("config").updateOne(
+          { key: "system" },
+          { $set: { "value.group.href": "" } }
+        );
+        step(`  ✓ Site URL cleared (it was ${hostname})`);
+      } else {
+        step("  - Site URL left unchanged");
+      }
+    } finally {
+      await client.close();
+    }
   }
 }
 
@@ -1045,46 +1131,53 @@ async function reconcileCustomDomainDns(
   step: (msg: string) => void,
   environmentsConfig: EnvironmentsConfig,
   flyConfig: FlyConfig,
-  zone: CloudflareZone | undefined,
+  zone: CloudflareZone | undefined | null,
   hostname: string,
   appName: string,
   ips: AppIpAddresses
 ): Promise<string | undefined> {
-  if (!zone) {
-    step(`  ✗ Zone not found in Cloudflare for ${hostname}`);
-    return "Cloudflare zone not found — domain nameserver delegation may be incomplete";
-  }
-  step(`  ✓ Zone ${zone.name} (${zone.id})`);
-  const cloudflareConfig: CloudflareDnsConfig = {
-    apiToken: environmentsConfig.cloudflare.apiToken,
-    zoneId: zone.id
-  };
-  const isApex = hostname === zone.name;
-  const recordName = subdomainLabelForHostname(hostname, zone);
+  if (zone) {
+    step(`  ✓ Zone ${zone.name} (${zone.id})`);
+    const cloudflareConfig: CloudflareDnsConfig = {
+      apiToken: environmentsConfig.cloudflare.apiToken,
+      zoneId: zone.id
+    };
+    const isApex = hostname === zone.name;
+    const recordName = subdomainLabelForHostname(hostname, zone);
 
-  step("Reconciling DNS records to point at Fly...");
-  const existingRecords = await listDnsRecords(cloudflareConfig, hostname);
-  if (isApex) {
-    for (const stale of existingRecords.filter(record => record.type === "CNAME")) {
-      await deleteDnsRecord(cloudflareConfig, stale.id);
-      step(`  ✓ Removed stale CNAME ${hostname} -> ${stale.content} (apex needs A/AAAA)`);
+    step("Reconciling DNS records to point at Fly...");
+    const existingRecords = await listDnsRecords(cloudflareConfig, hostname);
+    if (isApex) {
+      for (const stale of existingRecords.filter(record => record.type === "CNAME")) {
+        await deleteDnsRecord(cloudflareConfig, stale.id);
+        step(`  ✓ Removed stale CNAME ${hostname} -> ${stale.content} (apex needs A/AAAA)`);
+      }
+      await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.A, ips.ipv4, existingRecords);
+      await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
+    } else {
+      for (const stale of existingRecords.filter(record => record.type === "A" || record.type === "AAAA")) {
+        await deleteDnsRecord(cloudflareConfig, stale.id);
+        step(`  ✓ Removed stale ${stale.type} ${hostname} -> ${stale.content} (subdomain uses CNAME)`);
+      }
+      await reconcileCnameRecord(step, cloudflareConfig, recordName, hostname, `${appName}.fly.dev`, existingRecords);
     }
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.A, ips.ipv4, existingRecords);
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
+
+    const certsPreview = await queryCertificates(flyConfig);
+    const certPreview = certsPreview.find(item => item.hostname === hostname);
+    if (certPreview) {
+      await reconcileFlyValidationRecords(step, cloudflareConfig, zone, hostname, certPreview);
+    }
+    return undefined;
   } else {
-    for (const stale of existingRecords.filter(record => record.type === "A" || record.type === "AAAA")) {
-      await deleteDnsRecord(cloudflareConfig, stale.id);
-      step(`  ✓ Removed stale ${stale.type} ${hostname} -> ${stale.content} (subdomain uses CNAME)`);
+    const certsPreview = await queryCertificates(flyConfig);
+    const certPreview = certsPreview.find(item => item.hostname === hostname);
+    await logExternalDnsInstructions(step, hostname, appName, ips, certPreview);
+    if (certPreview?.clientStatus?.toLowerCase() === "ready") {
+      return undefined;
+    } else {
+      return `DNS is not in this Cloudflare account. Point ${hostname} at ${appName}.fly.dev so Fly can finish the certificate`;
     }
-    await reconcileCnameRecord(step, cloudflareConfig, recordName, hostname, `${appName}.fly.dev`, existingRecords);
   }
-
-  const certsPreview = await queryCertificates(flyConfig);
-  const certPreview = certsPreview.find(item => item.hostname === hostname);
-  if (certPreview) {
-    await reconcileFlyValidationRecords(step, cloudflareConfig, zone, hostname, certPreview);
-  }
-  return undefined;
 }
 
 function classifyCertStatus(cert: CertificateInfo | undefined, dnsProblem: string | undefined): { status: CustomDomainStatus; message: string | undefined } {

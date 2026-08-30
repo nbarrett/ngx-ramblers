@@ -152,7 +152,7 @@ export async function listZones(apiToken: string, name?: string): Promise<Cloudf
   return data.result;
 }
 
-function candidateZoneNames(hostname: string): string[] {
+export function candidateZoneNames(hostname: string): string[] {
   const labels = hostname.split(".");
   return labels
     .map((_, index) => labels.slice(index).join("."))

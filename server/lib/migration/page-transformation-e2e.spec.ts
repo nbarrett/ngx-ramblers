@@ -110,7 +110,7 @@ describe("darent valley e2e images and captions", () => {
   it("processes darent valley markdown with expected images and captions", async () => {
     const filePath = path.join(__dirname, "../../test-data/e2e-migration-input-darent-valley.md");
     const markdown = fs.readFileSync(filePath, "utf-8");
-    const baseUrl = "https://www.kentramblers.org.uk/KentWalks/DVP/";
+    const baseUrl = "https://www.archive.example.org.uk/KentWalks/DVP/";
     const segments = parseMarkdownToSegments(markdown, baseUrl);
     const page: ScrapedPage = {path: "/darent-valley-path", title: "Darent Valley Path", segments};
     const engine = new PageTransformationEngine();
@@ -170,15 +170,15 @@ describe("darent valley e2e base origin and filters excluded images e2e", () => 
   it("converts relative image URLs to absolute with base origin and filters excluded images", async () => {
     const filePath = path.join(__dirname, "../../test-data/e2e-migration-input-darent-valley.md");
     const markdown = fs.readFileSync(filePath, "utf-8");
-    const baseUrl = "https://www.kentramblers.org.uk";
+    const baseUrl = "https://www.archive.example.org.uk";
     const segmentsAbs = parseMarkdownToSegments(markdown, baseUrl);
     const allImageSrcs = segmentsAbs.filter(s => s.image).map(s => s.image!.src);
     debugLog("All image srcs:", allImageSrcs);
     if (!(allImageSrcs.length > 0)) {
       throw new Error("No image sources parsed for Darent Valley");
     }
-    if (!allImageSrcs.every(src => src.startsWith("https://www.kentramblers.org.uk"))) {
-      throw new Error(`Found non-absolute URLs: ${JSON.stringify(allImageSrcs.filter(src => !src.startsWith("https://www.kentramblers.org.uk")))}`);
+    if (!allImageSrcs.every(src => src.startsWith("https://www.archive.example.org.uk"))) {
+      throw new Error(`Found non-absolute URLs: ${JSON.stringify(allImageSrcs.filter(src => !src.startsWith("https://www.archive.example.org.uk")))}`);
     }
 
     const expectContains = (url: string) => {
@@ -186,9 +186,9 @@ describe("darent valley e2e base origin and filters excluded images e2e", () => 
         throw new Error(`Expected absolute URL not found: ${url}. Actual: ${JSON.stringify(allImageSrcs)}`);
       }
     };
-    expectContains("https://www.kentramblers.org.uk/banners/autumn_oasts.jpg");
-    expectContains("https://www.kentramblers.org.uk/images/chipstead.JPG");
-    expectContains("https://www.kentramblers.org.uk/images/otford.jpg");
+    expectContains("https://www.archive.example.org.uk/banners/autumn_oasts.jpg");
+    expectContains("https://www.archive.example.org.uk/images/chipstead.JPG");
+    expectContains("https://www.archive.example.org.uk/images/otford.jpg");
 
     const filtered = exclusions.applyTextExclusions(markdown, {
       excludeTextPatterns: [],
@@ -209,9 +209,9 @@ describe("darent valley e2e base origin and filters excluded images e2e", () => 
         throw new Error(`Expected URL not present after filtering: ${url}. Actual: ${JSON.stringify(filteredImageSrcs)}`);
       }
     };
-    assertAbsent("https://www.kentramblers.org.uk/banners/autumn_oasts.jpg");
-    assertAbsent("https://www.kentramblers.org.uk/footer-bg.png");
-    assertPresent("https://www.kentramblers.org.uk/images/chipstead.JPG");
+    assertAbsent("https://www.archive.example.org.uk/banners/autumn_oasts.jpg");
+    assertAbsent("https://www.archive.example.org.uk/footer-bg.png");
+    assertPresent("https://www.archive.example.org.uk/images/chipstead.JPG");
   });
 
 });
@@ -220,7 +220,7 @@ describe("eden valley [absolute image, caption] pairs e2e", () => {
   it("collects nested rows as [absolute image, caption] pairs for eden valley", async () => {
     const filePath = path.join(__dirname, "../../test-data/e2e-migration-input-eden-valley.md");
     const markdown = fs.readFileSync(filePath, "utf-8");
-    const baseUrl = "https://www.kentramblers.org.uk";
+    const baseUrl = "https://www.archive.example.org.uk";
     const segments: ScrapedSegment[] = parseMarkdownToSegments(markdown, baseUrl);
     const page: ScrapedPage = {path: "/eden-valley-walk", title: "Eden Valley Walk", segments};
     const engine = new PageTransformationEngine();
@@ -264,10 +264,10 @@ describe("eden valley [absolute image, caption] pairs e2e", () => {
       .filter(r => r.columns[0].imageSource)
       .map(r => [r.columns[0].imageSource as string, r.columns[0].contentText as string]);
     const expected = [
-      ["https://www.kentramblers.org.uk/images/hever01.jpg", "Hever Castle"],
-      ["https://www.kentramblers.org.uk/images/penshurst01.jpg", "Penshurst"],
-      ["https://www.kentramblers.org.uk/images/penshurst02.jpg", "Penshurst"],
-      ["https://www.kentramblers.org.uk/images/penshurst03.jpg", "Penshurst Place"]
+      ["https://www.archive.example.org.uk/images/hever01.jpg", "Hever Castle"],
+      ["https://www.archive.example.org.uk/images/penshurst01.jpg", "Penshurst"],
+      ["https://www.archive.example.org.uk/images/penshurst02.jpg", "Penshurst"],
+      ["https://www.archive.example.org.uk/images/penshurst03.jpg", "Penshurst Place"]
     ];
     for (const [img, caption] of expected) {
       const found = pairs.some(([i, c]) => i === img && c === caption);

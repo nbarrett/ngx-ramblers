@@ -90,7 +90,7 @@ describe("HTML Paste E2E", () => {
         </html>
       `;
 
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
       const segments = parseMarkdownToSegments(markdown);
       const page: ScrapedPage = { path: "/walk-81", title: "Walk 81", segments };
@@ -222,7 +222,7 @@ describe("HTML Paste E2E", () => {
     });
 
     it("converts real walk HTML to markdown with absolute URLs", () => {
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
 
       expect(markdown).toMatch(/Kent Ramblers: Walk 81/);
@@ -230,9 +230,9 @@ describe("HTML Paste E2E", () => {
       expect(markdown).toMatch(/Distance.*2\.7 miles/);
       expect(markdown).toMatch(/OS Map.*Explorer 125/);
 
-      expect(markdown).toMatch(/!\[\]\(https:\/\/www\.kentramblers\.org\.uk\/walks\/walk-81\/images\/banner_081\.jpg\)/);
-      expect(markdown).toMatch(/!\[\]\(https:\/\/www\.kentramblers\.org\.uk\/walks\/walk-81\/map_081\.jpg\)/);
-      expect(markdown).toMatch(/!\[\]\(https:\/\/www\.kentramblers\.org\.uk\/walks\/walk-81\/images\/P081a\.jpg\)/);
+      expect(markdown).toMatch(/!\[\]\(https:\/\/www\.archive\.example\.org\.uk\/walks\/walk-81\/images\/banner_081\.jpg\)/);
+      expect(markdown).toMatch(/!\[\]\(https:\/\/www\.archive\.example\.org\.uk\/walks\/walk-81\/map_081\.jpg\)/);
+      expect(markdown).toMatch(/!\[\]\(https:\/\/www\.archive\.example\.org\.uk\/walks\/walk-81\/images\/P081a\.jpg\)/);
 
       expect(markdown).toMatch(/Points of Interest/);
       expect(markdown).toMatch(/Benenden School/);
@@ -241,7 +241,7 @@ describe("HTML Paste E2E", () => {
     });
 
     it("extracts all images from the walk HTML", () => {
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
       const segments = parseMarkdownToSegments(markdown);
 
@@ -251,23 +251,23 @@ describe("HTML Paste E2E", () => {
 
       const logoImage = imageSegments.find(s => s.image?.src.includes("ramblers-logo.gif"));
       expect(logoImage).toBeTruthy();
-      expect(logoImage?.image?.src).toBe("https://www.kentramblers.org.uk/ramblers-logo.gif");
+      expect(logoImage?.image?.src).toBe("https://www.archive.example.org.uk/ramblers-logo.gif");
 
       const bannerImage = imageSegments.find(s => s.image?.src.includes("banner_081.jpg"));
       expect(bannerImage).toBeTruthy();
-      expect(bannerImage?.image?.src).toBe("https://www.kentramblers.org.uk/walks/walk-81/images/banner_081.jpg");
+      expect(bannerImage?.image?.src).toBe("https://www.archive.example.org.uk/walks/walk-81/images/banner_081.jpg");
 
       const mapImage = imageSegments.find(s => s.image?.src.includes("map_081.jpg"));
       expect(mapImage).toBeTruthy();
-      expect(mapImage?.image?.src).toBe("https://www.kentramblers.org.uk/walks/walk-81/map_081.jpg");
+      expect(mapImage?.image?.src).toBe("https://www.archive.example.org.uk/walks/walk-81/map_081.jpg");
 
       const schoolImage = imageSegments.find(s => s.image?.src.includes("P081a.jpg"));
       expect(schoolImage).toBeTruthy();
-      expect(schoolImage?.image?.src).toBe("https://www.kentramblers.org.uk/walks/walk-81/images/P081a.jpg");
+      expect(schoolImage?.image?.src).toBe("https://www.archive.example.org.uk/walks/walk-81/images/P081a.jpg");
     });
 
     it("transforms walk HTML to PageContent with main content column", async () => {
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
       const segments = parseMarkdownToSegments(markdown);
       const page: ScrapedPage = { path: "/walk-81", title: "Walk 81", segments };
@@ -305,7 +305,7 @@ describe("HTML Paste E2E", () => {
     });
 
     it("transforms walk HTML extracting first image", async () => {
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
       const segments = parseMarkdownToSegments(markdown);
       const page: ScrapedPage = { path: "/walk-81", title: "Walk 81", segments };
@@ -341,7 +341,7 @@ describe("HTML Paste E2E", () => {
     });
 
     it("transforms walk HTML to two-column layout with text and images", async () => {
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
       const segments = parseMarkdownToSegments(markdown);
       const page: ScrapedPage = { path: "/walk-81", title: "Walk 81", segments };
@@ -404,7 +404,7 @@ describe("HTML Paste E2E", () => {
     });
 
     it("preserves walking directions paragraphs in main content", async () => {
-      const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
+      const baseUrl = "https://www.archive.example.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
 
       expect(markdown).toMatch(/Park in the street or around village green/);

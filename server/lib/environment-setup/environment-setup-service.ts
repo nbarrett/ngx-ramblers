@@ -4,26 +4,39 @@ import { envConfig } from "../env-config/env-config";
 import { SecretsConfig } from "../../deploy/types";
 import {
   AwsCustomerCredentials,
+  CopiedAssets,
   EnvironmentSetupRequest,
   EnvironmentSetupResult,
+  flySafeResourceName,
+  isFullDuplicate,
   ProgressCallback,
   SetupProgress,
   SetupSession,
   SetupStep,
   SetupStepStatus,
   SetupWarning,
-  ValidationResult,
-  CopiedAssets
+  ValidationResult
 } from "./types";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "./ramblers-api-client";
 import {
   adminConfigFromEnvironment,
+  copyAllS3Objects,
   copyStandardAssets,
   generateAwsCredentialsResult,
   setupAwsForCustomer,
   validateAwsAdminCredentials
 } from "./aws-setup";
-import { initialiseDatabase, validateMongoConnection } from "./database-initialiser";
+import { connectToDatabase, environmentSiteUrl, initialiseDatabase, validateMongoConnection } from "./database-initialiser";
+import {
+  awsCredentialsFromSource,
+  cloneSourceDatabase,
+  ensureAdminMemberOnClone,
+  groupDomainStagingHostname,
+  loadSourceEnvironment,
+  sanitiseDuplicatedDatabase,
+  sourceMongoParams
+} from "./full-duplicate";
+import { updateEnvironmentSiteUrl } from "./hostname-health";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { uid } from "rand-token";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -39,7 +52,7 @@ import { normaliseMemory } from "../shared/spelling";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
 import { DeployOutputCallback } from "../cli/cli.model";
-import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
+import { addCustomDomainForEnvironment, setupSubdomainForEnvironment } from "../cli/commands/subdomain";
 import { configuredEnvironments } from "../environments/environments-config";
 import { baseDomainFrom } from "./environment-context";
 import { registerBrevoSender } from "../brevo/senders/create-sender";
@@ -178,8 +191,65 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
     message: `MongoDB: ${mongoValidation.message}`
   });
 
+  if (isFullDuplicate(request)) {
+    if (!request.sourceEnvironmentName) {
+      results.push({
+        valid: false,
+        message: "Full duplicate: a source environment is required"
+      });
+    } else {
+      try {
+        const source = await loadSourceEnvironment(request.sourceEnvironmentName);
+        if (source.environment === request.environmentBasics.environmentName) {
+          results.push({
+            valid: false,
+            message: "Full duplicate: the new environment name must be different from the source"
+          });
+        } else if (source.mongo?.db && source.mongo.db === request.serviceConfigs.mongodb.database) {
+          results.push({
+            valid: false,
+            message: "Full duplicate: the target database must be different from the source"
+          });
+        } else {
+          results.push({
+            valid: true,
+            message: `Full duplicate source: ${source.environment}`
+          });
+        }
+        const sandboxFlyToken = request.serviceConfigs.flyio?.personalAccessToken;
+        if (!sandboxFlyToken) {
+          results.push({
+            valid: false,
+            message: "Full duplicate: a Fly token for the sandbox account is required so the new machine is not created on the live site's Fly account"
+          });
+        } else if (source.flyio?.apiKey && sandboxFlyToken === source.flyio.apiKey) {
+          results.push({
+            valid: false,
+            message: "Full duplicate: the Fly token matches the live site. Use a token from a different Fly account so a free plan is not billed for a second machine"
+          });
+        } else {
+          results.push({
+            valid: true,
+            message: "Fly: sandbox will deploy with the token you supplied"
+          });
+        }
+      } catch (error) {
+        results.push({
+          valid: false,
+          message: error instanceof Error ? error.message : "Full duplicate: source environment could not be loaded"
+        });
+      }
+    }
+  }
+
   const awsAdminConfig = adminConfigFromEnvironment();
-  if (awsAdminConfig) {
+  const needsAwsAdmin = !isFullDuplicate(request) || request.options.copySourceBucket;
+  if (!needsAwsAdmin) {
+    results.push({
+      valid: true,
+      message: "AWS: sandbox will share the source S3 bucket"
+    });
+  } else if (awsAdminConfig) {
     const awsValidation = await validateAwsAdminCredentials(awsAdminConfig);
     results.push({
       valid: awsValidation.valid,
@@ -283,11 +353,18 @@ export async function createEnvironment(
     }
     reportProgress(SetupStep.QUERY_RAMBLERS_API, SetupStepStatus.Completed, `Found group: ${groupData.name}`);
 
+    const fullDuplicate = isFullDuplicate(request);
+    const sourceEnvironment = fullDuplicate ? await loadSourceEnvironment(request.sourceEnvironmentName) : null;
+    request.environmentBasics.appName = flySafeResourceName(request.environmentBasics.appName);
     let awsCredentials: AwsCustomerCredentials;
     let copiedAssets: CopiedAssets | undefined;
     const awsAdminConfig = adminConfigFromEnvironment();
 
-    if (!request.options.skipFlyDeployment && awsAdminConfig) {
+    if (fullDuplicate && sourceEnvironment && !request.options.copySourceBucket) {
+      awsCredentials = awsCredentialsFromSource(sourceEnvironment);
+      reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Completed, `Reusing S3 bucket ${awsCredentials.bucket} from ${sourceEnvironment.environment}`);
+      reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped — sandbox shares the live bucket");
+    } else if (!request.options.skipFlyDeployment && awsAdminConfig) {
       reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Running, "Creating S3 bucket and IAM user");
       const awsSetupResult = await setupAwsForCustomer(
         awsAdminConfig,
@@ -301,7 +378,13 @@ export async function createEnvironment(
       );
       reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Completed, `Created bucket: ${awsCredentials.bucket}`);
 
-      if (request.options.copyStandardAssets) {
+      const sourceBucket = sourceEnvironment?.aws?.bucket;
+      if (fullDuplicate && sourceBucket) {
+        await runOptionalStep(SetupStep.COPY_STANDARD_ASSETS, "Copying files from the source bucket", async () => {
+          const copyResult = await copyAllS3Objects(awsAdminConfig, sourceBucket, awsCredentials.bucket);
+          return `Copied ${copyResult.copied} objects from ${sourceBucket}`;
+        });
+      } else if (request.options.copyStandardAssets) {
         await runOptionalStep(SetupStep.COPY_STANDARD_ASSETS, "Copying standard assets to S3 bucket", async () => {
           const copyResult = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
           copiedAssets = {
@@ -345,19 +428,57 @@ export async function createEnvironment(
     await updateEnvironmentsConfig(request, awsCredentials, secrets);
     reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, SetupStepStatus.Completed, "Environment configuration and secrets saved");
 
-    reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, "Initialising MongoDB database");
-    const dbInitTimeout = 120000;
-    const dbResult = await Promise.race([
-      initialiseDatabase(request, dbProgress => {
-        reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, dbProgress.message || dbProgress.step);
-      }, copiedAssets),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Database initialisation timed out after ${dbInitTimeout / 1000} seconds`)), dbInitTimeout)
-      )
-    ]);
-    reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Completed, "Database initialised successfully");
+    const adminAccess = { passwordResetId: null as string | null };
+    if (fullDuplicate && sourceEnvironment) {
+      reportProgress(SetupStep.CLONE_SOURCE_DATABASE, SetupStepStatus.Running, `Copying database from ${sourceEnvironment.environment}`);
+      const cloneTimeout = 600000;
+      const cloneResult = await Promise.race([
+        cloneSourceDatabase(
+          sourceMongoParams(sourceEnvironment),
+          {
+            uri: buildMongoUri(request),
+            database: request.serviceConfigs.mongodb.database
+          },
+          dbProgress => {
+            reportProgress(SetupStep.CLONE_SOURCE_DATABASE, SetupStepStatus.Running, dbProgress.message || dbProgress.step);
+          }
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Database copy timed out after ${cloneTimeout / 1000} seconds`)), cloneTimeout)
+        )
+      ]);
+      reportProgress(SetupStep.CLONE_SOURCE_DATABASE, SetupStepStatus.Completed, `Copied ${cloneResult.documents} documents in ${cloneResult.collections} collections`);
 
-    if (request.serviceConfigs.brevo.apiKey) {
+      reportProgress(SetupStep.ISOLATE_SANDBOX, SetupStepStatus.Running, "Disconnecting mail, Walks Manager and inbox from the live site");
+      const provisionalSiteUrl = await environmentSiteUrl(request.environmentBasics.environmentName, request.environmentBasics.appName);
+      const targetConnection = await connectToDatabase({
+        uri: buildMongoUri(request),
+        database: request.serviceConfigs.mongodb.database
+      });
+      try {
+        await sanitiseDuplicatedDatabase(targetConnection.db, provisionalSiteUrl);
+        adminAccess.passwordResetId = await ensureAdminMemberOnClone(targetConnection.db, request);
+      } finally {
+        await targetConnection.client.close();
+      }
+      reportProgress(SetupStep.ISOLATE_SANDBOX, SetupStepStatus.Completed, "Sandbox cannot send mail, publish to Walks Manager or poll the live mailbox");
+      reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Completed, "Skipped seed — database copied from source");
+    } else {
+      reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, "Initialising MongoDB database");
+      const dbInitTimeout = 120000;
+      const dbResult = await Promise.race([
+        initialiseDatabase(request, dbProgress => {
+          reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, dbProgress.message || dbProgress.step);
+        }, copiedAssets),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Database initialisation timed out after ${dbInitTimeout / 1000} seconds`)), dbInitTimeout)
+        )
+      ]);
+      adminAccess.passwordResetId = dbResult.passwordResetId;
+      reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Completed, "Database initialised successfully");
+    }
+
+    if (request.serviceConfigs.brevo.apiKey && !fullDuplicate) {
       const adminFullName = `${request.adminUser.firstName} ${request.adminUser.lastName}`;
       try {
         await registerBrevoSender(request.serviceConfigs.brevo.apiKey, adminFullName, request.adminUser.email);
@@ -397,7 +518,16 @@ export async function createEnvironment(
     let appUrl = `https://${request.environmentBasics.appName}.fly.dev`;
     let subdomainHostname = "";
 
-    if (request.options.setupSubdomain && !request.options.skipFlyDeployment) {
+    const customDomainHostname = fullDuplicate && sourceEnvironment && request.options.customDomainHostname
+      ? (await groupDomainStagingHostname(sourceEnvironment) || request.options.customDomainHostname)
+      : request.options.customDomainHostname;
+    if (customDomainHostname && !request.options.skipFlyDeployment) {
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Running, `Attaching ${customDomainHostname} (Cloudflare DNS + Fly certificate)`);
+      const customDomain = await addCustomDomainForEnvironment(request.environmentBasics.environmentName, customDomainHostname);
+      subdomainHostname = customDomain.hostname;
+      appUrl = `https://${customDomain.hostname}`;
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, `Hostname configured: ${appUrl}`);
+    } else if (request.options.setupSubdomain && !request.options.skipFlyDeployment) {
       await runOptionalStep(SetupStep.SETUP_SUBDOMAIN, "Setting up subdomain (DNS + SSL certificate)", async () => {
         await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
         const envConfigData = await configuredEnvironments();
@@ -409,7 +539,14 @@ export async function createEnvironment(
       reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, "Skipped subdomain setup");
     }
 
-    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && subdomainHostname) {
+    if (fullDuplicate) {
+      await runOptionalStep(SetupStep.ISOLATE_SANDBOX, `Pointing the copied site URL at ${appUrl}`, async () => {
+        await updateEnvironmentSiteUrl(request.environmentBasics.environmentName, appUrl);
+        return `Site URL set to ${appUrl}`;
+      });
+    }
+
+    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && subdomainHostname && !fullDuplicate) {
       await runOptionalStep(SetupStep.AUTHENTICATE_BREVO_DOMAIN, `Authenticating domain ${subdomainHostname}`, async () => {
         const authResult = await authenticateSendingDomain(subdomainHostname);
         if (!authResult.authenticated) {
@@ -438,7 +575,7 @@ export async function createEnvironment(
       awsCredentials,
       adminUserCreated: true,
       configsJsonUpdated: !request.options.skipFlyDeployment,
-      passwordResetId: dbResult.passwordResetId,
+      passwordResetId: adminAccess.passwordResetId || undefined,
       adminUserName: request.adminUser.email.toLowerCase(),
       adminEmail: request.adminUser.email.toLowerCase(),
       warnings

@@ -9,7 +9,7 @@ import { UploadWalks } from "../screenplay/tasks/ramblers/walks/upload-walks";
 
 describe("Walks and Events Manager", function () {
   test.describe.configure({ timeout: 150 * 1000 });
-  const fileName = "/Users/nick/dev/git-personal/ekwg/non-vcs/walk-exports/walks-export-07-February-2018-08-39.csv";
+  const fileName = "non-vcs/walk-exports/walks-export.csv";
   const expectedWalks = 4;
   it("allows a file to be uploaded and published that replaces all existing walks", async ({ actorCalled }) => {
     await actorCalled("nick").attemptsTo(

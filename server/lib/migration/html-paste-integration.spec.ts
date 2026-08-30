@@ -91,13 +91,13 @@ describe("HTML Paste Integration", () => {
     it("should handle multiple images with captions (Eden Valley style)", () => {
       const markdown = `Eden Valley Walk
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/hever01.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/hever01.jpg)
 
 Hever Castle
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/penshurst01.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/penshurst01.jpg)
 
 Penshurst`;
 
@@ -107,18 +107,18 @@ Penshurst`;
 
       expect(preview.rows[0]).toEqual({
         text: "Eden Valley Walk",
-        imageSource: "https://www.kentramblers.org.uk/KentWalks/EdenVW/images/evw_banner.jpg",
+        imageSource: "https://www.archive.example.org.uk/KentWalks/EdenVW/images/evw_banner.jpg",
         alt: "Image"
       });
 
       expect(preview.rows[1]).toEqual({
-        imageSource: "https://www.kentramblers.org.uk/KentWalks/EdenVW/images/hever01.jpg",
+        imageSource: "https://www.archive.example.org.uk/KentWalks/EdenVW/images/hever01.jpg",
         alt: "Image"
       });
 
       expect(preview.rows[2]).toEqual({
         text: "Hever Castle",
-        imageSource: "https://www.kentramblers.org.uk/KentWalks/EdenVW/images/penshurst01.jpg",
+        imageSource: "https://www.archive.example.org.uk/KentWalks/EdenVW/images/penshurst01.jpg",
         alt: "Image"
       });
 
@@ -130,27 +130,27 @@ Penshurst`;
     it("should handle real-world Eden Valley Walk with 6 images", () => {
       const markdown = `Eden Valley Walk
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/hever01.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/hever01.jpg)
 
 Hever Castle
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/penshurst01.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/penshurst01.jpg)
 
 Penshurst
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/penshurst02.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/penshurst02.jpg)
 
 Penshurst
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/penshurst03.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/penshurst03.jpg)
 
 Penshurst Place
 
 ## Eden Valley Walk
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/route.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/route.jpg)
 
 This 16 mile walk from Cernes Farm, a few miles south west of Edenbridge, to Tonbridge Castle was opened on 23 March 1991 by Lord de L'Isle of Penshurst.
 
@@ -343,9 +343,9 @@ Caption text`;
     it("should handle the exact Eden Valley structure for UI consumption", () => {
       const markdown = `Eden Valley Walk
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/evw_banner.jpg)
 
-![Image](https://www.kentramblers.org.uk/KentWalks/EdenVW/images/hever01.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/EdenVW/images/hever01.jpg)
 
 Hever Castle`;
 
@@ -353,10 +353,10 @@ Hever Castle`;
 
       const firstRow = preview.rows[0];
       expect(firstRow.text).toBe("Eden Valley Walk");
-      expect(firstRow.imageSource).toBe("https://www.kentramblers.org.uk/KentWalks/EdenVW/images/evw_banner.jpg");
+      expect(firstRow.imageSource).toBe("https://www.archive.example.org.uk/KentWalks/EdenVW/images/evw_banner.jpg");
 
       const heverRow = preview.rows[1];
-      expect(heverRow.imageSource).toBe("https://www.kentramblers.org.uk/KentWalks/EdenVW/images/hever01.jpg");
+      expect(heverRow.imageSource).toBe("https://www.archive.example.org.uk/KentWalks/EdenVW/images/hever01.jpg");
       expect(heverRow.text).toBe("Hever Castle");
     });
   });

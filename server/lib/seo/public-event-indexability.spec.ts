@@ -14,7 +14,7 @@ function event(partial: { title?: string; status?: string; url?: string }): Exte
     groupEvent: {
       title: partial.title ?? "Coastal walk from Deal",
       status: partial.status as WalkStatus,
-      url: partial.url ?? "https://www.ekwg.co.uk/walks/coastal-walk-from-deal"
+      url: partial.url ?? "https://www.example.co.uk/walks/coastal-walk-from-deal"
     }
   } as ExtendedGroupEvent;
 }

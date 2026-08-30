@@ -71,31 +71,31 @@ describe("inboxThreadRoleLine", () => {
   it("uses the address the mail was sent from, not the mailbox the copy arrived in", () => {
     const sent = thread({
       lastDirection: InboxMessageDirection.OUTBOUND,
-      sentFrom: {name: "Nick Barrett", email: "membership@canterburyramblers.org.uk"}
+      sentFrom: {name: "Nick Barrett", email: "membership@other.example.org.uk"}
     });
-    expect(inboxThreadRoleLine(sent, "chairman@canterburyramblers.org.uk"))
-      .toEqual("from membership@canterburyramblers.org.uk");
+    expect(inboxThreadRoleLine(sent, "chairman@other.example.org.uk"))
+      .toEqual("from membership@other.example.org.uk");
   });
 
   it("falls back to the mailbox when an older outbound thread has no sentFrom", () => {
     const sent = thread({lastDirection: InboxMessageDirection.OUTBOUND});
-    expect(inboxThreadRoleLine(sent, "chairman@canterburyramblers.org.uk"))
-      .toEqual("from chairman@canterburyramblers.org.uk");
+    expect(inboxThreadRoleLine(sent, "chairman@other.example.org.uk"))
+      .toEqual("from chairman@other.example.org.uk");
   });
 
   it("keeps inbound mail as delivered to the mailbox", () => {
     const incoming = thread({lastDirection: InboxMessageDirection.INBOUND});
-    expect(inboxThreadRoleLine(incoming, "chairman@canterburyramblers.org.uk"))
-      .toEqual("to chairman@canterburyramblers.org.uk");
+    expect(inboxThreadRoleLine(incoming, "chairman@other.example.org.uk"))
+      .toEqual("to chairman@other.example.org.uk");
   });
 
   it("uses the role address the inbound mail was sent to when the role has more than one", () => {
     const incoming = thread({
       lastDirection: InboxMessageDirection.INBOUND,
-      deliveredTo: {name: null, email: "nick.barrett@nwkramblers.org.uk"}
+      deliveredTo: {name: null, email: "member.one@example.org.uk"}
     });
-    expect(inboxThreadRoleLine(incoming, "system-administrator@nwkramblers.org.uk"))
-      .toEqual("to nick.barrett@nwkramblers.org.uk");
+    expect(inboxThreadRoleLine(incoming, "system-administrator@example.org.uk"))
+      .toEqual("to member.one@example.org.uk");
   });
 
 });
@@ -103,31 +103,31 @@ describe("inboxThreadRoleLine", () => {
 describe("aliasMailboxLabel", () => {
 
   it("names a role mailbox by its primary address", () => {
-    expect(aliasMailboxLabel({roleType: "chairman", roleEmail: "chairman@ekwg.co.uk", additionalEmails: []}))
-      .toEqual("chairman@ekwg.co.uk");
+    expect(aliasMailboxLabel({roleType: "chairman", roleEmail: "chairman@example.co.uk", additionalEmails: []}))
+      .toEqual("chairman@example.co.uk");
   });
 
   it("notes extra addresses on the same role mailbox", () => {
     expect(aliasMailboxLabel({
       roleType: "system-administrator",
       roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
-      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+      additionalEmails: ["member.one@ngx-ramblers.org.uk"]
     })).toEqual("ngx-project-lead@ngx-ramblers.org.uk + 1 more");
   });
 
   it("keeps the catch-all mailbox as Other inbox mail", () => {
-    expect(aliasMailboxHeading({roleType: "_general_conn-1", roleEmail: "catchall@ekwg.co.uk"}))
+    expect(aliasMailboxHeading({roleType: "_general_conn-1", roleEmail: "catchall@example.co.uk"}))
       .toEqual("Other inbox mail");
-    expect(aliasMailboxLabel({roleType: "_general_conn-1", roleEmail: "catchall@ekwg.co.uk", additionalEmails: ["extra@ekwg.co.uk"]}))
+    expect(aliasMailboxLabel({roleType: "_general_conn-1", roleEmail: "catchall@example.co.uk", additionalEmails: ["extra@example.co.uk"]}))
       .toEqual("Other inbox mail");
   });
 
   it("lists extra addresses for the viewing banner", () => {
     expect(aliasMailboxExtraCaption({
       roleType: "chairman",
-      roleEmail: "chairman@ekwg.co.uk",
-      additionalEmails: ["nick.barrett@ekwg.co.uk", "walks@ekwg.co.uk"]
-    })).toEqual("nick.barrett@ekwg.co.uk and walks@ekwg.co.uk");
+      roleEmail: "chairman@example.co.uk",
+      additionalEmails: ["member.one@example.co.uk", "walks@example.co.uk"]
+    })).toEqual("member.one@example.co.uk and walks@example.co.uk");
   });
 
 });
@@ -141,19 +141,19 @@ describe("deliveredToFromMessage", () => {
     } as InboxMessage;
     expect(deliveredToFromMessage(message, {
       roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
-      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+      additionalEmails: ["member.one@ngx-ramblers.org.uk"]
     })?.email).toEqual("Nick.Barrett@ngx-ramblers.org.uk");
   });
 
   it("picks a matching extra address from Cc when To is someone else", () => {
     const message = {
       to: [{name: null, email: "someone@example.org"}],
-      cc: [{name: null, email: "nick.barrett@ngx-ramblers.org.uk"}]
+      cc: [{name: null, email: "member.one@ngx-ramblers.org.uk"}]
     } as InboxMessage;
     expect(deliveredToFromMessage(message, {
       roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
-      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
-    })?.email).toEqual("nick.barrett@ngx-ramblers.org.uk");
+      additionalEmails: ["member.one@ngx-ramblers.org.uk"]
+    })?.email).toEqual("member.one@ngx-ramblers.org.uk");
   });
 
   it("falls back to the primary role address when none of the headers match", () => {
@@ -163,7 +163,7 @@ describe("deliveredToFromMessage", () => {
     } as InboxMessage;
     expect(deliveredToFromMessage(message, {
       roleEmail: "ngx-project-lead@ngx-ramblers.org.uk",
-      additionalEmails: ["nick.barrett@ngx-ramblers.org.uk"]
+      additionalEmails: ["member.one@ngx-ramblers.org.uk"]
     })).toEqual({name: null, email: "ngx-project-lead@ngx-ramblers.org.uk"});
   });
 
@@ -207,19 +207,19 @@ describe("inboxThreadHeaderFrom and inboxThreadHeaderTo", () => {
     const welcome = {
       messageId: "welcome",
       direction: InboxMessageDirection.INBOUND,
-      from: {name: "Nick Barrett", email: "nick.barrett@staging-lite.ngx-ramblers.org.uk"},
+      from: {name: "Nick Barrett", email: "member.one@staging-lite.ngx-ramblers.org.uk"},
       to: [{name: "Zoe Young", email: "zoe.young184@staging-lite.ngx-ramblers.org.uk"}],
       receivedAt: 2000,
       sentAt: null
     } as InboxMessage;
-    expect(inboxThreadHeaderFrom([welcome])?.email).toEqual("nick.barrett@staging-lite.ngx-ramblers.org.uk");
+    expect(inboxThreadHeaderFrom([welcome])?.email).toEqual("member.one@staging-lite.ngx-ramblers.org.uk");
     expect(inboxThreadHeaderTo([welcome]).map(address => address.email)).toEqual(["zoe.young184@staging-lite.ngx-ramblers.org.uk"]);
   });
 
   it("uses the newest message when the conversation has more than one", () => {
     const earlier = {
       messageId: "earlier",
-      from: {name: "Nick Barrett", email: "nick.barrett@example.org"},
+      from: {name: "Nick Barrett", email: "member.one@example.org"},
       to: [{name: "Zoe Young", email: "zoe@example.org"}],
       receivedAt: 1000,
       sentAt: null
@@ -227,12 +227,12 @@ describe("inboxThreadHeaderFrom and inboxThreadHeaderTo", () => {
     const reply = {
       messageId: "reply",
       from: {name: "Zoe Young", email: "zoe@example.org"},
-      to: [{name: "Nick Barrett", email: "nick.barrett@example.org"}],
+      to: [{name: "Nick Barrett", email: "member.one@example.org"}],
       receivedAt: 2000,
       sentAt: null
     } as InboxMessage;
     expect(inboxThreadHeaderFrom([earlier, reply])?.email).toEqual("zoe@example.org");
-    expect(inboxThreadHeaderTo([earlier, reply]).map(address => address.email)).toEqual(["nick.barrett@example.org"]);
+    expect(inboxThreadHeaderTo([earlier, reply]).map(address => address.email)).toEqual(["member.one@example.org"]);
   });
 
   it("returns nothing when there are no messages yet", () => {
@@ -312,7 +312,7 @@ describe("collapseInboxSends", () => {
   function outbound(overrides: Partial<InboxMessage>): InboxMessage {
     return {
       direction: InboxMessageDirection.OUTBOUND,
-      from: {email: "nick.barrett@ngx-ramblers.org.uk", name: "Nick Barrett"},
+      from: {email: "member.one@ngx-ramblers.org.uk", name: "Nick Barrett"},
       subject: "Re: Group & Area Email Project",
       to: [{email: "ciaran.evans@ramblers.org.uk", name: "Ciaran Evans"}],
       cc: [],

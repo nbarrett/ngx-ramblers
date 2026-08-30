@@ -68,18 +68,18 @@ describe("additionalEmailsFromMailboxList", () => {
 
   it("stores every address except the default sender so the list survives a reload", () => {
     expect(additionalEmailsFromMailboxList([
-      "nick.barrett@ngx-ramblers.org.uk",
+      "member.one@ngx-ramblers.org.uk",
       "system-administrator@ngx-ramblers.org.uk",
       "ngx-project-lead@ngx-ramblers.org.uk"
-    ], "nick.barrett@ngx-ramblers.org.uk")).toEqual([
+    ], "member.one@ngx-ramblers.org.uk")).toEqual([
       "system-administrator@ngx-ramblers.org.uk",
       "ngx-project-lead@ngx-ramblers.org.uk"
     ]);
     expect(additionalEmailsFromMailboxList([
-      "nick.barrett@ngx-ramblers.org.uk",
+      "member.one@ngx-ramblers.org.uk",
       "system-administrator@ngx-ramblers.org.uk",
       "ngx-project-lead@ngx-ramblers.org.uk"
-    ], "nick.barrett@ngx-ramblers.org.uk", ["system-administrator@ngx-ramblers.org.uk"])).toEqual([
+    ], "member.one@ngx-ramblers.org.uk", ["system-administrator@ngx-ramblers.org.uk"])).toEqual([
       "ngx-project-lead@ngx-ramblers.org.uk"
     ]);
   });
@@ -264,7 +264,7 @@ describe("committeeRoleMatchingEmail", () => {
   function role(overrides: Partial<CommitteeMember>): CommitteeMember {
     return {
       description: "NGX Project Lead",
-      email: "nick.barrett@ngx-ramblers.org.uk",
+      email: "member.one@ngx-ramblers.org.uk",
       fullName: "Nick Barrett",
       type: "ngx-project-lead",
       roleType: RoleType.COMMITTEE_MEMBER,
@@ -291,7 +291,7 @@ describe("committeeRoleMatchingEmail", () => {
   const roles = [projectLead, membership];
 
   it("maps the stored default sender", () => {
-    expect(committeeRoleMatchingEmail(roles, "nick.barrett@ngx-ramblers.org.uk")?.type).toEqual("ngx-project-lead");
+    expect(committeeRoleMatchingEmail(roles, "member.one@ngx-ramblers.org.uk")?.type).toEqual("ngx-project-lead");
   });
 
   it("maps the generated role-type address", () => {
@@ -299,7 +299,7 @@ describe("committeeRoleMatchingEmail", () => {
   });
 
   it("labels the default sender, role-name address and extras on the project lead role", () => {
-    expect(committeeMailboxKind(projectLead, "nick.barrett@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.DEFAULT_SENDER);
+    expect(committeeMailboxKind(projectLead, "member.one@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.DEFAULT_SENDER);
     expect(committeeMailboxKind(projectLead, "ngx-project-lead@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.ROLE_NAME);
     expect(committeeMailboxKind(projectLead, "nix@ngx-ramblers.org.uk")).toEqual(CommitteeMailboxKind.EXTRA);
   });

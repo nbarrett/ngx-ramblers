@@ -306,8 +306,8 @@ describe("link preservation through the pipeline", () => {
   });
 
   it("keeps bare URLs intact when joining wrapped PDF lines", () => {
-    const input = "Onboarding https://www.northwestkent.ngx-ramblers.org.uk/\nAutomated facility to migrate sites.";
-    expect(pdfTextToMarkdown(input, 1)).toContain("https://www.northwestkent.ngx-ramblers.org.uk/");
+    const input = "Onboarding https://www.group.ngx-ramblers.org.uk/\nAutomated facility to migrate sites.";
+    expect(pdfTextToMarkdown(input, 1)).toContain("https://www.group.ngx-ramblers.org.uk/");
   });
 });
 

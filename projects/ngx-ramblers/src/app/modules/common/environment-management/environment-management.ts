@@ -31,6 +31,9 @@ import { EnvironmentConfigService } from "../../../services/environment-config.s
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
+  CustomDomainEligibility,
+  DnsProvider,
+  ENVIRONMENT_SUBDOMAIN_BASE,
   EnvironmentStatus,
   ExistingEnvironment,
   FlyOrgMigrationPhase,
@@ -50,7 +53,13 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
 import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { InputSize } from "../../../models/ui-size.model";
-import { ramblersNationalUrl } from "../../../functions/hosts";
+import {
+  firstGroupOwnedApex,
+  hostnameMayHaveWwwCompanion,
+  ramblersNationalUrl,
+  relatedEnvironmentName,
+  suggestedCustomDomainHostname
+} from "../../../functions/hosts";
 
 @Component({
   selector: "app-environment-management",
@@ -121,6 +130,10 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
     :host ::ng-deep .hostname-health-table .health-line
       white-space: nowrap
       line-height: 1.35
+
+    :host ::ng-deep .hostname-health-table .nameserver-line
+      white-space: normal
+      word-break: break-word
 
     :host ::ng-deep .hostname-health-table .domain-status-detail
       white-space: normal
@@ -370,90 +383,6 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                     </div>
                   </div>
                 </div>
-                @if (progressMessages.length > 0) {
-                  <div class="row mt-3">
-                    <div class="col-md-12">
-                      <app-session-logs [messages]="progressMessages"></app-session-logs>
-                    </div>
-                  </div>
-                }
-                @if (setupResult) {
-                  <div class="row mt-3">
-                    <div class="col-md-12">
-                      <div class="alert alert-success mb-0">
-                        <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                        <strong>Environment modified successfully!</strong>
-                        @if (setupResult.appUrl) {
-                          <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
-                        }
-                      </div>
-                    </div>
-                  </div>
-                }
-                @if (passwordResetResult) {
-                  <div class="row mt-3">
-                    <div class="col-md-12">
-                      <div class="alert alert-success mb-0">
-                        <div class="d-flex align-items-start">
-                          <fa-icon [icon]="faKey" class="me-2 mt-1"></fa-icon>
-                          <div>
-                            <strong>Admin sign-in for this environment</strong>
-                            <dl class="row mb-0 mt-2">
-                              <dt class="col-sm-3">Username</dt>
-                              <dd class="col-sm-9"><code>{{ passwordResetResult.userName || passwordResetResult.email }}</code></dd>
-                              <dt class="col-sm-3">Email</dt>
-                              <dd class="col-sm-9">{{ passwordResetResult.email }}</dd>
-                              @if (passwordResetResult.resetUrl) {
-                                <dt class="col-sm-3">Set password</dt>
-                                <dd class="col-sm-9">
-                                  <a [href]="passwordResetResult.resetUrl" target="_blank">{{ passwordResetResult.resetUrl }}</a>
-                                  <div class="small mt-1">Open this once to choose a password, then sign in with the username above. There is no initial password.</div>
-                                </dd>
-                              }
-                              @if (passwordResetResult.flyResetUrl) {
-                                <dt class="col-sm-3">Fly.io set password</dt>
-                                <dd class="col-sm-9">
-                                  <a [href]="passwordResetResult.flyResetUrl" target="_blank">{{ passwordResetResult.flyResetUrl }}</a>
-                                  <div class="small text-muted mt-1">Fallback if the custom host is not ready yet.</div>
-                                </dd>
-                              }
-                            </dl>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                }
-                @if (setupWarnings.length > 0) {
-                  <div class="row mt-3">
-                    <div class="col-md-12">
-                      <div class="alert alert-warning mb-0">
-                        <div class="d-flex align-items-start">
-                          <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
-                          <div>
-                            <strong>Completed with {{ stringUtils.pluraliseWithCount(setupWarnings.length, "step") }} needing attention</strong>
-                            <p class="mb-1 mt-2">The environment is usable. Finish these later (for Brevo domain auth, the Brevo UI is often required).</p>
-                            <ul class="mb-0">
-                              @for (warning of setupWarnings; track warning) {
-                                <li>{{ warning }}</li>
-                              }
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                }
-                @if (setupError) {
-                  <div class="row mt-3">
-                    <div class="col-md-12">
-                      <div class="alert alert-danger mb-0">
-                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                        <strong>Error:</strong> {{ setupError }}
-                      </div>
-                    </div>
-                  </div>
-                }
                 @if (!selectedExistingEnv.hasApiKey && (resumeOptions.runFlyDeployment || resumeOptions.setupSubdomain)) {
                   <div class="row mt-3">
                     <div class="col-md-12">
@@ -473,7 +402,7 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                       <p class="small text-muted mb-0">
                         Free host for this app (e.g. <code>{{ environmentSubdomainHint() }}</code>).
                         Create it with <strong>Setup subdomain</strong> under Steps to run, not with the boxes below.
-                        It appears in the table as “Environment subdomain”.
+                        Remove it from the matching row in the table.
                       </p>
                     </div>
 
@@ -531,6 +460,17 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                                         <div class="small text-muted mt-1 domain-status-detail">{{ hostnameDetail(hostname) }}</div>
                                       }
                                       <div class="health-line small text-muted mt-1">{{ hostnameDnsSummary(hostname) }}</div>
+                                      @if (hostnameDnsProviderSummary(hostname)) {
+                                        <div class="health-line mt-1">
+                                          <span class="badge" [class]="hostnameDnsProviderBadgeClass(hostname)">{{ hostname.dnsProviderLabel }}</span>
+                                          @if (!hostnameDnsProviderOurs(hostname)) {
+                                            <span class="small text-muted ms-2">not Cloudflare</span>
+                                          }
+                                        </div>
+                                      }
+                                      @if (hostnameNameserverSummary(hostname)) {
+                                        <div class="health-line nameserver-line small text-muted">{{ hostnameNameserverSummary(hostname) }}</div>
+                                      }
                                       <div class="health-line small text-muted">HTTPS {{ hostname.httpStatus || "no response" }}</div>
                                       @if (hostname.redirectRuleTarget) {
                                         <button class="btn btn-sm btn-quiet mt-2 me-2"
@@ -540,7 +480,7 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                                         </button>
                                       }
                                       @if (canUseAsSiteUrl(hostname)) {
-                                        <button class="btn btn-sm btn-quiet mt-2"
+                                        <button class="btn btn-sm btn-quiet mt-2 me-2"
                                                 (click)="setSiteUrlFromHostname(hostname)"
                                                 [disabled]="siteUrlBusy || operationBusy || customDomainBusy"
                                                 tooltip="Writes this hostname into the environment system config as group.href">
@@ -550,8 +490,32 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                                           Use as Site URL
                                         </button>
                                       }
+                                      @if (canRemoveEnvironmentSubdomainHost(hostname)) {
+                                        <button class="btn btn-sm btn-danger mt-2"
+                                                (click)="requestRemoveNgxSubdomain()"
+                                                [disabled]="operationBusy || customDomainBusy || removingNgxSubdomain || removeNgxSubdomainConfirming"
+                                                tooltip="Delete the DNS records and Fly certificate for this environment subdomain">
+                                          @if (removingNgxSubdomain) {
+                                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                                          } @else {
+                                            <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
+                                          }
+                                          Remove subdomain
+                                        </button>
+                                      }
                                     } @else {
                                       <div class="small">{{ hostnameActionStatement(hostname) }}</div>
+                                      @if (hostnameDnsProviderSummary(hostname)) {
+                                        <div class="health-line mt-1">
+                                          <span class="badge" [class]="hostnameDnsProviderBadgeClass(hostname)">{{ hostname.dnsProviderLabel }}</span>
+                                          @if (!hostnameDnsProviderOurs(hostname)) {
+                                            <span class="small text-muted ms-2">not Cloudflare</span>
+                                          }
+                                        </div>
+                                      }
+                                      @if (hostnameNameserverSummary(hostname)) {
+                                        <div class="health-line nameserver-line small text-muted mt-1">{{ hostnameNameserverSummary(hostname) }}</div>
+                                      }
                                       <div class="mt-2">
                                         @if (shouldOfferClearSiteUrl(hostname)) {
                                           <button class="btn btn-sm btn-quiet me-2"
@@ -576,10 +540,23 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                                           </button>
                                         }
                                         @if (hostname.redirectRuleTarget) {
-                                          <button class="btn btn-sm btn-quiet"
+                                          <button class="btn btn-sm btn-quiet me-2"
                                                   (click)="removeApexRedirect(hostname)"
                                                   [disabled]="apexRedirectBusy || operationBusy || customDomainBusy || siteUrlBusy">
                                             Remove redirect
+                                          </button>
+                                        }
+                                        @if (canRemoveEnvironmentSubdomainHost(hostname)) {
+                                          <button class="btn btn-sm btn-danger"
+                                                  (click)="requestRemoveNgxSubdomain()"
+                                                  [disabled]="operationBusy || customDomainBusy || removingNgxSubdomain || removeNgxSubdomainConfirming"
+                                                  tooltip="Delete the DNS records and Fly certificate for this environment subdomain">
+                                            @if (removingNgxSubdomain) {
+                                              <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                                            } @else {
+                                              <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
+                                            }
+                                            Remove subdomain
                                           </button>
                                         }
                                       </div>
@@ -591,40 +568,90 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                           </table>
                         </div>
                       }
+                      @if (removeNgxSubdomainConfirming) {
+                        <div class="alert alert-warning d-flex align-items-start mt-3 mb-0">
+                          <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"/>
+                          <div class="flex-grow-1">
+                            <div><strong>Remove {{ environmentSubdomainHint() }}?</strong></div>
+                            <div class="small mt-1">{{ ngxSubdomainRemovalWarning() }}</div>
+                          </div>
+                          <div class="btn-group btn-group-sm ms-3">
+                            <button type="button" class="btn btn-danger" [disabled]="removingNgxSubdomain"
+                                    (click)="confirmRemoveNgxSubdomain()">Remove</button>
+                            <button type="button" class="btn btn-quiet"
+                                    (click)="cancelRemoveNgxSubdomain()">Cancel</button>
+                          </div>
+                        </div>
+                      }
                     </div>
 
                     <div class="hostname-part mt-4 pt-3 border-top">
                       <div class="fw-bold">Attach a custom domain</div>
-                      <p class="small text-muted mb-2">
-                        Only if the group owns a domain of its own (e.g. <code>www.finchleyandhornsey.org.uk</code>)
-                        that should serve this site. Skip when the free NGX subdomain is enough.
-                        @if (!environmentSubdomainReady()) {
-                          Available after Setup subdomain has run.
+                      @if (groupOwnedApexHost(); as apex) {
+                        @if (suggestedCustomDomainAlreadyAttached()) {
+                          <p class="small text-muted mb-2">
+                            This group's own domain is <code>{{ apex }}</code>.
+                            <code>{{ suggestedCustomDomain() }}</code> is already attached.
+                            Add another hostname only if you need a further host on that domain.
+                          </p>
+                        } @else {
+                          <p class="small text-muted mb-2">
+                            Only if a hostname on this group's own domain (e.g. <code>{{ suggestedCustomDomain() }}</code>)
+                            should serve this site. Skip when the free NGX subdomain is enough.
+                          </p>
                         }
-                      </p>
+                      } @else {
+                        <p class="small text-muted mb-2">
+                          No group-owned domain was found for this environment, so it is on the free NGX subdomain only.
+                          Attach a hostname here only if the group owns a domain of its own that should serve this site.
+                        </p>
+                      }
                       <div class="d-flex gap-2 align-items-start flex-wrap">
                         <input type="text" class="form-control" style="max-width: 320px;"
-                               placeholder="e.g. www.your-group.org.uk"
+                               [placeholder]="customDomainPlaceholder()"
                                [(ngModel)]="customDomainHostname"
-                               [disabled]="operationBusy || customDomainBusy || !environmentSubdomainReady()">
+                               (ngModelChange)="onCustomDomainHostnameChange()"
+                               [disabled]="operationBusy || customDomainBusy">
                         <button class="btn btn-primary" (click)="addCustomDomain()"
-                                [disabled]="operationBusy || customDomainBusy || !customDomainHostname || !environmentSubdomainReady()">
-                          @if (customDomainBusy && !removingDomainHostname && !checkingDomainHostname) {
+                                [disabled]="operationBusy || customDomainBusy || customDomainEligibilityConfirming || !customDomainHostname">
+                          @if (probingCustomDomain) {
                             <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                            Checking DNS
+                          } @else if (customDomainBusy && !removingDomainHostname && !checkingDomainHostname) {
+                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                            Attach domain
                           } @else {
                             <fa-icon [icon]="faPlus" class="me-1"></fa-icon>
+                            Attach domain
                           }
-                          Attach domain
                         </button>
                       </div>
                       @if (shouldShowAlsoAttachWwwOption()) {
                         <div class="form-check mt-2">
                           <input class="form-check-input" type="checkbox" id="alsoAttachWww"
                                  [(ngModel)]="alsoAttachWww"
-                                 [disabled]="operationBusy || customDomainBusy || !environmentSubdomainReady()">
+                                 [disabled]="operationBusy || customDomainBusy">
                           <label class="form-check-label small" for="alsoAttachWww">
                             Also attach the <code>www.</code> variant so both apex and www serve the site
                           </label>
+                        </div>
+                      }
+                      @if (customDomainEligibilityConfirming && customDomainEligibility) {
+                        <div class="alert alert-warning d-flex align-items-start mt-3 mb-0">
+                          <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"/>
+                          <div class="flex-grow-1">
+                            <div><strong>DNS is not managed here</strong></div>
+                            <div class="small mt-1">{{ customDomainEligibility.message }}</div>
+                            @if (alsoAttachWww && shouldShowAlsoAttachWwwOption()) {
+                              <div class="small mt-1">The www variant will be attached as well.</div>
+                            }
+                          </div>
+                          <div class="btn-group btn-group-sm ms-3">
+                            <button type="button" class="btn btn-primary" [disabled]="customDomainBusy"
+                                    (click)="confirmCustomDomainEligibility()">Attach</button>
+                            <button type="button" class="btn btn-quiet"
+                                    (click)="cancelCustomDomainEligibility()">Cancel</button>
+                          </div>
                         </div>
                       }
                       @if (customDomainError) {
@@ -711,7 +738,7 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                       </p>
                       <div class="d-flex gap-2 align-items-start flex-wrap">
                         <input type="text" class="form-control" style="max-width: 320px;"
-                               placeholder="Serving host e.g. www.your-group.org.uk"
+                               [placeholder]="'Serving host e.g. ' + (suggestedCustomDomain() || customDomainExample())"
                                [(ngModel)]="apexRedirectHostname"
                                [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !canSetupApexRedirect()">
                         <button class="btn btn-primary" (click)="setupApexRedirect()"
@@ -753,36 +780,92 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                       }
                       Reset Admin Password
                     </button>
-                    @if (canRemoveNgxSubdomain()) {
-                      <button class="btn btn-danger" (click)="requestRemoveNgxSubdomain()"
-                              [disabled]="operationBusy || removingNgxSubdomain || removeNgxSubdomainConfirming"
-                              tooltip="Delete the <env>.ngx-ramblers.org.uk DNS records and Fly cert"
-                              container="body">
-                        @if (removingNgxSubdomain) {
-                          <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
-                        } @else {
-                          <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
-                        }
-                        Remove NGX Subdomain
-                      </button>
-                    }
                   </div>
-                  @if (removeNgxSubdomainConfirming) {
-                    <div class="alert alert-warning d-flex align-items-center justify-content-between mt-3 mb-0">
-                      <span>
-                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                        <strong>Remove the NGX subdomain ({{ selectedExistingEnv.name }}.ngx-ramblers.org.uk)?</strong>
-                        This deletes its DNS records and Fly certificate. The app will only be reachable via its attached custom domains.
-                      </span>
-                      <div class="btn-group btn-group-sm ms-3">
-                        <button type="button" class="btn btn-danger" [disabled]="removingNgxSubdomain"
-                                (click)="confirmRemoveNgxSubdomain()">Remove</button>
-                        <button type="button" class="btn btn-quiet"
-                                (click)="cancelRemoveNgxSubdomain()">Cancel</button>
+                </div>
+                @if (progressMessages.length > 0) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <app-session-logs [messages]="progressMessages"></app-session-logs>
+                    </div>
+                  </div>
+                }
+                @if (setupResult) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-success mb-0">
+                        <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                        <strong>Environment modified successfully!</strong>
+                        @if (setupResult.appUrl) {
+                          <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
+                        }
                       </div>
                     </div>
-                  }
-                </div>
+                  </div>
+                }
+                @if (passwordResetResult) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-success mb-0">
+                        <div class="d-flex align-items-start">
+                          <fa-icon [icon]="faKey" class="me-2 mt-1"></fa-icon>
+                          <div>
+                            <strong>Admin sign-in for this environment</strong>
+                            <dl class="row mb-0 mt-2">
+                              <dt class="col-sm-3">Username</dt>
+                              <dd class="col-sm-9"><code>{{ passwordResetResult.userName || passwordResetResult.email }}</code></dd>
+                              <dt class="col-sm-3">Email</dt>
+                              <dd class="col-sm-9">{{ passwordResetResult.email }}</dd>
+                              @if (passwordResetResult.resetUrl) {
+                                <dt class="col-sm-3">Set password</dt>
+                                <dd class="col-sm-9">
+                                  <a [href]="passwordResetResult.resetUrl" target="_blank">{{ passwordResetResult.resetUrl }}</a>
+                                  <div class="small mt-1">Open this once to choose a password, then sign in with the username above. There is no initial password.</div>
+                                </dd>
+                              }
+                              @if (passwordResetResult.flyResetUrl) {
+                                <dt class="col-sm-3">Fly.io set password</dt>
+                                <dd class="col-sm-9">
+                                  <a [href]="passwordResetResult.flyResetUrl" target="_blank">{{ passwordResetResult.flyResetUrl }}</a>
+                                  <div class="small text-muted mt-1">Fallback if the custom host is not ready yet.</div>
+                                </dd>
+                              }
+                            </dl>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (setupWarnings.length > 0) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-warning mb-0">
+                        <div class="d-flex align-items-start">
+                          <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
+                          <div>
+                            <strong>Completed with {{ stringUtils.pluraliseWithCount(setupWarnings.length, "step") }} needing attention</strong>
+                            <p class="mb-1 mt-2">The environment is usable. Finish these later (for Brevo domain auth, the Brevo UI is often required).</p>
+                            <ul class="mb-0">
+                              @for (warning of setupWarnings; track warning) {
+                                <li>{{ warning }}</li>
+                              }
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (setupError) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-danger mb-0">
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        <strong>Error:</strong> {{ setupError }}
+                      </div>
+                    </div>
+                  </div>
+                }
               }
               @if (manageAction === ManageAction.MIGRATE_FLY_ORG) {
                 <div class="row mt-3">
@@ -1023,18 +1106,23 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
                   </div>
                 </div>
               }
+              @if (notifyTarget.showAlert) {
+                <div class="alert {{ notifyTarget.alert.class }} mt-3 mb-0">
+                  <div class="d-flex align-items-start">
+                    <fa-icon [icon]="notifyTarget.alert.icon" class="me-2 mt-1"></fa-icon>
+                    <div>
+                      @if (notifyTarget.alertTitle) {
+                        <strong>{{ notifyTarget.alertTitle }}</strong>
+                        <div class="mt-1">{{ notifyTarget.alertMessage }}</div>
+                      } @else {
+                        {{ notifyTarget.alertMessage }}
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
             }
           }
-        </div>
-      }
-
-      @if (notifyTarget.showAlert) {
-        <div class="alert {{ notifyTarget.alert.class }} mt-3">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          @if (notifyTarget.alertTitle) {
-            <strong>{{ notifyTarget.alertTitle }}: </strong>
-          }
-          {{ notifyTarget.alertMessage }}
         </div>
       }
     }
@@ -1114,8 +1202,11 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
   customDomainHostname = "";
   customDomainBusy = false;
+  probingCustomDomain = false;
   customDomainError: string | null = null;
   customDomainMessages: string[] = [];
+  customDomainEligibility: CustomDomainEligibility | null = null;
+  customDomainEligibilityConfirming = false;
   removingDomainHostname: string | null = null;
   checkingDomainHostname: string | null = null;
   alsoAttachWww = true;
@@ -1421,6 +1512,14 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       this.logger.error("Failed to probe hostname health:", error);
     } finally {
       this.loadingHostnameHealth = false;
+      this.applySuggestedCustomDomain();
+    }
+  }
+
+  private applySuggestedCustomDomain(): void {
+    const suggested = this.suggestedCustomDomain();
+    if (!this.customDomainHostname && suggested && !this.suggestedCustomDomainAlreadyAttached()) {
+      this.customDomainHostname = suggested;
     }
   }
 
@@ -1461,6 +1560,68 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       const proxyState = hostname.proxied ? "proxied" : "DNS only";
       return `${hostname.dnsRecordType} ${hostname.dnsContent} (${proxyState})`;
     }
+  }
+
+  hostnameNameserverSummary(hostname: HostnameStatus): string {
+    return (hostname.nameservers || []).length > 0
+      ? `Nameservers ${hostname.nameservers.join(", ")}`
+      : "";
+  }
+
+  hostnameDnsProviderSummary(hostname: HostnameStatus): boolean {
+    return !!hostname.dnsProvider && hostname.dnsProvider !== DnsProvider.UNKNOWN;
+  }
+
+  hostnameDnsProviderOurs(hostname: HostnameStatus): boolean {
+    return hostname.dnsProvider === DnsProvider.CLOUDFLARE;
+  }
+
+  hostnameDnsProviderBadgeClass(hostname: HostnameStatus): string {
+    if (hostname.dnsProvider === DnsProvider.CLOUDFLARE) {
+      return "bg-success";
+    } else {
+      return "bg-warning text-dark";
+    }
+  }
+
+  private groupDomainHostCandidates(): string[] {
+    const relatedName = relatedEnvironmentName(this.selectedExistingEnv?.name);
+    const sibling = this.existingEnvironments.find(environment => environment.name === relatedName);
+    return [
+      this.hostnameHealthReport?.siteUrl,
+      this.hostnameHealthReport?.relatedGroupSiteUrl,
+      ...(this.hostnameHealthReport?.hostnames || []).map(hostname => hostname.hostname),
+      ...this.customDomains().map(domain => domain.hostname),
+      ...(sibling?.customDomains || []).map(domain => domain.hostname)
+    ].filter((hostname): hostname is string => !!hostname);
+  }
+
+  groupOwnedApexHost(): string | null {
+    return firstGroupOwnedApex(this.groupDomainHostCandidates(), ENVIRONMENT_SUBDOMAIN_BASE);
+  }
+
+  suggestedCustomDomain(): string | null {
+    return suggestedCustomDomainHostname(this.groupOwnedApexHost(), this.selectedExistingEnv?.name);
+  }
+
+  suggestedCustomDomainAlreadyAttached(): boolean {
+    const suggested = this.suggestedCustomDomain();
+    return !!suggested && this.customDomains().some(domain => domain.hostname === suggested);
+  }
+
+  customDomainPlaceholder(): string {
+    const suggested = this.suggestedCustomDomain();
+    if (suggested) {
+      return `e.g. ${suggested}`;
+    } else {
+      return "Hostname on the group domain";
+    }
+  }
+
+  customDomainExample(): string {
+    return this.suggestedCustomDomain()
+      || this.groupOwnedApexHost()
+      || this.environmentSubdomainHint();
   }
 
   hostnameActionStatement(hostname: HostnameStatus): string {
@@ -1517,12 +1678,6 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     } else {
       return "your-env.ngx-ramblers.org.uk";
     }
-  }
-
-  environmentSubdomainReady(): boolean {
-    return this.envStatus?.subdomainConfigured === true
-      || this.hostnameStatuses().some(status =>
-        status.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN && status.healthy);
   }
 
   canSetupApexRedirect(): boolean {
@@ -1619,6 +1774,9 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.customDomainHostname = "";
     this.customDomainMessages = [];
     this.customDomainError = null;
+    this.customDomainEligibility = null;
+    this.customDomainEligibilityConfirming = false;
+    this.probingCustomDomain = false;
     this.removingDomainHostname = null;
     this.checkingDomainHostname = null;
     this.alsoAttachWww = true;
@@ -1654,44 +1812,106 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   async addCustomDomain(): Promise<void> {
     if (!this.selectedExistingEnv) {
       this.notify.warning({ title: "No Environment Selected", message: "Please select an environment first" });
-      return;
+    } else {
+      const hostname = this.normaliseHostname(this.customDomainHostname);
+      if (!hostname) {
+        this.customDomainError = "Enter a hostname to add";
+      } else {
+        await this.probeThenAttachCustomDomain(hostname);
+      }
     }
+  }
+
+  onCustomDomainHostnameChange(): void {
+    if (this.customDomainEligibilityConfirming) {
+      this.cancelCustomDomainEligibility();
+    }
+  }
+
+  cancelCustomDomainEligibility(): void {
+    this.customDomainEligibilityConfirming = false;
+    this.customDomainEligibility = null;
+  }
+
+  async confirmCustomDomainEligibility(): Promise<void> {
     const hostname = this.normaliseHostname(this.customDomainHostname);
-    if (!hostname) {
-      this.customDomainError = "Enter a hostname to add";
-      return;
+    this.customDomainEligibilityConfirming = false;
+    this.customDomainEligibility = null;
+    if (hostname && this.selectedExistingEnv) {
+      this.customDomainBusy = true;
+      this.customDomainError = null;
+      try {
+        await this.attachCustomDomainQueue(hostname);
+      } finally {
+        this.customDomainBusy = false;
+      }
     }
-    this.customDomainBusy = true;
-    this.customDomainError = null;
-    this.customDomainMessages = [`Attaching custom domain: ${hostname}`];
-    const queue = [hostname];
-    if (this.shouldAttachWwwFor(hostname)) {
-      queue.push(`www.${hostname}`);
-    }
-    try {
-      for (const target of queue) {
-        if (target !== hostname) {
-          this.customDomainMessages.push(`Attaching companion domain: ${target}`);
-        }
-        const response = await this.environmentSetupService.addCustomDomain(this.selectedExistingEnv.name, target);
-        if (response.success) {
-          this.appendLogs(response.logs, response.message || `Custom domain ${response.hostname} attached`);
+  }
+
+  private async probeThenAttachCustomDomain(hostname: string): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.notify.warning({ title: "No Environment Selected", message: "Please select an environment first" });
+    } else {
+      this.customDomainBusy = true;
+      this.probingCustomDomain = true;
+      this.customDomainError = null;
+      this.customDomainEligibility = null;
+      this.customDomainEligibilityConfirming = false;
+      this.customDomainMessages = [`Checking whether this Cloudflare account manages ${hostname}`];
+      try {
+        const response = await this.environmentSetupService.probeCustomDomain(this.selectedExistingEnv.name, hostname);
+        if (response.success && response.eligibility?.managedByThisAccount) {
+          this.probingCustomDomain = false;
+          await this.attachCustomDomainQueue(hostname);
+        } else if (response.success && response.eligibility) {
+          this.customDomainEligibility = response.eligibility;
+          this.customDomainEligibilityConfirming = true;
+          this.customDomainMessages = [];
         } else {
-          this.customDomainError = response.message || "Custom domain add failed";
-          this.appendLogs(response.logs, `Error: ${this.customDomainError}`);
-          break;
+          this.customDomainError = response.message || "Could not check whether this Cloudflare account manages that hostname";
         }
+      } catch (error) {
+        this.customDomainError = this.extractErrorDetail(error);
+        this.logger.error("Probe custom domain failed:", error);
+      } finally {
+        this.probingCustomDomain = false;
+        this.customDomainBusy = false;
       }
-      if (!this.customDomainError) {
-        this.customDomainHostname = "";
+    }
+  }
+
+  private async attachCustomDomainQueue(hostname: string): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.notify.warning({ title: "No Environment Selected", message: "Please select an environment first" });
+    } else {
+      this.customDomainMessages = [`Attaching custom domain: ${hostname}`];
+      const queue = [hostname];
+      if (this.shouldAttachWwwFor(hostname)) {
+        queue.push(`www.${hostname}`);
       }
-      await this.refreshSelectedEnvironment();
-    } catch (error) {
-      this.customDomainError = this.extractErrorDetail(error);
-      this.appendLogs(error?.error?.logs, `Error: ${this.customDomainError}`);
-      this.logger.error("Add custom domain failed:", error);
-    } finally {
-      this.customDomainBusy = false;
+      try {
+        for (const target of queue) {
+          if (target !== hostname) {
+            this.customDomainMessages.push(`Attaching companion domain: ${target}`);
+          }
+          const response = await this.environmentSetupService.addCustomDomain(this.selectedExistingEnv.name, target);
+          if (response.success) {
+            this.appendLogs(response.logs, response.message || `Custom domain ${response.hostname} attached`);
+          } else {
+            this.customDomainError = response.message || "Custom domain add failed";
+            this.appendLogs(response.logs, `Error: ${this.customDomainError}`);
+            break;
+          }
+        }
+        if (!this.customDomainError) {
+          this.customDomainHostname = "";
+        }
+        await this.refreshSelectedEnvironment();
+      } catch (error) {
+        this.customDomainError = this.extractErrorDetail(error);
+        this.appendLogs(error?.error?.logs, `Error: ${this.customDomainError}`);
+        this.logger.error("Add custom domain failed:", error);
+      }
     }
   }
 
@@ -1700,12 +1920,11 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   }
 
   shouldShowAlsoAttachWwwOption(): boolean {
-    const normalised = this.normaliseHostname(this.customDomainHostname);
-    return !!normalised && !normalised.startsWith("www.") && normalised.split(".").length >= 2;
+    return hostnameMayHaveWwwCompanion(this.normaliseHostname(this.customDomainHostname));
   }
 
   private shouldAttachWwwFor(hostname: string): boolean {
-    return this.alsoAttachWww && !hostname.startsWith("www.") && hostname.split(".").length >= 2;
+    return this.alsoAttachWww && hostnameMayHaveWwwCompanion(hostname);
   }
 
   async removeCustomDomain(domain: CustomDomainEntry): Promise<void> {
@@ -2132,13 +2351,29 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   }
 
   canRemoveNgxSubdomain(): boolean {
-    if (!this.selectedExistingEnv || !this.envStatus?.subdomainConfigured) return false;
-    return this.customDomains().some(domain => domain.status === CustomDomainStatus.ATTACHED);
+    return !!this.selectedExistingEnv && this.envStatus?.subdomainConfigured === true;
+  }
+
+  canRemoveEnvironmentSubdomainHost(hostname: HostnameStatus): boolean {
+    return this.canRemoveNgxSubdomain() && this.isEnvironmentSubdomainHost(hostname);
+  }
+
+  ngxSubdomainRemovalWarning(): string {
+    const attachedCustom = this.customDomains().some(domain => domain.status === CustomDomainStatus.ATTACHED);
+    if (attachedCustom) {
+      return "This deletes its DNS records and Fly certificate. The app will only be reachable via its attached custom domains.";
+    } else {
+      const flyHost = this.selectedExistingEnv?.appName
+        ? `${this.selectedExistingEnv.appName}.fly.dev`
+        : "its Fly hostname";
+      return `This deletes its DNS records and Fly certificate. Until you attach another hostname, the app is only reachable at ${flyHost}.`;
+    }
   }
 
   requestRemoveNgxSubdomain(): void {
-    if (!this.selectedExistingEnv) return;
-    this.removeNgxSubdomainConfirming = true;
+    if (this.selectedExistingEnv) {
+      this.removeNgxSubdomainConfirming = true;
+    }
   }
 
   cancelRemoveNgxSubdomain(): void {
@@ -2146,28 +2381,31 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   }
 
   async confirmRemoveNgxSubdomain(): Promise<void> {
-    if (!this.selectedExistingEnv) return;
-    this.removeNgxSubdomainConfirming = false;
-    this.removingNgxSubdomain = true;
-    this.progressMessages = [`Removing NGX subdomain for ${this.selectedExistingEnv.name}...`];
-    try {
-      const response = await this.environmentSetupService.removeSubdomain(this.selectedExistingEnv.name);
-      if (response.logs?.length) {
-        this.progressMessages = [...this.progressMessages, ...response.logs];
-      } else {
-        this.progressMessages.push(response.message || "NGX subdomain removed");
+    if (this.selectedExistingEnv) {
+      this.removeNgxSubdomainConfirming = false;
+      this.removingNgxSubdomain = true;
+      this.progressMessages = [`Removing NGX subdomain for ${this.selectedExistingEnv.name}...`];
+      try {
+        const response = await this.environmentSetupService.removeSubdomain(this.selectedExistingEnv.name);
+        if (response.logs?.length) {
+          this.progressMessages = [...this.progressMessages, ...response.logs];
+        } else {
+          this.progressMessages.push(response.message || "NGX subdomain removed");
+        }
+        if (response.success) {
+          this.notify.success({title: "NGX subdomain removed", message: response.message});
+          await this.probeEnvironmentStatus(this.selectedExistingEnv.name);
+          await this.probeHostnameHealth(this.selectedExistingEnv.name);
+        } else {
+          this.setupError = response.message || "Failed to remove NGX subdomain";
+        }
+      } catch (error) {
+        this.setupError = this.extractErrorDetail(error);
+        this.progressMessages.push(`Error: ${this.setupError}`);
+        this.logger.error("Remove NGX subdomain failed:", error);
+      } finally {
+        this.removingNgxSubdomain = false;
       }
-      if (response.success) {
-        await this.probeEnvironmentStatus(this.selectedExistingEnv.name);
-      } else {
-        this.setupError = response.message || "Failed to remove NGX subdomain";
-      }
-    } catch (error) {
-      this.setupError = this.extractErrorDetail(error);
-      this.progressMessages.push(`Error: ${this.setupError}`);
-      this.logger.error("Remove NGX subdomain failed:", error);
-    } finally {
-      this.removingNgxSubdomain = false;
     }
   }
 

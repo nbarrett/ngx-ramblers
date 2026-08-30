@@ -24,8 +24,8 @@ describe("s3-backup-service", () => {
     });
 
     it("preserves site name with dashes", () => {
-      expect(buildBackupPrefix("berkshire-weekend-walkers", "2026-04-11-00-00-00"))
-        .toEqual("s3-backups/berkshire-weekend-walkers/2026-04-11-00-00-00");
+      expect(buildBackupPrefix("group-one-walkers", "2026-04-11-00-00-00"))
+        .toEqual("s3-backups/group-one-walkers/2026-04-11-00-00-00");
     });
 
   });

@@ -13,7 +13,7 @@ import { Subject } from "rxjs";
 
 describe("UrlService", () => {
 
-    const INJECTED_URL = "https://ng-ekwg-staging.herokuapp.com/walks/walk-programme";
+    const INJECTED_URL = "https://ng-group-staging.herokuapp.com/walks/walk-programme";
 
     const URL_PATH = "https://www.example.co.uk/admin/member-bulk-load/12398719823";
     const LOCATION_VALUE = {
@@ -56,8 +56,8 @@ describe("UrlService", () => {
     it("should return publicBaseUrl from configured group href when current host is local", () => {
         LOCATION_VALUE.location.href = "http://localhost:4200/walks/example";
         const service: UrlService = TestBed.inject(UrlService);
-        systemConfigEvents.next({ group: { href: "https://www.bishopsbourne-ramblers.org.uk" } });
-        expect(service.publicBaseUrl()).toBe("https://www.bishopsbourne-ramblers.org.uk");
+        systemConfigEvents.next({ group: { href: "https://www.example.org.uk" } });
+        expect(service.publicBaseUrl()).toBe("https://www.example.org.uk");
     });
 
     describe("sameOriginUrl", () => {
@@ -154,8 +154,8 @@ describe("UrlService", () => {
             };
 
             const service: UrlService = TestBed.inject(UrlService);
-            systemConfigEvents.next({ group: { href: "https://www.bishopsbourne-ramblers.org.uk" } });
-            expect(service.publicLinkUrl(object)).toBe("https://www.bishopsbourne-ramblers.org.uk/walks/1234-567");
+            systemConfigEvents.next({ group: { href: "https://www.example.org.uk" } });
+            expect(service.publicLinkUrl(object)).toBe("https://www.example.org.uk/walks/1234-567");
         });
 
     });
@@ -363,6 +363,20 @@ describe("UrlService", () => {
         });
     });
 
+    describe("apexHostFromUrl and stagingHostForSite", () => {
+        it("strips www from a site href via UrlService", () => {
+            const service: UrlService = TestBed.inject(UrlService);
+            expect(service.apexHostFromUrl("https://www.example.org.uk/walks")).toBe("example.org.uk");
+        });
+
+        it("builds staging.{apex} from the live site address", () => {
+            const service: UrlService = TestBed.inject(UrlService);
+            expect(service.stagingHostForSite("https://www.example.org.uk")).toBe("staging.example.org.uk");
+            expect(service.stagingHostForSite("https://example.org.uk/")).toBe("staging.example.org.uk");
+            expect(service.stagingHostForSite(null)).toBe(null);
+        });
+    });
+
     describe("baseDomain", () => {
         it("should extract base domain from standard two-part TLD (example.com)", () => {
             const service: UrlService = TestBed.inject(UrlService);
@@ -372,8 +386,8 @@ describe("UrlService", () => {
 
         it("should extract base domain from multi-level TLD with 2-char country code (.co.uk)", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = { href: "https://www.ekwg.co.uk" } as any;
-            expect(service.baseDomain()).toBe("ekwg.co.uk");
+            service["group"] = { href: "https://www.group.co.uk" } as any;
+            expect(service.baseDomain()).toBe("group.co.uk");
         });
 
         it("should extract base domain from multi-level TLD with 3-char extension (.org.uk)", () => {
@@ -396,8 +410,8 @@ describe("UrlService", () => {
 
         it("should handle multi-level subdomains with .co.uk TLD", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = { href: "https://dev.staging.ekwg.co.uk" } as any;
-            expect(service.baseDomain()).toBe("ekwg.co.uk");
+            service["group"] = { href: "https://dev.staging.group.co.uk" } as any;
+            expect(service.baseDomain()).toBe("group.co.uk");
         });
 
         it("should handle .ac.uk domains", () => {

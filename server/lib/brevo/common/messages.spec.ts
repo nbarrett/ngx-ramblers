@@ -255,7 +255,7 @@ describe("brevo messages", () => {
         MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "jane", PW_RESET: "abc-def-123"
       },
       systemMergeFields: {
-        APP_SHORTNAME: "EKWG", APP_LONGNAME: "East Kent Walking Group", APP_URL: "https://example.org.uk",
+        APP_SHORTNAME: "GROUP", APP_LONGNAME: "Example Walking Group", APP_URL: "https://example.org.uk",
         PW_RESET_LINK: passwordResetLink,
         FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
       },
@@ -373,7 +373,7 @@ describe("brevo messages", () => {
         MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "jane", PW_RESET: "abc-def-123"
       },
       systemMergeFields: {
-        APP_SHORTNAME: "EKWG", APP_LONGNAME: "East Kent Walking Group", APP_URL: "https://example.org.uk",
+        APP_SHORTNAME: "GROUP", APP_LONGNAME: "Example Walking Group", APP_URL: "https://example.org.uk",
         PW_RESET_LINK: passwordResetLink,
         FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
       },
@@ -391,7 +391,7 @@ describe("brevo messages", () => {
     it("renders the markdown welcome-to-the-group from the repo file as html, with merge fields resolved", () => {
       const result = renderLocalBrandedTemplate("welcome-to-the-group", paramsWith("https://example.org.uk/admin/set-password/abc-def-123"));
       expect(result).toContain("Welcome to <a href=\"https://example.org.uk\"");
-      expect(result).toContain("East Kent Walking Group");
+      expect(result).toContain("Example Walking Group");
       expect(result).toContain("https://example.org.uk/walks");
       expect(result).toContain("https://example.org.uk/social");
       expect(result).toContain("<h4>");

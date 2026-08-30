@@ -1,10 +1,10 @@
     Darent Valley Path 
 
-[![](../../ramblers-logo.gif)](http://www.kentramblers.org.uk)
+[![](../../ramblers-logo.gif)](http://www.archive.example.org.uk)
 
 Darent Valley Path
 
-[Home](http://www.kentramblers.org.uk)
+[Home](http://www.archive.example.org.uk)
 
 [News](../../news/index.htm)
 

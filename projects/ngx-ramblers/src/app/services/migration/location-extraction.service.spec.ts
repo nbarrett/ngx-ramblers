@@ -367,35 +367,35 @@ describe("MigrationLocationExtractionService", () => {
         it("should extract start and end locations from full Darent Valley Path description", () => {
             const text = `Darent Valley Path
 
-![Image](https://www.kentramblers.org.uk/banners/autumn_oasts.jpg)
+![Image](https://www.archive.example.org.uk/banners/autumn_oasts.jpg)
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/chipstead.JPG)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/chipstead.JPG)
 
 Starting point at Chipstead
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/otford.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/otford.jpg)
 
 Otford
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/viaduct.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/viaduct.jpg)
 
 Eynsford Viaduct
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/eynsford.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/eynsford.jpg)
 
 Eynsford Bridge
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/darenth.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/darenth.jpg)
 
 Darenth
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/brooklands.jpg)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/brooklands.jpg)
 
 Brooklands Lakes
 
 ## Darent Valley Path
 
-![Image](https://www.kentramblers.org.uk/KentWalks/DVP/images/route.gif)
+![Image](https://www.archive.example.org.uk/KentWalks/DVP/images/route.gif)
 
 The Darent Valley Path starts alternatively at Sevenoaks Station or Chipstead and finishes on the bank of the Thames just north of Dartford.  About 18 miles long, the route is steeped in history.  In Roman times there were villas every couple of miles along the valley and the finest example, Lullingstone, has been excavated and opened to the public.  For centuries the Darent was an important source of power and there were many water mills of various kinds; several survive although none is currently in use.  Picturesque villages include Otford, Shoreham, Eynsford and Farningham.  Lavender is perhaps the valley's most visible crop and there are castles at both Lullingstone and Eynsford.
 
