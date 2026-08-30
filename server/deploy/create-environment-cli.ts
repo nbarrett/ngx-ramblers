@@ -381,7 +381,7 @@ async function promptAdminUser(): Promise<AdminUserConfig> {
 }
 
 async function promptSetupOptions(brevoApiKey: string): Promise<SetupOptions> {
-  return inquirer.prompt([
+  const answers = await inquirer.prompt([
     {
       type: "confirm",
       name: "includeSamplePages",
@@ -419,6 +419,11 @@ async function promptSetupOptions(brevoApiKey: string): Promise<SetupOptions> {
       default: false
     }
   ]);
+  return {
+    ...answers,
+    copySourceBucket: false,
+    customDomainHostname: null
+  };
 }
 
 function displaySummary(request: EnvironmentSetupRequest): void {

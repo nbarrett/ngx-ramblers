@@ -1,6 +1,12 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { customDomainEligibilityFromLookup, validateRedirectTargets } from "./hostname-health";
+import {
+  annotateOptionalEnvironmentSubdomain,
+  annotateOptionalPairHost,
+  classifyHostnameHealth,
+  customDomainEligibilityFromLookup,
+  validateRedirectTargets
+} from "./hostname-health";
 import { apexWwwSibling } from "../cloudflare/hostname-siblings";
 import {
   DnsProvider,
@@ -76,6 +82,149 @@ describe("hostname-health", () => {
       const result = validateRedirectTargets([status({ hostname: "www.example.co.uk" })]);
       expect(result[0].health).toEqual(HostnameHealth.SERVING);
       expect(result[0].healthy).toEqual(true);
+    });
+  });
+
+  describe("classifyHostnameHealth", () => {
+
+    it("should mark a DNS-only leftover CNAME with a Cloudflare rule as redirect not live", () => {
+      const result = classifyHostnameHealth(
+        "www.winchesterwalkingweekend.org.uk",
+        [{ type: "CNAME", content: "winchester-walking-weekend.fly.dev", proxied: false }],
+        "winchesterwalkingweekend.org.uk",
+        0,
+        ""
+      );
+      expect(result.health).toEqual(HostnameHealth.REDIRECT_NOT_PROXIED);
+      expect(result.message).toContain("Visitors cannot reach this address");
+      expect(result.message).toContain("winchesterwalkingweekend.org.uk");
+    });
+
+    it("should mark a proxied hostname with a Cloudflare 302 as redirecting", () => {
+      const result = classifyHostnameHealth(
+        "www.ekwg.co.uk",
+        [{ type: "A", content: "192.0.2.1", proxied: true }],
+        "ekwg.co.uk",
+        302,
+        "https://ekwg.co.uk/"
+      );
+      expect(result.health).toEqual(HostnameHealth.REDIRECTING);
+      expect(result.message).toContain("via a Cloudflare rule");
+    });
+
+    it("should still treat a DNS-only hostname as serving when HTTPS actually works", () => {
+      const result = classifyHostnameHealth(
+        "www.example.org.uk",
+        [{ type: "CNAME", content: "example.fly.dev", proxied: false }],
+        "example.org.uk",
+        200,
+        ""
+      );
+      expect(result.health).toEqual(HostnameHealth.SERVING);
+    });
+
+    it("should mark a hostname with no DNS record as having no DNS", () => {
+      const result = classifyHostnameHealth("missing.example.org.uk", [], "", 0, "");
+      expect(result.health).toEqual(HostnameHealth.NO_DNS);
+    });
+
+    it("should mark a proxied redirect as waiting when HTTPS does not respond yet", () => {
+      const result = classifyHostnameHealth(
+        "www.example.org.uk",
+        [{ type: "A", content: "192.0.2.1", proxied: true }],
+        "example.org.uk",
+        0,
+        ""
+      );
+      expect(result.health).toEqual(HostnameHealth.REDIRECT_PENDING);
+      expect(result.message).toContain("has not finished HTTPS yet");
+    });
+  });
+
+  describe("annotateOptionalEnvironmentSubdomain", () => {
+
+    it("should not treat a missing NGX host as a problem when a custom domain is already serving", () => {
+      const result = annotateOptionalEnvironmentSubdomain([
+        status({
+          hostname: "www.group.org.uk",
+          origin: HostnameOrigin.SITE_URL,
+          health: HostnameHealth.SERVING,
+          healthy: true
+        }),
+        status({
+          hostname: "group.ngx-ramblers.org.uk",
+          origin: HostnameOrigin.ENVIRONMENT_SUBDOMAIN,
+          health: HostnameHealth.NO_DNS,
+          healthy: false,
+          dnsRecordType: "",
+          dnsContent: "",
+          httpStatus: 0,
+          message: "No DNS record exists"
+        })
+      ]);
+      expect(result[1].health).toEqual(HostnameHealth.NOT_CREATED);
+      expect(result[1].healthy).toEqual(true);
+      expect(result[1].message).toContain("Optional");
+    });
+
+    it("should still flag a missing NGX host when nothing else is serving", () => {
+      const result = annotateOptionalEnvironmentSubdomain([
+        status({
+          hostname: "group.ngx-ramblers.org.uk",
+          origin: HostnameOrigin.ENVIRONMENT_SUBDOMAIN,
+          health: HostnameHealth.NO_DNS,
+          healthy: false
+        })
+      ]);
+      expect(result[0].health).toEqual(HostnameHealth.NO_DNS);
+      expect(result[0].healthy).toEqual(false);
+    });
+
+    it("should still flag a broken NGX host that has DNS even if a custom domain is serving", () => {
+      const result = annotateOptionalEnvironmentSubdomain([
+        status({
+          hostname: "www.group.org.uk",
+          origin: HostnameOrigin.SITE_URL,
+          health: HostnameHealth.SERVING,
+          healthy: true
+        }),
+        status({
+          hostname: "group.ngx-ramblers.org.uk",
+          origin: HostnameOrigin.ENVIRONMENT_SUBDOMAIN,
+          health: HostnameHealth.UNREACHABLE,
+          healthy: false,
+          dnsRecordType: "A",
+          dnsContent: "1.2.3.4"
+        })
+      ]);
+      expect(result[1].health).toEqual(HostnameHealth.UNREACHABLE);
+      expect(result[1].healthy).toEqual(false);
+    });
+  });
+
+  describe("annotateOptionalPairHost", () => {
+
+    it("should not treat a missing www as a problem when the apex is already serving", () => {
+      const result = annotateOptionalPairHost([
+        status({
+          hostname: "group.org.uk",
+          origin: HostnameOrigin.SITE_URL,
+          health: HostnameHealth.SERVING,
+          healthy: true
+        }),
+        status({
+          hostname: "www.group.org.uk",
+          origin: HostnameOrigin.SIBLING,
+          health: HostnameHealth.NO_DNS,
+          healthy: false,
+          dnsRecordType: "",
+          dnsContent: "",
+          httpStatus: 0,
+          message: "No DNS record exists"
+        })
+      ]);
+      expect(result[1].health).toEqual(HostnameHealth.NOT_CREATED);
+      expect(result[1].healthy).toEqual(true);
     });
   });
 

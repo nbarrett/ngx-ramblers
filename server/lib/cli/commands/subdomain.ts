@@ -2,7 +2,15 @@ import { Command } from "commander";
 import debug from "debug";
 import { log, error as logError } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
-import { CloudflareDnsConfig, CloudflareZone, DnsRecordResult, DnsRecordType } from "../../cloudflare/cloudflare.model";
+import {
+  CloudflareDnsConfig,
+  CloudflareZone,
+  DnsRecordResult,
+  DnsRecordType,
+  REDIRECT_PLACEHOLDER_IPV4,
+  RedirectPlaceholderPlan
+} from "../../cloudflare/cloudflare.model";
+import { redirectPlaceholderPlan } from "../../cloudflare/redirect-placeholder";
 import {
   createDnsRecord,
   listDnsRecords,
@@ -678,8 +686,6 @@ async function reconcileCnameRecord(
   step(`  ✓ CNAME updated (DNS only): ${hostname} ${existing.content} -> ${target}`);
 }
 
-const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";
-
 function redirectErrorDetail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -691,26 +697,27 @@ async function reconcileRedirectPlaceholderRecord(
   hostname: string,
   existingRecords: DnsRecordResult[]
 ): Promise<void> {
+  const plan = redirectPlaceholderPlan(existingRecords);
   const existingCname = existingRecords.find(record => record.type === "CNAME");
-  if (existingCname) {
-    step(`  - ${hostname} already has a CNAME (${existingCname.content}); leaving DNS as is`);
-    if (!existingCname.proxied) {
-      step(`  ⚠ that CNAME is DNS-only — the redirect rule only fires for proxied records`);
-    }
-    return;
-  }
   const existingA = existingRecords.find(record => record.type === "A");
-  if (!existingA) {
+  if (plan === RedirectPlaceholderPlan.LEAVE_PROXIED_CNAME) {
+    step(`  - ${hostname} already has a proxied CNAME (${existingCname?.content}); the redirect rule will fire`);
+  } else if (plan === RedirectPlaceholderPlan.REPLACE_DNS_ONLY_CNAME && existingCname) {
+    await deleteDnsRecord(cloudflareConfig, existingCname.id);
+    step(`  ✓ Removed leftover DNS-only CNAME ${hostname} -> ${existingCname.content} so the redirect can be proxied`);
     await createDnsRecord(cloudflareConfig, { type: DnsRecordType.A, name: recordName, content: REDIRECT_PLACEHOLDER_IPV4, proxied: true });
     step(`  ✓ Proxied A record created: ${hostname} -> ${REDIRECT_PLACEHOLDER_IPV4} (redirect-only placeholder)`);
-    return;
+  } else if (plan === RedirectPlaceholderPlan.CREATE_PLACEHOLDER) {
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.A, name: recordName, content: REDIRECT_PLACEHOLDER_IPV4, proxied: true });
+    step(`  ✓ Proxied A record created: ${hostname} -> ${REDIRECT_PLACEHOLDER_IPV4} (redirect-only placeholder)`);
+  } else if (plan === RedirectPlaceholderPlan.LEAVE_PROXIED_A) {
+    step(`  - ${hostname} already has a proxied A record (${existingA?.content})`);
+  } else if (existingA) {
+    await updateDnsRecord(cloudflareConfig, existingA.id, { type: DnsRecordType.A, name: recordName, content: existingA.content, proxied: true });
+    step(`  ✓ A record for ${hostname} set to proxied so the redirect rule applies`);
+  } else {
+    step(`  ⚠ Could not set up a redirect placeholder for ${hostname}: no A or CNAME record to reconcile`);
   }
-  if (existingA.proxied) {
-    step(`  - ${hostname} already has a proxied A record (${existingA.content})`);
-    return;
-  }
-  await updateDnsRecord(cloudflareConfig, existingA.id, { type: DnsRecordType.A, name: recordName, content: existingA.content, proxied: true });
-  step(`  ✓ A record for ${hostname} set to proxied so the redirect rule applies`);
 }
 
 function siblingAttachedToEnvironment(environmentsConfig: EnvironmentsConfig, environmentName: string, sibling: string): boolean {

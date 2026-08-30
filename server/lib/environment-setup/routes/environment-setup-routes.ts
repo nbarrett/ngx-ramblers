@@ -15,6 +15,7 @@ import {
 } from "../database-initialiser";
 import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredentials } from "../aws-setup";
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
+import { HostnameHealth } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
 import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { extendedGroupEvent } from "../../mongo/models/extended-group-event";
@@ -538,7 +539,8 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
         const environmentHostname = `${environmentName}.${baseDomain}`;
         const report = await environmentHostnameHealth(environmentName);
         const envHostStatus = report.hostnames.find(hostname => hostname.hostname === environmentHostname);
-        const envHostHealthy = envHostStatus?.healthy === true;
+        const envHostOptional = envHostStatus?.health === HostnameHealth.NOT_CREATED;
+        const envHostHealthy = envHostStatus?.healthy === true && !envHostOptional;
         const envHostHasDns = !!(envHostStatus?.dnsRecordType);
         const flyToken = envConfigData.flyio?.apiKey || "";
         const flyCertPresent = flyToken
@@ -546,6 +548,7 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
           : false;
         return {
           subdomainConfigured: envHostHealthy || envHostHasDns || flyCertPresent,
+          subdomainOptional: envHostOptional,
           hostnameProblemCount: report.problemCount
         };
       })(),
@@ -589,6 +592,7 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
       flyAppDeployed: false,
       standardAssetsPresent: false,
       subdomainConfigured: false,
+      subdomainOptional: false,
       brevoDomainAuthenticated: false,
       hostnameProblemCount: 0
     };
