@@ -8,6 +8,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { RouterHistoryService } from "../../../services/router-history.service";
+import { UrlService } from "../../../services/url.service";
 import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-password-modal.component";
 import { ResetPasswordModalComponent } from "../reset-password-modal/reset-password-modal.component";
@@ -89,7 +90,9 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   private authService = inject(AuthService);
   private memberLoginService = inject(MemberLoginService);
   private routerHistoryService = inject(RouterHistoryService);
+  private urlService = inject(UrlService);
   private notifierService = inject(NotifierService);
+  public redirect: string = null;
 
   @ViewChild("userNameInput") userNameInput: ElementRef;
   @ViewChild("passwordInput") passwordInput: ElementRef;
@@ -114,6 +117,7 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
           message: "Please try again"
         });
       } else if (loginResponse.memberLoggedIn) {
+        this.continueAfterAuth();
         if (!this.memberLoginService.loggedInMember().profileSettingsConfirmed) {
           this.modalService.show(MailingPreferencesModalComponent, {
             class: "modal-xl",
@@ -124,8 +128,6 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
             }
           });
         }
-        this.bsModalRef.hide();
-        return true;
       } else if (loginResponse.showResetPassword) {
         this.modalService.show(ResetPasswordModalComponent, {
           animated: false,
@@ -133,10 +135,11 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
           keyboard: false,
           initialState: {
             userName: this.userName,
-            message: "Your password has expired, therefore you need to reset it to a new one before continuing."
+            message: "Your password has expired, therefore you need to reset it to a new one before continuing.",
+            redirect: this.redirect
           }
         });
-        this.close();
+        this.bsModalRef.hide();
       } else {
         this.logger.debug("loginResponse", loginResponse);
         this.notify.showContactUs(true);
@@ -188,6 +191,13 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   close() {
     this.routerHistoryService.navigateBackToLastMainPage();
     this.bsModalRef.hide();
+  }
+
+  private continueAfterAuth() {
+    this.bsModalRef.hide();
+    if (this.redirect) {
+      this.urlService.navigateAfterLogin(this.redirect);
+    }
   }
 
   login() {

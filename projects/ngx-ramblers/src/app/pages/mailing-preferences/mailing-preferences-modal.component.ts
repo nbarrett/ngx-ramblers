@@ -16,6 +16,7 @@ import { MailMessagingService } from "../../services/mail/mail-messaging.service
 import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
 import { EmailSubscriptionsMailchimpComponent } from "../admin/profile/email-subscriptions-mailchimp.component";
 import { MailSubscriptionSettingComponent } from "../admin/member-admin-modal/mail-subscription-setting";
+import { PhotoVideoOptOutComponent } from "../admin/profile/photo-video-opt-out";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ContactUsComponent } from "../../committee/contact-us/contact-us";
@@ -23,7 +24,7 @@ import { ContactUsComponent } from "../../committee/contact-us/contact-us";
 @Component({
     selector: "app-mailing-preferences-modal-component",
     templateUrl: "./mailing-preferences-modal.component.html",
-    imports: [EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, FormsModule, FontAwesomeModule, ContactUsComponent]
+    imports: [EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, PhotoVideoOptOutComponent, FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MailingPreferencesModalComponent", NgxLoggerLevel.ERROR);

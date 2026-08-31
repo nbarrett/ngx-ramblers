@@ -8,6 +8,7 @@ import { AlertTarget } from "../models/alert-target.model";
 import { ResetPasswordModalComponent } from "../pages/login/reset-password-modal/reset-password-modal.component";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MemberService } from "../services/member/member.service";
+import { StoredValue } from "../models/ui-actions";
 
 @Component({
     selector: "app-set-password",
@@ -29,6 +30,7 @@ export class SetPasswordComponent implements OnInit, OnDestroy {
     this.authService.logout();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const passwordResetId = paramMap.get("password-reset-id");
+      const redirect = this.route.snapshot.queryParamMap.get(StoredValue.REDIRECT);
       this.memberService.getMemberByPasswordResetId(passwordResetId)
         .then(member => {
           this.logger.debug("for password-reset-id", passwordResetId, "member", member);
@@ -36,7 +38,7 @@ export class SetPasswordComponent implements OnInit, OnDestroy {
             animated: false,
             backdrop: "static",
             keyboard: false,
-            initialState: {userName: member.userName, invalidPasswordLink: false}
+            initialState: {userName: member.userName, invalidPasswordLink: false, redirect}
           });
         })
         .catch((error) => {

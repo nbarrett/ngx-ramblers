@@ -349,9 +349,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
            [style.grid-template-rows]="gridTemplateRows">
         @if (!mobile || !mobileShowDetail) {
         <div class="thumbnail-heading-frame-compact inbox-pane" [class.inbox-list-flush]="mobile">
-          @if (!mobile) {
-            <div class="thumbnail-heading">{{ groupingMode === InboxGroupingMode.MESSAGES ? 'Messages' : 'Conversations' }}</div>
-          }
+          <div class="thumbnail-heading">{{ conversationCountCaption }}</div>
           @if (threadListTotalCount > 0 || conversationSearchTerm) {
             <div class="p-2">
               <div class="d-flex align-items-center gap-2">
@@ -368,11 +366,6 @@ import { UIDateFormat } from "../../../models/date-format.model";
                          placeholder="Search conversations...">
                 </div>
               </div>
-              @if (!mobile || conversationSearchTerm) {
-                <div class="small text-muted mt-1">
-                  {{conversationCountCaption}}
-                </div>
-              }
             </div>
           } @else {
             <div class="p-2">
@@ -1603,7 +1596,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   get conversationCountCaption(): string {
     const shown = this.filteredThreads.length;
     const unreadOnly = this.readFilter === InboxReadFilter.UNREAD;
-    const noun = unreadOnly ? "unread conversation" : "conversation";
+    const groupingNoun = this.groupingMode === InboxGroupingMode.MESSAGES ? "message" : "conversation";
+    const noun = unreadOnly ? `unread ${groupingNoun}` : groupingNoun;
     const searching = !!this.conversationSearchTerm?.trim();
     const inMailbox = unreadOnly ? this.threadListUnreadCount : this.threadListTotalCount;
     const available = searching ? this.conversationRepresentatives(this.threads).length : inMailbox;

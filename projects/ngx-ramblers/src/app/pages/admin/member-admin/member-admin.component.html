@@ -21,17 +21,17 @@
                          [items]="memberFilter?.availableFilters"
                          bindLabel="title"
                          groupBy="group"
-                         [clearable]="false"
+                         [clearable]="filterIsActive()"
                          [searchable]="true"
                          [(ngModel)]="memberFilter.selectedFilter"
-                         (ngModelChange)="refreshMembers($event)">
+                         (ngModelChange)="onFilterChange($event)">
                 <ng-template ng-optgroup-tmp let-item="item">
                   <span style="font-weight: 700; color: #000;">{{ item.group }}</span>
                 </ng-template>
               </ng-select>
             </div>
             <p class="rsm-muted mb-0">
-              Showing {{ stringUtilsService.pluraliseWithCount(memberFilter.results.length, 'member') }}
+              {{ stringUtilsService.pluraliseWithCount(memberFilter.results.length, 'member') }}
             </p>
           </div>
           <div class="rsm-form-actions" style="justify-content: flex-start;">

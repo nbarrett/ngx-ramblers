@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { LoginModalComponent } from "../pages/login/login-modal/login-modal.component";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
+import { StoredValue } from "../models/ui-actions";
 
 @Component({
     selector: "app-login",
@@ -19,9 +20,9 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.logger.debug("constructed");
-    this.subscriptions.push(this.route.paramMap.subscribe(() => {
-      this.modalService.show(LoginModalComponent);
-    }));
+    this.modalService.show(LoginModalComponent, {
+      initialState: {redirect: this.route.snapshot.queryParamMap.get(StoredValue.REDIRECT)}
+    });
   }
 
   ngOnDestroy(): void {

@@ -8,7 +8,13 @@ import { ExtendedGroupEvent } from "./group-event.model";
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
   PERSONAL_DETAILS = "personal details",
-  CONTACT_PREFERENCES = "contact preferences"
+  CONTACT_PREFERENCES = "contact preferences",
+  PHOTOS_AND_VIDEO = "photos and video"
+}
+
+export enum MemberChangeStamp {
+  PROFILE_SETTINGS = "profile-settings",
+  PHOTO_VIDEO_OPT_OUT = "photo-video-opt-out"
 }
 
 export interface HelpInfo {
@@ -141,6 +147,9 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   emailMarketingConsent?: boolean;
   emailPermissionLastUpdated?: number;
   emailBlock?: MemberEmailBlock;
+  photoVideoOptOut?: boolean;
+  photoVideoOptOutLastUpdated?: number;
+  photoVideoOptOutLastUpdatedBy?: string;
 }
 
 export const HEAD_OFFICE_SUPPORTER_FIELDS: (keyof Member)[] = [

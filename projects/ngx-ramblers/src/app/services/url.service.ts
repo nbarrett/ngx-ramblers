@@ -59,6 +59,14 @@ export class UrlService {
     return first(path?.split("?"));
   }
 
+  navigateAfterLogin(redirect?: string): Promise<boolean> {
+    if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
+      return this.router.navigateByUrl(redirect);
+    } else {
+      return Promise.resolve(false);
+    }
+  }
+
   navigateTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     if (this.siteEdit.active()) {
       return Promise.resolve(false);

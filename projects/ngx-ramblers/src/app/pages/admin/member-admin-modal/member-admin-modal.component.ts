@@ -61,6 +61,7 @@ import { DeletedMemberService } from "../../../services/member/deleted-member.se
 import { InputSize } from "../../../models/ui-size.model";
 import { MemberAuditHistoryComponent } from "./member-audit-history";
 import { LowercaseInputDirective } from "../../../modules/common/lowercase-input/lowercase-input.directive";
+import { PhotoVideoOptOutComponent } from "../profile/photo-video-opt-out";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -69,7 +70,7 @@ import { LowercaseInputDirective } from "../../../modules/common/lowercase-input
   providers: [FormatAuditPipe],
   imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, ContentTextEditor, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
-    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNamePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent, LowercaseInputDirective]
+    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNamePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent, LowercaseInputDirective, PhotoVideoOptOutComponent]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
@@ -394,6 +395,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
       "profileSettingsConfirmed",
       "profileSettingsConfirmedAt",
       "profileSettingsConfirmedBy",
+      "photoVideoOptOut",
+      "photoVideoOptOutLastUpdated",
+      "photoVideoOptOutLastUpdatedBy",
       "receivedInLastBulkLoad",
       "updatedBy",
       "updatedDate"])) as Member;
