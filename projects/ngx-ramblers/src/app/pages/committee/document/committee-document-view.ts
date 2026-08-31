@@ -4,6 +4,7 @@ import { fromEvent, Subscription } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 import { MarkdownComponent } from "ngx-markdown";
 import { BuiltInRole, CommitteeFile } from "../../../models/committee.model";
+import { ramblersLegalBoilerplate } from "../../../models/ramblers-legal.model";
 import { Image, Organisation, SystemConfig } from "../../../models/system.model";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -61,9 +62,7 @@ import { UrlService } from "../../../services/url.service";
                   }
                 </div>
                 <div class="committee-document-footer-charity">
-                  The Ramblers' Association is a registered charity (England &amp; Wales no 1093577, Scotland
-                  no SC039799) and a company limited by guarantee, registered in England &amp; Wales (no 4458492).
-                  Registered office: The Ramblers, c/o Bates Wells, 10 Queen St Place, London EC4R 1BE.
+                  {{ ramblersLegalBoilerplate() }}
                 </div>
               </div>
               <img class="committee-document-footer-regulator"
@@ -128,9 +127,7 @@ import { UrlService } from "../../../services/url.service";
                   }
                 </div>
                 <div class="committee-document-footer-charity">
-                  The Ramblers' Association is a registered charity (England &amp; Wales no 1093577, Scotland
-                  no SC039799) and a company limited by guarantee, registered in England &amp; Wales (no 4458492).
-                  Registered office: The Ramblers, c/o Bates Wells, 10 Queen St Place, London EC4R 1BE.
+                  {{ ramblersLegalBoilerplate() }}
                 </div>
               </div>
               <img class="committee-document-footer-regulator"
@@ -151,6 +148,7 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
   private zone = inject(NgZone);
   protected dateUtils = inject(DateUtilsService);
   urlService = inject(UrlService);
+  protected readonly ramblersLegalBoilerplate = ramblersLegalBoilerplate;
   private subscriptions: Subscription[] = [];
   private contentBlocks: HTMLElement[] = [];
   private paginationTimer: ReturnType<typeof setTimeout>;

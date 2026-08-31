@@ -23,6 +23,7 @@ import {
   TemplateOverrideState,
   TemplateOverrideType
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { ramblersAccountMergeFields, ramblersRegisteredOfficeLine } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 
 function imageOverride(imageUrl: string): TemplateOverride {
   return {type: TemplateOverrideType.IMAGE, state: TemplateOverrideState.CUSTOM, imageUrl};
@@ -259,7 +260,7 @@ describe("brevo messages", () => {
         PW_RESET_LINK: passwordResetLink,
         FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
       },
-      accountMergeFields: { STREET: "", POSTCODE: "", TOWN: "" }
+      accountMergeFields: ramblersAccountMergeFields()
     });
 
     it("substitutes PW_RESET_LINK inside an <a href> attribute", () => {
@@ -377,7 +378,7 @@ describe("brevo messages", () => {
         PW_RESET_LINK: passwordResetLink,
         FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
       },
-      accountMergeFields: { STREET: "", POSTCODE: "", TOWN: "" },
+      accountMergeFields: ramblersAccountMergeFields(),
       bookingMergeFields: {
         ATTENDEE_NAME: "Jane",
         EVENT_TITLE: "Evening walk for Summer Solstice",
@@ -469,6 +470,13 @@ describe("brevo messages", () => {
       expect(result).toContain("<h4>Your {{params.systemMergeFields.APP_SHORTNAME}} login details</h4>");
       expect(result).toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
       expect(result).toContain("{% if params.messageMergeFields.ADDRESS_LINE %}");
+    });
+
+    it("prints the national registered office rather than the Brevo account address", () => {
+      const result = seedableTemplateHtml("website-and-login-details");
+      expect(result).toContain(ramblersRegisteredOfficeLine());
+      expect(result).not.toContain("Bates Wells");
+      expect(result).not.toContain("{{params.accountMergeFields.STREET}}");
     });
 
     it("returns null when the template name has no repo file", () => {

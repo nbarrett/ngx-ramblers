@@ -27,7 +27,7 @@ import {
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { buildBookingMergeFields, resolveBookingBody, subjectForType } from "./booking-template-resolver";
 import { signoffHtmlForConfig } from "./signoff-names";
-import { accountMergeFieldsFor } from "../account/account";
+import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { loadBookingConfig } from "../../config/booking-config";
 import { kebabCase } from "es-toolkit/compat";
 import { dateTimeFromIso } from "../../shared/dates";
@@ -113,7 +113,7 @@ export async function buildBookingEmailRequest(
       TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl || "",
       INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl || "",
     },
-    accountMergeFields: await accountMergeFieldsFor(),
+    accountMergeFields: ramblersAccountMergeFields(),
     bookingMergeFields: buildBookingMergeFields(event, bookingRecord, eventLink),
   };
 

@@ -3,7 +3,7 @@ import debug from "debug";
 import { randomUUID } from "crypto";
 import { Brevo } from "@getbrevo/brevo";
 import { sendTransactionalMail } from "../brevo/transactional-mail/send-transactional-mail";
-import { accountMergeFieldsFor } from "../brevo/account/account";
+import { ramblersAccountMergeFields } from "../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { performTemplateSubstitution } from "../brevo/common/messages";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -343,7 +343,7 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
       });
     } else {
       if (emailRequest.params) {
-        emailRequest.params.accountMergeFields = await accountMergeFieldsFor();
+        emailRequest.params.accountMergeFields = ramblersAccountMergeFields();
       }
       const role = roleForContactRequest(emailRequest, originalTo, roles);
       const inboxEligible = role && deliversViaSiteInbox(role, connectedEmails);

@@ -18,7 +18,7 @@ import {
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import { signoffHtmlForConfig } from "./signoff-names";
 import { logBrevoError } from "../common/error-log";
-import { accountMergeFieldsFor } from "../account/account";
+import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { configuredBrevo } from "../brevo-config";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { AdminProfilePath } from "../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
@@ -162,7 +162,7 @@ export async function sendMemberSyncNotificationEmail(member: Member, notificati
       TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl || "",
       INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl || "",
     },
-    accountMergeFields: await accountMergeFieldsFor(),
+    accountMergeFields: ramblersAccountMergeFields(),
   };
   const subject = buildSubject(notifConfig, params);
   params.messageMergeFields.subject = subject;

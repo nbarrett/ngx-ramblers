@@ -7,8 +7,6 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
 import {
-  Account,
-  AccountMergeFields,
   BuiltInProcessMappings,
   CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
@@ -34,6 +32,7 @@ import {
 } from "../../models/mail.model";
 import { CommitteeMember } from "../../models/committee.model";
 
+import { ramblersAccountMergeFields } from "../../models/ramblers-legal.model";
 import { resolveContactUsRecipientAddresses } from "../../functions/contact-us-delivery";
 import { resolveAccentColor } from "../../models/email-accent-palette";
 import { NotificationHost } from "../../models/notification-host.model";
@@ -441,7 +440,7 @@ export class MailMessagingService {
       },
       memberMergeFields: this.toMemberMergeVariables(member),
       systemMergeFields: this.toSystemMergeFields(member),
-      accountMergeFields: this.toAccountMergeFields(this.mailMessagingConfig.brevo.account)
+      accountMergeFields: ramblersAccountMergeFields()
     };
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member, "returning:", params);
     return params;
@@ -505,7 +504,7 @@ export class MailMessagingService {
       },
       memberMergeFields: this.exampleMemberMergeFields(),
       systemMergeFields: this.toSystemMergeFields(this.memberLoginService.loggedInMember()),
-      accountMergeFields: this.toAccountMergeFields(this.mailMessagingConfig.brevo.account)
+      accountMergeFields: ramblersAccountMergeFields()
     };
   };
 
@@ -533,14 +532,6 @@ export class MailMessagingService {
       MEMBER_EXP: this.dateUtils.displayDate(member?.membershipExpiryDate) ?? "",
       USERNAME: member?.userName ?? "",
       PW_RESET: member?.passwordResetId ?? ""
-    };
-  }
-
-  public toAccountMergeFields(account: Account): AccountMergeFields {
-    return {
-      POSTCODE: account?.address?.zipCode,
-      STREET: account?.address?.street,
-      TOWN: account?.address?.city
     };
   }
 
