@@ -1,11 +1,12 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { first, last } from "es-toolkit/compat";
 import { faEdit, faEnvelope, faTrash, faCheck, faBan, faDownload, faUpRightFromSquare, faCaretDown, faFileImport, faPrint } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { AuthService } from "../../../auth/auth.service";
-import { CommitteeFile } from "../../../models/committee.model";
+import { CommitteeDocumentEditMode, CommitteeFile } from "../../../models/committee.model";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { CommitteeDocumentsData, PageContent, PageContentRow, PathSegment } from "../../../models/content-text.model";
 import { SortDirection } from "../../../models/sort.model";
@@ -66,6 +67,8 @@ import { UIDateFormat } from "../../../models/date-format.model";
                   <h5 class="card-title mb-3">{{ editingFileIsNew ? "Add" : "Edit" }} Committee File</h5>
                   <app-committee-file-editor
                     [committeeFile]="editingFile"
+                    [previewing]="previewingDocument"
+                    (previewingChange)="previewingDocumentChanged($event)"
                     (saved)="onFileSaved($event)"
                     (cancelled)="cancelEdit()"/>
                 </div>
@@ -228,6 +231,8 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   actions = inject(PageContentActionsService);
   private committeeFileService = inject(CommitteeFileService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private dateUtils = inject(DateUtilsService);
   private documentConversionService = inject(DocumentConversionService);
   private pageContentService = inject(PageContentService);
@@ -246,6 +251,9 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   public editingFile: CommitteeFile;
   public documentsSourcePath: string;
   public editingFileIsNew = false;
+  public previewingDocument = false;
+  private requestedDocumentEditSlug: string | null = null;
+  private requestedDocumentMode = CommitteeDocumentEditMode.EDIT;
 
   public row: PageContentRow;
   @Input() rowIndex: number;
@@ -271,6 +279,13 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     this.subscriptions.push(this.broadcastService.on(NamedEventType.REFRESH, () => {
       this.logger.info("REFRESH event received — reloading files");
       this.loadFiles();
+    }));
+    this.subscriptions.push(this.route.queryParamMap.subscribe(queryParamMap => {
+      this.requestedDocumentEditSlug = queryParamMap.get(StoredValue.DOCUMENT_EDIT);
+      this.requestedDocumentMode = queryParamMap.get(StoredValue.DOCUMENT_MODE) === CommitteeDocumentEditMode.PREVIEW
+        ? CommitteeDocumentEditMode.PREVIEW
+        : CommitteeDocumentEditMode.EDIT;
+      this.restoreDocumentEditState();
     }));
   }
 
@@ -307,25 +322,20 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
   private loadFilesForPath(path: string, fileIds: string[]): void {
     const year = this.yearFromPath(path);
-    if (year) {
-      this.loadFilesForYear(year, fileIds);
-    } else {
+    if (fileIds?.length > 0 || !year) {
       this.loadFilesByIds(fileIds);
+    } else {
+      this.loadFilesForYear(year);
     }
   }
 
-  private async loadFilesForYear(year: string, extraIds: string[] = []): Promise<void> {
+  private async loadFilesForYear(year: string): Promise<void> {
     const yearDate = this.dateUtils.asDateTime(year, UIDateFormat.YEAR);
     const byYear = await this.committeeFileService.filesInDateRange(
       yearDate.startOf("year").toMillis(),
       yearDate.endOf("year").toMillis()
     );
-    const present = new Set(byYear.map(file => file.id));
-    const missingIds = (extraIds || []).filter(id => id && !present.has(id));
-    const extras = missingIds.length > 0
-      ? await this.committeeFileService.all({criteria: {_id: {$in: missingIds}}})
-      : [];
-    this.applyVisibleFiles([...byYear, ...extras]);
+    this.applyVisibleFiles(byYear);
   }
 
   private loadFilesByIds(fileIds: string[]): void {
@@ -343,8 +353,9 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
       .filter(file => this.display.committeeReferenceData?.isPublic(file.fileType)
         || this.memberLoginService.allowCommittee()
         || this.memberLoginService.allowFileAdmin())
-      .sort(sortBy(`${sortPrefix}eventDate`));
+      .sort(sortBy(`${sortPrefix}eventDate`, `${sortPrefix}createdDate`));
     this.logger.info("loadFiles:loaded", this.committeeFiles.length, "visible files of", files.length, "total");
+    this.restoreDocumentEditState();
   }
 
   private async loadFilesFromFirstActionButton(): Promise<void> {
@@ -413,12 +424,21 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   }
 
   editCommitteeFile(committeeFile: CommitteeFile) {
+    this.beginEditingCommitteeFile(committeeFile);
+    void this.updateDocumentEditQueryParams(
+      this.display.committeeFileSlug(committeeFile),
+      CommitteeDocumentEditMode.EDIT
+    );
+  }
+
+  private beginEditingCommitteeFile(committeeFile: CommitteeFile): void {
     this.editingFile = {
       ...committeeFile,
       fileNameData: committeeFile.fileNameData ? {...committeeFile.fileNameData} : null,
       document: committeeFile.document ? {...committeeFile.document} : null
     };
     this.editingFileIsNew = false;
+    this.previewingDocument = this.requestedDocumentMode === CommitteeDocumentEditMode.PREVIEW;
   }
 
   async convertToComposedDocument(committeeFile: CommitteeFile): Promise<void> {
@@ -450,7 +470,9 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   cancelEdit() {
     this.editingFile = null;
     this.editingFileIsNew = false;
+    this.previewingDocument = false;
     this.display.confirm.clear();
+    void this.clearDocumentEditQueryParams();
   }
 
   async onFileSaved(savedFile: CommitteeFile): Promise<void> {
@@ -460,8 +482,57 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     }
     this.editingFile = null;
     this.editingFileIsNew = false;
+    this.previewingDocument = false;
     this.display.confirm.clear();
+    await this.clearDocumentEditQueryParams();
     this.loadFiles();
+  }
+
+  previewingDocumentChanged(previewing: boolean): void {
+    this.previewingDocument = previewing;
+    const slug = this.editingFileIsNew ? null : this.display.committeeFileSlug(this.editingFile);
+    if (slug) {
+      const mode = previewing ? CommitteeDocumentEditMode.PREVIEW : CommitteeDocumentEditMode.EDIT;
+      void this.updateDocumentEditQueryParams(slug, mode);
+    }
+  }
+
+  private restoreDocumentEditState(): void {
+    const requestedFile = this.committeeFiles.find(file => this.display.committeeFileSlug(file) === this.requestedDocumentEditSlug);
+    const editingSlug = this.editingFileIsNew ? null : this.display.committeeFileSlug(this.editingFile);
+    if (requestedFile && this.display.allowEditCommitteeFile(requestedFile)) {
+      if (editingSlug !== this.requestedDocumentEditSlug) {
+        this.beginEditingCommitteeFile(requestedFile);
+      } else {
+        this.previewingDocument = this.requestedDocumentMode === CommitteeDocumentEditMode.PREVIEW;
+      }
+    } else if (editingSlug && editingSlug !== this.requestedDocumentEditSlug) {
+      this.editingFile = null;
+      this.editingFileIsNew = false;
+      this.previewingDocument = false;
+    }
+  }
+
+  private updateDocumentEditQueryParams(slug: string, mode: CommitteeDocumentEditMode): Promise<boolean> {
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        [StoredValue.DOCUMENT_EDIT]: slug,
+        [StoredValue.DOCUMENT_MODE]: mode
+      },
+      queryParamsHandling: "merge"
+    });
+  }
+
+  private clearDocumentEditQueryParams(): Promise<boolean> {
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        [StoredValue.DOCUMENT_EDIT]: null,
+        [StoredValue.DOCUMENT_MODE]: null
+      },
+      queryParamsHandling: "merge"
+    });
   }
 
   private async addFileIdToPageContent(fileId: string): Promise<void> {

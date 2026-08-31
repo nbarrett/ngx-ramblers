@@ -45,7 +45,7 @@ import { DraggableModalComponent } from "../../modules/common/draggable-modal/dr
                 <div class="note-meta">
                   <strong>{{ note.authorName }}</strong>
                   @if (note.source === MeetingNoteSource.AI) {
-                    <span> AI</span>
+                    <span> recording</span>
                   }
                   <span> {{ note.createdAt | displayTime }}</span>
                   @if (canDelete(note)) {
@@ -277,12 +277,12 @@ export class VideoMeetingNotesComponent implements OnInit, OnDestroy {
           automatic,
           attempt: attempt.id,
           currentAttempt: this.writeAttempt.id,
-          savedId: saved?.id,
-          savedChars: (saved?.text || "").length
+          savedId: saved?.note?.id,
+          savedChars: (saved?.note?.text || "").length
         });
         if (this.writeAttempt.id === attempt.id) {
-          if (saved) {
-            this.showWrittenNotes(saved, captureLength);
+          if (saved?.note) {
+            this.showWrittenNotes(saved.note, captureLength);
           } else if (!automatic || this.manualWrite) {
             this.writeOutcome = MeetingNotesWriteOutcome.EMPTY;
             this.writeMessage = "The notes came back empty. Try again in a moment.";

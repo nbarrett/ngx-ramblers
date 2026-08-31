@@ -390,7 +390,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                      [indeterminate]="selectedConversationCount > 0 && !allSelected()"
                      (change)="toggleSelectAll()">
               @if (selectedConversationCount > 0) {
-                <div class="btn-group" dropdown [isDisabled]="busy">
+                <div class="btn-group" dropdown container="body" [isDisabled]="busy">
                   <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
                     @if (deletingSelected) {
                       <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Deleting {{selectedConversationCount}}…
@@ -2257,19 +2257,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private buildMessagePreview(message: InboxMessage): string {
     const raw = message.bodyHtml?.trim() ? message.bodyHtml : (message.bodyText ?? "");
-    const cleaned = raw
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<head[\s\S]*?<\/head>/gi, " ")
-      .replace(/<!--[\s\S]*?-->/g, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/[^{}]*\{[^{}]*:[^{}]*\}/g, " ")
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">")
-      .replace(/&#39;|&apos;/gi, "'")
-      .replace(/&quot;/gi, "\"");
+    const cleaned = this.stringUtils.htmlToPlainText(raw)
+      .replace(/[^{}]*\{[^{}]*:[^{}]*\}/g, " ");
     return cleaned.replace(/\s+/g, " ").trim().slice(0, 500);
   }
 

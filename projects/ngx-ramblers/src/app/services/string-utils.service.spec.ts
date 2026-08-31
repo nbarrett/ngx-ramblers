@@ -289,6 +289,11 @@ describe("StringUtilsService", () => {
         .toBe("IPSDEN & HAILEY <short>");
     });
 
+    it("should decode numeric quote entities used by Gmail HTML", () => {
+      expect(service.htmlToPlainText("<p>The minutes for &#34;Video call&#34; have been written up.</p>"))
+        .toBe("The minutes for \"Video call\" have been written up.");
+    });
+
     it("should convert non-breaking spaces and line breaks to spaces", () => {
       expect(service.htmlToPlainText("Coming&nbsp;from Kingsclere.<br>Bring lunch"))
         .toBe("Coming from Kingsclere. Bring lunch");

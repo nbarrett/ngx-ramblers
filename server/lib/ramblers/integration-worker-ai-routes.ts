@@ -7,7 +7,6 @@ import { Ai } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { CoverImageCandidate } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
 import { aiProviderFor } from "../ai/ai-provider-factory";
 import { chooseCoverImageFromCandidates } from "../ai/choose-cover-image";
-import { meetingMinutesInput, meetingMinutesSystemPrompt } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-ai-routes"));
 debugLog.enabled = true;
@@ -59,37 +58,6 @@ router.post("/status", async (req: Request, res: Response) => {
     res.json({connected: true, model: body?.config?.model});
   } catch (error) {
     res.json({connected: false, error: (error as Error)?.message || String(error)});
-  }
-});
-
-router.post("/meeting-minutes", async (req: Request, res: Response) => {
-  if (!requestIsSigned(req)) {
-    res.status(401).json({error: "Invalid integration worker request signature"});
-  } else {
-    const body = req.body as {
-      config: Ai;
-      transcript?: string;
-      chat?: string;
-      existingNotes?: string;
-      maxTokens?: number;
-    };
-    try {
-      const transcriptChars = (body?.transcript || "").length;
-      const chatChars = (body?.chat || "").length;
-      const existingNotesChars = (body?.existingNotes || "").length;
-      debugLog("meeting-minutes request:", {transcriptChars, chatChars, existingNotesChars, maxTokens: body?.maxTokens || 2048});
-      const provider = aiProviderFor(body?.config);
-      const output = await provider.generate({
-        systemPrompt: meetingMinutesSystemPrompt(),
-        input: meetingMinutesInput(body?.transcript || "", body?.chat || "", body?.existingNotes || ""),
-        maxTokens: body?.maxTokens || 2048
-      });
-      debugLog("meeting-minutes output:", {outputChars: (output || "").length});
-      res.json({output});
-    } catch (error) {
-      debugLog("meeting-minutes error:", error);
-      res.status(502).json({error: (error as Error)?.message || String(error)});
-    }
   }
 });
 

@@ -3,7 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { kebabCase } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCalendarDays, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faFileLines, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
@@ -15,12 +15,14 @@ import { PageComponent } from "../../page/page.component";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { NextCommitteeMeetingBannerComponent } from "./next-committee-meeting-banner";
 import { ThumbnailHeadingFrameComponent } from "../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
-import { UpcomingBookedMeeting, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
+import { MEETING_MINUTES_TEMPLATE_ID, MeetingMinutesSummary, UpcomingBookedMeeting, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
+import { meetingMinutesDocumentSlug } from "../../functions/committee-documents-page";
 import { AdminPath, AdminSettingsPath } from "../../models/admin-route-paths.model";
 import { SystemSettingsTab } from "../../models/system.model";
 import { StoredValue } from "../../models/ui-actions";
 import { UIDateFormat } from "../../models/date-format.model";
 import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
+import { meetingMinutesDateLabel } from "../../functions/video-meeting-minutes";
 import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client";
 
 @Component({
@@ -38,9 +40,7 @@ import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client"
               <fa-icon [icon]="faCalendarDays" class="me-2"/>Plan a meeting
             </button>
           </app-thumbnail-heading-frame>
-        </div>
-        <div class="col-sm-6">
-          <app-thumbnail-heading-frame heading="Video call">
+          <app-thumbnail-heading-frame heading="Video call" class="d-block mt-4">
             @if (config && !config.enabled) {
               <app-alert-panel title="Video meetings are switched off">
                 An administrator can enable them in
@@ -81,6 +81,26 @@ import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client"
             }
           </app-thumbnail-heading-frame>
         </div>
+        <div class="col-sm-6">
+          @if (recentMinutes.length) {
+            <app-thumbnail-heading-frame heading="Recent meeting minutes" class="d-block">
+              @for (item of recentMinutes; track item.room; let first = $first) {
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 py-2"
+                     [class.border-top]="!first">
+                  <div>
+                    <div>{{ item.title }}</div>
+                    @if (item.dateLabel) {
+                      <div class="small text-muted">{{ item.dateLabel }}</div>
+                    }
+                  </div>
+                  <a class="btn btn-quiet" [routerLink]="'/' + minutesPath + '/' + item.room">
+                    <fa-icon [icon]="faFileLines" class="me-2"/>View minutes
+                  </a>
+                </div>
+              }
+            </app-thumbnail-heading-frame>
+          }
+        </div>
       </div>
     </app-page>`
 })
@@ -99,15 +119,19 @@ export class VideoMeetingsPageComponent implements OnInit {
   joinRoom = "";
   meetingTitle = "";
   starting = false;
+  recentMinutes: MeetingMinutesSummary[] = [];
 
   protected readonly faVideo = faVideo;
   protected readonly faRightToBracket = faRightToBracket;
   protected readonly faCalendarDays = faCalendarDays;
+  protected readonly faFileLines = faFileLines;
   protected readonly systemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   protected readonly videoMeetingsTab = kebabCase(SystemSettingsTab.VIDEO_MEETINGS);
+  protected readonly minutesPath = AdminPath.MEETING_MINUTES;
 
   async ngOnInit(): Promise<void> {
     this.meetingTitle = this.defaultMeetingTitle();
+    void this.loadRecentMinutes();
     try {
       this.config = await this.videoMeetingsService.config();
       if (this.config?.enabled && !this.config.publicHost) {
@@ -116,6 +140,43 @@ export class VideoMeetingsPageComponent implements OnInit {
       }
     } catch (error) {
       this.logger.error("failed to load video meeting config", error);
+    }
+  }
+
+  private async loadRecentMinutes(): Promise<void> {
+    try {
+      const files = await this.committeeFileService.all({criteria: {"document.templateId": MEETING_MINUTES_TEMPLATE_ID}});
+      const listed = (files || [])
+        .filter(file => !!file.meeting?.room)
+        .sort((left, right) => (right.eventDate || 0) - (left.eventDate || 0))
+        .slice(0, 12);
+      this.recentMinutes = await Promise.all(listed.map(async file => {
+        const storedStart = file.meeting?.startedAt || file.eventDate || null;
+        const storedEnd = file.meeting?.endedAt || null;
+        const span = storedStart && storedEnd
+          ? {startedAt: storedStart, endedAt: storedEnd}
+          : await this.videoMeetingsService.transcriptForRoom(file.meeting.room)
+            .catch(() => ({startedAt: null, endedAt: null, transcript: "", lines: 0}));
+        const startedAt = storedStart || span?.startedAt || file.eventDate || null;
+        const endedAt = storedEnd || span?.endedAt || null;
+        const title = file.document?.title || file.meeting?.title || "Meeting minutes";
+        const pagePath = file.meeting?.committeePagePath
+          || await this.committeeFileService.documentsPagePathFor(file);
+        return {
+          room: file.meeting.room,
+          title,
+          dateLabel: meetingMinutesDateLabel(
+            startedAt,
+            endedAt,
+            value => this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_DAY),
+            value => this.dateUtils.displayTime(value)
+          ),
+          pagePath,
+          slug: pagePath ? meetingMinutesDocumentSlug(file.meeting.room) : null
+        };
+      }));
+    } catch (error) {
+      this.logger.info("could not load recent meeting minutes", error);
     }
   }
 

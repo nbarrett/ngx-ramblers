@@ -262,6 +262,11 @@ export interface CommitteeDocumentsData {
   pageTitle?: string;
 }
 
+export interface CommitteeDocumentsPageChoice {
+  path: string;
+  label: string;
+}
+
 export interface PageContentRow extends HasColumnRange {
   type: PageContentType;
   showSwiper: boolean;

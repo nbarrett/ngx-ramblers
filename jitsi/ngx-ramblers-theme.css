@@ -1,0 +1,63 @@
+#localvideomenu button,
+#remotevideomenu button,
+#local-video-menu-trigger button,
+#remote-video-menu-trigger button {
+  background-color: rgb(249, 177, 4) !important;
+  background: rgb(249, 177, 4) !important;
+  color: #1a1a1a !important;
+}
+
+#localvideomenu svg,
+#remotevideomenu svg,
+#local-video-menu-trigger svg,
+#remote-video-menu-trigger svg {
+  fill: #1a1a1a !important;
+}
+
+.vertical-filmstrip .filmstrip,
+.stage-filmstrip .filmstrip,
+.vertical-filmstrip .filmstrip__videos,
+.stage-filmstrip .filmstrip__videos {
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  height: auto !important;
+  max-height: 100% !important;
+}
+
+.vertical-filmstrip #filmstripRemoteVideos,
+.stage-filmstrip #filmstripRemoteVideos {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  justify-content: flex-start !important;
+}
+
+.vertical-filmstrip #filmstripRemoteVideosContainer,
+.stage-filmstrip #filmstripRemoteVideosContainer {
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+.vertical-filmstrip #largeVideoContainer,
+.vertical-filmstrip #largeVideoWrapper,
+.stage-filmstrip #largeVideoContainer,
+.stage-filmstrip #largeVideoWrapper {
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.vertical-filmstrip .filmstrip,
+.stage-filmstrip .filmstrip {
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  top: 0 !important;
+}
+
+.tile-view .remote-videos,
+.tile-view .remote-videos > div {
+  align-content: flex-start !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}

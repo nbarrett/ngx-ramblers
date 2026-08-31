@@ -7,7 +7,7 @@ import { DateValue } from "./date.model";
 import { NotificationConfig } from "./mail.model";
 import { Link } from "./page.model";
 import { Media } from "./ramblers-walks-manager";
-import { VideoMeetingInviteRecipient } from "./video-meeting.model";
+import { VideoMeetingInviteRecipient, VideoMeetingRsvp } from "./video-meeting.model";
 
 export interface GroupEventType {
   eventType: string;
@@ -70,8 +70,15 @@ export interface CommitteeFileMeeting {
   invitedMemberIds?: string[];
   invitedRecipients?: VideoMeetingInviteRecipient[];
   invitedListId?: number;
+  rsvps?: VideoMeetingRsvp[];
+  organiserEmail?: string;
+  organiserName?: string;
   createdBy?: string;
   createdByName?: string;
+  minutesEmailedAt?: number;
+  startedAt?: number;
+  endedAt?: number;
+  committeePagePath?: string;
 }
 
 export function meetingIsOnline(format: CommitteeMeetingFormat): boolean {
@@ -91,6 +98,11 @@ export interface CommitteeDocument {
 export enum CommitteeFileKind {
   ATTACHMENT = "attachment",
   COMPOSED = "composed"
+}
+
+export enum CommitteeDocumentEditMode {
+  EDIT = "edit",
+  PREVIEW = "preview"
 }
 
 export enum CommitteeMemberTab {

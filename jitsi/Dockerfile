@@ -37,6 +37,8 @@ RUN apt-get update \
 
 COPY --from=web /usr/share/jitsi-meet /usr/share/jitsi-meet
 COPY --from=web /defaults /defaults
+COPY jitsi/ngx-ramblers-theme.css /usr/share/jitsi-meet/css/ngx-ramblers-theme.css
+RUN cat /usr/share/jitsi-meet/css/ngx-ramblers-theme.css >> /usr/share/jitsi-meet/css/all.css
 COPY --from=web /etc/services.d/nginx /etc/services.d/nginx
 COPY --from=web /etc/cont-init.d/10-config /etc/cont-init.d/10-config-web
 

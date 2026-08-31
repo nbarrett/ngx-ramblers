@@ -4,8 +4,11 @@ import { CalendarMethod, CalendarRsvpStatus } from "../models/inbox.model";
 import {
   calendarInviteCanRsvp,
   calendarReplyDocument,
+  calendarReplyResponses,
   calendarRsvpSubject,
+  committeeFileIdFromMeetingUid,
   isCalendarFile,
+  meetingRoomFromCalendarEvent,
   parseIcsCalendar,
   parseIcsEvents,
   unescapeIcsText,
@@ -167,6 +170,72 @@ describe("calendarReplyDocument", () => {
     expect(unfolded).toContain("ORGANIZER;CN=Ciaran Evans:mailto:Ciaran.Evans@ramblers.org.uk");
     expect(calendarRsvpSubject(CalendarRsvpStatus.ACCEPTED, "Microsoft Teams Meeting")).toEqual("Accepted: Microsoft Teams Meeting");
     expect(calendarRsvpSubject(CalendarRsvpStatus.DECLINED, "Microsoft Teams Meeting")).toEqual("Declined: Microsoft Teams Meeting");
+  });
+
+});
+
+describe("calendarReplyResponses", () => {
+
+  it("reads Accept, Decline and Maybe from a METHOD:REPLY", () => {
+    const invite = parseIcsCalendar([
+      "BEGIN:VCALENDAR",
+      "METHOD:REPLY",
+      "BEGIN:VEVENT",
+      "UID:meeting-507f1f77bcf86cd799439011@ekwg.co.uk",
+      "ATTENDEE;CN=Jordan Guest;PARTSTAT=ACCEPTED:mailto:guest@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n"));
+    expect(calendarReplyResponses(invite)).toEqual([{
+      email: "guest@example.com",
+      name: "Jordan Guest",
+      status: CalendarRsvpStatus.ACCEPTED
+    }]);
+  });
+
+  it("ignores a meeting request that is not a reply", () => {
+    const invite = parseIcsCalendar([
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:meeting-507f1f77bcf86cd799439011@ekwg.co.uk",
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:guest@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n"));
+    expect(calendarReplyResponses(invite)).toEqual([]);
+  });
+
+});
+
+describe("committeeFileIdFromMeetingUid", () => {
+
+  it("reads the committee file id from a meeting UID", () => {
+    expect(committeeFileIdFromMeetingUid("meeting-507f1f77bcf86cd799439011@ekwg.co.uk"))
+      .toEqual("507f1f77bcf86cd799439011");
+    expect(committeeFileIdFromMeetingUid("315409108105984@teams.microsoft.com")).toBeNull();
+  });
+
+});
+
+describe("meetingRoomFromCalendarEvent", () => {
+
+  it("reads the guest room from the join URL", () => {
+    expect(meetingRoomFromCalendarEvent({
+      title: "Committee meeting",
+      startsAt: null,
+      endsAt: null,
+      allDay: false,
+      location: null,
+      description: null,
+      url: "https://www.ekwg.co.uk/video-meetings/guest/committee-meeting-18-august-2026",
+      status: null,
+      organiser: null,
+      organiserEmail: null,
+      uid: null,
+      sequence: 0,
+      attendees: []
+    })).toEqual("committee-meeting-18-august-2026");
   });
 
 });

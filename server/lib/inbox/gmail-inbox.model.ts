@@ -74,7 +74,8 @@ export enum GmailHeader {
 
 export enum GmailMimeType {
   HTML = "text/html",
-  PLAIN = "text/plain"
+  PLAIN = "text/plain",
+  CALENDAR = "text/calendar"
 }
 
 export enum GmailMimePrefix {
@@ -181,6 +182,7 @@ export interface GmailAttachmentRef {
   contentType: string;
   sizeBytes: number;
   attachmentId: string;
+  inlineData: string | null;
   contentId: string | null;
 }
 

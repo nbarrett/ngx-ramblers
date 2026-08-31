@@ -17,6 +17,7 @@ import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/
 import { InboxAliasConnectionStatus } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { dateTimeNow } from "../shared/dates";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
+import { StoredValue } from "../../../projects/ngx-ramblers/src/app/models/ui-actions";
 import { isString } from "es-toolkit/compat";
 import { encryptInboxRefreshToken } from "./inbox-oauth-token-crypto";
 import { requireInboxConfigurationAdministrator } from "./inbox-access";
@@ -135,48 +136,42 @@ router.get("/callback", async (req: Request, res: Response) => {
     const state = req.query.state;
     const errorParam = req.query.error;
     if (isString(errorParam) && errorParam.length > 0) {
-      res.redirect(`${inboxSettingsPath}&oauthError=${encodeURIComponent(errorParam)}`);
-      return;
-    }
-    if (!isString(code) || !isString(state)) {
+      res.redirect(`${inboxSettingsPath}&${StoredValue.OAUTH_ERROR}=${encodeURIComponent(errorParam)}`);
+    } else if (!isString(code) || !isString(state)) {
       res.status(400).send("Missing code or state in OAuth callback");
-      return;
-    }
-    const verified = verifyState(state);
-    if (!verified) {
-      res.status(400).send("OAuth state token is invalid or expired");
-      return;
-    }
-    if (verified.kind === GoogleInboxOauthStateKind.SETUP && verified.payload) {
-      const {accessToken} = await exchangeOauthCodeForAccessToken(code);
-      await beginGoogleCloudSetupStatus(verified.payload.projectId, verified.payload.topicName);
-      void runGoogleCloudSetupJob(accessToken, verified.payload);
-      res.redirect(`${inboxSettingsPath}&setupStarted=1`);
-      return;
-    }
-    if (!verified.mailboxConnectionId) {
-      res.status(400).send("OAuth state token is missing a mailbox connection");
-      return;
-    }
-    const {refreshToken, emailAddress} = await exchangeOauthCodeForRefreshToken(code);
-    await inboxMailboxConnectionModel.updateOne({_id: verified.mailboxConnectionId}, {
-      $set: {
-        gmailAccountEmail: emailAddress,
-        oauthRefreshTokenEncrypted: encryptInboxRefreshToken(refreshToken),
-        connectionStatus: InboxAliasConnectionStatus.CONNECTED,
-        lastErrorMessage: null,
-        lastHistoryId: null,
-        updatedAt: dateTimeNow().toMillis(),
-        updatedBy: "google-oauth-callback"
+    } else {
+      const verified = verifyState(state);
+      if (!verified) {
+        res.status(400).send("OAuth state token is invalid or expired");
+      } else if (verified.kind === GoogleInboxOauthStateKind.SETUP && verified.payload) {
+        const {accessToken} = await exchangeOauthCodeForAccessToken(code);
+        await beginGoogleCloudSetupStatus(verified.payload.projectId, verified.payload.topicName);
+        void runGoogleCloudSetupJob(accessToken, verified.payload);
+        res.redirect(`${inboxSettingsPath}&${StoredValue.SETUP_STARTED}=1`);
+      } else if (!verified.mailboxConnectionId) {
+        res.status(400).send("OAuth state token is missing a mailbox connection");
+      } else {
+        const {refreshToken, emailAddress} = await exchangeOauthCodeForRefreshToken(code);
+        await inboxMailboxConnectionModel.updateOne({_id: verified.mailboxConnectionId}, {
+          $set: {
+            gmailAccountEmail: emailAddress,
+            oauthRefreshTokenEncrypted: encryptInboxRefreshToken(refreshToken),
+            connectionStatus: InboxAliasConnectionStatus.CONNECTED,
+            lastErrorMessage: null,
+            lastHistoryId: null,
+            updatedAt: dateTimeNow().toMillis(),
+            updatedBy: "google-oauth-callback"
+          }
+        });
+        debugLog(`stored encrypted refresh token for Gmail inbox mailbox ${verified.mailboxConnectionId} (${emailAddress})`);
+        void activateConnectionAfterReconnect(verified.mailboxConnectionId)
+          .catch(activateError => errorDebugLog("Failed to activate inbox connection after reconnect:", (activateError as Error).message));
+        res.redirect(`${inboxSettingsPath}&${StoredValue.CONNECTED}=${encodeURIComponent(emailAddress)}`);
       }
-    });
-    debugLog(`stored encrypted refresh token for Gmail inbox mailbox ${verified.mailboxConnectionId} (${emailAddress})`);
-    void activateConnectionAfterReconnect(verified.mailboxConnectionId)
-      .catch(activateError => errorDebugLog("Failed to activate inbox connection after reconnect:", (activateError as Error).message));
-    res.redirect(`${inboxSettingsPath}&connected=${encodeURIComponent(emailAddress)}`);
+    }
   } catch (error) {
     errorDebugLog("Error completing OAuth callback:", (error as Error).message);
-    res.redirect(`${inboxSettingsPath}&oauthError=${encodeURIComponent((error as Error).message)}`);
+    res.redirect(`${inboxSettingsPath}&${StoredValue.OAUTH_ERROR}=${encodeURIComponent((error as Error).message)}`);
   }
 });
 

@@ -9,6 +9,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
+import { StoredValue } from "../../../../models/ui-actions";
 import {
   InboxAccessMode,
   InboxAliasConfigView,
@@ -228,10 +229,10 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
 
   private applyOauthOutcome(): void {
     const params = this.route.snapshot.queryParams;
-    if (params["connected"]) {
-      this.notify.success({title: "Gmail inbox connected", message: `${params["connected"]} is now connected`});
-    } else if (params["oauthError"]) {
-      this.notify.error({title: "Connect Gmail", message: params["oauthError"]});
+    if (params[StoredValue.CONNECTED]) {
+      this.notify.success({title: "Gmail inbox connected", message: `${params[StoredValue.CONNECTED]} is now connected`});
+    } else if (params[StoredValue.OAUTH_ERROR]) {
+      this.notify.error({title: "Connect Gmail", message: params[StoredValue.OAUTH_ERROR]});
     }
   }
 

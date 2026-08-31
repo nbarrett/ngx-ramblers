@@ -260,6 +260,49 @@ export function calendarReplyDocument(
   return lines.map(foldIcsLine).join("\r\n") + "\r\n";
 }
 
+export function isCalendarRsvpDecision(status: CalendarRsvpStatus | null): boolean {
+  return status === CalendarRsvpStatus.ACCEPTED
+    || status === CalendarRsvpStatus.TENTATIVE
+    || status === CalendarRsvpStatus.DECLINED;
+}
+
+export function calendarReplyResponses(invite: CalendarInvite): {email: string; name: string | null; status: CalendarRsvpStatus}[] {
+  if (invite.method !== CalendarMethod.REPLY) {
+    return [];
+  } else {
+    return invite.events.flatMap(event =>
+      (event.attendees || [])
+        .filter(attendee => isCalendarRsvpDecision(attendee.partStat))
+        .map(attendee => ({
+          email: attendee.email,
+          name: attendee.name,
+          status: attendee.partStat as CalendarRsvpStatus
+        }))
+    );
+  }
+}
+
+export function committeeFileIdFromMeetingUid(uid: string | null): string | null {
+  const match = (uid || "").trim().match(/^meeting-([a-fA-F0-9]{24})@/i);
+  return match ? match[1] : null;
+}
+
+export function meetingRoomFromCalendarEvent(event: CalendarPreviewEvent | null): string | null {
+  const sources = [event?.url, event?.location, event?.description].filter(Boolean) as string[];
+  const match = sources
+    .map(source => source.match(/\/video-meetings\/guest\/([^/?#\s]+)/i))
+    .find(Boolean);
+  if (!match) {
+    return null;
+  } else {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return match[1];
+    }
+  }
+}
+
 export function calendarRsvpSubject(status: CalendarRsvpStatus, title: string | null): string {
   const name = title || "Event";
   if (status === CalendarRsvpStatus.ACCEPTED) {

@@ -5,7 +5,7 @@ import { systemConfig } from "../config/system-config";
 import { MailProvider } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { EmailAddress } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 
-export async function sendGuestInviteEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
+async function sendExternalGuestInviteEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
   const system = await systemConfig();
   const brevo = await configuredBrevo();
   const available = system?.mailDefaults?.mailProvider === MailProvider.BREVO && !!brevo?.apiKey && !!sender?.email;
@@ -23,4 +23,8 @@ export async function sendGuestInviteEmail(sender: EmailAddress, toEmail: string
   } else {
     return false;
   }
+}
+
+export async function sendGuestInviteEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
+  return sendExternalGuestInviteEmail(sender, toEmail, toName, subject, html);
 }

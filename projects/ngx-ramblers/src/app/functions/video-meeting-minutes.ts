@@ -1,30 +1,49 @@
 import { isNumber, isObject, isString } from "es-toolkit/compat";
+import { toBritishEnglish } from "./british-english";
+import { siteLocale } from "../models/locale.model";
 
-export const AI_MEETING_NOTE_AUTHOR = "AI notes";
+export const AI_MEETING_NOTE_AUTHOR = "Minutes";
 
-export function meetingMinutesSystemPrompt(): string {
+export const MEETING_TRANSCRIBE_PROMPT = [
+  "Transcribe this audio verbatim in British English (en-GB).",
+  "Write only the words that can actually be heard.",
+  "If the audio is singing or music, transcribe the lyrics you hear.",
+  "Do not invent speech, names, meetings, agendas, decisions or extra sentences.",
+  "Do not complete or continue unfinished phrases with words that were not spoken.",
+  "If there is no clear speech, return an empty response."
+].join(" ");
+
+export function meetingMinutesSummaryPrompt(): string {
   return [
-    "You are taking notes for a Ramblers group or committee video meeting.",
-    "Write concise UK English minutes from the transcript, chat and any handwritten notes.",
-    "Use short headings and bullet points for: discussion, decisions, and actions (with a name if one was clearly given).",
-    "Only record what is actually said or written. Do not invent attendees, decisions, places or actions.",
-    "If the material is thin, say so in one sentence and list only what is there.",
-    "Do not include greetings, small talk or repeated ums.",
-    "Do not mention that you are an AI."
+    "You are writing the minutes of a UK Ramblers group or committee video meeting from a verbatim record of what was said, the meeting chat and any typed notes.",
+    "Summarise only what is in the record.",
+    "Every name, place, date, number, decision and action in your minutes must appear in the record; if it is not there, leave it out.",
+    "Do not add, infer or embellish anything, do not guess at intentions, and do not pad thin material - if little was said, write little.",
+    "Minute a spoken account in full: every name, what people did, where they went and what happened, in the order it was told. Do not shrink it to a single bullet or dismiss it as small talk.",
+    "Keep the order in which things were discussed, and keep every distinct topic, however briefly it was raised.",
+    "Use headings and bullet points. Use Discussion for what was talked about, and add Decisions, Actions or Next meeting only when the record actually contains one; omit a heading rather than writing that nothing was recorded.",
+    "If a date is given for the next meeting, put it under Next meeting. Never treat that date as the date of this meeting, and do not add your own Date or Location headings.",
+    "Leave out greetings, connection small talk, repeated words and false starts.",
+    `Write British English (${siteLocale()}) with UK spelling throughout, even where the record used American forms.`,
+    "Do not mention that you are an AI or that you worked from a transcript."
   ].join(" ");
 }
 
-export function meetingMinutesInput(transcript: string, chat: string, existingNotes: string): string {
+function minutesSection(title: string, body: string): string {
+  const text = (body || "").trim();
+  if (!text) {
+    return "";
+  } else {
+    return `## ${title}\n\n${text}`;
+  }
+}
+
+export function meetingMinutesFromSource(transcript: string, chat: string, existingNotes: string): string {
   return [
-    "Transcript:",
-    transcript?.trim() || "(none yet)",
-    "",
-    "Chat:",
-    chat?.trim() || "(none)",
-    "",
-    "Notes already taken:",
-    existingNotes?.trim() || "(none)"
-  ].join("\n");
+    minutesSection("What was said", transcript),
+    minutesSection("Chat", chat),
+    minutesSection("Notes taken in the meeting", existingNotes)
+  ].filter(section => !!section).join("\n\n");
 }
 
 function recordValue(source: unknown, key: string): unknown {
@@ -61,7 +80,7 @@ function payloadData(payload: unknown): unknown {
 
 export function lineFromJitsiTranscription(payload: unknown): string | null {
   const data = payloadData(payload);
-  const text = firstString(data, ["message", "text", "transcript", "stable"]);
+  const text = toBritishEnglish(firstString(data, ["message", "text", "transcript", "stable"]));
   if (!text) {
     return null;
   } else {
@@ -132,4 +151,31 @@ export function meetingMinutesWriteIsEmpty(error: unknown): boolean {
   const status = isObject(error) ? (error as {status?: unknown}).status : null;
   const message = meetingMinutesWriteError(error).toLowerCase();
   return status === 400 || message.includes("no chat or typed note") || message.includes("nothing to write");
+}
+
+export function meetingMinutesLookUnusable(markdown: string): boolean {
+  const text = (markdown || "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return true;
+  } else {
+    const lower = text.toLowerCase();
+    return /insufficient information to (provide|write)/.test(lower)
+      || lower.includes("transcript appears to be silent")
+      || /unable to (provide|write|produce) minutes/.test(lower);
+  }
+}
+
+export function meetingMinutesDateLabel(
+  startedAt: number | null,
+  endedAt: number | null,
+  formatDate: (value: number) => string,
+  formatTime: (value: number) => string
+): string {
+  if (!startedAt) {
+    return "";
+  } else if (!endedAt || endedAt === startedAt) {
+    return `${formatDate(startedAt)}, ${formatTime(startedAt)}`;
+  } else {
+    return `${formatDate(startedAt)}, ${formatTime(startedAt)} - ${formatTime(endedAt)}`;
+  }
 }

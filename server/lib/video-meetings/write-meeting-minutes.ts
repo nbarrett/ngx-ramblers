@@ -4,41 +4,42 @@ import { envConfig } from "../env-config/env-config";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { aiConfigFromEnvironment } from "../ai/ai-config";
 import { generate } from "../ai/ai-generation";
-import { integrationWorkerConfigured, meetingMinutesViaIntegrationWorker } from "../ai/ai-worker-client";
 import { meetingNote } from "../mongo/models/meeting-note";
 import { meetingTranscriptLine } from "../mongo/models/meeting-transcript";
-import { joinTranscriptLines } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
+import { joinTranscriptLines, usableTranscriptText } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
 import { MeetingTranscriptLine } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 import * as transforms from "../mongo/controllers/transforms";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import {
   AI_MEETING_NOTE_AUTHOR,
-  meetingMinutesInput,
-  meetingMinutesSystemPrompt
+  meetingMinutesFromSource,
+  meetingMinutesLookUnusable,
+  meetingMinutesSummaryPrompt
 } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
+import { toBritishEnglish } from "../../../projects/ngx-ramblers/src/app/functions/british-english";
 import { MeetingNote, MeetingNoteSource } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
-import { Ai } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { publishMeetingMinutes } from "./meeting-minutes-document";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:minutes"));
 debug.enabled = true;
 
-export async function generateMeetingMinutes(
-  ai: Ai,
-  transcript: string,
-  chat: string,
-  existingNotes: string
-): Promise<string> {
-  const viaWorker = integrationWorkerConfigured();
-  debug("generateMeetingMinutes:", {
-    viaWorker,
-    transcriptChars: (transcript || "").length,
-    chatChars: (chat || "").length,
-    existingNotesChars: (existingNotes || "").length
-  });
-  if (viaWorker) {
-    return meetingMinutesViaIntegrationWorker(ai, transcript, chat, existingNotes);
+const MEETING_MINUTES_MAX_TOKENS = 8192;
+
+export async function generateMeetingMinutes(source: string): Promise<string> {
+  const ai = aiConfigFromEnvironment();
+  if (!ai.enabled || !source.trim()) {
+    debug("generateMeetingMinutes: returning the verbatim record", {aiEnabled: ai.enabled, sourceChars: source.length});
+    return source;
   } else {
-    return generate(ai, meetingMinutesSystemPrompt(), meetingMinutesInput(transcript, chat, existingNotes));
+    try {
+      const summarised = toBritishEnglish((await generate(ai, meetingMinutesSummaryPrompt(), source, MEETING_MINUTES_MAX_TOKENS) || "").trim());
+      const usable = !!summarised && !meetingMinutesLookUnusable(summarised);
+      debug("generateMeetingMinutes:", {sourceChars: source.length, summarisedChars: summarised.length, usable});
+      return usable ? summarised : source;
+    } catch (error) {
+      debug("generateMeetingMinutes: summarisation failed, returning the verbatim record", error);
+      return source;
+    }
   }
 }
 
@@ -46,10 +47,8 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
   const room = (req.body?.room || "").trim();
   const requestTranscript = (req.body?.transcript || "").toString();
   const chat = (req.body?.chat || "").toString();
-  const ai = aiConfigFromEnvironment();
   debug("writeMeetingMinutes:", {
     room,
-    aiEnabled: ai.enabled,
     requestTranscriptChars: requestTranscript.length,
     chatChars: chat.length,
     existingNotesChars: (req.body?.existingNotes || "").toString().length
@@ -57,9 +56,6 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
   if (!room) {
     debug("writeMeetingMinutes: rejected, room is required");
     res.status(400).json({message: "room is required"});
-  } else if (!ai.enabled) {
-    debug("writeMeetingMinutes: rejected, AI is not enabled");
-    res.status(503).json({message: "AI is not enabled in this environment"});
   } else {
     try {
       const existing = await meetingNote.find({room}).sort({createdAt: 1}).lean().exec();
@@ -70,7 +66,7 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
       const fromRequest = (req.body?.existingNotes || "").toString();
       const handwritten = fromDatabase.trim() || fromRequest.trim();
       const pooled = await meetingTranscriptLine.find({room}).sort({at: 1}).lean().exec() as unknown as MeetingTranscriptLine[];
-      const transcript = joinTranscriptLines(pooled).trim() || requestTranscript;
+      const transcript = joinTranscriptLines(pooled).trim() || usableTranscriptText(requestTranscript);
       debug("writeMeetingMinutes: material:", {
         room,
         notesInRoom: existing.length,
@@ -84,16 +80,28 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
         debug("writeMeetingMinutes: nothing to write up yet");
         res.status(400).json({message: "Nothing to write up yet"});
       } else {
-        const output = (await generateMeetingMinutes(ai, transcript, chat, handwritten))?.trim();
+        const source = meetingMinutesFromSource(transcript, chat, handwritten).trim();
+        const output = (await generateMeetingMinutes(source)).trim();
         debug("writeMeetingMinutes: generated:", {room, outputChars: (output || "").length});
-        if (!output) {
-          debug("writeMeetingMinutes: generated output was empty");
-          res.status(502).json({message: "The notes came back empty"});
+        if (!output || meetingMinutesLookUnusable(output)) {
+          debug("writeMeetingMinutes: generated output was empty or unusable");
+          res.status(400).json({message: "Nothing to write up yet"});
         } else {
           const member = req.user as MemberCookie;
           const note = transforms.toObjectWithId(await persistAiNote(room, output, member));
-          debug("writeMeetingMinutes: saved:", {room, noteId: note.id, outputChars: output.length});
-          res.status(200).json({note});
+          const notify = req.body?.notify === true;
+          const published = await publishMeetingMinutes(room, output, notify)
+            .catch(publishError => {
+              debug("could not save the minutes as a committee document", publishError);
+              return null;
+            });
+          debug("writeMeetingMinutes: saved:", {room, noteId: note.id, outputChars: output.length, notify, published});
+          res.status(200).json({
+            note,
+            link: published?.link || "",
+            path: published?.path || "",
+            slug: published?.slug || ""
+          });
         }
       }
     } catch (error) {

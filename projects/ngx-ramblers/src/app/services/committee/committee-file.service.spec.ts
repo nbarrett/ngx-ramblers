@@ -102,6 +102,15 @@ describe("CommitteeFileService addToCommitteeDocumentsPage", () => {
     expect(latest.rows[0].committeeDocuments.fileIds).toEqual(["older", "new-file"]);
   });
 
+  it("adds the file to an explicit page path", async () => {
+    const page = yearPage("group/papers", ["existing"]);
+    pageContentService.findByPath.mockResolvedValue(page);
+    const path = await service.addToCommitteeDocumentsPage(file("new-file"), "group/papers");
+    expect(path).toBe("group/papers");
+    expect(pageContentService.findByPath).toHaveBeenCalledWith("group/papers");
+    expect(page.rows[0].committeeDocuments.fileIds).toEqual(["existing", "new-file"]);
+  });
+
   it("returns null when no committee documents page exists", async () => {
     pageContentService.findByPath.mockResolvedValue(null);
     pageContentService.all.mockResolvedValue([]);

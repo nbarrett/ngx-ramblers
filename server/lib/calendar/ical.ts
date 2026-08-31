@@ -92,6 +92,11 @@ export function vEventFor(event: ExtendedGroupEvent, config: SystemConfig, baseU
   ].filter(Boolean);
 }
 
+export interface MeetingInviteAttendee {
+  email: string;
+  name?: string;
+}
+
 export interface MeetingInvite {
   uid: string;
   title: string;
@@ -102,6 +107,7 @@ export interface MeetingInvite {
   url?: string;
   organiserName?: string;
   organiserEmail?: string;
+  attendees?: MeetingInviteAttendee[];
 }
 
 const DEFAULT_MEETING_DURATION_MINUTES = 60;
@@ -118,7 +124,13 @@ export function meetingIcalDocument(meeting: MeetingInvite, calendarName: string
   const end = icalTimestampFromMillis(meeting.startTime + durationMinutes * 60000);
   const organiserLabel = escapeIcalText(meeting.organiserName || meeting.organiserEmail);
   const organiser = meeting.organiserEmail ? `ORGANIZER;CN=${organiserLabel}:mailto:${meeting.organiserEmail}` : null;
-  const attendee = meeting.organiserEmail ? `ATTENDEE;CN=${organiserLabel};RSVP=FALSE:mailto:${meeting.organiserEmail}` : null;
+  const invitees = (meeting.attendees || []).filter(attendee => !!attendee?.email);
+  const attendeeLines = invitees.length
+    ? invitees.map(attendee => {
+      const label = escapeIcalText(attendee.name || attendee.email);
+      return `ATTENDEE;CN=${label};RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:${attendee.email}`;
+    })
+    : (meeting.organiserEmail ? [`ATTENDEE;CN=${organiserLabel};RSVP=FALSE:mailto:${meeting.organiserEmail}`] : []);
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -136,7 +148,7 @@ export function meetingIcalDocument(meeting: MeetingInvite, calendarName: string
     (meeting.location || meeting.url) ? `LOCATION:${escapeIcalText(meeting.location || meeting.url)}` : null,
     meeting.url ? `URL:${escapeIcalText(meeting.url)}` : null,
     organiser,
-    attendee,
+    ...attendeeLines,
     "STATUS:CONFIRMED",
     "SEQUENCE:0",
     "END:VEVENT",

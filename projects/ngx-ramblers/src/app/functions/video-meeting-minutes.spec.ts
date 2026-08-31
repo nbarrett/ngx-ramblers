@@ -3,10 +3,14 @@ import {
   appendUniqueLine,
   lineFromJitsiChat,
   lineFromJitsiTranscription,
-  meetingMinutesInput,
+  meetingMinutesDateLabel,
+  meetingMinutesFromSource,
+  meetingMinutesLookUnusable,
+  meetingMinutesSummaryPrompt,
   meetingMinutesWriteError,
   meetingMinutesWriteIsEmpty,
-  meetingNotesUpdatedMessage
+  meetingNotesUpdatedMessage,
+  MEETING_TRANSCRIBE_PROMPT
 } from "./video-meeting-minutes";
 
 describe("lineFromJitsiTranscription", () => {
@@ -15,6 +19,12 @@ describe("lineFromJitsiTranscription", () => {
     expect(lineFromJitsiTranscription({
       data: {message: "We will meet at the hall", participant: {name: "Jane"}}
     })).toEqual("Jane: We will meet at the hall");
+  });
+
+  it("rewrites American spelling in a caption to British English", () => {
+    expect(lineFromJitsiTranscription({
+      data: {message: "We realized the phone was missing", participant: {name: "Nick"}}
+    })).toEqual("Nick: We realised the phone was missing");
   });
 
   it("reads a stable caption field when the message key is missing", () => {
@@ -37,19 +47,63 @@ describe("lineFromJitsiChat", () => {
 
 });
 
-describe("meetingMinutesInput", () => {
+describe("MEETING_TRANSCRIBE_PROMPT", () => {
 
-  it("includes transcript, chat and existing notes", () => {
-    const input = meetingMinutesInput("Jane: Hello", "Tom: Agreed", "Park at the church");
-    expect(input).toContain("Jane: Hello");
-    expect(input).toContain("Tom: Agreed");
-    expect(input).toContain("Park at the church");
+  it("asks for the words that were heard and forbids invented meetings", () => {
+    expect(MEETING_TRANSCRIBE_PROMPT).toContain("verbatim");
+    expect(MEETING_TRANSCRIBE_PROMPT).toContain("Do not invent");
+    expect(MEETING_TRANSCRIBE_PROMPT).toContain("empty response");
+    expect(MEETING_TRANSCRIBE_PROMPT).not.toContain("Ramblers meeting");
   });
 
-  it("marks missing material rather than leaving blank sections", () => {
-    const input = meetingMinutesInput("", "", "");
-    expect(input).toContain("(none yet)");
-    expect(input).toContain("(none)");
+});
+
+describe("meetingMinutesSummaryPrompt", () => {
+
+  it("locks the summary to the record so nothing is made up", () => {
+    const prompt = meetingMinutesSummaryPrompt();
+    expect(prompt).toContain("Summarise only what is in the record");
+    expect(prompt).toContain("must appear in the record");
+    expect(prompt).toContain("Do not add, infer or embellish");
+    expect(prompt).toContain("if little was said, write little");
+  });
+
+  it("keeps the useful minute-writing behaviour from the previous prompt", () => {
+    const prompt = meetingMinutesSummaryPrompt();
+    expect(prompt).toContain("Minute a spoken account in full");
+    expect(prompt).toContain("Next meeting");
+    expect(prompt).toContain("Never treat that date as the date of this meeting");
+    expect(prompt).toContain("British English");
+  });
+
+});
+
+describe("meetingMinutesFromSource", () => {
+
+  it("uses the spoken words as the minutes, without adding a story", () => {
+    const minutes = meetingMinutesFromSource("Nick Barrett: Waiting for the morning light", "", "");
+    expect(minutes).toContain("## What was said");
+    expect(minutes).toContain("Nick Barrett: Waiting for the morning light");
+    expect(minutes).not.toContain("AGM");
+    expect(minutes).not.toContain("Discussion");
+  });
+
+  it("includes chat and handwritten notes only when they exist", () => {
+    const minutes = meetingMinutesFromSource("Jane: Hello", "Tom: Agreed", "Park at the church");
+    expect(minutes).toContain("Jane: Hello");
+    expect(minutes).toContain("## Chat");
+    expect(minutes).toContain("Tom: Agreed");
+    expect(minutes).toContain("Park at the church");
+  });
+
+  it("is empty when there is nothing to record", () => {
+    expect(meetingMinutesFromSource("", "", "")).toEqual("");
+  });
+
+  it("keeps chat and typed notes exactly as their authors wrote them", () => {
+    const minutes = meetingMinutesFromSource("", "Tom: the color chart is attached", "Meet Mrs Gray at the center");
+    expect(minutes).toContain("Tom: the color chart is attached");
+    expect(minutes).toContain("Meet Mrs Gray at the center");
   });
 
 });
@@ -81,6 +135,35 @@ describe("meetingNotesUpdatedMessage", () => {
 
   it("falls back when the duration is missing", () => {
     expect(meetingNotesUpdatedMessage("")).toEqual("Notes updated from the call.");
+  });
+
+});
+
+describe("meetingMinutesLookUnusable", () => {
+
+  it("rejects the silent-transcript placeholder minutes", () => {
+    expect(meetingMinutesLookUnusable(
+      "There is insufficient information to provide minutes. The transcript appears to be silent or contain indistinct sounds."
+    )).toBe(true);
+  });
+
+  it("keeps ordinary minutes", () => {
+    expect(meetingMinutesLookUnusable("## Discussion\n- The react button does not work.")).toBe(false);
+  });
+
+});
+
+describe("meetingMinutesDateLabel", () => {
+
+  const date = (value: number) => value === 1 ? "30 August 2026" : "31 August 2026";
+  const time = (value: number) => value === 1 ? "9:07 pm" : "9:11 pm";
+
+  it("shows date and start time when there is no end", () => {
+    expect(meetingMinutesDateLabel(1, null, date, time)).toEqual("30 August 2026, 9:07 pm");
+  });
+
+  it("shows start and end times on the same date", () => {
+    expect(meetingMinutesDateLabel(1, 2, date, time)).toEqual("30 August 2026, 9:07 pm - 9:11 pm");
   });
 
 });

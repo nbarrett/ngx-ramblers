@@ -80,7 +80,7 @@ export async function meetingCalendarFile(committeeFileId: string, req: Request)
     const config: SystemConfig = await systemConfig();
     const baseUrl = publicImageBaseUrl(req, config).replace(/\/+$/, "");
     const committeeConfigDoc = await queryKey(ConfigKey.COMMITTEE);
-    const organiser = committeeSecretaryEmail(committeeConfigDoc?.value as CommitteeConfig || null);
+    const fallbackOrganiser = committeeSecretaryEmail(committeeConfigDoc?.value as CommitteeConfig || null);
     const host = baseUrl.replace(/^https?:\/\//, "") || "ngx-ramblers";
     const room = meetingFile.meeting.room;
     const joinLink = meetingIsOnline(meetingFile.meeting.format) && room
@@ -88,6 +88,9 @@ export async function meetingCalendarFile(committeeFileId: string, req: Request)
       : null;
     const venue = meetingHasVenue(meetingFile.meeting.format) ? meetingFile.meeting.location : null;
     const descriptionLines = [joinLink ? `Join the meeting: ${joinLink}` : null, venue ? `Location: ${venue}` : null].filter(Boolean);
+    const attendees = (meetingFile.meeting.invitedRecipients || [])
+      .filter(recipient => !!recipient?.email)
+      .map(recipient => ({email: recipient.email, name: recipient.name}));
     const document = meetingIcalDocument({
       uid: `meeting-${id}@${host}`,
       title: meetingFile.document?.title || meetingFile.meeting.title || "Ramblers meeting",
@@ -96,8 +99,9 @@ export async function meetingCalendarFile(committeeFileId: string, req: Request)
       description: descriptionLines.join("\n") || undefined,
       location: joinLink || venue || undefined,
       url: joinLink || undefined,
-      organiserName: organiser.name,
-      organiserEmail: organiser.email
+      organiserName: meetingFile.meeting.organiserName || fallbackOrganiser.name,
+      organiserEmail: meetingFile.meeting.organiserEmail || fallbackOrganiser.email,
+      attendees
     }, calendarNameFor(config));
     return {document, fileName: `${id}.ics`};
   }

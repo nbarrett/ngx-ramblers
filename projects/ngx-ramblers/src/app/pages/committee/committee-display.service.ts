@@ -20,6 +20,8 @@ import { StringUtilsService } from "../../services/string-utils.service";
 import { UrlService } from "../../services/url.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { committeeDocumentSlug, meetingMinutesDocumentSlug } from "../../functions/committee-documents-page";
+import { MEETING_MINUTES_TEMPLATE_ID } from "../../models/video-meeting.model";
 
 @Injectable({
   providedIn: "root"
@@ -189,9 +191,14 @@ export class CommitteeDisplayService {
   }
 
   committeeFileSlug(committeeFile: CommitteeFile): string {
-    const dateStr = this.dateUtils.asString(committeeFile?.eventDate, undefined, this.dateUtils.formats.displayDateTh);
-    const title = committeeFile?.fileNameData?.title || committeeFile?.document?.title || committeeFile?.fileType || "";
-    return this.stringUtils.kebabCase(title, dateStr).replace(/(\d)-(st|nd|rd|th)(?=-|$)/g, "$1$2");
+    const room = committeeFile?.meeting?.room;
+    if (committeeFile?.document?.templateId === MEETING_MINUTES_TEMPLATE_ID && room) {
+      return meetingMinutesDocumentSlug(room);
+    } else {
+      const dateStr = this.dateUtils.asString(committeeFile?.eventDate, undefined, this.dateUtils.formats.displayDateTh);
+      const title = committeeFile?.fileNameData?.title || committeeFile?.document?.title || committeeFile?.fileType || "";
+      return committeeDocumentSlug(title, dateStr);
+    }
   }
 
   fileTitle(committeeFile: CommitteeFile) {

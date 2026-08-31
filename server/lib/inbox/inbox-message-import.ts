@@ -23,6 +23,7 @@ import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
 import { deliveredToFromMessage } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { applyInboundMeetingCalendarReply } from "../video-meetings/apply-meeting-calendar-reply";
 import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
 import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
 import { isRecordedDeletedInbound } from "./inbox-deleted";
@@ -324,6 +325,15 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   return stored;
 }
 
+async function recordMeetingRsvpFrom(message: InboxMessage): Promise<InboxMessage> {
+  try {
+    await applyInboundMeetingCalendarReply(message);
+  } catch (error) {
+    debugLog(`meeting calendar reply apply failed: ${(error as Error).message}`);
+  }
+  return message;
+}
+
 async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder, internalEmails?: Set<string>): Promise<InboxMessage> {
   const isJunk = folder === InboxThreadFolder.JUNK;
   const now = dateTimeNow().toMillis();
@@ -346,58 +356,64 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
   }
   await backfillStatedReplyAddress(message, internalEmails);
   const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
+  const outcome: {message: InboxMessage | null} = {message: null};
   if (alreadyStored) {
     await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
       $addToSet: {messageIds: message.messageId},
       ...(message.conversationKey ? {$set: {conversationKey: message.conversationKey}} : {})
     });
     debugLog(`↩︎ message ${message.messageId} already stored on thread ${threadId}; preserving read state`);
-    return alreadyStored as unknown as InboxMessage;
-  }
-  const previousLastSeenAt = existingThread?.lastSeenAt ?? null;
-  const refreshUnread = shouldRefreshUnreadForInbound(isJunk, messageAt, previousLastSeenAt);
-  const persistedMessage = await inboxMessageModel.create({...message, threadId, mailboxConnectionId: aliasConfig.mailboxConnectionId});
-  const threadSet: Record<string, unknown> = {};
-  if (refreshUnread) {
-    threadSet.lastDirection = InboxMessageDirection.INBOUND;
-    threadSet.unread = true;
-    threadSet.readByMemberIds = [];
-    const deliveredTo = deliveredToFromMessage(message, aliasConfig);
-    if (deliveredTo) {
-      threadSet.deliveredTo = deliveredTo;
+    outcome.message = isJunk
+      ? alreadyStored as unknown as InboxMessage
+      : await recordMeetingRsvpFrom(alreadyStored as unknown as InboxMessage);
+  } else {
+    const previousLastSeenAt = existingThread?.lastSeenAt ?? null;
+    const refreshUnread = shouldRefreshUnreadForInbound(isJunk, messageAt, previousLastSeenAt);
+    const persistedMessage = await inboxMessageModel.create({...message, threadId, mailboxConnectionId: aliasConfig.mailboxConnectionId});
+    const threadSet: Record<string, unknown> = {};
+    if (refreshUnread) {
+      threadSet.lastDirection = InboxMessageDirection.INBOUND;
+      threadSet.unread = true;
+      threadSet.readByMemberIds = [];
+      const deliveredTo = deliveredToFromMessage(message, aliasConfig);
+      if (deliveredTo) {
+        threadSet.deliveredTo = deliveredTo;
+      }
+    } else if (isJunk) {
+      threadSet.lastDirection = InboxMessageDirection.INBOUND;
     }
-  } else if (isJunk) {
-    threadSet.lastDirection = InboxMessageDirection.INBOUND;
+    if (message.conversationKey) {
+      threadSet.conversationKey = message.conversationKey;
+    }
+    await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
+      ...(keys(threadSet).length > 0 ? {$set: threadSet} : {}),
+      $max: {lastSeenAt: messageAt},
+      $min: {firstSeenAt: messageAt},
+      $addToSet: {messageIds: message.messageId}
+    });
+    if (isJunk) {
+      debugLog(`✅ stored junk message ${message.messageId} on thread ${persistedMessage.threadId}`);
+      outcome.message = persistedMessage.toObject();
+    } else {
+      if (refreshUnread) {
+        const unreadCountForRole = await unreadConversationCountForRole(aliasConfig.roleType, null);
+        const event: InboxNewMessageEvent = {
+          threadId: persistedMessage.threadId,
+          messageId: message.messageId,
+          roleType: aliasConfig.roleType,
+          unreadCountForRole
+        };
+        broadcast(MessageType.INBOX_NEW_MESSAGE, event);
+        notifyAssignedRoleMembers(aliasConfig, message)
+          .catch(notifyError => debugLog(`inbox push notify failed: ${(notifyError as Error).message}`));
+        debugLog(`✅ stored inbound message ${message.messageId} on thread ${persistedMessage.threadId}`);
+      } else {
+        debugLog(`✅ stored older inbound message ${message.messageId} on thread ${persistedMessage.threadId} without changing read state`);
+      }
+      outcome.message = await recordMeetingRsvpFrom(persistedMessage.toObject());
+    }
   }
-  if (message.conversationKey) {
-    threadSet.conversationKey = message.conversationKey;
-  }
-  await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
-    ...(keys(threadSet).length > 0 ? {$set: threadSet} : {}),
-    $max: {lastSeenAt: messageAt},
-    $min: {firstSeenAt: messageAt},
-    $addToSet: {messageIds: message.messageId}
-  });
-  if (isJunk) {
-    debugLog(`✅ stored junk message ${message.messageId} on thread ${persistedMessage.threadId}`);
-    return persistedMessage.toObject();
-  }
-  if (!refreshUnread) {
-    debugLog(`✅ stored older inbound message ${message.messageId} on thread ${persistedMessage.threadId} without changing read state`);
-    return persistedMessage.toObject();
-  }
-  const unreadCountForRole = await unreadConversationCountForRole(aliasConfig.roleType, null);
-  const event: InboxNewMessageEvent = {
-    threadId: persistedMessage.threadId,
-    messageId: message.messageId,
-    roleType: aliasConfig.roleType,
-    unreadCountForRole
-  };
-  broadcast(MessageType.INBOX_NEW_MESSAGE, event);
-  notifyAssignedRoleMembers(aliasConfig, message)
-    .catch(notifyError => debugLog(`inbox push notify failed: ${(notifyError as Error).message}`));
-  debugLog(`✅ stored inbound message ${message.messageId} on thread ${persistedMessage.threadId}`);
-  return persistedMessage.toObject();
+  return outcome.message || message;
 }
 
 async function notifyAssignedRoleMembers(aliasConfig: InboxAliasConfig, message: InboxMessage): Promise<void> {

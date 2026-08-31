@@ -219,18 +219,34 @@ export function parseAuthenticationResults(payload: GmailMessage): MessageAuthen
   return {dmarcPass: passed("dmarc"), dkimPass: passed("dkim"), spfPass: passed("spf")};
 }
 
+export function isGmailCalendarPart(part: GmailMessagePart | null): boolean {
+  if (!part) {
+    return false;
+  } else {
+    const typeHeader = (part.headers ?? []).find(header => (header.name ?? "").toLowerCase() === "content-type");
+    const type = ((typeHeader?.value || part.mimeType || "") as string).toLowerCase();
+    const name = (part.filename || "").toLowerCase();
+    return type.startsWith(GmailMimeType.CALENDAR) || type.includes("calendar") || name.endsWith(".ics");
+  }
+}
+
 function collectAttachmentRefs(part: GmailMessagePart | null): GmailAttachmentRef[] {
   if (!part) {
     return [];
   }
   const contentId = contentIdOf(part);
-  const downloadable = Boolean(part.body?.attachmentId) && (isAttachment(part) || !!contentId);
-  const direct: GmailAttachmentRef[] = downloadable
+  const calendar = isGmailCalendarPart(part);
+  const attachmentId = part.body?.attachmentId || "";
+  const inlineData = !attachmentId && calendar ? (part.body?.data || null) : null;
+  const downloadable = Boolean(attachmentId) && (isAttachment(part) || !!contentId || calendar);
+  const inline = Boolean(inlineData);
+  const direct: GmailAttachmentRef[] = (downloadable || inline)
     ? [{
-      filename: part.filename ?? "",
-      contentType: part.mimeType ?? "application/octet-stream",
+      filename: part.filename || (calendar ? "invite.ics" : ""),
+      contentType: part.mimeType || "application/octet-stream",
       sizeBytes: part.body?.size ?? 0,
-      attachmentId: part.body.attachmentId,
+      attachmentId,
+      inlineData,
       contentId
     }]
     : [];
@@ -253,17 +269,26 @@ async function downloadAttachmentsToS3(connection: InboxMailboxConnection, gmail
 }
 
 async function downloadAttachmentToS3(connection: InboxMailboxConnection, gmailMessageId: string, ref: GmailAttachmentRef): Promise<InboxAttachment> {
-  const metadataOnly: InboxAttachment = {filename: ref.filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes, s3Key: "", contentId: ref.contentId};
+  const filename = ref.filename || (ref.attachmentId ? `attachment-${ref.attachmentId}` : "invite.ics");
+  const metadataOnly: InboxAttachment = {filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes, s3Key: "", contentId: ref.contentId};
   try {
-    const attachment = await gmailRequest<GmailAttachment>(connection, GMAIL_DYNAMIC_ENDPOINTS.ATTACHMENT(gmailMessageId, ref.attachmentId));
-    const data = attachment.data;
-    if (!data) {
+    if (ref.inlineData) {
+      const buffer = Buffer.from(ref.inlineData, "base64url");
+      return storeInboxAttachmentBuffer(filename, ref.contentType, buffer, ref.contentId, ref.sizeBytes || buffer.length);
+    } else if (!ref.attachmentId) {
       return metadataOnly;
+    } else {
+      const attachment = await gmailRequest<GmailAttachment>(connection, GMAIL_DYNAMIC_ENDPOINTS.ATTACHMENT(gmailMessageId, ref.attachmentId));
+      const data = attachment.data;
+      if (!data) {
+        return metadataOnly;
+      } else {
+        const buffer = Buffer.from(data, "base64url");
+        return storeInboxAttachmentBuffer(filename, ref.contentType, buffer, ref.contentId, ref.sizeBytes || buffer.length);
+      }
     }
-    const buffer = Buffer.from(data, "base64url");
-    return storeInboxAttachmentBuffer(ref.filename || `attachment-${ref.attachmentId}`, ref.contentType, buffer, ref.contentId, ref.sizeBytes || buffer.length);
   } catch (error) {
-    debugLog("attachment download failed for", ref.filename, "->", (error as Error).message);
+    debugLog("attachment download failed for", filename, "->", (error as Error).message);
     return metadataOnly;
   }
 }
@@ -408,8 +433,9 @@ function decodePartBody(part: GmailMessagePart): string | null {
 function isAttachment(part: GmailMessagePart): boolean {
   if (part.mimeType === GmailMimeType.HTML || part.mimeType === GmailMimeType.PLAIN || part.mimeType?.startsWith(GmailMimePrefix.MULTIPART)) {
     return false;
+  } else {
+    return Boolean((part.filename && part.filename.length > 0) || isGmailCalendarPart(part));
   }
-  return Boolean(part.filename && part.filename.length > 0);
 }
 
 function attachmentFor(part: GmailMessagePart): InboxAttachment {

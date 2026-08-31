@@ -16,6 +16,11 @@
   border-radius: .25rem
   transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out
 
+a.btn
+  display: inline-flex
+  align-items: center
+  justify-content: center
+
 .btn.btn-icon
   display: inline-flex
   align-items: center
@@ -138,13 +143,13 @@
   border: 1px solid $ramblers-colour-grey
 
 
-.btn-quiet.focus, .btn-quiet:focus, .btn-quiet:hover
+.btn-quiet:not(:disabled):not(.disabled).focus, .btn-quiet:not(:disabled):not(.disabled):focus, .btn-quiet:not(:disabled):not(.disabled):hover
   color: $ramblers-colour-black
   background-color: $ramblers-colour-sunrise
   border-color: $ramblers-colour-sunrise
 
 
-.btn-quiet.focus, .btn-quiet:focus
+.btn-quiet:not(:disabled):not(.disabled).focus, .btn-quiet:not(:disabled):not(.disabled):focus
   box-shadow: 0 0 0 .2rem rgba(249, 177, 4, .35)
 
 
@@ -152,7 +157,8 @@
   color: $ramblers-colour-black
   background-color: $ramblers-colour-grey
   border-color: $ramblers-colour-grey
-  opacity: 1
+  opacity: .5
+  cursor: not-allowed
 
 
 .btn-quiet:not(:disabled):not(.disabled).active, .btn-quiet:not(:disabled):not(.disabled):active, .show > .btn-quiet.dropdown-toggle

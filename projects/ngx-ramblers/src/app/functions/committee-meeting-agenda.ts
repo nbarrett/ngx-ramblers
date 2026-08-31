@@ -1,3 +1,50 @@
+import { CommitteeMeetingFormat } from "../models/committee.model";
+
+export function committeeMeetingLocationLine(format: CommitteeMeetingFormat, venue: string): string {
+  if (format === CommitteeMeetingFormat.ONLINE) {
+    return "Online";
+  } else if (format === CommitteeMeetingFormat.HYBRID) {
+    return venue ? `Online, and in person at ${venue}` : "Online and in person";
+  } else {
+    return venue || "In person";
+  }
+}
+
+export function committeeMeetingHeading(title: string, typeDescription?: string | null): string {
+  if (typeDescription?.trim()) {
+    return typeDescription.trim();
+  } else {
+    return (title || "").split(",")[0].trim() || "Committee meeting";
+  }
+}
+
+export function committeeMeetingMinutesMarkdown(input: {
+  heading: string;
+  dateLine: string;
+  location: string;
+  bodyMarkdown: string;
+}): string {
+  const body = committeeMeetingMinutesBody(input.bodyMarkdown);
+  return [
+    `# ${input.heading}`,
+    "",
+    "## Minutes",
+    "",
+    `**Date:** ${input.dateLine}`,
+    "",
+    `**Location:** ${input.location}`,
+    "",
+    body,
+    ""
+  ].join("\n");
+}
+
+export function committeeMeetingMinutesBody(markdown: string): string {
+  return (markdown || "")
+    .replace(/^# [^\n]+\n+(?:## Minutes\n+)?(?:\*\*Date:\*\*.*\n+)?(?:\*\*Location:\*\*.*\n+)*/, "")
+    .trim();
+}
+
 export function committeeMeetingAgendaMarkdown(input: {
   heading: string;
   dateLine: string;
