@@ -107,6 +107,9 @@ const memberSchema = new mongoose.Schema({
   landlineTelephone: {type: String},
   emailMarketingConsent: {type: Boolean},
   emailPermissionLastUpdated: {type: Number},
+  photoVideoOptOut: {type: Boolean},
+  photoVideoOptOutLastUpdated: {type: Number},
+  photoVideoOptOutLastUpdatedBy: {type: String},
   emailBlock: {
     reasonCode: {type: String},
     reasonMessage: {type: String},

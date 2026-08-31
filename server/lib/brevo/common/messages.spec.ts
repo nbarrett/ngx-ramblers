@@ -415,6 +415,16 @@ describe("brevo messages", () => {
       expect(result).not.toContain("%7B%7B");
     });
 
+    it("renders photographs-and-video with the preference page and password reset link", () => {
+      const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
+      const result = renderLocalBrandedTemplate("photographs-and-video", paramsWith(passwordResetLink));
+      expect(result).toContain("https://example.org.uk/admin/profile/photos-and-video");
+      expect(result).toContain(`${passwordResetLink}?redirect=/admin/profile/photos-and-video`);
+      expect(result).toContain("never logged in");
+      expect(result).not.toContain("{% block");
+      expect(result).not.toContain("%7B%7B");
+    });
+
     it("renders the externally supplied body for fully-automated-text-body (the booking shell)", () => {
       const bodyContent = "<p>Your booking for the Wye Downs walk is confirmed.</p>";
       const result = renderLocalBrandedTemplate("fully-automated-text-body", paramsWith("", bodyContent));

@@ -324,6 +324,14 @@ export const ADMIN_CATEGORY_MENU_ITEMS: ActionButtonColumn[] = [
   }
 ];
 
+export const PHOTO_VIDEO_OPT_OUT_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "loggedInMember",
+  title: "Photos and video",
+  icon: "faCamera",
+  href: AdminProfilePath.PHOTOS_AND_VIDEO,
+  contentText: "Opt out of identifiable photographs and video used for group publicity"
+};
+
 export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "loggedInMember",
@@ -346,6 +354,7 @@ export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [
     href: AdminProfilePath.EMAIL_SUBSCRIPTIONS,
     contentText: "Subscribe to or unsubscribe from your group's mailing lists for walks, social and general comms"
   },
+  PHOTO_VIDEO_OPT_OUT_MENU_ITEM,
   {
     accessLevel: "loggedInMember",
     title: "Expenses",

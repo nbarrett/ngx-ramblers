@@ -12,6 +12,7 @@ import { Member, MemberBulkLoadAudit } from "../../../models/member.model";
 import {
   ASCENDING,
   DESCENDING,
+  ALL_MEMBERS_FILTER_TITLE,
   MEMBER_SORT,
   MemberTableFilter,
   NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD,
@@ -204,10 +205,10 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private generateFilters() {
     const filter1: TableFilterItem[] = [
       {
-        title: "Active Group Member", group: "Group Settings", filter: this.memberService.filterFor.GROUP_MEMBERS
+        title: ALL_MEMBERS_FILTER_TITLE, filter: SELECT_ALL
       },
       {
-        title: "All Members", filter: SELECT_ALL
+        title: "Active Group Member", group: "Group Settings", filter: this.memberService.filterFor.GROUP_MEMBERS
       },
       {
         title: "Active Social Member", group: "Group Settings", filter: this.memberService.filterFor.SOCIAL_MEMBERS
@@ -261,6 +262,11 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       },
       {
         title: "Password Expired", group: "Other Settings", filter: (member: Member) => member.expiredPassword
+      },
+      {
+        title: "Opted out of photographs and video",
+        group: "Other Settings",
+        filter: (member: Member) => member.photoVideoOptOut
       },
       {
         title: "Walk Admin", group: "Administrators", filter: (member: Member) => member.walkAdmin
@@ -517,7 +523,21 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     void this.showMemberDialog(member, EditMode.EDIT);
   }
 
-  refreshMembers(memberFilter?: any) {
+  onFilterChange(memberFilter: TableFilterItem) {
+    this.memberFilter.selectedFilter = memberFilter || this.allMembersFilter();
+    this.refreshMembers();
+  }
+
+  filterIsActive(): boolean {
+    return this.memberFilter?.selectedFilter?.title !== ALL_MEMBERS_FILTER_TITLE;
+  }
+
+  private allMembersFilter(): TableFilterItem {
+    return this.memberFilter.availableFilters.find(filter => filter.title === ALL_MEMBERS_FILTER_TITLE)
+      ?? this.memberFilter.availableFilters[0];
+  }
+
+  refreshMembers(memberFilter?: TableFilterItem) {
     if (memberFilter) {
       this.memberFilter.selectedFilter = memberFilter;
     }

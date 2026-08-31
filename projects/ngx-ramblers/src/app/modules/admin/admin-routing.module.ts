@@ -53,6 +53,12 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, LoggedInGuard, contactUsGuard]
     },
     {
+      path: rp(AdminProfilePath.PHOTOS_AND_VIDEO),
+      loadComponent: () => import("../../pages/admin/profile/photos-and-video.component")
+        .then(m => m.PhotosAndVideoComponent),
+      canActivate: [SystemHealthyGuard, LoggedInGuard, contactUsGuard]
+    },
+    {
       path: rp(AdminProfilePath.EXPENSES) + "/:expense-id",
       loadComponent: () => import("../../pages/admin/expenses/expenses.component")
         .then(m => m.ExpensesComponent), canActivate: [SystemHealthyGuard, LoggedInGuard]
@@ -69,6 +75,7 @@ const rp = adminRelativePath;
     { path: "contact-details", redirectTo: rp(AdminProfilePath.CONTACT_DETAILS), pathMatch: "full" },
     { path: "change-password", redirectTo: rp(AdminProfilePath.CHANGE_PASSWORD), pathMatch: "full" },
     { path: "email-subscriptions", redirectTo: rp(AdminProfilePath.EMAIL_SUBSCRIPTIONS), pathMatch: "full" },
+    { path: "photos-and-video", redirectTo: rp(AdminProfilePath.PHOTOS_AND_VIDEO), pathMatch: "full" },
     { path: "expenses/:expense-id", redirectTo: rp(AdminProfilePath.EXPENSES) + "/:expense-id", pathMatch: "full" },
     { path: "expenses", redirectTo: rp(AdminProfilePath.EXPENSES), pathMatch: "full" },
 

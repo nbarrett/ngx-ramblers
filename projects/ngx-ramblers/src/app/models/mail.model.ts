@@ -368,6 +368,8 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
 };
 
 export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
+export const PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT = "Photographs and video";
+export const PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME = "photographs-and-video";
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {
   request: any;
@@ -681,6 +683,25 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     replyToRole: "walks",
     signOffRoles: ["walks"],
     bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT,
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
+    },
+    preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
+    senderRole: "membership",
+    replyToRole: "membership",
+    signOffRoles: ["membership"],
+    bannerId: null,
+    omitComposeStep: true,
+    omitEventsStep: true,
+    templateName: PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME
   },
   {
     subject: {

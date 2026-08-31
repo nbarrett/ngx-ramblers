@@ -45,4 +45,12 @@ export class ProfileConfirmationService {
       }
     }
   }
+
+  recordPhotoVideoOptOutChange(member: Member) {
+    if (member) {
+      member.photoVideoOptOutLastUpdated = this.dateUtils.nowAsValue();
+      member.photoVideoOptOutLastUpdatedBy = this.fullName.transform(this.memberLoginService.loggedInMember());
+      this.logger.debug("recordPhotoVideoOptOutChange:", member);
+    }
+  }
 }

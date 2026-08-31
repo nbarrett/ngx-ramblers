@@ -109,6 +109,7 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterView
   public userName: string;
   public invalidPasswordLink: boolean;
   public message: string;
+  public redirect: string = null;
   public group: Organisation;
 
   ngOnInit() {
@@ -162,6 +163,15 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterView
     return this.urlService.navigateTo([]);
   }
 
+  private continueAfterAuth() {
+    this.bsModalRef.hide();
+    if (this.redirect) {
+      this.urlService.navigateAfterLogin(this.redirect);
+    } else {
+      this.urlService.navigateTo([]);
+    }
+  }
+
   resetPassword() {
     this.notify.showContactUs(false);
     this.notify.setBusy();
@@ -173,6 +183,7 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterView
       .then((response) => {
         this.logger.debug("response:", response);
         if (response?.memberLoggedIn) {
+          this.continueAfterAuth();
           if (!this.memberLoginService.loggedInMember().profileSettingsConfirmed) {
             this.modalService.show(MailingPreferencesModalComponent, {
               class: "modal-xl",
@@ -182,9 +193,6 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterView
                 memberId: this.memberLoginService.loggedInMember().memberId
               }
             });
-            this.bsModalRef.hide();
-          } else {
-            return this.close();
           }
         } else if (response?.showResetPassword) {
           this.notify.showContactUs(true);
