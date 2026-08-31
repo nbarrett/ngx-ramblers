@@ -12,8 +12,10 @@ import {
   RecipientFieldConfig
 } from "../../../models/email-composer.model";
 import { ExternalRecipient } from "../../../models/external-recipient.model";
+import { Member } from "../../../models/member.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
+import { memberDisambiguatedLabel } from "../../../functions/member-names";
 
 @Component({
   selector: "app-recipient-field",
@@ -143,20 +145,40 @@ import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } fr
             }
             @if (showSuggestions(field.key)) {
               <ul class="recipient-suggestions" [class.is-above]="suggestionsAbove" (mousedown)="$event.preventDefault()">
-                <li class="recipient-suggestions-heading">Previously saved</li>
-                @for (suggestion of suggestions(field.key); track suggestion.id || suggestion.email; let i = $index) {
-                  <li>
-                    <button type="button" class="recipient-suggestion"
-                            [class.is-active]="activeSuggestionIndex === i"
-                            (mouseenter)="activeSuggestionIndex = i"
-                            (click)="chooseSuggestion(field.key, suggestion)">
-                      <span class="recipient-suggestion-main">
-                        <strong>{{ suggestion.name || suggestion.email }}</strong>
-                        @if (suggestion.name) { <span class="recipient-suggestion-email">{{ suggestion.email }}</span> }
-                      </span>
-                      <span class="recipient-suggestion-meta">{{ lastUsedDescription(suggestion) }}</span>
-                    </button>
-                  </li>
+                @if (memberSuggestions(field.key).length) {
+                  <li class="recipient-suggestions-heading">Group members</li>
+                  @for (suggestion of memberSuggestions(field.key); track suggestion.email) {
+                    <li>
+                      <button type="button" class="recipient-suggestion"
+                              [class.is-active]="activeSuggestionIndex === suggestionIndex(field.key, suggestion.email)"
+                              (mouseenter)="activeSuggestionIndex = suggestionIndex(field.key, suggestion.email)"
+                              (click)="chooseSuggestion(field.key, suggestion)">
+                        <span class="recipient-suggestion-main">
+                          <strong>{{ suggestion.name || suggestion.email }}</strong>
+                          @if (suggestion.name) { <span class="recipient-suggestion-email">{{ suggestion.email }}</span> }
+                        </span>
+                      </button>
+                    </li>
+                  }
+                }
+                @if (savedSuggestions(field.key).length) {
+                  <li class="recipient-suggestions-heading">Previously saved</li>
+                  @for (suggestion of savedSuggestions(field.key); track suggestion.id || suggestion.email) {
+                    <li>
+                      <button type="button" class="recipient-suggestion"
+                              [class.is-active]="activeSuggestionIndex === suggestionIndex(field.key, suggestion.email)"
+                              (mouseenter)="activeSuggestionIndex = suggestionIndex(field.key, suggestion.email)"
+                              (click)="chooseSuggestion(field.key, suggestion)">
+                        <span class="recipient-suggestion-main">
+                          <strong>{{ suggestion.name || suggestion.email }}</strong>
+                          @if (suggestion.name) { <span class="recipient-suggestion-email">{{ suggestion.email }}</span> }
+                        </span>
+                        @if (lastUsedDescription(suggestion); as used) {
+                          <span class="recipient-suggestion-meta">{{ used }}</span>
+                        }
+                      </button>
+                    </li>
+                  }
                 }
               </ul>
             }
@@ -190,6 +212,7 @@ export class RecipientFieldComponent {
   @Input() cc: ComposerExternalRecipient[] = [];
   @Input() bcc: ComposerExternalRecipient[] = [];
   @Input() savedRecipients: ExternalRecipient[] = [];
+  @Input() members: Member[] = [];
   @Input() saveForReuse = true;
   plain = false;
 
@@ -259,7 +282,7 @@ export class RecipientFieldComponent {
   }
 
   protected add(field: RecipientField): void {
-    const outcome = interpretRecipientDraft(this.draft[field], this.savedRecipients);
+    const outcome = interpretRecipientDraft(this.draft[field], this.nameDirectory());
     if (outcome.kind === RecipientDraftOutcomeKind.EMPTY) {
       this.error[field] = "Enter an email address";
     } else if (outcome.kind === RecipientDraftOutcomeKind.INVALID) {
@@ -466,7 +489,7 @@ export class RecipientFieldComponent {
   private placeSuggestions(): void {
     const list = this.host.nativeElement.querySelector(".recipient-suggestions") as HTMLElement | null;
     const line = this.host.nativeElement.querySelector(".recipient-line.is-active") as HTMLElement | null;
-    const clip = line?.closest(".draggable-modal-body, .modal-body") as HTMLElement | null;
+    const clip = line?.closest(".draggable-modal-body, .modal-body, .meeting-dialog") as HTMLElement | null;
     if (!list || !line) {
       this.suggestionsAbove = false;
     } else {
@@ -515,19 +538,31 @@ export class RecipientFieldComponent {
     this.activeSuggestionIndex = -1;
   }
 
-  protected suggestions(field: RecipientField): ExternalRecipient[] {
-    const query = (this.draft[field] || "").trim().toLowerCase();
-    const chosen = new Set([...this.to, ...this.cc, ...this.bcc].map(item => item.email.toLowerCase()));
-    return this.savedRecipients
-      .filter(item => !chosen.has(item.email.toLowerCase()))
-      .filter(item => !query
-        || item.email.toLowerCase().includes(query)
-        || (item.name || "").toLowerCase().includes(query))
-      .slice(0, 6);
+  protected memberSuggestions(field: RecipientField): ComposerExternalRecipient[] {
+    return this.matchingSuggestions(field, this.memberEntries());
   }
 
-  protected chooseSuggestion(field: RecipientField, recipient: ExternalRecipient): void {
-    const entry: ComposerExternalRecipient = { email: recipient.email, name: recipient.name, existingId: recipient.id, saveForReuse: false };
+  protected savedSuggestions(field: RecipientField): ExternalRecipient[] {
+    const memberEmails = new Set(this.memberEntries().map(item => item.email.toLowerCase()));
+    return this.matchingSuggestions(field, this.savedRecipients.filter(item => !memberEmails.has(item.email.toLowerCase())));
+  }
+
+  protected suggestions(field: RecipientField): ComposerExternalRecipient[] {
+    return [...this.memberSuggestions(field), ...this.savedSuggestions(field)];
+  }
+
+  protected suggestionIndex(field: RecipientField, email: string): number {
+    return this.suggestions(field).findIndex(item => item.email.toLowerCase() === email.toLowerCase());
+  }
+
+  protected chooseSuggestion(field: RecipientField, recipient: ComposerExternalRecipient): void {
+    const saved = this.savedRecipients.find(item => item.email.toLowerCase() === recipient.email.toLowerCase());
+    const entry: ComposerExternalRecipient = {
+      email: recipient.email,
+      name: recipient.name,
+      existingId: saved?.id,
+      saveForReuse: false
+    };
     if (!this.valueFor(field).some(item => item.email.toLowerCase() === entry.email.toLowerCase())) {
       this.emit(field, [...this.valueFor(field), entry]);
     }
@@ -543,6 +578,32 @@ export class RecipientFieldComponent {
 
   protected lastUsedDescription(recipient: ExternalRecipient): string {
     return recipient.lastUsedAt ? `Last sent ${this.dateUtils.displayDate(recipient.lastUsedAt)}` : "Not sent yet";
+  }
+
+  private matchingSuggestions<T extends {email: string; name?: string}>(field: RecipientField, source: T[]): T[] {
+    const query = (this.draft[field] || "").trim().toLowerCase();
+    const chosen = new Set([...this.to, ...this.cc, ...this.bcc].map(item => item.email.toLowerCase()));
+    return source
+      .filter(item => !chosen.has(item.email.toLowerCase()))
+      .filter(item => !query
+        || item.email.toLowerCase().includes(query)
+        || (item.name || "").toLowerCase().includes(query))
+      .slice(0, 6);
+  }
+
+  private memberEntries(): ComposerExternalRecipient[] {
+    return (this.members || []).reduce((list: ComposerExternalRecipient[], member) => {
+      const email = (member.email || "").trim();
+      if (!email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
+        return list;
+      } else {
+        return [...list, {email, name: memberDisambiguatedLabel(member)}];
+      }
+    }, []);
+  }
+
+  private nameDirectory(): {name?: string; email: string}[] {
+    return [...this.memberEntries(), ...this.savedRecipients];
   }
 
   protected onDragStart(field: RecipientField, recipient: ComposerExternalRecipient): void {
@@ -589,10 +650,13 @@ export class RecipientFieldComponent {
   private entryFor(parsed: ParsedMailbox): ComposerExternalRecipient {
     const email = parsed.email.toLowerCase();
     const matched = this.savedRecipients.find(item => item.email.toLowerCase() === email);
-    const name = parsed.name || matched?.name || this.nameFromEmail(email);
-    return matched
-      ? {email: matched.email, name: name || undefined, existingId: matched.id, saveForReuse: false}
-      : {email, name: name || undefined, saveForReuse: this.reuseNewAddresses()};
+    const member = this.memberEntries().find(item => item.email.toLowerCase() === email);
+    const name = parsed.name || matched?.name || member?.name || this.nameFromEmail(email);
+    if (matched) {
+      return {email: matched.email, name: name || undefined, existingId: matched.id, saveForReuse: false};
+    } else {
+      return {email, name: name || undefined, saveForReuse: member ? false : this.reuseNewAddresses()};
+    }
   }
 
   private nameFromEmail(email: string): string {

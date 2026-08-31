@@ -1,4 +1,82 @@
-import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated, withCommitteeMeetingDateLine, withCommitteeMeetingLink, withCommitteeMeetingLocationLine } from "./committee-meeting-agenda";
+import { describe, expect, it } from "vitest";
+import { CommitteeMeetingFormat } from "../models/committee.model";
+import {
+  committeeMeetingAgendaMarkdown,
+  committeeMeetingHeading,
+  committeeMeetingLocationLine,
+  committeeMeetingMinutesBody,
+  committeeMeetingMinutesMarkdown,
+  numberedAgendaItemsFromGenerated,
+  withCommitteeMeetingDateLine,
+  withCommitteeMeetingLink,
+  withCommitteeMeetingLocationLine
+} from "./committee-meeting-agenda";
+
+describe("committeeMeetingLocationLine", () => {
+
+  it("describes online, hybrid and in-person meetings", () => {
+    expect(committeeMeetingLocationLine(CommitteeMeetingFormat.ONLINE, "")).toEqual("Online");
+    expect(committeeMeetingLocationLine(CommitteeMeetingFormat.HYBRID, "Village Hall")).toEqual("Online, and in person at Village Hall");
+    expect(committeeMeetingLocationLine(CommitteeMeetingFormat.IN_PERSON, "Village Hall")).toEqual("Village Hall");
+  });
+
+});
+
+describe("committeeMeetingHeading", () => {
+
+  it("prefers the meeting type and otherwise uses the title before the date", () => {
+    expect(committeeMeetingHeading("Committee Meeting, Sunday 30 August 2026", "Committee Meeting")).toEqual("Committee Meeting");
+    expect(committeeMeetingHeading("Video call, Sunday 30 August 2026", null)).toEqual("Video call");
+  });
+
+});
+
+describe("committeeMeetingMinutesMarkdown", () => {
+
+  it("wraps the written-up body in the same date and location header as an agenda", () => {
+    expect(committeeMeetingMinutesMarkdown({
+      heading: "Committee Meeting",
+      dateLine: "Sunday 30 August 2026, 9:07 pm - 9:11 pm",
+      location: "Online",
+      bodyMarkdown: "## Discussion\n- The react button does not work."
+    })).toEqual([
+      "# Committee Meeting",
+      "",
+      "## Minutes",
+      "",
+      "**Date:** Sunday 30 August 2026, 9:07 pm - 9:11 pm",
+      "",
+      "**Location:** Online",
+      "",
+      "## Discussion",
+      "- The react button does not work.",
+      ""
+    ].join("\n"));
+  });
+
+  it("does not wrap an already headed minutes document a second time", () => {
+    const first = committeeMeetingMinutesMarkdown({
+      heading: "Committee Meeting",
+      dateLine: "Sunday 30 August 2026, 9:07 pm - 9:11 pm",
+      location: "Online",
+      bodyMarkdown: "## Discussion\n- One"
+    });
+    expect(committeeMeetingMinutesBody(first)).toEqual("## Discussion\n- One");
+    expect(committeeMeetingMinutesMarkdown({
+      heading: "Committee Meeting",
+      dateLine: "Sunday 30 August 2026, 9:20 pm - 9:30 pm",
+      location: "Online",
+      bodyMarkdown: first
+    })).toContain("**Date:** Sunday 30 August 2026, 9:20 pm - 9:30 pm");
+    expect(committeeMeetingMinutesMarkdown({
+      heading: "Committee Meeting",
+      dateLine: "Sunday 30 August 2026, 9:20 pm - 9:30 pm",
+      location: "Online",
+      bodyMarkdown: first
+    })).not.toContain("9:07 pm");
+  });
+
+});
 
 describe("committeeMeetingAgendaMarkdown", () => {
 

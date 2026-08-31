@@ -4,7 +4,7 @@ import { DOCUMENT } from "@angular/common";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faArrowLeft, faDownload, faPrint, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faDownload, faFileLines, faPrint, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CommitteeFile } from "../../../models/committee.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -15,6 +15,10 @@ import { CommitteeDisplayService } from "../committee-display.service";
 import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { CommitteeDocumentView } from "./committee-document-view";
 import { PageComponent } from "../../../page/page.component";
+import { AlertPanelComponent } from "../../../modules/common/alert-panel/alert-panel";
+import { VideoMeetingsService } from "../../../services/video-meetings/video-meetings.service";
+import { MEETING_MINUTES_TEMPLATE_ID } from "../../../models/video-meeting.model";
+import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
 
 const PRINT_MODE_BODY_CLASS = "committee-document-print-mode";
 
@@ -35,6 +39,25 @@ const PRINT_MODE_BODY_CLASS = "committee-document-print-mode";
             </button>
           </div>
           <app-committee-document-view [committeeFile]="committeeFile"/>
+          @if (hasCallTranscript) {
+            <div class="mt-4 d-print-none">
+              <button type="button" class="btn btn-quiet mb-3" (click)="toggleTranscript()">
+                <fa-icon [icon]="faFileLines" class="me-2"/>
+                {{ showTranscript ? "Hide call transcript" : "Show call transcript" }}
+              </button>
+              @if (showTranscript) {
+                <app-thumbnail-heading-frame heading="Call transcript">
+                  @if (transcriptLoading) {
+                    <p>Loading…</p>
+                  } @else if (transcript) {
+                    <pre class="committee-call-transcript mb-0">{{ transcript }}</pre>
+                  } @else {
+                    <p class="text-muted mb-0">Nothing was recorded for this meeting.</p>
+                  }
+                </app-thumbnail-heading-frame>
+              }
+            </div>
+          }
         } @else {
           <div class="d-flex justify-content-between gap-2 mb-3">
             <button type="button" class="btn btn-secondary btn-sm" (click)="navigateBack()">
@@ -60,19 +83,25 @@ const PRINT_MODE_BODY_CLASS = "committee-document-print-mode";
                       [title]="pageTitle()"></iframe>
             }
           } @else {
-            <div class="alert alert-warning">
-              <strong>Preview not available: </strong>this file type cannot be shown in the browser - use the
-              Download button above to open it.
-            </div>
+            <app-alert-panel title="Preview not available">
+              This file type cannot be shown in the browser - use the Download button above to open it.
+            </app-alert-panel>
           }
         }
       } @else if (notFound) {
-        <div class="alert alert-warning">
-          <strong>Document not available: </strong>this document does not exist or you do not have access to view it.
-        </div>
+        <app-alert-panel title="Document not available">
+          This document does not exist or you do not have access to view it.
+        </app-alert-panel>
       }
     </app-page>`,
-  imports: [PageComponent, CommitteeDocumentView, FontAwesomeModule]
+  imports: [PageComponent, CommitteeDocumentView, FontAwesomeModule, AlertPanelComponent, ThumbnailHeadingFrameComponent],
+  styles: [`
+    .committee-call-transcript
+      white-space: pre-wrap
+      font-family: inherit
+      font-size: 0.95rem
+      line-height: 1.5
+  `]
 })
 export class CommitteeDocumentPage implements OnInit, OnDestroy {
 
@@ -85,6 +114,7 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   private sanitizer = inject(DomSanitizer);
   private committeeFileService = inject(CommitteeFileService);
   private memberLoginService = inject(MemberLoginService);
+  private videoMeetingsService = inject(VideoMeetingsService);
   display = inject(CommitteeDisplayService);
   private subscriptions: Subscription[] = [];
   private committeeReferenceData: CommitteeReferenceData;
@@ -97,10 +127,43 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   private mobileViewportQuery = window.matchMedia("(max-width: 767.98px)");
   private mobileViewportListener = (event: MediaQueryListEvent) => this.zone.run(() => this.mobileViewport = event.matches);
+  public showTranscript = false;
+  public transcript = "";
+  public transcriptLoading = false;
   protected readonly faPrint = faPrint;
   protected readonly faDownload = faDownload;
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faUpRightFromSquare = faUpRightFromSquare;
+  protected readonly faFileLines = faFileLines;
+
+  get hasCallTranscript(): boolean {
+    return this.committeeFile?.document?.templateId === MEETING_MINUTES_TEMPLATE_ID
+      && !!this.committeeFile?.meeting?.room;
+  }
+
+  toggleTranscript(): void {
+    this.showTranscript = !this.showTranscript;
+    if (this.showTranscript && !this.transcript && !this.transcriptLoading) {
+      void this.loadTranscript();
+    }
+  }
+
+  private async loadTranscript(): Promise<void> {
+    const room = this.committeeFile?.meeting?.room;
+    if (!room) {
+      this.transcript = "";
+    } else {
+      this.transcriptLoading = true;
+      try {
+        const response = await this.videoMeetingsService.transcriptForRoom(room);
+        this.transcript = response?.transcript || "";
+      } catch (error) {
+        this.logger.error("failed to load call transcript", room, error);
+        this.transcript = "";
+      }
+      this.transcriptLoading = false;
+    }
+  }
 
   ngOnInit(): void {
     this.mobileViewport = this.mobileViewportQuery.matches;
@@ -139,6 +202,8 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
           && this.display.committeeFileSlug(candidate) === slug);
         if (committeeFile) {
           this.committeeFile = committeeFile;
+          this.showTranscript = false;
+          this.transcript = "";
           this.notFound = false;
           if (!this.display.isComposedDocument(committeeFile) && this.display.canViewInBrowser(committeeFile)) {
             this.embedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.display.attachmentEmbedUrl(committeeFile));

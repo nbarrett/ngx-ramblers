@@ -27,8 +27,15 @@ const committeeFileSchema = new mongoose.Schema({
     invitedMemberIds: { type: [String] },
     invitedRecipients: { type: [{ email: String, name: String }] },
     invitedListId: { type: Number },
+    rsvps: { type: [{ email: String, name: String, status: String, respondedAt: Number }] },
+    organiserEmail: { type: String },
+    organiserName: { type: String },
     createdBy: { type: String },
     createdByName: { type: String },
+    minutesEmailedAt: { type: Number },
+    startedAt: { type: Number },
+    endedAt: { type: Number },
+    committeePagePath: { type: String },
   }
 }, { collection: "committeeFiles" });
 

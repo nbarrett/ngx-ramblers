@@ -11,8 +11,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 
-const A4_HEIGHT_TO_WIDTH = 297 / 210;
-
 @Component({
   selector: "app-committee-document-view",
   template: `
@@ -290,68 +288,42 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
     this.contentBlocks = [...(titleBlock ? [titleBlock as HTMLElement] : []), ...markdownBlocks];
   }
 
-  private blockCost(block: HTMLElement): number {
-    const style = window.getComputedStyle(block);
-    return block.offsetHeight + parseFloat(style.marginTop || "0") + parseFloat(style.marginBottom || "0");
-  }
-
   private paginate(): void {
     const host = this.pagesHost?.nativeElement;
     if (!host || !this.masterContent?.nativeElement || !this.committeeFile?.document) {
       return;
     }
     this.collectBlocks();
-    const sheetWidth = host.clientWidth;
-    if (sheetWidth === 0 || this.contentBlocks.length === 0) {
-      return;
-    }
-    const continuousLayout = window.matchMedia("(max-width: 767.98px)").matches;
-    const pageHeight = Math.round(sheetWidth * A4_HEIGHT_TO_WIDTH);
-    const headerHeight = this.masterHeader.nativeElement.offsetHeight;
-    const footerHeight = this.masterFooter.nativeElement.offsetHeight;
-    const breathingSpace = Math.round(sheetWidth * 0.05);
-    const contentCapacity = pageHeight - headerHeight - footerHeight - breathingSpace;
-    const distribution = continuousLayout
-      ? {pages: [this.contentBlocks.filter(block => !block.classList?.contains("committee-document-page-break"))], used: 0}
-      : this.contentBlocks.reduce((accumulated: { pages: HTMLElement[][]; used: number }, block) => {
-        const current = accumulated.pages[accumulated.pages.length - 1];
+    if (this.contentBlocks.length > 0) {
+      const pages = this.contentBlocks.reduce((accumulated: HTMLElement[][], block) => {
+        const currentPage = accumulated[accumulated.length - 1];
         if (block.classList?.contains("committee-document-page-break")) {
-          if (current.length > 0) {
-            accumulated.pages.push([]);
-            accumulated.used = 0;
+          if (currentPage.length > 0) {
+            accumulated.push([]);
           }
         } else {
-          const cost = this.blockCost(block);
-          if (current.length > 0 && accumulated.used + cost > contentCapacity) {
-            accumulated.pages.push([block]);
-            accumulated.used = cost;
-          } else {
-            current.push(block);
-            accumulated.used += cost;
-          }
+          currentPage.push(block);
         }
         return accumulated;
-      }, {pages: [[]], used: 0});
-    if (distribution.pages[distribution.pages.length - 1].length === 0) {
-      distribution.pages.pop();
-    }
-    host.innerHTML = "";
-    distribution.pages.forEach(blocks => {
-      const sheet = document.createElement("div");
-      sheet.className = "committee-document-sheet";
-      if (!continuousLayout) {
-        sheet.style.minHeight = `${pageHeight}px`;
+      }, [[]]);
+      if (pages[pages.length - 1].length === 0) {
+        pages.pop();
       }
-      sheet.appendChild(this.masterHeader.nativeElement.cloneNode(true));
-      const body = document.createElement("div");
-      body.className = "committee-document-body committee-document-page-body";
-      blocks.forEach(block => body.appendChild(block));
-      sheet.appendChild(body);
-      const footer = this.masterFooter.nativeElement.cloneNode(true) as HTMLElement;
-      footer.classList.add("committee-document-sheet-footer");
-      sheet.appendChild(footer);
-      host.appendChild(sheet);
-    });
-    this.logger.info("paginated into", distribution.pages.length, "pages with content capacity", contentCapacity);
+      host.innerHTML = "";
+      pages.forEach(blocks => {
+        const sheet = document.createElement("div");
+        sheet.className = "committee-document-sheet";
+        sheet.appendChild(this.masterHeader.nativeElement.cloneNode(true));
+        const body = document.createElement("div");
+        body.className = "committee-document-body committee-document-page-body";
+        blocks.forEach(block => body.appendChild(block));
+        sheet.appendChild(body);
+        const footer = this.masterFooter.nativeElement.cloneNode(true) as HTMLElement;
+        footer.classList.add("committee-document-sheet-footer");
+        sheet.appendChild(footer);
+        host.appendChild(sheet);
+      });
+      this.logger.info("rendered document into", pages.length, "authored pages");
+    }
   }
 }

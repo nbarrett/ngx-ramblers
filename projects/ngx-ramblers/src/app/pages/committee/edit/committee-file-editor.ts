@@ -221,7 +221,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
     {value: CommitteeFileKind.COMPOSED, label: "Compose document"}
   ];
   protected readonly conversionAccept = CONVERTIBLE_DOCUMENT_EXTENSIONS.map(extension => `.${extension}`).join(",");
-  public previewing = false;
+  @Input() previewing = false;
   private subscriptions: Subscription[] = [];
   protected readonly CommitteeFileKind = CommitteeFileKind;
   protected readonly faEye = faEye;
@@ -230,6 +230,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   @Input() committeeFile: CommitteeFile;
   @Output() saved = new EventEmitter<CommitteeFile>();
   @Output() cancelled = new EventEmitter<void>();
+  @Output() previewingChange = new EventEmitter<boolean>();
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -253,7 +254,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
 
   selectKind(kind: CommitteeFileKind) {
     this.kind = kind;
-    this.previewing = false;
+    this.setPreviewing(false);
     if (kind === CommitteeFileKind.COMPOSED && !this.committeeFile.document) {
       this.committeeFile.document = {title: this.existingTitle || this.committeeFile?.fileNameData?.title || "", markdown: ""};
     }
@@ -291,7 +292,12 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   }
 
   togglePreview() {
-    this.previewing = !this.previewing;
+    this.setPreviewing(!this.previewing);
+  }
+
+  private setPreviewing(previewing: boolean): void {
+    this.previewing = previewing;
+    this.previewingChange.emit(previewing);
   }
 
   browseToConversionFile(fileElement: HTMLInputElement) {

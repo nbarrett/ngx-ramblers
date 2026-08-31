@@ -7,6 +7,7 @@ import { UrlService } from "../url.service";
 import { videoMeetingRoomSlug } from "../../functions/video-meeting-join";
 import {
   GuestInviteResponse,
+  MeetingAudioTranscriptionResponse,
   MeetingMinutesRequest,
   MeetingMinutesResponse,
   MeetingNote,
@@ -56,12 +57,13 @@ export class VideoMeetingsService {
     await firstValueFrom(this.http.delete(`${this.notesUrl}/${id}`));
   }
 
-  async writeMinutes(room: string, capture: MeetingSpeechCapture, existingNotes = ""): Promise<MeetingNote> {
+  async writeMinutes(room: string, capture: MeetingSpeechCapture, existingNotes = "", notify = false): Promise<MeetingMinutesResponse> {
     const request: MeetingMinutesRequest = {
       room,
       transcript: capture?.transcript || "",
       chat: capture?.chat || "",
-      existingNotes
+      existingNotes,
+      notify
     };
     this.logger.debug("writeMinutes request:", {
       room,
@@ -73,9 +75,10 @@ export class VideoMeetingsService {
     this.logger.debug("writeMinutes response:", {
       room,
       noteId: response?.note?.id,
-      noteChars: (response?.note?.text || "").length
+      noteChars: (response?.note?.text || "").length,
+      path: response?.path
     });
-    return response?.note;
+    return response;
   }
 
   async appendTranscript(room: string, authorName: string, lines: string[]): Promise<number> {
@@ -85,11 +88,26 @@ export class VideoMeetingsService {
     return response?.saved || 0;
   }
 
+  async transcribeAudioChunk(room: string, authorName: string, blob: Blob): Promise<MeetingAudioTranscriptionResponse> {
+    const response = (room && blob?.size)
+      ? await firstValueFrom(this.http.post<MeetingAudioTranscriptionResponse>(`${this.apiUrl}/transcribe-audio`, this.audioForm(room, authorName, blob)))
+      : null;
+    return response || {saved: 0, discarded: 0, text: ""};
+  }
+
+  private audioForm(room: string, authorName: string, blob: Blob): FormData {
+    const form = new FormData();
+    form.append("audio", blob, "chunk.wav");
+    form.append("room", room);
+    form.append("authorName", authorName);
+    return form;
+  }
+
   async transcriptForRoom(room: string): Promise<MeetingTranscriptResponse> {
     const response = room
       ? await firstValueFrom(this.http.get<MeetingTranscriptResponse>(`${this.apiUrl}/transcript`, {params: {room}}))
       : null;
-    return response || {transcript: "", lines: 0};
+    return response || {transcript: "", lines: 0, startedAt: null, endedAt: null};
   }
 
   generateRoomName(label: string, dateSlug: string): string {

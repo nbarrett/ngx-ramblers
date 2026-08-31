@@ -18,9 +18,17 @@ export interface CommitteeFileOption {
   imports: [FormsModule, NgSelectComponent],
   styles: [`
     :host ::ng-deep .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value
+      display: flex
+      align-items: stretch
       white-space: normal
 
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon
+      flex: 0 0 auto
+      display: flex
+      align-items: center
+
     :host ::ng-deep .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-label
+      flex: 1 1 auto
       white-space: normal
       overflow-wrap: anywhere
   `],

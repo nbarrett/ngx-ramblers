@@ -9,7 +9,7 @@ import { CommitteeConfigService } from "../../services/committee/commitee-config
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { CommitteeDisplayService } from "../committee/committee-display.service";
 import { DateRangeUnit } from "../../models/search.model";
-import { AdminSettingsPath } from "../../models/admin-route-paths.model";
+import { AdminPath, AdminSettingsPath } from "../../models/admin-route-paths.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { StoredValue } from "../../models/ui-actions";
 import { CommitteeFile, CommitteeFileType } from "../../models/committee.model";
@@ -37,6 +37,10 @@ import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-pane
               @if (meeting.committeePath) {
                 <a class="btn btn-quiet" [routerLink]="'/' + meeting.committeePath"
                    [queryParams]="committeeQuery(meeting)" (click)="$event.stopPropagation()">Committee page</a>
+              }
+              @if (meeting.room) {
+                <a class="btn btn-quiet" [routerLink]="'/' + minutesPath + '/' + meeting.room"
+                   (click)="$event.stopPropagation()">Minutes</a>
               }
             </div>
           </div>
@@ -77,6 +81,7 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
   private fileTypes: CommitteeFileType[] = [];
 
   protected readonly committeeSettingsPath = AdminSettingsPath.COMMITTEE_SETTINGS;
+  protected readonly minutesPath = AdminPath.MEETING_MINUTES;
 
   ngOnInit(): void {
     this.subscriptions.push(this.committeeConfigService.committeeConfigEvents().subscribe(committeeConfig => {
@@ -182,7 +187,8 @@ export class NextCommitteeMeetingBannerComponent implements OnInit, OnDestroy {
         ...meeting,
         committeePath: path,
         committeeSlug: this.committeeDisplay.committeeFileSlug(file),
-        composedDocument: this.committeeDisplay.isComposedDocument(file)
+        composedDocument: this.committeeDisplay.isComposedDocument(file),
+        room: meeting.room || file.meeting?.room
       };
     }
   }

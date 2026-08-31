@@ -18,18 +18,12 @@ async function callWorker<T>(operationPath: string, payload: object): Promise<T>
   const body = JSON.stringify(payload);
   const signature = signRamblersUploadBody(body, sharedSecret);
   const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/ai/${operationPath}`;
-  if (operationPath === "meeting-minutes") {
-    debugLog("callWorker:", {operationPath, bodyChars: body.length});
-  }
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {"content-type": "application/json", "x-ramblers-upload-signature": signature},
     body
   });
   const text = await response.text();
-  if (operationPath === "meeting-minutes") {
-    debugLog("callWorker result:", {operationPath, status: response.status, responseChars: text.length});
-  }
   if (!response.ok) {
     debugLog(operationPath, "failed", response.status, text.slice(0, 200));
     throw new Error(`Integration worker ai/${operationPath} failed with status ${response.status}: ${text.slice(0, 300)}`);
@@ -39,28 +33,6 @@ async function callWorker<T>(operationPath: string, payload: object): Promise<T>
 
 export async function rewriteViaIntegrationWorker(config: Ai, input: string, systemPrompt: string, maxTokens: number): Promise<string> {
   const result = await callWorker<{ output: string }>("rewrite", {config, input, systemPrompt, maxTokens});
-  return result.output;
-}
-
-export async function meetingMinutesViaIntegrationWorker(
-  config: Ai,
-  transcript: string,
-  chat: string,
-  existingNotes: string
-): Promise<string> {
-  debugLog("meetingMinutesViaIntegrationWorker:", {
-    transcriptChars: (transcript || "").length,
-    chatChars: (chat || "").length,
-    existingNotesChars: (existingNotes || "").length
-  });
-  const result = await callWorker<{ output: string }>("meeting-minutes", {
-    config,
-    transcript,
-    chat,
-    existingNotes,
-    maxTokens: 2048
-  });
-  debugLog("meetingMinutesViaIntegrationWorker: outputChars:", (result?.output || "").length);
   return result.output;
 }
 

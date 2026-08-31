@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { GmailMessage } from "./gmail-inbox.model";
-import { parseAuthenticationResults } from "./gmail-inbox-reader";
+import { isGmailCalendarPart, parseAuthenticationResults, parseGmailMessage } from "./gmail-inbox-reader";
 
 function messageWithHeaders(headers: { name: string; value: string }[]): GmailMessage {
   return {id: "m1", payload: {headers}};
@@ -47,4 +47,43 @@ describe("parseAuthenticationResults", () => {
     }]);
     expect(parseAuthenticationResults(message).dmarcPass).toBe(false);
   });
+
+});
+
+describe("isGmailCalendarPart", () => {
+
+  it("recognises calendar parts without a filename", () => {
+    expect(isGmailCalendarPart({mimeType: "text/calendar", filename: ""})).toEqual(true);
+    expect(isGmailCalendarPart({
+      mimeType: "application/octet-stream",
+      headers: [{name: "Content-Type", value: "text/calendar; method=REPLY; charset=UTF-8"}]
+    })).toEqual(true);
+    expect(isGmailCalendarPart({mimeType: "application/pdf", filename: "notes.pdf"})).toEqual(false);
+  });
+
+});
+
+describe("parseGmailMessage calendar parts", () => {
+
+  it("keeps a text/calendar part as an attachment even when Gmail omitted the filename", () => {
+    const ics = "BEGIN:VCALENDAR\nMETHOD:REPLY\nEND:VCALENDAR";
+    const message = parseGmailMessage({
+      payload: {
+        mimeType: "multipart/mixed",
+        headers: [
+          {name: "From", value: "guest@example.com"},
+          {name: "Subject", value: "Accepted: Committee meeting"}
+        ],
+        parts: [
+          {mimeType: "text/plain", body: {data: Buffer.from("accepted").toString("base64url")}},
+          {mimeType: "text/calendar", filename: "", body: {data: Buffer.from(ics).toString("base64url")}}
+        ]
+      }
+    });
+    expect(message.attachments).toEqual([expect.objectContaining({
+      filename: "",
+      contentType: "text/calendar"
+    })]);
+  });
+
 });

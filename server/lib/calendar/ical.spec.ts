@@ -109,6 +109,16 @@ describe("meetingIcalDocument", () => {
     expect(ics).toContain("ATTENDEE;CN=The Secretary;RSVP=FALSE:mailto:secretary@example.com");
   });
 
+  it("lists invitees as RSVP attendees instead of the organiser", () => {
+    const ics = meetingIcalDocument({
+      uid: "u", title: "AGM", startTime: START, url: JOIN,
+      organiserName: "The Secretary", organiserEmail: "secretary@example.com",
+      attendees: [{email: "guest@example.com", name: "Jordan Guest"}]
+    }, "cal").replace(/\r\n /g, "");
+    expect(ics).toContain("ATTENDEE;CN=Jordan Guest;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:guest@example.com");
+    expect(ics).not.toContain("RSVP=FALSE:mailto:secretary@example.com");
+  });
+
   it("falls back to METHOD:PUBLISH with no organiser when no organiser email is given", () => {
     const ics = meetingIcalDocument({uid: "u", title: "Open call", startTime: START, url: JOIN}, "cal");
     expect(ics).toContain("METHOD:PUBLISH");

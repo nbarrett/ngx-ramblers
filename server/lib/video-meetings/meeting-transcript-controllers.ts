@@ -4,7 +4,7 @@ import debugLib from "debug";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { meetingTranscriptLine } from "../mongo/models/meeting-transcript";
-import { dedupeIncomingLines, joinTranscriptLines } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
+import { dedupeIncomingLines, joinTranscriptLines, transcriptTimeSpan } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
 import { MeetingTranscriptLine } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:transcript"));
@@ -43,8 +43,10 @@ export async function getMeetingTranscript(req: Request, res: Response): Promise
     try {
       const stored = await meetingTranscriptLine.find({room}).sort({at: 1}).lean().exec() as unknown as MeetingTranscriptLine[];
       const transcript = joinTranscriptLines(stored);
+      const span = transcriptTimeSpan(stored);
+      const entries = stored.map(line => ({authorName: line.authorName, text: line.text, at: line.at}));
       debug("getMeetingTranscript:", {room, lines: stored.length, transcriptChars: transcript.length});
-      res.status(200).json({transcript, lines: stored.length});
+      res.status(200).json({transcript, lines: stored.length, entries, startedAt: span.startedAt, endedAt: span.endedAt});
     } catch (error) {
       debug("getMeetingTranscript failed:", error);
       res.status(502).json({message: "Failed to read transcript", error: String(error)});

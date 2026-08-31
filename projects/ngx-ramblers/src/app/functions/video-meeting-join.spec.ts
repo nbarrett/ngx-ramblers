@@ -1,15 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { JitsiJoinMode, VideoMeetingRuntimeConfig } from "../models/video-meeting.model";
 import {
+  applyJitsiHostPageTheme,
   applyJitsiIframeAllow,
+  displayNameFromToken,
+  JITSI_HOST_PAGE_STYLE_ID,
   JITSI_IFRAME_ALLOW,
+  JITSI_SUNRISE,
   jitsiEmbedConfigOverwrite,
   jitsiHostPageUrl,
   jitsiJoinMode,
+  nameFromEmailAddress,
   suggestedVideoMeetingTitle,
   videoMeetingDisplayName,
+  videoMeetingPeople,
   videoMeetingRoomSlug
 } from "./video-meeting-join";
+
+function fakeJwt(name: string): string {
+  const payload = Buffer.from(JSON.stringify({context: {user: {name}}})).toString("base64")
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `header.${payload}.signature`;
+}
 
 function runtime(overrides: Partial<VideoMeetingRuntimeConfig> = {}): VideoMeetingRuntimeConfig {
   return {
@@ -89,13 +101,31 @@ describe("videoMeetingRoomSlug", () => {
 
 });
 
+describe("videoMeetingPeople", () => {
+
+  it("keeps named participants and marks the local person", () => {
+    expect(videoMeetingPeople([
+      {participantId: "me", displayName: "Nick Barrett"},
+      {participantId: "them", formattedDisplayName: "Jane Walker"}
+    ], "me")).toEqual([
+      {participantId: "me", displayName: "Nick Barrett", local: true},
+      {participantId: "them", displayName: "Jane Walker", local: false}
+    ]);
+  });
+
+  it("ignores empty or malformed participant rows", () => {
+    expect(videoMeetingPeople([{displayName: "Nobody"}], "me")).toEqual([]);
+    expect(videoMeetingPeople(null, "me")).toEqual([]);
+  });
+
+});
+
 describe("jitsiEmbedConfigOverwrite", () => {
 
-  it("always shows a device preview and hides join-without-audio extras", () => {
+  it("skips the Jitsi prejoin screen so our own join dialog is the only join step", () => {
     const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Committee meeting");
-    expect(overwrite.prejoinPageEnabled).toEqual(true);
-    expect(overwrite.prejoinConfig.enabled).toEqual(true);
-    expect(overwrite.prejoinConfig.hideExtraJoinButtons).toEqual(["no-audio", "no-video"]);
+    expect(overwrite.prejoinPageEnabled).toEqual(false);
+    expect(overwrite.prejoinConfig.enabled).toEqual(false);
     expect(overwrite.transcription.enabled).toEqual(false);
     expect(overwrite.transcription.disableClosedCaptions).toEqual(true);
     expect(overwrite.transcribingEnabled).toEqual(false);
@@ -115,20 +145,82 @@ describe("jitsiEmbedConfigOverwrite", () => {
   });
 
   it("joins silent and muted for a companion device in the same room, to stop echo", () => {
-    const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Meeting", false, true);
+    const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Meeting", true);
     expect(overwrite.startSilent).toEqual(true);
     expect(overwrite.startWithAudioMuted).toEqual(true);
   });
 
-  it("lets the toolbar auto-hide on touch devices so it does not sit over faces in landscape", () => {
-    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting", true).toolbarConfig.alwaysVisible).toEqual(false);
-    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting", false).toolbarConfig.alwaysVisible).toEqual(true);
+  it("keeps the meeting controls always visible so mute, camera and hang-up can always be found", () => {
+    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").toolbarConfig.alwaysVisible).toEqual(true);
+    expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting", true).toolbarConfig.alwaysVisible).toEqual(true);
+  });
+
+  it("hides Jitsi's duplicate conference subject and timer", () => {
+    const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Meeting");
+    expect(overwrite.hideConferenceSubject).toEqual(true);
+    expect(overwrite.hideConferenceTimer).toEqual(true);
+    expect(overwrite.disableSelfView).toEqual(false);
+    expect(overwrite.disableResponsiveTiles).toEqual(true);
+    expect(overwrite.customTheme.palette.action01).toEqual(JITSI_SUNRISE);
+    expect(overwrite.connectionIndicators.disabled).toEqual(true);
   });
 
   it("leaves the lobby off unless that setting is on", () => {
     expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").disableLobby).toEqual(true);
     expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").disableLobby).toEqual(false);
     expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").lobby.autoKnock).toEqual(true);
+  });
+
+});
+
+describe("nameFromEmailAddress", () => {
+
+  it("turns the part before the @ into a readable name", () => {
+    expect(nameFromEmailAddress("duncan.reid@example.org")).toEqual("Duncan Reid");
+    expect(nameFromEmailAddress("lindsay_stewart@example.org")).toEqual("Lindsay Stewart");
+    expect(nameFromEmailAddress("guy@example.org")).toEqual("Guy");
+  });
+
+  it("is empty for an empty address", () => {
+    expect(nameFromEmailAddress("")).toEqual("");
+  });
+
+});
+
+describe("displayNameFromToken", () => {
+
+  it("reads the display name carried in the meeting token", () => {
+    expect(displayNameFromToken(fakeJwt("Duncan Reid"))).toEqual("Duncan Reid");
+  });
+
+  it("returns empty for a missing or unreadable token", () => {
+    expect(displayNameFromToken("")).toEqual("");
+    expect(displayNameFromToken("not-a-token")).toEqual("");
+  });
+
+});
+
+describe("applyJitsiHostPageTheme", () => {
+
+  it("paints Jitsi's overflowing video-menu button in Ramblers sunrise once", () => {
+    const created: {id: string; textContent: string}[] = [];
+    const page = {
+      getElementById: (id: string) => created.find(item => item.id === id) || null,
+      createElement: () => ({id: "", textContent: ""}),
+      head: {
+        appendChild: (node: {id: string; textContent: string}) => {
+          created.push(node);
+        }
+      }
+    };
+    const iframe = {contentDocument: page} as unknown as HTMLIFrameElement;
+    applyJitsiHostPageTheme(iframe);
+    applyJitsiHostPageTheme(iframe);
+    expect(created.length).toEqual(1);
+    expect(created[0].id).toEqual(JITSI_HOST_PAGE_STYLE_ID);
+    expect(created[0].textContent).toContain(JITSI_SUNRISE);
+    expect(created[0].textContent).toContain("#localvideomenu button");
+    expect(created[0].textContent).toContain(".vertical-filmstrip #filmstripRemoteVideos");
   });
 
 });

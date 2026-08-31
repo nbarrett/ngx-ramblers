@@ -257,6 +257,10 @@ describe("strings", () => {
       expect(plainText("See [the map](https://example.com) &amp; more")).toBe("See the map & more");
     });
 
+    it("decodes numeric quotes rather than turning them into apostrophes", () => {
+      expect(plainText("The minutes for &#34;Video call&#34; are ready")).toBe("The minutes for \"Video call\" are ready");
+    });
+
     it("handles empty input", () => {
       expect(plainText("")).toBe("");
       expect(plainText(null as unknown as string)).toBe("");

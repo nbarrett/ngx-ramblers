@@ -149,7 +149,6 @@ export function plainText(text: string): string {
     .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
     .replace(/^\s*>+/gm, " ")
-    .replace(/[#*_`~]/g, " ")
     .replace(/[|:\- ]*-{3,}[|:\- ]*/g, " ")
     .replace(/\s*\|+\s*/g, " ")
     .replace(/&nbsp;/gi, " ")
@@ -157,7 +156,9 @@ export function plainText(text: string): string {
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, "\"")
-    .replace(/&#3[49];/g, "'")
+    .replace(/&#34;/g, "\"")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[#*_`~]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

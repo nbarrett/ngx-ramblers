@@ -1,14 +1,9 @@
-// Mobile-first: the meeting fills the screen, panels are bottom sheets.
 .meeting-shell
-  display: flex
-  flex-direction: column
   height: calc(100dvh - 150px)
   min-height: 420px
   background: #1a1a1a
   color: #fff
   border-radius: 10px
-  overflow: hidden
-  margin-bottom: 1rem
 
 .meeting-shell.fullscreen
   position: fixed
@@ -21,35 +16,18 @@
   padding-top: env(safe-area-inset-top)
   padding-bottom: env(safe-area-inset-bottom)
 
-.meeting-message
-  padding: 0.75rem
-
 .meeting-bar
   position: relative
   z-index: 40
-  display: flex
-  align-items: center
-  gap: 0.5rem
-  padding: 0.5rem 0.75rem
   min-height: 52px
   border-bottom: 1px solid rgba(255, 255, 255, 0.1)
   background: #1a1a1a
 
 .meeting-bar-room
-  font-weight: 600
   font-size: 0.9rem
   max-width: 38vw
-  overflow: hidden
-  text-overflow: ellipsis
-  white-space: nowrap
-
-.meeting-bar-spacer
-  flex: 1 1 auto
 
 .meeting-bar-btn
-  display: inline-flex
-  align-items: center
-  gap: 0.4rem
   min-height: 44px
   padding: 0 0.8rem
   border: none
@@ -59,79 +37,35 @@
   cursor: pointer
   font-size: 0.9rem
 
-  &.active
-    background: rgba(255, 255, 255, 0.32)
-
   &.leave
     background: transparent
 
-.notes-bar-icon
-  position: relative
-  display: inline-flex
-  align-items: center
-  justify-content: center
-  width: 1.15rem
-  height: 1.15rem
-
-.notes-bar-btn.capturing
-  background: rgba(249, 177, 4, 0.35)
-  animation: notes-bar-pulse 1.1s ease-in-out infinite
-
-.notes-bar-btn.capturing .notes-bar-icon::after
-  content: ""
-  position: absolute
-  inset: -7px
-  border: 2px solid rgb(249, 177, 4)
-  border-right-color: transparent
-  border-radius: 50%
-  animation: notes-bar-spin 0.7s linear infinite
-
-@keyframes notes-bar-pulse
-  0%, 100%
-    box-shadow: 0 0 0 0 rgba(249, 177, 4, 0.55)
-  50%
-    box-shadow: 0 0 0 8px rgba(249, 177, 4, 0)
-
-@keyframes notes-bar-spin
-  to
-    transform: rotate(360deg)
-
-// Labels collapse to icons on the narrowest screens.
 .meeting-bar-label
   display: none
 
 .meeting-body
-  position: relative
   flex: 1 1 auto
   min-height: 0
-  display: flex
 
 .meeting-frame
   position: relative
+  order: 2
   flex: 1 1 auto
   min-width: 0
+  min-height: 0
   height: 100%
-  &.cover-host-branding::after
-    content: ""
-    position: absolute
-    top: 10px
-    left: 10px
-    width: 72px
-    height: 72px
-    background: #1a1a1a
-    z-index: 3
 
+  iframe
+    display: block
+    width: 100%
+    height: 100%
+    border: 0
 
 .meeting-connecting
   position: absolute
   inset: 0
   z-index: 5
   pointer-events: none
-  display: flex
-  flex-direction: column
-  align-items: center
-  justify-content: center
-  gap: 1rem
   background: #1a1a1a
   color: #fff
 
@@ -161,80 +95,99 @@
   z-index: 30
   width: min(420px, calc(100% - 2rem))
   max-height: calc(100% - 1.5rem)
-  display: flex
-  flex-direction: column
-  overflow: hidden
-  background: #fff
-  color: #222
-  border-radius: 12px
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45)
 
 .meeting-dialog.join
   width: min(480px, calc(100% - 2rem))
 
-.meeting-join-lead
-  font-size: 1.15rem
-  line-height: 1.55
-  margin-bottom: 1.1rem
+@keyframes meeting-rec-blink
+  0%, 100%
+    opacity: 1
+  50%
+    opacity: 0.25
 
-.meeting-join-action
-  min-height: 48px
-  font-size: 1.05rem
+.meeting-toolbar
+  max-width: 100%
 
-.meeting-copy-status
-  margin: 0.85rem 0 0
-  font-size: 0.95rem
-  color: #444
+  &::-webkit-scrollbar
+    height: 0
 
-.meeting-same-room-note
-  margin: 0.9rem 0 0
-  font-size: 0.9rem
-  line-height: 1.45
-  color: #555
+.meeting-tool
+  display: inline-flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 0.2rem
+  min-width: 52px
+  min-height: 54px
+  padding: 0.25rem 0.5rem
+  border: none
+  border-radius: 8px
+  background: transparent
+  color: #fff
+  cursor: pointer
+  font-size: 1rem
+  line-height: 1
 
-.meeting-help-banner
+  &:hover
+    background: rgba(255, 255, 255, 0.12)
+
+  fa-icon
+    font-size: 1.4rem
+
+.meeting-tool-label
+  font-size: 0.68rem
+  line-height: 1
+  white-space: nowrap
+
+.meeting-tool.tool-active
+  background: rgba(255, 255, 255, 0.28)
+
+.meeting-tool.tool-off
+  color: rgb(249, 177, 4)
+
+.meeting-tool.tool-rec-on
+  color: #ff5a5a
+
+  fa-icon
+    animation: meeting-rec-blink 1.4s ease-in-out infinite
+
+.meeting-tool.tool-leave
+  color: #ff6b6b
+
+  &:hover
+    background: rgba(214, 40, 40, 0.85)
+    color: #fff
+
+.meeting-tool-divider
+  width: 1px
+  align-self: center
+  height: 32px
+  margin: 0 0.25rem
+  background: rgba(255, 255, 255, 0.2)
+
+.meeting-panel
   position: absolute
-  top: 0
-  left: 0
-  right: 0
+  top: 0.75rem
+  right: 0.75rem
+  z-index: 24
+  width: min(310px, calc(100% - 1.5rem))
+
+.meeting-banners
+  position: relative
+  order: 1
+  flex: 0 0 auto
   z-index: 20
-  padding: 0.75rem
+  background: #1a1a1a
   pointer-events: none
 
+  &:empty
+    display: none
+
+.meeting-help-banner
   app-alert-panel
     pointer-events: auto
     display: block
 
-.meeting-dialog-head
-  display: flex
-  align-items: center
-  justify-content: space-between
-  flex: 0 0 auto
-  padding: 0.85rem 1rem
-  font-weight: 600
-  font-size: 1.15rem
-  border-bottom: 1px solid #eee
-
-.meeting-dialog-body
-  padding: 1rem
-  overflow-y: auto
-
-.meeting-dialog-close
-  border: none
-  background: transparent
-  color: #555
-  cursor: pointer
-  min-height: 40px
-  min-width: 40px
-  font-size: 1.1rem
-
-  &.floating
-    position: absolute
-    top: 0.4rem
-    right: 0.4rem
-    z-index: 2
-
-// Tablet / desktop
 @media (min-width: 769px)
   .meeting-bar-label
     display: inline

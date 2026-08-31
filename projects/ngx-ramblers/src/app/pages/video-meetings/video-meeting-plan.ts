@@ -24,6 +24,9 @@ import { ListInfo, MailMessagingConfig } from "../../models/mail.model";
 import { Member } from "../../models/member.model";
 import { CommitteeFile, CommitteeFileMeeting, CommitteeFileMeetingRole, CommitteeFileType, CommitteeMeetingFormat, CommitteeMeetingType, CommitteeMember, meetingHasVenue, meetingIsOnline } from "../../models/committee.model";
 import { NextCommitteeMeetingBannerComponent } from "./next-committee-meeting-banner";
+import { SortableTableComponent } from "../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn, SortableTableSortState } from "../../modules/common/sortable-table/sortable-table.model";
 import { ThumbnailHeadingFrameComponent } from "../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
 import { LabelledFieldRowComponent } from "../../modules/common/labelled-field-row/labelled-field-row";
 import { LabelledFieldComponent } from "../../modules/common/labelled-field-row/labelled-field";
@@ -45,10 +48,15 @@ import {
   VideoMeetingCancellationPerson,
   VideoMeetingInviteHandoff,
   VideoMeetingInviteRecipient,
-  VideoMeetingPlanAction
+  VideoMeetingPlanAction,
+  VideoMeetingRsvpPerson,
+  VideoMeetingRsvpTableColumn
 } from "../../models/video-meeting.model";
 import { AdminPath } from "../../models/admin-route-paths.model";
 import { videoMeetingCancellationPeople } from "../../functions/video-meeting-cancellation";
+import { videoMeetingRsvpLabel, videoMeetingRsvpPeople } from "../../functions/video-meeting-rsvp";
+import { ASCENDING, DESCENDING } from "../../models/table-filtering.model";
+import { SortDirection } from "../../models/sort.model";
 import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { UIDateFormat } from "../../models/date-format.model";
@@ -59,11 +67,11 @@ import { MailListUpdaterService } from "../../services/mail/mail-list-updater.se
 import { StringUtilsService } from "../../services/string-utils.service";
 import { extractErrorMessage } from "../../functions/strings";
 import { isString } from "es-toolkit/compat";
-import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated, withCommitteeMeetingDateLine, withCommitteeMeetingLink, withCommitteeMeetingLocationLine } from "../../functions/committee-meeting-agenda";
+import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedAgendaItemsFromGenerated, withCommitteeMeetingDateLine, withCommitteeMeetingLink, withCommitteeMeetingLocationLine } from "../../functions/committee-meeting-agenda";
 
 @Component({
   selector: "app-video-meeting-plan",
-  imports: [FormsModule, FontAwesomeModule, RouterLink, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent, LabelledFieldRowComponent, LabelledFieldComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
+  imports: [FormsModule, FontAwesomeModule, RouterLink, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent, LabelledFieldRowComponent, LabelledFieldComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, SortableTableComponent, SortableTableCellDirective],
   styleUrls: ["./video-meeting-plan.sass"],
   template: `
     @if (sendNotice) {
@@ -199,6 +207,22 @@ import { committeeMeetingAgendaMarkdown, numberedAgendaItemsFromGenerated, withC
           <app-recipient-field [to]="guestRecipientsField" (toChange)="guestRecipientsField = $event"
                                [savedRecipients]="previousRecipients" [plain]="true"/>
         </app-thumbnail-heading-frame>
+        @if (isEditing() && rsvpPeople().length) {
+          <app-thumbnail-heading-frame heading="Replies" [compact]="true">
+            <app-sortable-table
+              [columns]="rsvpColumns"
+              [rows]="rsvpPeople()"
+              [defaultSortKey]="rsvpSortKey"
+              [defaultSortDirection]="rsvpSortDirection"
+              [trackBy]="trackRsvpPerson"
+              emptyMessage="No invitations sent yet"
+              (sortChange)="onRsvpSortChange($event)">
+              <ng-template [appSortableTableCell]="VideoMeetingRsvpTableColumn.NAME" let-row>{{ row.name }}</ng-template>
+              <ng-template [appSortableTableCell]="VideoMeetingRsvpTableColumn.EMAIL" let-row>{{ row.email }}</ng-template>
+              <ng-template [appSortableTableCell]="VideoMeetingRsvpTableColumn.REPLY" let-row>{{ rsvpLabel(row.status) }}</ng-template>
+            </app-sortable-table>
+          </app-thumbnail-heading-frame>
+        }
         @if (existingLoadError) {
           <app-alert-panel class="mt-3" title="Could not load this meeting" [variant]="AlertPanelVariant.DANGER">
             {{ existingLoadError }}
@@ -343,6 +367,14 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   protected readonly faTrash = faTrash;
   protected readonly AlertPanelVariant = AlertPanelVariant;
   protected readonly CommitteeMeetingFormat = CommitteeMeetingFormat;
+  protected readonly VideoMeetingRsvpTableColumn = VideoMeetingRsvpTableColumn;
+  protected readonly rsvpColumns: SortableTableColumn<VideoMeetingRsvpPerson>[] = [
+    {key: VideoMeetingRsvpTableColumn.NAME, label: "Name", sortKey: VideoMeetingRsvpTableColumn.NAME, cellGetter: row => row.name},
+    {key: VideoMeetingRsvpTableColumn.EMAIL, label: "Email", sortKey: VideoMeetingRsvpTableColumn.EMAIL, cellGetter: row => row.email},
+    {key: VideoMeetingRsvpTableColumn.REPLY, label: "Reply", sortKey: VideoMeetingRsvpTableColumn.REPLY, cellGetter: row => this.rsvpLabel(row.status)}
+  ];
+  rsvpSortKey: string = VideoMeetingRsvpTableColumn.NAME;
+  rsvpSortDirection = ASCENDING;
 
   isOnline(): boolean {
     return meetingIsOnline(this.format);
@@ -368,6 +400,10 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     if (committeeFileId) {
       this.pendingCommitteeFileId = committeeFileId;
     }
+    this.applyRsvpSortFromUrl(
+      this.uiActions.queryParameter(StoredValue.MEETING_RSVP_SORT),
+      this.uiActions.queryParameter(StoredValue.MEETING_RSVP_SORT_ORDER)
+    );
     this.applyMailLists(this.mailMessagingService.currentConfig());
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
       this.applyMailLists(config);
@@ -587,13 +623,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private agendaLocationLine(venue: string): string {
-    if (this.format === CommitteeMeetingFormat.ONLINE) {
-      return "Online";
-    } else if (this.format === CommitteeMeetingFormat.HYBRID) {
-      return venue ? `Online, and in person at ${venue}` : "Online and in person";
-    } else {
-      return venue || "In person";
-    }
+    return committeeMeetingLocationLine(this.format, venue);
   }
 
   private suggestedTitle(): string {
@@ -732,6 +762,45 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
 
   private guestRecipients(): VideoMeetingInviteRecipient[] {
     return this.guestRecipientsField.map(recipient => ({email: recipient.email, name: recipient.name}));
+  }
+
+  rsvpPeople(): VideoMeetingRsvpPerson[] {
+    const listMembers = this.selectedListId === null
+      ? []
+      : this.mailListUpdaterService.subscribedMembers(this.members, this.selectedListId);
+    return videoMeetingRsvpPeople(listMembers, this.guestRecipients(), this.editingFile?.meeting?.rsvps || []);
+  }
+
+  rsvpLabel(status: VideoMeetingRsvpPerson["status"]): string {
+    return videoMeetingRsvpLabel(status);
+  }
+
+  trackRsvpPerson(_index: number, person: VideoMeetingRsvpPerson): string {
+    return person.key;
+  }
+
+  onRsvpSortChange(state: SortableTableSortState): void {
+    this.rsvpSortKey = state.key || VideoMeetingRsvpTableColumn.NAME;
+    this.rsvpSortDirection = state.direction === DESCENDING ? DESCENDING : ASCENDING;
+    this.uiActions.updateQueryParameters({
+      [StoredValue.MEETING_RSVP_SORT]: this.rsvpSortKey ? this.stringUtils.kebabCase(this.rsvpSortKey) : null,
+      [StoredValue.MEETING_RSVP_SORT_ORDER]: this.rsvpSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
+    });
+  }
+
+  private applyRsvpSortFromUrl(sortParam: string | null, sortOrderParam: string | null): void {
+    const matchedSortKey = this.rsvpColumns
+      .map(column => column.sortKey)
+      .filter(Boolean)
+      .find(key => this.stringUtils.kebabCase(key) === sortParam);
+    if (matchedSortKey) {
+      this.rsvpSortKey = matchedSortKey;
+    }
+    if (sortOrderParam === SortDirection.DESC) {
+      this.rsvpSortDirection = DESCENDING;
+    } else if (sortOrderParam === SortDirection.ASC) {
+      this.rsvpSortDirection = ASCENDING;
+    }
   }
 
   private applyMailLists(config: MailMessagingConfig): void {
@@ -889,17 +958,23 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     const venue = this.hasVenue() ? this.location.trim() : "";
     const createdFile = !this.editingFile;
     const member = this.memberLoginService.loggedInMember();
+    const existing = this.editingFile?.meeting;
+    const role = this.senderRole();
     const meeting: CommitteeFileMeeting = {
+      ...(existing || {}),
       format: this.format,
       room,
       location: venue || undefined,
       invited: this.guestRecipients().length > 0 || this.selectedListId != null,
       invitedRecipients: this.guestRecipients(),
       invitedListId: this.selectedListId ?? undefined,
-      durationMinutes: this.editingFile?.meeting?.durationMinutes,
-      createdBy: this.editingFile?.meeting?.createdBy ?? member?.memberId,
-      createdByName: this.editingFile?.meeting?.createdByName
-        ?? ([member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName)
+      durationMinutes: existing?.durationMinutes,
+      createdBy: existing?.createdBy ?? member?.memberId,
+      createdByName: existing?.createdByName
+        ?? ([member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName),
+      organiserEmail: role?.email || existing?.organiserEmail,
+      organiserName: role?.fullName || existing?.organiserName,
+      rsvps: existing?.rsvps
     };
     const savedFile = this.editingFile
       ? await this.updateCommitteeCalendarEvent(this.editingFile, startTime, meetingTitle, joinUrl, venue, meeting)

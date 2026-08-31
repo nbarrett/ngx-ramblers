@@ -11,6 +11,7 @@ import { EmailAddress } from "../../../projects/ngx-ramblers/src/app/models/mail
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { nameFromEmailAddress } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-join";
 
 const MEETING_TOKEN_EXPIRY_SECONDS = 60 * 60 * 4;
 const GUEST_TOKEN_EXPIRY_SECONDS = 60 * 60 * 12;
@@ -21,19 +22,12 @@ function isModerator(member: MemberCookie): boolean {
 }
 
 function memberName(member: MemberCookie): string {
-  return [member?.firstName, member?.lastName].filter(Boolean).join(" ") || member?.userName || "Member";
+  const fullName = [member?.firstName, member?.lastName].filter(Boolean).join(" ").trim();
+  return fullName || nameFromEmailAddress(member?.userName || "") || (member?.userName || "").trim() || "Member";
 }
 
 export function guestDisplayName(name: string, email: string): string {
-  const trimmedName = (name || "").trim();
-  if (trimmedName) {
-    return trimmedName;
-  } else {
-    const localPart = (email || "").trim().split("@")[0];
-    const words = localPart.split(/[._+-]+/).filter(Boolean)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1));
-    return words.join(" ") || "Guest";
-  }
+  return (name || "").trim() || nameFromEmailAddress(email) || "Guest";
 }
 
 function memberFromRequest(req: Request): MemberCookie {
@@ -51,8 +45,7 @@ function issueGuestToken(room: string, name: string): string {
   });
 }
 
-async function senderForMember(member: MemberCookie): Promise<EmailAddress | null> {
-  const memberId = member?.memberId;
+export async function senderForMemberId(memberId: string): Promise<EmailAddress | null> {
   if (!memberId) {
     return null;
   } else {
@@ -61,6 +54,10 @@ async function senderForMember(member: MemberCookie): Promise<EmailAddress | nul
     const role = roles.find(candidate => candidate.memberId === memberId && !!candidate.email);
     return role ? {name: role.fullName, email: role.email} : null;
   }
+}
+
+async function senderForMember(member: MemberCookie): Promise<EmailAddress | null> {
+  return senderForMemberId(member?.memberId);
 }
 
 async function buildGuestLink(room: string, token: string | null): Promise<string> {

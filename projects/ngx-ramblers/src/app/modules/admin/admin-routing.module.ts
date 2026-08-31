@@ -336,6 +336,17 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, LoggedInGuard]
     },
     {
+      path: rp(AdminPath.MEETING_MINUTES),
+      redirectTo: rp(AdminPath.MEETINGS),
+      pathMatch: "full"
+    },
+    {
+      path: rp(AdminPath.MEETING_MINUTES) + "/:room",
+      loadComponent: () => import("../../pages/video-meetings/video-meeting-minutes")
+        .then(m => m.VideoMeetingMinutesComponent),
+      canActivate: [SystemHealthyGuard, LoggedInGuard]
+    },
+    {
       path: rp(AdminPath.MEETING_PLAN),
       loadComponent: () => import("../../pages/video-meetings/video-meeting-plan")
         .then(m => m.VideoMeetingPlanComponent),

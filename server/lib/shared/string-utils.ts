@@ -204,7 +204,9 @@ export function htmlToPlainText(html: string): string {
   const decoded = toPairs(HTML_ENTITY_MAP).reduce(
     (text, [entity, replacement]) => text.split(entity).join(replacement),
     stripped
-  ).replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(parseInt(code, 10)));
+  )
+    .replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, code) => String.fromCharCode(parseInt(code, 16)));
   return decoded
     .split("\n")
     .map(line => line.replace(/[ \t]+/g, " ").trim())

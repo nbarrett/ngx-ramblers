@@ -4,7 +4,15 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { CommitteeFile, CommitteeFileApiResponse } from "../../models/committee.model";
-import { PageContent, PageContentType } from "../../models/content-text.model";
+import { CommitteeDocumentsPageChoice, PageContent, PageContentType } from "../../models/content-text.model";
+import {
+  addCommitteeFileIdToPage,
+  COMMITTEE_DOCUMENTS_YEAR_PATH_PATTERN,
+  committeeDocumentsPageLabel,
+  committeeDocumentsRow,
+  committeeDocumentsYearPath,
+  preferredCommitteeDocumentsPagePath
+} from "../../functions/committee-documents-page";
 import { UIDateFormat } from "../../models/date-format.model";
 import { CommonDataService } from "../common-data-service";
 import { DateUtilsService } from "../date-utils.service";
@@ -79,17 +87,27 @@ export class CommitteeFileService {
     return apiResponse.response as CommitteeFile;
   }
 
-  async addToCommitteeDocumentsPage(file: CommitteeFile): Promise<string | null> {
+  async committeeDocumentsPages(): Promise<CommitteeDocumentsPageChoice[]> {
+    const pages = await this.pageContentService.all({
+      criteria: {"rows.type": PageContentType.COMMITTEE_DOCUMENTS},
+      sort: {path: 1}
+    });
+    return (pages || [])
+      .filter(page => !!committeeDocumentsRow(page) && !!page.path)
+      .map(page => ({path: page.path, label: committeeDocumentsPageLabel(page)}));
+  }
+
+  async addToCommitteeDocumentsPage(file: CommitteeFile, pagePath?: string): Promise<string | null> {
     if (!file?.id) {
       this.logger.error("cannot add committee file without id", file);
       return null;
     } else {
       try {
-        const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
-        const yearPage = await this.pageForPath(`committee/${year}`);
-        const target = yearPage || await this.latestYearDocumentsPage();
+        const target = pagePath
+          ? await this.pageForPath(pagePath)
+          : await this.defaultDocumentsPage(file);
         if (!target) {
-          this.logger.error("no committee documents page found for file", file.id, "year", year);
+          this.logger.error("no committee documents page found for file", file.id, "pagePath", pagePath);
           return null;
         } else {
           return this.addFileIdToPage(target, file.id);
@@ -102,14 +120,12 @@ export class CommitteeFileService {
   }
 
   async addFileIdToPage(page: PageContent, fileId: string): Promise<string | null> {
-    const row = (page.rows || []).find(candidate => candidate.type === PageContentType.COMMITTEE_DOCUMENTS);
+    const row = committeeDocumentsRow(page);
     if (!row?.committeeDocuments) {
       this.logger.error("committee page has no documents row", page.path);
       return null;
     } else {
-      const ids = row.committeeDocuments.fileIds || [];
-      if (!ids.includes(fileId)) {
-        row.committeeDocuments.fileIds = [...ids, fileId];
+      if (addCommitteeFileIdToPage(page, fileId)) {
         await this.pageContentService.createOrUpdate(page);
         this.logger.info("added committee file", fileId, "to", page.path);
       }
@@ -121,8 +137,10 @@ export class CommitteeFileService {
     if (file?.id) {
       try {
         const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
-        const target = await this.pageForPath(`committee/${year}`) || await this.latestYearDocumentsPage();
-        const row = target && (target.rows || []).find(candidate => candidate.type === PageContentType.COMMITTEE_DOCUMENTS);
+        const target = file.meeting?.committeePagePath
+          ? await this.pageForPath(file.meeting.committeePagePath)
+          : await this.pageForPath(committeeDocumentsYearPath(year)) || await this.latestYearDocumentsPage();
+        const row = target && committeeDocumentsRow(target);
         if (row?.committeeDocuments?.fileIds?.includes(file.id)) {
           row.committeeDocuments.fileIds = row.committeeDocuments.fileIds.filter(id => id !== file.id);
           await this.pageContentService.createOrUpdate(target);
@@ -135,10 +153,19 @@ export class CommitteeFileService {
   }
 
   async documentsPagePathFor(file: CommitteeFile): Promise<string | null> {
+    const pages = await this.committeeDocumentsPages();
     const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
-    const yearPage = await this.pageForPath(`committee/${year}`);
-    const target = yearPage || await this.latestYearDocumentsPage();
-    return target?.path || null;
+    return preferredCommitteeDocumentsPagePath(
+      pages,
+      committeeDocumentsYearPath(year),
+      file.meeting?.committeePagePath || null
+    );
+  }
+
+  private async defaultDocumentsPage(file: CommitteeFile): Promise<PageContent | null> {
+    const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
+    const yearPage = await this.pageForPath(committeeDocumentsYearPath(year));
+    return yearPage || await this.latestYearDocumentsPage();
   }
 
   private async pageForPath(path: string): Promise<PageContent | null> {
@@ -153,10 +180,10 @@ export class CommitteeFileService {
 
   private async latestYearDocumentsPage(): Promise<PageContent | null> {
     const pages = await this.pageContentService.all({
-      criteria: {path: {$regex: "^committee/[^/]+$"}},
+      criteria: {path: {$regex: COMMITTEE_DOCUMENTS_YEAR_PATH_PATTERN}},
       sort: {path: -1}
     });
-    return pages.find(page => (page.rows || []).some(row => row.type === PageContentType.COMMITTEE_DOCUMENTS)) || null;
+    return pages.find(page => !!committeeDocumentsRow(page)) || null;
   }
 
 }

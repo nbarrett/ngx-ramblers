@@ -21,6 +21,7 @@ export enum AdminPath {
   SEND_NOTIFICATION = "admin/send-notification",
   MEETINGS = "admin/meetings",
   MEETING_ROOM = "admin/meetings/room",
+  MEETING_MINUTES = "admin/meetings/minutes",
   MEETING_PLAN = "admin/meetings/plan",
   MAINTENANCE = "admin/maintenance",
   SET_PASSWORD = "admin/set-password",

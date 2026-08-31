@@ -17,7 +17,7 @@ import { member as memberModel } from "../mongo/models/member";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { dateTimeNow } from "../shared/dates";
-import { pluraliseWithCount } from "../shared/string-utils";
+import { htmlToPlainText, pluraliseWithCount } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("inbox-message-digest"));
 debugLog.enabled = true;
@@ -221,7 +221,7 @@ function buildDigestHtml(items: DigestItem[], groupHref: string, groupShortName:
 }
 
 function buildSnippet(message: InboxMessage): string {
-  const source = message.bodyHtml ? stripHtml(message.bodyHtml) : (message.bodyText ?? "");
+  const source = message.bodyHtml ? htmlToPlainText(message.bodyHtml) : (message.bodyText ?? "");
   if (!source) {
     return "";
   }
@@ -233,21 +233,6 @@ function buildSnippet(message: InboxMessage): string {
     .replace(/\s+/g, " ")
     .trim();
   return collapsed.length > 200 ? `${collapsed.slice(0, 200)}…` : collapsed;
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<head[\s\S]*?<\/head>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&quot;/gi, "\"");
 }
 
 function escapeHtml(raw: string): string {
