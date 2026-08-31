@@ -625,8 +625,9 @@ export const MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
     ]
   },
   {
-    group: "Member address",
+    group: "Registered office",
     fields: [
+      { token: "{{params.accountMergeFields.REGISTERED_OFFICE}}", label: "Full registered office" },
       { token: "{{params.accountMergeFields.STREET}}", label: "Street" },
       { token: "{{params.accountMergeFields.TOWN}}", label: "Town" },
       { token: "{{params.accountMergeFields.POSTCODE}}", label: "Postcode" }

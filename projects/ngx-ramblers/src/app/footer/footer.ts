@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Footer, Ramblers } from "../models/system.model";
+import { ramblersCharityLine } from "../models/ramblers-legal.model";
 import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { SystemConfigService } from "../services/system/system-config.service";
@@ -77,8 +78,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                   <div class="col">
                     <div class="text-center text-md-left"><p class="mb-2">
                       <small class="d-block">
-                        Ramblers Charity England &amp; Wales No: 1093577 Scotland
-                        No: SC039799
+                        {{ ramblersCharityLine() }}
                       </small></p>
                       <p class="mb-0"><small>
                         ©&nbsp;Ramblers&nbsp;{{year}}
@@ -107,6 +107,7 @@ export class FooterComponent implements OnInit, OnDestroy {
   public footer: Footer;
   private subscriptions: Subscription[] = [];
   protected national: Ramblers;
+  protected readonly ramblersCharityLine = ramblersCharityLine;
 
   ngOnInit() {
     this.logger.info("subscribing to systemConfigService events");

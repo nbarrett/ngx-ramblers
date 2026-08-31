@@ -27,7 +27,7 @@ import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { normalisePostcode } from "../../addresses/shared";
 import { signoffHtmlForConfig } from "./signoff-names";
-import { accountMergeFieldsFor } from "../account/account";
+import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 
 const messageType = "brevo:send-forgot-password-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -229,7 +229,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
       TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl || "",
       INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl || "",
     },
-    accountMergeFields: await accountMergeFieldsFor(),
+    accountMergeFields: ramblersAccountMergeFields(),
   };
 
   const subject = buildSubject(notifConfig, params);

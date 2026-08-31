@@ -54,6 +54,7 @@ import { MailProviderSettingsComponent } from "../mail-provider/mail-provider-se
 import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbox-settings";
 import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../../models/form-save-actions.model";
+import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-legal.model";
 
 @Component({
     selector: "app-mail-settings",
@@ -439,13 +440,13 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="street">Street</label>
-                            <div class="form-control-plaintext" id="street">{{ mailMessagingConfig.brevo.account?.address?.street }}</div>
+                            <div class="form-control-plaintext" id="street">{{ registeredOffice.street }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="postcode">Postcode</label>
-                            <div class="form-control-plaintext" id="postcode">{{ mailMessagingConfig.brevo.account?.address?.zipCode }}</div>
+                            <div class="form-control-plaintext" id="postcode">{{ registeredOffice.zipCode }}</div>
                           </div>
                         </div>
                       </div>
@@ -453,21 +454,13 @@ import { FormSaveActions } from "../../../../models/form-save-actions.model";
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="town">Town</label>
-                            <div class="form-control-plaintext" id="town">{{ mailMessagingConfig.brevo.account?.address?.city }}</div>
+                            <div class="form-control-plaintext" id="town">{{ registeredOffice.city }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="country">Country</label>
-                            <div class="form-control-plaintext">{{ mailMessagingConfig.brevo.account?.address?.country }}</div>
-                          </div>
-                        </div>
-                        <div class="col">
-                          <div class="form-group">
-                            @if (mailLinkService.canNavigateToBrevo) {
-                              <app-brevo-button button title="Edit Account Profile Information"
-                              (click)="editAccountProfileInformation()"/>
-                            }
+                            <div class="form-control-plaintext">{{ registeredOffice.country }}</div>
                           </div>
                         </div>
                       </div>
@@ -551,6 +544,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   protected readonly InputSize = InputSize;
   protected readonly faSpinner = faSpinner;
   protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly registeredOffice = ramblersRegisteredOfficeAddress();
 
   respectHeadOfficeConsent(): boolean {
     return booleanOf(this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent, true);
@@ -779,10 +773,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   tabActive(tab: MailSettingsTab): boolean {
     return kebabCase(this.tab) === kebabCase(tab);
-  }
-
-  editAccountProfileInformation() {
-    this.mailLinkService.openUrl(this.mailLinkService.profileInformation());
   }
 
   protected readonly faExclamationTriangle = faExclamationTriangle;

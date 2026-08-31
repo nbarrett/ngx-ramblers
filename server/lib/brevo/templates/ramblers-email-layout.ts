@@ -1,5 +1,10 @@
 import { RAMBLERS_EMAIL_TOKENS as T } from "./ramblers-design-tokens";
 import { AdminProfilePath } from "../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
+import {
+  RAMBLERS_REGISTERED_OFFICE_LINE,
+  ramblersCharityLineHtml,
+  ramblersRegisteredOfficeLine
+} from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 
 const W = T.maxWidth;
 
@@ -103,9 +108,9 @@ function footer(): string {
       <tr>
         <td class="email-footer-inner" align="center" style="padding: 0 20px 30px; color: ${T.footerTextColor}; font-family: ${T.fontFamily}; font-size: ${T.footerFontSize}; line-height: 1.6;">
           {{params.systemMergeFields.APP_LONGNAME}}<br>
-          Ramblers Charity England &amp; Wales No: 1093577 Scotland No: SC039799<br><br>
+          ${ramblersCharityLineHtml()}<br><br>
           You can <a href="{{params.systemMergeFields.APP_URL}}/${AdminProfilePath.EMAIL_SUBSCRIPTIONS}" style="color: ${T.footerTextColor}; text-decoration: underline;" target="_blank">update your email subscriptions</a>.<br><br>
-          {{params.accountMergeFields.STREET}}, {{params.accountMergeFields.POSTCODE}}, {{params.accountMergeFields.TOWN}}
+          ${ramblersRegisteredOfficeLine()}
         </td>
       </tr>
     </table>
@@ -121,7 +126,7 @@ function postFooter(): string {
         <td style="color: #606060; font-family: ${T.fontFamily}; font-size: 11px; line-height: 1.5; text-align: center;">
           Sent to <a href="mailto:{{params.memberMergeFields.EMAIL}}" style="color: #404040;">{{params.memberMergeFields.EMAIL}}</a><br>
           <a href="{{params.memberMergeFields.UNSUBSCRIBE_URL}}" style="color: #404040; text-decoration: underline;">Unsubscribe</a><br>
-          {{params.systemMergeFields.APP_LONGNAME}} · {{params.accountMergeFields.STREET}} · {{params.accountMergeFields.TOWN}}
+          {{params.systemMergeFields.APP_LONGNAME}} · ${RAMBLERS_REGISTERED_OFFICE_LINE}
         </td>
       </tr>
     </table>

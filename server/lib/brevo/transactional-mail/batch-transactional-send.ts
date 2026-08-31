@@ -53,7 +53,7 @@ import { banner } from "../../mongo/models/banner";
 import { member as memberModel } from "../../mongo/models/member";
 import { recordSendUsage } from "../../mongo/controllers/external-recipient";
 import { randomUUID } from "crypto";
-import { accountMergeFieldsFor } from "../account/account";
+import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { generatePasswordResetIdForMemberId } from "./send-forgot-password-email";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../../mongo/models/inbox-mailbox-connection";
 import { derivedAliasForRoleType, internalEmailsForConnection } from "../../inbox/inbox-aliases";
@@ -531,7 +531,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const { sender, replyTo, bcc, senderRoleType } = addresses;
     const useCommitteeRoleAddresses = request.useCommitteeRoleAddresses === true;
     const bannerImageSrc = bannerSourceFor(allBanners, request.bannerId, groupHref);
-    const accountFields = await accountMergeFieldsFor();
+    const accountFields = ramblersAccountMergeFields();
     const volunteerSource = await volunteerMergeFieldSource(request);
     const externalRecipients = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
     const ccAddresses: EmailAddress[] = (request.ccRecipients ?? []).filter(item => !!item?.email?.trim())

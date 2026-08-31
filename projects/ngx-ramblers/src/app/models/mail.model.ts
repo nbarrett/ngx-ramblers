@@ -301,6 +301,7 @@ export interface AccountMergeFields {
   STREET: string;
   POSTCODE: string;
   TOWN: string;
+  REGISTERED_OFFICE: string;
 }
 
 export interface MemberMergeFields extends MergeFields {

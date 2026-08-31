@@ -40,6 +40,22 @@ export const MEETUP_VENUE_HELP: ContentText = {
     "If you choose to publish this walk to Meetup, these details will be used to create a venue, so the name and address fields need to be as accurate as possible, so the venue can be created in the Meetup system. The best way to do this is to copy/paste the venue details from the pub or venue website into the correct fields below."
 };
 
+const MAIL_SETTINGS_ACCOUNT_PROFILE_HELP_TEXT =
+  "* Street, town, postcode and country are the Ramblers registered office. NGX supplies them automatically for branded email footers. They are not edited in Brevo.\n" +
+  "* Email, name and company name come from the Brevo account. NGX sets those when the account is created.";
+
+export const MAIL_SETTINGS_ACCOUNT_HELP: ContentText = {
+  name: "mail-settings-account-help",
+  category: "admin",
+  text: MAIL_SETTINGS_ACCOUNT_PROFILE_HELP_TEXT
+};
+
+export const MAIL_SETTINGS_ACCOUNT_SETTINGS: ContentText = {
+  name: "mail-settings-account-settings",
+  category: "admin",
+  text: MAIL_SETTINGS_ACCOUNT_PROFILE_HELP_TEXT
+};
+
 export const COMMITTEE_OUTBOUND_EMAIL_HELP: ContentText = {
   name: "committee-outbound-email-help",
   category: "admin",
@@ -105,17 +121,8 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
     text: "* Once Brevo has been initialised and connected to your website, little if anything ever needs to be done on this tab again. \n* In this section, are settings such as the URL to the Brevo system, that you might have to visit if you want to edit email templates, along with configuration checkboxes that turn on/off the ability to send emails, and the API key which is used by the website to authenticate to Brevo when messages are sent and received.",
     category: "admin"
   },
-  {
-    name: "mail-settings-account-help",
-    text: "* This page allows Lists to be created, renamed or deleted in Brevo.\n* Depending on the type of message you are sending out,  you might want to send to a list that contains all members (e.g. periodic newsletters). However you may sometimes want to send messages to a specific list of members in your group (e.g. Walk Leaders or Committee Members). If this is the case, you can create lists and add the members to the lists.\n* There is no limit on the number of lists that can be created in Brevo and when emails are sent out, the the target audience is selected by choosing a list to send to.",
-    category: "admin"
-  },
-  {
-    name: "mail-settings-account-settings",
-    text: "* The fields below are readonly and reflect only what was previously input into Brevo when [this account](https://app.brevo.com/profile/information) was originally setup.\n" +
-      "* When campaign emails are sent out to members, the footer on the emails may contain some of these fields for identification purposes.",
-    category: "admin"
-  },
+  MAIL_SETTINGS_ACCOUNT_HELP,
+  MAIL_SETTINGS_ACCOUNT_SETTINGS,
   {
     name: "mail-settings-email-configurations-help",
     text: "* This page allows Email Configurations to be created, edited or deleted.\n* An Email configuration allows various settings  such as the subject, banner image, Brevo Template, sender, BCC, signoff and member selection to be defined and saved. \n* An email configuration is selected at the point of sending an email, which enables default values to be set which speeds up the sending of emails, given that users don't need to think of suitable values for all of the email sending parameters.",
