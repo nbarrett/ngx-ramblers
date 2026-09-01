@@ -118,8 +118,8 @@ export class MemberBulkLoadService {
       bulkLoadMemberAndMatch.memberMatch = MemberAction.created;
       const displayName = this.memberNamingService.createUniqueDisplayName(ramblersMember, existingMembers);
       bulkLoadMemberAndMatch.member = {
-        firstName: null,
-        lastName: null,
+        firstName: this.memberNamingService.removeCharactersNotPartOfName(ramblersMember.firstName) || ramblersMember.firstName || null,
+        lastName: this.memberNamingService.removeCharactersNotPartOfName(ramblersMember.lastName) || ramblersMember.lastName || null,
         groupMember: true,
         socialMember: true,
         userName: this.memberNamingService.createUniqueUserName(ramblersMember, existingMembers),
@@ -128,8 +128,8 @@ export class MemberBulkLoadService {
         expiredPassword: true
       };
       if (ramblersMemberAndContact?.contact) {
-        bulkLoadMemberAndMatch.member.firstName = this.memberNamingService.removeCharactersNotPartOfName(ramblersMember.firstName) || "Unknown";
-        bulkLoadMemberAndMatch.member.lastName = this.memberNamingService.removeCharactersNotPartOfName(ramblersMember.lastName) || "Unknown";
+        bulkLoadMemberAndMatch.member.firstName = bulkLoadMemberAndMatch.member.firstName || "Unknown";
+        bulkLoadMemberAndMatch.member.lastName = bulkLoadMemberAndMatch.member.lastName || "Unknown";
         bulkLoadMemberAndMatch.member.mobileNumber = ramblersMember.mobileNumber;
       }
       const nameAlias = this.createUniqueNameAlias(ramblersMember, existingMembers);
@@ -384,10 +384,11 @@ export class MemberBulkLoadService {
     const expiryClearUpdate = fieldName === "membershipExpiryDate" && !newDataValue && (shouldClearExpiry || recentlyLoaded)
       ? !!member.membershipExpiryDate
       : ruleBasedUpdate;
+    const creatingMember = !member.id;
     const performMemberUpdate = effectiveMode === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE
       ? dataDifferent
       : effectiveMode === MemberSyncPolicyMode.SKIP
-        ? false
+        ? creatingMember && dataDifferent && !this.stringUtils.noValueFor(newDataValue)
         : expiryClearUpdate;
     if (performMemberUpdate) {
       member[fieldName] = newDataValue;
@@ -420,10 +421,12 @@ export class MemberBulkLoadService {
   private auditResolutionFor(effectiveMode: MemberSyncPolicyMode, performMemberUpdate: boolean): string {
     if (effectiveMode === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE) {
       return "Head Office override";
-    } else if (effectiveMode === MemberSyncPolicyMode.SKIP) {
+    } else if (effectiveMode === MemberSyncPolicyMode.SKIP && !performMemberUpdate) {
       return "Kept (admin policy)";
+    } else if (performMemberUpdate) {
+      return "Updated";
     } else {
-      return performMemberUpdate ? "Updated" : "Not overwritten";
+      return "Not overwritten";
     }
   }
 
