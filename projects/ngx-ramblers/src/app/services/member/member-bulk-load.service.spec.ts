@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing";
 import { vi } from "vitest";
 import { MemberBulkLoadService } from "./member-bulk-load.service";
 import { Member, MemberAction, RamblersMember, WriteDataRule } from "../../models/member.model";
-import { AUDIT_FIELDS, InsightHubDateFormat } from "../../models/ramblers-insight-hub";
+import { AUDIT_FIELDS, AuditField, InsightHubDateFormat } from "../../models/ramblers-insight-hub";
 import { DateUtilsService } from "../date-utils.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { MemberUpdateAuditService } from "./member-update-audit.service";
@@ -18,10 +18,13 @@ import { MemberSyncPolicyMode } from "../../models/member-sync-policy.model";
 import { MemberSyncNotificationContext, MemberSyncNotificationResolution } from "../../models/member-sync-notification.model";
 import { WalkLeaderRematchService } from "../walks/walk-leader-rematch.service";
 import { abbreviatedWalksManagerContactName } from "../../functions/member-names";
+import { MemberSyncPolicyService } from "./member-sync-policy.service";
+import { MemberSyncNotificationService } from "./member-sync-notification.service";
 
 describe("MemberBulkLoadService", () => {
     let service: MemberBulkLoadService;
     let memberNamingServiceSpy: any;
+    let memberSyncPolicyServiceSpy: { effectiveMode: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
         const dateUtilsSpy = {
@@ -31,9 +34,12 @@ describe("MemberBulkLoadService", () => {
             dateTimeNowNoTime: vi.fn().mockName("DateUtilsService.dateTimeNowNoTime")
         };
         const stringUtilsSpy = {
-            noValueFor: vi.fn().mockName("StringUtilsService.noValueFor"),
+            noValueFor: vi.fn((value: unknown) => !value).mockName("StringUtilsService.noValueFor"),
             asBoolean: vi.fn().mockName("StringUtilsService.asBoolean"),
             pluraliseWithCount: vi.fn().mockName("StringUtilsService.pluraliseWithCount")
+        };
+        memberSyncPolicyServiceSpy = {
+            effectiveMode: vi.fn().mockName("MemberSyncPolicyService.effectiveMode").mockReturnValue(MemberSyncPolicyMode.USE_LEGACY_RULES)
         };
         const memberUpdateAuditServiceSpy = {
             create: vi.fn().mockName("MemberUpdateAuditService.create")
@@ -93,7 +99,9 @@ describe("MemberBulkLoadService", () => {
                 { provide: MemberNamingService, useValue: memberNamingServiceSpy },
                 { provide: NumberUtilsService, useValue: numberUtilsServiceSpy },
                 { provide: FullNamePipe, useValue: fullNamePipeSpy },
-                { provide: LoggerFactory, useValue: loggerFactorySpy }
+                { provide: LoggerFactory, useValue: loggerFactorySpy },
+                { provide: MemberSyncPolicyService, useValue: memberSyncPolicyServiceSpy },
+                { provide: MemberSyncNotificationService, useValue: { reconcile: vi.fn() } }
             ]
         });
 
@@ -216,6 +224,8 @@ describe("MemberBulkLoadService", () => {
             const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [], {} as any);
 
             expect(result.memberMatch).toBe(MemberAction.created);
+            expect(result.member.firstName).toBe("Gillian");
+            expect(result.member.lastName).toBe("Smith");
             expect(result.member.displayName).toBe("Gillian S");
             expect(result.member.contactId).toBe("Gillian Smith");
             expect(abbreviatedWalksManagerContactName(result.member.contactId)).toBe(false);
@@ -230,7 +240,42 @@ describe("MemberBulkLoadService", () => {
             const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [], {} as any);
 
             expect(result.memberMatch).toBe(MemberAction.created);
+            expect(result.member.firstName).toBeNull();
+            expect(result.member.lastName).toBeNull();
             expect(result.member.contactId).toBe("Member 2");
+        });
+    });
+
+    describe("skip policy on create", () => {
+        const applyField = (fieldName: string, member: Member, ramblersMember: RamblersMember) => {
+            const field: AuditField = AUDIT_FIELDS.find(auditField => auditField.fieldName === fieldName);
+            const updateAudit = {fieldChanges: [], fieldsChanged: 0, fieldsSkipped: 0};
+            (service as any).changeAndAuditMemberField(updateAudit, member, ramblersMember, field, {candidates: [], processedMemberIds: []});
+            return updateAudit;
+        };
+
+        it("populates firstName on a new member when the field is Skip", () => {
+            memberSyncPolicyServiceSpy.effectiveMode.mockReturnValue(MemberSyncPolicyMode.SKIP);
+            const member = {firstName: null} as Member;
+            const updateAudit = applyField("firstName", member, {firstName: "Gillian", lastName: "Smith"} as RamblersMember);
+            expect(member.firstName).toBe("Gillian");
+            expect(updateAudit.fieldChanges[0].resolution).toBe("Updated");
+        });
+
+        it("keeps the local firstName on an existing member when the field is Skip", () => {
+            memberSyncPolicyServiceSpy.effectiveMode.mockReturnValue(MemberSyncPolicyMode.SKIP);
+            const member = {id: "existing-member", firstName: "Local"} as Member;
+            const updateAudit = applyField("firstName", member, {firstName: "Gillian"} as RamblersMember);
+            expect(member.firstName).toBe("Local");
+            expect(updateAudit.fieldChanges[0].resolution).toBe("Kept (admin policy)");
+        });
+
+        it("populates email on a new member when the field is Skip", () => {
+            memberSyncPolicyServiceSpy.effectiveMode.mockReturnValue(MemberSyncPolicyMode.SKIP);
+            const member = {email: null} as Member;
+            const updateAudit = applyField("email", member, {email: "member@example.org"} as RamblersMember);
+            expect(member.email).toBe("member@example.org");
+            expect(updateAudit.fieldChanges[0].resolution).toBe("Updated");
         });
     });
 
