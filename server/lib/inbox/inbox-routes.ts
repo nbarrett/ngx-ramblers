@@ -42,6 +42,7 @@ import {
   OrphanedInboxThreadsResponse
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { isInboxThreadMongoId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { normaliseEmail, validEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { permanentlyDeleteThread, recordThreadDeletion, restoreDeletedThread } from "./inbox-deleted";
@@ -139,8 +140,25 @@ async function withAssignedMemberNames(views: InboxAliasConfigView[]): Promise<I
   });
 }
 
+async function inboxThreadByIdOrSlug(tenantSlug: string, idOrSlug: string): Promise<InboxThread | null> {
+  const found = {thread: null as InboxThread | null};
+  if (isInboxThreadMongoId(idOrSlug)) {
+    found.thread = await inboxThreadModel.findOne({_id: idOrSlug, tenantSlug}).lean() as InboxThread | null;
+  }
+  if (!found.thread && idOrSlug) {
+    found.thread = await inboxThreadModel.findOne({tenantSlug, slug: idOrSlug}).sort({lastSeenAt: -1}).lean() as InboxThread | null;
+  }
+  if (!found.thread && idOrSlug) {
+    found.thread = await inboxThreadModel.findOne({
+      tenantSlug,
+      normalisedSubject: idOrSlug.replace(/-/g, " ")
+    }).sort({lastSeenAt: -1}).lean() as InboxThread | null;
+  }
+  return found.thread;
+}
+
 async function accessibleThread(req: Request, res: Response, threadId: string): Promise<InboxThread | null> {
-  const thread = await inboxThreadModel.findOne({_id: threadId, tenantSlug: defaultTenantSlug()}).lean();
+  const thread = await inboxThreadByIdOrSlug(defaultTenantSlug(), threadId);
   if (!thread) {
     res.status(404).json({request: {messageType}, error: `Thread ${threadId} not found`});
     return null;

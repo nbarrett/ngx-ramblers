@@ -67,6 +67,7 @@ export class LinkEditComponent implements OnInit {
   accessLevelDescriptions: Record<AccessLevel, string> = {
     [AccessLevel.HIDDEN]: "Hidden",
     [AccessLevel.ENVIRONMENT_ADMIN]: "Environment Admin",
+    [AccessLevel.MEMBER_ADMIN]: "Member Admin",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged In Member",
     [AccessLevel.PUBLIC]: "Public"

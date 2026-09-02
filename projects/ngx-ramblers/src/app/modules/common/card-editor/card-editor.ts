@@ -3,7 +3,6 @@ import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove } from "@for
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
-  ICON_COLOURS,
   ImageType,
   PageContent,
   PageContentColumn,
@@ -26,11 +25,11 @@ import { CardImageComponent } from "../card/image/card-image";
 import { RouterLink } from "@angular/router";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { FormsModule } from "@angular/forms";
-import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
 import { ContentTextEditor } from "../tiptap-editor/content-text-editor";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
+import { IconExamplesComponent } from "../icon-examples/icon-examples";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
@@ -84,6 +83,7 @@ import { FileUtilsService } from "../../../file-utils.service";
       }
       <app-card-image noBorderRadius
         [smallIconContainer]="smallIconContainer"
+        [compactEdit]="actionButtonControlsVisible()"
         [imageType]="imageType"
         [icon]="iconService.iconForName(column?.icon)"
         [iconColour]="column?.iconColour"
@@ -167,20 +167,12 @@ import { FileUtilsService } from "../../../file-utils.service";
             <div class="form-group">
               <label class="form-label"
                      [for]="idFor('icon')">Icon</label>
-              <input [(ngModel)]="column.icon"
-                     [typeahead]="iconService.iconKeys"
-                     [id]="idFor('icon')"
-                     class="form-control input-sm" placeholder="Enter icon value">
-            </div>
-            <div class="form-group">
-              <label class="form-label" [for]="idFor('icon-colour')">Icon Colour</label>
-              <select [(ngModel)]="column.iconColour"
-                      [id]="idFor('icon-colour')"
-                      class="form-control input-sm">
-                @for (iconColour of ICON_COLOURS; track iconColour.cssClass) {
-                  <option [ngValue]="iconColour.cssClass">{{ iconColour.name }}</option>
-                }
-              </select>
+              <app-icon-examples compact
+                                 [inputId]="idFor('icon')"
+                                 [value]="column.icon"
+                                 [iconColour]="column.iconColour"
+                                 (valueChange)="column.icon = $event"
+                                 (iconColourChange)="column.iconColour = $event"/>
             </div>
           }
           @if (imageType === ImageType.IMAGE) {
@@ -250,8 +242,11 @@ import { FileUtilsService } from "../../../file-utils.service";
             </div>
           }
           <app-actions-dropdown [columnIndex]="columnIndex"
+                                [rowIndex]="rowIndex"
+                                [column]="column"
                                 [pageContent]="pageContent"
-                                [row]="row"/>
+                                [row]="row"
+                                [dropup]="true"/>
         </app-content-text-editor>
       </div>
     </div>
@@ -260,7 +255,7 @@ import { FileUtilsService } from "../../../file-utils.service";
   styles: [`
     .action-button-card-editor
       position: relative
-      overflow: hidden
+      overflow: visible
 
     .action-button-card-editor ::ng-deep .card-image-focal-wrapper
       overflow: hidden
@@ -306,8 +301,9 @@ import { FileUtilsService } from "../../../file-utils.service";
     .card-body-styled
       border-bottom-left-radius: 0.375rem
       border-bottom-right-radius: 0.375rem
+
   `],
-  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, ContentTextEditor, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, ColumnImageDisplaySettingsComponent]
+  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, ContentTextEditor, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, IconExamplesComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, ColumnImageDisplaySettingsComponent]
 })
 export class CardEditorComponent implements OnInit {
 
@@ -361,7 +357,6 @@ export class CardEditorComponent implements OnInit {
   protected readonly PageContentType = PageContentType;
 
   protected readonly ImageType = ImageType;
-  protected readonly ICON_COLOURS = ICON_COLOURS;
 
   columnClass(): string {
     const custom = this.column?.styles?.class;

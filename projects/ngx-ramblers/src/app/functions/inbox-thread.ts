@@ -12,6 +12,10 @@ export function inboxThreadSlug(thread: InboxThread): string {
   return kebabCase(thread?.normalisedSubject || thread?.subject || "");
 }
 
+export function isInboxThreadMongoId(value: string): boolean {
+  return /^[a-f0-9]{24}$/i.test(value);
+}
+
 export function aliasMailboxAddresses(alias: Pick<InboxAliasConfig, "roleEmail" | "additionalEmails">): string[] {
   return [alias.roleEmail, ...(alias.additionalEmails ?? [])]
     .map(address => (address ?? "").trim())
