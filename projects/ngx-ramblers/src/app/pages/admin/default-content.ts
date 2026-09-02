@@ -66,6 +66,70 @@ export const COMMITTEE_OUTBOUND_EMAIL_HELP: ContentText = {
     "* Use **Create Senders** below to register or verify every address in Brevo. A sender must be verified before emails can be sent from it."
 };
 
+export const RISK_ASSESSMENT_HEADING: ContentText = {
+  name: "risk-assessments-heading",
+  category: "risk-assessments",
+  text:
+    "In order to comply with insurance requirements, Ramblers have confirmed that walk leaders must complete risk assessments and keep them for three years. We hope that completing a risk assessment for your walk should not take a lot of time to complete. This should be a simple case of reading the following sections and clicking the confirmation checkbox at the bottom of each. When you then save your walk, this information will then be automatically saved and that's all you have to do. [Read more about guidance for group walks](https://www.ramblers.org.uk/go-walking-hub/coronavirus-advice)"
+};
+
+export const RISK_ASSESSMENT_TRAFFIC: ContentText = {
+  name: "risk-assessments-traffic",
+  category: "risk-assessments",
+  text:
+    "Do you need to cross or walk along a road? Are there any level crossings?\n" +
+    "* Check for suitable crossing places on the recce\n" +
+    "* Communicate clearly with the group on the day\n" +
+    "* Maintain single file on any road sections"
+};
+
+export const RISK_ASSESSMENT_PATH_SURFACE: ContentText = {
+  name: "risk-assessments-path-surface-and-obstacles",
+  category: "risk-assessments",
+  text:
+    "Are there hazards such as slippery paths, loose rocks, stiles, fallen trees, steep drops?\n" +
+    "* Check for hazards on the recce and adapt the route if needed\n" +
+    "* Provide clear information to walkers beforehand\n" +
+    "* Advise walkers to bring suitable footwear for the conditions"
+};
+
+export const RISK_ASSESSMENT_ANIMALS: ContentText = {
+  name: "risk-assessments-animals",
+  category: "risk-assessments",
+  text:
+    "Will you pass livestock? Is there any danger of ticks or bites/stings?\n" +
+    "* Let walkers know to cross fields with livestock calmly and quietly, keeping the group together. Be prepared to divert if needed\n" +
+    "* Leave gates and property as you find them\n" +
+    "* Advise walkers to check for ticks and remove promptly if found"
+};
+
+export const RISK_ASSESSMENT_COMMUNICATIONS: ContentText = {
+  name: "risk-assessments-communications",
+  category: "risk-assessments",
+  text:
+    "Is there a chance you could get lost, lose touch with walkers, lose visibility or phone signal?\n" +
+    "* Recce the route in advance\n" +
+    "* Pre-register phone with 999 emergency text service\n" +
+    "* Let somebody know your plans and the time you expect to be back"
+};
+
+export const RISK_ASSESSMENT_OTHER: ContentText = {
+  name: "risk-assessments-other",
+  category: "risk-assessments",
+  text:
+    "Add any other hazards on your walk here\n" +
+    "* Follow any national or local restrictions that apply on the day"
+};
+
+export const RISK_ASSESSMENT_CONTENT_ENTRIES: ContentText[] = [
+  RISK_ASSESSMENT_HEADING,
+  RISK_ASSESSMENT_TRAFFIC,
+  RISK_ASSESSMENT_PATH_SURFACE,
+  RISK_ASSESSMENT_ANIMALS,
+  RISK_ASSESSMENT_COMMUNICATIONS,
+  RISK_ASSESSMENT_OTHER
+];
+
 export const GROUP_EVENT_VENUE_HELP: ContentText = {
   name: "group-event-venue-help",
   category: "admin",
@@ -325,7 +389,8 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
     category: "admin"
   },
   MEETUP_VENUE_HELP,
-  GROUP_EVENT_VENUE_HELP
+  GROUP_EVENT_VENUE_HELP,
+  ...RISK_ASSESSMENT_CONTENT_ENTRIES
 ];
 
 export function findContentEntry(name: string, category: string): ContentText | undefined {

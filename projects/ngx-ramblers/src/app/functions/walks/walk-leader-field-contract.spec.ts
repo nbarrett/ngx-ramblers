@@ -217,7 +217,8 @@ describe("CONTRACT: walk leader fields — what each field is for (no ambiguity)
               requireRiskAssessment: true,
               requireFinishTime: true,
               requireWalkLeaderDisplayName: true
-            })
+            }),
+            riskAssessmentSections: () => []
           }
         },
         {

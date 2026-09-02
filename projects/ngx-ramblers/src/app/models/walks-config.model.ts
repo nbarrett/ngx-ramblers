@@ -23,10 +23,31 @@ export interface WalkViewPreviewGhost {
 export const NO_REGULAR_WALK_DAY = 0;
 export const DEFAULT_REGULAR_WALK_DAY = 7;
 
+export const RISK_ASSESSMENT_CONTENT_CATEGORY = "risk-assessments";
+export const RISK_ASSESSMENT_HEADING_NAME = "risk-assessments-heading";
+
+export interface WalkRiskAssessmentSection {
+  key: string;
+  title: string;
+}
+
+export const DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS: WalkRiskAssessmentSection[] = [
+  {key: "traffic", title: "Traffic"},
+  {key: "path-surface-and-obstacles", title: "Path surface and obstacles"},
+  {key: "animals", title: "Animals"},
+  {key: "communications", title: "Communications"},
+  {key: "other", title: "Other"}
+];
+
+export function riskAssessmentContentName(key: string): string {
+  return `${RISK_ASSESSMENT_CONTENT_CATEGORY}-${key}`;
+}
+
 export interface WalksConfig {
   milesPerHour: number;
   mapZoomOutLevels?: number;
   requireRiskAssessment: boolean;
+  riskAssessmentSections?: WalkRiskAssessmentSection[];
   requireFinishTime: boolean;
   requireWalkLeaderDisplayName: boolean;
   matchWalkLeadersOnWalksManagerSync?: boolean;
@@ -61,6 +82,7 @@ export enum CalendarColourBy {
 
 export enum WalkConfigTab {
   GENERAL = "General",
+  RISK_ASSESSMENT = "Risk Assessment",
   MEETUP = "Meetup",
   WALK_VIEW = "Walk View",
 }

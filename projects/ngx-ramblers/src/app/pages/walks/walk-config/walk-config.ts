@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faGear } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowUp, faGear, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy, NO_REGULAR_WALK_DAY } from "../../../models/walks-config.model";
+import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy, NO_REGULAR_WALK_DAY, RISK_ASSESSMENT_CONTENT_CATEGORY, RISK_ASSESSMENT_HEADING_NAME, riskAssessmentContentName, WalkRiskAssessmentSection } from "../../../models/walks-config.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -46,6 +46,7 @@ import {
 } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
 import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-walk-config",
@@ -118,13 +119,6 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                     </div>
                     <div class="col-md-6">
                       <div class="form-check mb-2">
-                        <input [(ngModel)]="walksConfig.requireRiskAssessment"
-                               type="checkbox"
-                               class="form-check-input"
-                               id="require-risk-assessment">
-                        <label class="form-check-label" for="require-risk-assessment">Require risk assessment to be completed before approving walks</label>
-                      </div>
-                      <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.requireFinishTime"
                                type="checkbox"
                                class="form-check-input"
@@ -156,6 +150,81 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                   </div>
                 }
               </div>
+            </tab>
+            <tab [active]="tabActive(WalkConfigTab.RISK_ASSESSMENT)"
+                 (selectTab)="selectTab(WalkConfigTab.RISK_ASSESSMENT)"
+                 [heading]="WalkConfigTab.RISK_ASSESSMENT">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                @if (walksConfig) {
+                  <div class="thumbnail-heading-frame">
+                    <div class="thumbnail-heading">Risk assessment</div>
+                    <div class="form-check mb-3">
+                      <input [(ngModel)]="walksConfig.requireRiskAssessment"
+                             type="checkbox"
+                             class="form-check-input"
+                             id="require-risk-assessment">
+                      <label class="form-check-label" for="require-risk-assessment">Require risk assessment to be completed before approving walks</label>
+                    </div>
+                    <p class="mb-3">The wording below is the group's risk assessment. Walk leaders review it when they create a walk and tick each section. Their acknowledgement is stored on that walk.</p>
+                    <app-content-text-editor standalone
+                                           [category]="RISK_ASSESSMENT_CONTENT_CATEGORY"
+                                           [name]="RISK_ASSESSMENT_HEADING_NAME"
+                                           [description]="'Risk assessment heading'"
+                                           [initialView]="View.EDIT"/>
+                    <div class="badge-button mb-1" (click)="addRiskAssessmentSection()">
+                      <fa-icon [icon]="faPlus"></fa-icon>
+                      Add section
+                    </div>
+                  </div>
+                }
+              </div>
+              @if (walksConfig) {
+                @for (section of walksConfig.riskAssessmentSections; track section.key; let sectionIndex = $index) {
+                  <div class="img-thumbnail thumbnail-admin-edit mt-3">
+                    <div class="thumbnail-heading-frame">
+                      <div class="thumbnail-heading">
+                        <span>{{ section.title || "Section title" }}</span>
+                        <button type="button" class="btn btn-icon btn-quiet"
+                                [disabled]="sectionIndex === 0"
+                                (click)="moveRiskAssessmentSection(sectionIndex, -1)"
+                                tooltip="Move up"
+                                container="body"
+                                aria-label="Move up">
+                          <fa-icon [icon]="faArrowUp"/>
+                        </button>
+                        <button type="button" class="btn btn-icon btn-quiet"
+                                [disabled]="sectionIndex === walksConfig.riskAssessmentSections.length - 1"
+                                (click)="moveRiskAssessmentSection(sectionIndex, 1)"
+                                tooltip="Move down"
+                                container="body"
+                                aria-label="Move down">
+                          <fa-icon [icon]="faArrowDown"/>
+                        </button>
+                        <button type="button" class="btn btn-icon btn-quiet"
+                                (click)="removeRiskAssessmentSection(section)"
+                                tooltip="Remove section"
+                                container="body"
+                                aria-label="Remove section">
+                          <fa-icon [icon]="faTrash"/>
+                        </button>
+                      </div>
+                      <div class="form-group mb-3">
+                        <label [for]="'risk-assessment-section-' + section.key">Section title</label>
+                        <input [id]="'risk-assessment-section-' + section.key"
+                               type="text"
+                               class="form-control input-sm"
+                               [(ngModel)]="section.title"
+                               placeholder="Section title">
+                      </div>
+                      <app-content-text-editor standalone
+                                             [category]="RISK_ASSESSMENT_CONTENT_CATEGORY"
+                                             [name]="riskAssessmentContentName(section.key)"
+                                             [description]="section.title"
+                                             [initialView]="View.EDIT"/>
+                    </div>
+                  </div>
+                }
+              }
             </tab>
             <tab [active]="tabActive(WalkConfigTab.MEETUP)"
                  (selectTab)="selectTab(WalkConfigTab.MEETUP)"
@@ -565,7 +634,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
       margin-top: 0
   `],
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent]
+  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent, TooltipDirective]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
@@ -629,6 +698,13 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     [AccessLevel.PUBLIC]: "Public"
   };
   faGear = faGear;
+  faPlus = faPlus;
+  faTrash = faTrash;
+  faArrowUp = faArrowUp;
+  faArrowDown = faArrowDown;
+  protected readonly RISK_ASSESSMENT_CONTENT_CATEGORY = RISK_ASSESSMENT_CONTENT_CATEGORY;
+  protected readonly RISK_ASSESSMENT_HEADING_NAME = RISK_ASSESSMENT_HEADING_NAME;
+  protected readonly riskAssessmentContentName = riskAssessmentContentName;
   private tab: WalkConfigTab = WalkConfigTab.GENERAL;
   private subscriptions: Subscription[] = [];
 
@@ -667,6 +743,9 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
       }
       if (!this.walksConfig.walkAlbumPanelHeight) {
         this.walksConfig.walkAlbumPanelHeight = 240;
+      }
+      if (!this.walksConfig.riskAssessmentSections?.length) {
+        this.walksConfig.riskAssessmentSections = this.walksConfigService.riskAssessmentSections();
       }
     }));
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
@@ -951,6 +1030,49 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     } else {
       this.previewAlbumImageUrls = this.previewImageUrl ? [this.previewImageUrl] : [];
       this.previewAlbumImageUrl = this.previewImageUrl;
+    }
+  }
+
+  addRiskAssessmentSection() {
+    const sections = this.walksConfig.riskAssessmentSections || [];
+    const title = "New section";
+    const key = this.uniqueSectionKey(kebabCase(title) || "section", sections);
+    this.walksConfig.riskAssessmentSections = [...sections, {key, title}];
+  }
+
+  removeRiskAssessmentSection(section: WalkRiskAssessmentSection) {
+    this.walksConfig.riskAssessmentSections = (this.walksConfig.riskAssessmentSections || [])
+      .filter(item => item.key !== section.key);
+  }
+
+  moveRiskAssessmentSection(index: number, offset: number) {
+    const sections = [...(this.walksConfig.riskAssessmentSections || [])];
+    const target = index + offset;
+    if (target >= 0 && target < sections.length) {
+      const moving = sections[index];
+      this.walksConfig.riskAssessmentSections = sections.map((section, position) => {
+        if (position === index) {
+          return sections[target];
+        } else if (position === target) {
+          return moving;
+        } else {
+          return section;
+        }
+      });
+    }
+  }
+
+  private uniqueSectionKey(base: string, sections: WalkRiskAssessmentSection[], index = 2): string {
+    const existing = sections.map(section => section.key);
+    if (!existing.includes(base)) {
+      return base;
+    } else {
+      const candidate = `${base}-${index}`;
+      if (!existing.includes(candidate)) {
+        return candidate;
+      } else {
+        return this.uniqueSectionKey(base, sections, index + 1);
+      }
     }
   }
 

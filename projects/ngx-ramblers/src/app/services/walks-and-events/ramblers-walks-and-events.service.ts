@@ -1020,8 +1020,9 @@ export class RamblersWalksAndEventsService {
       }
 
       if (this.walksConfigService.walksConfig()?.requireRiskAssessment !== false) {
-        if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk?.fields.riskAssessment)) {
-          const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk?.fields.riskAssessment);
+        const sections = this.walksConfigService.riskAssessmentSections();
+        if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk?.fields.riskAssessment, sections)) {
+          const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk?.fields.riskAssessment, sections);
           this.logger.off("unconfirmedRiskAssessmentsExist:given walk", walk, "riskAssessment:", walk?.fields.riskAssessment, "alertMessage:", alertMessage);
           validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
         }

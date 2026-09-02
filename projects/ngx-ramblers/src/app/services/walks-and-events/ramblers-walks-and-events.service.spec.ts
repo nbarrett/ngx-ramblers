@@ -82,7 +82,8 @@ describe("RamblersWalksAndEventsService", () => {
         provide: WalksConfigService,
         useValue: {
           events: () => of({}),
-          walksConfig: () => ({milesPerHour: 2.13, requireRiskAssessment: true, requireFinishTime: true, requireWalkLeaderDisplayName: true})
+          walksConfig: () => ({milesPerHour: 2.13, requireRiskAssessment: true, requireFinishTime: true, requireWalkLeaderDisplayName: true}),
+          riskAssessmentSections: () => []
         }
       },
       {
