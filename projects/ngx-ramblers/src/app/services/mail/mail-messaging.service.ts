@@ -265,7 +265,9 @@ export class MailMessagingService {
       mailConfig.contactUsNotificationConfigId,
       mailConfig.backupNotificationConfigId,
       mailConfig.bookingNotificationConfigId,
-      mailConfig.memberSyncNotificationConfigId
+      mailConfig.memberSyncNotificationConfigId,
+      mailConfig.volunteerNotificationConfigId,
+      mailConfig.memberBulkLoadDigestConfigId
     ];
   }
 

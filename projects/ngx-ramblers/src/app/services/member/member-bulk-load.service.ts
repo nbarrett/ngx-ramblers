@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import { isEmpty, startCase } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
+import { summariseFieldChanges as fieldChangeSummary } from "../../functions/member-bulk-load-digest";
 import { omit } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -30,7 +31,7 @@ import { MailMessagingConfig } from "../../models/mail.model";
 import { MemberDefaultsService } from "./member-defaults.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { StringUtilsService } from "../string-utils.service";
-import { AUDIT_FIELDS, AuditField, NO_CHANGES_OR_DIFFERENCES } from "../../models/ramblers-insight-hub";
+import { AUDIT_FIELDS, AuditField } from "../../models/ramblers-insight-hub";
 import { isString } from "es-toolkit/compat";
 import { isNumber } from "es-toolkit/compat";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -431,11 +432,7 @@ export class MemberBulkLoadService {
   }
 
   public summariseFieldChanges(fieldChanges: MemberAuditFieldChange[]): string {
-    if (!fieldChanges?.length) {
-      return NO_CHANGES_OR_DIFFERENCES;
-    }
-    const fields = fieldChanges.map(change => startCase(change.fieldName));
-    return `${fields.length === 1 ? "1 field" : `${fields.length} fields`}: ${fields.join(", ")}`;
+    return fieldChangeSummary(fieldChanges);
   }
 
   private notificationValue(formattedValue: any): string | null {
