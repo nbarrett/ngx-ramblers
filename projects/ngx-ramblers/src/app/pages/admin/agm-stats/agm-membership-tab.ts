@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, SimpleChanges, TemplateRef, ViewChild, inject, OnChanges, AfterViewInit } from "@angular/core";
+import { Component, Input, SimpleChanges, ViewChild, inject, OnChanges, AfterViewInit } from "@angular/core";
 import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -22,7 +22,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
   styleUrls: ["./agm-stats.sass"],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <ng-container *ngTemplateOutlet="dateRangeControls"></ng-container>
       <div class="row mb-4">
         <div class="col-12">
           <h3>Membership Activity Analysis</h3>
@@ -68,7 +67,6 @@ export class AGMMembershipTabComponent implements AfterViewInit, OnChanges {
   private loggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("AGMMembershipTabComponent", NgxLoggerLevel.ERROR);
   @Input() tabActive = false;
-  @Input() dateRangeControls: TemplateRef<any>;
   @Input() membershipChartData: ChartConfiguration["data"];
   @Input() chartOptions: ChartConfiguration["options"];
   @Input() chartType: AgmChartType;

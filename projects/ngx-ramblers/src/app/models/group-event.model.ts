@@ -173,9 +173,15 @@ export interface EventStats extends EventStatsRequest {
   uniqueCreators: string[],
 }
 
+export interface AgmStatsPeriod {
+  fromDate: number;
+  toDate: number;
+}
+
 export interface AGMStatsRequest {
   fromDate: number;
   toDate: number;
+  periods?: AgmStatsPeriod[];
 }
 
 export interface LeaderStats {
