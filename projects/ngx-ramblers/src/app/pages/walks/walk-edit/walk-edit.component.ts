@@ -199,8 +199,8 @@ import {
         changedItems: {{ changedItemsForDisplay() | json }}
       </pre>
       }
-      <div class="d-flex flex-wrap align-items-center mb-4 gap-3">
-        <div class="d-inline-flex align-items-center flex-wrap align-middle">
+      <div class="mb-4">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
           @if (allowClose()) {
             <button [disabled]="saveInProgress" type="button"
                     (click)="closeEditView()" title="Close and go back to where you came from"
@@ -305,8 +305,10 @@ import {
               <fa-icon [icon]="faXmark"/><span class="ms-2">Cancel</span>
             </button>
           }
+        </div>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
           @if (allowNotifyConfirmation() && !saveInProgress) {
-            <div class="form-check">
+            <div class="form-check mb-0">
               <input [disabled]="!display.allowAdminEdits() || saveInProgress"
                      [(ngModel)]="sendNotifications"
                      type="checkbox" class="form-check-input" id="send-notification">
@@ -314,27 +316,29 @@ import {
                      for="send-notification">Notify {{ personToNotify() }} about this change
               </label>
             </div>
+          } @else {
+            <div></div>
+          }
+          @if (display.walkLink(displayedWalk.walk)) {
+            <div class="d-inline-flex align-items-center gap-3">
+              <div class="d-inline-flex align-items-center gap-2">
+                <app-copy-icon [icon]="faCopy" title [value]="display.walkLink(displayedWalk.walk)"
+                               [elementName]="'event link'">copy link to this
+                </app-copy-icon>
+                <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
+                   target="_blank">{{ stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type) }}</a>
+              </div>
+              @if (display.allowAdminEdits()) {
+                <div class="d-inline-flex align-items-center gap-2">
+                  <app-copy-icon [value]="extendedGroupEventJson"
+                                 [elementName]="'event JSON'"
+                                 iconClass="colour-mintcake">copy event JSON
+                  </app-copy-icon>
+                </div>
+              }
+            </div>
           }
         </div>
-        @if (display.walkLink(displayedWalk.walk)) {
-          <div class="d-inline-flex align-items-center gap-3 ms-auto">
-            <div class="d-inline-flex align-items-center gap-2">
-              <app-copy-icon [icon]="faCopy" title [value]="display.walkLink(displayedWalk.walk)"
-                             [elementName]="'event link'">copy link to this
-              </app-copy-icon>
-              <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
-                 target="_blank">{{ stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type) }}</a>
-            </div>
-            @if (display.allowAdminEdits()) {
-              <div class="d-inline-flex align-items-center gap-2">
-                <app-copy-icon [value]="extendedGroupEventJson"
-                               [elementName]="'event JSON'"
-                               iconClass="colour-mintcake">copy event JSON
-                </app-copy-icon>
-              </div>
-            }
-          </div>
-        }
       </div>
     }
   `,

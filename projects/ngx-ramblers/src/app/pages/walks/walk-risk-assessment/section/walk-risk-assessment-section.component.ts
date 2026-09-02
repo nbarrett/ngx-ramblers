@@ -26,11 +26,12 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
   private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
   private walkChangesService = inject(WalkChangesService);
 
-  public riskAssessmentKey: string;
   @Input()
   public displayedWalk: DisplayedWalk;
   @Input()
   public riskAssessmentSection: string;
+  @Input()
+  public riskAssessmentKey: string;
   public inputDisabled = false;
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
@@ -97,7 +98,7 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.riskAssessmentKey = kebabCase(this.riskAssessmentSection);
+    this.riskAssessmentKey = this.riskAssessmentKey || kebabCase(this.riskAssessmentSection);
     this.findOrCreateRiskAssessmentRecord();
     if (this.displayedWalk?.walk) {
       this.walkChangesService.notifyChange(this.displayedWalk.walk);
