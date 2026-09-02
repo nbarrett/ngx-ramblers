@@ -157,6 +157,8 @@ export enum StoredValue {
   MEETING_RSVP_SORT_ORDER = "meeting-rsvp-sort-order",
   MEETING_TITLE = "meeting-title",
   MEETING_TYPE = "meeting-type",
+  MEETING_VIDEO_CALLS_SORT = "video-calls-sort",
+  MEETING_VIDEO_CALLS_SORT_ORDER = "video-calls-sort-order",
   MEDIA_SUB_TAB = "media-sub-tab",
   MEMBER = "member",
   MEMBER_ID = "member-id",

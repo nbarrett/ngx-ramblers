@@ -10,6 +10,7 @@ import { DataPopulationService } from "../pages/admin/data-population.service";
 import { VersionCheckService } from "../services/version-check.service";
 import { CanonicalLinkService } from "../services/canonical-link.service";
 import { AppShellService } from "../services/maps/app-shell.service";
+import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 
 @Component({
     selector: "app-root",
@@ -22,6 +23,7 @@ import { AppShellService } from "../services/maps/app-shell.service";
     <div [class.app-shell]="appShellActive" [class.container]="!appShellActive">
       @if (!appShellActive) {
         <app-navbar/>
+        <app-rejoin-meeting-banner/>
       }
       <router-outlet/>
     </div>
@@ -30,7 +32,7 @@ import { AppShellService } from "../services/maps/app-shell.service";
     }
     `,
     styleUrls: ["./container.sass"],
-    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent]
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);

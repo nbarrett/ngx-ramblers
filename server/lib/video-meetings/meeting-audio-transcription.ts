@@ -1,16 +1,16 @@
 import { Request, Response } from "express";
 import debugLib from "debug";
+import { isArray, isString } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
 import { aiConfigFromEnvironment } from "../ai/ai-config";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { meetingTranscriptLine } from "../mongo/models/meeting-transcript";
 import {
-  isUsableTranscriptText,
+  speakerLabelledLines,
   textFromGenerateContent,
   transcriptionExceedsAudio
 } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
-import { MEETING_TRANSCRIBE_PROMPT } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
-import { toBritishEnglish } from "../../../projects/ngx-ramblers/src/app/functions/british-english";
+import { meetingTranscribePrompt } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
 import { MeetingAudioTranscription } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:audio"));
@@ -21,7 +21,28 @@ function geminiGenerateContentUrl(baseUrl: string, model: string): string {
   return `${root}/models/${encodeURIComponent(model)}:generateContent`;
 }
 
-async function transcribeAudioViaAi(audio: Buffer, mimeType: string): Promise<MeetingAudioTranscription> {
+export function participantNamesFromRequest(value: unknown): string[] {
+  const parsed = (() => {
+    if (isArray(value)) {
+      return value;
+    } else if (isString(value) && value.trim().startsWith("[")) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    } else if (isString(value)) {
+      return value.split(",");
+    } else {
+      return [];
+    }
+  })();
+  return (isArray(parsed) ? parsed : [])
+    .map(name => (name ?? "").toString().trim())
+    .filter(name => !!name);
+}
+
+async function transcribeAudioViaAi(audio: Buffer, mimeType: string, prompt: string): Promise<MeetingAudioTranscription> {
   const ai = aiConfigFromEnvironment();
   if (!ai.enabled || !ai.baseUrl || !ai.apiKey || !ai.model) {
     throw new Error("Audio transcription is not configured in this environment");
@@ -30,11 +51,11 @@ async function transcribeAudioViaAi(audio: Buffer, mimeType: string): Promise<Me
     const body = {
       contents: [{
         parts: [
-          {text: MEETING_TRANSCRIBE_PROMPT},
+          {text: prompt},
           {inline_data: {mime_type: mimeType || "audio/wav", data: audio.toString("base64")}}
         ]
       }],
-      generationConfig: {temperature: 0, maxOutputTokens: 512}
+      generationConfig: {temperature: 0, maxOutputTokens: 768}
     };
     const response = await fetch(endpoint, {
       method: "POST",
@@ -47,7 +68,7 @@ async function transcribeAudioViaAi(audio: Buffer, mimeType: string): Promise<Me
       throw new Error(`Transcription request failed with status ${response.status}`);
     } else {
       const data = await response.json();
-      const text = toBritishEnglish(textFromGenerateContent(data));
+      const text = textFromGenerateContent(data);
       if (transcriptionExceedsAudio(text, audio.length)) {
         debug("audio transcription discarded: more words than the audio could hold", {
           bytes: audio.length,
@@ -64,6 +85,8 @@ async function transcribeAudioViaAi(audio: Buffer, mimeType: string): Promise<Me
 export async function transcribeMeetingAudio(req: Request, res: Response): Promise<void> {
   const room = (req.body?.room || "").toString().trim();
   const authorName = (req.body?.authorName || "").toString().trim();
+  const participants = participantNamesFromRequest(req.body?.participants);
+  const speakers = participantNamesFromRequest(req.body?.speakers);
   const file = (req as Request & {file?: {buffer: Buffer; mimetype: string}}).file;
   const mimeType = (file?.mimetype || "audio/wav").toLowerCase();
   if (!room || !file?.buffer?.length) {
@@ -72,24 +95,27 @@ export async function transcribeMeetingAudio(req: Request, res: Response): Promi
     res.status(415).json({message: "Only WAV audio is supported"});
   } else {
     try {
-      const transcription = await transcribeAudioViaAi(file.buffer, mimeType);
-      const text = transcription.text.trim();
-      const usable = isUsableTranscriptText(text);
-      if (usable) {
-        await meetingTranscriptLine.create({room, authorName, text, at: dateTimeNowAsValue()});
+      const transcription = await transcribeAudioViaAi(file.buffer, mimeType, meetingTranscribePrompt(authorName, participants, speakers));
+      const lines = speakerLabelledLines(transcription.text, authorName, participants, speakers);
+      if (lines.length) {
+        const now = dateTimeNowAsValue();
+        await meetingTranscriptLine.insertMany(lines.map((line, index) => ({room, authorName: line.authorName, text: line.text, at: now + index})));
       }
       debug("transcribeMeetingAudio:", {
         room,
         authorName,
+        participants,
+        heardSpeakers: speakers,
         bytes: file.buffer.length,
-        chars: text.length,
-        usable,
+        chars: transcription.text.length,
+        saved: lines.length,
+        speakers: lines.map(line => line.authorName).filter((name, index, names) => names.indexOf(name) === index),
         discarded: transcription.discarded
       });
       res.status(200).json({
-        saved: usable ? 1 : 0,
+        saved: lines.length,
         discarded: transcription.discarded ? 1 : 0,
-        text: usable ? text : ""
+        text: lines.map(line => `${line.authorName}: ${line.text}`).join("\n")
       });
     } catch (error) {
       debug("transcribeMeetingAudio failed:", error);

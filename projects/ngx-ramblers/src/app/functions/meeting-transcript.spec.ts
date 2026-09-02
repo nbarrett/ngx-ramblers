@@ -3,6 +3,7 @@ import {
   dedupeIncomingLines,
   isUsableTranscriptText,
   joinTranscriptLines,
+  speakerLabelledLines,
   textFromGenerateContent,
   transcriptionExceedsAudio,
   transcriptLineLabel,
@@ -189,6 +190,59 @@ describe("transcriptTimeSpan", () => {
 
   it("returns nulls when there are no timestamps", () => {
     expect(transcriptTimeSpan([])).toEqual({startedAt: null, endedAt: null});
+  });
+
+});
+
+describe("speakerLabelledLines", () => {
+
+  it("stores each utterance under the named speaker rather than the person recording", () => {
+    const text = "Nick Barrett: can you see my screen\nRachel: yes I can\nNick Barrett: these are the minutes";
+    expect(speakerLabelledLines(text, "Nick Barrett", ["Nick Barrett", "Rachel"])).toEqual([
+      {authorName: "Nick Barrett", text: "can you see my screen"},
+      {authorName: "Rachel", text: "yes I can"},
+      {authorName: "Nick Barrett", text: "these are the minutes"}
+    ]);
+  });
+
+  it("matches speaker names regardless of case and keeps unknown labels as given", () => {
+    const text = "rachel: I went to Westwell\nUnknown: who is that";
+    expect(speakerLabelledLines(text, "Nick Barrett", ["Rachel"])).toEqual([
+      {authorName: "Rachel", text: "I went to Westwell"},
+      {authorName: "Unknown", text: "who is that"}
+    ]);
+  });
+
+  it("attributes unlabelled lines to whoever the meeting heard speaking most, and leaves a mid-sentence colon alone", () => {
+    expect(speakerLabelledLines("we meet at seven: bring the reports", "Nick Barrett", ["Rachel"], ["Rachel", "Nick Barrett"])).toEqual([
+      {authorName: "Rachel", text: "we meet at seven: bring the reports"}
+    ]);
+  });
+
+  it("marks unlabelled lines Unknown rather than blaming the recorder when other people are present", () => {
+    expect(speakerLabelledLines("we meet at seven", "Nick Barrett", ["Rachel"])).toEqual([
+      {authorName: "Unknown", text: "we meet at seven"}
+    ]);
+  });
+
+  it("attributes unlabelled lines to the recorder when nobody else is in the meeting", () => {
+    expect(speakerLabelledLines("we meet at seven", "Nick Barrett", ["Nick Barrett"])).toEqual([
+      {authorName: "Nick Barrett", text: "we meet at seven"}
+    ]);
+  });
+
+  it("drops filler and refusals even when they carry a speaker label", () => {
+    expect(speakerLabelledLines("Rachel: um, uh\nNick Barrett: no clear speech", "Nick Barrett", ["Rachel"])).toEqual([]);
+  });
+
+});
+
+describe("transcriptionExceedsAudio with speaker labels", () => {
+
+  it("does not count speaker labels as spoken words", () => {
+    const twoSecondsOfWav = 44 + 16000 * 2 * 2;
+    const labelled = "Rachel: waiting for the morning light\nNick Barrett: yes";
+    expect(transcriptionExceedsAudio(labelled, twoSecondsOfWav)).toBe(false);
   });
 
 });

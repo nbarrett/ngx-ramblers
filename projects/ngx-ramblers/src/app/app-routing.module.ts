@@ -9,6 +9,7 @@ import { EmailComposerAuthGuard } from "./guards/email-composer-auth-guard";
 import { GroupEventAuthGuard } from "./guards/group-event-auth-guard";
 import { PageAccessGuard } from "./guards/page-access-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
+import { MeetingRoomLeaveGuard } from "./guards/meeting-room-leave-guard";
 import { AdminContentPath } from "./models/admin-route-paths.model";
 
 const routes: Routes = [
@@ -65,7 +66,8 @@ const routes: Routes = [
     loadComponent: () => import("./pages/video-meetings/video-meeting-room")
       .then(m => m.VideoMeetingRoomComponent),
     data: {guest: true},
-    canActivate: [SystemHealthyGuard]
+    canActivate: [SystemHealthyGuard],
+    canDeactivate: [MeetingRoomLeaveGuard]
   },
   {
     path: "how-to/committee/email-archives/:subject",

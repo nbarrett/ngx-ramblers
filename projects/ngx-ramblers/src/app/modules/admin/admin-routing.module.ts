@@ -1,6 +1,7 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { LoggedInGuard } from "../../guards/admin-login-guard";
+import { MeetingRoomLeaveGuard } from "../../guards/meeting-room-leave-guard";
 import { hasDynamicPath, hasEmailComposerPath, hasSendNotificationPath } from "../../services/path-matchers";
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { EmailComposerAuthGuard } from "../../guards/email-composer-auth-guard";
@@ -340,7 +341,8 @@ const rp = adminRelativePath;
       path: rp(AdminPath.MEETING_ROOM) + "/:room",
       loadComponent: () => import("../../pages/video-meetings/video-meeting-room")
         .then(m => m.VideoMeetingRoomComponent),
-      canActivate: [SystemHealthyGuard, LoggedInGuard]
+      canActivate: [SystemHealthyGuard, LoggedInGuard],
+      canDeactivate: [MeetingRoomLeaveGuard]
     },
     {
       path: rp(AdminPath.MEETING_MINUTES),

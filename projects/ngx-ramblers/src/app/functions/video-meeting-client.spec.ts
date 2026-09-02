@@ -6,13 +6,18 @@ import {
   VideoMeetingMediaIssue
 } from "../models/video-meeting.model";
 import {
+  meetingRejoinOffer,
+  rememberMeetingReturnPath,
   forgetActiveMeetingRoom,
   forgetMeetingNotesStartedAt,
   meetingNotesStartedAt,
   rememberActiveMeetingRoom,
+  rememberGuestName,
   rememberMeetingNotesStartedAt,
+  rememberedGuestName,
   shouldAutoJoinMeeting,
   VIDEO_MEETING_ACTIVE_ROOM_KEY,
+  VIDEO_MEETING_GUEST_NAME_KEY,
   VIDEO_MEETING_NOTES_STARTED_KEY,
   videoMeetingClient,
   videoMeetingJoinActionLabel,
@@ -165,6 +170,45 @@ describe("shouldAutoJoinMeeting", () => {
 
 });
 
+describe("meetingRejoinOffer", () => {
+
+  function fakeStorage(): Storage {
+    const values = new Map<string, string>();
+    return {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => void values.set(key, value),
+      removeItem: (key: string) => void values.delete(key),
+      clear: () => values.clear(),
+      key: () => null,
+      length: 0
+    } as Storage;
+  }
+
+  it("offers a way back to a remembered meeting from any other page", () => {
+    const storage = fakeStorage();
+    rememberActiveMeetingRoom("committee-meeting-1234", storage);
+    rememberMeetingReturnPath("/admin/meetings/room/committee-meeting-1234", storage);
+    expect(meetingRejoinOffer(storage, "/walks")).toEqual({room: "committee-meeting-1234", path: "/admin/meetings/room/committee-meeting-1234"});
+  });
+
+  it("stays quiet while on the meeting page itself, even with different query parameters", () => {
+    const storage = fakeStorage();
+    rememberActiveMeetingRoom("committee-meeting-1234", storage);
+    rememberMeetingReturnPath("/video-meetings/guest/committee-meeting-1234?t=abc", storage);
+    expect(meetingRejoinOffer(storage, "/video-meetings/guest/committee-meeting-1234")).toBeNull();
+    expect(meetingRejoinOffer(storage, "/social")).toEqual({room: "committee-meeting-1234", path: "/video-meetings/guest/committee-meeting-1234?t=abc"});
+  });
+
+  it("offers nothing once the meeting has been forgotten or when no path was stored", () => {
+    const storage = fakeStorage();
+    rememberActiveMeetingRoom("committee-meeting-1234", storage);
+    expect(meetingRejoinOffer(storage, "/walks")).toBeNull();
+    rememberMeetingReturnPath("/admin/meetings/room/committee-meeting-1234", storage);
+    forgetActiveMeetingRoom(storage);
+    expect(meetingRejoinOffer(storage, "/walks")).toBeNull();
+  });
+});
+
 describe("active meeting room storage", () => {
 
   it("remembers and forgets the room for this tab", () => {
@@ -182,6 +226,24 @@ describe("active meeting room storage", () => {
     expect(store[VIDEO_MEETING_ACTIVE_ROOM_KEY]).toEqual("committee-room");
     forgetActiveMeetingRoom(storage);
     expect(store[VIDEO_MEETING_ACTIVE_ROOM_KEY]).toEqual(undefined);
+  });
+
+  it("remembers a guest's chosen name so they do not rejoin as Guest", () => {
+    const store: Record<string, string> = {};
+    const storage = {
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      getItem: (key: string) => store[key] || null,
+      removeItem: (key: string) => {
+        delete store[key];
+      }
+    } as Storage;
+    rememberGuestName("Andrew Barrett", storage);
+    expect(store[VIDEO_MEETING_GUEST_NAME_KEY]).toEqual("Andrew Barrett");
+    expect(rememberedGuestName(storage)).toEqual("Andrew Barrett");
+    rememberGuestName("  ", storage);
+    expect(rememberedGuestName(storage)).toEqual("");
   });
 
   it("remembers when notes for this room started taking", () => {
@@ -210,6 +272,43 @@ describe("videoMeetingMediaHelp", () => {
   const ipad = videoMeetingClient({userAgent: IPAD_SAFARI, coarsePointer: true});
   const desktop = videoMeetingClient({userAgent: DESKTOP_CHROME, coarsePointer: false});
 
+  it("offers the microphone picker when an unmuted microphone is producing no sound", () => {
+    const help = videoMeetingMediaHelp({
+      inMeeting: true,
+      audioAvailable: true,
+      videoAvailable: true,
+      audioMuted: false,
+      joinedMuted: false,
+      remoteParticipantCount: 2,
+      cannotHearDismissed: false,
+      microphoneOffDismissed: false,
+      microphoneSilent: true,
+      microphoneSilentDismissed: false,
+      coarsePointer: false
+    }, desktop);
+    expect(help?.issue).toEqual(VideoMeetingMediaIssue.MICROPHONE_SILENT);
+    expect(help?.primaryAction).toEqual(VideoMeetingMediaAction.CHOOSE_MICROPHONE);
+    expect(help?.secondaryAction).toEqual(VideoMeetingMediaAction.DISMISS);
+  });
+
+  it("stays quiet about a silent microphone once dismissed or when muted", () => {
+    const base = {
+      inMeeting: true,
+      audioAvailable: true,
+      videoAvailable: true,
+      audioMuted: false,
+      joinedMuted: false,
+      remoteParticipantCount: 0,
+      cannotHearDismissed: false,
+      microphoneOffDismissed: false,
+      microphoneSilent: true,
+      microphoneSilentDismissed: true,
+      coarsePointer: false
+    };
+    expect(videoMeetingMediaHelp(base, desktop)).toBeNull();
+    expect(videoMeetingMediaHelp({...base, microphoneSilentDismissed: false, audioMuted: true}, desktop)).toBeNull();
+  });
+
   it("explains how to unblock the microphone on iPad Safari", () => {
     const help = videoMeetingMediaHelp({
       inMeeting: true,
@@ -220,6 +319,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 1,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: true
     }, ipad);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.MEDIA_BLOCKED);
@@ -239,6 +340,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 0,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help?.title).toEqual("Your camera and microphone are blocked");
@@ -255,6 +358,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 1,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: true
     }, ipad);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.CANNOT_HEAR);
@@ -271,6 +376,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 1,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help).toEqual(null);
@@ -286,6 +393,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 0,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.MICROPHONE_OFF);
@@ -303,6 +412,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 0,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help).toEqual(null);
@@ -318,6 +429,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 2,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: true
     }, ipad);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.MEDIA_BLOCKED);

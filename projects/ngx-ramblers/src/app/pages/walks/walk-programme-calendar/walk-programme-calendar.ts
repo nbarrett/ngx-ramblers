@@ -49,6 +49,7 @@ import { CommitteeFileService } from "../../../services/committee/committee-file
 import { CommitteeFile, CommitteeFileType, isBookedMeetingFile } from "../../../models/committee.model";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { videoMeetingDisplayName } from "../../../functions/video-meeting-join";
+import { committeeFileMeetingTitle } from "../../../functions/committee-meeting-agenda";
 
 const UNASSIGNED_CALENDAR_COLOUR = "rgb(153, 153, 153)";
 
@@ -405,9 +406,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
       isGroupEvent: false,
       isCommitteeEvent: true,
       colour: COMMITTEE_EVENT_CALENDAR_COLOUR,
-      title: videoMeetingDisplayName(
-        committeeFile.document?.title || committeeFile.fileNameData?.title || committeeFile.fileType || ""
-      ),
+      title: videoMeetingDisplayName(committeeFileMeetingTitle(committeeFile)),
       time: this.dateUtils.displayTime(committeeFile.eventDate),
       dateValue: this.dateUtils.asValue(committeeFile.eventDate)
     };

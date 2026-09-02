@@ -21,7 +21,7 @@ import { ThumbnailHeadingFrameComponent } from "../../modules/common/thumbnail-h
 import { SortableTableComponent } from "../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../../modules/common/sortable-table/sortable-table.model";
-import { MEETING_MINUTES_TEMPLATE_ID, MeetingMinutesSummary, MeetingMinutesTableColumn, MeetingTranscriptRoomSummary, UpcomingBookedMeeting, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
+import { MEETING_MINUTES_TEMPLATE_ID, MeetingMinutesSummary, MeetingMinutesTableColumn, MeetingTranscriptRoomSummary, RecentVideoCall, UpcomingBookedMeeting, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
 import { meetingMinutesDocumentSlug } from "../../functions/committee-documents-page";
 import { AdminPath, AdminSettingsPath } from "../../models/admin-route-paths.model";
 import { SystemSettingsTab } from "../../models/system.model";
@@ -32,6 +32,7 @@ import { ASCENDING, DESCENDING } from "../../models/table-filtering.model";
 import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
 import { meetingMinutesDateLabel } from "../../functions/video-meeting-minutes";
 import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client";
+import { recentVideoCalls } from "../../functions/upcoming-booked-meetings";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
 
 @Component({
@@ -91,8 +92,66 @@ import { AlertPanelVariant } from "../../models/alert-panel.model";
           </app-thumbnail-heading-frame>
         </div>
         <div class="col-sm-6">
+          @if (videoCalls.length) {
+            <app-thumbnail-heading-frame heading="Recent video calls">
+              <p class="text-muted small">Rooms started from this page, rather than booked on the calendar. Join one again, or delete a call you no longer need.</p>
+              @if (deletingVideoCall) {
+                <app-alert-panel class="mb-3"
+                                 [title]="deleteError ? deleteErrorTitle : 'Delete this video call?'"
+                                 [variant]="deleteError ? alertDanger : alertWarning" actionsEnd>
+                  @if (deleteError) {
+                    {{ deleteError }}
+                  } @else {
+                    This removes {{ deletingVideoCall.title }} from Meetings. The room will no longer appear here.
+                  }
+                  <button alertActions type="button" class="btn btn-quiet" [disabled]="deleting"
+                          (click)="cancelDeleteVideoCall()">Cancel</button>
+                  <button alertActions type="button" class="btn"
+                          [class.btn-primary]="!!deleteError"
+                          [class.btn-danger]="!deleteError"
+                          [disabled]="deleting"
+                          (click)="deleteVideoCall()">
+                    @if (deleteError) {
+                      <fa-icon [icon]="faRotateRight" class="me-2"/>{{ deleting ? "Trying…" : "Try again" }}
+                    } @else {
+                      <fa-icon [icon]="faTrash" class="me-2"/>{{ deleting ? "Deleting…" : "Delete video call" }}
+                    }
+                  </button>
+                </app-alert-panel>
+              }
+              <app-sortable-table
+                [columns]="videoCallColumns"
+                [rows]="videoCalls"
+                [defaultSortKey]="videoCallsSortKey"
+                [defaultSortDirection]="videoCallsSortDirection"
+                [trackBy]="trackVideoCall"
+                emptyMessage="No recent video calls"
+                (sortChange)="onVideoCallsSortChange($event)">
+                <ng-template [appSortableTableCell]="minutesTableColumn.TITLE" let-item>{{ item.title }}</ng-template>
+                <ng-template [appSortableTableCell]="minutesTableColumn.STARTED_AT" let-item>{{ videoCallWhen(item) }}</ng-template>
+                <ng-template [appSortableTableCell]="minutesTableColumn.ACTIONS" let-item>
+                  <div class="d-flex justify-content-end gap-1">
+                    <button type="button" class="btn btn-primary btn-icon"
+                            [disabled]="deleting"
+                            (click)="joinVideoCall(item)"
+                            tooltip="Join" container="body"
+                            [attr.aria-label]="'Join ' + item.title">
+                      <fa-icon [icon]="faRightToBracket"/>
+                    </button>
+                    <button type="button" class="btn btn-quiet btn-icon"
+                            [disabled]="deleting"
+                            (click)="confirmDeleteVideoCall(item)"
+                            tooltip="Delete" container="body"
+                            [attr.aria-label]="'Delete ' + item.title">
+                      <fa-icon [icon]="faTrash"/>
+                    </button>
+                  </div>
+                </ng-template>
+              </app-sortable-table>
+            </app-thumbnail-heading-frame>
+          }
           @if (recordingsNeedingMinutes.length) {
-            <app-thumbnail-heading-frame heading="Calls that still need minutes">
+            <app-thumbnail-heading-frame heading="Calls that still need minutes" [class.mt-4]="videoCalls.length > 0">
               <p class="text-muted small">These calls have a recording but no minutes file yet. You can write the draft from what was said.</p>
               @if (discardingRecording) {
                 <app-alert-panel class="mb-3"
@@ -201,11 +260,16 @@ export class VideoMeetingsPageComponent implements OnInit {
   starting = false;
   recentMinutes: MeetingMinutesSummary[] = [];
   recordingsNeedingMinutes: MeetingMinutesSummary[] = [];
+  videoCalls: RecentVideoCall[] = [];
   writingRoom: string | null = null;
   writeError = "";
   writeErrorTitle = "Could not write minutes";
   discardingRecording: MeetingMinutesSummary | null = null;
   discarding = false;
+  deletingVideoCall: RecentVideoCall | null = null;
+  deleting = false;
+  deleteError = "";
+  deleteErrorTitle = "Could not delete video call";
   protected readonly alertDanger = AlertPanelVariant.DANGER;
   protected readonly alertWarning = AlertPanelVariant.WARNING;
 
@@ -239,10 +303,32 @@ export class VideoMeetingsPageComponent implements OnInit {
       cellClass: "nowrap"
     }
   ];
+  protected readonly videoCallColumns: SortableTableColumn<RecentVideoCall>[] = [
+    {
+      key: MeetingMinutesTableColumn.TITLE,
+      label: "Meeting",
+      sortKey: MeetingMinutesTableColumn.TITLE,
+      cellGetter: row => row.title
+    },
+    {
+      key: MeetingMinutesTableColumn.STARTED_AT,
+      label: "When",
+      sortKey: MeetingMinutesTableColumn.STARTED_AT,
+      cellGetter: row => row.startedAt
+    },
+    {
+      key: MeetingMinutesTableColumn.ACTIONS,
+      label: "",
+      align: SortableTableAlignment.RIGHT,
+      cellClass: "nowrap"
+    }
+  ];
   minutesSortKey: string = MeetingMinutesTableColumn.STARTED_AT;
   minutesSortDirection = DESCENDING;
   recordingsSortKey: string = MeetingMinutesTableColumn.STARTED_AT;
   recordingsSortDirection = DESCENDING;
+  videoCallsSortKey: string = MeetingMinutesTableColumn.STARTED_AT;
+  videoCallsSortDirection = DESCENDING;
 
   async ngOnInit(): Promise<void> {
     this.applyMinutesSortFromUrl(
@@ -253,9 +339,14 @@ export class VideoMeetingsPageComponent implements OnInit {
       this.uiActions.queryParameter(StoredValue.MEETING_RECORDINGS_SORT),
       this.uiActions.queryParameter(StoredValue.MEETING_RECORDINGS_SORT_ORDER)
     );
+    this.applyVideoCallsSortFromUrl(
+      this.uiActions.queryParameter(StoredValue.MEETING_VIDEO_CALLS_SORT),
+      this.uiActions.queryParameter(StoredValue.MEETING_VIDEO_CALLS_SORT_ORDER)
+    );
     this.meetingTitle = this.defaultMeetingTitle();
     void this.loadRecentMinutes();
     void this.loadRecordingsNeedingMinutes();
+    void this.loadRecentVideoCalls();
     try {
       this.config = await this.videoMeetingsService.config();
       if (this.config?.enabled && !this.config.publicHost) {
@@ -317,6 +408,19 @@ export class VideoMeetingsPageComponent implements OnInit {
     }
   }
 
+  private async loadRecentVideoCalls(): Promise<void> {
+    try {
+      const files = await this.committeeFileService.all({
+        criteria: {"meeting.room": {$exists: true, $ne: ""}},
+        sort: {eventDate: -1}
+      });
+      this.videoCalls = recentVideoCalls(files).slice(0, 12);
+    } catch (error) {
+      this.logger.info("could not load recent video calls", error);
+      this.videoCalls = [];
+    }
+  }
+
   private transcriptRoomSummary(room: MeetingTranscriptRoomSummary): MeetingMinutesSummary {
     return {
       room: room.room,
@@ -337,6 +441,19 @@ export class VideoMeetingsPageComponent implements OnInit {
     return item.room;
   }
 
+  trackVideoCall(_index: number, item: RecentVideoCall): string {
+    return item.id;
+  }
+
+  videoCallWhen(item: RecentVideoCall): string {
+    return meetingMinutesDateLabel(
+      item.startedAt,
+      null,
+      value => this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_DAY),
+      value => this.dateUtils.displayTime(value)
+    );
+  }
+
   onMinutesSortChange(state: SortableTableSortState): void {
     this.minutesSortKey = state.key || MeetingMinutesTableColumn.STARTED_AT;
     this.minutesSortDirection = state.direction === DESCENDING ? DESCENDING : ASCENDING;
@@ -352,6 +469,15 @@ export class VideoMeetingsPageComponent implements OnInit {
     this.uiActions.updateQueryParameters({
       [StoredValue.MEETING_RECORDINGS_SORT]: this.recordingsSortKey ? this.stringUtils.kebabCase(this.recordingsSortKey) : null,
       [StoredValue.MEETING_RECORDINGS_SORT_ORDER]: this.recordingsSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
+    });
+  }
+
+  onVideoCallsSortChange(state: SortableTableSortState): void {
+    this.videoCallsSortKey = state.key || MeetingMinutesTableColumn.STARTED_AT;
+    this.videoCallsSortDirection = state.direction === DESCENDING ? DESCENDING : ASCENDING;
+    this.uiActions.updateQueryParameters({
+      [StoredValue.MEETING_VIDEO_CALLS_SORT]: this.videoCallsSortKey ? this.stringUtils.kebabCase(this.videoCallsSortKey) : null,
+      [StoredValue.MEETING_VIDEO_CALLS_SORT_ORDER]: this.videoCallsSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
     });
   }
 
@@ -382,6 +508,68 @@ export class VideoMeetingsPageComponent implements OnInit {
       this.recordingsSortDirection = DESCENDING;
     } else if (sortOrderParam === SortDirection.ASC) {
       this.recordingsSortDirection = ASCENDING;
+    }
+  }
+
+  private applyVideoCallsSortFromUrl(sortParam: string | null, sortOrderParam: string | null): void {
+    const matchedSortKey = this.videoCallColumns
+      .map(column => column.sortKey)
+      .filter(Boolean)
+      .find(key => this.stringUtils.kebabCase(key) === sortParam);
+    if (matchedSortKey) {
+      this.videoCallsSortKey = matchedSortKey;
+    }
+    if (sortOrderParam === SortDirection.DESC) {
+      this.videoCallsSortDirection = DESCENDING;
+    } else if (sortOrderParam === SortDirection.ASC) {
+      this.videoCallsSortDirection = ASCENDING;
+    }
+  }
+
+  joinVideoCall(item: RecentVideoCall): void {
+    if (item.room) {
+      this.rememberRoom(item.room);
+      this.router.navigate(["/" + AdminPath.MEETING_ROOM, item.room]);
+    } else {
+      this.logger.info("video call has no room to join", item.id);
+    }
+  }
+
+  confirmDeleteVideoCall(item: RecentVideoCall): void {
+    this.deletingVideoCall = item;
+    this.deleteError = "";
+  }
+
+  cancelDeleteVideoCall(): void {
+    this.deletingVideoCall = null;
+    this.deleteError = "";
+  }
+
+  async deleteVideoCall(): Promise<void> {
+    const item = this.deletingVideoCall;
+    if (!item) {
+      this.logger.info("no video call selected to delete");
+    } else {
+      this.deleting = true;
+      this.deleteError = "";
+      try {
+        const file = await this.committeeFileService.getById(item.id);
+        await this.committeeFileService.removeFromCommitteeDocumentsPage(file);
+        await this.committeeFileService.delete(file);
+        this.deletingVideoCall = null;
+        await this.loadRecentVideoCalls();
+      } catch (error) {
+        this.logger.error("failed to delete video call", item.id, error);
+        await this.loadRecentVideoCalls();
+        if (!this.videoCalls.some(row => row.id === item.id)) {
+          this.deletingVideoCall = null;
+          this.deleteError = "";
+        } else {
+          this.deleteErrorTitle = "Could not delete video call";
+          this.deleteError = "Please try again in a moment.";
+        }
+      }
+      this.deleting = false;
     }
   }
 

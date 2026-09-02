@@ -12,33 +12,50 @@ debugLog.enabled = true;
 
 const databaseFallbackCache: { value?: FlyRuntimeConfig } = {};
 const workerFallbackCache: { value?: FlyRuntimeConfig } = {};
+const jitsiFallbackCache: { value?: FlyRuntimeConfig } = {};
+const emptyFlyConfig: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: ""};
 
-export async function flyRuntimeConfig(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT): Promise<FlyRuntimeConfig> {
+export async function flyRuntimeConfig(
+  target: FlyTargetApp = FlyTargetApp.ENVIRONMENT,
+  environmentName: string | null = null
+): Promise<FlyRuntimeConfig> {
   if (target === FlyTargetApp.WORKER) {
     return workerFallback();
+  } else if (target === FlyTargetApp.JITSI) {
+    return jitsiFallback();
+  } else if (environmentName) {
+    return namedEnvironmentFallback(environmentName);
+  } else {
+    return currentEnvironmentConfig();
   }
+}
+
+async function currentEnvironmentConfig(): Promise<FlyRuntimeConfig> {
   const fromEnv = envConfig.fly();
   if (fromEnv.apiToken && fromEnv.appName) {
     return fromEnv;
+  } else {
+    const fromBundle = encryptedBundleConfig();
+    const withBundle: FlyRuntimeConfig = {
+      ...fromEnv,
+      apiToken: fromEnv.apiToken || fromBundle?.apiToken || "",
+      appName: fromEnv.appName || fromBundle?.appName || ""
+    };
+    if (withBundle.apiToken && withBundle.appName) {
+      return withBundle;
+    } else {
+      const fromDatabase = await databaseFallback();
+      return {
+        ...withBundle,
+        apiToken: withBundle.apiToken || fromDatabase.apiToken,
+        appName: withBundle.appName || fromDatabase.appName
+      };
+    }
   }
-  const fromBundle = encryptedBundleConfig();
-  const withBundle: FlyRuntimeConfig = {
-    ...fromEnv,
-    apiToken: fromEnv.apiToken || fromBundle?.apiToken || "",
-    appName: fromEnv.appName || fromBundle?.appName || ""
-  };
-  if (withBundle.apiToken && withBundle.appName) {
-    return withBundle;
-  }
-  const fromDatabase = await databaseFallback();
-  return {
-    ...withBundle,
-    apiToken: withBundle.apiToken || fromDatabase.apiToken,
-    appName: withBundle.appName || fromDatabase.appName
-  };
 }
 
 let integrationWorkerAvailableCache: boolean | undefined;
+let jitsiAvailableCache: boolean | undefined;
 
 export async function isIntegrationWorkerAvailable(): Promise<boolean> {
   if (integrationWorkerAvailableCache === undefined) {
@@ -50,6 +67,18 @@ export async function isIntegrationWorkerAvailable(): Promise<boolean> {
     }
   }
   return integrationWorkerAvailableCache;
+}
+
+export async function isJitsiAvailable(): Promise<boolean> {
+  if (jitsiAvailableCache === undefined) {
+    try {
+      const config = await flyRuntimeConfig(FlyTargetApp.JITSI);
+      jitsiAvailableCache = !!(config.apiToken && config.appName);
+    } catch {
+      jitsiAvailableCache = false;
+    }
+  }
+  return jitsiAvailableCache;
 }
 
 function encryptedBundleConfig(): FlySecureConfig | null {
@@ -67,11 +96,21 @@ function encryptedBundleConfig(): FlySecureConfig | null {
   }
 }
 
+async function metricsToken(): Promise<string> {
+  const current = await currentEnvironmentConfig();
+  if (current.apiToken) {
+    return current.apiToken;
+  } else {
+    const worker = await workerFallback();
+    return worker.apiToken;
+  }
+}
+
 async function databaseFallback(): Promise<FlyRuntimeConfig> {
   if (databaseFallbackCache.value) {
     return databaseFallbackCache.value;
   }
-  const empty: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: ""};
+  const empty = emptyFlyConfig;
   try {
     const parsedMongo = parseMongoUri(envConfig.mongo().uri);
     const databaseName = parsedMongo?.database || "";
@@ -96,19 +135,71 @@ async function workerFallback(): Promise<FlyRuntimeConfig> {
   if (workerFallbackCache.value) {
     return workerFallbackCache.value;
   }
-  const empty: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: ""};
   try {
     const environmentsConfig = await configuredEnvironments();
     const uploadWorker = environmentsConfig.uploadWorker;
-    workerFallbackCache.value = uploadWorker?.apiKey ? {
-      ...empty,
-      apiToken: uploadWorker.apiKey,
+    workerFallbackCache.value = uploadWorker?.appName || uploadWorker?.apiKey ? {
+      ...emptyFlyConfig,
+      apiToken: uploadWorker.apiKey || "",
       appName: uploadWorker.appName || "ngx-ramblers-integration-worker"
-    } : empty;
+    } : emptyFlyConfig;
+    if (workerFallbackCache.value.appName && !workerFallbackCache.value.apiToken) {
+      workerFallbackCache.value = {
+        ...workerFallbackCache.value,
+        apiToken: (await currentEnvironmentConfig()).apiToken
+      };
+    }
     debugLog(`Resolved integration worker fly config from environments config: appName ${workerFallbackCache.value.appName || "(none)"}`);
   } catch (error) {
     debugLog("Integration worker fly config resolution failed:", error);
-    workerFallbackCache.value = empty;
+    workerFallbackCache.value = emptyFlyConfig;
   }
   return workerFallbackCache.value;
+}
+
+async function jitsiFallback(): Promise<FlyRuntimeConfig> {
+  if (jitsiFallbackCache.value) {
+    return jitsiFallbackCache.value;
+  } else {
+    try {
+      const environmentsConfig = await configuredEnvironments();
+      const jitsi = environmentsConfig.jitsi;
+      const appName = jitsi?.appName || "";
+      jitsiFallbackCache.value = appName ? {
+        ...emptyFlyConfig,
+        apiToken: jitsi?.apiKey || "",
+        appName
+      } : emptyFlyConfig;
+      if (jitsiFallbackCache.value.appName && !jitsiFallbackCache.value.apiToken) {
+        jitsiFallbackCache.value = {
+          ...jitsiFallbackCache.value,
+          apiToken: await metricsToken()
+        };
+      }
+      debugLog(`Resolved jitsi fly config from environments config: appName ${jitsiFallbackCache.value.appName || "(none)"}`);
+    } catch (error) {
+      debugLog("Jitsi fly config resolution failed:", error);
+      jitsiFallbackCache.value = emptyFlyConfig;
+    }
+    return jitsiFallbackCache.value;
+  }
+}
+
+async function namedEnvironmentFallback(environmentName: string): Promise<FlyRuntimeConfig> {
+  try {
+    const environmentsConfig = await configuredEnvironments();
+    const named = (environmentsConfig.environments || []).find(environment => environment.environment === environmentName);
+    const appName = named?.flyio?.appName || "";
+    if (!appName) {
+      debugLog(`No Fly app configured for environment ${environmentName}`);
+      return emptyFlyConfig;
+    } else {
+      const apiToken = named.flyio?.apiKey || await metricsToken();
+      debugLog(`Resolved fly config for named environment ${environmentName}: appName ${appName}`);
+      return {...emptyFlyConfig, apiToken, appName};
+    }
+  } catch (error) {
+    debugLog(`Named environment fly config resolution failed for ${environmentName}:`, error);
+    return emptyFlyConfig;
+  }
 }

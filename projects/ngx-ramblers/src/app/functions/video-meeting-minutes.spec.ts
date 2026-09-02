@@ -10,6 +10,7 @@ import {
   meetingMinutesWriteError,
   meetingMinutesWriteIsEmpty,
   meetingNotesUpdatedMessage,
+  meetingTranscribePrompt,
   MEETING_TRANSCRIBE_PROMPT
 } from "./video-meeting-minutes";
 
@@ -54,6 +55,30 @@ describe("MEETING_TRANSCRIBE_PROMPT", () => {
     expect(MEETING_TRANSCRIBE_PROMPT).toContain("Do not invent");
     expect(MEETING_TRANSCRIBE_PROMPT).toContain("empty response");
     expect(MEETING_TRANSCRIBE_PROMPT).not.toContain("Ramblers meeting");
+  });
+
+});
+
+describe("meetingTranscribePrompt", () => {
+
+  it("names the recorder and the other people so each line is labelled with its speaker", () => {
+    const prompt = meetingTranscribePrompt("Nick Barrett", ["nick barrett", "Rachel", "Rachel", " "]);
+    expect(prompt).toContain("verbatim");
+    expect(prompt).toContain("recorded on the device of Nick Barrett");
+    expect(prompt).toContain("The people in the meeting are: Nick Barrett, Rachel.");
+    expect(prompt).toContain("prefixed with the speaker's name");
+    expect(prompt).toContain("Never attribute one person's words to another");
+  });
+
+  it("tells the model who the meeting heard speaking during the clip", () => {
+    const prompt = meetingTranscribePrompt("Nick Barrett", ["Rachel", "Tim"], ["Rachel", "Nick Barrett"]);
+    expect(prompt).toContain("detected these people speaking during this clip, the one who spoke most first: Rachel, Nick Barrett.");
+  });
+
+  it("asks for numbered speakers when nobody is known", () => {
+    const prompt = meetingTranscribePrompt("", []);
+    expect(prompt).toContain("Speaker 1, Speaker 2");
+    expect(prompt).not.toContain("recorded on the device");
   });
 
 });

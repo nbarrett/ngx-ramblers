@@ -39,8 +39,8 @@ export class VideoMeetingsService {
     return firstValueFrom(this.http.post<GuestInviteResponse>(`${this.apiUrl}/invite`, {room, email, name}));
   }
 
-  async guestToken(room: string): Promise<string> {
-    const response = await firstValueFrom(this.http.post<{ token: string }>(`${this.apiUrl}/guest-token`, {room}));
+  async guestToken(room: string, name = "", email = ""): Promise<string> {
+    const response = await firstValueFrom(this.http.post<{ token: string }>(`${this.apiUrl}/guest-token`, {room, name, email}));
     return response?.token;
   }
 
@@ -89,18 +89,20 @@ export class VideoMeetingsService {
     return response?.saved || 0;
   }
 
-  async transcribeAudioChunk(room: string, authorName: string, blob: Blob): Promise<MeetingAudioTranscriptionResponse> {
+  async transcribeAudioChunk(room: string, authorName: string, blob: Blob, participants: string[] = [], speakers: string[] = []): Promise<MeetingAudioTranscriptionResponse> {
     const response = (room && blob?.size)
-      ? await firstValueFrom(this.http.post<MeetingAudioTranscriptionResponse>(`${this.apiUrl}/transcribe-audio`, this.audioForm(room, authorName, blob)))
+      ? await firstValueFrom(this.http.post<MeetingAudioTranscriptionResponse>(`${this.apiUrl}/transcribe-audio`, this.audioForm(room, authorName, blob, participants, speakers)))
       : null;
     return response || {saved: 0, discarded: 0, text: ""};
   }
 
-  private audioForm(room: string, authorName: string, blob: Blob): FormData {
+  private audioForm(room: string, authorName: string, blob: Blob, participants: string[], speakers: string[]): FormData {
     const form = new FormData();
     form.append("audio", blob, "chunk.wav");
     form.append("room", room);
     form.append("authorName", authorName);
+    form.append("participants", JSON.stringify(participants));
+    form.append("speakers", JSON.stringify(speakers));
     return form;
   }
 
