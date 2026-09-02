@@ -165,6 +165,12 @@ iframe
   @extend .thumbnail-heading-frame
   margin: 0px 0 20px 0
 
+.thumbnail-heading-frame > .thumbnail-heading + *
+  margin-top: -12px
+
+.thumbnail-heading-frame > app-sortable-table
+  display: block
+
 .thumbnail-heading-mapping-mode
   margin-top: 2rem
   border-color: $ramblers-colour-sunrise

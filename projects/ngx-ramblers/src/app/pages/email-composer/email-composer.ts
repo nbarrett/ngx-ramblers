@@ -1,5 +1,5 @@
 import { AdminPath } from "../../models/admin-route-paths.model";
-import { ChangeDetectorRef, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -68,6 +68,7 @@ import {
   BRANDING_MODE_OPTIONS,
   BrandingMode,
   ComposerExternalRecipient,
+  CommitteeFileEmailInclude,
   ComposerFragment,
   ComposerFragmentKind,
   ComposerSenderIdentity,
@@ -135,6 +136,13 @@ import {
   releaseNoteUpdateArticlesFrom,
   releaseNoteUpdateFragmentOrder
 } from "../../functions/email-composer";
+import {
+  committeeFileEmailHtml,
+  committeeFileEmailSendsContent,
+  committeeMarkdownForEmail,
+  hasCommitteeDocumentContent,
+  resolvedCommitteeFileEmailInclude
+} from "../../functions/committee-file-email";
 import {
   markEventsNewSinceLastNewsletter,
   newEventCount,
@@ -249,9 +257,6 @@ import { MarkdownComponent } from "ngx-markdown";
 import {
   CommitteeNotificationDetailsComponent
 } from "../../notifications/committee/templates/committee-notification-details.component";
-import {
-  CommitteeNotificationRamblersMessageItemComponent
-} from "../../notifications/committee/templates/committee-notification-ramblers-message-item";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { Confirm, ConfirmType, StoredValue } from "../../models/ui-actions";
@@ -314,7 +319,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     LinkComponent,
     MarkdownComponent,
     CommitteeNotificationDetailsComponent,
-    CommitteeNotificationRamblersMessageItemComponent,
     DisplayDatePipe,
     FullNameWithAliasPipe,
     RouterLink,
@@ -661,45 +665,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         </div>
       </div>
       }
-      <div class="d-none">
-        @for (fragment of state.fragmentOrder ?? []; track fragment.id) {
-          @if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) {
-            <div [attr.data-fragment-id]="fragment.id" #committeeFileBlock>
-              @for (file of committeeFilesFor(fragment); track file.id) {
-                <app-committee-notification-ramblers-message-item [notificationItem]="committeeFileNotificationItemFor(file)">
-                  @if (state.context?.sourcePagePath) {
-                    <p style="margin: 4px 0 0 0;">Also available on our {{ systemConfig?.group?.shortName }}
-                      <a [href]="absoluteSourcePageUrl()">{{ sourcePageTitleOrFallback() }}</a> page.
-                    </p>
-                  }
-                  <table align="center" border="0" cellpadding="0" cellspacing="0"
-                         style="border-collapse: collapse;width:100%;margin-top:12px;" width="100%">
-                    <tbody><tr>
-                      <td align="center" style="padding-top: 0;padding-bottom: 18px;" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0"
-                               style="border-collapse: separate !important;border-radius: 0px;background-color: #F9B104;"
-                               width="100%">
-                          <tbody><tr>
-                            <td align="center"
-                                style="font-family: Arial;font-size: 16px;padding: 12px;"
-                                valign="middle">
-                              <a [href]="committeeDisplayService.fileUrl(file, committeeFileLinkPath(file))"
-                                 [title]="committeeFileDownloadLabel(file)"
-                                 style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#222222;display:block;">
-                                {{ committeeFileDownloadLabel(file) }}
-                              </a>
-                            </td>
-                          </tr></tbody>
-                        </table>
-                      </td>
-                    </tr></tbody>
-                  </table>
-                </app-committee-notification-ramblers-message-item>
-              }
-            </div>
-          }
-        }
-      </div>
       <div class="d-none" #eventsContent>
         @if ((state.eventInclusion === EventInclusionMode.AUTO_INCLUDE || state.eventInclusion === EventInclusionMode.SINGLE_EVENT) && synthesisedNotificationForCommittee()) {
           <app-committee-notification-details
@@ -1428,6 +1393,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     <ng-template #fragmentListTemplate let-fragments let-parentPath="parentPath">
       <div class="fragment-list">
         @for (fragment of fragments; let i = $index; track fragment.id + ':' + i) {
+          @if (showComposerFragment(fragment)) {
           <div class="fragment-row"
                [class.fragment-row-hover-before]="isDragHover(parentPath.concat([i])) && dragHoverPosition === DragHoverPosition.Before"
                [class.fragment-row-hover-after]="isDragHover(parentPath.concat([i])) && dragHoverPosition === DragHoverPosition.After"
@@ -1591,20 +1557,63 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   @case (ComposerFragmentKind.COMMITTEE_FILE) {
                     <div class="fragment-committee-file">
                       @let files = committeeFilesFor(fragment);
+                      @if (committeeFileFragmentHasMarkdown(fragment)) {
+                        <div class="mb-3">
+                          <p class="form-label small mb-1">Include in the email</p>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio"
+                                   [name]="'committee-file-include-' + fragment.id"
+                                   [id]="'committee-file-include-link-' + fragment.id"
+                                   [checked]="committeeFileInclude(fragment) === CommitteeFileEmailInclude.LINK"
+                                   (change)="setCommitteeFileInclude(fragment, CommitteeFileEmailInclude.LINK)">
+                            <label class="form-check-label" [for]="'committee-file-include-link-' + fragment.id">Link</label>
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio"
+                                   [name]="'committee-file-include-' + fragment.id"
+                                   [id]="'committee-file-include-content-' + fragment.id"
+                                   [checked]="committeeFileInclude(fragment) === CommitteeFileEmailInclude.CONTENT"
+                                   (change)="setCommitteeFileInclude(fragment, CommitteeFileEmailInclude.CONTENT)">
+                            <label class="form-check-label" [for]="'committee-file-include-content-' + fragment.id">Content</label>
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio"
+                                   [name]="'committee-file-include-' + fragment.id"
+                                   [id]="'committee-file-include-both-' + fragment.id"
+                                   [checked]="committeeFileInclude(fragment) === CommitteeFileEmailInclude.BOTH"
+                                   (change)="setCommitteeFileInclude(fragment, CommitteeFileEmailInclude.BOTH)">
+                            <label class="form-check-label" [for]="'committee-file-include-both-' + fragment.id">Both</label>
+                          </div>
+                        </div>
+                      }
                       @if (files.length > 0) {
-                        <ul class="list-unstyled mb-2 small">
+                        <ul class="list-unstyled mb-2">
                           @for (file of files; track file.id) {
-                            <li class="d-flex align-items-center justify-content-between gap-2 py-1">
-                              <span>
-                                <strong>{{ file.fileType }}</strong>
-                                <span> - {{ committeeDisplayService.fileTitle(file) }}</span>
-                                <a class="ms-2" [href]="committeeDisplayService.fileUrl(file, committeeFileLinkPath(file))" target="_blank">{{ committeeFileDownloadFilename(file) }}</a>
-                              </span>
-                              <button type="button" class="btn btn-sm btn-danger"
-                                      [title]="'Remove ' + committeeDisplayService.fileTitle(file)"
-                                      (click)="onCommitteeFileIdsChanged(fragment, (fragment.committeeFileIds ?? []).filter(id => id !== file.id))">
-                                <fa-icon [icon]="faTrash"/>
-                              </button>
+                            <li class="py-1">
+                              <div class="d-flex align-items-center justify-content-between gap-2">
+                                <div>
+                                  <strong>{{ file.fileType }}</strong>
+                                  @if (committeeFileDateLabel(file)) {
+                                    <span class="text-muted"> · {{ committeeFileDateLabel(file) }}</span>
+                                  }
+                                  @if (committeeFileShowsDownloadLink(fragment, file)) {
+                                    <a class="ms-2" [href]="committeeDisplayService.fileUrl(file, committeeFileLinkPath(file))"
+                                       target="_blank">{{ committeeFileDownloadFilename(file) }}</a>
+                                  }
+                                </div>
+                                <button type="button" class="btn btn-danger btn-icon flex-shrink-0"
+                                        tooltip="Remove this file" container="body"
+                                        (click)="onCommitteeFileIdsChanged(fragment, (fragment.committeeFileIds ?? []).filter(id => id !== file.id))">
+                                  <fa-icon [icon]="faTrash"/>
+                                </button>
+                              </div>
+                              @if (committeeFileShowsContent(fragment, file)) {
+                                <div class="mt-3">
+                                  <app-tiptap-markdown-editor
+                                    [value]="committeeFileMarkdownForEmail(file)"
+                                    [editable]="false"/>
+                                </div>
+                              }
                             </li>
                           }
                         </ul>
@@ -1689,6 +1698,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               </div>
             }
           </div>
+          }
         }
         <div class="fragment-list-tail"
              (dragover)="onColumnDragOver(parentPath, $event)"
@@ -1968,7 +1978,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                     <div class="form-check">
                       <input type="checkbox" class="form-check-input"
                              [id]="'event-' + idx"
-                             [(ngModel)]="event.selected">
+                             [(ngModel)]="event.selected"
+                             (ngModelChange)="onGroupEventSelectionChanged()">
                       <label class="form-check-label" [for]="'event-' + idx">
                         @if (event.newSinceLastNewsletter) {
                           <span class="badge bg-warning text-dark me-1">New</span>
@@ -2281,7 +2292,6 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   @ViewChild("emailPreview") emailPreview!: EmailPreviewComponent;
   @ViewChild("eventsContent") eventsContent!: ElementRef<HTMLDivElement>;
-  @ViewChildren("committeeFileBlock") committeeFileBlocks!: QueryList<ElementRef<HTMLDivElement>>;
   @ViewChild(Stepper) stepperRef!: Stepper;
   @ViewChild(NotificationDirective) notificationDirective!: NotificationDirective;
 
@@ -2338,6 +2348,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly RecipientMode = RecipientMode;
   protected readonly RecipientAddressMode = RecipientAddressMode;
   protected readonly EventInclusionMode = EventInclusionMode;
+  protected readonly CommitteeFileEmailInclude = CommitteeFileEmailInclude;
   protected readonly ComposerFragmentKind = ComposerFragmentKind;
   protected readonly DateInputMode = DateInputMode;
   protected readonly DragHoverPosition = DragHoverPosition;
@@ -2723,10 +2734,13 @@ export class EmailComposer implements OnInit, OnDestroy {
       await this.resolveCommitteeFiles(ids);
       this.changeDetector.detectChanges();
     }
-    const unresolved = ids
-      .map(id => this.committeeFiles.get(id))
-      .filter((file): file is CommitteeFile => !!file)
-      .filter(file => this.committeeDisplayService.isComposedDocument(file) && !this.committeeFileLinkPath(file));
+    const unresolved = this.committeeFileFragmentsFrom(this.state.fragmentOrder ?? []).flatMap(fragment =>
+      this.committeeFilesFor(fragment).filter(file => {
+        const include = resolvedCommitteeFileEmailInclude(file, fragment.committeeFileInclude || null);
+        const sendsLink = include === CommitteeFileEmailInclude.LINK || include === CommitteeFileEmailInclude.BOTH;
+        return sendsLink && this.committeeDisplayService.isComposedDocument(file) && !this.committeeFileLinkPath(file);
+      })
+    );
     if (unresolved.length > 0) {
       const titles = unresolved.map(file => this.committeeDisplayService.fileTitle(file)).join(", ");
       const isPlural = unresolved.length > 1;
@@ -2755,17 +2769,20 @@ export class EmailComposer implements OnInit, OnDestroy {
       const merged = Array.from(new Set([...(existing.committeeFileIds ?? []), ...ids]));
       existing.committeeFileIds = merged;
       this.state.fragmentOrder = [...list];
-      return;
+      this.expandedFragmentIds.add(existing.id);
+    } else {
+      const introIdx = list.findIndex(f => f.kind === ComposerFragmentKind.INTRO);
+      const insertAt = introIdx >= 0 ? introIdx + 1 : 0;
+      const newFragment: ComposerFragment = {
+        kind: ComposerFragmentKind.COMMITTEE_FILE,
+        id: this.stringUtils.kebabCase(`committee-file-${this.dateUtils.dateTimeNow().toMillis()}`),
+        dividerAfter: SectionDividerStyle.THIN_YELLOW,
+        committeeFileIds: [...ids],
+        committeeFileInclude: CommitteeFileEmailInclude.CONTENT
+      };
+      this.state.fragmentOrder = [...list.slice(0, insertAt), newFragment, ...list.slice(insertAt)];
+      this.expandedFragmentIds.add(newFragment.id);
     }
-    const introIdx = list.findIndex(f => f.kind === ComposerFragmentKind.INTRO);
-    const insertAt = introIdx >= 0 ? introIdx + 1 : 0;
-    const newFragment: ComposerFragment = {
-      kind: ComposerFragmentKind.COMMITTEE_FILE,
-      id: this.stringUtils.kebabCase(`committee-file-${this.dateUtils.dateTimeNow().toMillis()}`),
-      dividerAfter: SectionDividerStyle.THIN_YELLOW,
-      committeeFileIds: [...ids]
-    };
-    this.state.fragmentOrder = [...list.slice(0, insertAt), newFragment, ...list.slice(insertAt)];
   }
 
   protected addCommitteeFileFragment(): void {
@@ -2774,7 +2791,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       kind: ComposerFragmentKind.COMMITTEE_FILE,
       id: this.stringUtils.kebabCase(`committee-file-${this.dateUtils.dateTimeNow().toMillis()}`),
       dividerAfter: SectionDividerStyle.THIN_YELLOW,
-      committeeFileIds: []
+      committeeFileIds: [],
+      committeeFileInclude: CommitteeFileEmailInclude.CONTENT
     };
     this.insertAboveSignoffAtTopLevel(newFragment);
     this.expandedFragmentIds.add(newFragment.id);
@@ -2813,6 +2831,54 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected committeeFileDownloadFilename(file: CommitteeFile): string {
     return file.fileNameData?.originalFileName || file.fileNameData?.awsFileName || file.document?.title || "";
+  }
+
+  protected committeeFileFragmentHasMarkdown(fragment: ComposerFragment): boolean {
+    return this.committeeFilesFor(fragment).some(file => hasCommitteeDocumentContent(file));
+  }
+
+  protected committeeFileInclude(fragment: ComposerFragment): CommitteeFileEmailInclude {
+    return fragment.committeeFileInclude || CommitteeFileEmailInclude.CONTENT;
+  }
+
+  protected setCommitteeFileInclude(fragment: ComposerFragment, include: CommitteeFileEmailInclude): void {
+    fragment.committeeFileInclude = include;
+    this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
+    this.maybeAutoRefreshPreview();
+  }
+
+  protected committeeFileShowsContent(fragment: ComposerFragment, file: CommitteeFile): boolean {
+    return committeeFileEmailSendsContent(resolvedCommitteeFileEmailInclude(file, this.committeeFileInclude(fragment)));
+  }
+
+  protected committeeFileShowsDownloadLink(fragment: ComposerFragment, file: CommitteeFile): boolean {
+    return !this.committeeFileShowsContent(fragment, file) && !!this.committeeFileDownloadFilename(file);
+  }
+
+  protected committeeFileDateLabel(file: CommitteeFile): string {
+    if (!file?.eventDate) {
+      return "";
+    } else if (this.dateUtils.isDateOnly(file.eventDate)) {
+      return this.dateUtils.displayDate(file.eventDate);
+    } else {
+      return `${this.dateUtils.displayDate(file.eventDate)}, ${this.dateUtils.asString(file.eventDate, undefined, this.dateUtils.formats.displayTime)}`;
+    }
+  }
+
+  protected committeeFileMarkdownForEmail(file: CommitteeFile): string {
+    return committeeMarkdownForEmail(file.document?.markdown || "");
+  }
+
+  private committeeFileFragmentsFrom(list: ComposerFragment[]): ComposerFragment[] {
+    return (list || []).reduce((collected: ComposerFragment[], fragment) => {
+      if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) {
+        return [...collected, fragment];
+      } else if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) {
+        return [...collected, ...(fragment.columns || []).flatMap(column => this.committeeFileFragmentsFrom(column))];
+      } else {
+        return collected;
+      }
+    }, []);
   }
 
   protected onCommitteeFileIdsChanged(fragment: ComposerFragment, ids: string[]): void {
@@ -3518,8 +3584,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (mode === EventInclusionMode.AUTO_INCLUDE) {
       this.resetGroupEventsFilterToDefaultRange();
       void this.populateGroupEvents();
+      this.addEventsFragment(true);
     } else if (mode === EventInclusionMode.SINGLE_EVENT && this.state.singleEvent) {
       this.state.groupEvents = [this.eventToSummary(this.state.singleEvent)];
+      this.addEventsFragment(true);
     }
     this.syncStateToUrl({ [StoredValue.EVENT_INCLUSION]: mode });
   }
@@ -3661,9 +3729,19 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   toggleSelectAllGroupEvents(): void {
-    if (!this.state.groupEventsFilter) return;
-    this.state.groupEventsFilter.selectAll = !this.state.groupEventsFilter.selectAll;
-    this.state.groupEvents.forEach(event => event.selected = this.state.groupEventsFilter!.selectAll);
+    if (!this.state.groupEventsFilter) {
+      return;
+    } else {
+      this.state.groupEventsFilter.selectAll = !this.state.groupEventsFilter.selectAll;
+      this.state.groupEvents.forEach(event => event.selected = this.state.groupEventsFilter!.selectAll);
+      this.onGroupEventSelectionChanged();
+    }
+  }
+
+  protected onGroupEventSelectionChanged(): void {
+    if (this.selectedGroupEventCount() > 0) {
+      this.addEventsFragment(true);
+    }
   }
 
   selectedGroupEventCount(): number {
@@ -3745,9 +3823,24 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private renderedCommitteeFileHtmlForFragment(fragment: ComposerFragment): string {
-    const blocks = this.committeeFileBlocks?.toArray() ?? [];
-    const ref = blocks.find(el => el.nativeElement?.dataset?.fragmentId === fragment.id);
-    return ref?.nativeElement?.innerHTML ?? "";
+    const sourcePagePath = this.state.context?.sourcePagePath;
+    const sourcePage = sourcePagePath
+      ? {
+        href: this.absoluteSourcePageUrl(),
+        groupName: this.systemConfig?.group?.shortName || "",
+        pageTitle: this.sourcePageTitleOrFallback()
+      }
+      : null;
+    return this.committeeFilesFor(fragment).map(file => committeeFileEmailHtml({
+      subject: this.committeeFileNotificationItemFor(file).subject,
+      markdown: hasCommitteeDocumentContent(file) ? file.document?.markdown || "" : "",
+      link: {
+        href: this.committeeDisplayService.fileUrl(file, this.committeeFileLinkPath(file)),
+        label: this.committeeFileDownloadLabel(file)
+      },
+      sourcePage,
+      include: this.committeeFileInclude(fragment)
+    })).join("");
   }
 
   private applyDefaultListIfNeeded(): void {
@@ -4766,6 +4859,14 @@ export class EmailComposer implements OnInit, OnDestroy {
     return EXPANDABLE_FRAGMENT_KINDS.has(fragment.kind);
   }
 
+  protected showComposerFragment(fragment: ComposerFragment): boolean {
+    if (fragment.kind === ComposerFragmentKind.EVENTS && this.state.eventInclusion === EventInclusionMode.NONE) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
   private toPlainTextPreview(input: string): string {
     if (isUndefined(document)) {
       return input;
@@ -4850,13 +4951,25 @@ export class EmailComposer implements OnInit, OnDestroy {
     ];
   }
 
-  protected addEventsFragment(): void {
-    if (this.hasFragmentKindAtTopLevel(ComposerFragmentKind.EVENTS)) return;
-    const list = this.state.fragmentOrder ?? [];
-    const signoffIdx = list.findIndex(f => f.kind === ComposerFragmentKind.SIGNOFF);
-    const insertAt = signoffIdx >= 0 ? signoffIdx : list.length;
-    const newFragment: ComposerFragment = { kind: ComposerFragmentKind.EVENTS, id: "events", dividerAfter: this.state.eventsDividerAfter ?? SectionDividerStyle.THIN_YELLOW };
-    this.state.fragmentOrder = [...list.slice(0, insertAt), newFragment, ...list.slice(insertAt)];
+  protected addEventsFragment(notifyAdded = false): void {
+    if (!this.eventsStepOmitted()) {
+      if (this.hasFragmentKindAtTopLevel(ComposerFragmentKind.EVENTS)) {
+        this.expandedFragmentIds.add("events");
+      } else {
+        const list = this.state.fragmentOrder ?? [];
+        const signoffIdx = list.findIndex(f => f.kind === ComposerFragmentKind.SIGNOFF);
+        const insertAt = signoffIdx >= 0 ? signoffIdx : list.length;
+        const newFragment: ComposerFragment = { kind: ComposerFragmentKind.EVENTS, id: "events", dividerAfter: this.state.eventsDividerAfter ?? SectionDividerStyle.THIN_YELLOW };
+        this.state.fragmentOrder = [...list.slice(0, insertAt), newFragment, ...list.slice(insertAt)];
+        this.expandedFragmentIds.add(newFragment.id);
+        if (notifyAdded) {
+          this.notify.success({
+            title: "Events added to the email",
+            message: "An Events list has been added on the Content step so the events you picked will go in the message."
+          });
+        }
+      }
+    }
   }
 
   private insertAboveSignoffAtTopLevel(fragment: ComposerFragment): void {

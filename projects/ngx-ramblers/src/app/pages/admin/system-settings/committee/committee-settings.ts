@@ -61,6 +61,8 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
+import { CommitteeFileService } from "../../../../services/committee/committee-file.service";
+import { CommitteeDocumentsPageChoice } from "../../../../models/content-text.model";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { destinationVerificationStatusFor } from "./email-routing-view-resolver";
 import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
@@ -804,6 +806,28 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                   }
                 </app-thumbnail-heading-frame>
 
+                <app-thumbnail-heading-frame heading="Committee documents page" class="mb-3">
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <p class="text-muted mb-2">New agendas and minutes are added to this page. Leave it on automatic
+                        to use the documents page for the meeting year when one exists, or the first documents list on
+                        the site.</p>
+                    </div>
+                    <div class="col-sm-12">
+                      <div class="form-group mb-0">
+                        <label for="documents-page-path">Documents page</label>
+                        <select id="documents-page-path" class="form-select"
+                                [(ngModel)]="committeeConfig.documentsPagePath">
+                          <option [ngValue]="null">Choose automatically</option>
+                          @for (page of documentsPages; track page.path) {
+                            <option [ngValue]="page.path">{{ page.label }}</option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </app-thumbnail-heading-frame>
+
                 <app-thumbnail-heading-frame heading="Meeting Frequency" class="mb-3">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
@@ -882,6 +906,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
   private committeeConfigService = inject(CommitteeConfigService);
+  private committeeFileService = inject(CommitteeFileService);
   cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private cloudflareUrl = inject(CloudflareUrlService);
   protected readonly cloudflareDashboardUrl = this.cloudflareUrl.dashboard();
@@ -898,6 +923,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
   public committeeConfig: CommitteeConfig;
+  documentsPages: CommitteeDocumentsPageChoice[] = [];
   protected selectedTab = "committee-members";
   protected readonly meetingFrequencyUnitOptions = RANGE_UNIT_OPTIONS;
   protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
@@ -964,6 +990,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.cloudflareEmailRoutingService.invalidateCache();
     this.committeeConfigService.refreshConfig();
+    this.committeeFileService.committeeDocumentsPages()
+      .then(pages => this.documentsPages = pages)
+      .catch(error => this.logger.error("committee documents pages not available:", error));
     this.webSocketClientService.connect().catch(() => this.logger.info("WebSocket unavailable for live config updates"));
     this.subscriptions.push(this.webSocketClientService.receiveMessages<{key: string}>(MessageType.CONFIG_UPDATED)
       .pipe(filter(event => event?.key === ConfigKey.COMMITTEE))
@@ -1025,6 +1054,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.committeeConfig = committeeConfig;
         if (!this.committeeConfig?.expenses) {
           this.committeeConfig.expenses = {costPerMile: DEFAULT_COST_PER_MILE};
+        }
+        if (!this.committeeConfig.documentsPagePath) {
+          this.committeeConfig.documentsPagePath = null;
         }
         if (this.pendingEditType) {
           this.openEditorForType(this.pendingEditType);

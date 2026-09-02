@@ -3,7 +3,8 @@ import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { kebabCase } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCalendarDays, faFileLines, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faFileLines, faRightToBracket, faRotateRight, faTrash, faVideo } from "@fortawesome/free-solid-svg-icons";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
@@ -11,23 +12,31 @@ import { CommitteeFileService } from "../../services/committee/committee-file.se
 import { CommitteeMeetingFormat } from "../../models/committee.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { DateUtilsService } from "../../services/date-utils.service";
+import { StringUtilsService } from "../../services/string-utils.service";
+import { UiActionsService } from "../../services/ui-actions.service";
 import { PageComponent } from "../../page/page.component";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { NextCommitteeMeetingBannerComponent } from "./next-committee-meeting-banner";
 import { ThumbnailHeadingFrameComponent } from "../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
-import { MEETING_MINUTES_TEMPLATE_ID, MeetingMinutesSummary, UpcomingBookedMeeting, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
+import { SortableTableComponent } from "../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../../modules/common/sortable-table/sortable-table.model";
+import { MEETING_MINUTES_TEMPLATE_ID, MeetingMinutesSummary, MeetingMinutesTableColumn, MeetingTranscriptRoomSummary, UpcomingBookedMeeting, VideoMeetingRuntimeConfig } from "../../models/video-meeting.model";
 import { meetingMinutesDocumentSlug } from "../../functions/committee-documents-page";
 import { AdminPath, AdminSettingsPath } from "../../models/admin-route-paths.model";
 import { SystemSettingsTab } from "../../models/system.model";
 import { StoredValue } from "../../models/ui-actions";
 import { UIDateFormat } from "../../models/date-format.model";
+import { SortDirection } from "../../models/sort.model";
+import { ASCENDING, DESCENDING } from "../../models/table-filtering.model";
 import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
 import { meetingMinutesDateLabel } from "../../functions/video-meeting-minutes";
 import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client";
+import { AlertPanelVariant } from "../../models/alert-panel.model";
 
 @Component({
   selector: "app-video-meetings-page",
-  imports: [FormsModule, FontAwesomeModule, PageComponent, AlertPanelComponent, NextCommitteeMeetingBannerComponent, RouterLink, ThumbnailHeadingFrameComponent],
+  imports: [FormsModule, FontAwesomeModule, TooltipModule, PageComponent, AlertPanelComponent, NextCommitteeMeetingBannerComponent, RouterLink, ThumbnailHeadingFrameComponent, SortableTableComponent, SortableTableCellDirective],
   template: `
     <app-page pageTitle="Meetings">
       <app-next-committee-meeting-banner (plan)="openPlannedMeeting($event)"/>
@@ -82,22 +91,91 @@ import { rememberActiveMeetingRoom } from "../../functions/video-meeting-client"
           </app-thumbnail-heading-frame>
         </div>
         <div class="col-sm-6">
-          @if (recentMinutes.length) {
-            <app-thumbnail-heading-frame heading="Recent meeting minutes" class="d-block">
-              @for (item of recentMinutes; track item.room; let first = $first) {
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 py-2"
-                     [class.border-top]="!first">
-                  <div>
-                    <div>{{ item.title }}</div>
-                    @if (item.dateLabel) {
-                      <div class="small text-muted">{{ item.dateLabel }}</div>
+          @if (recordingsNeedingMinutes.length) {
+            <app-thumbnail-heading-frame heading="Calls that still need minutes">
+              <p class="text-muted small">These calls have a recording but no minutes file yet. You can write the draft from what was said.</p>
+              @if (discardingRecording) {
+                <app-alert-panel class="mb-3"
+                                 [title]="writeError ? writeErrorTitle : 'Discard this recording?'"
+                                 [variant]="writeError ? alertDanger : alertWarning" actionsEnd>
+                  @if (writeError) {
+                    {{ writeError }}
+                  } @else {
+                    This removes the stored recording for {{ discardingRecording.title }}. Minutes cannot be written from it afterwards.
+                  }
+                  <button alertActions type="button" class="btn btn-quiet" [disabled]="discarding"
+                          (click)="cancelDiscardRecording()">Cancel</button>
+                  <button alertActions type="button" class="btn"
+                          [class.btn-primary]="!!writeError"
+                          [class.btn-danger]="!writeError"
+                          [disabled]="discarding"
+                          (click)="discardRecording()">
+                    @if (writeError) {
+                      <fa-icon [icon]="faRotateRight" class="me-2"/>{{ discarding ? "Trying…" : "Try again" }}
+                    } @else {
+                      <fa-icon [icon]="faTrash" class="me-2"/>{{ discarding ? "Discarding…" : "Discard recording" }}
                     }
-                  </div>
-                  <a class="btn btn-quiet" [routerLink]="'/' + minutesPath + '/' + item.room">
-                    <fa-icon [icon]="faFileLines" class="me-2"/>View minutes
-                  </a>
-                </div>
+                  </button>
+                </app-alert-panel>
+              } @else if (writeError) {
+                <app-alert-panel class="mb-3" [title]="writeErrorTitle" [variant]="alertDanger">
+                  {{ writeError }}
+                </app-alert-panel>
               }
+              <app-sortable-table
+                [columns]="minutesColumns"
+                [rows]="recordingsNeedingMinutes"
+                [defaultSortKey]="recordingsSortKey"
+                [defaultSortDirection]="recordingsSortDirection"
+                [trackBy]="trackMinutes"
+                emptyMessage="No recordings waiting for minutes"
+                (sortChange)="onRecordingsSortChange($event)">
+                <ng-template [appSortableTableCell]="minutesTableColumn.TITLE" let-item>{{ item.title }}</ng-template>
+                <ng-template [appSortableTableCell]="minutesTableColumn.STARTED_AT" let-item>{{ item.dateLabel }}</ng-template>
+                <ng-template [appSortableTableCell]="minutesTableColumn.ACTIONS" let-item>
+                  <div class="d-flex justify-content-end gap-1">
+                    <button type="button" class="btn btn-primary btn-icon"
+                            [disabled]="writingRoom === item.room || discarding"
+                            (click)="writeMinutesFromRecording(item)"
+                            tooltip="Write minutes" container="body"
+                            [attr.aria-label]="'Write minutes for ' + item.title">
+                      @if (writingRoom === item.room) {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                      } @else {
+                        <fa-icon [icon]="faRotateRight"/>
+                      }
+                    </button>
+                    <button type="button" class="btn btn-quiet btn-icon"
+                            [disabled]="writingRoom === item.room || discarding"
+                            (click)="confirmDiscardRecording(item)"
+                            tooltip="Discard recording" container="body"
+                            [attr.aria-label]="'Discard recording for ' + item.title">
+                      <fa-icon [icon]="faTrash"/>
+                    </button>
+                  </div>
+                </ng-template>
+              </app-sortable-table>
+            </app-thumbnail-heading-frame>
+          }
+          @if (recentMinutes.length) {
+            <app-thumbnail-heading-frame heading="Recent meeting minutes" class="d-block mt-4">
+              <app-sortable-table
+                [columns]="minutesColumns"
+                [rows]="recentMinutes"
+                [defaultSortKey]="minutesSortKey"
+                [defaultSortDirection]="minutesSortDirection"
+                [trackBy]="trackMinutes"
+                emptyMessage="No meeting minutes yet"
+                (sortChange)="onMinutesSortChange($event)">
+                <ng-template [appSortableTableCell]="minutesTableColumn.TITLE" let-item>{{ item.title }}</ng-template>
+                <ng-template [appSortableTableCell]="minutesTableColumn.STARTED_AT" let-item>{{ item.dateLabel }}</ng-template>
+                <ng-template [appSortableTableCell]="minutesTableColumn.ACTIONS" let-item>
+                  <a class="btn btn-quiet btn-icon" [routerLink]="'/' + minutesPath + '/' + item.room"
+                     tooltip="View minutes" aria-label="View minutes">
+                    <fa-icon [icon]="faFileLines"/>
+                  </a>
+                </ng-template>
+              </app-sortable-table>
             </app-thumbnail-heading-frame>
           }
         </div>
@@ -114,24 +192,70 @@ export class VideoMeetingsPageComponent implements OnInit {
   private committeeFileService = inject(CommitteeFileService);
   private memberLoginService = inject(MemberLoginService);
   private dateUtils = inject(DateUtilsService);
+  private uiActions = inject(UiActionsService);
+  private stringUtils = inject(StringUtilsService);
 
   config: VideoMeetingRuntimeConfig;
   joinRoom = "";
   meetingTitle = "";
   starting = false;
   recentMinutes: MeetingMinutesSummary[] = [];
+  recordingsNeedingMinutes: MeetingMinutesSummary[] = [];
+  writingRoom: string | null = null;
+  writeError = "";
+  writeErrorTitle = "Could not write minutes";
+  discardingRecording: MeetingMinutesSummary | null = null;
+  discarding = false;
+  protected readonly alertDanger = AlertPanelVariant.DANGER;
+  protected readonly alertWarning = AlertPanelVariant.WARNING;
 
   protected readonly faVideo = faVideo;
   protected readonly faRightToBracket = faRightToBracket;
   protected readonly faCalendarDays = faCalendarDays;
   protected readonly faFileLines = faFileLines;
+  protected readonly faRotateRight = faRotateRight;
+  protected readonly faTrash = faTrash;
   protected readonly systemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   protected readonly videoMeetingsTab = kebabCase(SystemSettingsTab.VIDEO_MEETINGS);
   protected readonly minutesPath = AdminPath.MEETING_MINUTES;
+  protected readonly minutesTableColumn = MeetingMinutesTableColumn;
+  protected readonly minutesColumns: SortableTableColumn<MeetingMinutesSummary>[] = [
+    {
+      key: MeetingMinutesTableColumn.TITLE,
+      label: "Meeting",
+      sortKey: MeetingMinutesTableColumn.TITLE,
+      cellGetter: row => row.title
+    },
+    {
+      key: MeetingMinutesTableColumn.STARTED_AT,
+      label: "When",
+      sortKey: MeetingMinutesTableColumn.STARTED_AT,
+      cellGetter: row => row.startedAt
+    },
+    {
+      key: MeetingMinutesTableColumn.ACTIONS,
+      label: "",
+      align: SortableTableAlignment.RIGHT,
+      cellClass: "nowrap"
+    }
+  ];
+  minutesSortKey: string = MeetingMinutesTableColumn.STARTED_AT;
+  minutesSortDirection = DESCENDING;
+  recordingsSortKey: string = MeetingMinutesTableColumn.STARTED_AT;
+  recordingsSortDirection = DESCENDING;
 
   async ngOnInit(): Promise<void> {
+    this.applyMinutesSortFromUrl(
+      this.uiActions.queryParameter(StoredValue.MEETING_MINUTES_SORT),
+      this.uiActions.queryParameter(StoredValue.MEETING_MINUTES_SORT_ORDER)
+    );
+    this.applyRecordingsSortFromUrl(
+      this.uiActions.queryParameter(StoredValue.MEETING_RECORDINGS_SORT),
+      this.uiActions.queryParameter(StoredValue.MEETING_RECORDINGS_SORT_ORDER)
+    );
     this.meetingTitle = this.defaultMeetingTitle();
     void this.loadRecentMinutes();
+    void this.loadRecordingsNeedingMinutes();
     try {
       this.config = await this.videoMeetingsService.config();
       if (this.config?.enabled && !this.config.publicHost) {
@@ -171,6 +295,7 @@ export class VideoMeetingsPageComponent implements OnInit {
             value => this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_DAY),
             value => this.dateUtils.displayTime(value)
           ),
+          startedAt,
           pagePath,
           slug: pagePath ? meetingMinutesDocumentSlug(file.meeting.room) : null
         };
@@ -178,6 +303,138 @@ export class VideoMeetingsPageComponent implements OnInit {
     } catch (error) {
       this.logger.info("could not load recent meeting minutes", error);
     }
+  }
+
+  private async loadRecordingsNeedingMinutes(): Promise<void> {
+    try {
+      const rooms = await this.videoMeetingsService.transcriptRooms();
+      this.recordingsNeedingMinutes = (rooms || [])
+        .filter(room => !room.hasMinutes)
+        .map(room => this.transcriptRoomSummary(room));
+    } catch (error) {
+      this.logger.info("could not load recordings that still need minutes", error);
+      this.recordingsNeedingMinutes = [];
+    }
+  }
+
+  private transcriptRoomSummary(room: MeetingTranscriptRoomSummary): MeetingMinutesSummary {
+    return {
+      room: room.room,
+      title: room.title || "Meeting recording",
+      dateLabel: meetingMinutesDateLabel(
+        room.startedAt,
+        room.endedAt,
+        value => this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_DAY),
+        value => this.dateUtils.displayTime(value)
+      ),
+      startedAt: room.startedAt || null,
+      pagePath: null,
+      slug: null
+    };
+  }
+
+  trackMinutes(_index: number, item: MeetingMinutesSummary): string {
+    return item.room;
+  }
+
+  onMinutesSortChange(state: SortableTableSortState): void {
+    this.minutesSortKey = state.key || MeetingMinutesTableColumn.STARTED_AT;
+    this.minutesSortDirection = state.direction === DESCENDING ? DESCENDING : ASCENDING;
+    this.uiActions.updateQueryParameters({
+      [StoredValue.MEETING_MINUTES_SORT]: this.minutesSortKey ? this.stringUtils.kebabCase(this.minutesSortKey) : null,
+      [StoredValue.MEETING_MINUTES_SORT_ORDER]: this.minutesSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
+    });
+  }
+
+  onRecordingsSortChange(state: SortableTableSortState): void {
+    this.recordingsSortKey = state.key || MeetingMinutesTableColumn.STARTED_AT;
+    this.recordingsSortDirection = state.direction === DESCENDING ? DESCENDING : ASCENDING;
+    this.uiActions.updateQueryParameters({
+      [StoredValue.MEETING_RECORDINGS_SORT]: this.recordingsSortKey ? this.stringUtils.kebabCase(this.recordingsSortKey) : null,
+      [StoredValue.MEETING_RECORDINGS_SORT_ORDER]: this.recordingsSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
+    });
+  }
+
+  private applyMinutesSortFromUrl(sortParam: string | null, sortOrderParam: string | null): void {
+    const matchedSortKey = this.minutesColumns
+      .map(column => column.sortKey)
+      .filter(Boolean)
+      .find(key => this.stringUtils.kebabCase(key) === sortParam);
+    if (matchedSortKey) {
+      this.minutesSortKey = matchedSortKey;
+    }
+    if (sortOrderParam === SortDirection.DESC) {
+      this.minutesSortDirection = DESCENDING;
+    } else if (sortOrderParam === SortDirection.ASC) {
+      this.minutesSortDirection = ASCENDING;
+    }
+  }
+
+  private applyRecordingsSortFromUrl(sortParam: string | null, sortOrderParam: string | null): void {
+    const matchedSortKey = this.minutesColumns
+      .map(column => column.sortKey)
+      .filter(Boolean)
+      .find(key => this.stringUtils.kebabCase(key) === sortParam);
+    if (matchedSortKey) {
+      this.recordingsSortKey = matchedSortKey;
+    }
+    if (sortOrderParam === SortDirection.DESC) {
+      this.recordingsSortDirection = DESCENDING;
+    } else if (sortOrderParam === SortDirection.ASC) {
+      this.recordingsSortDirection = ASCENDING;
+    }
+  }
+
+  confirmDiscardRecording(item: MeetingMinutesSummary): void {
+    this.discardingRecording = item;
+    this.writeError = "";
+  }
+
+  cancelDiscardRecording(): void {
+    this.discardingRecording = null;
+    this.writeError = "";
+  }
+
+  async discardRecording(): Promise<void> {
+    const item = this.discardingRecording;
+    if (!item) {
+      this.logger.info("no recording selected to discard");
+    } else {
+      this.discarding = true;
+      this.writeError = "";
+      try {
+        await this.videoMeetingsService.deleteTranscript(item.room);
+        this.discardingRecording = null;
+        await this.loadRecordingsNeedingMinutes();
+      } catch (error) {
+        this.logger.error("failed to discard recording", item.room, error);
+        await this.loadRecordingsNeedingMinutes();
+        if (!this.recordingsNeedingMinutes.some(row => row.room === item.room)) {
+          this.discardingRecording = null;
+          this.writeError = "";
+        } else {
+          this.writeErrorTitle = "Could not discard recording";
+          this.writeError = "Please try again in a moment.";
+        }
+      }
+      this.discarding = false;
+    }
+  }
+
+  async writeMinutesFromRecording(item: MeetingMinutesSummary): Promise<void> {
+    this.writingRoom = item.room;
+    this.writeError = "";
+    try {
+      await this.videoMeetingsService.writeMinutes(item.room, {transcript: "", chat: "", startedAt: null}, "", false);
+      await this.loadRecentMinutes();
+      await this.loadRecordingsNeedingMinutes();
+      this.router.navigate(["/" + this.minutesPath, item.room]);
+    } catch (error) {
+      this.logger.error("failed to write minutes from recording", item.room, error);
+      this.writeErrorTitle = "Could not write minutes";
+      this.writeError = "Please try again in a moment.";
+    }
+    this.writingRoom = null;
   }
 
   private defaultMeetingTitle(): string {

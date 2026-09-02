@@ -36,6 +36,7 @@ const committeeFileSchema = new mongoose.Schema({
     startedAt: { type: Number },
     endedAt: { type: Number },
     committeePagePath: { type: String },
+    minutesSummaryPending: { type: Boolean },
   }
 }, { collection: "committeeFiles" });
 

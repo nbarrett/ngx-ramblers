@@ -1,5 +1,13 @@
 import { isArray, isObject, isString } from "es-toolkit/compat";
-import { JitsiEmbedConfigOverwrite, JitsiJoinMode, VideoMeetingParticipant, VideoMeetingRuntimeConfig } from "../models/video-meeting.model";
+import {
+  JitsiEmbedConfigOverwrite,
+  JitsiJoinMode,
+  JitsiTokenUser,
+  MeetingGuestOccupantKind,
+  MeetingOccupantIdentity,
+  VideoMeetingParticipant,
+  VideoMeetingRuntimeConfig
+} from "../models/video-meeting.model";
 
 export const JITSI_IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
 
@@ -17,11 +25,9 @@ export const JITSI_HOST_PAGE_CSS = [
   ".leftwatermark,.rightwatermark,.watermark,#new-watermark{display:none!important}",
   "#localvideomenu button,#remotevideomenu button,#local-video-menu-trigger button,#remote-video-menu-trigger button{background-color:" + JITSI_SUNRISE + "!important;background:" + JITSI_SUNRISE + "!important;color:" + JITSI_SUNRISE_INK + "!important}",
   "#localvideomenu svg,#remotevideomenu svg,#local-video-menu-trigger svg,#remote-video-menu-trigger svg{fill:" + JITSI_SUNRISE_INK + "!important}",
-  ".vertical-filmstrip .filmstrip,.stage-filmstrip .filmstrip,.vertical-filmstrip .filmstrip__videos,.stage-filmstrip .filmstrip__videos{flex-direction:column!important;justify-content:flex-start!important;align-items:stretch!important;height:auto!important;max-height:100%!important}",
-  ".vertical-filmstrip #filmstripRemoteVideos,.stage-filmstrip #filmstripRemoteVideos{flex:0 0 auto!important;height:auto!important;justify-content:flex-start!important}",
-  ".vertical-filmstrip #filmstripRemoteVideosContainer,.stage-filmstrip #filmstripRemoteVideosContainer{flex-direction:column!important;justify-content:flex-start!important}",
-  ".vertical-filmstrip #largeVideoContainer,.vertical-filmstrip #largeVideoWrapper,.stage-filmstrip #largeVideoContainer,.stage-filmstrip #largeVideoWrapper{width:0!important;min-width:0!important;overflow:hidden!important}",
-  ".vertical-filmstrip .filmstrip,.stage-filmstrip .filmstrip{left:0!important;right:0!important;width:100%!important;top:0!important}",
+  ".toggleFilmstripContainer,.toggleFilmstrip,#toggleFilmstripButton,.hide-videos-indicator{display:none!important}",
+  ".horizontal-filmstrip .filmstrip,.vertical-filmstrip .filmstrip,.stage-filmstrip .filmstrip{display:none!important}",
+  ".tile-view .filmstrip{display:flex!important;align-items:center!important;justify-content:center!important;height:100%!important;width:100%!important;left:0!important;top:0!important;right:auto!important;bottom:auto!important}",
   ".tile-view .remote-videos,.tile-view .remote-videos>div{align-content:flex-start!important;align-items:flex-start!important;justify-content:flex-start!important}"
 ].join("");
 
@@ -56,6 +62,10 @@ export function videoMeetingRoomSlug(label: string, dateSlug: string, unique: st
   }
 }
 
+export function videoMeetingTitleFromRoom(room: string): string {
+  return (room || "").replace(/-\d{3,}$/, "").replace(/-/g, " ").replace(/\b\w/g, character => character.toUpperCase()).trim();
+}
+
 export function suggestedVideoMeetingTitle(kind: string, dateLabel: string): string {
   const meetingKind = (kind || "").trim() || "Meeting";
   if (dateLabel?.trim()) {
@@ -86,18 +96,42 @@ export function nameFromEmailAddress(email: string): string {
     .join(" ");
 }
 
-export function displayNameFromToken(token: string): string {
+export function guestMeetingOccupantId(room: string, email: string): string {
+  const normalised = (email || "").trim().toLowerCase();
+  if (normalised) {
+    return `${MeetingGuestOccupantKind.EMAIL}:${normalised}`;
+  } else {
+    return `${MeetingGuestOccupantKind.ANONYMOUS}:${room || "room"}`;
+  }
+}
+
+function emptyTokenUser(): JitsiTokenUser {
+  return {id: "", name: "", moderator: false};
+}
+
+export function tokenUserFromJwt(token: string): JitsiTokenUser {
   const payload = (token || "").split(".")[1];
-  let name = "";
   if (payload) {
     try {
       const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-      name = (decoded?.context?.user?.name || "").trim();
+      const user = isObject(decoded?.context?.user) ? decoded.context.user as { [key: string]: unknown } : {};
+      const email = isString(user["email"]) ? user["email"].trim() : "";
+      return {
+        id: isString(user["id"]) ? user["id"] : "",
+        name: isString(user["name"]) ? user["name"].trim() : "",
+        email: email || undefined,
+        moderator: user["moderator"] === true || user["moderator"] === "true"
+      };
     } catch {
-      name = "";
+      return emptyTokenUser();
     }
+  } else {
+    return emptyTokenUser();
   }
-  return name;
+}
+
+export function displayNameFromToken(token: string): string {
+  return tokenUserFromJwt(token).name;
 }
 
 export function videoMeetingPeople(info: unknown, localParticipantId: string): VideoMeetingParticipant[] {
@@ -110,11 +144,55 @@ function personFromJitsi(item: unknown, localParticipantId: string): VideoMeetin
   const participantId = isString(record["participantId"]) ? record["participantId"] : "";
   const named = isString(record["displayName"]) ? record["displayName"] : "";
   const formatted = isString(record["formattedDisplayName"]) ? record["formattedDisplayName"] : "";
+  const email = isString(record["email"]) ? record["email"].trim() : "";
   return {
     participantId,
     displayName: named || formatted || "Guest",
+    email: email || null,
     local: !!localParticipantId && participantId === localParticipantId
   };
+}
+
+function occupantDisplayName(person: Pick<VideoMeetingParticipant, "displayName">): string {
+  return (person.displayName || "").replace(/\s*\((me|you)\)\s*$/i, "").trim().toLowerCase();
+}
+
+function isAnonymousGuestName(name: string): boolean {
+  return !name || name === "guest" || name === "fellow jitster";
+}
+
+export function occupantIdentityKey(person: Pick<VideoMeetingParticipant, "displayName" | "email">): string {
+  const email = (person.email || "").trim().toLowerCase();
+  const name = occupantDisplayName(person);
+  if (email) {
+    return `email:${email}`;
+  } else if (isAnonymousGuestName(name)) {
+    return MeetingOccupantIdentity.ANONYMOUS_GUEST;
+  } else {
+    return `name:${name}`;
+  }
+}
+
+export function duplicateOccupantIdsToKick(
+  people: VideoMeetingParticipant[],
+  localParticipantId: string,
+  preferParticipantId: string | null = null
+): string[] {
+  const groups = people.reduce((grouped, person) => {
+    const key = occupantIdentityKey(person);
+    grouped.set(key, (grouped.get(key) || []).concat(person));
+    return grouped;
+  }, new Map<string, VideoMeetingParticipant[]>());
+  return [...groups.values()].reduce((ids, group) => {
+    if (group.length < 2) {
+      return ids;
+    } else {
+      const preferred = group.find(person => person.participantId === preferParticipantId);
+      const localPerson = group.find(person => person.local || person.participantId === localParticipantId);
+      const keepId = (preferred || localPerson || group[group.length - 1]).participantId;
+      return ids.concat(group.filter(person => person.participantId !== keepId).map(person => person.participantId));
+    }
+  }, [] as string[]);
 }
 
 export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, subject: string, silent = false): JitsiEmbedConfigOverwrite {
@@ -164,7 +242,11 @@ export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, sub
       "notify.TRANSCRIBING_FAILED",
       "transcribing.failed"
     ],
-    subject
+    subject,
+    filmstrip: {
+      disableResizable: true,
+      disableStageFilmstrip: true
+    }
   };
 }
 

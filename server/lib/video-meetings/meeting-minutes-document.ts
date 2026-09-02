@@ -131,7 +131,15 @@ async function notifyOrganizerInInbox(committeeFile: CommitteeFile, link: string
   }
 }
 
-export async function publishMeetingMinutes(room: string, markdown: string, notify: boolean): Promise<{ link: string; emailed: boolean; path: string | null; slug: string } | null> {
+export async function minutesDraftStillPending(room: string): Promise<boolean> {
+  const target = await committeeFileModel.findOne({
+    "meeting.room": room,
+    "document.templateId": MEETING_MINUTES_TEMPLATE_ID
+  }).lean().exec() as unknown as CommitteeFile;
+  return target?.meeting?.minutesSummaryPending !== false;
+}
+
+export async function publishMeetingMinutes(room: string, markdown: string, notify: boolean, summaryPending = false): Promise<{ link: string; emailed: boolean; path: string | null; slug: string } | null> {
   if (!room || !markdown?.trim()) {
     return null;
   } else {
@@ -168,6 +176,7 @@ export async function publishMeetingMinutes(room: string, markdown: string, noti
       target.eventDate = eventDate;
       target.set("meeting.startedAt", startedAt);
       target.set("meeting.endedAt", endedAt);
+      target.set("meeting.minutesSummaryPending", summaryPending);
       await target.save();
     }
     const saved = target || await committeeFileModel.create({
@@ -183,7 +192,8 @@ export async function publishMeetingMinutes(room: string, markdown: string, noti
         createdBy: plannedFile?.meeting?.createdBy,
         createdByName: plannedFile?.meeting?.createdByName,
         startedAt,
-        endedAt
+        endedAt,
+        minutesSummaryPending: summaryPending
       }
     });
     const savedFile = saved.toObject() as unknown as CommitteeFile;

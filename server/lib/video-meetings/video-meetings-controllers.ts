@@ -11,7 +11,7 @@ import { EmailAddress } from "../../../projects/ngx-ramblers/src/app/models/mail
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { nameFromEmailAddress } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-join";
+import { guestMeetingOccupantId, nameFromEmailAddress } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-join";
 
 const MEETING_TOKEN_EXPIRY_SECONDS = 60 * 60 * 4;
 const GUEST_TOKEN_EXPIRY_SECONDS = 60 * 60 * 12;
@@ -30,17 +30,23 @@ export function guestDisplayName(name: string, email: string): string {
   return (name || "").trim() || nameFromEmailAddress(email) || "Guest";
 }
 
-function memberFromRequest(req: Request): MemberCookie {
+export function memberFromRequest(req: Request): MemberCookie {
   return (req as Request & { user?: MemberCookie }).user;
 }
 
-function issueGuestToken(room: string, name: string): string {
+function issueGuestToken(room: string, name: string, email = ""): string {
   const {appId, appSecret} = jitsiJwtCredentials();
+  const occupantEmail = (email || "").trim();
   return issueMeetingToken({
     appId,
     appSecret,
     room,
-    user: {id: `guest-${room}`, name: name || "Guest", moderator: false},
+    user: {
+      id: guestMeetingOccupantId(room, occupantEmail),
+      name: name || "Guest",
+      email: occupantEmail || undefined,
+      moderator: false
+    },
     expirySeconds: GUEST_TOKEN_EXPIRY_SECONDS
   });
 }
@@ -101,6 +107,7 @@ export async function issueMemberToken(req: Request, res: Response): Promise<voi
           user: {
             id: member?.memberId || member?.userName || "member",
             name: memberName(member),
+            email: (member?.userName || "").trim() || undefined,
             moderator
           },
           expirySeconds: MEETING_TOKEN_EXPIRY_SECONDS
@@ -125,7 +132,7 @@ export async function handleGuestInvite(req: Request, res: Response): Promise<vo
     } else {
       const runtime = await resolveVideoMeetingRuntime();
       const displayName = guestDisplayName(name, email);
-      const token = runtime.jwtRequired ? issueGuestToken(room, displayName) : null;
+      const token = runtime.jwtRequired ? issueGuestToken(room, displayName, email) : null;
       const link = await buildGuestLink(room, token);
       const member = memberFromRequest(req);
       const inviter = memberName(member);

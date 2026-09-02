@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CommitteeFile, CommitteeFileMeetingRole, CommitteeFileType } from "../models/committee.model";
+import { CommitteeFile, CommitteeFileMeetingRole, CommitteeFileType, CommitteeMeetingFormat, OTHER_MEETING_CATEGORY } from "../models/committee.model";
 import { lastMeetingEventDate, upcomingBookedMeetings } from "./upcoming-booked-meetings";
 
 const fileTypes: CommitteeFileType[] = [
@@ -31,6 +31,29 @@ describe("upcomingBookedMeetings", () => {
       {eventDate: 100, fileType: "Minutes"} as CommitteeFile
     ];
     expect(lastMeetingEventDate(files, fileTypes)).toBe(200);
+  });
+
+  it("includes booked Other meetings on the calendar without listing Other documents", () => {
+    const files = [
+      {id: "aug", eventDate: 200, fileType: "Agenda", document: {title: "August agenda"}} as CommitteeFile,
+      {
+        id: "other-meeting",
+        eventDate: 300,
+        fileType: OTHER_MEETING_CATEGORY,
+        document: {title: "Video call"},
+        meeting: {format: CommitteeMeetingFormat.ONLINE}
+      } as CommitteeFile,
+      {id: "other-doc", eventDate: 400, fileType: OTHER_MEETING_CATEGORY, document: {title: "Random paper"}} as CommitteeFile,
+      {
+        id: "mins",
+        eventDate: 500,
+        fileType: "Minutes",
+        document: {title: "Future minutes"},
+        meeting: {format: CommitteeMeetingFormat.ONLINE}
+      } as CommitteeFile
+    ];
+    const upcoming = upcomingBookedMeetings(files, 150, fileTypes);
+    expect(upcoming.map(item => item.title)).toEqual(["August agenda", "Video call"]);
   });
 
 });

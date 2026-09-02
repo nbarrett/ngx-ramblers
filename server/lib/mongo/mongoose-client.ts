@@ -100,6 +100,7 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
       heartbeatFrequencyMS: 5000,
       maxPoolSize: 10,
       minPoolSize: 2,
+      maxIdleTimeMS: 45000,
       ssl: true
     });
     return true;

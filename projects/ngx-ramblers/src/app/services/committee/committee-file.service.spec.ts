@@ -1,13 +1,14 @@
 import { TestBed } from "@angular/core/testing";
 import { provideHttpClient } from "@angular/common/http";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
-import { vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommitteeFile } from "../../models/committee.model";
 import { PageContent, PageContentType } from "../../models/content-text.model";
 import { SortDirection } from "../../models/sort.model";
 import { DateUtilsService } from "../date-utils.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { PageContentService } from "../page-content.service";
+import { CommitteeConfigService } from "./commitee-config.service";
 import { CommitteeFileService } from "./committee-file.service";
 
 describe("CommitteeFileService addToCommitteeDocumentsPage", () => {
@@ -17,6 +18,7 @@ describe("CommitteeFileService addToCommitteeDocumentsPage", () => {
     all: ReturnType<typeof vi.fn>;
     createOrUpdate: ReturnType<typeof vi.fn>;
   };
+  let committeeConfig: {documentsPagePath: string | null};
 
   const yearPage = (path: string, fileIds: string[]): PageContent => ({
     id: `id-${path}`,
@@ -43,6 +45,7 @@ describe("CommitteeFileService addToCommitteeDocumentsPage", () => {
   } as CommitteeFile);
 
   beforeEach(() => {
+    committeeConfig = {documentsPagePath: null};
     pageContentService = {
       findByPath: vi.fn(),
       all: vi.fn(),
@@ -54,6 +57,7 @@ describe("CommitteeFileService addToCommitteeDocumentsPage", () => {
         provideHttpClientTesting(),
         CommitteeFileService,
         {provide: PageContentService, useValue: pageContentService},
+        {provide: CommitteeConfigService, useValue: {committeeConfig: () => committeeConfig}},
         {
           provide: DateUtilsService,
           useValue: {asString: vi.fn().mockReturnValue("2026")}
@@ -75,28 +79,39 @@ describe("CommitteeFileService addToCommitteeDocumentsPage", () => {
     service = TestBed.inject(CommitteeFileService);
   });
 
-  it("adds the file to the committee year page", async () => {
+  it("adds the file to the documents page for the meeting year", async () => {
     const page = yearPage("committee/2026", ["existing"]);
+    pageContentService.all.mockResolvedValue([page]);
     pageContentService.findByPath.mockResolvedValue(page);
     const path = await service.addToCommitteeDocumentsPage(file("new-file"));
     expect(path).toBe("committee/2026");
     expect(page.rows[0].committeeDocuments.fileIds).toEqual(["existing", "new-file"]);
     expect(pageContentService.createOrUpdate).toHaveBeenCalledWith(page);
-    expect(pageContentService.all).not.toHaveBeenCalled();
   });
 
   it("does not write when the file is already on the year page", async () => {
     const page = yearPage("committee/2026", ["new-file"]);
+    pageContentService.all.mockResolvedValue([page]);
     pageContentService.findByPath.mockResolvedValue(page);
     const path = await service.addToCommitteeDocumentsPage(file("new-file"));
     expect(path).toBe("committee/2026");
     expect(pageContentService.createOrUpdate).not.toHaveBeenCalled();
   });
 
-  it("falls back to the latest year page when the meeting year has no page", async () => {
+  it("uses the configured documents page when it is set", async () => {
+    const page = yearPage("group/papers", ["existing"]);
+    committeeConfig.documentsPagePath = "group/papers";
+    pageContentService.all.mockResolvedValue([page]);
+    pageContentService.findByPath.mockResolvedValue(page);
+    const path = await service.addToCommitteeDocumentsPage(file("new-file"));
+    expect(path).toBe("group/papers");
+    expect(page.rows[0].committeeDocuments.fileIds).toEqual(["existing", "new-file"]);
+  });
+
+  it("falls back to another documents page when the meeting year has no page", async () => {
     const latest = yearPage("committee/2025", ["older"]);
-    pageContentService.findByPath.mockResolvedValue(null);
     pageContentService.all.mockResolvedValue([latest]);
+    pageContentService.findByPath.mockResolvedValue(latest);
     const path = await service.addToCommitteeDocumentsPage(file("new-file"));
     expect(path).toBe("committee/2025");
     expect(latest.rows[0].committeeDocuments.fileIds).toEqual(["older", "new-file"]);

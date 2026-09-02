@@ -122,7 +122,17 @@ export interface VideoMeetingLayoutOption {
 export interface VideoMeetingParticipant {
   participantId: string;
   displayName: string;
+  email: string | null;
   local: boolean;
+}
+
+export enum MeetingGuestOccupantKind {
+  EMAIL = "guest-email",
+  ANONYMOUS = "guest-anonymous"
+}
+
+export enum MeetingOccupantIdentity {
+  ANONYMOUS_GUEST = "anonymous-guest"
 }
 
 export enum VideoMeetingDevice {
@@ -238,6 +248,10 @@ export interface JitsiEmbedConfigOverwrite {
   transcribingEnabled: boolean;
   disabledNotifications: string[];
   subject: string;
+  filmstrip: {
+    disableResizable: boolean;
+    disableStageFilmstrip: boolean;
+  };
 }
 
 export interface VideoMeetingInviteHandoff {
@@ -258,10 +272,17 @@ export enum MeetingMinutesView {
   TRANSCRIPT = "transcript"
 }
 
+export enum MeetingMinutesTableColumn {
+  TITLE = "title",
+  STARTED_AT = "startedAt",
+  ACTIONS = "actions"
+}
+
 export interface MeetingMinutesSummary {
   room: string;
   title: string;
   dateLabel: string;
+  startedAt: number | null;
   pagePath: string | null;
   slug: string | null;
 }
@@ -291,7 +312,8 @@ export enum MeetingNotesWriteOutcome {
 
 export enum MeetingMinutesCollectionState {
   WRITING = "writing",
-  DONE = "done"
+  DONE = "done",
+  FAILED = "failed"
 }
 
 export enum TranscribeStatus {
@@ -360,6 +382,15 @@ export interface MeetingTranscriptResponse {
   entries?: MeetingTranscriptEntry[];
   startedAt?: number | null;
   endedAt?: number | null;
+}
+
+export interface MeetingTranscriptRoomSummary {
+  room: string;
+  title: string;
+  lines: number;
+  startedAt: number | null;
+  endedAt: number | null;
+  hasMinutes: boolean;
 }
 
 export interface JitsiTokenUser {
