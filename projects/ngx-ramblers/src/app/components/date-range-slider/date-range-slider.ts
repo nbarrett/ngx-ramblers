@@ -101,16 +101,20 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
 
     .date-range-slider.with-presets
       display: flex
-      align-items: center
+      flex-direction: column
+      align-items: stretch
       gap: var(--space-3, 12px)
 
     .date-range-preset-wrapper
-      flex: 0 0 auto
-      min-width: 150px
+      width: 100%
+      min-width: 0
 
     .date-range-slider-body
-      flex: 1 1 auto
+      width: 100%
       min-width: 0
+
+    :host ::ng-deep .date-range-preset-wrapper .ng-option
+      white-space: normal
 
     .date-range-slider
       .date-label
@@ -266,6 +270,7 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     }
   }
   @Output() rangeChange = new EventEmitter<DateRange>();
+  @Output() presetChange = new EventEmitter<DateRangeSliderPreset>();
   showPresets = false;
   disabled = false;
 
@@ -278,7 +283,7 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   @Input() presets: DateRangeSliderPreset[] = DATE_RANGE_SLIDER_PRESETS;
-  selectedPreset: DateRangeSliderPreset = null;
+  @Input() selectedPreset: DateRangeSliderPreset = null;
 
   faCalendar = faCalendar;
 
@@ -286,6 +291,7 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   maxValue = 365;
   fromValue = 0;
   toValue = 30;
+  private ignoreViewChanges = 0;
 
   ngOnInit() {
     this.configureBounds();
@@ -342,54 +348,74 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   onFromChange() {
-    if (this.fromValue > this.toValue) {
-      this.fromValue = this.toValue;
+    if (this.ignoreViewChanges === 0) {
+      if (this.fromValue > this.toValue) {
+        this.fromValue = this.toValue;
+      }
+      this.clearSelectedPreset();
+      this.emitChange();
     }
-    this.emitChange();
   }
 
   onToChange() {
-    if (this.toValue < this.fromValue) {
-      this.toValue = this.fromValue;
+    if (this.ignoreViewChanges === 0) {
+      if (this.toValue < this.fromValue) {
+        this.toValue = this.fromValue;
+      }
+      this.clearSelectedPreset();
+      this.emitChange();
     }
-    this.emitChange();
   }
 
   setRange(range: DateRange, emit = true) {
-    const fromDate = this.dateUtils.asDateTime(range.from);
-    const toDate = this.dateUtils.asDateTime(range.to);
-    const boundedFrom = fromDate < this.minDate ? this.minDate : fromDate;
-    const boundedTo = toDate > this.maxDate ? this.maxDate : toDate;
+    this.runWithoutViewChange(() => {
+      const fromDate = this.dateUtils.asDateTime(range.from);
+      const toDate = this.dateUtils.asDateTime(range.to);
+      const boundedFrom = fromDate < this.minDate ? this.minDate : fromDate;
+      const boundedTo = toDate > this.maxDate ? this.maxDate : toDate;
 
-    this.fromValue = Math.max(0, Math.floor(boundedFrom.diff(this.minDate!, "days").days));
-    this.toValue = Math.max(this.fromValue, Math.floor(boundedTo.diff(this.minDate!, "days").days));
-    if (emit) {
-      this.emitChange();
-    }
+      this.fromValue = Math.max(0, Math.floor(boundedFrom.diff(this.minDate!, "days").days));
+      this.toValue = Math.max(this.fromValue, Math.floor(boundedTo.diff(this.minDate!, "days").days));
+      if (emit) {
+        this.emitChange();
+      }
+    });
   }
 
   clearRange(emit = true) {
-    this.fromValue = this.minValue;
-    this.toValue = this.maxValue;
-    if (emit) {
-      this.emitChange();
-    }
+    this.runWithoutViewChange(() => {
+      this.fromValue = this.minValue;
+      this.toValue = this.maxValue;
+      if (emit) {
+        this.emitChange();
+      }
+    });
   }
 
   applyPreset(preset: DateRangeSliderPreset): void {
     this.selectedPreset = preset;
-    if (preset) {
+    this.presetChange.emit(preset);
+    if (preset?.relativeDateRange) {
       const today = this.dateUtils.dateTimeNow().startOf("day");
       const offset = preset.relativeDateRange.duration;
       const bounds = preset.relativeDateRange.direction === DateDirection.FUTURE
         ? {from: today, to: today.plus(offset)}
         : {from: today.minus(offset), to: today};
-      this.minDate = bounds.from;
-      this.maxDate = bounds.to;
-      this.configureBounds();
-      this.fromValue = 0;
-      this.toValue = this.maxValue;
+      this.runWithoutViewChange(() => {
+        this.minDate = bounds.from;
+        this.maxDate = bounds.to;
+        this.configureBounds();
+        this.fromValue = 0;
+        this.toValue = this.maxValue;
+      });
       this.rangeChange.emit({from: bounds.from.toMillis(), to: bounds.to.toMillis()});
+    }
+  }
+
+  private clearSelectedPreset() {
+    if (this.selectedPreset) {
+      this.selectedPreset = null;
+      this.presetChange.emit(null);
     }
   }
 
@@ -419,6 +445,14 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     this.rangeChangeSubscription.unsubscribe();
   }
 
+  private runWithoutViewChange(action: () => void) {
+    this.ignoreViewChanges = this.ignoreViewChanges + 1;
+    action();
+    queueMicrotask(() => {
+      this.ignoreViewChanges = this.ignoreViewChanges - 1;
+    });
+  }
+
   private configureBounds() {
     const fallback = this.dateUtils.dateTimeNow().startOf("day");
     if (!this.minDate) {
@@ -432,7 +466,9 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     }
     const totalDays = Math.max(0, Math.ceil(this.maxDate.diff(this.minDate, "days").days));
     this.maxValue = totalDays;
-    this.fromValue = Math.min(this.fromValue, this.maxValue);
-    this.toValue = Math.max(this.fromValue, Math.min(this.toValue, this.maxValue));
+    this.runWithoutViewChange(() => {
+      this.fromValue = Math.min(this.fromValue, this.maxValue);
+      this.toValue = Math.max(this.fromValue, Math.min(this.toValue, this.maxValue));
+    });
   }
 }

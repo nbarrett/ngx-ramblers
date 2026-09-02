@@ -225,9 +225,8 @@ import { NotificationConfigSelectorComponent } from "../admin/system-settings/ma
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
-import { RootFolder, SystemConfig } from "../../models/system.model";
-import { S3_BASE_URL } from "../../models/content-metadata.model";
-import { AwsFileUploadResponse } from "../../models/aws-object.model";
+import { SystemConfig } from "../../models/system.model";
+import { FileUploadService } from "../../services/file-upload.service";
 import { NumberUtilsService } from "../../services/number-utils.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
@@ -2270,6 +2269,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private sendService = inject(EmailComposerSendService);
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private videoMeetingInviteHandoff = inject(VideoMeetingInviteHandoffService);
+  private fileUploadService = inject(FileUploadService);
   private inboxService = inject(InboxService);
   private externalRecipientService = inject(ExternalRecipientService);
   private committeeQueryService = inject(CommitteeQueryService);
@@ -6789,14 +6789,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     try {
       await files.reduce(async (previous: Promise<void>, file: File) => {
         await previous;
-        const formData = new FormData();
-        formData.append("file", file, file.name);
-        const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${RootFolder.emailAttachments}`, formData));
-        const fileNameData = response?.responses?.[0]?.fileNameData;
-        if (fileNameData) {
-          const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
-          const url = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
-          this.state.attachments = [...(this.state.attachments ?? []), {name: file.name, url, sizeBytes: file.size}];
+        const attachment = await this.fileUploadService.uploadEmailAttachment(file, file.name);
+        if (attachment) {
+          this.state.attachments = [...(this.state.attachments ?? []), attachment];
         } else {
           this.notify.warning({title: "Attachments", message: `${file.name} failed to upload`});
         }

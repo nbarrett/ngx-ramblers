@@ -4,8 +4,8 @@ import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { Chart, ChartConfiguration, registerables } from "chart.js";
 import { NgxLoggerLevel } from "ngx-logger";
-import { DatePicker } from "../../../date-and-time/date-picker";
-import { DateValue } from "../../../models/date.model";
+import { DateTime } from "luxon";
+import { dateRangeSliderBounds, DateRange, DateRangeSlider } from "../../../components/date-range-slider/date-range-slider";
 import { AGMStatsResponse, ExtendedGroupEvent, LeaderStats, YearComparison } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { StoredValue } from "../../../models/ui-actions";
@@ -18,10 +18,9 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { GroupEventDisplayService } from "../../group-events/group-event-display.service";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronUp, faCircleCheck, faCircleExclamation, faFileExcel, faPaperPlane, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { aggregateLeaderStats, asLeaderStats } from "../../../functions/agm-leader-stats";
 import { sortBy } from "../../../functions/arrays";
-import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { isNull, isNumber, isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { AGMWalksTabComponent } from "./agm-walks-tab";
@@ -29,15 +28,36 @@ import { AGMSocialsTabComponent } from "./agm-socials-tab";
 import { AGMExpensesTabComponent } from "./agm-expenses-tab";
 import { AGMMembershipTabComponent } from "./agm-membership-tab";
 import { PageComponent } from "../../../page/page.component";
-import { AgmChartType, AgmStatsSection, SummaryRow, SocialRow, RankedLeaderRow } from "../../../models/agm-stats.model";
+import { AGM_STATS_DATE_RANGE_PRESETS, AGM_STATS_EMAIL_SECTION_OPTIONS, AGMStatsTab, AgmChartType, AgmStatsEmailData, AgmStatsEmailSection, AgmStatsPreset, AgmStatsSection, CommitteeStatisticsEvent, RankedLeaderRow, SocialRow, SummaryRow } from "../../../models/agm-stats.model";
+import { DateRangeSliderPreset } from "../../../models/date.model";
 import { SortDirection } from "../../../models/sort.model";
 import { entries } from "../../../functions/object-utils";
+import { CommitteeFileService } from "../../../services/committee/committee-file.service";
+import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
+import { firstValueFrom } from "rxjs";
+import { take } from "rxjs/operators";
+import { committeeEventComparisonPeriods, committeeStatisticsEvents } from "../../../functions/committee-statistics-events";
+import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
+import { AlertPanelComponent } from "../../../modules/common/alert-panel/alert-panel";
+import { EmailPreviewComponent } from "../../../modules/common/email-preview/email-preview.component";
+import { AlertPanelVariant } from "../../../models/alert-panel.model";
+import { AddresseeType, BrandingMode } from "../../../models/email-composer.model";
+import { EmailComposerSendService } from "../../../services/email-composer/email-composer-send.service";
+import { CommitteeMember, CommitteeRolesChangeEvent, roleRecipientMemberIds } from "../../../models/committee.model";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { agmStatisticsEmailCsv, agmStatisticsEmailHtml } from "../../../functions/agm-statistics-email";
+import { agmStatisticsDetailTables } from "../../../functions/agm-statistics-details";
+import { FileUploadService } from "../../../services/file-upload.service";
+import { UrlService } from "../../../services/url.service";
+import { EmailAttachment } from "../../../models/mail.model";
+import { extractErrorMessage } from "../../../functions/strings";
+import { downloadBlob } from "../../../functions/file-download";
 
 Chart.register(...registerables);
 
 @Component({
   selector: "app-agm-stats",
-  imports: [FormsModule, DatePicker, FontAwesomeModule, TabsetComponent, TabDirective, AGMWalksTabComponent, AGMSocialsTabComponent, AGMExpensesTabComponent, AGMMembershipTabComponent, PageComponent],
+  imports: [FormsModule, DateRangeSlider, FontAwesomeModule, TabsetComponent, TabDirective, AGMWalksTabComponent, AGMSocialsTabComponent, AGMExpensesTabComponent, AGMMembershipTabComponent, PageComponent, CommitteeRoleMultiSelectComponent, AlertPanelComponent, EmailPreviewComponent],
   styleUrls: ["./agm-stats.sass"],
   template: `
     <app-page autoTitle pageTitle="AGM Statistics Report">
@@ -46,12 +66,160 @@ Chart.register(...registerables);
         @if (error) {
           <div class="alert alert-danger">{{ error }}</div>
         }
+        @if (emailNotice) {
+          <app-alert-panel class="mb-3" title="Statistics email queued" [variant]="AlertPanelVariant.SUCCESS" [icon]="faCircleCheck">
+            {{ emailNotice }}
+          </app-alert-panel>
+        }
+        @if (composingStatisticsEmail) {
+          <div class="thumbnail-heading-frame mb-3">
+            <div class="thumbnail-heading">Email statistics</div>
+            <div class="rsm-toolbar mb-3">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="form-label mb-0 text-muted text-nowrap">Report areas</span>
+                @for (option of emailSectionOptions; track option.key) {
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" [id]="'email-statistics-' + option.key"
+                           [checked]="emailSectionSelected(option.key)" (change)="toggleEmailSection(option.key, $event)">
+                    <label class="form-check-label" [for]="'email-statistics-' + option.key">{{ option.label }}</label>
+                  </div>
+                }
+              </div>
+              <div class="d-flex align-items-center gap-2 rsm-toolbar-grow">
+                <label class="form-label mb-0 text-muted text-nowrap">Send to</label>
+                <div class="flex-grow-1">
+                  <app-committee-role-multi-select [roles]="selectedEmailRecipientRoles"
+                                                   showRoleSelectionAs="nameAndDescription"
+                                                   (rolesChange)="onEmailRecipientsChange($event)"/>
+                </div>
+              </div>
+            </div>
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" id="email-statistics-role-addresses" [(ngModel)]="emailToRoleAddresses">
+              <label class="form-check-label" for="email-statistics-role-addresses">Send to committee role addresses</label>
+            </div>
+            <small class="text-muted d-block mb-2">Leave this off to use personal addresses. Turn it on to send to each committee member's role address instead.</small>
+            <div class="d-flex flex-wrap gap-3 mb-1">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="email-statistics-attach-excel" [(ngModel)]="emailAttachExcel">
+                <label class="form-check-label" for="email-statistics-attach-excel">Attach Excel workbook</label>
+              </div>
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="email-statistics-attach-csv" [(ngModel)]="emailAttachCsv">
+                <label class="form-check-label" for="email-statistics-attach-csv">Attach the selected tables as CSV</label>
+              </div>
+            </div>
+            <small class="text-muted d-block mb-2">The workbook holds every report area with its detailed tables; the CSV holds just the areas ticked above.</small>
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" id="email-statistics-include-details" [(ngModel)]="emailIncludeDetails"
+                     (ngModelChange)="onEmailIntroChange()">
+              <label class="form-check-label" for="email-statistics-include-details">Include the detailed tables in the email and CSV</label>
+            </div>
+            <small class="text-muted d-block mb-3">Adds the walk lists, leader tables, social events, organisers and expense claims beneath each summary.</small>
+            <div class="mb-3">
+              <label class="form-label" for="email-statistics-intro">Introduction (optional)</label>
+              <textarea class="form-control" id="email-statistics-intro" rows="4" [(ngModel)]="emailIntroText"
+                        (ngModelChange)="onEmailIntroChange()"
+                        placeholder="A few words to go above the figures, for example what the committee should look at or decide."></textarea>
+            </div>
+            @if (emailError) {
+              <app-alert-panel class="mb-3" title="Statistics email not sent" [variant]="AlertPanelVariant.DANGER">
+                {{ emailError }}
+              </app-alert-panel>
+            }
+            <p class="text-muted mb-2">To {{ emailRecipientDescription() }}.</p>
+            <div class="statistics-email-preview">
+              <app-email-preview [html]="statisticsEmailPreviewHtml"/>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button type="button" class="btn btn-quiet" [disabled]="emailSending" (click)="closeStatisticsEmail()">Back to report</button>
+              <button type="button" class="btn btn-primary" [disabled]="!canRequestStatisticsEmail()" (click)="sendStatisticsEmail()">
+                <fa-icon [icon]="emailSending ? faSpinner : faPaperPlane" [animation]="emailSending ? 'spin' : null" class="me-2"/>
+                {{ emailSending ? "Sending..." : "Send" }}
+              </button>
+            </div>
+          </div>
+        } @else {
+        <div class="mb-3">
+          <app-date-range-slider class="w-100"
+                                 showPresets
+                                 [presets]="dateRangePresets"
+                                 [selectedPreset]="selectedSliderPreset"
+                                 [minDate]="sliderMinDate"
+                                 [maxDate]="sliderMaxDate"
+                                 [range]="sliderRange"
+                                 [disabled]="eventPresetSelected()"
+                                 (presetChange)="onSliderPresetChange($event)"
+                                 (rangeChange)="onDateRangeChange($event)"/>
+          @if (preset === AgmStatsPreset.SINCE_COMMITTEE_EVENT) {
+            <div class="mt-2">
+              <label for="fromCommitteeEvent" class="form-label">From Committee Event</label>
+              <select id="fromCommitteeEvent" class="form-select" [(ngModel)]="fromCommitteeEventDate"
+                      (ngModelChange)="onCommitteeEventChange()" [disabled]="committeeEventsLoading">
+                @for (event of committeeEvents; track event.date) {
+                  <option [ngValue]="event.date">{{ event.label }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (preset === AgmStatsPreset.BETWEEN_COMMITTEE_EVENTS) {
+            <div class="mt-2">
+              <label for="fromCommitteeEvent" class="form-label">From Committee Event</label>
+              <select id="fromCommitteeEvent" class="form-select" [(ngModel)]="fromCommitteeEventDate"
+                      (ngModelChange)="onCommitteeEventChange()" [disabled]="committeeEventsLoading">
+                @for (event of committeeEvents; track event.date) {
+                  <option [ngValue]="event.date">{{ event.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="mt-2">
+              <label for="toCommitteeEvent" class="form-label">To Committee Event</label>
+              <select id="toCommitteeEvent" class="form-select" [(ngModel)]="toCommitteeEventDate"
+                      (ngModelChange)="onCommitteeEventChange()" [disabled]="committeeEventsLoading">
+                @for (event of committeeEvents; track event.date) {
+                  <option [ngValue]="event.date">{{ event.label }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (eventPresetSelected() && !committeeEventsLoading && committeeEvents.length === 0) {
+            <div class="mt-2 alert alert-warning d-flex align-items-start" role="alert">
+              <fa-icon [icon]="faCircleExclamation" class="me-2"></fa-icon>
+              <div><strong>No committee events found</strong><div>Add a dated committee meeting or AGM before using this reporting period.</div></div>
+            </div>
+          }
+          <div class="d-flex align-items-end gap-2 mt-2 flex-nowrap">
+            <div class="flex-grow-1 min-w-0">
+              <label for="chartType" class="form-label">Chart Type</label>
+              <select id="chartType" class="form-select" [(ngModel)]="chartType"
+                      (ngModelChange)="onChartTypeChange($event)">
+                <option [ngValue]="AgmChartType.BAR">Bar Chart</option>
+                <option [ngValue]="AgmChartType.LINE">Line Chart</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-primary text-nowrap" (click)="onRefresh()" [disabled]="loading">
+              @if (loading) {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+              }
+              Load Stats
+            </button>
+            <button type="button" class="btn btn-quiet text-nowrap" [disabled]="!stats || loading"
+                    (click)="openStatisticsEmail()">
+              <fa-icon [icon]="faPaperPlane" class="me-2"/>
+              Email statistics
+            </button>
+            <button type="button" class="btn btn-quiet text-nowrap" [disabled]="!stats || loading || excelExporting"
+                    (click)="saveStatisticsExcel()">
+              <fa-icon [icon]="excelExporting ? faSpinner : faFileExcel" [animation]="excelExporting ? 'spin' : null" class="me-2"/>
+              Save to Excel
+            </button>
+          </div>
+        </div>
         <tabset class="custom-tabset">
           <tab app-agm-walks-tab
                [active]="tabActive(AGMStatsTab.WALKS)"
                (selectTab)="selectTab(AGMStatsTab.WALKS)"
                [heading]="AGMStatsTab.WALKS"
-               [dateRangeControls]="dateRangeControls"
                [walkChartData]="walkChartData"
                [leaderChartData]="leaderChartData"
                [chartOptions]="chartOptions"
@@ -77,7 +245,6 @@ Chart.register(...registerables);
                [active]="tabActive(AGMStatsTab.SOCIALS)"
                (selectTab)="selectTab(AGMStatsTab.SOCIALS)"
                [heading]="AGMStatsTab.SOCIALS"
-               [dateRangeControls]="dateRangeControls"
                [years]="yearsInRange()"
                [socialSummaryRows]="socialSummaryRows()"
                [sortedRowsFn]="sortedRowsFn"
@@ -99,7 +266,6 @@ Chart.register(...registerables);
                [active]="tabActive(AGMStatsTab.MEMBERSHIP)"
                (selectTab)="selectTab(AGMStatsTab.MEMBERSHIP)"
                [heading]="AGMStatsTab.MEMBERSHIP"
-               [dateRangeControls]="dateRangeControls"
                [membershipChartData]="membershipChartData"
                [chartOptions]="chartOptions"
                [chartType]="chartType"
@@ -116,7 +282,6 @@ Chart.register(...registerables);
                [active]="tabActive(AGMStatsTab.EXPENSES)"
                (selectTab)="selectTab(AGMStatsTab.EXPENSES)"
                [heading]="AGMStatsTab.EXPENSES"
-               [dateRangeControls]="dateRangeControls"
                [years]="yearsInRange()"
                [expenseSummaryRows]="expenseSummaryRows()"
                [sortedRowsFn]="sortedRowsFn"
@@ -129,87 +294,80 @@ Chart.register(...registerables);
                [currencyMetrics]="currencyMetrics">
           </tab>
         </tabset>
+        }
       </div>
-      <ng-template #dateRangeControls>
-        <div class="row align-items-end g-2">
-          <div class="col-12 col-md-6 col-lg-3">
-            <label for="preset" class="form-label">Date Range Preset</label>
-            <select id="preset" class="form-select" [(ngModel)]="preset" (ngModelChange)="onPresetChange($event)">
-              @for (option of presetOptions; track option.key) {
-                <option [value]="option.value">{{ presetLabel(option.value) }}</option>
-              }
-            </select>
-          </div>
-          <div class="col-12 col-md-6 col-lg-2">
-            <app-date-picker
-              label="From Date"
-              [value]="fromDate"
-              (change)="onFromDateChange($event)">
-            </app-date-picker>
-          </div>
-          <div class="col-12 col-md-6 col-lg-2">
-            <app-date-picker
-              label="To Date"
-              [value]="toDate"
-              (change)="onToDateChange($event)">
-            </app-date-picker>
-          </div>
-          <div class="col-12 col-md-6 col-lg-2">
-            <label for="chartType" class="form-label">Chart Type</label>
-            <select id="chartType" class="form-select" [(ngModel)]="chartType"
-                    (ngModelChange)="onChartTypeChange($event)">
-              <option [ngValue]="AgmChartType.BAR">Bar Chart</option>
-              <option [ngValue]="AgmChartType.LINE">Line Chart</option>
-            </select>
-          </div>
-          <div class="col-12 col-lg-3 d-flex align-items-end">
-            <button class="btn btn-primary w-100" (click)="onRefresh()" [disabled]="loading">
-              @if (loading) {
-                <span class="spinner-border spinner-border-sm me-2"></span>
-              }
-              Load Stats
-            </button>
-          </div>
-          @if (loading) {
-            <div class="mt-3 alert alert-warning alert-dismissible fade show loading-alert" role="alert">
-              <div class="d-flex align-items-center">
-                <span class="spinner-border spinner-border-sm me-3"></span>
-                <strong>Loading statistics...</strong>
-              </div>
-            </div>
-          }
-        </div>
-      </ng-template>
     </app-page>
   `
 })
 export class AGMStatsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("AGMStatsComponent", NgxLoggerLevel.ERROR);
   private agmStatsService = inject(AGMStatsService);
+  private fileUploadService = inject(FileUploadService);
+  private urlService = inject(UrlService);
   private pageContentService = inject(PageContentService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private uiActions = inject(UiActionsService);
   private stringUtils = inject(StringUtilsService);
   private dateUtils = inject(DateUtilsService);
+  private committeeFileService = inject(CommitteeFileService);
+  private committeeConfigService = inject(CommitteeConfigService);
+  private memberLoginService = inject(MemberLoginService);
+  private emailSendService = inject(EmailComposerSendService);
   protected groupEventDisplayService = inject(GroupEventDisplayService);
   faChevronUp = faChevronUp;
   faChevronDown = faChevronDown;
+  faCircleExclamation = faCircleExclamation;
+  faCircleCheck = faCircleCheck;
+  faPaperPlane = faPaperPlane;
+  faFileExcel = faFileExcel;
+  faSpinner = faSpinner;
 
   stats: AGMStatsResponse | null = null;
   loading = false;
   error: string | null = null;
-  preset: PresetOption = PresetOption.LAST_2_YEARS;
-  presetOptions: KeyValue<string>[] = enumKeyValues(PresetOption);
+  preset: AgmStatsPreset = AgmStatsPreset.LAST_2_YEARS;
+  dateRangePresets = AGM_STATS_DATE_RANGE_PRESETS;
+  selectedSliderPreset: DateRangeSliderPreset = null;
+  private applyingSliderPreset = false;
   private sortState: Record<string, { key: string; direction: SortDirection }> = {};
   protected readonly AGMStatsTab = AGMStatsTab;
   protected readonly AgmChartType = AgmChartType;
+  protected readonly AgmStatsPreset = AgmStatsPreset;
   private tab: string;
   currencyMetrics = ["Total Cost", "Total Paid", "Total Unpaid"];
 
   fromDate: number;
   toDate: number;
+  sliderMinDate: DateTime | null = null;
+  sliderMaxDate: DateTime | null = null;
+  sliderRange: DateRange | null = null;
+  private statsRequestFrom: number | null = null;
+  private statsRequestTo: number | null = null;
+  private statsRequestPeriodsKey: string | null = null;
   chartType: AgmChartType = AgmChartType.BAR;
+  committeeEvents: CommitteeStatisticsEvent[] = [];
+  committeeEventsLoading = true;
+  fromCommitteeEventDate: number | null = null;
+  toCommitteeEventDate: number | null = null;
+  private datesRestoredFromUrl = false;
+  selectedEmailSections: AgmStatsEmailSection[] = [AgmStatsEmailSection.WALKS];
+  selectedEmailRecipientRoles: string[] = [];
+  emailToRoleAddresses = true;
+  emailIntroText = "";
+  emailAttachExcel = true;
+  emailAttachCsv = false;
+  emailIncludeDetails = false;
+  emailSending = false;
+  excelExporting = false;
+  composingStatisticsEmail = false;
+  statisticsEmailPreviewHtml: string | null = null;
+  statisticsEmailPreviewSubject: string | null = null;
+  emailNotice: string | null = null;
+  emailError: string | null = null;
+  private committeeRoles: CommitteeMember[] = [];
+  protected readonly emailSectionOptions = AGM_STATS_EMAIL_SECTION_OPTIONS;
+  protected readonly AlertPanelVariant = AlertPanelVariant;
 
   walkChartData: ChartConfiguration["data"] = {
     labels: [],
@@ -251,7 +409,7 @@ export class AGMStatsComponent implements OnInit {
   };
 
   private setInitialDates() {
-    if (this.preset === PresetOption.ALL_TIME) {
+    if (this.preset === AgmStatsPreset.ALL_TIME) {
       const now = this.dateUtils.dateTimeNow();
       this.toDate = this.endOfDay(now).toMillis();
       this.fromDate = this.endOfDay(now).minus({years: 5}).toMillis();
@@ -270,15 +428,264 @@ export class AGMStatsComponent implements OnInit {
     this.setInitialDates();
     this.pageContentService.findByPath(this.route.snapshot.url.map(segment => segment.path).join("/"));
     this.initializeState();
+    this.selectedSliderPreset = this.sliderPresetMatching(this.preset);
+    this.rescaleSliderToCurrentDates();
     const defaultTab = kebabCase(AGMStatsTab.WALKS);
-    const tabParameter = this.route.snapshot.queryParamMap.get(this.stringUtils.kebabCase(StoredValue.TAB));
+    const tabParameter = this.route.snapshot.queryParamMap.get(StoredValue.TAB);
     this.tab = tabParameter || defaultTab;
+    this.persistState();
+    this.loadCommitteeEvents();
 
-    if (this.preset === PresetOption.ALL_TIME) {
+    if (this.preset === AgmStatsPreset.ALL_TIME) {
       this.applyAllTimePreset();
-    } else {
+    } else if (!this.eventPresetSelected()) {
       this.loadStats();
     }
+  }
+
+  private async loadCommitteeEvents() {
+    try {
+      const config = await firstValueFrom(this.committeeConfigService.committeeConfigEvents().pipe(take(1)));
+      this.committeeRoles = config.roles || [];
+      const senderRole = this.statisticsEmailSenderRole();
+      this.selectedEmailRecipientRoles = senderRole ? [senderRole.type] : [];
+      const files = await this.committeeFileService.all({sort: {eventDate: -1}});
+      this.committeeEvents = committeeStatisticsEvents(files, config.fileTypes, this.dateUtils.dateTimeNow().toMillis(), value => this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_AT_TIME));
+      this.fromCommitteeEventDate = this.committeeEventMatching(this.fromDate)?.date
+        || (this.datesRestoredFromUrl ? this.fromDate : this.committeeEvents[0]?.date)
+        || null;
+      this.toCommitteeEventDate = this.committeeEventMatching(this.toDate)?.date
+        || (this.datesRestoredFromUrl ? this.toDate : this.committeeEvents[0]?.date)
+        || null;
+      if (!this.datesRestoredFromUrl && this.preset === AgmStatsPreset.BETWEEN_COMMITTEE_EVENTS && this.fromCommitteeEventDate === this.toCommitteeEventDate) {
+        this.fromCommitteeEventDate = this.committeeEvents[1]?.date || this.fromCommitteeEventDate;
+      }
+      if (this.eventPresetSelected() && !this.datesRestoredFromUrl) {
+        this.applyCommitteeEventDates();
+      } else {
+        this.rescaleSliderToCurrentDates();
+        this.persistState();
+        if (this.eventPresetSelected()) {
+          this.loadStats(true);
+        }
+      }
+    } catch (error) {
+      this.logger.error("Failed to load committee events:", error);
+      if (this.eventPresetSelected()) {
+        this.loadStats(true);
+      }
+    } finally {
+      this.committeeEventsLoading = false;
+    }
+  }
+
+  emailSectionSelected(section: AgmStatsEmailSection): boolean {
+    return this.selectedEmailSections.includes(section);
+  }
+
+  toggleEmailSection(section: AgmStatsEmailSection, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.selectedEmailSections = checked
+      ? [...this.selectedEmailSections, section]
+      : this.selectedEmailSections.filter(selected => selected !== section);
+    this.emailError = null;
+    this.refreshStatisticsEmailPreview();
+  }
+
+  onEmailRecipientsChange(change: CommitteeRolesChangeEvent): void {
+    this.selectedEmailRecipientRoles = change.roles;
+    this.emailError = null;
+  }
+
+  canRequestStatisticsEmail(): boolean {
+    return !!this.stats && this.selectedEmailSections.length > 0 && this.statisticsEmailMemberIds().length > 0 && !this.emailSending;
+  }
+
+  openStatisticsEmail(): void {
+    if (this.stats) {
+      this.emailNotice = null;
+      this.emailError = null;
+      this.composingStatisticsEmail = true;
+      this.refreshStatisticsEmailPreview();
+    }
+  }
+
+  async saveStatisticsExcel(): Promise<void> {
+    if (this.stats && !this.excelExporting) {
+      this.excelExporting = true;
+      this.error = null;
+      try {
+        const fileName = `committee-statistics-${this.dateUtils.asString(this.dateUtils.dateTimeNow(), undefined, UIDateFormat.FILE_TIMESTAMP_COMPACT)}.xlsx`;
+        const blob = await firstValueFrom(this.agmStatsService.excelExport({
+          fileName,
+          data: this.statisticsEmailData(true)
+        }));
+        downloadBlob(blob, fileName);
+      } catch (error) {
+        this.logger.error("Failed to save committee statistics to Excel:", error);
+        this.error = extractErrorMessage(error) || "The statistics could not be saved to Excel.";
+      } finally {
+        this.excelExporting = false;
+      }
+    }
+  }
+
+  closeStatisticsEmail(): void {
+    this.composingStatisticsEmail = false;
+    this.statisticsEmailPreviewHtml = null;
+    this.statisticsEmailPreviewSubject = null;
+    this.emailError = null;
+  }
+
+  private refreshStatisticsEmailPreview(): void {
+    this.statisticsEmailPreviewSubject = this.statisticsEmailSubject();
+    if (this.selectedEmailSections.length === 0) {
+      this.statisticsEmailPreviewHtml = this.statisticsEmailPreviewDocument("<p style=\"font-family:'Assistant',Arial,sans-serif;color:#6c757d;\">Choose at least one report area.</p>");
+    } else {
+      this.statisticsEmailPreviewHtml = this.statisticsEmailPreviewDocument(
+        agmStatisticsEmailHtml(this.selectedEmailSections, this.statisticsEmailData(this.emailIncludeDetails))
+      );
+    }
+  }
+
+  private statisticsEmailPreviewDocument(inner: string): string {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:20px 24px;background:#ffffff;">${inner}</body></html>`;
+  }
+
+  async sendStatisticsEmail(): Promise<void> {
+    const senderRole = this.statisticsEmailSenderRole();
+    const memberIds = this.statisticsEmailMemberIds();
+    if (!senderRole || memberIds.length === 0 || this.selectedEmailSections.length === 0) {
+      this.emailError = "The sender, recipients and report areas must be selected before sending.";
+    } else {
+      this.emailSending = true;
+      this.emailError = null;
+      try {
+        const htmlBody = agmStatisticsEmailHtml(this.selectedEmailSections, this.statisticsEmailData(this.emailIncludeDetails));
+        const attachments = await this.statisticsEmailAttachments();
+        const start = await this.emailSendService.startBatch({
+          bannerId: null,
+          subject: this.statisticsEmailSubject(),
+          addresseeType: AddresseeType.NONE,
+          signoffRoles: [],
+          htmlBody,
+          htmlBodyTop: htmlBody,
+          htmlBodyBottom: "",
+          memberIds,
+          attachments,
+          brandingMode: BrandingMode.UNBRANDED,
+          unbrandedSenderRoleType: senderRole.type,
+          useCommitteeRoleAddresses: this.emailToRoleAddresses
+        });
+        this.emailNotice = `The statistics are being sent to ${this.stringUtils.pluraliseWithCount(start.totalRecipients, "recipient")}.`;
+        this.closeStatisticsEmail();
+      } catch (error) {
+        this.logger.error("Failed to send committee statistics:", error);
+        this.emailError = extractErrorMessage(error) || "The statistics email could not be sent.";
+      } finally {
+        this.emailSending = false;
+      }
+    }
+  }
+
+  emailRecipientDescription(): string {
+    const names = this.selectedEmailRecipientRoles
+      .map(type => this.committeeRoles.find(role => role.type === type)?.nameAndDescription)
+      .filter(Boolean);
+    const addressing = this.emailToRoleAddresses ? "at their committee role addresses" : "at their personal addresses";
+    return `${names.join(", ") || "the selected committee members"} ${addressing}`;
+  }
+
+  onEmailIntroChange(): void {
+    this.refreshStatisticsEmailPreview();
+  }
+
+  private statisticsEmailSenderRole(): CommitteeMember | null {
+    const memberId = this.memberLoginService.loggedInMember()?.memberId;
+    return this.committeeRoles.find(role => role.memberId === memberId && !!role.email) || null;
+  }
+
+  private async statisticsEmailAttachments(): Promise<EmailAttachment[]> {
+    const stamp = this.dateUtils.asString(this.dateUtils.dateTimeNow(), undefined, UIDateFormat.FILE_TIMESTAMP_COMPACT);
+    const excel = this.emailAttachExcel
+      ? await firstValueFrom(this.agmStatsService.excelExport({fileName: `committee-statistics-${stamp}.xlsx`, data: this.statisticsEmailData(true)}))
+        .then(blob => this.fileUploadService.uploadEmailAttachment(blob, `committee-statistics-${stamp}.xlsx`))
+      : null;
+    const csv = this.emailAttachCsv
+      ? await this.fileUploadService.uploadEmailAttachment(new Blob([agmStatisticsEmailCsv(this.selectedEmailSections, this.statisticsEmailData(this.emailIncludeDetails))], {type: "text/csv"}), `committee-statistics-${stamp}.csv`)
+      : null;
+    const failed = [this.emailAttachExcel && !excel ? "Excel workbook" : null, this.emailAttachCsv && !csv ? "CSV" : null].filter(Boolean);
+    if (failed.length) {
+      throw new Error(`The ${failed.join(" and ")} could not be attached`);
+    }
+    return [excel, csv].filter((attachment): attachment is EmailAttachment => !!attachment);
+  }
+
+  private statisticsEmailMemberIds(): string[] {
+    const selectedRoles = this.committeeRoles.filter(role => this.selectedEmailRecipientRoles.includes(role.type));
+    return [...new Set(selectedRoles.flatMap(role => roleRecipientMemberIds(role)))];
+  }
+
+  private statisticsEmailSubject(): string {
+    return `Committee statistics: ${this.statisticsDateLabel(this.fromDate)} to ${this.statisticsDateLabel(this.toDate)}`;
+  }
+
+  private statisticsEmailData(includeDetails = false): AgmStatsEmailData {
+    return {
+      fromDateLabel: this.statisticsDateLabel(this.fromDate),
+      toDateLabel: this.statisticsDateLabel(this.toDate),
+      periodLabels: this.yearsInRange(),
+      introText: this.emailIntroText,
+      summaries: {
+        [AgmStatsEmailSection.WALKS]: this.walkSummaryRows(),
+        [AgmStatsEmailSection.SOCIALS]: this.socialSummaryRows(),
+        [AgmStatsEmailSection.MEMBERSHIP]: this.membershipSummaryRows(),
+        [AgmStatsEmailSection.EXPENSES]: this.expenseSummaryRows()
+      },
+      details: includeDetails ? this.statisticsDetailTables() : undefined
+    };
+  }
+
+  private publicUrlFor(url: string | null | undefined): string | null {
+    const value = (url || "").trim();
+    if (!value) {
+      return null;
+    } else if (this.urlService.isRemoteUrl(value)) {
+      return value;
+    } else {
+      return `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${value.replace(/^\//, "")}`;
+    }
+  }
+
+  private statisticsDetailTables() {
+    return agmStatisticsDetailTables({
+      formatDate: millis => this.dateUtils.asString(millis, null, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED),
+      walkUrl: walk => this.publicUrlFor(walk.url),
+      socialUrl: event => this.publicUrlFor(this.socialLink(event)),
+      walks: {
+        unfilledSlots: this.unfilledSlotsList(),
+        morningWalks: this.morningWalksList(),
+        cancelledWalks: this.cancelledWalksList(),
+        eveningWalks: this.eveningWalksList(),
+        newLeaders: this.newLeadersList(),
+        currentLeaders: this.leaderRows(),
+        aggregateLeaders: this.aggregateLeaderRows(),
+        aggregateYearsLabel: this.aggregateYearsLabel()
+      },
+      socials: {
+        events: this.aggregatedSocialEvents(),
+        organisers: this.aggregateOrganisers()
+      },
+      expenses: {
+        unpaid: this.unpaidExpenses(),
+        yearlyStats: this.yearlyStatsReversed(),
+        periodLabel: (from, to) => this.formatPeriodLabel(from, to)
+      }
+    });
+  }
+
+  private statisticsDateLabel(value: number): string {
+    return this.dateUtils.asString(value, null, UIDateFormat.DISPLAY_DATE_NO_DAY);
   }
 
   private initializeState() {
@@ -290,28 +697,43 @@ export class AGMStatsComponent implements OnInit {
     this.fromDate = this.parseDateInput(this.uiActions.initialValueFor(StoredValue.DATE_FROM, this.formatDateForParam(this.fromDate)), this.fromDate);
     this.toDate = this.parseDateInput(this.uiActions.initialValueFor(StoredValue.DATE_TO, this.formatDateForParam(this.toDate)), this.toDate);
     this.chartType = this.resolveChartType(this.uiActions.initialValueFor(StoredValue.CHART_TYPE, this.chartType), this.chartType);
+    const storedPreset = this.resolvePreset(this.uiActions.initialValueFor(StoredValue.DATE_RANGE_PRESET, this.preset));
+    if (storedPreset) {
+      this.preset = storedPreset;
+    }
   }
 
   private loadFromQueryParams() {
     const params = this.route.snapshot.queryParamMap;
-    const chartTypeParam = params.get(this.stringUtils.kebabCase(StoredValue.CHART_TYPE));
-    this.chartType = this.resolveChartType(chartTypeParam, this.chartType);
-    const presetParam = params.get(this.stringUtils.kebabCase("preset"));
-    if (presetParam && this.presetOptions.find(option => option.value === presetParam)) {
-      this.preset = presetParam as PresetOption;
-      if (this.preset === PresetOption.ALL_TIME) {
-        const now = this.dateUtils.dateTimeNow();
-        this.toDate = this.endOfDay(now).toMillis();
-        this.fromDate = this.endOfDay(now).minus({years: 5}).toMillis();
-      } else if (this.preset !== PresetOption.CUSTOM) {
-        this.applyPresetDates(this.preset);
-      } else {
-        this.fromDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_FROM)), this.fromDate);
-        this.toDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_TO)), this.toDate);
-      }
+    this.chartType = this.resolveChartType(params.get(StoredValue.CHART_TYPE), this.chartType);
+    const resolvedPreset = this.resolvePreset(params.get(StoredValue.DATE_RANGE_PRESET) || params.get("preset"));
+    if (resolvedPreset) {
+      this.preset = resolvedPreset;
+    }
+    const fromParam = params.get(StoredValue.DATE_FROM);
+    const toParam = params.get(StoredValue.DATE_TO);
+    if (fromParam && toParam) {
+      this.fromDate = this.parseDateInput(fromParam, this.fromDate);
+      this.toDate = this.parseDateInput(toParam, this.toDate);
+      this.datesRestoredFromUrl = true;
+    } else if (this.preset === AgmStatsPreset.ALL_TIME) {
+      const now = this.dateUtils.dateTimeNow();
+      this.toDate = this.endOfDay(now).toMillis();
+      this.fromDate = this.endOfDay(now).minus({years: 5}).toMillis();
+    } else if (this.preset !== AgmStatsPreset.CUSTOM && !this.eventPresetSelected()) {
+      this.applyPresetDates(this.preset);
+    }
+  }
+
+  private resolvePreset(value: string | null): AgmStatsPreset | null {
+    if (!value) {
+      return null;
+    } else if (value === AgmStatsPreset.CUSTOM) {
+      return AgmStatsPreset.CUSTOM;
+    } else if (this.dateRangePresets.some(option => option.id === value)) {
+      return value as AgmStatsPreset;
     } else {
-      this.fromDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_FROM)), this.fromDate);
-      this.toDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_TO)), this.toDate);
+      return null;
     }
   }
 
@@ -331,64 +753,136 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private persistState() {
-    this.uiActions.saveValueFor(StoredValue.DATE_FROM, this.formatDateForParam(this.fromDate));
-    this.uiActions.saveValueFor(StoredValue.DATE_TO, this.formatDateForParam(this.toDate));
+    const dateFrom = this.formatDateForParam(this.fromDate);
+    const dateTo = this.formatDateForParam(this.toDate);
+    this.uiActions.saveValueFor(StoredValue.DATE_FROM, dateFrom);
+    this.uiActions.saveValueFor(StoredValue.DATE_TO, dateTo);
     this.uiActions.saveValueFor(StoredValue.CHART_TYPE, this.chartType);
+    this.uiActions.saveValueFor(StoredValue.DATE_RANGE_PRESET, this.preset);
     this.replaceQueryParams({
-      [this.stringUtils.kebabCase(StoredValue.DATE_FROM)]: this.formatDateForParam(this.fromDate),
-      [this.stringUtils.kebabCase(StoredValue.DATE_TO)]: this.formatDateForParam(this.toDate),
-      [this.stringUtils.kebabCase(StoredValue.CHART_TYPE)]: this.chartType,
-      [this.stringUtils.kebabCase("preset")]: this.preset
+      [StoredValue.DATE_FROM]: dateFrom,
+      [StoredValue.DATE_TO]: dateTo,
+      [StoredValue.CHART_TYPE]: this.chartType,
+      [StoredValue.DATE_RANGE_PRESET]: this.preset,
+      [StoredValue.TAB]: this.tab || kebabCase(AGMStatsTab.WALKS),
+      preset: null
     });
   }
 
-  private replaceQueryParams(params: Record<string, string | number>) {
-    const queryParams = Object.fromEntries(entries(params).filter(([, v]) => !isUndefined(v) && !isNull(v)));
-    this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
-  }
-
-  loadStats() {
-    this.persistState();
-    this.loading = true;
-    this.error = null;
-
-    this.logger.info("Loading AGM stats for:", { fromDate: this.fromDate, toDate: this.toDate });
-
-    this.agmStatsService.agmStats(this.fromDate, this.toDate).subscribe({
-      next: (response) => {
-        this.stats = response;
-        if (response.earliestDate && this.preset === PresetOption.ALL_TIME) {
-          this.fromDate = response.earliestDate;
-          this.persistState();
-        } else if (response.earliestDate && this.fromDate < response.earliestDate) {
-          this.fromDate = response.earliestDate;
-          this.persistState();
-        }
-        this.prepareChartData();
-        this.loading = false;
-        this.logger.info("AGM stats loaded:", response);
-      },
-      error: (err) => {
-        this.error = err.message || "Failed to load AGM stats";
-        this.loading = false;
-        this.logger.error("Error loading AGM stats:", err);
+  private replaceQueryParams(params: Record<string, string | number | null>) {
+    const queryParams = Object.fromEntries(entries(params).filter(([, value]) => !isUndefined(value)));
+    const current = this.route.snapshot.queryParamMap;
+    const changed = entries(queryParams).some(([key, value]) => {
+      if (value === null) {
+        return current.get(key) !== null;
+      } else {
+        return current.get(key) !== String(value);
       }
     });
+    if (changed) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams,
+        queryParamsHandling: "merge",
+        replaceUrl: true
+      });
+    }
   }
 
-  onFromDateChange(dateValue: DateValue) {
-    if (dateValue) {
-      this.fromDate = dateValue.value;
-      this.preset = PresetOption.CUSTOM;
+  private comparisonPeriods() {
+    if (this.eventPresetSelected()) {
+      const selectedFrom = this.fromCommitteeEventDate || this.fromDate;
+      const selectedTo = this.preset === AgmStatsPreset.BETWEEN_COMMITTEE_EVENTS && this.toCommitteeEventDate
+        ? this.toCommitteeEventDate
+        : this.toDate;
+      return committeeEventComparisonPeriods(
+        selectedFrom,
+        selectedTo,
+        this.committeeEvents,
+        value => this.dateUtils.asValueNoTime(value)
+      );
+    } else {
+      return null;
+    }
+  }
+
+  loadStats(force = false) {
+    const fromKey = this.startOfDayMillis(this.fromDate);
+    const toKey = this.startOfDayMillis(this.toDate);
+    const periods = this.comparisonPeriods();
+    const periodsKey = (periods || []).map(period => `${period.fromDate}:${period.toDate}`).join("|");
+    if (force || this.statsRequestFrom !== fromKey || this.statsRequestTo !== toKey || this.statsRequestPeriodsKey !== periodsKey) {
+      this.statsRequestFrom = fromKey;
+      this.statsRequestTo = toKey;
+      this.statsRequestPeriodsKey = periodsKey;
+      this.closeStatisticsEmail();
+      this.persistState();
+      this.loading = true;
+      this.error = null;
+
+      this.logger.info("Loading AGM stats for:", { fromDate: this.fromDate, toDate: this.toDate, periods });
+
+      this.agmStatsService.agmStats(this.fromDate, this.toDate, periods).subscribe({
+        next: (response) => {
+          this.stats = response;
+          if (response.earliestDate && this.preset === AgmStatsPreset.ALL_TIME) {
+            this.fromDate = response.earliestDate;
+            this.statsRequestFrom = this.startOfDayMillis(this.fromDate);
+            this.rescaleSliderToCurrentDates();
+            this.persistState();
+          } else if (response.earliestDate && this.fromDate < response.earliestDate) {
+            this.fromDate = response.earliestDate;
+            this.statsRequestFrom = this.startOfDayMillis(this.fromDate);
+            this.rescaleSliderToCurrentDates();
+            this.persistState();
+          }
+          this.prepareChartData();
+          this.loading = false;
+          this.logger.info("AGM stats loaded:", response);
+        },
+        error: (err) => {
+          this.error = err.message || "Failed to load AGM stats";
+          this.loading = false;
+          this.logger.error("Error loading AGM stats:", err);
+        }
+      });
+    }
+  }
+
+  onDateRangeChange(range: DateRange) {
+    const from = this.startOfDayMillis(range.from);
+    const to = this.endOfDay(this.dateUtils.asDateTime(range.to)).toMillis();
+    const sameFrom = this.startOfDayMillis(this.fromDate) === from;
+    const sameTo = this.startOfDayMillis(this.toDate) === this.startOfDayMillis(range.to);
+    if (!sameFrom || !sameTo) {
+      this.fromDate = from;
+      this.toDate = to;
+      if (this.applyingSliderPreset) {
+        this.applyingSliderPreset = false;
+        this.rescaleSliderToCurrentDates();
+      } else {
+        this.preset = AgmStatsPreset.CUSTOM;
+        this.selectedSliderPreset = null;
+      }
       this.loadStats();
     }
   }
 
-  onToDateChange(dateValue: DateValue) {
-    if (dateValue) {
-      this.toDate = dateValue.value;
-      this.preset = PresetOption.CUSTOM;
-      this.loadStats();
+  onSliderPresetChange(preset: DateRangeSliderPreset) {
+    this.selectedSliderPreset = preset;
+    this.preset = (preset?.id as AgmStatsPreset) || AgmStatsPreset.CUSTOM;
+    this.datesRestoredFromUrl = false;
+    this.sortState = {};
+    this.applyingSliderPreset = !!preset?.relativeDateRange;
+    if (this.preset === AgmStatsPreset.ALL_TIME) {
+      this.applyAllTimePreset();
+    } else if (this.eventPresetSelected()) {
+      if (this.preset === AgmStatsPreset.BETWEEN_COMMITTEE_EVENTS && this.fromCommitteeEventDate === this.toCommitteeEventDate) {
+        this.fromCommitteeEventDate = this.committeeEvents[1]?.date || this.fromCommitteeEventDate;
+      }
+      this.applyCommitteeEventDates();
+    } else {
+      this.persistState();
     }
   }
 
@@ -397,17 +891,30 @@ export class AGMStatsComponent implements OnInit {
     this.persistState();
   }
 
-  onPresetChange(preset: PresetOption) {
-    this.preset = preset;
-    this.sortState = {};
-    if (preset !== PresetOption.CUSTOM) {
-      if (preset === PresetOption.ALL_TIME) {
-        this.applyAllTimePreset();
-      } else {
-        this.applyPresetDates(preset);
-        this.loadStats();
-      }
+  eventPresetSelected(): boolean {
+    return this.preset === AgmStatsPreset.SINCE_COMMITTEE_EVENT || this.preset === AgmStatsPreset.BETWEEN_COMMITTEE_EVENTS;
+  }
+
+  onCommitteeEventChange() {
+    this.datesRestoredFromUrl = false;
+    this.applyCommitteeEventDates();
+  }
+
+  private applyCommitteeEventDates() {
+    if (this.fromCommitteeEventDate) {
+      const selectedToDate = this.preset === AgmStatsPreset.BETWEEN_COMMITTEE_EVENTS && this.toCommitteeEventDate
+        ? this.toCommitteeEventDate
+        : this.dateUtils.dateTimeNow().toMillis();
+      this.fromDate = Math.min(this.fromCommitteeEventDate, selectedToDate);
+      this.toDate = this.endOfDay(this.dateUtils.asDateTime(Math.max(this.fromCommitteeEventDate, selectedToDate))).toMillis();
+      this.rescaleSliderToCurrentDates();
+      this.loadStats();
     }
+  }
+
+  private committeeEventMatching(value: number): CommitteeStatisticsEvent | null {
+    const formattedValue = this.formatDateForParam(value);
+    return this.committeeEvents.find(event => this.formatDateForParam(event.date) === formattedValue) || null;
   }
 
   private applyAllTimePreset() {
@@ -420,34 +927,36 @@ export class AGMStatsComponent implements OnInit {
         } else {
           this.fromDate = this.endOfDay(now).minus({years: 5}).toMillis();
         }
+        this.rescaleSliderToCurrentDates();
         this.persistState();
         this.loadStats();
       },
       error: (error) => {
         this.logger.error("Failed to fetch earliest date:", error);
         this.fromDate = this.endOfDay(now).minus({years: 5}).toMillis();
+        this.rescaleSliderToCurrentDates();
         this.persistState();
         this.loadStats();
       }
     });
   }
 
-  private applyPresetDates(preset: PresetOption) {
+  private applyPresetDates(preset: AgmStatsPreset) {
     const now = this.dateUtils.dateTimeNow();
     switch (preset) {
-      case PresetOption.LAST_2_YEARS:
+      case AgmStatsPreset.LAST_2_YEARS:
         this.applyRange(now, 2);
         break;
-      case PresetOption.LAST_3_YEARS:
+      case AgmStatsPreset.LAST_3_YEARS:
         this.applyRange(now, 3);
         break;
-      case PresetOption.LAST_4_YEARS:
+      case AgmStatsPreset.LAST_4_YEARS:
         this.applyRange(now, 4);
         break;
-      case PresetOption.LAST_5_YEARS:
+      case AgmStatsPreset.LAST_5_YEARS:
         this.applyRange(now, 5);
         break;
-      case PresetOption.LAST_1_YEAR:
+      case AgmStatsPreset.LAST_1_YEAR:
         this.applyRange(now, 1, true);
         break;
     }
@@ -463,6 +972,29 @@ export class AGMStatsComponent implements OnInit {
     });
     this.fromDate = start.toMillis();
     this.toDate = end.toMillis();
+  }
+
+  private rescaleSliderToCurrentDates() {
+    if (this.fromDate && this.toDate) {
+      const from = this.dateUtils.asDateTime(this.fromDate).startOf("day");
+      const to = this.dateUtils.asDateTime(this.toDate).startOf("day");
+      const bounds = dateRangeSliderBounds(from, to);
+      if (!this.sliderMinDate?.hasSame(bounds.minDate, "day")) {
+        this.sliderMinDate = bounds.minDate;
+      }
+      if (!this.sliderMaxDate?.hasSame(bounds.maxDate, "day")) {
+        this.sliderMaxDate = bounds.maxDate;
+      }
+      this.sliderRange = {from: from.toMillis(), to: to.toMillis()};
+    }
+  }
+
+  private sliderPresetMatching(preset: AgmStatsPreset): DateRangeSliderPreset {
+    return this.dateRangePresets.find(option => option.id === preset) || null;
+  }
+
+  private startOfDayMillis(value: number): number {
+    return this.dateUtils.asDateTime(value).startOf("day").toMillis();
   }
 
   private endOfDay(dateTime: any) {
@@ -651,7 +1183,7 @@ export class AGMStatsComponent implements OnInit {
   }
 
   onRefresh() {
-    this.loadStats();
+    this.loadStats(true);
   }
 
   yearsInRange(): string[] {
@@ -663,25 +1195,18 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private formatPeriodLabel(fromTimestamp: number, toTimestamp: number): string {
-    const datePipe = new DatePipe("en-GB");
-    const fromDate = this.dateUtils.asDateTime(fromTimestamp);
-    const toDate = this.dateUtils.asDateTime(toTimestamp);
-    const from = datePipe.transform(fromTimestamp, UIDateFormat.MONTH_YEAR_ABBREVIATED);
-
-    if (fromDate.year === toDate.year) {
-      const to = datePipe.transform(toTimestamp, UIDateFormat.MONTH_YEAR_ABBREVIATED);
-      return `${from} - ${to}`;
-    } else {
-      return `${from} - ${toDate.year}`;
-    }
+    const from = this.dateUtils.asString(fromTimestamp, null, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED);
+    const to = this.dateUtils.asString(toTimestamp, null, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED);
+    return `${from} - ${to}`;
   }
 
-  periodValue(periodLabel: string, section: AgmStatsSection, field: string): number {
-    const index = this.yearsInRange().indexOf(periodLabel);
-    if (index >= 0 && this.stats?.yearlyStats?.[index]) {
-      return (this.stats.yearlyStats[index] as any)[section]?.[field] || 0;
+  periodValue(_periodLabel: string, section: AgmStatsSection, field: string, index?: number): number {
+    const periodIndex = isNumber(index) ? index : this.yearsInRange().indexOf(_periodLabel);
+    if (periodIndex >= 0 && this.stats?.yearlyStats?.[periodIndex]) {
+      return (this.stats.yearlyStats[periodIndex] as any)[section]?.[field] || 0;
+    } else {
+      return 0;
     }
-    return 0;
   }
 
   toggleSort(table: string, key: string) {
@@ -724,14 +1249,14 @@ export class AGMStatsComponent implements OnInit {
     }
     const periods = this.yearsInRange();
     const rows: {metric: string; values: number[]; order: number}[] = [
-      {metric: "New Walk Leaders", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "newLeaders")), order: 0},
-      {metric: "Active Walk Leaders", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "activeLeaders")), order: 1},
-      {metric: "Walk Slots Not Filled", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "unfilledSlots")), order: 2},
-      {metric: "Morning Walks", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "morningWalks")), order: 3},
-      {metric: "Cancelled Walks", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "cancelledWalks")), order: 4},
-      {metric: "Evening Walks", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "eveningWalks")), order: 5},
-      {metric: "Total Walks on Programme", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "totalWalks")), order: 6},
-      {metric: "Total Miles Walked", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "totalMiles")), order: 7}
+      {metric: "New Walk Leaders", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "newLeaders", index)), order: 0},
+      {metric: "Active Walk Leaders", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "activeLeaders", index)), order: 1},
+      {metric: "Walk Slots Not Filled", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "unfilledSlots", index)), order: 2},
+      {metric: "Morning Walks", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "morningWalks", index)), order: 3},
+      {metric: "Cancelled Walks", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "cancelledWalks", index)), order: 4},
+      {metric: "Evening Walks", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "eveningWalks", index)), order: 5},
+      {metric: "Total Walks on Programme", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "totalWalks", index)), order: 6},
+      {metric: "Total Miles Walked", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.WALKS, "totalMiles", index)), order: 7}
     ];
 
     return rows.map(row => {
@@ -753,8 +1278,8 @@ export class AGMStatsComponent implements OnInit {
     }
     const periods = this.yearsInRange();
     return [
-      {metric: "Total Social Events", values: periods.map(p => this.periodValue(p, AgmStatsSection.SOCIALS, "totalSocials"))},
-      {metric: "Social Organisers", values: periods.map(p => this.periodValue(p, AgmStatsSection.SOCIALS, "uniqueOrganisers"))}
+      {metric: "Total Social Events", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.SOCIALS, "totalSocials", index))},
+      {metric: "Social Organisers", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.SOCIALS, "uniqueOrganisers", index))}
     ].map(row => {
       const previous = row.values[row.values.length - 2] ?? 0;
       const current = row.values[row.values.length - 1] ?? 0;
@@ -778,14 +1303,14 @@ export class AGMStatsComponent implements OnInit {
       metric === "Total Cost" || metric === "Total Paid" || metric === "Total Unpaid";
 
     const rows: {metric: string; values: number[]; order: number}[] = [
-      {metric: "Total Claims", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalClaims")), order: 0},
-      {metric: "Total Expense Items", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalItems")), order: 1},
-      {metric: "Total Paid", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalCost")), order: 2},
-      {metric: "Total Unpaid", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalUnpaidCost")), order: 3},
+      {metric: "Total Claims", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.EXPENSES, "totalClaims", index)), order: 0},
+      {metric: "Total Expense Items", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.EXPENSES, "totalItems", index)), order: 1},
+      {metric: "Total Paid", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.EXPENSES, "totalCost", index)), order: 2},
+      {metric: "Total Unpaid", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.EXPENSES, "totalUnpaidCost", index)), order: 3},
       {
         metric: "Total Cost",
-        values: periods.map(p =>
-          this.periodValue(p, AgmStatsSection.EXPENSES, "totalCost") + this.periodValue(p, AgmStatsSection.EXPENSES, "totalUnpaidCost")
+        values: periods.map((p, index) =>
+          this.periodValue(p, AgmStatsSection.EXPENSES, "totalCost", index) + this.periodValue(p, AgmStatsSection.EXPENSES, "totalUnpaidCost", index)
         ),
         order: 4
       }
@@ -813,10 +1338,10 @@ export class AGMStatsComponent implements OnInit {
     }
     const periods = this.yearsInRange();
     return [
-      {metric: "Total Members", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "totalMembers"))},
-      {metric: "New Joiners", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "newJoiners"))},
-      {metric: "Leavers", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "leavers"))},
-      {metric: "Deletions (Period)", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "deletions"))}
+      {metric: "Total Members", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "totalMembers", index))},
+      {metric: "New Joiners", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "newJoiners", index))},
+      {metric: "Leavers", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "leavers", index))},
+      {metric: "Deletions (Period)", values: periods.map((p, index) => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "deletions", index))}
     ].map(row => {
       const previous = row.values[row.values.length - 2] ?? 0;
       const current = row.values[row.values.length - 1] ?? 0;
@@ -998,50 +1523,15 @@ export class AGMStatsComponent implements OnInit {
     return state.direction === SortDirection.ASC ? this.faChevronUp : this.faChevronDown;
   }
 
-  presetLabel(option: string): string {
-    switch (option) {
-      case PresetOption.LAST_1_YEAR:
-        return "Last 1 year";
-      case PresetOption.LAST_2_YEARS:
-        return "Last 2 years";
-      case PresetOption.LAST_3_YEARS:
-        return "Last 3 years";
-      case PresetOption.LAST_4_YEARS:
-        return "Last 4 years";
-      case PresetOption.LAST_5_YEARS:
-        return "Last 5 years";
-      case PresetOption.ALL_TIME:
-        return "All time";
-      default:
-        return "Custom";
-    }
-  }
-
   selectTab(tab: AGMStatsTab) {
-    this.router.navigate([], {
-      queryParams: {[this.stringUtils.kebabCase(StoredValue.TAB)]: kebabCase(tab)},
-      queryParamsHandling: "merge"
-    });
+    const next = kebabCase(tab);
+    if (this.tab !== next) {
+      this.tab = next;
+      this.replaceQueryParams({[StoredValue.TAB]: next});
+    }
   }
 
   tabActive(tab: AGMStatsTab): boolean {
     return kebabCase(this.tab) === kebabCase(tab);
   }
-}
-
-enum PresetOption {
-  CUSTOM = "custom",
-  LAST_1_YEAR = "last-1-year",
-  LAST_2_YEARS = "last-2-years",
-  LAST_3_YEARS = "last-3-years",
-  LAST_4_YEARS = "last-4-years",
-  LAST_5_YEARS = "last-5-years",
-  ALL_TIME = "all-time"
-}
-
-enum AGMStatsTab {
-  WALKS = "Walks",
-  SOCIALS = "Socials",
-  MEMBERSHIP = "Membership",
-  EXPENSES = "Expenses"
 }

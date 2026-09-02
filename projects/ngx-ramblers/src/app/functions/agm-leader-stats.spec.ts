@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateLeaderStats,
   asLeaderStats,
+  historicalLeaderTokens,
   leaderIdentityFromWalk,
   leaderStatsFromWalks,
+  newLeadersFromPeriod,
   UNKNOWN_WALK_LEADER_KEY,
   UNKNOWN_WALK_LEADER_NAME
 } from "./agm-leader-stats";
@@ -103,6 +105,37 @@ describe("leaderIdentityFromWalk", () => {
       groupEvent: {walk_leader: {name: "Kerry Example"}}
     })).toEqual({id: "kerry@example.com", name: "Kerry Example", email: "kerry@example.com"});
   });
+});
+
+describe("newLeadersFromPeriod", () => {
+
+  it("does not treat a returning leader as new when the period uses email and history uses member id", () => {
+    const historical = historicalLeaderTokens([{
+      fields: {contactDetails: {memberId: "member-1", displayName: "Kerry Example"}},
+      groupEvent: {walk_leader: {name: "Kerry Example"}}
+    }]);
+    const periodLeaders: LeaderStats[] = [{
+      id: "kerry@example.com",
+      name: "Kerry Example",
+      email: "kerry@example.com",
+      walkCount: 3,
+      totalMiles: 12
+    }];
+    expect(newLeadersFromPeriod(periodLeaders, historical)).toEqual([]);
+  });
+
+  it("counts a leader as new only when no email, member id or name appeared before the period", () => {
+    const historical = historicalLeaderTokens([{
+      fields: {contactDetails: {memberId: "old-1", displayName: "Pat Old", email: "pat@example.com"}},
+      groupEvent: {}
+    }]);
+    const periodLeaders: LeaderStats[] = [
+      {id: "pat@example.com", name: "Pat Old", email: "pat@example.com", walkCount: 1, totalMiles: 4},
+      {id: "new-1", name: "Sam New", email: "sam@example.com", walkCount: 2, totalMiles: 8}
+    ];
+    expect(newLeadersFromPeriod(periodLeaders, historical).map(leader => leader.name)).toEqual(["Sam New"]);
+  });
+
 });
 
 describe("leaderStatsFromWalks", () => {

@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, SimpleChanges, TemplateRef, ViewChildren, inject, OnChanges, AfterViewInit, QueryList } from "@angular/core";
+import { Component, Input, SimpleChanges, ViewChildren, inject, OnChanges, AfterViewInit, QueryList } from "@angular/core";
 import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -25,7 +25,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
   styleUrls: ["./agm-stats.sass"],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <ng-container *ngTemplateOutlet="dateRangeControls"/>
       <div class="row mb-4">
         <div class="col-12">
           <h3>Walk Activity Analysis</h3>
@@ -466,7 +465,6 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   faChevronUp = faChevronUp;
   faChevronDown = faChevronDown;
   @Input() tabActive = false;
-  @Input() dateRangeControls: TemplateRef<any>;
   @Input() walkChartData: ChartConfiguration["data"];
   @Input() leaderChartData: ChartConfiguration["data"];
   @Input() chartOptions: ChartConfiguration["options"];

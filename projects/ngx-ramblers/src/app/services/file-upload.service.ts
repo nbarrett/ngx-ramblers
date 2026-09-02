@@ -15,6 +15,9 @@ import { first } from "es-toolkit/compat";
 import { AlertInstance } from "./notifier.service";
 import { StringUtilsService } from "./string-utils.service";
 import { AlertMessage } from "../models/alert-target.model";
+import { EmailAttachment } from "../models/mail.model";
+import { RootFolder } from "../models/system.model";
+import { firstValueFrom } from "rxjs";
 
 @Injectable({
   providedIn: "root"
@@ -81,6 +84,21 @@ export class FileUploadService {
       }
     };
     return uploader;
+  }
+
+  async uploadEmailAttachment(file: Blob, fileName: string): Promise<EmailAttachment | null> {
+    const formData = new FormData();
+    formData.append("file", file, fileName);
+    const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${RootFolder.emailAttachments}`, formData));
+    const fileNameData = response?.responses?.[0]?.fileNameData;
+    if (fileNameData) {
+      const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
+      const url = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
+      return {name: fileName, url, sizeBytes: file.size};
+    } else {
+      this.logger.warn("uploadEmailAttachment: no fileNameData returned for", fileName, response);
+      return null;
+    }
   }
 
   private setAuthorizationHeader(method: string, fileItem: FileItem, token: string) {
