@@ -6,45 +6,34 @@ import { deletedMember } from "../models/deleted-member";
 import { EventField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { CsvZipRequest, RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import AdmZip from "adm-zip";
-import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import {
+  AgmStatsPeriod,
   AGMStatsRequest,
   AGMStatsResponse,
   EditableEventStats,
   EventStats,
   EventStatsRequest,
   ExtendedGroupEvent,
-  LeaderStats,
   MembershipAGMStats,
   SocialAGMStats,
-  WalkAGMStats,
   YearComparison
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
 import * as transforms from "./transforms";
-import {
-  asLeaderStats,
-  isUnknownWalkLeader,
-  isUnknownWalkLeaderName,
-  leaderStatsFromWalks,
-  UNKNOWN_WALK_LEADER_NAME,
-  walkLeaderAggregateKey
-} from "../../../../projects/ngx-ramblers/src/app/functions/agm-leader-stats";
-import { trimmedNamePart } from "../../../../projects/ngx-ramblers/src/app/functions/member-names";
-import { walksManagerWalkLeaderNameFromGroupEvent } from "../../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-fields";
-import { isArray, isNumber, isString, kebabCase } from "es-toolkit/compat";
+
+import { isArray, isNumber } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
-import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../../shared/dates";
+import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
 import { EventPopulation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import * as crudController from "./crud-controller";
+
 import { fetchMappedEvents } from "../../ramblers/list-events";
 import { calculateExpenseStats } from "./agm-expense-stats";
 import { expenseClaim } from "../models/expense-claim";
-import { LocalWalkStatus } from "../models/walk-admin.model";
-import { classifyLocalWalk } from "./classify-local-walk";
+import { calculateWalkStats, totalMilesFromWalks } from "./walk-stats-agm";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
 debugLog.enabled = false;
@@ -261,26 +250,17 @@ export async function earliestDate(req: Request, res: Response) {
 
 export async function agmStats(req: Request, res: Response) {
   try {
-    const {fromDate, toDate} = req.body as AGMStatsRequest;
-    debugLog("agmStats request:", {fromDate, toDate});
+    const {fromDate, toDate, periods} = req.body as AGMStatsRequest;
+    debugLog("agmStats request:", {fromDate, toDate, periods});
 
     const earliestDate = await earliestDataDate();
-    const from = dateTimeFromMillis(fromDate);
-    const to = dateTimeFromMillis(toDate);
-    const rangeInYears = to.diff(from, "years").years;
-    const numPeriods = Math.max(1, Math.round(rangeInYears || 1));
-
-    debugLog(`Range: ${rangeInYears.toFixed(4)} years, numPeriods: ${numPeriods}`);
-    const yearlyStats: YearComparison[] = await Array.from({length: numPeriods}, (_, i) => i).reduce<Promise<YearComparison[]>>(
-      async (promise, i) => {
+    const requestedPeriods = statsPeriodsFromRequest(fromDate, toDate, periods);
+    debugLog(`Periods: ${requestedPeriods.length}`);
+    const yearlyStats: YearComparison[] = await requestedPeriods.reduce<Promise<YearComparison[]>>(
+      async (promise, period) => {
         const acc = await promise;
-        const periodFromDateTime = i === 0 ? from : from.plus({years: i});
-        const periodToDateTime = i === numPeriods - 1 ? to : from.plus({years: i + 1});
-        const periodFrom = periodFromDateTime.toMillis();
-        const periodTo = periodToDateTime.toMillis();
-        const periodYear = dateTimeFromMillis(periodFrom).year;
-        debugLog(`Period ${i + 1}: from=${dateTimeFromMillis(periodFrom).toISO()}, to=${dateTimeFromMillis(periodTo).toISO()}, year=${periodYear}`);
-        const stats = await calculateYearStats(periodFrom, periodTo, periodYear);
+        debugLog(`Period: from=${dateTimeFromMillis(period.fromDate).toISO()}, to=${dateTimeFromMillis(period.toDate).toISO()}`);
+        const stats = await calculateYearStats(period.fromDate, period.toDate, dateTimeFromMillis(period.fromDate).year);
         return [...acc, stats];
       },
       Promise.resolve([])
@@ -333,621 +313,27 @@ async function calculateYearStats(fromDate: number, toDate: number, year: number
   };
 }
 
+export { totalMilesFromWalks };
+
 export function morningWalksCount(totalWalks: number, cancelledWalks: number, eveningWalks: number, unfilledSlots: number): number {
   const value = (totalWalks || 0) - (cancelledWalks || 0) - (eveningWalks || 0) - (unfilledSlots || 0);
   return value > 0 ? value : 0;
 }
 
-function firstNonEmptyString(fields: string[]) {
-  return {
-    $reduce: {
-      input: fields,
-      initialValue: "",
-      in: {
-        $cond: [
-          {
-            $and: [
-              {$eq: ["$$value", ""]},
-              {$eq: [{$type: "$$this"}, "string"]},
-              {$ne: ["$$this", ""]}
-            ]
-          },
-          "$$this",
-          "$$value"
-        ]
-      }
-    }
-  };
-}
-
-async function calculateWalkStats(fromDate: number, toDate: number): Promise<WalkAGMStats> {
-  const config = await systemConfig();
-  const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
-
-  const leaderIdFields = isWalksManager
-    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${EventField.CONTACT_DETAILS_EMAIL}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`]
-    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${GroupEventField.WALK_LEADER_ID}`, `$${EventField.CONTACT_DETAILS_EMAIL}`, `$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`];
-
-  const leaderNameFields = isWalksManager
-    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"]
-    : [`$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${GroupEventField.WALK_LEADER_NAME}`, `$${GroupEventField.WALK_LEADER_ID}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"];
-
-  const leaderEmailFields = isWalksManager
-    ? [`$${GroupEventField.WALK_LEADER_EMAIL}`, `$${EventField.CONTACT_DETAILS_EMAIL}`, ""]
-    : [`$${EventField.CONTACT_DETAILS_EMAIL}`, `$${GroupEventField.WALK_LEADER_EMAIL}`, ""];
-
-  const confirmedStatusMatch = isWalksManager
-    ? {
-        $or: [
-          {[`${GroupEventField.STATUS}`]: "confirmed"},
-          {[`${GroupEventField.STATUS}`]: {$exists: false}},
-          {[`${GroupEventField.STATUS}`]: null},
-          {[`${GroupEventField.STATUS}`]: ""},
-          {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}}
-        ]
-      }
-    : {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}};
-
-  const confirmedStatusExpression = isWalksManager
-    ? {
-        $or: [
-          {$eq: [`$${GroupEventField.STATUS}`, "confirmed"]},
-          {$eq: [`$${GroupEventField.STATUS}`, null]},
-          {$eq: [`$${GroupEventField.STATUS}`, ""]},
-          {$not: [{$ifNull: [`$${GroupEventField.STATUS}`, false]}]},
-          {$not: [{$in: [`$${GroupEventField.STATUS}`, ["cancelled", "deleted"]]}]}
-        ]
-      }
-    : {$eq: [`$${GroupEventField.STATUS}`, "confirmed"]};
-
-  const nonCancelledNonDeletedStatusMatch = {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}};
-
-  const eveningStatusExpression = isWalksManager
-    ? confirmedStatusExpression
-    : {
-        $and: [
-          {$ne: [`$${GroupEventField.STATUS}`, "cancelled"]},
-          {$ne: [`$${GroupEventField.STATUS}`, "deleted"]}
-        ]
-      };
-
-  const eveningHourExpression = {
-    $gte: [
-      {
-        $toInt: {
-          $dateToString: {
-            format: "%H",
-            date: {$toDate: `$${GroupEventField.START_DATE}`},
-            timezone: "Europe/London"
-          }
-        }
-      },
-      15
-    ]
-  };
-
-  const walkPipeline: PipelineStage[] = [
-    {
-      $match: {
-        [`${GroupEventField.START_DATE}`]: {
-          $gte: dateTimeFromMillis(fromDate).toISO(),
-          $lte: dateTimeFromMillis(toDate).toISO()
-        },
-        [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
-        [`${GroupEventField.STATUS}`]: {$ne: "deleted"}
-      }
-    },
-    {
-        $facet: {
-        totals: [
-          {
-            $group: {
-              _id: null,
-              totalWalks: {$sum: 1},
-              confirmedWalks: {
-                $sum: {
-                  $cond: [confirmedStatusExpression, 1, 0]
-                }
-              },
-              eveningWalks: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        eveningStatusExpression,
-                        eveningHourExpression
-                      ]
-                    },
-                    1,
-                    0
-                  ]
-                }
-              },
-              cancelledWalks: {
-                $sum: {
-                  $cond: [
-                    {
-                      $or: [
-                        {$eq: [`$${GroupEventField.STATUS}`, "cancelled"]},
-                        {$regexMatch: {input: {$ifNull: [`$${GroupEventField.TITLE}`, ""]}, regex: /cancelled/i}}
-                      ]
-                    },
-                    1,
-                    0
-                  ]
-                }
-              },
-              walksAwaitingLeader: isWalksManager
-                ? {$sum: 0}
-                : {
-                    $sum: {
-                      $cond: [
-                        {
-                          $and: [
-                            {$eq: [`$${GroupEventField.ITEM_TYPE}`, RamblersEventType.GROUP_WALK]},
-                            {$lte: [{$toDate: `$${GroupEventField.START_DATE}`}, dateTimeNow().toJSDate()]},
-                            {
-                              $or: [
-                                {$eq: [`$${GroupEventField.STATUS}`, null]},
-                                {$not: [{$in: [`$${GroupEventField.STATUS}`, ["confirmed", "cancelled", "deleted"]]}]}
-                              ]
-                            }
-                          ]
-                        },
-                        1,
-                        0
-                      ]
-                    }
-                  },
-              totalMiles: {
-                $sum: {
-                  $cond: [
-                    confirmedStatusExpression,
-                    {$ifNull: [`$${GroupEventField.DISTANCE_MILES}`, 0]},
-                    0
-                  ]
-                }
-              },
-              totalAttendees: {
-                $sum: {
-                  $cond: [
-                    confirmedStatusExpression,
-                    {$size: {$ifNull: [`$${EventField.ATTENDEES}`, []]}},
-                    0
-                  ]
-                }
-              }
-            }
-          }
-        ],
-        leaders: [
-          {
-            $match: {
-              ...confirmedStatusMatch
-            }
-          },
-          {
-            $addFields: {
-              leaderId: firstNonEmptyString(leaderIdFields),
-              leaderName: firstNonEmptyString(leaderNameFields),
-              leaderEmail: firstNonEmptyString(leaderEmailFields)
-            }
-          },
-          {
-          $group: {
-            _id: {$ifNull: ["$leaderId", ""]},
-            name: {$first: {$ifNull: ["$leaderName", "Unknown"]}},
-            email: {$first: {$ifNull: ["$leaderEmail", ""]}},
-            walkCount: {$sum: 1},
-            totalMiles: {
-                $sum: {$ifNull: [`$${GroupEventField.DISTANCE_MILES}`, 0]}
-              },
-            firstWalkDate: {$min: `$${GroupEventField.START_DATE}`}
-            }
-          },
-          {
-            $match: {
-              _id: {$nin: [null, ""]}
-            }
-          },
-          {
-            $sort: {walkCount: -1, totalMiles: -1}
-          }
-        ]
-      }
-    }
-  ];
-
-  const sampleBeforeAgg = await extendedGroupEvent.find({
-    [`${GroupEventField.START_DATE}`]: {
-      $gte: dateTimeFromMillis(fromDate).toISO(),
-      $lte: dateTimeFromMillis(toDate).toISO()
-    },
-    ...confirmedStatusMatch
-  }).limit(3).lean();
-
-  debugLog(`Sample confirmed walks (${sampleBeforeAgg.length}):`, JSON.stringify(sampleBeforeAgg.map(w => ({
-    title: w.groupEvent?.title,
-    status: w.groupEvent?.status,
-    walk_leader: w.groupEvent?.walk_leader,
-    contactDetails: w.fields?.contactDetails
-  })), null, 2));
-
-  const result = await extendedGroupEvent.aggregate(walkPipeline);
-  const data = result[0];
-
-  const totals = data.totals[0] || {
-    totalWalks: 0,
-    confirmedWalks: 0,
-    cancelledWalks: 0,
-    eveningWalks: 0,
-    walksAwaitingLeader: 0,
-    totalMiles: 0,
-    totalAttendees: 0
-  };
-
-  debugLog(`calculateWalkStats(${dateTimeFromMillis(fromDate).toISO()} to ${dateTimeFromMillis(toDate).toISO()}): eveningWalks=${totals.eveningWalks}, confirmedWalks=${totals.confirmedWalks}, totalWalks=${totals.totalWalks}`);
-
-  const sampleWalks = await extendedGroupEvent.aggregate([
-    {
-      $match: {
-        [`${GroupEventField.START_DATE}`]: {
-          $gte: dateTimeFromMillis(fromDate).toISO(),
-          $lte: dateTimeFromMillis(toDate).toISO()
-        },
-        ...confirmedStatusMatch
-      }
-    },
-    {
-      $limit: 5
-    },
-    {
-      $project: {
-        startDate: `$${GroupEventField.START_DATE}`,
-        title: `$${GroupEventField.TITLE}`,
-        extractedHour: {
-          $toInt: {
-            $dateToString: {
-              format: "%H",
-              date: {$toDate: `$${GroupEventField.START_DATE}`},
-              timezone: "Europe/London"
-            }
-          }
-        }
-      }
-    }
-  ]);
-  debugLog("Sample walks with extracted hours:", JSON.stringify(sampleWalks, null, 2));
-
-  let leaders: LeaderStats[] = (data.leaders || []).map((leader: any) => {
-    const stats = asLeaderStats({
-      _id: leader._id,
-      id: leader.id,
-      name: leader.name,
-      email: leader.email,
-      walkCount: leader.walkCount,
-      totalMiles: leader.totalMiles
-    });
-    return {
-      ...stats,
-      name: stats.name || "Unknown"
-    };
-  });
-
-  let remoteEvents: ExtendedGroupEvent[] = [];
-  if (isWalksManager) {
-    remoteEvents = await fetchMappedEvents(config, fromDate, toDate);
+export function statsPeriodsFromRequest(fromDate: number, toDate: number, periods?: AgmStatsPeriod[]): AgmStatsPeriod[] {
+  const explicit = (periods || []).filter(period => period?.fromDate > 0 && period?.toDate > 0);
+  if (explicit.length) {
+    return explicit;
+  } else {
+    const from = dateTimeFromMillis(fromDate);
+    const to = dateTimeFromMillis(toDate);
+    const rangeInYears = to.diff(from, "years").years;
+    const numPeriods = Math.max(1, Math.round(rangeInYears || 1));
+    return Array.from({length: numPeriods}, (_, index) => ({
+      fromDate: (index === 0 ? from : from.plus({years: index})).toMillis(),
+      toDate: (index === numPeriods - 1 ? to : from.plus({years: index + 1})).toMillis()
+    }));
   }
-
-  if (isWalksManager) {
-    const leaderMap = new Map<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>();
-    const firstValue = (candidates: unknown[]): string => {
-      const match = candidates.find(value => isString(value) && value !== "");
-      return isString(match) ? match : "";
-    };
-
-    const normalizeText = (value: string | number) => value ? String(value).trim().replace(/\.$/, "") : "";
-
-    const addLeaderCount = (id: string, name: string, email: string, walkCount: number, miles: number) => {
-      const normalizedId = normalizeText(id);
-      const normalizedName = normalizeText(name);
-      const key = walkLeaderAggregateKey({id: normalizedId, name: normalizedName, email});
-      if (key) {
-        const displayName = isUnknownWalkLeaderName(normalizedName) ? UNKNOWN_WALK_LEADER_NAME : normalizedName;
-        const existing = leaderMap.get(key) || {id: key, name: displayName, email, walkCount: 0, totalMiles: 0};
-        existing.walkCount += walkCount;
-        existing.totalMiles += miles;
-        if (!existing.name && displayName) {
-          existing.name = displayName;
-        }
-        if (!existing.email && email) {
-          existing.email = email;
-        }
-        leaderMap.set(key, existing);
-      }
-    };
-
-    leaders.forEach(leader => addLeaderCount(leader.id, leader.name, leader.email, leader.walkCount, leader.totalMiles));
-
-    remoteEvents.forEach(event => {
-      const status = event.groupEvent?.status;
-      if ([ "cancelled", "deleted" ].includes(status || "")) {
-        return;
-      }
-      const id = firstValue([
-        event.groupEvent?.walk_leader?.name,
-        event.groupEvent?.walk_leader?.telephone,
-        event.groupEvent?.walk_leader?.email_form,
-        event.fields?.contactDetails?.memberId,
-        event.fields?.contactDetails?.displayName
-      ]);
-      if (!id) {
-        return;
-      }
-      const name = firstValue([
-        event.groupEvent?.walk_leader?.name,
-        event.fields?.contactDetails?.displayName,
-        event.fields?.contactDetails?.memberId
-      ]) || "Unknown";
-      const email = firstValue([
-        event.fields?.contactDetails?.email
-      ]);
-      addLeaderCount(id, name, email, 1, event.groupEvent?.distance_miles || 0);
-    });
-
-    leaders = Array.from(leaderMap.values()).map(leader => ({
-      ...leader,
-      totalMiles: Math.round(leader.totalMiles * 10) / 10
-    })).sort((a, b) => {
-      if (b.walkCount !== a.walkCount) {
-        return b.walkCount - a.walkCount;
-      }
-      return b.totalMiles - a.totalMiles;
-    });
-  }
-
-  const cancelledWalksList = await extendedGroupEvent.find({
-    [`${GroupEventField.START_DATE}`]: {
-      $gte: dateTimeFromMillis(fromDate).toISO(),
-      $lte: dateTimeFromMillis(toDate).toISO()
-    },
-    $or: [
-      {[`${GroupEventField.STATUS}`]: "cancelled"},
-      {[`${GroupEventField.TITLE}`]: {$regex: /cancelled/i}}
-    ]
-  }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
-
-  const eveningWalksListFromDb = await extendedGroupEvent.aggregate([
-    {
-      $match: {
-        [`${GroupEventField.START_DATE}`]: {
-          $gte: dateTimeFromMillis(fromDate).toISO(),
-          $lte: dateTimeFromMillis(toDate).toISO()
-        },
-        [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
-        ...(isWalksManager ? confirmedStatusMatch : nonCancelledNonDeletedStatusMatch)
-      }
-    },
-    {
-      $match: {
-        $expr: {
-          $and: [eveningHourExpression]
-        }
-      }
-    },
-    {$sort: {[`${GroupEventField.START_DATE}`]: 1}}
-  ]);
-
-  const eveningWalksListFromRamblers = isWalksManager ? remoteEvents.filter(event => {
-    const status = event.groupEvent?.status;
-    if ([ "cancelled", "deleted" ].includes(status || "")) {
-      return false;
-    }
-    if (event.groupEvent?.item_type !== RamblersEventType.GROUP_WALK) {
-      return false;
-    }
-    const start = event.groupEvent?.start_date_time;
-    if (!start) {
-      return false;
-    }
-    const startDate = dateTimeFromIso(start);
-    return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 15;
-  }).sort((a, b) => dateTimeFromIso(a.groupEvent?.start_date_time || "").toMillis() - dateTimeFromIso(b.groupEvent?.start_date_time || "").toMillis()) : [];
-
-  const allWalksForStats = isWalksManager ? [] : await extendedGroupEvent.find({
-    [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
-    [`${GroupEventField.START_DATE}`]: {
-      $gte: dateTimeFromMillis(fromDate).toISO(),
-      $lte: dateTimeFromMillis(toDate).toISO()
-    },
-    [`${GroupEventField.STATUS}`]: {$ne: "deleted"}
-  }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
-
-  const eveningWalksList = isWalksManager
-    ? [...eveningWalksListFromRamblers]
-    : eveningWalksListFromDb;
-
-  const unfilledSlotsList = isWalksManager ? [] : await extendedGroupEvent.find({
-    [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
-    [`${GroupEventField.START_DATE}`]: {
-      $gte: dateTimeFromMillis(fromDate).toISO(),
-      $lte: dateTimeNow().toISO()
-    },
-    $or: [
-      {[`${GroupEventField.TITLE}`]: null},
-      {[`${GroupEventField.TITLE}`]: {$exists: false}},
-      {[`${GroupEventField.TITLE}`]: ""}
-    ]
-  }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
-
-  const formatWalkListItem = (walk: any) => {
-    const walkId = walk._id?.toString() || walk.groupEvent?.id || "";
-    const title = walk.groupEvent?.title || "";
-    const startDate = walk.groupEvent?.start_date_time;
-    const dateStr = startDate ? dateTimeFromIso(startDate).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES) : "";
-    const urlSlug = walk.groupEvent?.url
-      || kebabCase([title, dateStr].filter(Boolean).join("-"))
-      || walk.groupEvent?.id
-      || walkId;
-    const lastSegment = urlSlug.split("/").pop() || urlSlug;
-    const walkLeaderFromManager = walksManagerWalkLeaderNameFromGroupEvent(walk.groupEvent);
-    const walkLeaderFromFields = trimmedNamePart(walk.fields?.contactDetails?.displayName);
-    const walkLeader = isWalksManager
-      ? walkLeaderFromManager || walkLeaderFromFields || ""
-      : walkLeaderFromFields || walkLeaderFromManager || "";
-
-    return {
-      id: walkId,
-      title,
-      startDate: dateTimeFromIso(startDate).toMillis(),
-      walkDate: startDate || "",
-      walkLeader,
-      distance: walk.groupEvent?.distance_miles || 0,
-      url: `/walks/${lastSegment}`
-    };
-  };
-
-  const eveningWalksCount = isWalksManager ? eveningWalksList.length : (totals.eveningWalks || 0);
-  const unfilledCount = isWalksManager ? 0 : unfilledSlotsList.length;
-  const morningWalks = morningWalksCount(totals.totalWalks, totals.cancelledWalks, eveningWalksCount, unfilledCount);
-  const idForWalk = (walk: any) => walk._id?.toString() || walk.groupEvent?.id || "";
-
-  const localMorningWalks: any[] = [];
-  const localEveningWalks: any[] = [];
-  const localCancelledWalks: any[] = [];
-  const localUnfilledWalks: any[] = [];
-
-  if (!isWalksManager) {
-    const nowMillis = dateTimeNowAsValue();
-    for (const walk of allWalksForStats) {
-      const bucket = classifyLocalWalk(walk, nowMillis);
-      if (bucket === LocalWalkStatus.DELETED) {
-        continue;
-      }
-      if (bucket === LocalWalkStatus.UNFILLED) {
-        localUnfilledWalks.push(walk);
-      } else if (bucket === LocalWalkStatus.CANCELLED) {
-        localCancelledWalks.push(walk);
-      } else if (bucket === LocalWalkStatus.EVENING) {
-        localEveningWalks.push(walk);
-      } else {
-        localMorningWalks.push(walk);
-      }
-    }
-
-    debugLog("localWalkBuckets", {
-      totalWalks: totals.totalWalks,
-      allWalksForStats: allWalksForStats.length,
-      morning: localMorningWalks.length,
-      evening: localEveningWalks.length,
-      cancelled: localCancelledWalks.length,
-      unfilled: localUnfilledWalks.length,
-      sum: localMorningWalks.length + localEveningWalks.length + localCancelledWalks.length + localUnfilledWalks.length
-    });
-    leaders = leaderStatsFromWalks([...localMorningWalks, ...localEveningWalks]);
-  }
-
-  const namedLeaders = leaders.filter(leader => !isUnknownWalkLeader(leader));
-  const topLeader = namedLeaders.length > 0 ? namedLeaders[0] : {
-    id: "",
-    name: "None",
-    email: "",
-    walkCount: 0,
-    totalMiles: 0
-  };
-
-  const historicalLeaders = await allHistoricalLeaders(fromDate);
-  const newLeaderIds = new Set(namedLeaders.map(l => l.id).filter(id => id && !historicalLeaders.has(id)));
-  const newLeadersList = namedLeaders.filter(leader => newLeaderIds.has(leader.id));
-
-  const totalWalksFinal = isWalksManager
-    ? totals.totalWalks
-    : localMorningWalks.length + localEveningWalks.length + localCancelledWalks.length + localUnfilledWalks.length;
-
-  const morningWalksFinal = isWalksManager ? morningWalks : localMorningWalks.length;
-  const cancelledWalksFinal = isWalksManager ? totals.cancelledWalks : localCancelledWalks.length;
-  const eveningWalksFinal = isWalksManager ? eveningWalksCount : localEveningWalks.length;
-  const unfilledSlotsFinal = isWalksManager ? unfilledCount : localUnfilledWalks.length;
-
-  const cancelledWalksListFinal = isWalksManager
-    ? cancelledWalksList.map(formatWalkListItem)
-    : localCancelledWalks.map(formatWalkListItem);
-
-  const eveningWalksListFinal = isWalksManager
-    ? eveningWalksList.map(formatWalkListItem)
-    : localEveningWalks.map(formatWalkListItem);
-
-  const unfilledSlotsListFinal = isWalksManager
-    ? unfilledSlotsList.map(formatWalkListItem)
-    : localUnfilledWalks.map(formatWalkListItem);
-
-  const morningWalksListFinal = isWalksManager
-    ? []
-    : localMorningWalks.map(formatWalkListItem);
-
-  return {
-    totalWalks: totalWalksFinal,
-    confirmedWalks: totals.confirmedWalks,
-    morningWalks: morningWalksFinal,
-    cancelledWalks: cancelledWalksFinal,
-    cancelledWalksList: cancelledWalksListFinal,
-    eveningWalks: eveningWalksFinal,
-    eveningWalksList: eveningWalksListFinal,
-    totalMiles: Math.round(totals.totalMiles * 10) / 10,
-    totalAttendees: totals.totalAttendees,
-    activeLeaders: namedLeaders.length,
-    newLeaders: newLeaderIds.size,
-    newLeadersList,
-    topLeader,
-    allLeaders: leaders,
-    unfilledSlots: unfilledSlotsFinal,
-    unfilledSlotsList: unfilledSlotsListFinal,
-    morningWalksList: morningWalksListFinal
-  };
-}
-
-async function allHistoricalLeaders(beforeDate: number): Promise<Set<string>> {
-  const config = await systemConfig();
-  const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
-
-  const leaderIdFields = isWalksManager
-    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`]
-    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${GroupEventField.WALK_LEADER_ID}`];
-
-  const confirmedStatusMatch = isWalksManager
-    ? {
-        $or: [
-          {[`${GroupEventField.STATUS}`]: "confirmed"},
-          {[`${GroupEventField.STATUS}`]: {$exists: false}},
-          {[`${GroupEventField.STATUS}`]: null},
-          {[`${GroupEventField.STATUS}`]: ""}
-        ]
-      }
-    : {[`${GroupEventField.STATUS}`]: "confirmed"};
-
-  const pipeline: PipelineStage[] = [
-    {
-      $match: {
-        [`${GroupEventField.START_DATE}`]: {
-          $lt: dateTimeFromMillis(beforeDate).toISO()
-        },
-        ...confirmedStatusMatch
-      }
-    },
-    {
-      $addFields: {
-        leaderId: firstNonEmptyString(leaderIdFields)
-      }
-    },
-    {
-      $group: {
-        _id: {$ifNull: ["$leaderId", ""]}
-      }
-    }
-  ];
-
-  const result = await extendedGroupEvent.aggregate(pipeline);
-  return new Set(result.map((r: any) => r._id).filter(id => id));
 }
 
 async function calculateSocialStats(fromDate: number, toDate: number): Promise<SocialAGMStats> {

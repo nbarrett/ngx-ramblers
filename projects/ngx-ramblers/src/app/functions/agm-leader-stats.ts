@@ -33,6 +33,69 @@ export function isUnknownWalkLeader(leader: {id?: unknown; name?: unknown}): boo
   return walkLeaderAggregateKey(leader) === UNKNOWN_WALK_LEADER_KEY;
 }
 
+export function walkLeaderIdentityTokens(walk: any): string[] {
+  const displayName = trimmedNamePart(walk?.fields?.contactDetails?.displayName);
+  const listedName = walksManagerWalkLeaderNameFromGroupEvent(walk?.groupEvent);
+  const name = displayName || listedName;
+  const memberId = trimmedNamePart(walk?.fields?.contactDetails?.memberId);
+  const walkLeaderId = trimmedNamePart(walk?.groupEvent?.walk_leader?.id);
+  const email = trimmedNamePart(walk?.fields?.contactDetails?.email).toLowerCase();
+  const tokens: string[] = [];
+  if (email) {
+    tokens.push(`email:${email}`);
+  }
+  if (memberId) {
+    tokens.push(`id:${memberId}`);
+  }
+  if (walkLeaderId) {
+    tokens.push(`id:${walkLeaderId}`);
+  }
+  if (name && !isUnknownWalkLeaderName(name)) {
+    tokens.push(`name:${name.toLowerCase()}`);
+  }
+  return tokens;
+}
+
+export function leaderStatsIdentityTokens(leader: {id?: unknown; name?: unknown; email?: unknown}): string[] {
+  const email = trimmedNamePart(leader.email).toLowerCase();
+  const id = trimmedNamePart(leader.id);
+  const name = trimmedNamePart(leader.name);
+  const tokens: string[] = [];
+  if (email) {
+    tokens.push(`email:${email}`);
+  }
+  if (id && id !== UNKNOWN_WALK_LEADER_KEY) {
+    if (id.includes("@")) {
+      tokens.push(`email:${id.toLowerCase()}`);
+    } else {
+      tokens.push(`id:${id}`);
+      tokens.push(`name:${id.toLowerCase()}`);
+    }
+  }
+  if (name && !isUnknownWalkLeaderName(name)) {
+    tokens.push(`name:${name.toLowerCase()}`);
+  }
+  return [...new Set(tokens)];
+}
+
+export function historicalLeaderTokens(walks: any[]): Set<string> {
+  return (walks || []).reduce((tokens, walk) => {
+    walkLeaderIdentityTokens(walk).forEach(token => tokens.add(token));
+    return tokens;
+  }, new Set<string>());
+}
+
+export function newLeadersFromPeriod(periodLeaders: LeaderStats[], historicalTokens: Set<string>): LeaderStats[] {
+  return (periodLeaders || []).filter(leader => {
+    if (isUnknownWalkLeader(leader)) {
+      return false;
+    } else {
+      const tokens = leaderStatsIdentityTokens(leader);
+      return tokens.length > 0 && !tokens.some(token => historicalTokens.has(token));
+    }
+  });
+}
+
 export function leaderIdentityFromWalk(walk: any): {id: string; name: string; email: string} {
   const displayName = trimmedNamePart(walk?.fields?.contactDetails?.displayName);
   const memberId = trimmedNamePart(walk?.fields?.contactDetails?.memberId);

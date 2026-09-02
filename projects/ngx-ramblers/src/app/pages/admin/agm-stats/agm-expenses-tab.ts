@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from "@angular/common";
-import { AfterViewInit, Component, inject, Input, TemplateRef } from "@angular/core";
+import { AfterViewInit, Component, inject, Input } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -24,7 +24,6 @@ import { UnpaidExpenseItem } from "../../../models/group-event.model";
   styleUrls: ["./agm-stats.sass"],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <ng-container *ngTemplateOutlet="dateRangeControls"></ng-container>
       <div class="row mb-4">
         <div class="col-12">
           <h3>Expense Summary</h3>
@@ -171,7 +170,6 @@ export class AGMExpensesTabComponent implements AfterViewInit {
   protected readonly UIDateFormat = UIDateFormat;
   faChevronUp = faChevronUp;
   faChevronDown = faChevronDown;
-  @Input() dateRangeControls: TemplateRef<any>;
   @Input() years: string[] = [];
   @Input() expenseSummaryRows: SummaryRow[] = [];
   @Input() expenseSummaryKey = "expensesSummary";

@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { keys } from "es-toolkit/compat";
-import { Component, Input, TemplateRef, OnChanges, SimpleChanges, ViewChild, inject, AfterViewInit } from "@angular/core";
+import { Component, Input, OnChanges, SimpleChanges, ViewChild, inject, AfterViewInit } from "@angular/core";
 import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -25,7 +25,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
   styleUrls: ["./agm-stats.sass"],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <ng-container *ngTemplateOutlet="dateRangeControls"></ng-container>
       <div class="row mb-4">
         <div class="col-12">
           <h3>Social Activity Analysis</h3>
@@ -159,7 +158,6 @@ export class AGMSocialsTabComponent implements AfterViewInit, OnChanges {
   private logger = this.loggerFactory.createLogger("AGMSocialsTabComponent", NgxLoggerLevel.ERROR);
   protected readonly UIDateFormat = UIDateFormat;
   @Input() tabActive = false;
-  @Input() dateRangeControls: TemplateRef<any>;
   @Input() years: string[] = [];
   @Input() socialSummaryRows: SummaryRow[] = [];
   @Input() socialSummaryKey = "socialSummary";

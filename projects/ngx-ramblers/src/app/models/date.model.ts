@@ -1,13 +1,13 @@
-import { DateDirection, RelativeDateRange } from "./search.model";
+import { DateDirection, RelativeDateRange, SelectablePreset } from "./search.model";
 
 export interface DateValue {
   value: number;
   date: Date;
 }
 
-export interface DateRangeSliderPreset {
-  label: string;
-  relativeDateRange: RelativeDateRange;
+export interface DateRangeSliderPreset extends SelectablePreset {
+  id?: string;
+  relativeDateRange?: RelativeDateRange;
 }
 
 export const DATE_RANGE_SLIDER_PRESETS: DateRangeSliderPreset[] = [
