@@ -17,8 +17,59 @@ export function transcriptionWordLimit(audioBytes: number): number {
 }
 
 export function transcriptionExceedsAudio(text: string, audioBytes: number): boolean {
-  const words = (text || "").trim().split(/\s+/).filter(word => !!word).length;
+  const speech = (text || "").split(/\r?\n/).map(line => transcriptSpeechText(line)).join(" ");
+  const words = speech.trim().split(/\s+/).filter(word => !!word).length;
   return words > transcriptionWordLimit(audioBytes);
+}
+
+const GENERIC_SPEAKER_LABEL = /^(unknown|speaker \d+)$/i;
+
+function looksLikeSpeakerName(label: string, known: string[]): boolean {
+  const words = label.split(/\s+/).filter(word => !!word);
+  const knownName = known.some(name => name.toLowerCase() === label.toLowerCase());
+  const capitalised = words.length > 0 && words.length <= 3 && words.every(word => /^[A-Z]/.test(word));
+  return knownName || GENERIC_SPEAKER_LABEL.test(label) || capitalised;
+}
+
+function speakerLabel(text: string, known: string[]): string {
+  const value = (text || "").trim();
+  const labelled = /^([A-Za-z][A-Za-z0-9.'’\- ]{0,59}?):\s+\S.*$/.exec(value);
+  const label = labelled ? labelled[1].trim() : "";
+  return label && looksLikeSpeakerName(label, known) ? label : "";
+}
+
+export const UNKNOWN_SPEAKER = "Unknown";
+
+export function unlabelledSpeaker(recorderName: string, participants: string[], speakers: string[]): string {
+  const recorder = (recorderName || "").trim();
+  const heard = (speakers || []).map(name => (name || "").trim()).filter(name => !!name);
+  const others = (participants || [])
+    .map(name => (name || "").trim())
+    .filter(name => !!name && name.toLowerCase() !== recorder.toLowerCase());
+  if (heard.length) {
+    return heard[0];
+  } else if (others.length || !recorder) {
+    return UNKNOWN_SPEAKER;
+  } else {
+    return recorder;
+  }
+}
+
+export function speakerLabelledLines(text: string, recorderName: string, participants: string[], speakers: string[] = []): {authorName: string; text: string}[] {
+  const recorder = (recorderName || "").trim();
+  const known = [recorder, ...(participants || []), ...(speakers || [])].map(name => (name || "").trim()).filter(name => !!name);
+  const fallback = unlabelledSpeaker(recorder, participants, speakers);
+  return (text || "")
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => !!line)
+    .map(line => {
+      const label = speakerLabel(line, known);
+      const matched = known.find(name => name.toLowerCase() === label.toLowerCase());
+      const speech = label ? transcriptSpeechText(line) : line;
+      return {authorName: matched || label || fallback, text: toBritishEnglish(speech)};
+    })
+    .filter(line => isUsableTranscriptText(line.text));
 }
 
 export function textFromGenerateContent(data: unknown): string {

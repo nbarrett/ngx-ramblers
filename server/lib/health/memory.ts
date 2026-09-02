@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { isString } from "es-toolkit/compat";
-import { FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
+import { flyTargetApp, FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
 import * as v8 from "v8";
 import { S3 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
@@ -9,7 +9,7 @@ import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
 import { DateFormat } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { flyMachineMemoryStats, flyMetricHistory } from "../fly/fly-metrics";
-import { isIntegrationWorkerAvailable } from "../fly/fly-runtime-config";
+import { isIntegrationWorkerAvailable, isJitsiAvailable } from "../fly/fly-runtime-config";
 import { currentMachineState, restartCurrentMachine } from "../fly/fly-machines";
 import { toMb } from "../shared/units";
 
@@ -90,17 +90,22 @@ export async function heapSnapshot(_req: Request, res: Response): Promise<void> 
 }
 
 function targetAppFrom(req: Request): FlyTargetApp {
-  return req.query.app === FlyTargetApp.WORKER ? FlyTargetApp.WORKER : FlyTargetApp.ENVIRONMENT;
+  return flyTargetApp(isString(req.query.app) ? req.query.app : "");
+}
+
+function environmentNameFrom(req: Request): string | null {
+  const value = isString(req.query.environment) ? req.query.environment.trim() : "";
+  return value || null;
 }
 
 export async function flyStats(req: Request, res: Response): Promise<void> {
   try {
-    const target = targetAppFrom(req);
-    const stats = await flyMachineMemoryStats(target);
-    const withWorkerFlag = target === FlyTargetApp.ENVIRONMENT
-      ? { ...stats, integrationWorkerAvailable: await isIntegrationWorkerAvailable() }
-      : stats;
-    res.status(200).json(withWorkerFlag);
+    const stats = await flyMachineMemoryStats(targetAppFrom(req), environmentNameFrom(req));
+    res.status(200).json({
+      ...stats,
+      integrationWorkerAvailable: await isIntegrationWorkerAvailable(),
+      jitsiAvailable: await isJitsiAvailable()
+    });
   } catch (error) {
     debugLog("Fly stats query failed:", error);
     res.status(500).json({ available: false, error: error?.message || "Failed to query Fly stats" });
@@ -112,7 +117,7 @@ export async function flyMemoryHistory(req: Request, res: Response): Promise<voi
     const requested = Number(req.query.minutes);
     const minutes = Math.min(Math.max(Number.isFinite(requested) && requested > 0 ? Math.round(requested) : 1440, 15), 10080);
     const metric = isString(req.query.metric) ? req.query.metric : "memory";
-    const history = await flyMetricHistory(metric, minutes, targetAppFrom(req));
+    const history = await flyMetricHistory(metric, minutes, targetAppFrom(req), environmentNameFrom(req));
     res.status(200).json(history);
   } catch (error) {
     debugLog("Fly metric history query failed:", error);

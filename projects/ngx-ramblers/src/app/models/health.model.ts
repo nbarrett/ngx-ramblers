@@ -136,6 +136,7 @@ export interface FlyMachineStats {
   memoryUsedMb?: number;
   memoryTotalMb?: number;
   integrationWorkerAvailable?: boolean;
+  jitsiAvailable?: boolean;
 }
 
 export interface FlyMetricSample {
@@ -171,7 +172,18 @@ export interface FlyMetricTab {
 
 export enum FlyTargetApp {
   ENVIRONMENT = "environment",
-  WORKER = "worker"
+  WORKER = "worker",
+  JITSI = "jitsi"
+}
+
+export function flyTargetApp(value: string): FlyTargetApp {
+  if (value === FlyTargetApp.WORKER) {
+    return FlyTargetApp.WORKER;
+  } else if (value === FlyTargetApp.JITSI) {
+    return FlyTargetApp.JITSI;
+  } else {
+    return FlyTargetApp.ENVIRONMENT;
+  }
 }
 
 export interface FlyMachineState {

@@ -12,7 +12,12 @@ import {
   jitsiEmbedConfigOverwrite,
   jitsiHostPageUrl,
   jitsiJoinMode,
+  guestIdentityFromQuery,
+  joinVideoMeetingAsGuest,
+  memberMeetingQueryParams,
   nameFromEmailAddress,
+  shouldPromptForGuestName,
+  usableMeetingDisplayName,
   occupantIdentityKey,
   suggestedVideoMeetingTitle,
   tokenUserFromJwt,
@@ -137,10 +142,11 @@ describe("videoMeetingPeople", () => {
 
 describe("jitsiEmbedConfigOverwrite", () => {
 
-  it("skips the Jitsi prejoin screen so our own join dialog is the only join step", () => {
+  it("keeps the Jitsi prejoin screen so people check their microphone and camera before entering", () => {
     const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Committee meeting");
-    expect(overwrite.prejoinPageEnabled).toEqual(false);
-    expect(overwrite.prejoinConfig.enabled).toEqual(false);
+    expect(overwrite.prejoinPageEnabled).toEqual(true);
+    expect(overwrite.prejoinConfig.enabled).toEqual(true);
+    expect(overwrite.prejoinConfig.hideExtraJoinButtons).toEqual(["no-audio", "no-video"]);
     expect(overwrite.transcription.enabled).toEqual(false);
     expect(overwrite.transcription.disableClosedCaptions).toEqual(true);
     expect(overwrite.transcribingEnabled).toEqual(false);
@@ -179,13 +185,94 @@ describe("jitsiEmbedConfigOverwrite", () => {
     expect(overwrite.customTheme.palette.action01).toEqual(JITSI_SUNRISE);
     expect(overwrite.connectionIndicators.disabled).toEqual(true);
     expect(overwrite.filmstrip.disableResizable).toEqual(true);
-    expect(overwrite.filmstrip.disableStageFilmstrip).toEqual(true);
+    expect(overwrite.filmstrip.disableStageFilmstrip).toEqual(false);
   });
 
   it("leaves the lobby off unless that setting is on", () => {
     expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").disableLobby).toEqual(true);
     expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").disableLobby).toEqual(false);
     expect(jitsiEmbedConfigOverwrite(runtime({enableLobby: true}), "Meeting").lobby.autoKnock).toEqual(true);
+  });
+
+});
+
+describe("joinVideoMeetingAsGuest", () => {
+
+  it("joins a logged-in member as themselves even when they opened the guest link", () => {
+    expect(joinVideoMeetingAsGuest(true, true)).toEqual(false);
+  });
+
+  it("joins as a guest when the guest link is opened with no login", () => {
+    expect(joinVideoMeetingAsGuest(true, false)).toEqual(true);
+  });
+
+  it("joins as a member on the logged-in meeting path", () => {
+    expect(joinVideoMeetingAsGuest(false, true)).toEqual(false);
+    expect(joinVideoMeetingAsGuest(false, false)).toEqual(false);
+  });
+
+});
+
+describe("memberMeetingQueryParams", () => {
+
+  it("drops the guest token so a logged-in member is not joined with a guest identity", () => {
+    const params = {
+      keys: ["t", "meeting-title"],
+      get: (name: string) => name === "t" ? "guest-jwt" : name === "meeting-title" ? "Committee meeting" : null
+    };
+    expect(memberMeetingQueryParams(params)).toEqual({"meeting-title": "Committee meeting"});
+  });
+
+  it("keeps other query params when there is no guest token", () => {
+    const params = {
+      keys: ["meeting-title"],
+      get: (name: string) => name === "meeting-title" ? "Walk planning" : null
+    };
+    expect(memberMeetingQueryParams(params)).toEqual({"meeting-title": "Walk planning"});
+  });
+
+  it("drops the invitee name and email so a logged-in member keeps their own identity", () => {
+    const values: {[key: string]: string} = {name: "Kerry O Grady", email: "kerry@example.org", "meeting-title": "Committee meeting"};
+    const params = {keys: Object.keys(values), get: (name: string) => values[name] || null};
+    expect(memberMeetingQueryParams(params)).toEqual({"meeting-title": "Committee meeting"});
+  });
+
+});
+
+describe("guestIdentityFromQuery", () => {
+
+  it("reads the invitee name and email carried on a personalised invite link", () => {
+    const values: {[key: string]: string} = {name: " Kerry O Grady ", email: "kerry@example.org"};
+    expect(guestIdentityFromQuery({get: (name: string) => values[name] || null})).toEqual({name: "Kerry O Grady", email: "kerry@example.org"});
+  });
+
+  it("is blank on a plain guest link", () => {
+    expect(guestIdentityFromQuery({get: () => null})).toEqual({name: "", email: ""});
+  });
+
+});
+
+describe("usableMeetingDisplayName", () => {
+
+  it("rejects blank and generic Guest labels", () => {
+    expect(usableMeetingDisplayName("")).toEqual(false);
+    expect(usableMeetingDisplayName("Guest")).toEqual(false);
+    expect(usableMeetingDisplayName("fellow jitster")).toEqual(false);
+  });
+
+  it("accepts a real name people can recognise", () => {
+    expect(usableMeetingDisplayName("Andrew Barrett")).toEqual(true);
+  });
+
+});
+
+describe("shouldPromptForGuestName", () => {
+
+  it("asks a guest to type a name when they would otherwise appear as Guest", () => {
+    expect(shouldPromptForGuestName(true, "")).toEqual(true);
+    expect(shouldPromptForGuestName(true, "Guest")).toEqual(true);
+    expect(shouldPromptForGuestName(true, "Andrew Barrett")).toEqual(false);
+    expect(shouldPromptForGuestName(false, "")).toEqual(false);
   });
 
 });
@@ -339,9 +426,9 @@ describe("applyJitsiHostPageTheme", () => {
     expect(created[0].id).toEqual(JITSI_HOST_PAGE_STYLE_ID);
     expect(created[0].textContent).toContain(JITSI_SUNRISE);
     expect(created[0].textContent).toContain("#localvideomenu button");
-    expect(created[0].textContent).toContain(".toggleFilmstripContainer");
-    expect(created[0].textContent).toContain(".horizontal-filmstrip .filmstrip");
     expect(created[0].textContent).toContain(".tile-view .filmstrip");
+    expect(created[0].textContent).not.toContain(".toggleFilmstripContainer");
+    expect(created[0].textContent).not.toContain(".horizontal-filmstrip .filmstrip");
   });
 
 });

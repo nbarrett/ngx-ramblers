@@ -1,4 +1,4 @@
-import { CommitteeMeetingFormat } from "../models/committee.model";
+import { CommitteeFile, CommitteeMeetingFormat } from "../models/committee.model";
 
 export function committeeMeetingLocationLine(format: CommitteeMeetingFormat, venue: string): string {
   if (format === CommitteeMeetingFormat.ONLINE) {
@@ -10,11 +10,24 @@ export function committeeMeetingLocationLine(format: CommitteeMeetingFormat, ven
   }
 }
 
+export function displayMeetingTitle(title: string): string {
+  const trimmed = (title || "").trim();
+  if (!trimmed || trimmed.toLowerCase() === "ramblers meeting") {
+    return "";
+  } else {
+    return trimmed;
+  }
+}
+
+export function committeeFileMeetingTitle(file: Pick<CommitteeFile, "fileType" | "document" | "fileNameData" | "meeting">): string {
+  return displayMeetingTitle(file?.document?.title || file?.fileNameData?.title || file?.meeting?.title || file?.fileType) || "Unnamed meeting";
+}
+
 export function committeeMeetingHeading(title: string, typeDescription?: string | null): string {
   if (typeDescription?.trim()) {
     return typeDescription.trim();
   } else {
-    return (title || "").split(",")[0].trim() || "Committee meeting";
+    return displayMeetingTitle(title).split(",")[0].trim() || "Committee meeting";
   }
 }
 

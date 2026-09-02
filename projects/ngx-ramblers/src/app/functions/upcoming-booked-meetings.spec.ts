@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CommitteeFile, CommitteeFileMeetingRole, CommitteeFileType, CommitteeMeetingFormat, OTHER_MEETING_CATEGORY } from "../models/committee.model";
-import { lastMeetingEventDate, upcomingBookedMeetings } from "./upcoming-booked-meetings";
+import { lastMeetingEventDate, recentVideoCalls, upcomingBookedMeetings } from "./upcoming-booked-meetings";
 
 const fileTypes: CommitteeFileType[] = [
   {description: "Agenda", meetingRole: CommitteeFileMeetingRole.AGENDA, meetingCategory: "Committee Meeting"},
@@ -54,6 +54,47 @@ describe("upcomingBookedMeetings", () => {
     ];
     const upcoming = upcomingBookedMeetings(files, 150, fileTypes);
     expect(upcoming.map(item => item.title)).toEqual(["August agenda", "Video call"]);
+  });
+
+  it("does not treat an ad-hoc video call as a booked committee meeting", () => {
+    const files = [{
+      id: "call",
+      eventDate: 200,
+      fileType: "",
+      meeting: {format: CommitteeMeetingFormat.ONLINE, title: "Ramblers meeting", room: "ngx-room"}
+    }] as CommitteeFile[];
+    expect(upcomingBookedMeetings(files, 150, fileTypes)).toEqual([]);
+  });
+
+});
+
+describe("recentVideoCalls", () => {
+
+  it("lists start-now video rooms newest first and drops booked meetings", () => {
+    const files = [
+      {
+        id: "old",
+        eventDate: 100,
+        fileType: "",
+        meeting: {format: CommitteeMeetingFormat.ONLINE, title: "Ramblers meeting", room: "ngx-old"}
+      },
+      {
+        id: "new",
+        eventDate: 300,
+        fileType: "",
+        meeting: {format: CommitteeMeetingFormat.ONLINE, title: "Video call, Sunday 30 August 2026", room: "ngx-new"}
+      },
+      {
+        id: "booked",
+        eventDate: 400,
+        fileType: "Agenda",
+        meeting: {format: CommitteeMeetingFormat.ONLINE, title: "Committee Meeting", room: "ngx-booked"}
+      }
+    ] as CommitteeFile[];
+    expect(recentVideoCalls(files)).toEqual([
+      {id: "new", room: "ngx-new", title: "Video call, Sunday 30 August 2026", startedAt: 300},
+      {id: "old", room: "ngx-old", title: "Unnamed meeting", startedAt: 100}
+    ]);
   });
 
 });

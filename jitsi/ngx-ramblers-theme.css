@@ -14,19 +14,6 @@
   fill: #1a1a1a !important;
 }
 
-.toggleFilmstripContainer,
-.toggleFilmstrip,
-#toggleFilmstripButton,
-.hide-videos-indicator {
-  display: none !important;
-}
-
-.horizontal-filmstrip .filmstrip,
-.vertical-filmstrip .filmstrip,
-.stage-filmstrip .filmstrip {
-  display: none !important;
-}
-
 .tile-view .filmstrip {
   display: flex !important;
   align-items: center !important;
@@ -44,4 +31,20 @@
   align-content: flex-start !important;
   align-items: flex-start !important;
   justify-content: flex-start !important;
+}
+
+.premeeting-screen .primary,
+.premeeting-screen .primary:focus {
+  background: rgb(249, 177, 4) !important;
+  border-color: rgb(249, 177, 4) !important;
+  color: #1a1a1a !important;
+}
+
+.premeeting-screen .primary:hover {
+  background: rgb(211, 150, 3) !important;
+  border-color: rgb(211, 150, 3) !important;
+}
+
+.premeeting-screen .primary svg {
+  fill: #1a1a1a !important;
 }

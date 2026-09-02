@@ -14,6 +14,7 @@ import committeeFile from "../mongo/models/committee-file";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeFile, meetingHasVenue, meetingIsOnline } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { committeeFileMeetingTitle } from "../../../projects/ngx-ramblers/src/app/functions/committee-meeting-agenda";
 
 const debugLog = debug(envConfig.logNamespace("calendar"));
 debugLog.enabled = false;
@@ -93,7 +94,7 @@ export async function meetingCalendarFile(committeeFileId: string, req: Request)
       .map(recipient => ({email: recipient.email, name: recipient.name}));
     const document = meetingIcalDocument({
       uid: `meeting-${id}@${host}`,
-      title: meetingFile.document?.title || meetingFile.meeting.title || "Ramblers meeting",
+      title: committeeFileMeetingTitle(meetingFile),
       startTime: meetingFile.eventDate,
       durationMinutes: meetingFile.meeting.durationMinutes,
       description: descriptionLines.join("\n") || undefined,

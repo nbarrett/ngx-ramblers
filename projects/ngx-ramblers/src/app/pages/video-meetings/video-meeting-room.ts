@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, inject, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, HostListener, inject, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -13,6 +13,7 @@ import {
   faExpand,
   faGaugeHigh,
   faHand,
+  faHeadset,
   faMessage,
   faMicrophone,
   faMicrophoneSlash,
@@ -49,10 +50,17 @@ import {
   JitsiJoinMode,
   MeetingAudioRecorder,
   MeetingMinutesCollectionState,
+  MeetingSpeakerEvent,
   MeetingSpeechCapture,
   SameRoomDetector,
   TranscribeStatus,
+  MeetingCurrentDevices,
+  MeetingDeviceKind,
+  MeetingDeviceLists,
+  MeetingRoomLeaveCheck,
+  MicLevelMeter,
   VideoMeetingClient,
+  VideoMeetingDevice,
   VideoMeetingMediaAction,
   VideoMeetingMediaHelp,
   VideoMeetingMediaIssue,
@@ -65,7 +73,7 @@ import {
   VideoMeetingRuntimeConfig
 } from "../../models/video-meeting.model";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
-import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, nameFromEmailAddress, tokenUserFromJwt, videoMeetingPeople } from "../../functions/video-meeting-join";
+import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, GUEST_MEETING_TOKEN_PARAM, guestIdentityFromQuery, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, joinVideoMeetingAsGuest, memberMeetingQueryParams, nameFromEmailAddress, shouldPromptForGuestName, tokenUserFromJwt, usableMeetingDisplayName, videoMeetingPeople } from "../../functions/video-meeting-join";
 import { createSameRoomDetector } from "../../functions/same-room-detector";
 import {
   activeMeetingRoom,
@@ -74,7 +82,10 @@ import {
   forgetMeetingNotesStartedAt,
   meetingNotesStartedAt,
   rememberActiveMeetingRoom,
+  rememberMeetingReturnPath,
+  rememberGuestName,
   rememberMeetingNotesStartedAt,
+  rememberedGuestName,
   shouldAutoJoinMeeting,
   videoMeetingClient,
   videoMeetingJoinActionLabel,
@@ -86,15 +97,20 @@ import { StoredValue } from "../../models/ui-actions";
 import { AdminPath } from "../../models/admin-route-paths.model";
 import { appendUniqueLine, lineFromJitsiChat, lineFromJitsiTranscription } from "../../functions/video-meeting-minutes";
 import { createMeetingAudioRecorder } from "../../functions/meeting-audio-recorder";
+import { pruneSpeakerTimeline, speakersInWindow } from "../../functions/meeting-speakers";
+import { createMicLevelMeter, deviceLabel, meetingCurrentDevices, meetingDeviceLists, microphoneLooksSilent, recentLevels, SILENT_MICROPHONE_PEAK, SILENT_MICROPHONE_SAMPLES } from "../../functions/mic-level-meter";
 
 declare const JitsiMeetExternalAPI: any;
+
+const MEETING_AUDIO_CHUNK_MS = 20000;
+const SPEAKER_TIMELINE_KEEP_MS = 60000;
 
 @Component({
   selector: "app-video-meeting-room",
   imports: [FormsModule, FontAwesomeModule, AlertPanelComponent, RecipientFieldComponent, VideoMeetingNotesComponent],
   styleUrls: ["./video-meeting-room.sass"],
   template: `
-    <div class="meeting-shell d-flex flex-column overflow-hidden mb-3" [class.fullscreen]="fullscreen">
+    <div #meetingShell class="meeting-shell d-flex flex-column overflow-hidden mb-3" [class.fullscreen]="fullscreen">
       @if (error) {
         <div class="p-3">
           <app-alert-panel title="Video meeting unavailable">{{ error }}</app-alert-panel>
@@ -151,6 +167,10 @@ declare const JitsiMeetExternalAPI: any;
                     [title]="audioMuted ? 'Turn microphone on' : 'Turn microphone off'" (click)="jitsiCommand('toggleAudio')">
               <fa-icon [icon]="audioMuted ? faMicrophoneSlash : faMicrophone"/><span class="meeting-tool-label">Mic</span>
             </button>
+            <button type="button" class="meeting-tool" [class.tool-active]="showDevices"
+                    title="Choose your microphone, speaker and camera" (click)="toggleDevices()">
+              <fa-icon [icon]="faHeadset"/><span class="meeting-tool-label">Sound</span>
+            </button>
             <button type="button" class="meeting-tool" [class.tool-active]="sharingScreen"
                     [title]="sharingScreen ? 'Stop sharing your screen' : 'Share your screen'"
                     (click)="jitsiCommand('toggleShareScreen')">
@@ -160,7 +180,7 @@ declare const JitsiMeetExternalAPI: any;
                     [title]="fullscreen ? 'Restore window' : 'Full screen'" (click)="toggleFullscreen()">
               <fa-icon [icon]="fullscreen ? faCompress : faExpand"/><span class="meeting-tool-label">{{ fullscreen ? "Restore" : "Full" }}</span>
             </button>
-            <button type="button" class="meeting-tool tool-leave" title="Leave the meeting" (click)="leave()">
+            <button type="button" class="meeting-tool tool-leave" title="Leave the meeting" (click)="requestLeave()">
               <fa-icon [icon]="faPhoneSlash"/><span class="meeting-tool-label">Leave</span>
             </button>
           </div>
@@ -179,24 +199,43 @@ declare const JitsiMeetExternalAPI: any;
       <div class="meeting-body position-relative d-flex flex-column flex-grow-1">
         @if (showPeople) {
           <div class="meeting-panel d-flex flex-column gap-2 p-3 bg-white text-dark rounded-3 shadow">
-            <strong>People in this meeting</strong>
-            @if (people.length) {
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <strong>People in this meeting</strong>
+              <button type="button" class="btn btn-icon" aria-label="Close" (click)="closePeople()">
+                <fa-icon [icon]="faXmark"/>
+              </button>
+            </div>
+            <label class="form-label mb-0" for="meeting-display-name">Your name</label>
+            <input id="meeting-display-name" class="form-control" [(ngModel)]="chosenName"
+                   (keydown.enter)="saveDisplayName(); $event.preventDefault()" (blur)="saveDisplayName()"
+                   placeholder="So people know who you are">
+            @if (nameSavedAs) {
+              <p class="text-muted small mb-0">
+                <fa-icon [icon]="faCheck" class="me-1"/>Everyone will now see you as {{ nameSavedAs }}.
+              </p>
+            }
+            @if (otherPeople.length) {
               <div class="d-flex flex-column gap-2">
-                @for (person of people; track person.participantId) {
+                @for (person of otherPeople; track person.participantId) {
                   <div class="d-flex align-items-center gap-2">
                     <fa-icon [icon]="faUser"/>
-                    <span>{{ person.displayName }}@if (person.local) { <span class="text-muted">(you)</span> }</span>
+                    <span>{{ person.displayName }}</span>
                   </div>
                 }
               </div>
             } @else {
               <span class="text-muted">You are the only person in this meeting.</span>
             }
-            @if (!guest) {
-              <button type="button" class="btn btn-primary w-100" (click)="openInviteFromPeople()">
-                <fa-icon [icon]="faUserPlus" class="me-2"/>Invite
+            <div class="d-flex gap-2">
+              @if (!guest) {
+                <button type="button" class="btn btn-quiet flex-fill text-nowrap" (click)="openInviteFromPeople()">
+                  <fa-icon [icon]="faUserPlus" class="me-2"/>Invite
+                </button>
+              }
+              <button type="button" class="btn btn-primary flex-fill text-nowrap" (click)="closePeople()">
+                <fa-icon [icon]="faCheck" class="me-2"/>Done
               </button>
-            }
+            </div>
           </div>
         }
         @if (showViewSettings) {
@@ -205,13 +244,16 @@ declare const JitsiMeetExternalAPI: any;
             <span class="text-muted">Choose how people are arranged on screen.</span>
             @for (option of layoutOptions; track option.value) {
               <button type="button"
-                      class="btn w-100 d-flex align-items-center justify-content-between gap-2 text-start"
+                      class="btn meeting-option w-100 d-flex align-items-center justify-content-between gap-2 text-start"
                       [class.btn-primary]="layout === option.value"
                       [class.btn-quiet]="layout !== option.value"
                       (click)="setLayout(option.value)">
-                <span class="d-flex flex-column">
-                  <strong>{{ option.label }}</strong>
-                  <small>{{ option.detail }}</small>
+                <span class="d-flex align-items-center gap-3">
+                  <fa-icon [icon]="layoutIcon(option.value)" size="lg" [fixedWidth]="true"/>
+                  <span class="d-flex flex-column">
+                    <strong>{{ option.label }}</strong>
+                    <small class="text-nowrap">{{ option.detail }}</small>
+                  </span>
                 </span>
                 @if (layout === option.value) {
                   <fa-icon [icon]="faCheck"/>
@@ -226,7 +268,7 @@ declare const JitsiMeetExternalAPI: any;
             <span class="text-muted">Choose how much bandwidth this meeting uses.</span>
             @for (option of videoQualityOptions; track option.value) {
               <button type="button"
-                      class="btn w-100 d-flex align-items-center justify-content-between gap-2 text-start"
+                      class="btn meeting-option w-100 d-flex align-items-center justify-content-between gap-2 text-start"
                       [class.btn-primary]="videoQuality === option.value"
                       [class.btn-quiet]="videoQuality !== option.value"
                       (click)="setVideoQuality(option.value)">
@@ -238,6 +280,51 @@ declare const JitsiMeetExternalAPI: any;
                   <fa-icon [icon]="faCheck"/>
                 }
               </button>
+            }
+          </div>
+        }
+        @if (showDevices) {
+          <div class="meeting-panel d-flex flex-column gap-2 p-3 bg-white text-dark rounded-3 shadow">
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <strong>Sound and camera</strong>
+              <button type="button" class="btn btn-icon" aria-label="Close" (click)="toggleDevices()">
+                <fa-icon [icon]="faXmark"/>
+              </button>
+            </div>
+            <label class="form-label mb-0" for="meeting-microphone">Microphone</label>
+            <select id="meeting-microphone" class="form-select" [ngModel]="currentDevices.audioInput?.deviceId || ''"
+                    (ngModelChange)="selectDevice(MeetingDeviceKind.AUDIO_INPUT, $event)">
+              @for (device of deviceLists.audioInput; track device.deviceId) {
+                <option [ngValue]="device.deviceId">{{ device.label || "Microphone" }}</option>
+              }
+            </select>
+            <div class="d-flex align-items-center gap-2">
+              <fa-icon [icon]="micLevel > 0.02 ? faMicrophone : faMicrophoneSlash"/>
+              <div class="progress flex-grow-1" role="meter" aria-label="Microphone level" [attr.aria-valuenow]="micLevelPercent">
+                <div class="progress-bar" [class.bg-success]="micLevel > 0.02" [style.width.%]="micLevelPercent"></div>
+              </div>
+            </div>
+            <span class="text-muted small">Say something. The bar should move when you speak.</span>
+            @if (deviceLists.audioOutput.length) {
+              <label class="form-label mb-0" for="meeting-speaker">Speaker</label>
+              <select id="meeting-speaker" class="form-select" [ngModel]="currentDevices.audioOutput?.deviceId || ''"
+                      (ngModelChange)="selectDevice(MeetingDeviceKind.AUDIO_OUTPUT, $event)">
+                @for (device of deviceLists.audioOutput; track device.deviceId) {
+                  <option [ngValue]="device.deviceId">{{ device.label || "Speaker" }}</option>
+                }
+              </select>
+            }
+            @if (deviceLists.videoInput.length) {
+              <label class="form-label mb-0" for="meeting-camera">Camera</label>
+              <select id="meeting-camera" class="form-select" [ngModel]="currentDevices.videoInput?.deviceId || ''"
+                      (ngModelChange)="selectDevice(MeetingDeviceKind.VIDEO_INPUT, $event)">
+                @for (device of deviceLists.videoInput; track device.deviceId) {
+                  <option [ngValue]="device.deviceId">{{ device.label || "Camera" }}</option>
+                }
+              </select>
+            }
+            @if (deviceStatus) {
+              <p class="text-muted small mb-0">{{ deviceStatus }}</p>
             }
           </div>
         }
@@ -258,6 +345,12 @@ declare const JitsiMeetExternalAPI: any;
             </div>
             <div class="d-flex flex-column gap-2 p-3 overflow-auto">
               <p class="fs-5 mb-0">{{ joinGuidance }}</p>
+              @if (guest) {
+                <label class="form-label mb-0" for="join-display-name">Your name</label>
+                <input id="join-display-name" class="form-control" [(ngModel)]="chosenName"
+                       placeholder="So people know who you are"
+                       (keydown.enter)="joinMeeting(); $event.preventDefault()">
+              }
               @if (client.inAppBrowser) {
                 <button type="button" class="btn btn-primary w-100" (click)="copyMeetingLink()">
                   <fa-icon [icon]="faCopy" class="me-2"/>{{ joinActionLabel }}
@@ -297,6 +390,24 @@ declare const JitsiMeetExternalAPI: any;
           </div>
         }
 
+        @if (micBanner) {
+          <div class="meeting-help-banner">
+            <app-alert-panel [title]="micBanner.title" [icon]="faMicrophoneSlash" [variant]="alertWarning" actionsEnd>
+              {{ micBanner.body }}
+              <button alertActions type="button" class="btn btn-primary"
+                      (click)="runMediaAction(micBanner.primaryAction)">
+                {{ micBanner.primaryLabel }}
+              </button>
+              @if (micBanner.secondaryAction) {
+                <button alertActions type="button" class="btn btn-quiet"
+                        (click)="runMediaAction(micBanner.secondaryAction)">
+                  {{ micBanner.secondaryLabel }}
+                </button>
+              }
+            </app-alert-panel>
+          </div>
+        }
+
         @if (sameRoomPrompt) {
           <div class="meeting-help-banner">
             <app-alert-panel title="Another device in this room?" [icon]="faVolumeXmark" [variant]="alertWarning"
@@ -332,6 +443,21 @@ declare const JitsiMeetExternalAPI: any;
           </div>
         }
         </div>
+
+        @if (confirmingLeave) {
+          <div class="meeting-dialog-scrim" (click)="cancelLeave()"></div>
+          <div class="meeting-dialog d-flex flex-column overflow-hidden bg-white text-dark rounded-3 shadow">
+            <div class="d-flex flex-column gap-2 p-3 overflow-auto">
+              <app-alert-panel title="Leave this meeting?" [icon]="faPhoneSlash" [variant]="alertWarning">
+                {{ leaveConfirmBody }}
+              </app-alert-panel>
+              <button type="button" class="btn btn-danger w-100" (click)="leave()">
+                <fa-icon [icon]="faPhoneSlash" class="me-2"/>Leave
+              </button>
+              <button type="button" class="btn btn-quiet w-100" (click)="cancelLeave()">Stay</button>
+            </div>
+          </div>
+        }
 
         @if (reconnectPrompt) {
           <div class="meeting-dialog-scrim"></div>
@@ -428,17 +554,24 @@ declare const JitsiMeetExternalAPI: any;
               </button>
             </div>
             <div class="d-flex flex-column gap-2 p-3">
+              <label class="form-label mb-0" for="guest-link">Meeting link</label>
+              <div class="d-flex gap-2">
+                <input id="guest-link" class="form-control" [value]="guestJoinUrl" readonly (focus)="selectAll($event)">
+                <button type="button" class="btn btn-quiet text-nowrap flex-shrink-0" (click)="copyGuestJoinLink()">
+                  <fa-icon [icon]="faCopy" class="me-2"/>Copy
+                </button>
+              </div>
+              <p class="text-muted small mb-0">Anyone with this link can join now.</p>
+              @if (joinLinkStatus) {
+                <p class="text-muted small mb-0">{{ joinLinkStatus }}</p>
+              }
               <app-recipient-field [to]="inviteRecipients" (toChange)="inviteRecipients = $event"
                                    [savedRecipients]="previousRecipients" [members]="inviteMembers" [plain]="true"/>
-              <button type="button" class="btn btn-primary btn-sm w-100" (click)="sendInvite()">
+              <button type="button" class="btn btn-primary w-100" (click)="sendInvite()">
                 <fa-icon [icon]="faPaperPlane" class="me-2"/>Send invite
               </button>
               @if (inviteStatus) {
                 <p class="text-muted small mb-0">{{ inviteStatus }}</p>
-              }
-              @if (inviteLink) {
-                <label class="form-label mb-0" for="guest-link">Invite link</label>
-                <input id="guest-link" class="form-control" [value]="inviteLink" readonly (focus)="selectAll($event)">
               }
             </div>
           </div>
@@ -453,7 +586,7 @@ declare const JitsiMeetExternalAPI: any;
       }
     </div>`
 })
-export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
+export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit, AfterViewInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingRoomComponent", NgxLoggerLevel.DEBUG);
   private route = inject(ActivatedRoute);
@@ -469,6 +602,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   @ViewChild("jitsiContainer") private jitsiContainer: ElementRef<HTMLDivElement>;
   @ViewChild("notesButton") notesButton: ElementRef<HTMLButtonElement>;
+  @ViewChild("meetingShell") private meetingShell: ElementRef<HTMLDivElement>;
 
   room: string;
   displayTitle = "";
@@ -481,12 +615,26 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   showPeople = false;
   showPerformanceSettings = false;
   showViewSettings = false;
+  showDevices = false;
+  deviceLists: MeetingDeviceLists = {audioInput: [], audioOutput: [], videoInput: []};
+  currentDevices: MeetingCurrentDevices = {audioInput: null, audioOutput: null, videoInput: null};
+  deviceStatus = "";
+  micLevel = 0;
+  private micMeter: MicLevelMeter | null = null;
+  private micLevels: number[] = [];
+  private microphoneSilent = false;
+  private microphoneSilentDismissed = false;
+  protected readonly MeetingDeviceKind = MeetingDeviceKind;
+  faHeadset = faHeadset;
   people: VideoMeetingParticipant[] = [];
+  chosenName = "";
+  nameSavedAs = "";
+  confirmingLeave = false;
   inviteRecipients: ComposerExternalRecipient[] = [];
   previousRecipients: ExternalRecipient[] = [];
   inviteMembers: Member[] = [];
   inviteStatus = "";
-  inviteLink = "";
+  joinLinkStatus = "";
   connecting = false;
   connectingMessage = "Preparing your meeting…";
   fullscreen = false;
@@ -509,6 +657,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private api: any;
   private token: string;
   private localIsModerator = false;
+  private skipPrepare = false;
   private transcriptLines: string[] = [];
   private chatLines: string[] = [];
   private connectingTimers: number[] = [];
@@ -525,18 +674,23 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   ];
   layout = VideoMeetingLayout.SPEAKER;
   readonly layoutOptions: VideoMeetingLayoutOption[] = [
-    {value: VideoMeetingLayout.SPEAKER, label: "Speaker", detail: "The person talking is shown large"},
+    {value: VideoMeetingLayout.SPEAKER, label: "Speaker", detail: "The person talking fills the screen"},
     {value: VideoMeetingLayout.GALLERY, label: "Gallery", detail: "Everyone is shown equally"}
   ];
   private joinedMuted = false;
   private remoteParticipantCount = 0;
   private localParticipantId = "";
   private frameObserver: ResizeObserver | null = null;
+  private sharingParticipantIds: string[] = [];
+  private pinnedSharer: string | null = null;
+  private speakerTimeline: MeetingSpeakerEvent[] = [];
+  private nativeFullscreen = false;
   private appliedGallery: boolean | null = null;
-  private filmstripVisible = true;
+
   private cannotHearDismissed = false;
   private microphoneOffDismissed = false;
   private leavingOnPurpose = false;
+  private pendingNavigation: ((allowed: boolean) => void) | null = null;
   private recovering = false;
   private audioRecorder: MeetingAudioRecorder | null = null;
   private transcriptionUploads: Promise<void>[] = [];
@@ -591,12 +745,28 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     return this.phase === VideoMeetingRoomPhase.IN_MEETING;
   }
 
+  get otherPeople(): VideoMeetingParticipant[] {
+    return this.people.filter(person => !person.local);
+  }
+
+  get leaveConfirmBody(): string {
+    if (!this.guest && this.notesEnabled && this.shouldWriteMinutes()) {
+      return "Leaving will write up the minutes from what was said. You can join again from the meeting link.";
+    } else {
+      return "You will leave the call. You can join again from the meeting link.";
+    }
+  }
+
   get joinTitle(): string {
     return videoMeetingJoinTitle(this.client);
   }
 
   get joinGuidance(): string {
     return videoMeetingJoinGuidance(this.client);
+  }
+
+  get guestJoinUrl(): string {
+    return this.room ? this.videoMeetingsService.guestUrl(this.room) : "";
   }
 
   get joinActionLabel(): string {
@@ -611,6 +781,22 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  get micBanner(): VideoMeetingMediaHelp | null {
+    if (this.mediaHelp?.issue === VideoMeetingMediaIssue.MICROPHONE_SILENT) {
+      return this.mediaHelp;
+    } else {
+      return null;
+    }
+  }
+
+  layoutIcon(value: VideoMeetingLayout) {
+    return value === VideoMeetingLayout.GALLERY ? this.faTableCells : this.faUser;
+  }
+
+  get micLevelPercent(): number {
+    return Math.round(this.micLevel * 100);
+  }
+
   get mediaDialog(): VideoMeetingMediaHelp | null {
     if (this.mediaHelp?.issue === VideoMeetingMediaIssue.MEDIA_BLOCKED
       || this.mediaHelp?.issue === VideoMeetingMediaIssue.MICROPHONE_OFF) {
@@ -623,14 +809,25 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   ngOnInit(): void {
     this.room = this.route.snapshot.paramMap.get("room");
     this.displayTitle = (this.room || "").replace(/-/g, " ");
-    this.guest = !!this.route.snapshot.data?.["guest"];
+    const guestRoute = !!this.route.snapshot.data?.["guest"];
+    this.guest = joinVideoMeetingAsGuest(guestRoute, this.memberLoginService.memberLoggedIn());
     this.client = videoMeetingClient(clientHintsFromWindow(window));
     this.fullscreen = this.client.coarsePointer;
     window.addEventListener("pagehide", this.onPageHide);
+    window.addEventListener("beforeunload", this.onBeforeUnload);
+    if (guestRoute && !this.guest) {
+      this.skipPrepare = true;
+      this.router.navigate(["/" + AdminPath.MEETING_ROOM, this.room], {
+        queryParams: memberMeetingQueryParams(this.route.snapshot.queryParamMap),
+        replaceUrl: true
+      });
+    }
   }
 
   async ngAfterViewInit(): Promise<void> {
-    await this.prepare();
+    if (!this.skipPrepare) {
+      await this.prepare();
+    }
   }
 
   private async prepare(): Promise<void> {
@@ -640,6 +837,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.config = await this.videoMeetingsService.config();
       if (this.config.enabled) {
         this.notesEnabled = this.config.enableNotes && !this.config.publicHost;
+        this.chosenName = this.initialChosenName();
         await this.meetingSubject();
         if (jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.EMBED) {
           this.token = await this.resolveToken();
@@ -721,12 +919,17 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  private guestIdentityFromLink(): {name: string; email: string} {
+    return guestIdentityFromQuery(this.route.snapshot.queryParamMap);
+  }
+
   private async resolveToken(): Promise<string> {
-    const urlToken = this.route.snapshot.queryParamMap.get("t");
+    const urlToken = this.route.snapshot.queryParamMap.get(GUEST_MEETING_TOKEN_PARAM);
     if (this.guest && urlToken) {
       return urlToken;
     } else if (this.guest && this.config.jwtRequired) {
-      return this.videoMeetingsService.guestToken(this.room);
+      const identity = this.guestIdentityFromLink();
+      return this.videoMeetingsService.guestToken(this.room, identity.name, identity.email);
     } else if (!this.guest && this.config.jwtRequired) {
       return (await this.videoMeetingsService.requestToken(this.room)).token;
     } else {
@@ -763,8 +966,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     };
     const tokenUser = tokenUserFromJwt(token);
     this.localIsModerator = !this.guest && tokenUser.moderator;
-    const displayName = this.fallbackDisplayName();
-    const named = displayName && displayName.toLowerCase() !== "guest" ? displayName : "";
+    const displayName = this.chosenDisplayName();
+    const named = usableMeetingDisplayName(displayName) ? displayName : "";
     const email = tokenUser.email || "";
     if (named || email) {
       options.userInfo = {
@@ -782,10 +985,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("videoConferenceJoined", (payload: { displayName?: string }) => this.zone.run(() => this.onConferenceJoined(payload)));
     this.api.addEventListener("videoConferenceLeft", () => this.zone.run(() => this.recoverMeeting()));
     this.api.addEventListener("readyToClose", () => this.zone.run(() => this.endMeeting()));
-    this.api.addEventListener("filmstripDisplayChanged", (payload: { visible?: boolean }) => this.zone.run(() => {
-      this.filmstripVisible = !!payload?.visible;
-      this.syncJitsiFilmstrip();
-    }));
+
     this.api.addEventListener("audioAvailabilityChanged", (payload: { available?: boolean }) => this.zone.run(() => {
       if (payload?.available === false) {
         this.audioAvailable = false;
@@ -807,7 +1007,12 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       if (!this.audioMuted) {
         this.microphoneOffDismissed = true;
       }
+      this.resetMicrophoneSilence();
       this.refreshMediaHelp();
+      void this.syncMicMeter();
+    }));
+    this.api.addEventListener("deviceListChanged", () => this.zone.run(() => {
+      void this.refreshDevices();
     }));
     this.api.addEventListener("videoMuteStatusChanged", (payload: { muted?: boolean }) => this.zone.run(() => {
       this.videoMuted = !!payload?.muted;
@@ -829,6 +1034,23 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("screenSharingStatusChanged", (payload: { on?: boolean }) => this.zone.run(() => {
       this.sharingScreen = !!payload?.on;
     }));
+    this.api.addEventListener("contentSharingParticipantsChanged", (payload: { data?: string[] }) => this.zone.run(() => {
+      this.sharingParticipantIds = (payload?.data || []).filter(participantId => !!participantId);
+      this.applyMeetingLayout();
+    }));
+    this.api.addEventListener("dominantSpeakerChanged", (payload: { id?: string }) => this.zone.run(() => {
+      this.recordDominantSpeaker(payload?.id || "");
+    }));
+    this.api.addEventListener("displayNameChange", (payload: { id?: string; displayname?: string; displayName?: string }) => this.zone.run(() => {
+      if (payload?.id && payload.id === this.localParticipantId) {
+        const name = (payload.displayName || payload.displayname || "").trim();
+        if (name) {
+          this.localDisplayName = name;
+          this.chosenName = name;
+        }
+      }
+      this.refreshPeople();
+    }));
     this.api.addEventListener("participantJoined", (payload: { id?: string }) => this.zone.run(() => {
       this.refreshParticipantCount();
       this.replaceDuplicateOccupants(payload?.id || null);
@@ -841,7 +1063,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       }
     }));
     this.api.addEventListener("tileViewChanged", (payload: { enabled?: boolean }) => this.zone.run(() => {
-      if (!this.frameIsPortrait()) {
+      if (!this.frameIsPortrait() && !this.shareActive()) {
         this.layout = payload?.enabled ? VideoMeetingLayout.GALLERY : VideoMeetingLayout.SPEAKER;
       }
     }));
@@ -865,7 +1087,14 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.hideHostBranding();
     this.phase = VideoMeetingRoomPhase.IN_MEETING;
     this.localParticipantId = payload?.id || "";
-    this.localDisplayName = (payload?.displayName || "").trim() || this.fallbackDisplayName();
+    this.localDisplayName = (payload?.displayName || "").trim() || this.chosenDisplayName();
+    this.chosenName = usableMeetingDisplayName(this.chosenName) ? this.chosenName : this.localDisplayName;
+    const chosen = this.chosenDisplayName();
+    if (usableMeetingDisplayName(chosen) && chosen !== this.localDisplayName) {
+      this.jitsiCommand("displayName", chosen);
+      this.localDisplayName = chosen;
+    }
+    this.rememberChosenName(chosen);
     this.localIsModerator = this.localIsModerator || tokenUserFromJwt(this.token).moderator;
     this.applyMeetingLayout();
     this.startStableTimer();
@@ -881,6 +1110,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.logger.info("could not read microphone state", error);
     }
     this.refreshMediaHelp();
+    void this.refreshDevices();
+    void this.syncMicMeter();
     this.beginNotesCapture();
     if (this.recordingEnabled) {
       this.startMeetingSpeechCapture();
@@ -907,12 +1138,59 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private fallbackDisplayName(): string {
     if (this.guest) {
-      return displayNameFromToken(this.token) || "Guest";
+      const identity = this.guestIdentityFromLink();
+      const fromLink = usableMeetingDisplayName(identity.name) ? identity.name : nameFromEmailAddress(identity.email);
+      const fromToken = displayNameFromToken(this.token);
+      if (usableMeetingDisplayName(fromLink)) {
+        return fromLink;
+      } else if (usableMeetingDisplayName(fromToken)) {
+        return fromToken;
+      } else {
+        const storage = this.guestNameStorage();
+        const stored = storage ? rememberedGuestName(storage) : "";
+        return usableMeetingDisplayName(stored) ? stored : "Guest";
+      }
     } else {
       const member = this.memberLoginService.loggedInMember();
       const fullName = [member?.firstName, member?.lastName].filter(Boolean).join(" ").trim();
       return fullName || nameFromEmailAddress(member?.userName || "") || (member?.userName || "").trim() || "Member";
     }
+  }
+
+  private chosenDisplayName(): string {
+    const typed = (this.chosenName || "").trim();
+    if (usableMeetingDisplayName(typed)) {
+      return typed;
+    } else {
+      return this.fallbackDisplayName();
+    }
+  }
+
+  private initialChosenName(): string {
+    const fallback = this.fallbackDisplayName();
+    if (this.guest && !usableMeetingDisplayName(fallback)) {
+      return "";
+    } else {
+      return fallback;
+    }
+  }
+
+  saveDisplayName(): void {
+    const name = (this.chosenName || "").trim();
+    if (usableMeetingDisplayName(name) && name !== this.localDisplayName) {
+      this.chosenName = name;
+      this.localDisplayName = name;
+      this.nameSavedAs = name;
+      this.jitsiCommand("displayName", name);
+      this.rememberChosenName(name);
+      this.refreshPeople();
+    }
+  }
+
+  closePeople(): void {
+    this.saveDisplayName();
+    this.showPeople = false;
+    this.nameSavedAs = "";
   }
 
   private async startSameRoomDetection(): Promise<void> {
@@ -982,6 +1260,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       remoteParticipantCount: this.remoteParticipantCount,
       cannotHearDismissed: this.cannotHearDismissed,
       microphoneOffDismissed: this.microphoneOffDismissed,
+      microphoneSilent: this.microphoneSilent,
+      microphoneSilentDismissed: this.microphoneSilentDismissed,
       coarsePointer: this.client.coarsePointer
     }, this.client);
   }
@@ -997,8 +1277,16 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.microphoneOffDismissed = true;
       this.refreshMediaHelp();
     } else if (action === VideoMeetingMediaAction.DISMISS) {
-      this.cannotHearDismissed = true;
+      if (this.mediaHelp?.issue === VideoMeetingMediaIssue.MICROPHONE_SILENT) {
+        this.microphoneSilentDismissed = true;
+      } else {
+        this.cannotHearDismissed = true;
+      }
       this.refreshMediaHelp();
+    } else if (action === VideoMeetingMediaAction.CHOOSE_MICROPHONE) {
+      if (!this.showDevices) {
+        this.toggleDevices();
+      }
     } else {
       this.logger.info("ignored meeting help action", action);
     }
@@ -1026,6 +1314,17 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.mountMeeting(this.token);
   }
 
+  copyGuestJoinLink(): void {
+    const link = this.guestJoinUrl;
+    this.clipboardService.copyToClipboard(link).then(() => {
+      if (this.clipboardService.clipboardText() === link) {
+        this.joinLinkStatus = "Link copied. Anyone with it can join.";
+      } else {
+        this.joinLinkStatus = "Copy the link from the box and send it yourself.";
+      }
+    });
+  }
+
   copyMeetingLink(): void {
     const link = window.location.href;
     this.clipboardService.copyToClipboard(link).then(() => {
@@ -1047,7 +1346,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.discardedChunkTotal = 0;
     this.transcriptionUploads = [];
     const recorder = createMeetingAudioRecorder(window, {
-      chunkMs: 20000,
+      chunkMs: MEETING_AUDIO_CHUNK_MS,
       onChunk: blob => this.queueAudioChunk(blob)
     });
     this.audioRecorder = recorder;
@@ -1068,13 +1367,20 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private queueAudioChunk(blob: Blob): void {
     if (blob?.size && this.room) {
-      this.transcriptionUploads = [...this.transcriptionUploads, this.uploadAudioChunk(blob)];
+      this.transcriptionUploads = [...this.transcriptionUploads, this.uploadAudioChunk(blob, this.speakersForLastChunk())];
     }
   }
 
-  private async uploadAudioChunk(blob: Blob): Promise<void> {
+  private participantNamesForTranscription(): string[] {
+    this.refreshPeople();
+    return this.people
+      .map(person => (person.displayName || "").trim())
+      .filter(name => usableMeetingDisplayName(name));
+  }
+
+  private async uploadAudioChunk(blob: Blob, speakers: string[]): Promise<void> {
     try {
-      const result = await this.videoMeetingsService.transcribeAudioChunk(this.room, this.localDisplayName, blob);
+      const result = await this.videoMeetingsService.transcribeAudioChunk(this.room, this.localDisplayName, blob, this.participantNamesForTranscription(), speakers);
       this.zone.run(() => {
         if (result.saved > 0 || result.discarded > 0) {
           this.capturedLineTotal += result.saved;
@@ -1204,6 +1510,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.showInvite = false;
       this.showPeople = false;
       this.showPerformanceSettings = false;
+      this.closeDevices();
       this.showViewSettings = false;
     }
   }
@@ -1215,20 +1522,132 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   toggleInvite(): void {
     this.showInvite = !this.showInvite;
     if (this.showInvite) {
+      this.joinLinkStatus = "";
       this.showNotes = false;
       this.showPeople = false;
       this.showPerformanceSettings = false;
+      this.closeDevices();
       this.showViewSettings = false;
+    }
+  }
+
+  toggleDevices(): void {
+    this.showDevices = !this.showDevices;
+    this.deviceStatus = "";
+    if (this.showDevices) {
+      this.showPeople = false;
+      this.showNotes = false;
+      this.showInvite = false;
+      this.showPerformanceSettings = false;
+      this.showViewSettings = false;
+      void this.refreshDevices();
+    }
+    void this.syncMicMeter();
+  }
+
+  async selectDevice(kind: MeetingDeviceKind, deviceId: string): Promise<void> {
+    const device = this.deviceLists[kind].find(candidate => candidate.deviceId === deviceId);
+    if (device && device.deviceId !== this.currentDevices[kind]?.deviceId) {
+      try {
+        if (kind === MeetingDeviceKind.AUDIO_INPUT) {
+          await this.api?.setAudioInputDevice?.(device.label, device.deviceId);
+        } else if (kind === MeetingDeviceKind.AUDIO_OUTPUT) {
+          await this.api?.setAudioOutputDevice?.(device.label, device.deviceId);
+        } else {
+          await this.api?.setVideoInputDevice?.(device.label, device.deviceId);
+        }
+        this.currentDevices = {...this.currentDevices, [kind]: device};
+        this.deviceStatus = `Now using ${deviceLabel(device, "the selected device")}.`;
+        this.resetMicrophoneSilence();
+        this.refreshMediaHelp();
+        await this.refreshDevices();
+        if (kind === MeetingDeviceKind.AUDIO_INPUT) {
+          this.stopMicMeter();
+          await this.syncMicMeter();
+        }
+      } catch (error) {
+        this.logger.error("could not switch device", kind, error);
+        this.deviceStatus = "We could not switch to that device. Please try another one.";
+      }
+    }
+  }
+
+  private async refreshDevices(): Promise<void> {
+    try {
+      const [available, current] = await Promise.all([
+        this.api?.getAvailableDevices?.(),
+        this.api?.getCurrentDevices?.()
+      ]);
+      this.deviceLists = meetingDeviceLists(available);
+      this.currentDevices = meetingCurrentDevices(current);
+    } catch (error) {
+      this.logger.info("could not list devices", error);
+    }
+  }
+
+  private micMeterWanted(): boolean {
+    const ios = this.client.device === VideoMeetingDevice.IPAD || this.client.device === VideoMeetingDevice.IPHONE;
+    return this.inMeeting && !this.client.inAppBrowser && this.audioMuted === false && (this.showDevices || !ios);
+  }
+
+  private async syncMicMeter(): Promise<void> {
+    if (this.micMeterWanted()) {
+      if (!this.micMeter) {
+        const meter = createMicLevelMeter(window, {
+          deviceId: this.currentDevices.audioInput?.deviceId || null,
+          onLevel: level => this.zone.run(() => this.onMicLevel(level))
+        });
+        this.micMeter = meter;
+        const started = await meter.start();
+        if (!started) {
+          this.micMeter = null;
+          this.logger.info("microphone level meter unavailable");
+        }
+      }
+    } else {
+      this.stopMicMeter();
+    }
+  }
+
+  private onMicLevel(level: number): void {
+    this.micLevel = level;
+    this.micLevels = recentLevels(this.micLevels, level, SILENT_MICROPHONE_SAMPLES);
+    const silent = microphoneLooksSilent(this.micLevels, SILENT_MICROPHONE_SAMPLES, SILENT_MICROPHONE_PEAK);
+    if (silent !== this.microphoneSilent) {
+      this.microphoneSilent = silent;
+      this.refreshMediaHelp();
+    }
+  }
+
+  private resetMicrophoneSilence(): void {
+    this.micLevels = [];
+    this.microphoneSilent = false;
+    this.microphoneSilentDismissed = false;
+  }
+
+  private stopMicMeter(): void {
+    this.micMeter?.stop();
+    this.micMeter = null;
+    this.micLevel = 0;
+    this.micLevels = [];
+  }
+
+  private closeDevices(): void {
+    if (this.showDevices) {
+      this.showDevices = false;
+      void this.syncMicMeter();
     }
   }
 
   togglePeople(): void {
     this.showPeople = !this.showPeople;
+    this.nameSavedAs = "";
     if (this.showPeople) {
       this.showNotes = false;
       this.showInvite = false;
       this.showPerformanceSettings = false;
       this.showViewSettings = false;
+      this.closeDevices();
       this.refreshPeople();
     }
   }
@@ -1237,6 +1656,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.showPeople = false;
     this.showNotes = false;
     this.showPerformanceSettings = false;
+    this.closeDevices();
     this.showViewSettings = false;
     this.showInvite = true;
   }
@@ -1248,6 +1668,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.showInvite = false;
       this.showPeople = false;
       this.showViewSettings = false;
+      this.closeDevices();
     }
   }
 
@@ -1258,6 +1679,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.showInvite = false;
       this.showPeople = false;
       this.showPerformanceSettings = false;
+      this.closeDevices();
     }
   }
 
@@ -1282,18 +1704,46 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     return !!frame && frame.clientHeight > frame.clientWidth;
   }
 
-  private applyMeetingLayout(): void {
-    const gallery = this.frameIsPortrait() || this.layout === VideoMeetingLayout.GALLERY;
-    this.appliedGallery = gallery;
-    this.jitsiCommand("setTileView", gallery);
-    this.syncJitsiFilmstrip();
+  private shareActive(): boolean {
+    return this.sharingParticipantIds.length > 0;
   }
 
-  private syncJitsiFilmstrip(): void {
-    const wantFilmstrip = this.appliedGallery === true;
-    if (this.filmstripVisible !== wantFilmstrip) {
-      this.jitsiCommand("toggleFilmStrip");
+  private applyMeetingLayout(): void {
+    const gallery = !this.shareActive() && (this.frameIsPortrait() || this.layout === VideoMeetingLayout.GALLERY);
+    if (gallery !== this.appliedGallery) {
+      this.appliedGallery = gallery;
+      this.jitsiCommand("setTileView", gallery);
     }
+    this.pinSharedScreen();
+  }
+
+  private pinSharedScreen(): void {
+    const sharer = this.sharingParticipantIds.find(participantId => participantId !== this.localParticipantId) || null;
+    if (sharer !== this.pinnedSharer) {
+      this.pinnedSharer = sharer;
+      if (sharer) {
+        this.jitsiCommand("setLargeVideoParticipant", sharer);
+      } else {
+        this.jitsiCommand("setLargeVideoParticipant");
+      }
+    }
+  }
+
+  private recordDominantSpeaker(participantId: string): void {
+    if (participantId) {
+      this.refreshPeople();
+      const person = this.people.find(candidate => candidate.participantId === participantId);
+      const name = participantId === this.localParticipantId ? this.localDisplayName : (person?.displayName || "");
+      if (usableMeetingDisplayName(name)) {
+        const now = this.dateUtils.dateTimeNowAsValue();
+        this.speakerTimeline = [...pruneSpeakerTimeline(this.speakerTimeline, now - SPEAKER_TIMELINE_KEEP_MS), {at: now, participantId, name}];
+      }
+    }
+  }
+
+  private speakersForLastChunk(): string[] {
+    const now = this.dateUtils.dateTimeNowAsValue();
+    return speakersInWindow(this.speakerTimeline, now - MEETING_AUDIO_CHUNK_MS, now);
   }
 
   private watchMeetingFrame(): void {
@@ -1342,7 +1792,30 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   toggleFullscreen(): void {
-    this.fullscreen = !this.fullscreen;
+    this.setFullscreen(!this.fullscreen);
+  }
+
+  private setFullscreen(on: boolean): void {
+    this.fullscreen = on;
+    const shell = this.meetingShell?.nativeElement;
+    if (on && shell?.requestFullscreen && !document.fullscreenElement) {
+      shell.requestFullscreen()
+        .then(() => {
+          this.nativeFullscreen = true;
+        })
+        .catch(error => this.logger.info("browser full screen unavailable, using the in-page layout", error));
+    } else if (!on && this.nativeFullscreen && document.fullscreenElement) {
+      this.nativeFullscreen = false;
+      document.exitFullscreen().catch(error => this.logger.info("could not leave browser full screen", error));
+    }
+  }
+
+  @HostListener("document:fullscreenchange")
+  onFullscreenChange(): void {
+    if (this.nativeFullscreen && !document.fullscreenElement) {
+      this.nativeFullscreen = false;
+      this.fullscreen = false;
+    }
   }
 
   selectAll(event: FocusEvent): void {
@@ -1353,7 +1826,6 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     const guests = this.inviteRecipients.filter(recipient => recipient.email);
     if (guests.length) {
       this.inviteStatus = guests.length === 1 ? "Sending…" : `Sending ${guests.length} invites…`;
-      this.inviteLink = "";
       try {
         const results = await Promise.all(guests.map(guest =>
           this.videoMeetingsService.inviteGuest(this.room, guest.email, guest.name || "").then(response => ({guest, response}))
@@ -1361,11 +1833,9 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         const sent = results.filter(result => result.response.sent).map(result => result.guest.email);
         const fallback = results.find(result => !result.response.sent);
         if (fallback && !sent.length) {
-          this.inviteStatus = "We could not send that automatically - copy the link below and send it yourself.";
-          this.inviteLink = fallback.response.link;
+          this.inviteStatus = "We could not send that automatically - copy the meeting link and send it yourself.";
         } else if (fallback) {
-          this.inviteStatus = `Invite sent to ${sent.join(", ")}. Copy the link below for the rest.`;
-          this.inviteLink = fallback.response.link;
+          this.inviteStatus = `Invite sent to ${sent.join(", ")}. Copy the meeting link for the rest.`;
         } else {
           this.inviteStatus = sent.length === 1 ? `Invite sent to ${sent[0]}.` : `Invites sent to ${sent.join(", ")}.`;
           this.inviteRecipients = [];
@@ -1394,13 +1864,29 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  requestLeave(): void {
+    if (this.inMeeting && !this.confirmingLeave && !this.minutesState && !this.meetingEnded) {
+      this.closePanels();
+      this.confirmingLeave = true;
+    } else {
+      this.leave();
+    }
+  }
+
+  cancelLeave(): void {
+    this.confirmingLeave = false;
+    this.resolvePendingNavigation(false);
+  }
+
   leave(): void {
     if (this.leavingOnPurpose && this.minutesState) {
       this.logger.info("already writing minutes after leave");
     } else {
+      this.confirmingLeave = false;
       this.leavingOnPurpose = true;
       this.reconnectPrompt = false;
-      this.fullscreen = false;
+      this.setFullscreen(false);
+      this.resolvePendingNavigation(false);
       this.forgetThisRoom();
       this.clearStableTimer();
       if (!this.guest && this.notesEnabled && this.shouldWriteMinutes()) {
@@ -1422,7 +1908,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private async collectMinutesThenExit(): Promise<void> {
     this.minutesState = MeetingMinutesCollectionState.WRITING;
-    this.fullscreen = false;
+    this.setFullscreen(false);
     this.stopMeetingSpeechCapture();
     this.stopSameRoomDetection();
     this.stopTranscriptPull();
@@ -1557,13 +2043,34 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private shouldAutoJoin(): boolean {
     const storage = this.meetingStorage();
     const storedRoom = storage ? activeMeetingRoom(storage) : null;
-    return shouldAutoJoinMeeting(this.room, this.client, storedRoom);
+    if (shouldPromptForGuestName(this.guest, this.chosenDisplayName())) {
+      return false;
+    } else {
+      return shouldAutoJoinMeeting(this.room, this.client, storedRoom);
+    }
+  }
+
+  private rememberChosenName(name: string): void {
+    const storage = this.guestNameStorage();
+    if (this.guest && storage && usableMeetingDisplayName(name)) {
+      rememberGuestName(name, storage);
+    }
+  }
+
+  private guestNameStorage(): Storage | null {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      this.logger.info("guest name memory is not available", error);
+      return null;
+    }
   }
 
   private rememberThisRoom(): void {
     const storage = this.meetingStorage();
     if (storage) {
       rememberActiveMeetingRoom(this.room, storage);
+      rememberMeetingReturnPath(this.router.url, storage);
     }
   }
 
@@ -1587,12 +2094,17 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private disposeApi(): void {
     this.stopMeetingSpeechCapture();
     this.stopSameRoomDetection();
+    this.stopMicMeter();
+    this.microphoneSilent = false;
     this.stopTranscriptPull();
     this.clearStableTimer();
     this.flushTranscriptUpload();
     this.frameObserver?.disconnect();
     this.frameObserver = null;
     this.appliedGallery = null;
+    this.sharingParticipantIds = [];
+    this.pinnedSharer = null;
+    this.speakerTimeline = [];
     this.localParticipantId = "";
     this.people = [];
     this.showPeople = false;
@@ -1621,9 +2133,38 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.disposeApi();
   };
 
+  private onBeforeUnload = (event: BeforeUnloadEvent): void => {
+    if (this.inMeeting && !this.leavingOnPurpose) {
+      event.preventDefault();
+    }
+  };
+
+  confirmNavigationAway(): Promise<boolean> {
+    if (!this.inMeeting || this.leavingOnPurpose || this.meetingEnded || this.minutesState) {
+      return Promise.resolve(true);
+    } else {
+      this.resolvePendingNavigation(false);
+      this.closePanels();
+      this.confirmingLeave = true;
+      return new Promise<boolean>(resolve => {
+        this.pendingNavigation = resolve;
+      });
+    }
+  }
+
+  private resolvePendingNavigation(allowed: boolean): void {
+    const pending = this.pendingNavigation;
+    this.pendingNavigation = null;
+    if (pending) {
+      pending(allowed);
+    }
+  }
+
   ngOnDestroy(): void {
     this.leavingOnPurpose = true;
     window.removeEventListener("pagehide", this.onPageHide);
+    window.removeEventListener("beforeunload", this.onBeforeUnload);
+    this.resolvePendingNavigation(false);
     this.hideConnecting();
     this.dismissRecordingNotice();
     this.disposeApi();

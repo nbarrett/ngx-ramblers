@@ -1,21 +1,13 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom, Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faRefresh, faCamera, faSpinner, faStop, faCheck, faPowerOff } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isBoolean } from "es-toolkit/compat";
-import { BaseChartDirective } from "ng2-charts";
-import { Chart, ChartConfiguration, registerables } from "chart.js";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import {
-  FlyHistoryPreset,
-  FlyMachineStats,
-  FlyMetricHistory,
-  FlyMetricTab,
   FlyMachineState,
-  FlyTargetApp,
   FlyRestartResponse,
   FlyRestartStatus,
   HeapSnapshotResponse,
@@ -23,73 +15,13 @@ import {
   MemoryUsageResponse
 } from "../../../../models/health.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
-import { UIDateFormat } from "../../../../models/date-format.model";
-import { SectionToggle } from "../../../../shared/components/section-toggle";
-import { StoredValue } from "../../../../models/ui-actions";
+import { FlyMachineHistoryComponent } from "./fly-machine-history";
 
 @Component({
   selector: "app-system-memory-settings",
-  imports: [FontAwesomeModule, BaseChartDirective, SectionToggle],
-  styles: [`
-    .history-refresh
-      margin-bottom: 0.75rem
-  `],
+  imports: [FontAwesomeModule, FlyMachineHistoryComponent],
   template: `
-    <div class="row thumbnail-heading-frame">
-      <div class="thumbnail-heading">Fly Machine History</div>
-      <div class="col-sm-12">
-        <p>Host-level metrics from Fly for this environment's machines, over a selectable time range. Use this to spot memory creep, CPU saturation or traffic spikes — and to watch the effect of a restart or a big job as it happens. Pick a metric and time range, then refresh to pull the latest samples.</p>
-        <div class="row mb-3">
-          <div class="col-12">
-            <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
-              @if (integrationWorkerAvailable) {
-                <div class="form-group">
-                  <label class="d-block">App</label>
-                  <app-section-toggle [tabs]="targetTabLabels" [selectedTab]="selectedTargetLabel"
-                                      [queryParamKey]="StoredValue.APP"
-                                      (selectedTabChange)="selectTarget($event)"/>
-                </div>
-              }
-              <div class="form-group">
-                <label class="d-block">Metric</label>
-                <app-section-toggle [tabs]="metricTabLabels" [selectedTab]="selectedMetricLabel"
-                                    [queryParamKey]="StoredValue.METRIC"
-                                    (selectedTabChange)="selectMetric($event)"/>
-              </div>
-              <div class="form-group">
-                <label class="d-block">Range</label>
-                <app-section-toggle [tabs]="historyPresetLabels" [selectedTab]="selectedHistoryPreset"
-                                    [queryParamKey]="StoredValue.RANGE"
-                                    (selectedTabChange)="selectHistoryPreset($event)"/>
-              </div>
-              <div class="form-group">
-                <button type="button" class="btn btn-primary history-refresh" [disabled]="historyLoading" (click)="loadFlyHistory()">
-                  <fa-icon [icon]="historyLoading ? faSpinner : faRefresh" [animation]="historyLoading ? 'spin' : null"/>
-                  Refresh
-                </button>
-              </div>
-            </div>
-            @if (historyError) {
-              <div class="small text-muted">Fly machine history unavailable: {{ historyError }}</div>
-            } @else {
-              <div class="chart-container" style="position: relative; height: 280px;">
-                @if (historyChart.datasets.length && historyChart.datasets[0].data.length) {
-                  <canvas baseChart
-                          [data]="historyChart"
-                          [options]="historyOptions"
-                          type="line">
-                  </canvas>
-                } @else {
-                  <div class="d-flex justify-content-center align-items-center h-100">
-                    <span class="text-muted">No data in this range yet.</span>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-        </div>
-      </div>
-    </div>
+    <app-fly-machine-history (targetQueryChange)="flyTargetQuery = $event"/>
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Memory Diagnostics</div>
       <div class="col-sm-12">
@@ -232,21 +164,6 @@ import { StoredValue } from "../../../../models/ui-actions";
                 </tbody>
               </table>
             </div>
-            <div class="col-md-6">
-              @if (flyStats?.available) {
-                <table class="table table-sm">
-                  <caption>Fly machine (host-level, from Fly's own metrics - not the Node heap above)</caption>
-                  <tbody>
-                    <tr><th>App</th><td>{{ flyStats.appName }}</td></tr>
-                    <tr><th>Machine</th><td>{{ flyStats.machineId }}</td></tr>
-                    <tr><th>Memory used</th><td><strong>{{ flyStats.memoryUsedMb }} MB</strong></td></tr>
-                    <tr><th>Memory total</th><td>{{ flyStats.memoryTotalMb }} MB</td></tr>
-                  </tbody>
-                </table>
-              } @else if (flyStats) {
-                <div class="small text-muted">Fly stats unavailable: {{ flyStats.error }}</div>
-              }
-            </div>
           </div>
         }
       </div>
@@ -268,49 +185,8 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   private snapshotSub: Subscription | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
 
-  protected flyStats: FlyMachineStats | null = null;
-  protected historyError: string | null = null;
-  protected historyLoading = false;
-  protected readonly StoredValue = StoredValue;
-  protected readonly historyPresets: FlyHistoryPreset[] = [
-    {label: "15m", minutes: 15},
-    {label: "30m", minutes: 30},
-    {label: "1h", minutes: 60},
-    {label: "6h", minutes: 360},
-    {label: "24h", minutes: 1440},
-    {label: "3d", minutes: 4320},
-    {label: "7d", minutes: 10080}
-  ];
-  protected readonly historyPresetLabels: string[] = this.historyPresets.map(preset => preset.label);
-  protected selectedHistoryPreset = "24h";
-  protected readonly targetTabs: FlyMetricTab[] = [
-    {label: "Website", key: FlyTargetApp.ENVIRONMENT},
-    {label: "Integration worker", key: FlyTargetApp.WORKER}
-  ];
-  protected readonly targetTabLabels: string[] = this.targetTabs.map(tab => tab.label);
-  protected selectedTargetLabel = "Website";
-  protected integrationWorkerAvailable = false;
-  protected readonly metricTabs: FlyMetricTab[] = [
-    {label: "Memory", key: "memory"},
-    {label: "CPU", key: "cpu"},
-    {label: "Load average", key: "loadAverage"},
-    {label: "Network", key: "network"},
-    {label: "HTTP responses", key: "httpResponses"}
-  ];
-  protected readonly metricTabLabels: string[] = this.metricTabs.map(tab => tab.label);
-  protected selectedMetricLabel = "Memory";
-  private readonly seriesColours = ["249,177,4", "240,128,80", "59,110,143", "118,184,42"];
-  protected historyChart: ChartConfiguration<"line">["data"] = {labels: [], datasets: []};
-  protected historyOptions: ChartConfiguration<"line">["options"] = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {display: true, position: "top"}
-    },
-    scales: {
-      y: {beginAtZero: true, title: {display: true, text: "MB"}}
-    }
-  };
+  @ViewChild(FlyMachineHistoryComponent) private flyHistory: FlyMachineHistoryComponent;
+  protected flyTargetQuery = "";
   protected restartStatus: FlyRestartStatus = FlyRestartStatus.IDLE;
   protected restartConfirmPending = false;
   protected restartError: string | null = null;
@@ -331,10 +207,6 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly HeapSnapshotStatus = HeapSnapshotStatus;
   protected readonly FlyRestartStatus = FlyRestartStatus;
-
-  constructor() {
-    Chart.register(...registerables);
-  }
 
   ngOnInit() {
     this.refreshAll();
@@ -433,93 +305,16 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   }
 
   async refreshAll(): Promise<void> {
-    await Promise.all([this.refresh(), this.refreshFlyStats(), this.loadFlyHistory()]);
-  }
-
-  selectHistoryPreset(label: string): void {
-    this.selectedHistoryPreset = label;
-    this.loadFlyHistory();
-  }
-
-  selectMetric(label: string): void {
-    this.selectedMetricLabel = label;
-    this.loadFlyHistory();
-  }
-
-  selectTarget(label: string): void {
-    this.selectedTargetLabel = label;
-    this.refreshFlyStats();
-    this.loadFlyHistory();
-  }
-
-  private targetQuery(): string {
-    const target = this.targetTabs.find(candidate => candidate.label === this.selectedTargetLabel) || this.targetTabs[0];
-    return target.key === FlyTargetApp.WORKER ? `app=${FlyTargetApp.WORKER}&` : "";
+    await this.refresh();
   }
 
   get targetDescription(): string {
-    return this.selectedTargetLabel === "Website" ? "this environment's Fly machine" : "the integration worker's Fly machine";
-  }
-
-  async loadFlyHistory(): Promise<void> {
-    try {
-      this.historyLoading = true;
-      this.historyError = null;
-      const preset = this.historyPresets.find(candidate => candidate.label === this.selectedHistoryPreset) || this.historyPresets.find(candidate => candidate.label === "24h");
-      const metric = this.metricTabs.find(candidate => candidate.label === this.selectedMetricLabel) || this.metricTabs[0];
-      const history = await firstValueFrom(this.http.get<FlyMetricHistory>(`/api/health/memory/fly-history?${this.targetQuery()}metric=${metric.key}&minutes=${preset.minutes}`));
-      if (!history.available) {
-        this.historyError = history.error || "Failed to read Fly machine history";
-        this.historyChart = {labels: [], datasets: []};
-        return;
-      }
-      const labelFormat = preset.minutes <= 1440 ? UIDateFormat.RAMBLERS_TIME : UIDateFormat.DAY_MONTH_ABBREVIATED_TIME;
-      const longestSeries = history.series.reduce((longest, candidate) => candidate.samples.length > longest.samples.length ? candidate : longest, history.series[0]);
-      const solidSeriesCount = history.series.filter(series => !series.dashed).length;
-      this.historyOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {display: true, position: "top"}
-        },
-        scales: {
-          y: {beginAtZero: true, title: {display: true, text: history.unit}}
-        }
-      };
-      this.historyChart = {
-        labels: longestSeries.samples.map(sample => this.dateUtils.asDateTime(sample.time).toFormat(labelFormat)),
-        datasets: history.series.map((series, index) => {
-          const colour = this.seriesColours[index % this.seriesColours.length];
-          return {
-            label: series.label,
-            data: series.samples.map(sample => sample.value),
-            borderColor: `rgb(${colour})`,
-            backgroundColor: `rgba(${colour},0.2)`,
-            borderDash: series.dashed ? [6, 4] : undefined,
-            tension: 0.25,
-            fill: !series.dashed && solidSeriesCount === 1,
-            pointRadius: 0
-          };
-        })
-      };
-    } catch (error) {
-      this.logger.error("fly machine history failed", error);
-      this.historyError = error?.error?.error || error?.error?.message || error?.message || "Failed to read Fly machine history";
-      this.historyChart = {labels: [], datasets: []};
-    } finally {
-      this.historyLoading = false;
-    }
-  }
-
-  async refreshFlyStats(): Promise<void> {
-    try {
-      this.flyStats = await firstValueFrom(this.http.get<FlyMachineStats>(`/api/health/memory/fly-stats?${this.targetQuery()}`.replace(/[?&]$/, "")));
-      if (isBoolean(this.flyStats?.integrationWorkerAvailable)) {
-        this.integrationWorkerAvailable = this.flyStats.integrationWorkerAvailable;
-      }
-    } catch (error) {
-      this.logger.error("fly stats refresh failed", error);
-      this.flyStats = { available: false, error: error?.error?.error || error?.error?.message || error?.message || "Failed to read Fly stats" };
+    if (this.flyTargetQuery.includes("app=jitsi")) {
+      return "the video meetings Fly machine";
+    } else if (this.flyTargetQuery.includes("app=worker")) {
+      return "the integration worker's Fly machine";
+    } else {
+      return "this environment's Fly machine";
     }
   }
 
@@ -544,7 +339,7 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
 
   private async requestRestartWithRetries(attempt: number): Promise<void> {
     try {
-      await firstValueFrom(this.http.post<FlyRestartResponse>(`/api/health/memory/restart?${this.targetQuery()}`.replace(/[?&]$/, ""), {}));
+      await firstValueFrom(this.http.post<FlyRestartResponse>(`/api/health/memory/restart?${this.flyTargetQuery}`.replace(/[?&]$/, ""), {}));
       this.pollUntilBackUp();
     } catch (error) {
       this.logger.error("restart attempt", attempt, "failed", error);
@@ -572,13 +367,15 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
       }
       this.restartPollAttempts += 1;
       try {
-        const machineState = await firstValueFrom(this.http.get<FlyMachineState>(`/api/health/memory/machine-state?${this.targetQuery()}`.replace(/[?&]$/, "")));
+        const machineState = await firstValueFrom(this.http.get<FlyMachineState>(`/api/health/memory/machine-state?${this.flyTargetQuery}`.replace(/[?&]$/, "")));
         if (generation !== this.restartPollGeneration) {
           return;
         }
         if (machineState.available && machineState.state === "started" && machineState.updatedAt > restartInitiated) {
           this.restartStatus = FlyRestartStatus.DONE;
-          await Promise.all([this.refresh(), this.refreshFlyStats(), this.loadFlyHistory()]);
+          await this.refresh();
+          await this.flyHistory?.refreshFlyStats();
+          await this.flyHistory?.loadFlyHistory();
         } else {
           this.scheduleNextPollOrFail(generation, restartInitiated);
         }
@@ -586,7 +383,7 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
         if (generation !== this.restartPollGeneration) {
           return;
         }
-        if (error?.status === 401 && !this.targetQuery()) {
+        if (error?.status === 401 && !this.flyTargetQuery) {
           this.clearRestartPollTimer();
           this.restartStatus = FlyRestartStatus.SESSION_EXPIRED;
         } else {

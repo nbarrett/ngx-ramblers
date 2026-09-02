@@ -13,10 +13,37 @@ export const MEETING_TRANSCRIBE_PROMPT = [
   "If there is no clear speech, return an empty response."
 ].join(" ");
 
+export function meetingTranscribePrompt(recorderName: string, participants: string[], speakers: string[] = []): string {
+  const recorder = (recorderName || "").trim();
+  const others = (participants || [])
+    .map(name => (name || "").trim())
+    .filter(name => !!name && name.toLowerCase() !== recorder.toLowerCase())
+    .filter((name, index, names) => names.findIndex(candidate => candidate.toLowerCase() === name.toLowerCase()) === index);
+  const known = [recorder, ...others].filter(name => !!name);
+  const heard = (speakers || []).map(name => (name || "").trim()).filter(name => !!name);
+  const heardGuidance = heard.length
+    ? [`The meeting software detected these people speaking during this clip, the one who spoke most first: ${heard.join(", ")}. Prefer those names when deciding who said each line.`]
+    : [];
+  const speakerGuidance = known.length
+    ? [
+      `This audio was recorded on the device of ${recorder || "the host"}, so the loudest, closest voice is ${recorder || "the host"}; other voices arrive through the speakers and sound more distant.`,
+      `The people in the meeting are: ${known.join(", ")}.`,
+      ...heardGuidance,
+      "Start every utterance on its own line, prefixed with the speaker's name from that list and a colon, for example \"Rachel: I can hear you now.\".",
+      "When a voice clearly belongs to nobody on the list, label it Unknown. Never attribute one person's words to another."
+    ]
+    : [
+      ...heardGuidance,
+      "Start every utterance on its own line. If more than one person speaks, prefix each line with Speaker 1, Speaker 2 and so on, followed by a colon."
+    ];
+  return [MEETING_TRANSCRIBE_PROMPT, ...speakerGuidance].join(" ");
+}
+
 export function meetingMinutesSummaryPrompt(): string {
   return [
     "You are writing the minutes of a UK Ramblers group or committee video meeting from a verbatim record of what was said, the meeting chat and any typed notes.",
     "Summarise only what is in the record.",
+    "Each line of the record starts with the name of the person who said it. Attribute every statement, account and action to that named person, and never to whoever recorded the meeting.",
     "Every name, place, date, number, decision and action in your minutes must appear in the record; if it is not there, leave it out.",
     "Do not add, infer or embellish anything, do not guess at intentions, and do not pad thin material - if little was said, write little.",
     "Minute a spoken account in full: every name, what people did, where they went and what happened, in the order it was told. Do not shrink it to a single bullet or dismiss it as small talk.",

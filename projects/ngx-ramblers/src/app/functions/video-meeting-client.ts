@@ -1,4 +1,5 @@
 import {
+  MeetingRejoinOffer,
   VideoMeetingBrowser,
   VideoMeetingClient,
   VideoMeetingClientHints,
@@ -45,7 +46,9 @@ export function videoMeetingClient(hints: VideoMeetingClientHints): VideoMeeting
 }
 
 export const VIDEO_MEETING_ACTIVE_ROOM_KEY = "videoMeetingActiveRoom";
+export const VIDEO_MEETING_RETURN_PATH_KEY = "videoMeetingReturnPath";
 export const VIDEO_MEETING_NOTES_STARTED_KEY = "videoMeetingNotesStartedAt";
+export const VIDEO_MEETING_GUEST_NAME_KEY = "videoMeetingGuestName";
 
 export function rememberActiveMeetingRoom(room: string, storage: Storage): void {
   if (room) {
@@ -55,10 +58,31 @@ export function rememberActiveMeetingRoom(room: string, storage: Storage): void 
 
 export function forgetActiveMeetingRoom(storage: Storage): void {
   storage.removeItem(VIDEO_MEETING_ACTIVE_ROOM_KEY);
+  storage.removeItem(VIDEO_MEETING_RETURN_PATH_KEY);
 }
 
 export function activeMeetingRoom(storage: Storage): string | null {
   return storage.getItem(VIDEO_MEETING_ACTIVE_ROOM_KEY);
+}
+
+export function rememberMeetingReturnPath(path: string, storage: Storage): void {
+  if (path) {
+    storage.setItem(VIDEO_MEETING_RETURN_PATH_KEY, path);
+  }
+}
+
+function pathWithoutQuery(url: string): string {
+  return (url || "").split("?")[0].split("#")[0];
+}
+
+export function meetingRejoinOffer(storage: Storage, currentUrl: string): MeetingRejoinOffer | null {
+  const room = activeMeetingRoom(storage);
+  const path = storage.getItem(VIDEO_MEETING_RETURN_PATH_KEY);
+  if (room && path && pathWithoutQuery(path) !== pathWithoutQuery(currentUrl)) {
+    return {room, path};
+  } else {
+    return null;
+  }
 }
 
 function notesStartedStorageKey(room: string): string {
@@ -84,6 +108,19 @@ export function meetingNotesStartedAt(room: string, storage: Storage): number | 
 export function forgetMeetingNotesStartedAt(room: string, storage: Storage): void {
   if (room) {
     storage.removeItem(notesStartedStorageKey(room));
+  }
+}
+
+export function rememberedGuestName(storage: Storage): string {
+  return (storage.getItem(VIDEO_MEETING_GUEST_NAME_KEY) || "").trim();
+}
+
+export function rememberGuestName(name: string, storage: Storage): void {
+  const trimmed = (name || "").trim();
+  if (trimmed) {
+    storage.setItem(VIDEO_MEETING_GUEST_NAME_KEY, trimmed);
+  } else {
+    storage.removeItem(VIDEO_MEETING_GUEST_NAME_KEY);
   }
 }
 
@@ -145,6 +182,16 @@ export function videoMeetingJoinActionLabel(client: VideoMeetingClient): string 
 export function videoMeetingMediaHelp(state: VideoMeetingMediaState, client: VideoMeetingClient): VideoMeetingMediaHelp | null {
   if (state.inMeeting && (state.audioAvailable === false || state.videoAvailable === false)) {
     return mediaBlockedHelp(state, client);
+  } else if (state.inMeeting && state.audioMuted === false && state.microphoneSilent && !state.microphoneSilentDismissed) {
+    return {
+      issue: VideoMeetingMediaIssue.MICROPHONE_SILENT,
+      title: "We cannot hear anything from your microphone",
+      body: "Your microphone is on but no sound is reaching it. Choose a different microphone, or check it is not muted on your device.",
+      primaryAction: VideoMeetingMediaAction.CHOOSE_MICROPHONE,
+      primaryLabel: "Choose microphone",
+      secondaryAction: VideoMeetingMediaAction.DISMISS,
+      secondaryLabel: "Dismiss"
+    };
   } else if (state.inMeeting && state.coarsePointer && state.remoteParticipantCount > 0 && !state.cannotHearDismissed) {
     return {
       issue: VideoMeetingMediaIssue.CANNOT_HEAR,

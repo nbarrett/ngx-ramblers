@@ -22,6 +22,7 @@ const committeeFileSchema = new mongoose.Schema({
     room: { type: String, index: true },
     location: { type: String },
     title: { type: String },
+    inviteNote: { type: String },
     durationMinutes: { type: Number },
     invited: { type: Boolean },
     invitedMemberIds: { type: [String] },

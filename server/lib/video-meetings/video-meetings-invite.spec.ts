@@ -183,6 +183,24 @@ describe("issueGuestTokenForRoom", () => {
     expect(payload.context.user.moderator).toEqual(false);
   });
 
+  it("names the token after the invitee carried on a personalised invite link, with their own seat", async () => {
+    sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime")
+      .resolves(runtime({host: "https://ngx-ramblers-jitsi.fly.dev", jwtRequired: true, publicHost: false}));
+    sandbox.stub(videoMeetingsConfig, "jitsiJwtCredentials")
+      .returns({appId: "ngx-ramblers", appSecret: "test-secret-value"});
+    sandbox.stub(committeeFile, "findOne").returns({lean: () => ({exec: () => Promise.resolve({_id: "file-1"})})} as any);
+    const res = mockResponse();
+
+    await issueGuestTokenForRoom({body: {room: "committee-2026-08", name: "Kerry O Grady", email: "Kerry@Example.org"}} as any, res);
+
+    expect(res.statusCode).toEqual(200);
+    const payload = jwt.verify(res.body.token, "test-secret-value") as any;
+    expect(payload.context.user.id).toEqual(`${MeetingGuestOccupantKind.EMAIL}:kerry@example.org`);
+    expect(payload.context.user.name).toEqual("Kerry O Grady");
+    expect(payload.context.user.email).toEqual("Kerry@Example.org");
+    expect(payload.context.user.moderator).toEqual(false);
+  });
+
   it("does not mint a token when the room is not a planned meeting", async () => {
     sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime")
       .resolves(runtime({host: "https://ngx-ramblers-jitsi.fly.dev", jwtRequired: true, publicHost: false}));

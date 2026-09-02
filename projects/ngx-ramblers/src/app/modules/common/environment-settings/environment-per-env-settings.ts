@@ -19,6 +19,8 @@ import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { MongoUriInputComponent, MongoUriParseResult } from "../mongo-uri-input/mongo-uri-input";
 import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark.component";
 import { EnvironmentWebAnalyticsSites } from "./environment-web-analytics-sites";
+import { FlyMachineHistoryComponent } from "../../../pages/admin/system-settings/diagnostics/fly-machine-history";
+import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import {
@@ -46,7 +48,8 @@ import { toKebabCase } from "../../../functions/strings";
     SecretsEditor,
     MongoUriInputComponent,
     EnvironmentWebAnalyticsSites,
-    VendorBrandMarkComponent
+    VendorBrandMarkComponent,
+    FlyMachineHistoryComponent
   ],
   styles: [`
     .btn-outline-aws
@@ -289,12 +292,22 @@ import { toKebabCase } from "../../../functions/strings";
             <app-vendor-brand-mark serviceId="flyIo" [sizePx]="28"/>
             <span>Fly.io Configuration</span>
             @if (currentEnvironment?.flyio?.appName) {
-              <a [href]="'https://fly.io/apps/' + currentEnvironment.flyio.appName"
-                 target="_blank"
-                 class="btn btn-sm btn-outline-flyio ms-auto">
-                <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-                Fly.io Dashboard
-              </a>
+              <div class="ms-auto d-flex gap-2">
+                <a [href]="flyAppUrl(currentEnvironment.flyio.appName)"
+                   target="_blank"
+                   rel="noopener"
+                   class="btn btn-sm btn-quiet">
+                  <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+                  Fly dashboard
+                </a>
+                <a [href]="flyAppMetricsUrl(currentEnvironment.flyio.appName)"
+                   target="_blank"
+                   rel="noopener"
+                   class="btn btn-sm btn-quiet">
+                  <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+                  Fly metrics
+                </a>
+              </div>
             }
           </div>
           <div class="row">
@@ -349,6 +362,9 @@ import { toKebabCase } from "../../../functions/strings";
             </div>
           </div>
         </div>
+        @if (currentEnvironment.environment) {
+          <app-fly-machine-history [environmentName]="currentEnvironment.environment"/>
+        }
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
             <app-vendor-brand-mark serviceId="cloudflare" [sizePx]="26"/>
@@ -476,6 +492,8 @@ import { toKebabCase } from "../../../functions/strings";
 export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
+  protected readonly flyAppUrl = flyAppUrl;
+  protected readonly flyAppMetricsUrl = flyAppMetricsUrl;
 
   private systemConfigService = inject(SystemConfigService);
   private cloudflareUrl = inject(CloudflareUrlService);

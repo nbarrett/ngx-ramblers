@@ -1,7 +1,9 @@
+@import "../../assets/styles/colours"
+
 .meeting-shell
   height: calc(100dvh - 150px)
   min-height: 420px
-  background: #1a1a1a
+  background: $ramblers-colour-granite
   color: #fff
   border-radius: 10px
 
@@ -21,7 +23,7 @@
   z-index: 40
   min-height: 52px
   border-bottom: 1px solid rgba(255, 255, 255, 0.1)
-  background: #1a1a1a
+  background: $ramblers-colour-granite
 
 .meeting-bar-room
   font-size: 0.9rem
@@ -66,7 +68,7 @@
   inset: 0
   z-index: 5
   pointer-events: none
-  background: #1a1a1a
+  background: $ramblers-colour-granite
   color: #fff
 
 .meeting-connecting-spinner
@@ -170,14 +172,17 @@
   top: 0.75rem
   right: 0.75rem
   z-index: 24
-  width: min(310px, calc(100% - 1.5rem))
+  width: min(360px, calc(100% - 1.5rem))
+
+.meeting-option
+  min-height: 3.75rem
 
 .meeting-banners
   position: relative
   order: 1
   flex: 0 0 auto
   z-index: 20
-  background: #1a1a1a
+  background: $ramblers-colour-granite
   pointer-events: none
 
   &:empty

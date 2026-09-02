@@ -149,6 +149,8 @@ export async function handleGuestInvite(req: Request, res: Response): Promise<vo
 export async function issueGuestTokenForRoom(req: Request, res: Response): Promise<void> {
   try {
     const room: string = (req.body?.room || "").trim();
+    const name: string = (req.body?.name || "").toString().trim();
+    const email: string = (req.body?.email || "").toString().trim();
     if (!room) {
       res.status(400).json({message: "room is required"});
     } else {
@@ -158,7 +160,7 @@ export async function issueGuestTokenForRoom(req: Request, res: Response): Promi
       } else {
         const planned = await committeeFile.findOne({"meeting.room": room}).lean().exec();
         if (planned) {
-          res.status(200).json({token: issueGuestToken(room, "Guest"), host: runtime.host, room});
+          res.status(200).json({token: issueGuestToken(room, guestDisplayName(name, email), email), host: runtime.host, room});
         } else {
           res.status(200).json({token: null, host: runtime.host, room});
         }

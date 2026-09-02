@@ -61,6 +61,8 @@ import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { UIDateFormat } from "../../models/date-format.model";
 import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
+import { meetingInviteBodyMarkdown, personaliseJoinLinkHtml } from "../../functions/video-meeting-invite";
+import { memberHoldsCommitteeRole } from "../../functions/committee-members";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
@@ -89,8 +91,8 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
         <span modalTitle>Delete this meeting?</span>
         <div modalBody>
           <app-alert-panel title="This cannot be undone">
-            <p class="mb-2"><strong>{{ pendingDeleteEntry.title }}</strong> will be
-              removed from the calendar and the committee documents page.</p>
+            <p class="mb-2"><strong>{{ pendingDeleteEntry.title }}</strong> on
+              <strong>{{ pendingDeleteWhen() }}</strong> will be removed from the calendar and the committee documents page.</p>
             @if (cancellationPeople.length > 0) {
               <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="email-invitees" [(ngModel)]="emailInviteesOnDelete">
@@ -174,6 +176,11 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
                      placeholder="e.g. Committee meeting">
             </app-labelled-field>
           </app-labelled-field-row>
+          <div class="mt-2">
+            <label for="plan-invite-note">Invite note (optional)</label>
+            <textarea id="plan-invite-note" class="form-control" rows="2" [(ngModel)]="inviteNote"
+                      placeholder="A short note for the invite, if the title is not enough"></textarea>
+          </div>
           @if (hasVenue()) {
             <div class="mt-2">
               <label for="plan-location">Location</label>
@@ -201,6 +208,13 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
                 <app-list-subscriber-count [list]="list" [members]="members"/>
               </label>
             </div>
+          }
+          @if (committeeRoleSendOffered()) {
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="plan-send-to-role-addresses" [(ngModel)]="sendToRoleAddresses">
+              <label class="form-check-label" for="plan-send-to-role-addresses">Send to committee role addresses</label>
+            </div>
+            <small class="text-muted">Leave this off to use personal addresses. Turn it on to send to each committee member's role address instead.</small>
           }
         </app-thumbnail-heading-frame>
         <app-thumbnail-heading-frame heading="External recipients (optional)" [compact]="true">
@@ -327,11 +341,13 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   selectedDateLabel = "";
   startDateTime: string;
   title = "";
+  inviteNote = "";
   format: CommitteeMeetingFormat = CommitteeMeetingFormat.IN_PERSON;
   location = "";
   guestRecipientsField: ComposerExternalRecipient[] = [];
   lists: ListInfo[] = [];
   selectedListId: number | null = null;
+  sendToRoleAddresses = false;
   members: Member[] = [];
   previousRecipients: ExternalRecipient[] = [];
   meetingTypes: CommitteeMeetingType[] = [];
@@ -463,6 +479,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.startDateTime = this.dateUtils.isoDateTime(this.dateUtils.asDateTime(value).plus({hours: 19}).toMillis());
     this.title = this.suggestedTitle();
     this.generatedTitle = this.title;
+    this.inviteNote = "";
     this.sendError = null;
     this.applyMailLists(this.mailMessagingService.currentConfig());
     void this.mailMessagingService.refreshBrevoLists();
@@ -495,6 +512,10 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.cancellationPeople = [];
     this.deleteError = null;
     void this.loadCancellationPeople(entry);
+  }
+
+  pendingDeleteWhen(): string {
+    return this.pendingDeleteEntry ? this.dateUtils.asString(this.pendingDeleteEntry.dateValue, null, UIDateFormat.DISPLAY_DATE_AT_TIME) : "";
   }
 
   cancelDelete(): void {
@@ -707,6 +728,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.startDateTime = this.dateUtils.isoDateTime(entry.dateValue);
     this.title = entry.title;
     this.generatedTitle = this.title;
+    this.inviteNote = "";
     this.selectedListId = null;
     this.guestRecipientsField = [];
     this.sendError = null;
@@ -744,10 +766,12 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
         this.startDateTime = this.dateUtils.isoDateTime(start);
         this.title = file?.document?.title || meeting?.title || entry.title;
         this.generatedTitle = this.title;
+        this.inviteNote = meeting?.inviteNote || "";
         this.meetingType = this.meetingTypeFromFile(file) || this.meetingType;
         this.format = meeting?.format || CommitteeMeetingFormat.IN_PERSON;
         this.location = meeting?.location || "";
         this.selectedListId = meeting?.invitedListId ?? null;
+        this.sendToRoleAddresses = meeting?.useCommitteeRoleAddresses ?? false;
         this.guestRecipientsField = (meeting?.invitedRecipients || []).map(recipient => ({
           email: recipient.email,
           name: recipient.name
@@ -899,6 +923,19 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     return this.committeeRoles.find(role => role.memberId === memberId && !!role.email) || null;
   }
 
+  committeeRoleSendOffered(): boolean {
+    const listMembers = this.selectedListId === null
+      ? []
+      : this.mailListUpdaterService.subscribedMembers(this.members, this.selectedListId);
+    return listMembers.length > 0
+      && this.guestRecipientsField.length === 0
+      && listMembers.every(member => memberHoldsCommitteeRole(member, this.committeeRoles));
+  }
+
+  private useCommitteeRoleAddresses(): boolean {
+    return this.committeeRoleSendOffered() && this.sendToRoleAddresses;
+  }
+
   private async createMeetingAndInvite(): Promise<VideoMeetingInviteHandoff | null> {
     this.workingMessage = this.isEditing() ? "Saving meeting…" : "Creating meeting…";
     const persisted = await this.persistMeeting();
@@ -907,9 +944,11 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     } else {
       return {
         subject: persisted.meetingTitle,
-        body: this.inviteMarkdown(persisted.startTime, persisted.joinUrl, persisted.location),
+        body: this.inviteMarkdown(persisted.startTime, persisted.joinUrl, persisted.location, this.inviteNote),
+        joinUrl: persisted.joinUrl || undefined,
         externalRecipients: this.guestRecipients(),
         selectedListId: this.selectedListId ?? undefined,
+        useCommitteeRoleAddresses: this.useCommitteeRoleAddresses(),
         attachments: persisted.committeeFileId
           ? [{name: "meeting.ics", url: this.videoMeetingsService.calendarUrl(persisted.committeeFileId)}]
           : [],
@@ -919,20 +958,17 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private inviteMarkdown(startTime: number, joinUrl: string, location: string): string {
+  private inviteMarkdown(startTime: number, joinUrl: string, location: string, note: string): string {
     const timeLabel = this.dateUtils.asString(startTime, null, UIDateFormat.RAMBLERS_TIME);
-    const whereLines = [
-      joinUrl ? `**Join:** ${joinUrl}` : null,
-      location ? `**Where:** ${location}` : null
-    ].filter(Boolean).join("\n\n");
-    const guidance = joinUrl
-      ? `Open the link above to join the meeting. ${this.guestInstructions}`
-      : `We look forward to seeing you there.`;
-    return `You are invited to a committee meeting.\n\n`
-      + `**When:** ${this.selectedDateLabel} at ${timeLabel}\n\n`
-      + (whereLines ? `${whereLines}\n\n` : "")
-      + guidance
-      + this.inviteSignoff();
+    return meetingInviteBodyMarkdown({
+      dateLabel: this.selectedDateLabel,
+      timeLabel,
+      joinUrl,
+      location,
+      note,
+      guestInstructions: this.guestInstructions,
+      signoff: this.inviteSignoff()
+    });
   }
 
   private inviteSignoff(): string {
@@ -941,7 +977,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     const roleLine = role?.fullName && role?.description && role.description !== role.fullName
       ? `\n${role.description}`
       : "";
-    return name ? `\n\nKind regards\n\n${name}${roleLine}` : "";
+    return name ? `Kind regards\n\n${name}${roleLine}` : "";
   }
 
   private async persistMeeting(): Promise<{
@@ -971,9 +1007,11 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
       format: this.format,
       room,
       location: venue || undefined,
+      inviteNote: this.inviteNote.trim() || undefined,
       invited: this.guestRecipients().length > 0 || this.selectedListId != null,
       invitedRecipients: this.guestRecipients(),
       invitedListId: this.selectedListId ?? undefined,
+      useCommitteeRoleAddresses: this.useCommitteeRoleAddresses(),
       durationMinutes: existing?.durationMinutes,
       createdBy: existing?.createdBy ?? member?.memberId,
       createdByName: existing?.createdByName
@@ -1015,7 +1053,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     } else {
       this.workingMessage = "Sending invite…";
       try {
-        const htmlBody = this.rendering.markdownToHtml(invite.body);
+        const htmlBody = personaliseJoinLinkHtml(this.rendering.markdownToHtml(invite.body), invite.joinUrl || "");
         const start = await this.sendService.startBatch({
           bannerId: null,
           subject: invite.subject,
@@ -1028,7 +1066,8 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
           externalRecipients,
           attachments: invite.attachments,
           brandingMode: BrandingMode.UNBRANDED,
-          unbrandedSenderRoleType: role.type
+          unbrandedSenderRoleType: role.type,
+          useCommitteeRoleAddresses: invite.useCommitteeRoleAddresses === true
         });
         this.sendNotice = `The invite is being sent to ${this.stringUtils.pluraliseWithCount(start.totalRecipients, "recipient")}.`;
         this.showInvite = false;

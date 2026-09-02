@@ -151,8 +151,11 @@ async function queryPrometheusRange(organisation: string, apiToken: string, prom
   return body.data.result;
 }
 
-export async function flyMachineMemoryStats(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT): Promise<FlyMachineStats> {
-  const { apiToken: token, appName, organisation, machineId } = await flyRuntimeConfig(target);
+export async function flyMachineMemoryStats(
+  target: FlyTargetApp = FlyTargetApp.ENVIRONMENT,
+  environmentName: string | null = null
+): Promise<FlyMachineStats> {
+  const { apiToken: token, appName, organisation, machineId } = await flyRuntimeConfig(target, environmentName);
   const missing = missingFlyConfig({ FLY_API_TOKEN: token, FLY_APP_NAME: appName });
   if (missing) {
     return { available: false, error: `Fly stats are not configured for this environment (missing ${missing})` };
@@ -187,12 +190,17 @@ export async function flyMachineMemoryStats(target: FlyTargetApp = FlyTargetApp.
   }
 }
 
-export async function flyMetricHistory(metricKey: string, minutes: number, target: FlyTargetApp = FlyTargetApp.ENVIRONMENT): Promise<FlyMetricHistory> {
+export async function flyMetricHistory(
+  metricKey: string,
+  minutes: number,
+  target: FlyTargetApp = FlyTargetApp.ENVIRONMENT,
+  environmentName: string | null = null
+): Promise<FlyMetricHistory> {
   const definition = FLY_METRIC_DEFINITIONS.find(item => item.key === metricKey);
   if (!definition) {
     return { available: false, error: `Unknown metric ${metricKey}`, series: [] };
   }
-  const { apiToken: token, appName, organisation, machineId } = await flyRuntimeConfig(target);
+  const { apiToken: token, appName, organisation, machineId } = await flyRuntimeConfig(target, environmentName);
   const missing = missingFlyConfig({ FLY_API_TOKEN: token, FLY_APP_NAME: appName });
   if (missing) {
     return { available: false, error: `Fly stats are not configured for this environment (missing ${missing})`, series: [] };

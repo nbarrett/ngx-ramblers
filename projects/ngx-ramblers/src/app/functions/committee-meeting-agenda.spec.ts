@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CommitteeMeetingFormat } from "../models/committee.model";
+import { CommitteeFile, CommitteeMeetingFormat } from "../models/committee.model";
 import {
+  committeeFileMeetingTitle,
   committeeMeetingAgendaMarkdown,
   committeeMeetingHeading,
   committeeMeetingLocationLine,
   committeeMeetingMinutesBody,
   committeeMeetingMinutesMarkdown,
+  displayMeetingTitle,
   numberedAgendaItemsFromGenerated,
   withCommitteeMeetingDateLine,
   withCommitteeMeetingLink,
@@ -27,6 +29,31 @@ describe("committeeMeetingHeading", () => {
   it("prefers the meeting type and otherwise uses the title before the date", () => {
     expect(committeeMeetingHeading("Committee Meeting, Sunday 30 August 2026", "Committee Meeting")).toEqual("Committee Meeting");
     expect(committeeMeetingHeading("Video call, Sunday 30 August 2026", null)).toEqual("Video call");
+    expect(committeeMeetingHeading("Ramblers meeting", null)).toEqual("Committee meeting");
+  });
+
+});
+
+describe("displayMeetingTitle", () => {
+
+  it("treats the old Ramblers meeting default as empty", () => {
+    expect(displayMeetingTitle("Ramblers meeting")).toEqual("");
+    expect(displayMeetingTitle("Video call, Sunday 30 August 2026")).toEqual("Video call, Sunday 30 August 2026");
+  });
+
+});
+
+describe("committeeFileMeetingTitle", () => {
+
+  it("falls back to Unnamed meeting when the stored title is the old default", () => {
+    expect(committeeFileMeetingTitle({
+      fileType: "",
+      meeting: {format: CommitteeMeetingFormat.ONLINE, title: "Ramblers meeting"}
+    } as CommitteeFile)).toEqual("Unnamed meeting");
+    expect(committeeFileMeetingTitle({
+      fileType: "Agenda",
+      document: {title: "August agenda"}
+    } as CommitteeFile)).toEqual("August agenda");
   });
 
 });
