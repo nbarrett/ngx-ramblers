@@ -22,7 +22,7 @@ import { CommitteeFileService } from "../../services/committee/committee-file.se
 import { DocumentConversionService } from "../../services/committee/document-conversion.service";
 import { ListInfo, MailMessagingConfig } from "../../models/mail.model";
 import { Member } from "../../models/member.model";
-import { CommitteeFile, CommitteeFileMeeting, CommitteeFileMeetingRole, CommitteeFileType, CommitteeMeetingFormat, CommitteeMeetingType, CommitteeMember, meetingHasVenue, meetingIsOnline } from "../../models/committee.model";
+import { CommitteeFile, CommitteeFileMeeting, CommitteeFileMeetingRole, CommitteeFileType, CommitteeMeetingFormat, CommitteeMeetingType, CommitteeMember, OTHER_MEETING_CATEGORY, meetingHasVenue, meetingIsOnline } from "../../models/committee.model";
 import { NextCommitteeMeetingBannerComponent } from "./next-committee-meeting-banner";
 import { SortableTableComponent } from "../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../modules/common/sortable-table/sortable-table-cell.directive";
@@ -714,8 +714,14 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private meetingTypeFromFile(file: CommitteeFile | null): string | null {
-    return this.meetingTypes.find(type => type.agendaFileType === file?.fileType || type.minutesFileType === file?.fileType)?.description
-      || null;
+    const matched = this.meetingTypes.find(type => type.agendaFileType === file?.fileType || type.minutesFileType === file?.fileType);
+    if (matched) {
+      return matched.description;
+    } else if (file?.fileType === OTHER_MEETING_CATEGORY) {
+      return OTHER_MEETING_CATEGORY;
+    } else {
+      return null;
+    }
   }
 
   private async loadExistingMeetingIntoForm(entry: CalendarEntry): Promise<void> {

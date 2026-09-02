@@ -7,10 +7,8 @@ import { CommitteeFile, CommitteeFileApiResponse } from "../../models/committee.
 import { CommitteeDocumentsPageChoice, PageContent, PageContentType } from "../../models/content-text.model";
 import {
   addCommitteeFileIdToPage,
-  COMMITTEE_DOCUMENTS_YEAR_PATH_PATTERN,
   committeeDocumentsPageLabel,
   committeeDocumentsRow,
-  committeeDocumentsYearPath,
   preferredCommitteeDocumentsPagePath
 } from "../../functions/committee-documents-page";
 import { UIDateFormat } from "../../models/date-format.model";
@@ -18,6 +16,7 @@ import { CommonDataService } from "../common-data-service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { PageContentService } from "../page-content.service";
+import { CommitteeConfigService } from "./commitee-config.service";
 
 @Injectable({
   providedIn: "root"
@@ -27,6 +26,7 @@ export class CommitteeFileService {
   private http = inject(HttpClient);
   private commonDataService = inject(CommonDataService);
   private pageContentService = inject(PageContentService);
+  private committeeConfigService = inject(CommitteeConfigService);
   private dateUtils = inject(DateUtilsService);
   private BASE_URL = "/api/database/committee-file";
   private committeeFileNotifications = new Subject<CommitteeFileApiResponse>();
@@ -136,10 +136,8 @@ export class CommitteeFileService {
   async removeFromCommitteeDocumentsPage(file: CommitteeFile): Promise<void> {
     if (file?.id) {
       try {
-        const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
-        const target = file.meeting?.committeePagePath
-          ? await this.pageForPath(file.meeting.committeePagePath)
-          : await this.pageForPath(committeeDocumentsYearPath(year)) || await this.latestYearDocumentsPage();
+        const path = await this.documentsPagePathFor(file);
+        const target = path ? await this.pageForPath(path) : null;
         const row = target && committeeDocumentsRow(target);
         if (row?.committeeDocuments?.fileIds?.includes(file.id)) {
           row.committeeDocuments.fileIds = row.committeeDocuments.fileIds.filter(id => id !== file.id);
@@ -157,15 +155,19 @@ export class CommitteeFileService {
     const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
     return preferredCommitteeDocumentsPagePath(
       pages,
-      committeeDocumentsYearPath(year),
-      file.meeting?.committeePagePath || null
+      this.configuredDocumentsPagePath(),
+      file.meeting?.committeePagePath || null,
+      year
     );
   }
 
   private async defaultDocumentsPage(file: CommitteeFile): Promise<PageContent | null> {
-    const year = this.dateUtils.asString(file.eventDate, undefined, UIDateFormat.YEAR);
-    const yearPage = await this.pageForPath(committeeDocumentsYearPath(year));
-    return yearPage || await this.latestYearDocumentsPage();
+    const path = await this.documentsPagePathFor(file);
+    return path ? this.pageForPath(path) : null;
+  }
+
+  private configuredDocumentsPagePath(): string | null {
+    return this.committeeConfigService.committeeConfig()?.documentsPagePath || null;
   }
 
   private async pageForPath(path: string): Promise<PageContent | null> {
@@ -176,14 +178,6 @@ export class CommitteeFileService {
       this.logger.error("failed to load committee page", path, error);
       return null;
     }
-  }
-
-  private async latestYearDocumentsPage(): Promise<PageContent | null> {
-    const pages = await this.pageContentService.all({
-      criteria: {path: {$regex: COMMITTEE_DOCUMENTS_YEAR_PATH_PATTERN}},
-      sort: {path: -1}
-    });
-    return pages.find(page => !!committeeDocumentsRow(page)) || null;
   }
 
 }

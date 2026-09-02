@@ -1,27 +1,48 @@
 import { describe, expect, it } from "vitest";
-import { committeeDocumentSlug, meetingMinutesDocumentSlug } from "./committee-documents-page";
+import { preferredCommitteeDocumentsPagePath } from "./committee-documents-page";
+import { CommitteeDocumentsPageChoice } from "../models/content-text.model";
 
-describe("meetingMinutesDocumentSlug", () => {
+const pages: CommitteeDocumentsPageChoice[] = [
+  {path: "committee", label: "Committee"},
+  {path: "committee/2025", label: "2025"},
+  {path: "committee/2026", label: "2026"},
+  {path: "group/papers", label: "Papers"}
+];
 
-  it("is derived from the room, so it is unique per meeting even on the same day", () => {
-    const first = meetingMinutesDocumentSlug("video-call-monday-31-august-2026-3895");
-    const second = meetingMinutesDocumentSlug("video-call-monday-31-august-2026-7412");
-    expect(first).toEqual("video-call-monday-31-august-2026-3895");
-    expect(second).toEqual("video-call-monday-31-august-2026-7412");
-    expect(first).not.toEqual(second);
+describe("preferredCommitteeDocumentsPagePath", () => {
+
+  it("keeps a file on the page it is already attached to", () => {
+    expect(preferredCommitteeDocumentsPagePath(pages, "committee/2026", "group/papers", "2026")).toEqual("group/papers");
   });
 
-  it("stays the same regardless of the document title or file type, since it only uses the room", () => {
-    const room = "video-call-monday-31-august-2026-3895";
-    expect(meetingMinutesDocumentSlug(room)).toEqual(meetingMinutesDocumentSlug(room));
+  it("uses the configured documents page when it still exists", () => {
+    expect(preferredCommitteeDocumentsPagePath(pages, "group/papers", null, "2026")).toEqual("group/papers");
   });
 
-});
+  it("uses the configured page even when a year child also exists", () => {
+    expect(preferredCommitteeDocumentsPagePath(pages, "committee", null, "2026")).toEqual("committee");
+  });
 
-describe("committeeDocumentSlug", () => {
+  it("uses a year child of the configured path when that parent is not itself a documents list", () => {
+    expect(preferredCommitteeDocumentsPagePath(
+      pages.filter(page => page.path !== "committee"),
+      "committee",
+      null,
+      "2026"
+    )).toEqual("committee/2026");
+  });
 
-  it("kebab-cases the title and date and tidies ordinals", () => {
-    expect(committeeDocumentSlug("Agenda", "31st August 2026")).toEqual("agenda-31st-august-2026");
+  it("uses a documents page whose last segment is the meeting year when nothing is configured", () => {
+    expect(preferredCommitteeDocumentsPagePath(pages, null, null, "2026")).toEqual("committee/2026");
+  });
+
+  it("falls back to the first documents page when no year page exists", () => {
+    const withoutYear = pages.filter(page => page.path !== "committee/2026");
+    expect(preferredCommitteeDocumentsPagePath(withoutYear, null, null, "2026")).toEqual("committee");
+  });
+
+  it("returns null when there are no documents pages", () => {
+    expect(preferredCommitteeDocumentsPagePath([], "committee/2026", null, "2026")).toEqual(null);
   });
 
 });

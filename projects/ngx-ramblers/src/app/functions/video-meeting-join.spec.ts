@@ -4,6 +4,8 @@ import {
   applyJitsiHostPageTheme,
   applyJitsiIframeAllow,
   displayNameFromToken,
+  duplicateOccupantIdsToKick,
+  guestMeetingOccupantId,
   JITSI_HOST_PAGE_STYLE_ID,
   JITSI_IFRAME_ALLOW,
   JITSI_SUNRISE,
@@ -11,14 +13,18 @@ import {
   jitsiHostPageUrl,
   jitsiJoinMode,
   nameFromEmailAddress,
+  occupantIdentityKey,
   suggestedVideoMeetingTitle,
+  tokenUserFromJwt,
+  videoMeetingTitleFromRoom,
   videoMeetingDisplayName,
   videoMeetingPeople,
   videoMeetingRoomSlug
 } from "./video-meeting-join";
+import { MeetingGuestOccupantKind, MeetingOccupantIdentity } from "../models/video-meeting.model";
 
-function fakeJwt(name: string): string {
-  const payload = Buffer.from(JSON.stringify({context: {user: {name}}})).toString("base64")
+function fakeJwt(user: {name?: string; id?: string; email?: string; moderator?: boolean}): string {
+  const payload = Buffer.from(JSON.stringify({context: {user}})).toString("base64")
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   return `header.${payload}.signature`;
 }
@@ -78,6 +84,15 @@ describe("suggestedVideoMeetingTitle", () => {
 
 });
 
+describe("videoMeetingTitleFromRoom", () => {
+
+  it("turns a room slug into a readable meeting title", () => {
+    expect(videoMeetingTitleFromRoom("video-meeting-with-nick-and-vignesh-1-september-2026-8055"))
+      .toEqual("Video Meeting With Nick And Vignesh 1 September 2026");
+  });
+
+});
+
 describe("videoMeetingDisplayName", () => {
 
   it("prefers the meeting type over a title that also contains a date", () => {
@@ -106,10 +121,10 @@ describe("videoMeetingPeople", () => {
   it("keeps named participants and marks the local person", () => {
     expect(videoMeetingPeople([
       {participantId: "me", displayName: "Nick Barrett"},
-      {participantId: "them", formattedDisplayName: "Jane Walker"}
+      {participantId: "them", formattedDisplayName: "Jane Walker", email: "jane@example.org"}
     ], "me")).toEqual([
-      {participantId: "me", displayName: "Nick Barrett", local: true},
-      {participantId: "them", displayName: "Jane Walker", local: false}
+      {participantId: "me", displayName: "Nick Barrett", email: null, local: true},
+      {participantId: "them", displayName: "Jane Walker", email: "jane@example.org", local: false}
     ]);
   });
 
@@ -163,6 +178,8 @@ describe("jitsiEmbedConfigOverwrite", () => {
     expect(overwrite.disableResponsiveTiles).toEqual(true);
     expect(overwrite.customTheme.palette.action01).toEqual(JITSI_SUNRISE);
     expect(overwrite.connectionIndicators.disabled).toEqual(true);
+    expect(overwrite.filmstrip.disableResizable).toEqual(true);
+    expect(overwrite.filmstrip.disableStageFilmstrip).toEqual(true);
   });
 
   it("leaves the lobby off unless that setting is on", () => {
@@ -190,12 +207,114 @@ describe("nameFromEmailAddress", () => {
 describe("displayNameFromToken", () => {
 
   it("reads the display name carried in the meeting token", () => {
-    expect(displayNameFromToken(fakeJwt("Duncan Reid"))).toEqual("Duncan Reid");
+    expect(displayNameFromToken(fakeJwt({name: "Duncan Reid"}))).toEqual("Duncan Reid");
   });
 
   it("returns empty for a missing or unreadable token", () => {
     expect(displayNameFromToken("")).toEqual("");
     expect(displayNameFromToken("not-a-token")).toEqual("");
+  });
+
+});
+
+describe("tokenUserFromJwt", () => {
+
+  it("reads identity, email and moderator from the meeting token", () => {
+    expect(tokenUserFromJwt(fakeJwt({
+      id: "guest-email:jane@example.org",
+      name: "Jane Walker",
+      email: "jane@example.org",
+      moderator: false
+    }))).toEqual({
+      id: "guest-email:jane@example.org",
+      name: "Jane Walker",
+      email: "jane@example.org",
+      moderator: false
+    });
+  });
+
+  it("treats a string moderator flag as true", () => {
+    const payload = Buffer.from(JSON.stringify({context: {user: {name: "Nick", moderator: "true"}}})).toString("base64")
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    expect(tokenUserFromJwt(`header.${payload}.signature`).moderator).toEqual(true);
+  });
+
+});
+
+describe("guestMeetingOccupantId", () => {
+
+  it("identifies an invited guest by email so a second join replaces the first", () => {
+    expect(guestMeetingOccupantId("committee-2026", "Jane.Walker@example.org"))
+      .toEqual(`${MeetingGuestOccupantKind.EMAIL}:jane.walker@example.org`);
+  });
+
+  it("gives unnamed guests one shared seat in the room", () => {
+    expect(guestMeetingOccupantId("committee-2026", ""))
+      .toEqual(`${MeetingGuestOccupantKind.ANONYMOUS}:committee-2026`);
+    expect(guestMeetingOccupantId("committee-2026", "  "))
+      .toEqual(`${MeetingGuestOccupantKind.ANONYMOUS}:committee-2026`);
+  });
+
+});
+
+describe("occupantIdentityKey", () => {
+
+  it("prefers email when Jitsi exposes it", () => {
+    expect(occupantIdentityKey({displayName: "Jane Walker", email: "jane@example.org"}))
+      .toEqual("email:jane@example.org");
+  });
+
+  it("treats unnamed Guest tiles as the same occupant", () => {
+    expect(occupantIdentityKey({displayName: "Guest", email: null}))
+      .toEqual(MeetingOccupantIdentity.ANONYMOUS_GUEST);
+    expect(occupantIdentityKey({displayName: "Fellow Jitster", email: null}))
+      .toEqual(MeetingOccupantIdentity.ANONYMOUS_GUEST);
+    expect(occupantIdentityKey({displayName: "Guest (me)", email: null}))
+      .toEqual(MeetingOccupantIdentity.ANONYMOUS_GUEST);
+  });
+
+  it("identifies a named person without email by display name", () => {
+    expect(occupantIdentityKey({displayName: "Nick Barrett", email: null})).toEqual("name:nick barrett");
+  });
+
+});
+
+describe("duplicateOccupantIdsToKick", () => {
+
+  it("keeps the newest unnamed Guest and kicks the rest", () => {
+    expect(duplicateOccupantIdsToKick([
+      {participantId: "g1", displayName: "Guest", email: null, local: false},
+      {participantId: "g2", displayName: "Guest", email: null, local: false},
+      {participantId: "g3", displayName: "Guest", email: null, local: false}
+    ], "me")).toEqual(["g1", "g2"]);
+  });
+
+  it("keeps a newly joined occupant when one is preferred", () => {
+    expect(duplicateOccupantIdsToKick([
+      {participantId: "g1", displayName: "Guest", email: null, local: false},
+      {participantId: "g2", displayName: "Guest", email: null, local: false}
+    ], "me", "g1")).toEqual(["g2"]);
+  });
+
+  it("never kicks the local occupant when they share an identity", () => {
+    expect(duplicateOccupantIdsToKick([
+      {participantId: "old", displayName: "Nick Barrett", email: "nick@example.org", local: false},
+      {participantId: "me", displayName: "Nick Barrett", email: "nick@example.org", local: true}
+    ], "me")).toEqual(["old"]);
+  });
+
+  it("does not treat a named guest as the same person as an unnamed Guest", () => {
+    expect(duplicateOccupantIdsToKick([
+      {participantId: "g1", displayName: "Guest", email: null, local: false},
+      {participantId: "jane", displayName: "Jane Walker", email: "jane@example.org", local: false}
+    ], "me")).toEqual([]);
+  });
+
+  it("kicks a second join of the same invited email", () => {
+    expect(duplicateOccupantIdsToKick([
+      {participantId: "first", displayName: "Jane Walker", email: "jane@example.org", local: false},
+      {participantId: "retry", displayName: "Jane Walker", email: "jane@example.org", local: false}
+    ], "me", "retry")).toEqual(["first"]);
   });
 
 });
@@ -220,7 +339,9 @@ describe("applyJitsiHostPageTheme", () => {
     expect(created[0].id).toEqual(JITSI_HOST_PAGE_STYLE_ID);
     expect(created[0].textContent).toContain(JITSI_SUNRISE);
     expect(created[0].textContent).toContain("#localvideomenu button");
-    expect(created[0].textContent).toContain(".vertical-filmstrip #filmstripRemoteVideos");
+    expect(created[0].textContent).toContain(".toggleFilmstripContainer");
+    expect(created[0].textContent).toContain(".horizontal-filmstrip .filmstrip");
+    expect(created[0].textContent).toContain(".tile-view .filmstrip");
   });
 
 });

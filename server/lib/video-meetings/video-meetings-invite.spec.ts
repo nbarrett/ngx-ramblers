@@ -1,12 +1,14 @@
 import expect from "expect";
 import sinon from "sinon";
 import { afterEach, beforeEach, describe, it } from "mocha";
-import { guestDisplayName, handleGuestInvite } from "./video-meetings-controllers";
+import jwt from "jsonwebtoken";
+import { guestDisplayName, handleGuestInvite, issueGuestTokenForRoom } from "./video-meetings-controllers";
 import * as videoMeetingsConfig from "./video-meetings-config";
 import * as guestInviteEmail from "./send-guest-invite-email";
 import * as systemConfigModule from "../config/system-config";
 import * as configModule from "../mongo/controllers/config";
-import { VideoMeetingRuntimeConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import committeeFile from "../mongo/models/committee-file";
+import { MeetingGuestOccupantKind, VideoMeetingRuntimeConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
 function runtime(overrides: Partial<VideoMeetingRuntimeConfig> = {}): VideoMeetingRuntimeConfig {
   return {
@@ -133,6 +135,12 @@ describe("video-meetings guest invite endpoint", () => {
 
     expect(res.statusCode).toEqual(200);
     expect(res.body.link).toContain("https://ngx.example.org/video-meetings/guest/committee-2026-08?t=");
+    const token = new URL(res.body.link).searchParams.get("t");
+    const payload = jwt.verify(token, "test-secret-value") as any;
+    expect(payload.context.user.id).toEqual(`${MeetingGuestOccupantKind.EMAIL}:guest@example.org`);
+    expect(payload.context.user.email).toEqual("guest@example.org");
+    expect(payload.context.user.name).toEqual("Guest");
+    expect(payload.context.user.moderator).toEqual(false);
   });
 
   it("responds with 500 when invite processing fails", async () => {
@@ -144,6 +152,49 @@ describe("video-meetings guest invite endpoint", () => {
     expect(res.statusCode).toEqual(500);
     expect(res.body.message).toEqual("Failed to send guest invite");
   });
+});
+
+describe("issueGuestTokenForRoom", () => {
+  let sandbox: sinon.SinonSandbox;
+
+  beforeEach(() => {
+    sandbox = sinon.createSandbox();
+  });
+
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  it("issues an unnamed guest token whose identity is the room, so retries share one seat", async () => {
+    sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime")
+      .resolves(runtime({host: "https://ngx-ramblers-jitsi.fly.dev", jwtRequired: true, publicHost: false}));
+    sandbox.stub(videoMeetingsConfig, "jitsiJwtCredentials")
+      .returns({appId: "ngx-ramblers", appSecret: "test-secret-value"});
+    sandbox.stub(committeeFile, "findOne").returns({lean: () => ({exec: () => Promise.resolve({_id: "file-1"})})} as any);
+    const res = mockResponse();
+
+    await issueGuestTokenForRoom({body: {room: "committee-2026-08"}} as any, res);
+
+    expect(res.statusCode).toEqual(200);
+    const payload = jwt.verify(res.body.token, "test-secret-value") as any;
+    expect(payload.context.user.id).toEqual(`${MeetingGuestOccupantKind.ANONYMOUS}:committee-2026-08`);
+    expect(payload.context.user.name).toEqual("Guest");
+    expect(payload.context.user.email).toBeUndefined();
+    expect(payload.context.user.moderator).toEqual(false);
+  });
+
+  it("does not mint a token when the room is not a planned meeting", async () => {
+    sandbox.stub(videoMeetingsConfig, "resolveVideoMeetingRuntime")
+      .resolves(runtime({host: "https://ngx-ramblers-jitsi.fly.dev", jwtRequired: true, publicHost: false}));
+    sandbox.stub(committeeFile, "findOne").returns({lean: () => ({exec: () => Promise.resolve(null)})} as any);
+    const res = mockResponse();
+
+    await issueGuestTokenForRoom({body: {room: "unknown-room"}} as any, res);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.token).toEqual(null);
+  });
+
 });
 
 describe("guestDisplayName", () => {

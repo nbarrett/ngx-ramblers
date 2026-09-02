@@ -18,7 +18,8 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
 import { toBritishEnglish } from "../../../projects/ngx-ramblers/src/app/functions/british-english";
 import { MeetingNote, MeetingNoteSource } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
-import { publishMeetingMinutes } from "./meeting-minutes-document";
+import { minutesDraftStillPending, publishMeetingMinutes } from "./meeting-minutes-document";
+import { memberFromRequest } from "./video-meetings-controllers";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:minutes"));
 debug.enabled = true;
@@ -81,32 +82,56 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
         res.status(400).json({message: "Nothing to write up yet"});
       } else {
         const source = meetingMinutesFromSource(transcript, chat, handwritten).trim();
-        const output = (await generateMeetingMinutes(source)).trim();
-        debug("writeMeetingMinutes: generated:", {room, outputChars: (output || "").length});
-        if (!output || meetingMinutesLookUnusable(output)) {
+        if (!source || meetingMinutesLookUnusable(source)) {
           debug("writeMeetingMinutes: generated output was empty or unusable");
           res.status(400).json({message: "Nothing to write up yet"});
         } else {
-          const member = req.user as MemberCookie;
-          const note = transforms.toObjectWithId(await persistAiNote(room, output, member));
+          const member = memberFromRequest(req);
           const notify = req.body?.notify === true;
-          const published = await publishMeetingMinutes(room, output, notify)
+          const note = transforms.toObjectWithId(await persistAiNote(room, source, member));
+          const published = await publishMeetingMinutes(room, source, false, true)
             .catch(publishError => {
               debug("could not save the minutes as a committee document", publishError);
               return null;
             });
-          debug("writeMeetingMinutes: saved:", {room, noteId: note.id, outputChars: output.length, notify, published});
+          debug("writeMeetingMinutes: saved record:", {room, noteId: note.id, sourceChars: source.length, notify, published});
           res.status(200).json({
             note,
             link: published?.link || "",
             path: published?.path || "",
             slug: published?.slug || ""
           });
+          void replaceMinutesWithSummary(room, source, member, notify);
         }
       }
     } catch (error) {
       debug("write meeting minutes failed:", error);
       res.status(502).json({message: "Failed to write meeting minutes", error: String(error)});
+    }
+  }
+}
+
+async function replaceMinutesWithSummary(room: string, source: string, member: MemberCookie, notify: boolean): Promise<void> {
+  try {
+    const output = (await generateMeetingMinutes(source)).trim();
+    const finalText = output && !meetingMinutesLookUnusable(output) ? output : source;
+    const pending = await minutesDraftStillPending(room);
+    if (!pending) {
+      debug("replaceMinutesWithSummary: draft was edited, leaving it as saved", {room});
+    } else {
+      if (finalText !== source) {
+        await persistAiNote(room, finalText, member);
+      }
+      await publishMeetingMinutes(room, finalText, notify, false);
+      debug("replaceMinutesWithSummary: saved:", {room, outputChars: finalText.length, summarised: finalText !== source, notify});
+    }
+  } catch (error) {
+    debug("replaceMinutesWithSummary failed; the verbatim draft remains", {room, error});
+    const pending = await minutesDraftStillPending(room).catch(() => false);
+    if (pending) {
+      await publishMeetingMinutes(room, source, notify, false).catch(publishError => {
+        debug("could not notify from the verbatim draft", publishError);
+      });
     }
   }
 }

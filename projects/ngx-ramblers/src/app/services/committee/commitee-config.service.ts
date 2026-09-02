@@ -177,4 +177,8 @@ export class CommitteeConfigService {
     return this.committeeCommitteeConfigSubject.asObservable();
   }
 
+  public committeeConfig(): CommitteeConfig | null {
+    return this.latestConfig;
+  }
+
 }

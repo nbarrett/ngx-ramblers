@@ -217,7 +217,8 @@ export class EmailCompositionsService {
       dividerAfter: fragment.dividerAfter,
       ...(fragment.columnGapPx !== undefined ? { columnGapPx: fragment.columnGapPx } : {}),
       ...(fragment.columns ? { columns: fragment.columns.map(column => column.map(columnFragment => this.serialiseFragment(columnFragment))) } : {}),
-      ...(fragment.committeeFileIds ? { committeeFileIds: [...fragment.committeeFileIds] } : {})
+      ...(fragment.committeeFileIds ? { committeeFileIds: [...fragment.committeeFileIds] } : {}),
+      ...(fragment.committeeFileInclude ? { committeeFileInclude: fragment.committeeFileInclude } : {})
     };
   }
 

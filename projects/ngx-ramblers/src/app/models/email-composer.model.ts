@@ -429,6 +429,12 @@ export const EXPANDABLE_FRAGMENT_KINDS: ReadonlySet<ComposerFragmentKind> = new 
   ComposerFragmentKind.COMMITTEE_FILE
 ]);
 
+export enum CommitteeFileEmailInclude {
+  LINK = "link",
+  CONTENT = "content",
+  BOTH = "both"
+}
+
 export interface ComposerFragment {
   kind: ComposerFragmentKind;
   id: string;
@@ -436,6 +442,7 @@ export interface ComposerFragment {
   columns?: ComposerFragment[][];
   columnGapPx?: number;
   committeeFileIds?: string[];
+  committeeFileInclude?: CommitteeFileEmailInclude;
 }
 
 export const DEFAULT_COLUMN_GAP_PX = 16;

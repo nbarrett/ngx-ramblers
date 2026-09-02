@@ -7,13 +7,14 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
+import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { MEETING_MINUTES_TEMPLATE_ID, MeetingMinutesView, MeetingTranscriptEntry } from "../../models/video-meeting.model";
 import { CommitteeFile, CommitteeMeetingFormat } from "../../models/committee.model";
 import { AdminPath } from "../../models/admin-route-paths.model";
 import { StoredValue } from "../../models/ui-actions";
 import { UIDateFormat } from "../../models/date-format.model";
 import { DateUtilsService } from "../../services/date-utils.service";
-import { committeeDocumentsYearPath, meetingMinutesDocumentSlug, preferredCommitteeDocumentsPagePath } from "../../functions/committee-documents-page";
+import { meetingMinutesDocumentSlug, preferredCommitteeDocumentsPagePath } from "../../functions/committee-documents-page";
 import { CommitteeDocumentsPageChoice } from "../../models/content-text.model";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
@@ -186,6 +187,7 @@ export class VideoMeetingMinutesComponent implements OnInit {
   private router = inject(Router);
   private videoMeetingsService = inject(VideoMeetingsService);
   private committeeFileService = inject(CommitteeFileService);
+  private committeeConfigService = inject(CommitteeConfigService);
   private dateUtils = inject(DateUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("VideoMeetingMinutesComponent", NgxLoggerLevel.ERROR);
 
@@ -268,8 +270,9 @@ export class VideoMeetingMinutesComponent implements OnInit {
         : this.dateUtils.asString(this.dateUtils.nowAsValue(), undefined, UIDateFormat.YEAR);
       this.selectedPagePath = preferredCommitteeDocumentsPagePath(
         this.destinationPages,
-        committeeDocumentsYearPath(year),
-        this.file?.meeting?.committeePagePath || null
+        this.committeeConfigService.committeeConfig()?.documentsPagePath || null,
+        this.file?.meeting?.committeePagePath || null,
+        year
       );
     } catch (error) {
       this.logger.error("failed to load meeting minutes", this.room, error);
@@ -290,6 +293,9 @@ export class VideoMeetingMinutesComponent implements OnInit {
       this.busy = true;
       this.statusMessage = "";
       try {
+        if (this.file.meeting) {
+          this.file.meeting = {...this.file.meeting, minutesSummaryPending: false};
+        }
         this.file = await this.committeeFileService.createOrUpdate(this.file);
         this.statusTitle = "Draft saved";
         this.statusVariant = AlertPanelVariant.SUCCESS;

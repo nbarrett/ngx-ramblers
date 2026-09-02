@@ -1,4 +1,4 @@
-import { CommitteeFile, CommitteeFileType, isAgendaFileType, isMeetingFileType } from "../models/committee.model";
+import { CommitteeFile, CommitteeFileType, isBookedMeetingFile, isMeetingFileType } from "../models/committee.model";
 import { UpcomingBookedMeeting } from "../models/video-meeting.model";
 
 export function lastMeetingEventDate(files: CommitteeFile[], fileTypes: CommitteeFileType[]): number | null {
@@ -17,7 +17,7 @@ export function upcomingBookedMeetings(
 ): UpcomingBookedMeeting[] {
   return (committeeFiles || [])
     .filter(file => (file.eventDate || 0) >= fromTime)
-    .filter(file => isAgendaFileType(file.fileType, fileTypes))
+    .filter(file => isBookedMeetingFile(file, fileTypes))
     .map(file => ({
       title: file.document?.title || file.fileNameData?.title || file.meeting?.title || file.fileType || "Committee meeting",
       startTime: file.eventDate,

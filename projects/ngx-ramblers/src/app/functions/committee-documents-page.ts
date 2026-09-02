@@ -1,18 +1,12 @@
 import { toKebabCase } from "./strings";
 import { CommitteeDocumentsPageChoice, PageContent, PageContentRow, PageContentType } from "../models/content-text.model";
 
-export const COMMITTEE_DOCUMENTS_YEAR_PATH_PATTERN = "^committee/[^/]+$";
-
 export function committeeDocumentSlug(title: string, eventDateLabel: string): string {
   return toKebabCase(title, eventDateLabel).replace(/(\d)-(st|nd|rd|th)(?=-|$)/g, "$1$2");
 }
 
 export function meetingMinutesDocumentSlug(room: string): string {
   return toKebabCase(room || "");
-}
-
-export function committeeDocumentsYearPath(year: string): string {
-  return `committee/${year}`;
 }
 
 export function committeeDocumentsRow(page: PageContent | null): PageContentRow | null {
@@ -30,13 +24,20 @@ export function committeeDocumentsPageLabel(page: PageContent): string {
 
 export function preferredCommitteeDocumentsPagePath(
   pages: CommitteeDocumentsPageChoice[],
-  yearPath: string,
-  currentPath: string | null
+  configuredPath: string | null,
+  currentPath: string | null,
+  year?: string | null
 ): string | null {
   const current = pages.find(page => page.path === currentPath);
-  const yearMatch = pages.find(page => page.path === yearPath);
+  const configured = pages.find(page => page.path === configuredPath);
+  const configuredYear = configuredPath && year ? pages.find(page => page.path === `${configuredPath}/${year}`) : null;
+  const yearMatch = year ? pages.find(page => page.path === year || page.path.endsWith(`/${year}`)) : null;
   if (current) {
     return current.path;
+  } else if (configured) {
+    return configured.path;
+  } else if (configuredYear) {
+    return configuredYear.path;
   } else if (yearMatch) {
     return yearMatch.path;
   } else {

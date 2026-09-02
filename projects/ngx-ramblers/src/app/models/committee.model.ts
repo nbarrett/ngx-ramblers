@@ -79,6 +79,7 @@ export interface CommitteeFileMeeting {
   startedAt?: number;
   endedAt?: number;
   committeePagePath?: string;
+  minutesSummaryPending?: boolean;
 }
 
 export function meetingIsOnline(format: CommitteeMeetingFormat): boolean {
@@ -527,6 +528,16 @@ export function isAgendaFileType(fileType: string, fileTypes: CommitteeFileType[
   return (fileTypes || []).some(candidate => candidate.description === fileType && candidate.meetingRole === CommitteeFileMeetingRole.AGENDA);
 }
 
+export function isBookedMeetingFile(file: Pick<CommitteeFile, "fileType" | "meeting">, fileTypes: CommitteeFileType[]): boolean {
+  if (isAgendaFileType(file?.fileType, fileTypes)) {
+    return true;
+  } else if (file?.fileType === OTHER_MEETING_CATEGORY && !!file?.meeting) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 export interface ExpensesConfig {
   costPerMile: number;
 }
@@ -544,6 +555,7 @@ export interface CommitteeConfig {
   };
   fileTypes: CommitteeFileType [];
   meetingTypes?: CommitteeMeetingType[];
+  documentsPagePath?: string | null;
   expenses: ExpensesConfig;
   meetingFrequencyAmount?: number;
   meetingFrequencyUnit?: DateRangeUnit;

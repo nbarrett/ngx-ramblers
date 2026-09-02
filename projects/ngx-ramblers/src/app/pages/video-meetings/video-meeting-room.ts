@@ -65,7 +65,7 @@ import {
   VideoMeetingRuntimeConfig
 } from "../../models/video-meeting.model";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
-import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, nameFromEmailAddress, videoMeetingPeople } from "../../functions/video-meeting-join";
+import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, nameFromEmailAddress, tokenUserFromJwt, videoMeetingPeople } from "../../functions/video-meeting-join";
 import { createSameRoomDetector } from "../../functions/same-room-detector";
 import {
   activeMeetingRoom,
@@ -241,7 +241,7 @@ declare const JitsiMeetExternalAPI: any;
             }
           </div>
         }
-        <div #jitsiContainer class="meeting-frame"></div>
+        <div #jitsiContainer class="meeting-frame" [class.d-none]="!!minutesState"></div>
 
         @if (connecting && !error) {
           <div class="meeting-connecting d-flex flex-column align-items-center justify-content-center gap-3">
@@ -357,6 +357,14 @@ declare const JitsiMeetExternalAPI: any;
                 <app-alert-panel title="Collecting the minutes" [variant]="alertWarning">
                   Writing up the minutes from what was said. This takes a few seconds…
                 </app-alert-panel>
+              } @else if (minutesState === minutesCollectionState.FAILED) {
+                <app-alert-panel title="Minutes could not be written" [variant]="alertDanger">
+                  The recording is saved. Try again now, or write the minutes later from the Meetings page.
+                </app-alert-panel>
+                <button type="button" class="btn btn-primary w-100" (click)="retryMinutes()">
+                  <fa-icon [icon]="faRotateRight" class="me-2"/>Try again
+                </button>
+                <button type="button" class="btn btn-quiet w-100" (click)="exitRoom()">Done</button>
               } @else {
                 <app-alert-panel title="Draft minutes are ready" [variant]="alertWarning">
                   A draft has been written up from the call. Review it, edit it if you need to, then save it onto the committee documents page.
@@ -500,6 +508,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private config: VideoMeetingRuntimeConfig;
   private api: any;
   private token: string;
+  private localIsModerator = false;
   private transcriptLines: string[] = [];
   private chatLines: string[] = [];
   private connectingTimers: number[] = [];
@@ -524,6 +533,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private localParticipantId = "";
   private frameObserver: ResizeObserver | null = null;
   private appliedGallery: boolean | null = null;
+  private filmstripVisible = true;
   private cannotHearDismissed = false;
   private microphoneOffDismissed = false;
   private leavingOnPurpose = false;
@@ -549,6 +559,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private capturedLineTotal = 0;
   private discardedChunkTotal = 0;
   protected readonly alertWarning = AlertPanelVariant.WARNING;
+  protected readonly alertDanger = AlertPanelVariant.DANGER;
   protected readonly faComments = faComments;
   protected readonly faRightFromBracket = faRightFromBracket;
   protected readonly faUserPlus = faUserPlus;
@@ -615,6 +626,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.guest = !!this.route.snapshot.data?.["guest"];
     this.client = videoMeetingClient(clientHintsFromWindow(window));
     this.fullscreen = this.client.coarsePointer;
+    window.addEventListener("pagehide", this.onPageHide);
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -749,9 +761,16 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         DEFAULT_BACKGROUND: "#1a1a1a"
       }
     };
+    const tokenUser = tokenUserFromJwt(token);
+    this.localIsModerator = !this.guest && tokenUser.moderator;
     const displayName = this.fallbackDisplayName();
-    if (displayName && displayName.toLowerCase() !== "guest") {
-      options.userInfo = {displayName};
+    const named = displayName && displayName.toLowerCase() !== "guest" ? displayName : "";
+    const email = tokenUser.email || "";
+    if (named || email) {
+      options.userInfo = {
+        ...(named ? {displayName: named} : {}),
+        ...(email ? {email} : {})
+      };
     }
     this.api = new JitsiMeetExternalAPI(domain, options);
     const iframe = this.api.getIFrame?.() as HTMLIFrameElement;
@@ -763,6 +782,10 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("videoConferenceJoined", (payload: { displayName?: string }) => this.zone.run(() => this.onConferenceJoined(payload)));
     this.api.addEventListener("videoConferenceLeft", () => this.zone.run(() => this.recoverMeeting()));
     this.api.addEventListener("readyToClose", () => this.zone.run(() => this.endMeeting()));
+    this.api.addEventListener("filmstripDisplayChanged", (payload: { visible?: boolean }) => this.zone.run(() => {
+      this.filmstripVisible = !!payload?.visible;
+      this.syncJitsiFilmstrip();
+    }));
     this.api.addEventListener("audioAvailabilityChanged", (payload: { available?: boolean }) => this.zone.run(() => {
       if (payload?.available === false) {
         this.audioAvailable = false;
@@ -806,8 +829,17 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("screenSharingStatusChanged", (payload: { on?: boolean }) => this.zone.run(() => {
       this.sharingScreen = !!payload?.on;
     }));
-    this.api.addEventListener("participantJoined", () => this.zone.run(() => this.refreshParticipantCount()));
+    this.api.addEventListener("participantJoined", (payload: { id?: string }) => this.zone.run(() => {
+      this.refreshParticipantCount();
+      this.replaceDuplicateOccupants(payload?.id || null);
+    }));
     this.api.addEventListener("participantLeft", () => this.zone.run(() => this.refreshParticipantCount()));
+    this.api.addEventListener("participantRoleChanged", (payload: { id?: string; role?: string }) => this.zone.run(() => {
+      if (payload?.id && payload.id === this.localParticipantId) {
+        this.localIsModerator = payload.role === "moderator";
+        this.replaceDuplicateOccupants(null);
+      }
+    }));
     this.api.addEventListener("tileViewChanged", (payload: { enabled?: boolean }) => this.zone.run(() => {
       if (!this.frameIsPortrait()) {
         this.layout = payload?.enabled ? VideoMeetingLayout.GALLERY : VideoMeetingLayout.SPEAKER;
@@ -834,11 +866,13 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.phase = VideoMeetingRoomPhase.IN_MEETING;
     this.localParticipantId = payload?.id || "";
     this.localDisplayName = (payload?.displayName || "").trim() || this.fallbackDisplayName();
+    this.localIsModerator = this.localIsModerator || tokenUserFromJwt(this.token).moderator;
     this.applyMeetingLayout();
     this.startStableTimer();
     this.showRecordingNotice();
 
     this.refreshParticipantCount();
+    this.replaceDuplicateOccupants(this.localParticipantId);
     try {
       const muted = await this.api?.isAudioMuted?.();
       this.audioMuted = !!muted;
@@ -1019,6 +1053,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.audioRecorder = recorder;
     void recorder.start().then(started => this.zone.run(() => {
       if (started) {
+        this.recordingUsed = true;
         this.transcribeStatus = TranscribeStatus.LISTENING;
         this.transcribeDetail = "Listening - speak to capture the minutes.";
         this.logger.info("meeting transcribe: audio recording started");
@@ -1251,6 +1286,14 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     const gallery = this.frameIsPortrait() || this.layout === VideoMeetingLayout.GALLERY;
     this.appliedGallery = gallery;
     this.jitsiCommand("setTileView", gallery);
+    this.syncJitsiFilmstrip();
+  }
+
+  private syncJitsiFilmstrip(): void {
+    const wantFilmstrip = this.appliedGallery === true;
+    if (this.filmstripVisible !== wantFilmstrip) {
+      this.jitsiCommand("toggleFilmStrip");
+    }
   }
 
   private watchMeetingFrame(): void {
@@ -1286,6 +1329,16 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private refreshPeople(): void {
     this.people = videoMeetingPeople(this.api?.getParticipantsInfo?.() || [], this.localParticipantId);
+  }
+
+  private replaceDuplicateOccupants(preferParticipantId: string | null): void {
+    if (this.localIsModerator) {
+      const toKick = duplicateOccupantIdsToKick(this.people, this.localParticipantId, preferParticipantId);
+      if (toKick.length) {
+        this.logger.info("replacing duplicate meeting occupants", toKick);
+        toKick.forEach(participantId => this.jitsiCommand("kickParticipant", participantId));
+      }
+    }
   }
 
   toggleFullscreen(): void {
@@ -1342,26 +1395,51 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   leave(): void {
-    this.leavingOnPurpose = true;
-    this.reconnectPrompt = false;
-    this.forgetThisRoom();
-    this.clearStableTimer();
-    if (!this.guest && this.notesEnabled && this.recordingUsed) {
-      void this.collectMinutesThenExit();
+    if (this.leavingOnPurpose && this.minutesState) {
+      this.logger.info("already writing minutes after leave");
     } else {
-      this.disposeApi();
-      this.exitRoom();
+      this.leavingOnPurpose = true;
+      this.reconnectPrompt = false;
+      this.fullscreen = false;
+      this.forgetThisRoom();
+      this.clearStableTimer();
+      if (!this.guest && this.notesEnabled && this.shouldWriteMinutes()) {
+        void this.collectMinutesThenExit();
+      } else {
+        this.disposeApi();
+        this.exitRoom();
+      }
     }
+  }
+
+  private shouldWriteMinutes(): boolean {
+    return this.recordingUsed || this.recordingEnabled || this.capturedLineTotal > 0 || !!(this.speechCapture?.transcript || "").trim();
+  }
+
+  retryMinutes(): void {
+    void this.collectMinutesThenExit();
   }
 
   private async collectMinutesThenExit(): Promise<void> {
     this.minutesState = MeetingMinutesCollectionState.WRITING;
+    this.fullscreen = false;
     this.stopMeetingSpeechCapture();
     this.stopSameRoomDetection();
     this.stopTranscriptPull();
-    await Promise.all(this.transcriptionUploads);
-    await this.pullPooledTranscript();
-    await this.flushTranscriptUploadNow();
+    this.hideMeetingFrame();
+    try {
+      await Promise.all(this.transcriptionUploads);
+      await this.pullPooledTranscript();
+      await this.flushTranscriptUploadNow();
+      await this.videoMeetingsService.writeMinutes(this.room, this.speechCapture, "", true);
+      this.minutesState = MeetingMinutesCollectionState.DONE;
+    } catch (error) {
+      this.logger.error("could not write up the minutes on leaving", error);
+      this.minutesState = MeetingMinutesCollectionState.FAILED;
+    }
+  }
+
+  private hideMeetingFrame(): void {
     if (this.api) {
       this.api.dispose();
       this.api = undefined;
@@ -1369,12 +1447,6 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     if (this.jitsiContainer?.nativeElement) {
       this.jitsiContainer.nativeElement.replaceChildren();
     }
-    try {
-      await this.videoMeetingsService.writeMinutes(this.room, this.speechCapture, "", true);
-    } catch (error) {
-      this.logger.info("could not write up the minutes on leaving", error);
-    }
-    this.minutesState = MeetingMinutesCollectionState.DONE;
   }
 
   openMinutes(): void {
@@ -1395,7 +1467,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.reconnectPrompt = false;
       this.clearStableTimer();
       this.forgetThisRoom();
-      if (!this.guest && this.notesEnabled && this.captureStartedAt !== null) {
+      if (!this.guest && this.notesEnabled && this.shouldWriteMinutes()) {
         void this.collectMinutesThenExit();
       } else {
         this.disposeApi();
@@ -1524,17 +1596,34 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.localParticipantId = "";
     this.people = [];
     this.showPeople = false;
-    if (this.api) {
-      this.api.dispose();
-      this.api = undefined;
+    this.localIsModerator = false;
+    const api = this.api;
+    this.api = undefined;
+    if (api) {
+      try {
+        api.executeCommand?.("hangup");
+      } catch (error) {
+        this.logger.info("could not hang up the meeting iframe", error);
+      }
+      try {
+        api.dispose();
+      } catch (error) {
+        this.logger.info("could not dispose the meeting iframe", error);
+      }
     }
     if (this.jitsiContainer?.nativeElement) {
       this.jitsiContainer.nativeElement.replaceChildren();
     }
   }
 
+  private onPageHide = (): void => {
+    this.leavingOnPurpose = true;
+    this.disposeApi();
+  };
+
   ngOnDestroy(): void {
     this.leavingOnPurpose = true;
+    window.removeEventListener("pagehide", this.onPageHide);
     this.hideConnecting();
     this.dismissRecordingNotice();
     this.disposeApi();

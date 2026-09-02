@@ -46,7 +46,7 @@ import { NotifierService, AlertInstance } from "../../../services/notifier.servi
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { CommitteeFileService } from "../../../services/committee/committee-file.service";
-import { CommitteeFile, CommitteeFileType, isAgendaFileType } from "../../../models/committee.model";
+import { CommitteeFile, CommitteeFileType, isBookedMeetingFile } from "../../../models/committee.model";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { videoMeetingDisplayName } from "../../../functions/video-meeting-join";
 
@@ -389,7 +389,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     committeeFiles: CommitteeFile[]
   ): void {
     committeeFiles
-      .filter(file => isAgendaFileType(file.fileType, this.committeeFileTypes))
+      .filter(file => isBookedMeetingFile(file, this.committeeFileTypes))
       .forEach(committeeFile => {
         const dayValue = this.dateUtils.asValueNoTime(committeeFile.eventDate);
         const existing = entriesByDay.get(dayValue) || [];

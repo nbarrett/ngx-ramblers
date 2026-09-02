@@ -13,6 +13,7 @@ import {
   MeetingNote,
   MeetingSpeechCapture,
   MeetingTranscriptResponse,
+  MeetingTranscriptRoomSummary,
   VideoMeetingRuntimeConfig,
   VideoMeetingTokenResponse
 } from "../../models/video-meeting.model";
@@ -108,6 +109,17 @@ export class VideoMeetingsService {
       ? await firstValueFrom(this.http.get<MeetingTranscriptResponse>(`${this.apiUrl}/transcript`, {params: {room}}))
       : null;
     return response || {transcript: "", lines: 0, startedAt: null, endedAt: null};
+  }
+
+  async transcriptRooms(): Promise<MeetingTranscriptRoomSummary[]> {
+    const response = await firstValueFrom(this.http.get<{rooms: MeetingTranscriptRoomSummary[]}>(`${this.apiUrl}/transcript-rooms`));
+    return response?.rooms || [];
+  }
+
+  async deleteTranscript(room: string): Promise<void> {
+    if (room) {
+      await firstValueFrom(this.http.delete(`${this.apiUrl}/transcript`, {params: {room}}));
+    }
   }
 
   generateRoomName(label: string, dateSlug: string): string {
