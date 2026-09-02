@@ -61,6 +61,7 @@ import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { UIDateFormat } from "../../models/date-format.model";
 import { suggestedVideoMeetingTitle, videoMeetingDateSlug } from "../../functions/video-meeting-join";
+import { meetingInviteBodyMarkdown } from "../../functions/video-meeting-invite";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
@@ -174,6 +175,11 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
                      placeholder="e.g. Committee meeting">
             </app-labelled-field>
           </app-labelled-field-row>
+          <div class="mt-2">
+            <label for="plan-invite-note">Invite note (optional)</label>
+            <textarea id="plan-invite-note" class="form-control" rows="2" [(ngModel)]="inviteNote"
+                      placeholder="A short note for the invite, if the title is not enough"></textarea>
+          </div>
           @if (hasVenue()) {
             <div class="mt-2">
               <label for="plan-location">Location</label>
@@ -327,6 +333,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   selectedDateLabel = "";
   startDateTime: string;
   title = "";
+  inviteNote = "";
   format: CommitteeMeetingFormat = CommitteeMeetingFormat.IN_PERSON;
   location = "";
   guestRecipientsField: ComposerExternalRecipient[] = [];
@@ -463,6 +470,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.startDateTime = this.dateUtils.isoDateTime(this.dateUtils.asDateTime(value).plus({hours: 19}).toMillis());
     this.title = this.suggestedTitle();
     this.generatedTitle = this.title;
+    this.inviteNote = "";
     this.sendError = null;
     this.applyMailLists(this.mailMessagingService.currentConfig());
     void this.mailMessagingService.refreshBrevoLists();
@@ -707,6 +715,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.startDateTime = this.dateUtils.isoDateTime(entry.dateValue);
     this.title = entry.title;
     this.generatedTitle = this.title;
+    this.inviteNote = "";
     this.selectedListId = null;
     this.guestRecipientsField = [];
     this.sendError = null;
@@ -744,6 +753,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
         this.startDateTime = this.dateUtils.isoDateTime(start);
         this.title = file?.document?.title || meeting?.title || entry.title;
         this.generatedTitle = this.title;
+        this.inviteNote = meeting?.inviteNote || "";
         this.meetingType = this.meetingTypeFromFile(file) || this.meetingType;
         this.format = meeting?.format || CommitteeMeetingFormat.IN_PERSON;
         this.location = meeting?.location || "";
@@ -907,7 +917,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     } else {
       return {
         subject: persisted.meetingTitle,
-        body: this.inviteMarkdown(persisted.startTime, persisted.joinUrl, persisted.location),
+        body: this.inviteMarkdown(persisted.startTime, persisted.joinUrl, persisted.location, this.inviteNote),
         externalRecipients: this.guestRecipients(),
         selectedListId: this.selectedListId ?? undefined,
         attachments: persisted.committeeFileId
@@ -919,20 +929,17 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private inviteMarkdown(startTime: number, joinUrl: string, location: string): string {
+  private inviteMarkdown(startTime: number, joinUrl: string, location: string, note: string): string {
     const timeLabel = this.dateUtils.asString(startTime, null, UIDateFormat.RAMBLERS_TIME);
-    const whereLines = [
-      joinUrl ? `**Join:** ${joinUrl}` : null,
-      location ? `**Where:** ${location}` : null
-    ].filter(Boolean).join("\n\n");
-    const guidance = joinUrl
-      ? `Open the link above to join the meeting. ${this.guestInstructions}`
-      : `We look forward to seeing you there.`;
-    return `You are invited to a committee meeting.\n\n`
-      + `**When:** ${this.selectedDateLabel} at ${timeLabel}\n\n`
-      + (whereLines ? `${whereLines}\n\n` : "")
-      + guidance
-      + this.inviteSignoff();
+    return meetingInviteBodyMarkdown({
+      dateLabel: this.selectedDateLabel,
+      timeLabel,
+      joinUrl,
+      location,
+      note,
+      guestInstructions: this.guestInstructions,
+      signoff: this.inviteSignoff()
+    });
   }
 
   private inviteSignoff(): string {
@@ -941,7 +948,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     const roleLine = role?.fullName && role?.description && role.description !== role.fullName
       ? `\n${role.description}`
       : "";
-    return name ? `\n\nKind regards\n\n${name}${roleLine}` : "";
+    return name ? `Kind regards\n\n${name}${roleLine}` : "";
   }
 
   private async persistMeeting(): Promise<{
@@ -971,6 +978,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
       format: this.format,
       room,
       location: venue || undefined,
+      inviteNote: this.inviteNote.trim() || undefined,
       invited: this.guestRecipients().length > 0 || this.selectedListId != null,
       invitedRecipients: this.guestRecipients(),
       invitedListId: this.selectedListId ?? undefined,

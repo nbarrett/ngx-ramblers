@@ -46,6 +46,7 @@ export function videoMeetingClient(hints: VideoMeetingClientHints): VideoMeeting
 
 export const VIDEO_MEETING_ACTIVE_ROOM_KEY = "videoMeetingActiveRoom";
 export const VIDEO_MEETING_NOTES_STARTED_KEY = "videoMeetingNotesStartedAt";
+export const VIDEO_MEETING_GUEST_NAME_KEY = "videoMeetingGuestName";
 
 export function rememberActiveMeetingRoom(room: string, storage: Storage): void {
   if (room) {
@@ -84,6 +85,19 @@ export function meetingNotesStartedAt(room: string, storage: Storage): number | 
 export function forgetMeetingNotesStartedAt(room: string, storage: Storage): void {
   if (room) {
     storage.removeItem(notesStartedStorageKey(room));
+  }
+}
+
+export function rememberedGuestName(storage: Storage): string {
+  return (storage.getItem(VIDEO_MEETING_GUEST_NAME_KEY) || "").trim();
+}
+
+export function rememberGuestName(name: string, storage: Storage): void {
+  const trimmed = (name || "").trim();
+  if (trimmed) {
+    storage.setItem(VIDEO_MEETING_GUEST_NAME_KEY, trimmed);
+  } else {
+    storage.removeItem(VIDEO_MEETING_GUEST_NAME_KEY);
   }
 }
 

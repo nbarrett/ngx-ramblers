@@ -287,6 +287,13 @@ export interface MeetingMinutesSummary {
   slug: string | null;
 }
 
+export interface RecentVideoCall {
+  id: string;
+  room: string;
+  title: string;
+  startedAt: number;
+}
+
 export interface UpcomingBookedMeeting {
   title: string;
   startTime: number;

@@ -25,8 +25,6 @@ export const JITSI_HOST_PAGE_CSS = [
   ".leftwatermark,.rightwatermark,.watermark,#new-watermark{display:none!important}",
   "#localvideomenu button,#remotevideomenu button,#local-video-menu-trigger button,#remote-video-menu-trigger button{background-color:" + JITSI_SUNRISE + "!important;background:" + JITSI_SUNRISE + "!important;color:" + JITSI_SUNRISE_INK + "!important}",
   "#localvideomenu svg,#remotevideomenu svg,#local-video-menu-trigger svg,#remote-video-menu-trigger svg{fill:" + JITSI_SUNRISE_INK + "!important}",
-  ".toggleFilmstripContainer,.toggleFilmstrip,#toggleFilmstripButton,.hide-videos-indicator{display:none!important}",
-  ".horizontal-filmstrip .filmstrip,.vertical-filmstrip .filmstrip,.stage-filmstrip .filmstrip{display:none!important}",
   ".tile-view .filmstrip{display:flex!important;align-items:center!important;justify-content:center!important;height:100%!important;width:100%!important;left:0!important;top:0!important;right:auto!important;bottom:auto!important}",
   ".tile-view .remote-videos,.tile-view .remote-videos>div{align-content:flex-start!important;align-items:flex-start!important;justify-content:flex-start!important}"
 ].join("");
@@ -87,6 +85,32 @@ export function videoMeetingDisplayName(title: string, meetingType?: string | nu
 
 export function videoMeetingDateSlug(displayDate: string): string {
   return (displayDate || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export const GUEST_MEETING_TOKEN_PARAM = "t";
+
+export function joinVideoMeetingAsGuest(guestRoute: boolean, loggedIn: boolean): boolean {
+  return !!guestRoute && !loggedIn;
+}
+
+export function memberMeetingQueryParams(params: {keys: string[]; get(name: string): string | null}): {[key: string]: string} {
+  return params.keys.filter(key => key !== GUEST_MEETING_TOKEN_PARAM).reduce((next, key) => {
+    const value = params.get(key);
+    if (value) {
+      return {...next, [key]: value};
+    } else {
+      return next;
+    }
+  }, {});
+}
+
+export function usableMeetingDisplayName(name: string): boolean {
+  const trimmed = (name || "").trim().toLowerCase();
+  return !!trimmed && trimmed !== "guest" && trimmed !== "fellow jitster";
+}
+
+export function shouldPromptForGuestName(guest: boolean, name: string): boolean {
+  return !!guest && !usableMeetingDisplayName(name);
 }
 
 export function nameFromEmailAddress(email: string): string {
@@ -245,7 +269,7 @@ export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, sub
     subject,
     filmstrip: {
       disableResizable: true,
-      disableStageFilmstrip: true
+      disableStageFilmstrip: false
     }
   };
 }

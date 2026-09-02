@@ -10,9 +10,12 @@ import {
   forgetMeetingNotesStartedAt,
   meetingNotesStartedAt,
   rememberActiveMeetingRoom,
+  rememberGuestName,
   rememberMeetingNotesStartedAt,
+  rememberedGuestName,
   shouldAutoJoinMeeting,
   VIDEO_MEETING_ACTIVE_ROOM_KEY,
+  VIDEO_MEETING_GUEST_NAME_KEY,
   VIDEO_MEETING_NOTES_STARTED_KEY,
   videoMeetingClient,
   videoMeetingJoinActionLabel,
@@ -182,6 +185,24 @@ describe("active meeting room storage", () => {
     expect(store[VIDEO_MEETING_ACTIVE_ROOM_KEY]).toEqual("committee-room");
     forgetActiveMeetingRoom(storage);
     expect(store[VIDEO_MEETING_ACTIVE_ROOM_KEY]).toEqual(undefined);
+  });
+
+  it("remembers a guest's chosen name so they do not rejoin as Guest", () => {
+    const store: Record<string, string> = {};
+    const storage = {
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      getItem: (key: string) => store[key] || null,
+      removeItem: (key: string) => {
+        delete store[key];
+      }
+    } as Storage;
+    rememberGuestName("Andrew Barrett", storage);
+    expect(store[VIDEO_MEETING_GUEST_NAME_KEY]).toEqual("Andrew Barrett");
+    expect(rememberedGuestName(storage)).toEqual("Andrew Barrett");
+    rememberGuestName("  ", storage);
+    expect(rememberedGuestName(storage)).toEqual("");
   });
 
   it("remembers when notes for this room started taking", () => {

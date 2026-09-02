@@ -14,19 +14,6 @@
   fill: #1a1a1a !important;
 }
 
-.toggleFilmstripContainer,
-.toggleFilmstrip,
-#toggleFilmstripButton,
-.hide-videos-indicator {
-  display: none !important;
-}
-
-.horizontal-filmstrip .filmstrip,
-.vertical-filmstrip .filmstrip,
-.stage-filmstrip .filmstrip {
-  display: none !important;
-}
-
 .tile-view .filmstrip {
   display: flex !important;
   align-items: center !important;

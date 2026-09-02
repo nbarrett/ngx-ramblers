@@ -65,7 +65,7 @@ import {
   VideoMeetingRuntimeConfig
 } from "../../models/video-meeting.model";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
-import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, nameFromEmailAddress, tokenUserFromJwt, videoMeetingPeople } from "../../functions/video-meeting-join";
+import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, GUEST_MEETING_TOKEN_PARAM, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, joinVideoMeetingAsGuest, memberMeetingQueryParams, nameFromEmailAddress, shouldPromptForGuestName, tokenUserFromJwt, usableMeetingDisplayName, videoMeetingPeople } from "../../functions/video-meeting-join";
 import { createSameRoomDetector } from "../../functions/same-room-detector";
 import {
   activeMeetingRoom,
@@ -74,7 +74,9 @@ import {
   forgetMeetingNotesStartedAt,
   meetingNotesStartedAt,
   rememberActiveMeetingRoom,
+  rememberGuestName,
   rememberMeetingNotesStartedAt,
+  rememberedGuestName,
   shouldAutoJoinMeeting,
   videoMeetingClient,
   videoMeetingJoinActionLabel,
@@ -160,7 +162,7 @@ declare const JitsiMeetExternalAPI: any;
                     [title]="fullscreen ? 'Restore window' : 'Full screen'" (click)="toggleFullscreen()">
               <fa-icon [icon]="fullscreen ? faCompress : faExpand"/><span class="meeting-tool-label">{{ fullscreen ? "Restore" : "Full" }}</span>
             </button>
-            <button type="button" class="meeting-tool tool-leave" title="Leave the meeting" (click)="leave()">
+            <button type="button" class="meeting-tool tool-leave" title="Leave the meeting" (click)="requestLeave()">
               <fa-icon [icon]="faPhoneSlash"/><span class="meeting-tool-label">Leave</span>
             </button>
           </div>
@@ -180,12 +182,16 @@ declare const JitsiMeetExternalAPI: any;
         @if (showPeople) {
           <div class="meeting-panel d-flex flex-column gap-2 p-3 bg-white text-dark rounded-3 shadow">
             <strong>People in this meeting</strong>
-            @if (people.length) {
+            <label class="form-label mb-0" for="meeting-display-name">Your name</label>
+            <input id="meeting-display-name" class="form-control" [(ngModel)]="chosenName"
+                   (keydown.enter)="saveDisplayName(); $event.preventDefault()" (blur)="saveDisplayName()"
+                   placeholder="So people know who you are">
+            @if (otherPeople.length) {
               <div class="d-flex flex-column gap-2">
-                @for (person of people; track person.participantId) {
+                @for (person of otherPeople; track person.participantId) {
                   <div class="d-flex align-items-center gap-2">
                     <fa-icon [icon]="faUser"/>
-                    <span>{{ person.displayName }}@if (person.local) { <span class="text-muted">(you)</span> }</span>
+                    <span>{{ person.displayName }}</span>
                   </div>
                 }
               </div>
@@ -258,6 +264,12 @@ declare const JitsiMeetExternalAPI: any;
             </div>
             <div class="d-flex flex-column gap-2 p-3 overflow-auto">
               <p class="fs-5 mb-0">{{ joinGuidance }}</p>
+              @if (guest) {
+                <label class="form-label mb-0" for="join-display-name">Your name</label>
+                <input id="join-display-name" class="form-control" [(ngModel)]="chosenName"
+                       placeholder="So people know who you are"
+                       (keydown.enter)="joinMeeting(); $event.preventDefault()">
+              }
               @if (client.inAppBrowser) {
                 <button type="button" class="btn btn-primary w-100" (click)="copyMeetingLink()">
                   <fa-icon [icon]="faCopy" class="me-2"/>{{ joinActionLabel }}
@@ -332,6 +344,21 @@ declare const JitsiMeetExternalAPI: any;
           </div>
         }
         </div>
+
+        @if (confirmingLeave) {
+          <div class="meeting-dialog-scrim" (click)="cancelLeave()"></div>
+          <div class="meeting-dialog d-flex flex-column overflow-hidden bg-white text-dark rounded-3 shadow">
+            <div class="d-flex flex-column gap-2 p-3 overflow-auto">
+              <app-alert-panel title="Leave this meeting?" [icon]="faPhoneSlash" [variant]="alertWarning">
+                {{ leaveConfirmBody }}
+              </app-alert-panel>
+              <button type="button" class="btn btn-danger w-100" (click)="leave()">
+                <fa-icon [icon]="faPhoneSlash" class="me-2"/>Leave
+              </button>
+              <button type="button" class="btn btn-quiet w-100" (click)="cancelLeave()">Stay</button>
+            </div>
+          </div>
+        }
 
         @if (reconnectPrompt) {
           <div class="meeting-dialog-scrim"></div>
@@ -428,17 +455,24 @@ declare const JitsiMeetExternalAPI: any;
               </button>
             </div>
             <div class="d-flex flex-column gap-2 p-3">
+              <label class="form-label mb-0" for="guest-link">Meeting link</label>
+              <div class="d-flex gap-2">
+                <input id="guest-link" class="form-control" [value]="guestJoinUrl" readonly (focus)="selectAll($event)">
+                <button type="button" class="btn btn-quiet" (click)="copyGuestJoinLink()">
+                  <fa-icon [icon]="faCopy" class="me-2"/>Copy
+                </button>
+              </div>
+              <p class="text-muted small mb-0">Anyone with this link can join now.</p>
+              @if (joinLinkStatus) {
+                <p class="text-muted small mb-0">{{ joinLinkStatus }}</p>
+              }
               <app-recipient-field [to]="inviteRecipients" (toChange)="inviteRecipients = $event"
                                    [savedRecipients]="previousRecipients" [members]="inviteMembers" [plain]="true"/>
-              <button type="button" class="btn btn-primary btn-sm w-100" (click)="sendInvite()">
+              <button type="button" class="btn btn-primary w-100" (click)="sendInvite()">
                 <fa-icon [icon]="faPaperPlane" class="me-2"/>Send invite
               </button>
               @if (inviteStatus) {
                 <p class="text-muted small mb-0">{{ inviteStatus }}</p>
-              }
-              @if (inviteLink) {
-                <label class="form-label mb-0" for="guest-link">Invite link</label>
-                <input id="guest-link" class="form-control" [value]="inviteLink" readonly (focus)="selectAll($event)">
               }
             </div>
           </div>
@@ -482,11 +516,13 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   showPerformanceSettings = false;
   showViewSettings = false;
   people: VideoMeetingParticipant[] = [];
+  chosenName = "";
+  confirmingLeave = false;
   inviteRecipients: ComposerExternalRecipient[] = [];
   previousRecipients: ExternalRecipient[] = [];
   inviteMembers: Member[] = [];
   inviteStatus = "";
-  inviteLink = "";
+  joinLinkStatus = "";
   connecting = false;
   connectingMessage = "Preparing your meeting…";
   fullscreen = false;
@@ -509,6 +545,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private api: any;
   private token: string;
   private localIsModerator = false;
+  private skipPrepare = false;
   private transcriptLines: string[] = [];
   private chatLines: string[] = [];
   private connectingTimers: number[] = [];
@@ -533,7 +570,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private localParticipantId = "";
   private frameObserver: ResizeObserver | null = null;
   private appliedGallery: boolean | null = null;
-  private filmstripVisible = true;
+
   private cannotHearDismissed = false;
   private microphoneOffDismissed = false;
   private leavingOnPurpose = false;
@@ -591,12 +628,28 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     return this.phase === VideoMeetingRoomPhase.IN_MEETING;
   }
 
+  get otherPeople(): VideoMeetingParticipant[] {
+    return this.people.filter(person => !person.local);
+  }
+
+  get leaveConfirmBody(): string {
+    if (!this.guest && this.notesEnabled && this.shouldWriteMinutes()) {
+      return "Leaving will write up the minutes from what was said. You can join again from the meeting link.";
+    } else {
+      return "You will leave the call. You can join again from the meeting link.";
+    }
+  }
+
   get joinTitle(): string {
     return videoMeetingJoinTitle(this.client);
   }
 
   get joinGuidance(): string {
     return videoMeetingJoinGuidance(this.client);
+  }
+
+  get guestJoinUrl(): string {
+    return this.room ? this.videoMeetingsService.guestUrl(this.room) : "";
   }
 
   get joinActionLabel(): string {
@@ -623,14 +676,24 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   ngOnInit(): void {
     this.room = this.route.snapshot.paramMap.get("room");
     this.displayTitle = (this.room || "").replace(/-/g, " ");
-    this.guest = !!this.route.snapshot.data?.["guest"];
+    const guestRoute = !!this.route.snapshot.data?.["guest"];
+    this.guest = joinVideoMeetingAsGuest(guestRoute, this.memberLoginService.memberLoggedIn());
     this.client = videoMeetingClient(clientHintsFromWindow(window));
     this.fullscreen = this.client.coarsePointer;
     window.addEventListener("pagehide", this.onPageHide);
+    if (guestRoute && !this.guest) {
+      this.skipPrepare = true;
+      this.router.navigate(["/" + AdminPath.MEETING_ROOM, this.room], {
+        queryParams: memberMeetingQueryParams(this.route.snapshot.queryParamMap),
+        replaceUrl: true
+      });
+    }
   }
 
   async ngAfterViewInit(): Promise<void> {
-    await this.prepare();
+    if (!this.skipPrepare) {
+      await this.prepare();
+    }
   }
 
   private async prepare(): Promise<void> {
@@ -640,6 +703,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
       this.config = await this.videoMeetingsService.config();
       if (this.config.enabled) {
         this.notesEnabled = this.config.enableNotes && !this.config.publicHost;
+        this.chosenName = this.initialChosenName();
         await this.meetingSubject();
         if (jitsiJoinMode(this.config.publicHost) === JitsiJoinMode.EMBED) {
           this.token = await this.resolveToken();
@@ -722,7 +786,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private async resolveToken(): Promise<string> {
-    const urlToken = this.route.snapshot.queryParamMap.get("t");
+    const urlToken = this.route.snapshot.queryParamMap.get(GUEST_MEETING_TOKEN_PARAM);
     if (this.guest && urlToken) {
       return urlToken;
     } else if (this.guest && this.config.jwtRequired) {
@@ -763,8 +827,8 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     };
     const tokenUser = tokenUserFromJwt(token);
     this.localIsModerator = !this.guest && tokenUser.moderator;
-    const displayName = this.fallbackDisplayName();
-    const named = displayName && displayName.toLowerCase() !== "guest" ? displayName : "";
+    const displayName = this.chosenDisplayName();
+    const named = usableMeetingDisplayName(displayName) ? displayName : "";
     const email = tokenUser.email || "";
     if (named || email) {
       options.userInfo = {
@@ -782,10 +846,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("videoConferenceJoined", (payload: { displayName?: string }) => this.zone.run(() => this.onConferenceJoined(payload)));
     this.api.addEventListener("videoConferenceLeft", () => this.zone.run(() => this.recoverMeeting()));
     this.api.addEventListener("readyToClose", () => this.zone.run(() => this.endMeeting()));
-    this.api.addEventListener("filmstripDisplayChanged", (payload: { visible?: boolean }) => this.zone.run(() => {
-      this.filmstripVisible = !!payload?.visible;
-      this.syncJitsiFilmstrip();
-    }));
+
     this.api.addEventListener("audioAvailabilityChanged", (payload: { available?: boolean }) => this.zone.run(() => {
       if (payload?.available === false) {
         this.audioAvailable = false;
@@ -829,6 +890,16 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.api.addEventListener("screenSharingStatusChanged", (payload: { on?: boolean }) => this.zone.run(() => {
       this.sharingScreen = !!payload?.on;
     }));
+    this.api.addEventListener("displayNameChange", (payload: { id?: string; displayname?: string; displayName?: string }) => this.zone.run(() => {
+      if (payload?.id && payload.id === this.localParticipantId) {
+        const name = (payload.displayName || payload.displayname || "").trim();
+        if (name) {
+          this.localDisplayName = name;
+          this.chosenName = name;
+        }
+      }
+      this.refreshPeople();
+    }));
     this.api.addEventListener("participantJoined", (payload: { id?: string }) => this.zone.run(() => {
       this.refreshParticipantCount();
       this.replaceDuplicateOccupants(payload?.id || null);
@@ -865,7 +936,14 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.hideHostBranding();
     this.phase = VideoMeetingRoomPhase.IN_MEETING;
     this.localParticipantId = payload?.id || "";
-    this.localDisplayName = (payload?.displayName || "").trim() || this.fallbackDisplayName();
+    this.localDisplayName = (payload?.displayName || "").trim() || this.chosenDisplayName();
+    this.chosenName = usableMeetingDisplayName(this.chosenName) ? this.chosenName : this.localDisplayName;
+    const chosen = this.chosenDisplayName();
+    if (usableMeetingDisplayName(chosen) && chosen !== this.localDisplayName) {
+      this.jitsiCommand("displayName", chosen);
+      this.localDisplayName = chosen;
+    }
+    this.rememberChosenName(chosen);
     this.localIsModerator = this.localIsModerator || tokenUserFromJwt(this.token).moderator;
     this.applyMeetingLayout();
     this.startStableTimer();
@@ -907,11 +985,47 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
 
   private fallbackDisplayName(): string {
     if (this.guest) {
-      return displayNameFromToken(this.token) || "Guest";
+      const fromToken = displayNameFromToken(this.token);
+      if (usableMeetingDisplayName(fromToken)) {
+        return fromToken;
+      } else {
+        const storage = this.guestNameStorage();
+        const stored = storage ? rememberedGuestName(storage) : "";
+        return usableMeetingDisplayName(stored) ? stored : "Guest";
+      }
     } else {
       const member = this.memberLoginService.loggedInMember();
       const fullName = [member?.firstName, member?.lastName].filter(Boolean).join(" ").trim();
       return fullName || nameFromEmailAddress(member?.userName || "") || (member?.userName || "").trim() || "Member";
+    }
+  }
+
+  private chosenDisplayName(): string {
+    const typed = (this.chosenName || "").trim();
+    if (usableMeetingDisplayName(typed)) {
+      return typed;
+    } else {
+      return this.fallbackDisplayName();
+    }
+  }
+
+  private initialChosenName(): string {
+    const fallback = this.fallbackDisplayName();
+    if (this.guest && !usableMeetingDisplayName(fallback)) {
+      return "";
+    } else {
+      return fallback;
+    }
+  }
+
+  saveDisplayName(): void {
+    const name = (this.chosenName || "").trim();
+    if (usableMeetingDisplayName(name) && name !== this.localDisplayName) {
+      this.chosenName = name;
+      this.localDisplayName = name;
+      this.jitsiCommand("displayName", name);
+      this.rememberChosenName(name);
+      this.refreshPeople();
     }
   }
 
@@ -1024,6 +1138,17 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     this.phase = VideoMeetingRoomPhase.JOINING;
     this.showConnecting("Connecting to your meeting…");
     this.mountMeeting(this.token);
+  }
+
+  copyGuestJoinLink(): void {
+    const link = this.guestJoinUrl;
+    this.clipboardService.copyToClipboard(link).then(() => {
+      if (this.clipboardService.clipboardText() === link) {
+        this.joinLinkStatus = "Link copied. Anyone with it can join.";
+      } else {
+        this.joinLinkStatus = "Copy the link from the box and send it yourself.";
+      }
+    });
   }
 
   copyMeetingLink(): void {
@@ -1215,6 +1340,7 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   toggleInvite(): void {
     this.showInvite = !this.showInvite;
     if (this.showInvite) {
+      this.joinLinkStatus = "";
       this.showNotes = false;
       this.showPeople = false;
       this.showPerformanceSettings = false;
@@ -1286,14 +1412,6 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     const gallery = this.frameIsPortrait() || this.layout === VideoMeetingLayout.GALLERY;
     this.appliedGallery = gallery;
     this.jitsiCommand("setTileView", gallery);
-    this.syncJitsiFilmstrip();
-  }
-
-  private syncJitsiFilmstrip(): void {
-    const wantFilmstrip = this.appliedGallery === true;
-    if (this.filmstripVisible !== wantFilmstrip) {
-      this.jitsiCommand("toggleFilmStrip");
-    }
   }
 
   private watchMeetingFrame(): void {
@@ -1353,7 +1471,6 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     const guests = this.inviteRecipients.filter(recipient => recipient.email);
     if (guests.length) {
       this.inviteStatus = guests.length === 1 ? "Sending…" : `Sending ${guests.length} invites…`;
-      this.inviteLink = "";
       try {
         const results = await Promise.all(guests.map(guest =>
           this.videoMeetingsService.inviteGuest(this.room, guest.email, guest.name || "").then(response => ({guest, response}))
@@ -1361,11 +1478,9 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
         const sent = results.filter(result => result.response.sent).map(result => result.guest.email);
         const fallback = results.find(result => !result.response.sent);
         if (fallback && !sent.length) {
-          this.inviteStatus = "We could not send that automatically - copy the link below and send it yourself.";
-          this.inviteLink = fallback.response.link;
+          this.inviteStatus = "We could not send that automatically - copy the meeting link and send it yourself.";
         } else if (fallback) {
-          this.inviteStatus = `Invite sent to ${sent.join(", ")}. Copy the link below for the rest.`;
-          this.inviteLink = fallback.response.link;
+          this.inviteStatus = `Invite sent to ${sent.join(", ")}. Copy the meeting link for the rest.`;
         } else {
           this.inviteStatus = sent.length === 1 ? `Invite sent to ${sent[0]}.` : `Invites sent to ${sent.join(", ")}.`;
           this.inviteRecipients = [];
@@ -1394,10 +1509,24 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  requestLeave(): void {
+    if (this.inMeeting && !this.confirmingLeave && !this.minutesState && !this.meetingEnded) {
+      this.closePanels();
+      this.confirmingLeave = true;
+    } else {
+      this.leave();
+    }
+  }
+
+  cancelLeave(): void {
+    this.confirmingLeave = false;
+  }
+
   leave(): void {
     if (this.leavingOnPurpose && this.minutesState) {
       this.logger.info("already writing minutes after leave");
     } else {
+      this.confirmingLeave = false;
       this.leavingOnPurpose = true;
       this.reconnectPrompt = false;
       this.fullscreen = false;
@@ -1557,7 +1686,27 @@ export class VideoMeetingRoomComponent implements OnInit, AfterViewInit, OnDestr
   private shouldAutoJoin(): boolean {
     const storage = this.meetingStorage();
     const storedRoom = storage ? activeMeetingRoom(storage) : null;
-    return shouldAutoJoinMeeting(this.room, this.client, storedRoom);
+    if (shouldPromptForGuestName(this.guest, this.chosenDisplayName())) {
+      return false;
+    } else {
+      return shouldAutoJoinMeeting(this.room, this.client, storedRoom);
+    }
+  }
+
+  private rememberChosenName(name: string): void {
+    const storage = this.guestNameStorage();
+    if (this.guest && storage && usableMeetingDisplayName(name)) {
+      rememberGuestName(name, storage);
+    }
+  }
+
+  private guestNameStorage(): Storage | null {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      this.logger.info("guest name memory is not available", error);
+      return null;
+    }
   }
 
   private rememberThisRoom(): void {

@@ -65,6 +65,7 @@ export interface CommitteeFileMeeting {
   room?: string;
   location?: string;
   title?: string;
+  inviteNote?: string;
   durationMinutes?: number;
   invited?: boolean;
   invitedMemberIds?: string[];
@@ -536,6 +537,10 @@ export function isBookedMeetingFile(file: Pick<CommitteeFile, "fileType" | "meet
   } else {
     return false;
   }
+}
+
+export function isAdHocVideoCall(file: Pick<CommitteeFile, "fileType" | "meeting">): boolean {
+  return !file?.fileType && !!file?.meeting?.room;
 }
 
 export interface ExpensesConfig {

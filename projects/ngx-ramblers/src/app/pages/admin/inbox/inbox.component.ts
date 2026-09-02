@@ -383,7 +383,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                      [indeterminate]="selectedConversationCount > 0 && !allSelected()"
                      (change)="toggleSelectAll()">
               @if (selectedConversationCount > 0) {
-                <div class="btn-group" dropdown container="body" [isDisabled]="busy">
+                <div class="btn-group" dropdown container="body" placement="bottom left" [isDisabled]="busy">
                   <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
                     @if (deletingSelected) {
                       <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Deleting {{selectedConversationCount}}…
@@ -591,7 +591,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
                     @if (visibleAttachments(message).length) {
                       <div class="inbox-attachments d-flex flex-wrap gap-2 mb-3">
                         @for (attachment of visibleAttachments(message); track attachment.s3Key) {
-                          <div class="btn-group" dropdown>
+                          <div class="btn-group" dropdown container="body" placement="bottom left">
                             <button dropdownToggle type="button" class="inbox-attachment dropdown-toggle">
                               <fa-icon [icon]="faPaperclip"/>
                               <span class="inbox-attachment-name">{{ attachment.filename }}</span>

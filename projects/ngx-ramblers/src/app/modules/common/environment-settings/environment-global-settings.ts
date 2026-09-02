@@ -10,6 +10,7 @@ import { createDefaultJitsiConfig, createEmptyAiConfig, EnvironmentsConfig } fro
 import { AiProviderType } from "../../../models/system.model";
 import { InputSize } from "../../../models/ui-size.model";
 import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
+import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
 
 @Component({
   selector: "app-environment-global-settings",
@@ -209,12 +210,22 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
         <app-vendor-brand-mark serviceId="flyIo" [sizePx]="26"/>
         <span>Upload Worker Configuration</span>
         @if (config.uploadWorker?.appName) {
-          <a href="https://fly.io/apps/{{ config.uploadWorker.appName }}"
-             target="_blank"
-             class="btn btn-sm btn-outline-secondary ms-auto">
-            <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-            Fly Dashboard
-          </a>
+          <div class="ms-auto d-flex gap-2">
+            <a [href]="flyAppUrl(config.uploadWorker.appName)"
+               target="_blank"
+               rel="noopener"
+               class="btn btn-sm btn-quiet">
+              <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+              Fly dashboard
+            </a>
+            <a [href]="flyAppMetricsUrl(config.uploadWorker.appName)"
+               target="_blank"
+               rel="noopener"
+               class="btn btn-sm btn-quiet">
+              <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+              Fly metrics
+            </a>
+          </div>
         }
       </div>
       <small class="form-text text-muted mb-3">
@@ -285,13 +296,23 @@ import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-ur
       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
         <app-vendor-brand-mark serviceId="flyIo" [sizePx]="26"/>
         <span>Video Meetings</span>
-        @if (config.jitsi?.enabled && config.jitsi?.appName) {
-          <a href="https://fly.io/apps/{{ config.jitsi.appName }}"
-             target="_blank"
-             class="btn btn-sm btn-outline-secondary ms-auto">
-            <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-            Fly Dashboard
-          </a>
+        @if (config.jitsi?.appName) {
+          <div class="ms-auto d-flex gap-2">
+            <a [href]="flyAppUrl(config.jitsi.appName)"
+               target="_blank"
+               rel="noopener"
+               class="btn btn-sm btn-quiet">
+              <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+              Fly dashboard
+            </a>
+            <a [href]="flyAppMetricsUrl(config.jitsi.appName)"
+               target="_blank"
+               rel="noopener"
+               class="btn btn-sm btn-quiet">
+              <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+              Fly metrics
+            </a>
+          </div>
         }
       </div>
       <small class="form-text text-muted mb-3">
@@ -413,6 +434,8 @@ export class EnvironmentGlobalSettings implements OnInit {
   protected readonly InputSize = InputSize;
   protected readonly AiProviderType = AiProviderType;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
+  protected readonly flyAppUrl = flyAppUrl;
+  protected readonly flyAppMetricsUrl = flyAppMetricsUrl;
   protected readonly cloudflareDashboardUrl = inject(CloudflareUrlService).dashboard();
   protected readonly cloudflareApiTokensUrl = inject(CloudflareUrlService).apiTokens();
 
