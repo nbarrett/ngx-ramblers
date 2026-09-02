@@ -14,8 +14,6 @@ export interface AuditField {
   ramblersDerivedValue?: (member: RamblersMember, dateUtils?: DateUtilsService) => any;
 }
 
-export const NO_CHANGES_OR_DIFFERENCES = "No changes or differences found";
-
 export const AUDIT_FIELDS: AuditField[] = [
   {
     fieldName: "membershipExpiryDate",
