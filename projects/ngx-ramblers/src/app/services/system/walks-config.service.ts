@@ -7,7 +7,7 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { DEFAULT_REGULAR_WALK_DAY, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalksConfig } from "../../models/walks-config.model";
+import { DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkRiskAssessmentSection, WalksConfig } from "../../models/walks-config.model";
 import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
@@ -62,8 +62,15 @@ export class WalksConfigService {
     const defaults = this.default();
     return {
       ...defaults,
-      ...config
+      ...config,
+      riskAssessmentSections: config?.riskAssessmentSections?.length
+        ? config.riskAssessmentSections
+        : defaults.riskAssessmentSections
     };
+  }
+
+  public riskAssessmentSections(): WalkRiskAssessmentSection[] {
+    return this.normalise(this.cachedWalksConfig || this.default()).riskAssessmentSections;
   }
 
   default(): WalksConfig {
@@ -71,6 +78,7 @@ export class WalksConfigService {
       milesPerHour: 2.13,
       mapZoomOutLevels: 2,
       requireRiskAssessment: true,
+      riskAssessmentSections: DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS,
       requireFinishTime: true,
       requireWalkLeaderDisplayName: true,
       matchWalkLeadersOnWalksManagerSync: true,
