@@ -77,7 +77,7 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "- Create expense claims\n- Approve expense claims (admins)"
   },
   {
-    accessLevel: "committee",
+    accessLevel: "memberAdmin",
     title: "Member Admin",
     icon: "faUsersCog",
     href: AdminMembersPath.MEMBER_ADMIN,
@@ -119,7 +119,7 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "Enter settings that affect:\n\n- Group\n- Area\n- National Ramblers\n- External Systems"
   },
   {
-    accessLevel: "committee",
+    accessLevel: "memberAdmin",
     title: "Committee Settings",
     icon: "faUsersCog",
     href: AdminSettingsPath.COMMITTEE_SETTINGS,
@@ -380,7 +380,7 @@ export const MEMBERS_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "See the rights-of-way parishes you cover, the officers alongside you, and each parish's council contacts"
   },
   {
-    accessLevel: "committee",
+    accessLevel: "memberAdmin",
     title: "Member Admin",
     icon: "faUsersCog",
     href: AdminMembersPath.MEMBER_ADMIN,
@@ -457,7 +457,7 @@ export const SETTINGS_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "Enter settings that affect:\n\n- Group\n- Area\n- National Ramblers\n- External Systems"
   },
   {
-    accessLevel: "committee",
+    accessLevel: "memberAdmin",
     title: "Committee Settings",
     icon: "faUsersCog",
     href: AdminSettingsPath.COMMITTEE_SETTINGS,

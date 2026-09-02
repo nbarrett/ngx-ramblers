@@ -1,0 +1,234 @@
+@import "../../../assets/styles/colours"
+
+.icon-picker
+  position: relative
+
+.icon-picker-field
+  display: flex
+  align-items: center
+  gap: var(--space-2, 8px)
+
+.icon-picker-field .form-control
+  flex: 1 1 auto
+  min-width: 0
+
+.icon-picker-field .btn
+  flex: 0 0 auto
+  white-space: nowrap
+
+.icon-picker-preview
+  flex: 0 0 auto
+  width: 40px
+  height: 40px
+  padding: 0
+  border: 0
+  background: transparent
+  display: inline-flex
+  align-items: center
+  justify-content: center
+
+  ::ng-deep .svg-inline--fa
+    width: 28px
+    height: 28px
+    font-size: 28px
+
+.icon-picker-hint
+  margin-top: 6px
+  margin-bottom: 8px
+  color: $ramblers-colour-granite
+  font-size: 0.875rem
+
+.icon-picker-selected
+  display: flex
+  align-items: center
+  gap: 12px
+  margin-bottom: 12px
+
+  ::ng-deep .svg-inline--fa
+    width: 32px
+    height: 32px
+    font-size: 32px
+
+.icon-picker-selected-name
+  font-weight: 600
+  color: $ramblers-colour-granite
+
+.icon-picker-panel
+  margin-top: var(--space-2, 8px)
+  background: #fff
+  border: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
+  border-radius: var(--radius-2, 6px)
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18)
+
+.icon-picker-count
+  padding: 8px 12px
+  border-bottom: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
+  color: $ramblers-colour-granite
+  font-size: 0.875rem
+
+.icon-picker-results
+  height: 320px
+  width: 100%
+  overflow-y: auto
+  overscroll-behavior: contain
+
+.icon-picker-list
+  position: relative
+  width: 100%
+
+.icon-picker-window
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+
+.icon-picker-item
+  display: flex
+  align-items: center
+  justify-content: flex-start
+  gap: var(--space-2, 8px)
+  height: 40px
+  width: 100%
+  margin: 0
+  padding: 0 12px
+  text-align: left
+  color: $ramblers-colour-granite
+  background: #fff
+  border: 0
+  border-radius: 0
+  border-bottom: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.08))
+
+  &:hover
+    background: $ramblers-colour-mintcake-light
+
+  &.active
+    background: $ramblers-colour-mintcake
+    color: $ramblers-colour-granite
+
+  span
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+
+.icon-colour-list
+  margin-top: var(--space-2, 8px)
+  background: #fff
+  border: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
+  border-radius: var(--radius-2, 6px)
+
+.icon-colour-heading
+  padding: 8px 12px
+  border-bottom: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.15))
+  color: $ramblers-colour-granite
+  font-size: 0.875rem
+
+.icon-colour-menu
+  display: flex
+  align-items: center
+  gap: var(--space-2, 8px)
+  padding: 8px 12px
+
+.icon-colour-menu .form-control
+  flex: 1 1 auto
+  min-width: 0
+
+.icon-colour-dot
+  display: inline-block
+  width: 14px
+  height: 14px
+  margin-right: 8px
+  border-radius: 50%
+  border: 1px solid rgba(15, 23, 42, 0.15)
+  vertical-align: middle
+
+.icon-colour-choice
+  width: 40px
+  height: 40px
+  min-width: 40px
+  min-height: 40px
+  padding: 0
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  background: #fff
+  border: 1px solid rgba(15, 23, 42, 0.15)
+  border-radius: 6px
+  line-height: 1
+
+  &.active
+    border-color: $ramblers-colour-granite
+    box-shadow: 0 0 0 2px $ramblers-colour-mintcake
+
+  ::ng-deep .svg-inline--fa
+    width: 20px
+    height: 20px
+    font-size: 20px
+
+.icon-colour-picker .form-control-color
+  width: 40px
+  height: 40px
+  min-height: 40px
+  padding: 2px
+
+.icon-picker ::ng-deep .draggable-modal-body
+  display: flex
+  flex-direction: column
+  overflow: hidden
+
+.icon-grid-body
+  display: flex
+  flex-direction: column
+  flex: 1 1 auto
+  min-height: 280px
+  height: 100%
+
+.icon-grid-results
+  flex: 1 1 auto
+  height: 420px
+  max-height: 50vh
+  width: 100%
+  overflow-y: auto
+  overscroll-behavior: contain
+
+.icon-grid-list
+  position: relative
+  width: 100%
+
+.icon-grid-window
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  display: grid
+  grid-template-columns: repeat(8, 1fr)
+
+.icon-grid-cell
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 4px
+  height: 88px
+  width: 100%
+  margin: 0
+  padding: 8px
+  background: #fff
+  border: 0
+  border-radius: 6px
+  color: $ramblers-colour-granite
+  line-height: 1
+
+  ::ng-deep .svg-inline--fa
+    width: 28px
+    height: 28px
+    font-size: 28px
+
+  span
+    max-width: 100%
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    font-size: 0.7rem
+
+  &.selected
+    box-shadow: inset 0 0 0 2px $ramblers-colour-granite

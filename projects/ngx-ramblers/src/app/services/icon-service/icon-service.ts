@@ -11,7 +11,7 @@ import {
   faThumbsUp
 } from "@fortawesome/free-solid-svg-icons";
 import * as brandIcons from "@fortawesome/free-brands-svg-icons";
-import { map } from "es-toolkit/compat";
+import { isString, map } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { KeyValue } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -29,6 +29,7 @@ export class IconService {
   public iconArray: KeyValue<any>[] = [...this.iconEntries(solidIcons), ...this.iconEntries(brandIcons)];
   public iconValues: any[] = this.iconArray.map(item => item.value);
   public iconKeys: string[] = this.iconArray.map(item => item.key);
+  private iconLookup: Map<string, KeyValue<any>> = new Map(this.iconArray.map(item => [(item.key || "").toLowerCase(), item]));
 
   constructor() {
     this.logger.debug("initialised with icons:", this.iconArray, "values:", this.iconValues, "keys:", this.iconKeys);
@@ -37,13 +38,44 @@ export class IconService {
   iconForName(iconName: string): any {
     if (iconName) {
       this.logger.debug("for iconName:", iconName);
-      const icon = this.iconArray.find(item => item?.key?.toLowerCase() === iconName?.toLowerCase());
-      return icon?.value;
+      return this.iconLookup.get(iconName.toLowerCase())?.value;
+    } else {
+      return null;
+    }
+  }
+
+  matchedKey(query: string): string | null {
+    const term = (query || "").trim().toLowerCase();
+    if (term) {
+      const match = this.iconLookup.get(term);
+      if (match) {
+        return match.key;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
     }
   }
 
   iconEntries(source: Record<string, any>): KeyValue<any>[] {
-    return map(source, (value, key) => ({key, value}));
+    return map(source, (value, key) => ({key, value}))
+      .filter(item => isString(item.key) && item.key.startsWith("fa") && isString(item.value?.iconName));
+  }
+
+  matchingIcons(query: string): KeyValue<any>[] {
+    const term = (query || "").trim().toLowerCase();
+    if (!term) {
+      return this.iconArray;
+    } else if (term === "f" || term === "fa" || term === "fa-") {
+      return [];
+    } else {
+      return this.iconArray.filter(item => {
+        const key = (item.key || "").toLowerCase();
+        const name = (item.value?.iconName || "").toLowerCase();
+        return key.includes(term) || name.includes(term);
+      });
+    }
   }
 
   public toFontAwesomeIcon(status: string): FontAwesomeIcon {

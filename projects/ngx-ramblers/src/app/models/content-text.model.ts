@@ -665,17 +665,31 @@ export enum View {
   VIEW = "view"
 }
 
+export enum IconColourMenu {
+  DEFAULT = "default",
+  PALETTE = "palette"
+}
+
+export interface IconColourMenuItem {
+  label: string;
+  value: string;
+  swatch: string;
+}
+
 export const ICON_COLOURS: NamedIconColour[] = [
-  {name: "Default", cssClass: null},
-  {name: "Ramblers green", cssClass: "ramblers"},
-  {name: "Teal", cssClass: "calendar"},
-  {name: "Red", cssClass: "meetup"},
-  {name: "Rosy", cssClass: "group-event"}
+  {name: "Default", cssClass: null, displayClass: "colour-mintcake", swatch: "rgb(155, 200, 171)"},
+  {name: "Granite", cssClass: "colour-granite", displayClass: "colour-granite", swatch: "rgb(64, 65, 65)"},
+  {name: "Ramblers green", cssClass: "ramblers", displayClass: "ramblers", swatch: "rgb(155, 200, 171)"},
+  {name: "Teal", cssClass: "calendar", displayClass: "calendar", swatch: "#0097a4"},
+  {name: "Red", cssClass: "meetup", displayClass: "meetup", swatch: "#e0393e"},
+  {name: "Rosy", cssClass: "group-event", displayClass: "colour-rosycheeks", swatch: "rgb(246, 176, 157)"}
 ];
 
 export interface NamedIconColour {
   name: string;
-  cssClass: string;
+  cssClass: string | null;
+  displayClass: string;
+  swatch: string;
 }
 
 export enum PaletteColor {

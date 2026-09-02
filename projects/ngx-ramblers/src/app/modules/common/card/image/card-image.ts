@@ -3,6 +3,7 @@ import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { faImage, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ImageFit, ImageType } from "../../../../models/content-text.model";
+import { explicitIconColour, namedIconColourClass } from "../../../../functions/icon-colour";
 import { ImageMessage } from "../../../../models/images.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { UrlService } from "../../../../services/url.service";
@@ -85,7 +86,12 @@ const FIXED_CARD_IMAGE_HEIGHT = 200;
       <div class="row no-image"
            [ngClass]="{'small-icon-container': smallIconContainer}">
         <div class="col align-self-center text-center">
-          <fa-icon [icon]="icon || faImage" class="fa-icon fa-3x" [ngClass]="iconColour"></fa-icon>
+          <fa-icon [icon]="icon || faImage"
+                   class="fa-icon"
+                   [class.fa-2x]="compactEdit"
+                   [class.fa-3x]="!compactEdit"
+                   [ngClass]="namedIconColourClass(iconColour)"
+                   [style.color]="explicitIconColour(iconColour)"></fa-icon>
           @if (!icon) {
             <div>{{ imageText }}</div>
           }
@@ -93,7 +99,7 @@ const FIXED_CARD_IMAGE_HEIGHT = 200;
       </div>
     }`,
     styleUrls: ["./card-image.sass"],
-    host: {class: "d-block w-100"},
+    host: {class: "d-block w-100", "[class.compact-edit]": "compactEdit"},
     imports: [NgStyle, NgClass, NgTemplateOutlet, RouterLink, FontAwesomeModule]
 })
 export class CardImageComponent implements OnInit {
@@ -102,6 +108,8 @@ export class CardImageComponent implements OnInit {
   public fileUtils: FileUtilsService = inject(FileUtilsService);
   mediaQueryService = inject(MediaQueryService);
   faImage = faImage;
+  namedIconColourClass = namedIconColourClass;
+  explicitIconColour = explicitIconColour;
   public constrainedHeight: number;
   public imageText = null;
   public imageSource: string;
@@ -132,6 +140,10 @@ export class CardImageComponent implements OnInit {
 
   @Input("smallIconContainer") set smallIconContainerValue(smallIconContainer: boolean) {
     this.smallIconContainer = coerceBooleanProperty(smallIconContainer);
+  }
+
+  @Input("compactEdit") set compactEditValue(compactEdit: boolean) {
+    this.compactEdit = coerceBooleanProperty(compactEdit);
   }
 
   @Input("noBorderRadius") set noBorderRadiusValue(noBorderRadius: boolean) {
@@ -167,6 +179,7 @@ export class CardImageComponent implements OnInit {
   public unconstrainedHeight: boolean;
   public fixedHeight: boolean;
   public smallIconContainer: boolean;
+  public compactEdit = false;
   public objectPositionY: number = null;
   public cropperPosition: ImageCropperPosition = null;
   public focalPoint: FocalPoint = null;

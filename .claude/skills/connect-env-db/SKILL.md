@@ -106,6 +106,7 @@ Read-only queries are fine. For writes:
 - `notificationConfigs`
 - `members`, `pageContent`, `contentMetaData`, `banners`
 - `walks`, `socialEvents`, `extendedgroupevents`
+- `inboxThreads`, `inboxMessages`
 
 ## Platform `environments` document (maintainer only)
 

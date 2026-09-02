@@ -799,26 +799,28 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return threads.find(thread => this.threadSlug(thread) === slugOrId || this.threadIdOf(thread) === slugOrId) ?? null;
   }
 
-  private async threadRequestedInUrl(roleType: string | null, scope: InboxViewScope | null): Promise<InboxThread | null> {
+  private async threadRequestedInUrl(): Promise<InboxThread | null> {
     const requestedSlug = this.route.snapshot.queryParams[StoredValue.THREAD];
     if (!requestedSlug) {
       return null;
+    } else {
+      const alreadyLoaded = this.matchingThread(this.threads, requestedSlug);
+      if (alreadyLoaded) {
+        return alreadyLoaded;
+      } else {
+        try {
+          const response = await this.inboxService.getThread(requestedSlug);
+          const requested = response.thread;
+          if (!this.matchingThread(this.threads, this.threadIdOf(requested))) {
+            this.threads = [requested, ...this.threads];
+          }
+          return requested;
+        } catch (error) {
+          this.logger.error("Failed to open thread from URL:", error);
+          return null;
+        }
+      }
     }
-    const alreadyLoaded = this.matchingThread(this.threads, requestedSlug);
-    if (alreadyLoaded || this.readFilter !== InboxReadFilter.UNREAD) {
-      return alreadyLoaded;
-    }
-    const unfiltered = await this.inboxService.listThreads(roleType, scope);
-    const requested = this.matchingThread(unfiltered.threads, requestedSlug);
-    if (!requested) {
-      return null;
-    }
-    const conversation = requested.conversationKey
-      ? unfiltered.threads.filter(thread => thread.conversationKey === requested.conversationKey)
-      : [requested];
-    const absent = conversation.filter(thread => !this.matchingThread(this.threads, this.threadIdOf(thread)));
-    this.threads = [...this.threads, ...absent];
-    return requested;
   }
 
   hasMultipleRecipients(message: InboxMessage): boolean {
@@ -1340,7 +1342,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.threads = listResponse.threads;
         this.threadListUnreadCount = listResponse.unreadCount;
         this.threadListTotalCount = listResponse.totalCount;
-        const requestedThread = await this.threadRequestedInUrl(roleType, scope);
+        const requestedThread = await this.threadRequestedInUrl();
         if (this.mobile && !this.selectedThreadId && requestedThread) {
           this.mobileShowDetail = true;
         }

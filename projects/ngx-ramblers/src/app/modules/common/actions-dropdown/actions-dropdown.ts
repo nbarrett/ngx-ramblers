@@ -22,14 +22,14 @@ import { isNull, isUndefined } from "es-toolkit/compat";
       height: 29px
   `],
     template: `
-      <div class="btn-group" [ngClass]="{'w-100': fullWidth}" dropdown>
+      <div class="btn-group" [ngClass]="{'w-100': fullWidth}" dropdown [container]="'body'" [dropup]="dropup">
         <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button border-0"
                 [ngClass]="{'w-100': fullWidth}" dropdownToggle
                 type="button">
           <fa-icon [icon]="faTableCells"></fa-icon>
           <span class="ms-2">{{ actionType() }} Actions</span><span class="caret"></span>
         </button>
-        <ul *dropdownMenu class="dropdown-menu" [ngClass]="{'w-100': fullWidth}" (click)="actionClicked($event)"
+        <ul *dropdownMenu class="dropdown-menu" (click)="actionClicked($event)"
             id="dropdown-animated" role="menu">
           @if (showRowActions && allowMoveRowUp()) {
             <li role="menuitem">
@@ -196,6 +196,7 @@ export class ActionsDropdownComponent implements OnInit {
   public logger = this.loggerFactory.createLogger("ActionsDropdownComponent", NgxLoggerLevel.ERROR);
   protected readonly faTableCells = faTableCells;
   @Input() public fullWidth = false;
+  @Input() public dropup = false;
   @Input() public pageContent: PageContent;
   @Input() public row: PageContentRow;
   @Input() public column: PageContentColumn;

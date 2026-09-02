@@ -183,13 +183,13 @@ export async function syncActionButtonDetailsByHref(db: Db, path: string, column
         return column;
       }
       const iconColourMatches = match.iconColour ? column?.iconColour === match.iconColour : true;
-      if (column?.title === match.title && column?.icon === match.icon && column?.contentText === match.contentText && iconColourMatches) {
+      if (column?.title === match.title && column?.icon === match.icon && column?.contentText === match.contentText && column?.accessLevel === match.accessLevel && iconColourMatches) {
         return column;
       }
       updatedCount++;
       log(`Updating action button "${column?.title}" to "${match.title}" for href "${match.href}" on "${path}"`);
       const iconColour = match.iconColour ? {iconColour: match.iconColour} : {};
-      return {...column, ...iconColour, title: match.title, icon: match.icon, contentText: match.contentText};
+      return {...column, ...iconColour, title: match.title, icon: match.icon, contentText: match.contentText, accessLevel: match.accessLevel};
     });
     return {...row, columns: updatedColumns};
   });
@@ -201,6 +201,42 @@ export async function syncActionButtonDetailsByHref(db: Db, path: string, column
   await collection.updateOne({ _id: target._id }, { $set: { rows } });
   log(`Updated ${updatedCount} action button(s) on "${path}"`);
   return updatedCount;
+}
+
+export async function setActionButtonAccessLevelByHrefs(
+  db: Db,
+  hrefs: string[],
+  accessLevel: string,
+  log: (message: string) => void = () => {}
+): Promise<number> {
+  const collection = db.collection(PAGE_CONTENT_COLLECTION);
+  const targets = new Set(hrefs.map(href => normaliseHref(href)).filter(Boolean));
+  const documents = await collection.find({}).toArray();
+  const progress = {updated: 0};
+  await documents.reduce(async (previous, document) => {
+    await previous;
+    const rows = document.rows || [];
+    const changed = {value: false};
+    const nextRows = rows.map((row: any) => {
+      if (row?.type !== PageContentType.ACTION_BUTTONS) {
+        return row;
+      }
+      const nextColumns = (row.columns || []).map((column: any) => {
+        if (!targets.has(normaliseHref(column?.href)) || column?.accessLevel === accessLevel) {
+          return column;
+        }
+        changed.value = true;
+        progress.updated += 1;
+        log(`Setting accessLevel "${accessLevel}" on "${column?.title}" (${column?.href}) at path "${document.path}"`);
+        return {...column, accessLevel};
+      });
+      return changed.value ? {...row, columns: nextColumns} : row;
+    });
+    if (changed.value) {
+      await collection.updateOne({_id: document._id}, {$set: {rows: nextRows}});
+    }
+  }, Promise.resolve());
+  return progress.updated;
 }
 
 export async function ensureActionButtons(db: Db, path: string, columns: ActionButtonColumn[], log: (message: string) => void = () => {}): Promise<number> {

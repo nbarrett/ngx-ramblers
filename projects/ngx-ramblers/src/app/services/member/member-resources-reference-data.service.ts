@@ -143,6 +143,12 @@ export class MemberResourcesReferenceDataService {
         includeAccessLevelIds: [AccessLevel.ENVIRONMENT_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
       },
       {
+        id: "memberAdmin",
+        description: "Member Admin",
+        filter: () => this.siteEditService.active() || this.memberLoginService.allowMemberAdminEdits(),
+        includeAccessLevelIds: [AccessLevel.MEMBER_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
+      },
+      {
         id: "committee",
         description: "Committee",
         filter: () => this.siteEditService.active() || this.memberLoginService.allowCommittee(),

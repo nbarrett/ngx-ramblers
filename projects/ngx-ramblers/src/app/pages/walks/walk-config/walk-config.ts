@@ -623,6 +623,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   public accessLevelDescriptions: Record<AccessLevel, string> = {
     [AccessLevel.HIDDEN]: "No access",
     [AccessLevel.ENVIRONMENT_ADMIN]: "Environment admin",
+    [AccessLevel.MEMBER_ADMIN]: "Member admin",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
     [AccessLevel.PUBLIC]: "Public"

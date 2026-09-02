@@ -184,7 +184,7 @@ export class InboxService {
   }
 
   async getThread(threadId: string): Promise<InboxThreadMessagesResponse> {
-    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/threads/${threadId}`));
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/threads/${encodeURIComponent(threadId)}`));
     return response.response as InboxThreadMessagesResponse;
   }
 

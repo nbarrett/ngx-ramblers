@@ -5,6 +5,7 @@ import { MailchimpCampaign, MailchimpCampaignVersion2 } from "./mailchimp.model"
 export enum AccessLevel {
   HIDDEN = "hidden",
   ENVIRONMENT_ADMIN = "environmentAdmin",
+  MEMBER_ADMIN = "memberAdmin",
   COMMITTEE = "committee",
   LOGGED_IN_MEMBER = "loggedInMember",
   PUBLIC = "public"

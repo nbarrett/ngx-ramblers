@@ -329,6 +329,7 @@ export interface InboxThread extends Identifiable {
   externalAddress: InboxAddress;
   subject: string;
   normalisedSubject: string;
+  slug?: string;
   folder?: InboxThreadFolder;
   deletedAt?: number | null;
   messageIds: string[];
