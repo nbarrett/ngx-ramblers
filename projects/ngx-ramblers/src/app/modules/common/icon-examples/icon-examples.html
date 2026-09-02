@@ -1,47 +1,155 @@
-<div class="card shadow clickable h-100">
-  <div class="card-body">
-    <h4>Font Awesome Examples</h4>
-    <div class="card-text">
-      <div class="row mb-2">
-        <div class="col-4">
-          <label for="aspect-ratio">Aspect Ratio:</label>
-          <select class="form-control input-sm"
-                  [(ngModel)]="size"
-                  id="aspect-ratio">
-            @for (size of sizes; track size) {
-              <option
-                [ngValue]="size">{{ size }}
-              </option>
-            }
-          </select>
-          <div class="form-group">
-            <label class="form-label"
-                   for="filter">Filter For</label>
-            <input [(ngModel)]="filter"
-                   (ngModelChange)="modelChanged($event)"
-                   (change)="change($event)"
-                   [typeahead]="iconService.iconKeys"
-                   id="filter"
-                   class="form-control input-sm" placeholder="Enter href value">
+@if (!compactMode) {
+  <div class="card shadow clickable h-100">
+    <div class="card-body">
+      <h4>Font Awesome Examples</h4>
+      <div class="card-text">
+        <div class="row mb-2">
+          <div class="col-4">
+            <label for="aspect-ratio">Aspect Ratio:</label>
+            <select class="form-control input-sm"
+                    [(ngModel)]="size"
+                    id="aspect-ratio">
+              @for (size of sizes; track size) {
+                <option
+                  [ngValue]="size">{{ size }}
+                </option>
+              }
+            </select>
+            <ng-container *ngTemplateOutlet="picker"/>
+            <h6>{{filteredIcons.length}} icons matching {{filter}}</h6>
           </div>
-          <h6>{{filteredIcons.length}} icons matching {{filter}}</h6>
+          <div class="col-8">
+            <ng-container *ngTemplateOutlet="results"/>
+          </div>
         </div>
-        <div class="col-8">
-          @for (icon of filteredIcons; track icon) {
-            <div class="row">
-              <div class="col-sm-3">
-                {{ icon.key }}
-              </div>
-              <div class="col-sm-3">
-                <div class="badge-button">
-                  <fa-icon [icon]="icon.value" [class]="size"/>
-                  <span>{{ icon.key }}</span>
-                </div>
+      </div>
+    </div>
+  </div>
+} @else {
+  <div class="icon-picker">
+    <div class="icon-picker-field">
+      @if (selectedIcon()) {
+        <button type="button"
+                class="icon-picker-preview"
+                (click)="openPicker()"
+                [title]="'Current icon ' + value">
+          <fa-icon [icon]="selectedIcon()" [style.color]="colourStyle()"/>
+        </button>
+      }
+      <input [(ngModel)]="filter"
+             (ngModelChange)="modelChanged($event)"
+             (keydown.enter)="onIconNameEnter($event)"
+             [id]="inputId || 'icon-filter'"
+             class="form-control input-sm" placeholder="Icon name"
+             autocomplete="off">
+      <button type="button" class="btn btn-primary" (click)="openPicker()">{{ changeIconLabel() }}</button>
+    </div>
+    <div class="icon-picker-hint">Type a name, or choose from the list.</div>
+    <div class="icon-colour-list">
+      <div class="icon-colour-heading">Icon colour</div>
+      <div class="icon-colour-menu">
+        <span class="icon-colour-dot" [style.backgroundColor]="colourHex()"></span>
+        <select class="form-control input-sm"
+                [ngModel]="selectedColourMenuValue"
+                (ngModelChange)="onColourMenuChange($event)">
+          @for (item of colourMenu; track item.value) {
+            <option [value]="item.value">{{ item.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
+    <app-draggable-modal [open]="pickerOpen"
+                         contentWidth="min(960px, 96vw)"
+                         [showCloseButton]="true"
+                         (closed)="closePicker()">
+      <span modalTitle>Choose icon</span>
+      <div modalBody class="icon-grid-body">
+        <div class="icon-picker-selected">
+          @if (selectedIcon()) {
+            <fa-icon [icon]="selectedIcon()" [style.color]="colourStyle()"/>
+            <div>
+              <div class="icon-picker-selected-name">{{ value }}</div>
+              <div class="icon-picker-hint">The name is in the search field. Edit it, then click an icon to use it.</div>
+            </div>
+          } @else {
+            <div class="icon-picker-hint">No icon selected. Type to search, then click one to use it.</div>
+          }
+        </div>
+        <input #iconSearch
+               [(ngModel)]="gridFilter"
+               (ngModelChange)="gridSearchChanged($event)"
+               class="form-control input-sm mb-2" placeholder="Search icons"
+               autocomplete="off">
+        <div class="icon-picker-count mb-2">{{ iconMatchCount() }} of {{ iconService.iconArray.length }} icons</div>
+        @if (pickerOpen) {
+          <div #gridList class="icon-grid-results" (scroll)="onGridScroll($event)">
+            <div class="icon-grid-list" [style.height.px]="gridListSize">
+              <div class="icon-grid-window"
+                   [style.transform]="'translateY(' + gridWindowTop + 'px)'">
+                @for (icon of displayedGridIcons; track icon.key) {
+                  <button type="button"
+                          class="icon-grid-cell"
+                          [class.selected]="isSelected(icon.key)"
+                          [title]="icon.key"
+                          (click)="selectIcon(icon.key)">
+                    <fa-icon [icon]="icon.value" [style.color]="colourStyle()"/>
+                    <span>{{ icon.key }}</span>
+                  </button>
+                }
               </div>
             </div>
+          </div>
+        }
+      </div>
+      <button modalFooter type="button" class="btn btn-quiet" (click)="closePicker()">Close</button>
+    </app-draggable-modal>
+    <app-draggable-modal [open]="colourPaletteOpen"
+                         contentWidth="min(480px, 96vw)"
+                         [showCloseButton]="true"
+                         (closed)="closeColourPalette()">
+      <span modalTitle>Icon colour</span>
+      <div modalBody>
+        <app-colour-swatch-selector
+          [value]="colourHex()"
+          [colours]="pickerColours"
+          (valueChange)="selectColourFromPalette($event)"/>
+        <input type="color"
+               class="form-control form-control-color mt-3"
+               [value]="colourHex()"
+               (change)="onCustomColourPicked($event)">
+      </div>
+      <button modalFooter type="button" class="btn btn-quiet" (click)="closeColourPalette()">Close</button>
+    </app-draggable-modal>
+  </div>
+}
+
+<ng-template #picker>
+  <div class="icon-picker-field">
+    <input [(ngModel)]="filter"
+           (ngModelChange)="modelChanged($event)"
+           [id]="inputId || 'icon-filter'"
+           class="form-control input-sm" placeholder="Icon name"
+           autocomplete="off">
+  </div>
+</ng-template>
+
+<ng-template #results>
+  <div class="icon-picker-panel">
+    <div class="icon-picker-count">{{ filteredIcons.length }} of {{ iconService.iconArray.length }} icons</div>
+    <div #iconList class="icon-picker-results" (scroll)="onListScroll($event)">
+      <div class="icon-picker-list" [style.height.px]="listSize">
+        <div class="icon-picker-window" [style.transform]="'translateY(' + windowTop + 'px)'">
+          @for (icon of displayedIcons; track icon.key) {
+            <button type="button"
+                    class="icon-picker-item"
+                    [class.active]="isSelected(icon.key)"
+                    (mousedown)="selectIcon(icon.key); $event.preventDefault()">
+              <fa-icon [icon]="icon.value" [style.color]="colourStyle()"/>
+              <span>{{ icon.key }}</span>
+            </button>
           }
         </div>
       </div>
     </div>
   </div>
-</div>
+</ng-template>

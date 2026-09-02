@@ -89,6 +89,9 @@ function accessibleLevels(user: any): AccessLevel[] {
     if (user.committee) {
       levels.push(AccessLevel.COMMITTEE);
     }
+    if (user.memberAdmin) {
+      levels.push(AccessLevel.MEMBER_ADMIN);
+    }
     const admin = user.contentAdmin || user.memberAdmin || user.financeAdmin || user.treasuryAdmin || user.fileAdmin || user.walkAdmin || user.socialAdmin;
     if (admin) {
       levels.push(AccessLevel.ENVIRONMENT_ADMIN);

@@ -2,6 +2,8 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
+import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import type { InboxThreadListResponse, InboxThreadMessagesResponse } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { pluraliseWithCount } from "./string-utils";
 import { isArray, keys } from "es-toolkit/compat";
 import { dateTimeFromIsoWithZone } from "./dates";
@@ -263,6 +265,38 @@ export async function groupEventBySlug(baseUrl: string, slug: string): Promise<a
   return events[0] || null;
 }
 
+export async function urlFromTitle(auth: CMSAuth, title: string): Promise<string> {
+  const url = `${auth.baseUrl}/api/database/group-event/url-from-title`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify({title})
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`urlFromTitle failed: ${response.status} ${response.statusText} - ${errorText}`);
+  } else {
+    const data = await response.json();
+    return data.response?.url || data.url;
+  }
+}
+
+export async function createGroupEvent(auth: CMSAuth, body: any): Promise<any> {
+  const url = `${auth.baseUrl}/api/database/group-event`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`createGroupEvent failed: ${response.status} ${response.statusText} - ${errorText}`);
+  } else {
+    const data = await response.json();
+    return data.response || data;
+  }
+}
+
 export async function groupEventsByDate(baseUrl: string, isoDate: string): Promise<any[]> {
   const startDt = dateTimeFromIsoWithZone(`${isoDate}T00:00:00+00:00`);
   const start = startDt.toISO();
@@ -331,4 +365,40 @@ export async function uploadFileToS3(auth: CMSAuth, bytes: Buffer, filename: str
   const name = fromResponses || data.response?.fileNameData?.awsFileName || data.fileNameData?.awsFileName || data.awsFileName || data.fileName;
   if (!name) throw new Error(`uploadFileToS3: could not extract awsFileName from response: ${JSON.stringify(data).slice(0, 300)}`);
   return name;
+}
+
+export function inboxAttachmentUrl(auth: CMSAuth, s3Key: string): string {
+  return `${auth.baseUrl}/${S3_BASE_URL}/${s3Key}`;
+}
+
+export async function inboxThreads(auth: CMSAuth, search?: string, limit?: number): Promise<InboxThreadListResponse> {
+  const params = new URLSearchParams();
+  if (search) {
+    params.set("search", search);
+  }
+  if (limit) {
+    params.set("limit", String(limit));
+  }
+  const query = params.toString();
+  const url = `${auth.baseUrl}/api/inbox/threads${query ? `?${query}` : ""}`;
+  debugLog(`Fetching inbox threads from: ${url}`);
+  const response = await fetch(url, {headers: authHeaders(auth)});
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to list inbox threads: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
+}
+
+export async function inboxThread(auth: CMSAuth, threadId: string): Promise<InboxThreadMessagesResponse> {
+  const url = `${auth.baseUrl}/api/inbox/threads/${encodeURIComponent(threadId)}`;
+  debugLog(`Fetching inbox thread: ${threadId}`);
+  const response = await fetch(url, {headers: authHeaders(auth)});
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch inbox thread: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
 }

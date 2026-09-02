@@ -22,7 +22,7 @@ import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
-import { deliveredToFromMessage } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { deliveredToFromMessage, inboxThreadSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { applyInboundMeetingCalendarReply } from "../video-meetings/apply-meeting-calendar-reply";
 import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
 import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
@@ -566,6 +566,10 @@ async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage
     externalAddress,
     subject: (message.subject ?? "").trim(),
     normalisedSubject: normaliseSubject(message.subject),
+    slug: inboxThreadSlug({
+      normalisedSubject: normaliseSubject(message.subject),
+      subject: (message.subject ?? "").trim()
+    } as InboxThread),
     folder,
     messageIds: [message.messageId],
     conversationKey: message.conversationKey ?? null,

@@ -16,6 +16,7 @@ import {
   deliveredToFromMessage,
   inboxThreadRoleLine,
   inboxThreadSlug,
+  isInboxThreadMongoId,
   newestInboxMessage,
   replyAllRecipients
 } from "./inbox-thread";
@@ -182,6 +183,18 @@ describe("inboxThreadId", () => {
 
   it("returns an empty string rather than undefined when neither is present", () => {
     expect(inboxThreadId({} as InboxThread)).toEqual("");
+  });
+
+});
+
+describe("isInboxThreadMongoId", () => {
+
+  it("accepts a 24-character hex id", () => {
+    expect(isInboxThreadMongoId("6a984fd06d0af36088dc720d")).toEqual(true);
+  });
+
+  it("rejects the subject slug used in inbox URLs", () => {
+    expect(isInboxThreadMongoId("api-queries-and-actions")).toEqual(false);
   });
 
 });
