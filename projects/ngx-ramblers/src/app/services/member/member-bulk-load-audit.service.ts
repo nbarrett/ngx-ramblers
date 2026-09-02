@@ -3,7 +3,13 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse, MemberBulkLoadDateMap } from "../../models/member.model";
+import {
+  Member,
+  MemberBulkLoadAudit,
+  MemberBulkLoadAuditApiResponse,
+  MemberBulkLoadDateMap,
+  MemberBulkLoadDigestSendResult
+} from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -73,6 +79,15 @@ export class MemberBulkLoadAuditService {
     }>(`${this.BASE_URL}/delete-by-ids`, {ids}));
     this.logger.info("deleteByIds: response", apiResponse?.response);
     return apiResponse?.response ?? {deletedCount: 0, message: "No sessions deleted"};
+  }
+
+  async sendCommitteeSummary(sessionId: string): Promise<MemberBulkLoadDigestSendResult> {
+    this.logger.info("sendCommitteeSummary:sessionId", sessionId);
+    const apiResponse = await firstValueFrom(this.http.post<{response: MemberBulkLoadDigestSendResult}>(
+      `${this.BASE_URL}/${sessionId}/send-committee-summary`,
+      {}
+    ));
+    return apiResponse?.response ?? {sent: false, recipientCount: 0, recipients: []};
   }
 
   public async findLatestBulkLoadAudit() {

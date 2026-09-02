@@ -1,4 +1,4 @@
-import { Member, MemberAuthAudit, MemberUpdateAudit } from "./member.model";
+import { Member, MemberAuthAudit, MemberBulkLoadUploadedRow, MemberUpdateAuditRow } from "./member.model";
 
 export const DESCENDING = "▼";
 export const ASCENDING = "▲";
@@ -13,7 +13,7 @@ export interface TableFilterItem {
   filter: any;
 }
 
-export interface MemberTableFilter {
+export interface MemberTableFilter<T = Member> {
   sortField?: string;
   query?: any;
   sortFunction?: any;
@@ -21,7 +21,7 @@ export interface MemberTableFilter {
   sortDirection?: string;
   availableFilters?: TableFilterItem[];
   selectedFilter?: TableFilterItem;
-  results: Member[];
+  results: T[];
 }
 
 export interface MemberUpdateAuditTableFilter {
@@ -32,8 +32,10 @@ export interface MemberUpdateAuditTableFilter {
   sortDirection?: string;
   availableFilters?: TableFilterItem[];
   selectedFilter?: TableFilterItem;
-  results: MemberUpdateAudit[];
+  results: MemberUpdateAuditRow[];
 }
+
+export type MemberBulkLoadUploadedTableFilter = MemberTableFilter<MemberBulkLoadUploadedRow>;
 
 export interface MemberAuthAuditTableFilter {
   sortField?: string;

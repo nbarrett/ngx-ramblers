@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
-import { faEnvelopesBulk, faSearch, faCloudArrowDown, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { first, isNumber, isString, groupBy, map, max, min, reduce, sortBy, kebabCase, values } from "es-toolkit/compat";
+import { faEnvelopesBulk, faSearch, faCloudArrowDown, faTrash, faPaperPlane, faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { first, isNumber, isString, groupBy, map, max, min, reduce, kebabCase, values } from "es-toolkit/compat";
 import { extractErrorMessage } from "../../../functions/strings";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
@@ -20,7 +20,10 @@ import {
   MemberAction,
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
+  MemberBulkLoadDigest,
+  MemberBulkLoadUploadedRow,
   MemberUpdateAudit,
+  MemberUpdateAuditRow,
   RamblersMember,
   SessionStatus,
   StatusMessage
@@ -29,9 +32,16 @@ import { MailProvider, SystemConfig } from "../../../models/system.model";
 import {
   ASCENDING,
   DESCENDING,
-  MemberTableFilter,
+  MemberBulkLoadUploadedTableFilter,
   MemberUpdateAuditTableFilter
 } from "../../../models/table-filtering.model";
+import { SortDirection } from "../../../models/sort.model";
+import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { memberBulkLoadUploadedRows, memberUpdateAuditRows } from "../../../functions/member-bulk-load-rows";
+import { memberBulkLoadDigest, memberBulkLoadDigestCountsLabel } from "../../../functions/member-bulk-load-digest";
+import { memberFullName } from "../../../functions/member-names";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { EditMode, StoredValue } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
@@ -383,7 +393,76 @@ export enum MemberBulkLoadSubTab {
                                 }
                               </select>
                             </div>
+                            @if (canManageUploadHistory && committeeSummaryConfigured()) {
+                              <button type="button"
+                                      class="btn btn-primary text-nowrap"
+                                      [disabled]="notifyTarget.busy || !uploadSession?.id || sendingCommitteeSummary"
+                                      (click)="offerCommitteeSummary()">
+                                <fa-icon [icon]="faPaperPlane" class="me-1"/>
+                                Send committee summary
+                              </button>
+                            }
                           </div>
+                          @if (committeeSummaryArmed && committeeSummaryDigest) {
+                            <div class="alert alert-warning mb-3">
+                              <div class="d-flex align-items-start">
+                                <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                                <div>
+                                  <strong>Send committee summary?</strong>
+                                  <p class="mb-2 mt-1">
+                                    This emails the roles listed on Mail Settings → Member bulk load summary for the selected bulk load:
+                                    {{ memberBulkLoadDigestCountsLabel(committeeSummaryDigest) }}.
+                                    New members still receive their own welcome. Nothing is sent until you confirm.
+                                  </p>
+                                  @if (committeeSummaryDigest.created.length > 0) {
+                                    <p class="mb-1"><strong>New members</strong></p>
+                                    <ul class="mb-2">
+                                      @for (member of committeeSummaryDigest.created; track member.membershipNumber || member.name) {
+                                        <li>{{ member.name }}@if (member.membershipNumber) {
+                                          ({{ member.membershipNumber }})
+                                        }</li>
+                                      }
+                                    </ul>
+                                  }
+                                  @if (committeeSummaryDigest.updated.length > 0) {
+                                    <p class="mb-1"><strong>Updated members</strong></p>
+                                    <ul class="mb-2">
+                                      @for (member of committeeSummaryDigest.updated; track member.membershipNumber || member.name) {
+                                        <li>{{ member.name }}@if (member.changeSummary) {
+                                          : {{ member.changeSummary }}
+                                        }</li>
+                                      }
+                                    </ul>
+                                  }
+                                  @if (committeeSummaryDigest.errors.length > 0) {
+                                    <p class="mb-1"><strong>Failed to save</strong></p>
+                                    <ul class="mb-2">
+                                      @for (member of committeeSummaryDigest.errors; track member.membershipNumber || member.name) {
+                                        <li>{{ member.name }}@if (member.errorText) {
+                                          : {{ member.errorText }}
+                                        }</li>
+                                      }
+                                    </ul>
+                                  }
+                                  <div class="d-flex flex-wrap gap-2">
+                                    <button type="button"
+                                            class="btn btn-primary"
+                                            [disabled]="notifyTarget.busy || sendingCommitteeSummary"
+                                            (click)="sendCommitteeSummary()">
+                                      <fa-icon [icon]="faPaperPlane" class="me-1"/>
+                                      Send to committee
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-quiet"
+                                            [disabled]="notifyTarget.busy || sendingCommitteeSummary"
+                                            (click)="cancelCommitteeSummary()">
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          }
                           <tabset class="upload-history-subtabs">
                           <tab [heading]="memberTabHeading"
                                [active]="subTabActive(MemberBulkLoadSubTab.MEMBERS_UPLOADED)"
@@ -445,134 +524,57 @@ export enum MemberBulkLoadSubTab {
                                 </tbody>
                               </table>
                             </div>
-                            <div class="ngx-data-table-card mb-0">
-                              <div class="table-responsive">
-                                <table class="ngx-data-table">
-                                  <thead>
-                                  <tr>
-                                    <th class="sortable" (click)="sortMembersUploadedBy('membershipNumber')">Membership
-                                      Number
-                                      @if (showMembersUploadedColumn('membershipNumber')) {
-                                        <span
-                                          class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMembersUploadedBy('mobileNumber')">Mobile Number
-                                      @if (showMembersUploadedColumn('mobileNumber')) {
-                                        <span
-                                          class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMembersUploadedBy('email')">Email
-                                      @if (showMembersUploadedColumn('email')) {
-                                        <span
-                                          class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMembersUploadedBy('firstName')">First Name
-                                      @if (showMembersUploadedColumn('firstName')) {
-                                        <span class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMembersUploadedBy('lastName')">Last Name
-                                      @if (showMembersUploadedColumn('lastName')) {
-                                        <span class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMembersUploadedBy('postcode')">Postcode
-                                      @if (showMembersUploadedColumn('postcode')) {
-                                        <span class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
-                                      }
-                                    </th>
-                                  </tr>
-                                  </thead>
-                                  <tbody>
-                                    @for (member of filters.membersUploaded.results; track memberTrack(member, $index)) {
-                                      <tr>
-                                        <td>{{ member.membershipNumber }}</td>
-                                        <td>{{ member.mobileNumber }}</td>
-                                        <td>{{ member.email }}</td>
-                                        <td>{{ member.firstName }}</td>
-                                        <td>{{ member.lastName }}</td>
-                                        <td>{{ member.postcode }}</td>
-                                      </tr>
-                                    }
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
+                            <app-sortable-table
+                              [columns]="uploadedMemberColumns"
+                              [rows]="filters.membersUploaded.results"
+                              [defaultSortKey]="uploadedMembersSortKey"
+                              [defaultSortDirection]="uploadedMembersSortDirection"
+                              [trackBy]="trackUploadedMember"
+                              (sortChange)="onUploadedMembersSort($event)"
+                              emptyMessage="No uploaded members match the current search or member action.">
+                              <ng-template appSortableTableCell="memberAction" let-row>
+                                @if (row.memberAction) {
+                                  <app-status-icon [status]="row.memberAction"/>
+                                }
+                              </ng-template>
+                            </app-sortable-table>
                             </div>
                           </tab>
                           <tab [heading]="auditTabHeading"
                                [active]="subTabActive(MemberBulkLoadSubTab.MEMBER_ACTIONS)"
                                (selectTab)="selectSubTab(MemberBulkLoadSubTab.MEMBER_ACTIONS)">
                             <div class="bulk-load-panel-scroll">
-                            <div class="ngx-data-table-card mb-0">
-                              <div class="table-responsive">
-                                <table class="ngx-data-table">
-                                  <thead>
-                                  <tr>
-                                    <th class="sortable" (click)="sortMemberUpdateAuditBy('updateTime')">Update Time
-                                      @if (showMemberUpdateAuditColumn('updateTime')) {
-                                        <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" width="10%" (click)="sortMemberUpdateAuditBy('memberAction')">Status
-                                      @if (showMemberUpdateAuditColumn('memberAction')) {
-                                        <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMemberUpdateAuditBy('rowNumber')">Row Number
-                                      @if (showMemberUpdateAuditColumn('rowNumber')) {
-                                        <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMemberUpdateAuditBy('member')">Member Name
-                                      @if (showMemberUpdateAuditColumn('member')) {
-                                        <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th class="sortable" (click)="sortMemberUpdateAuditBy('changes')">Changes
-                                      @if (showMemberUpdateAuditColumn('changes')) {
-                                        <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
-                                      }
-                                    </th>
-                                    <th>Fields Changed</th>
-                                  </tr>
-                                  </thead>
-                              <tbody>
-                                @for (memberUpdateAudit of filters.memberUpdateAudit.results; track memberUpdateAudit.id) {
-                                  <tr>
-                                    <td class="text-nowrap">{{ memberUpdateAudit.updateTime | displayDateAndTime }}
-                                    </td>
-                                    <td class="text-nowrap">
-                                      <app-status-icon [status]="memberUpdateAudit.memberAction"/>
-                                    </td>
-                                    <td>{{ memberUpdateAudit.rowNumber }}</td>
-                                    <td>{{ memberUpdateAudit.memberId || (memberUpdateAudit.member && memberUpdateAudit.member.id) | memberIdToFullName : members : '': true }}</td>
-                                    <td>{{ memberUpdateAudit.changes }}</td>
-                                    <td>
-                                      @if (auditChangeSummary(memberUpdateAudit)) {
-                                        <div>{{ auditChangeSummary(memberUpdateAudit) }}</div>
-                                      }
-                                      @if (memberUpdateAudit.auditErrorMessage) {
-                                        <div class="mt-1">
-                                          <strong>Save failed: </strong>
-                                          <span>{{ auditErrorText(memberUpdateAudit) }}</span>
-                                        </div>
-                                        <input type="submit" [disabled]="notifyTarget.busy"
-                                               class="btn btn-primary mt-2"
-                                               value="Review {{ memberUpdateAudit.member | fullName }}"
-                                               (click)="createMemberFromAudit(memberUpdateAudit.member)"
-                                               title="Open this member to review or save">
-                                      }
-                                    </td>
-                                  </tr>
+                            <app-sortable-table
+                              [columns]="memberAuditColumns"
+                              [rows]="filters.memberUpdateAudit.results"
+                              [defaultSortKey]="memberAuditSortKey"
+                              [defaultSortDirection]="memberAuditSortDirection"
+                              [trackBy]="trackMemberAudit"
+                              (sortChange)="onMemberAuditSort($event)"
+                              emptyMessage="No member actions match the current search or member action.">
+                              <ng-template appSortableTableCell="updateTime" let-row>
+                                <span class="text-nowrap">{{ row.updateTime | displayDateAndTime }}</span>
+                              </ng-template>
+                              <ng-template appSortableTableCell="memberAction" let-row>
+                                <app-status-icon [status]="row.memberAction"/>
+                              </ng-template>
+                              <ng-template appSortableTableCell="fieldChanges" let-row>
+                                @if (auditChangeSummary(row)) {
+                                  <div>{{ auditChangeSummary(row) }}</div>
                                 }
-                              </tbody>
-                                </table>
-                              </div>
-                            </div>
+                                @if (row.auditErrorMessage) {
+                                  <div class="mt-1">
+                                    <strong>Save failed: </strong>
+                                    <span>{{ auditErrorText(row) }}</span>
+                                  </div>
+                                  <input type="submit" [disabled]="notifyTarget.busy"
+                                         class="btn btn-primary mt-2"
+                                         value="Review {{ row.member | fullName }}"
+                                         (click)="createMemberFromAudit(row.member)"
+                                         title="Open this member to review or save">
+                                }
+                              </ng-template>
+                            </app-sortable-table>
                             </div>
                           </tab>
                           </tabset>
@@ -746,7 +748,7 @@ export enum MemberBulkLoadSubTab {
       </div>
     </app-page>`,
   styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, StatusIconComponent, FormsModule, LinkComponent, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe, RouterLink, DateRangeSlider]
+  imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, StatusIconComponent, FormsModule, LinkComponent, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe, RouterLink, DateRangeSlider, SortableTableComponent, SortableTableCellDirective]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);
@@ -791,8 +793,29 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     {status: MemberAction.updated, title: "Updated"},
     {status: MemberAction.error, title: "Error"}];
   public uploadSession: MemberBulkLoadAudit | null = null;
+  public uploadedMembersSortKey = "email";
+  public uploadedMembersSortDirection = DESCENDING;
+  public memberAuditSortKey = "updateTime";
+  public memberAuditSortDirection = DESCENDING;
+  public uploadedMemberColumns: SortableTableColumn<MemberBulkLoadUploadedRow>[] = [
+    {key: "memberAction", label: "Member Action", sortKey: "memberAction", cellClass: "nowrap"},
+    {key: "membershipNumber", label: "Membership Number", sortKey: "membershipNumber", cellGetter: row => row.membershipNumber},
+    {key: "mobileNumber", label: "Mobile Number", sortKey: "mobileNumber", cellGetter: row => row.mobileNumber},
+    {key: "email", label: "Email", sortKey: "email", cellGetter: row => row.email},
+    {key: "firstName", label: "First Name", sortKey: "firstName", cellGetter: row => row.firstName},
+    {key: "lastName", label: "Last Name", sortKey: "lastName", cellGetter: row => row.lastName},
+    {key: "postcode", label: "Postcode", sortKey: "postcode", cellGetter: row => row.postcode}
+  ];
+  public memberAuditColumns: SortableTableColumn<MemberUpdateAuditRow>[] = [
+    {key: "updateTime", label: "Update Time", sortKey: "updateTime", cellClass: "nowrap"},
+    {key: "memberAction", label: "Member Action", sortKey: "memberAction", cellClass: "nowrap"},
+    {key: "rowNumber", label: "Row Number", sortKey: "rowNumber", cellGetter: row => row.rowNumber},
+    {key: "memberName", label: "Member Name", sortKey: "memberName", cellGetter: row => row.memberName},
+    {key: "changes", label: "Changes", sortKey: "changes", cellGetter: row => row.changes},
+    {key: "fieldChanges", label: "Fields Changed"}
+  ];
   public filters: {
-    membersUploaded: MemberTableFilter;
+    membersUploaded: MemberBulkLoadUploadedTableFilter;
     memberUpdateAudit: MemberUpdateAuditTableFilter;
   };
   public fileUploader: FileUploader = new FileUploader({
@@ -822,6 +845,12 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   faSearch = faSearch;
   faCloudArrowDown = faCloudArrowDown;
   faTrash = faTrash;
+  faPaperPlane = faPaperPlane;
+  faCircleExclamation = faCircleExclamation;
+  protected readonly memberBulkLoadDigestCountsLabel = memberBulkLoadDigestCountsLabel;
+  public committeeSummaryArmed = false;
+  public committeeSummaryDigest: MemberBulkLoadDigest | null = null;
+  public sendingCommitteeSummary = false;
   salesforceConfig: SalesforceConfig | null = null;
   salesforceSyncing = false;
   salesforceSyncAuditLog: StatusMessage[] = [];
@@ -855,7 +884,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         sortField: "email",
         reverseSort: true,
         sortDirection: DESCENDING,
-        results: [],
+        results: [] as MemberBulkLoadUploadedRow[],
       }
     };
     this.canManageUploadHistory = this.memberLoginService.allowFileAdmin() || this.memberLoginService.allowMemberAdminEdits();
@@ -904,6 +933,12 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         const memberBulkLoadResponse = memberBulkLoadAuditApiResponse.response as MemberBulkLoadAudit;
         this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, memberBulkLoadResponse, this.members, this.notify)
           .then(() => this.refreshMemberBulkLoadAudit())
+          .then(() => {
+            const created = this.memberBulkLoadAudits.find(session => session.id === memberBulkLoadResponse.id);
+            if (created) {
+              this.uploadSession = created;
+            }
+          })
           .then(() => this.refreshMemberUpdateAudit())
           .then(() => this.validateBulkUploadProcessing(memberBulkLoadAuditApiResponse))
           .then((validationSuccessful) => this.sendSubscriptionUpdates(validationSuccessful))
@@ -944,6 +979,9 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return this.memberService.all().then(members => {
       this.logger.info(`found ${this.stringUtils.pluraliseWithCount(members.length, "member")}`);
       this.members = members;
+      if (this.notify && this.filters) {
+        this.filterLists();
+      }
       return members;
     });
   }
@@ -1251,9 +1289,18 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return record?.errorMessage || record?.errorCode || extractErrorMessage(error);
   }
 
-  private filterLists(searchTerm?: string) {
-    this.applyFilterToList(this.filters.membersUploaded, this.uploadSession?.members || []);
-    this.applyFilterToList(this.filters.memberUpdateAudit, this.memberUpdateAudits);
+  private filterLists() {
+    const memberAction = this.filters.memberUpdateAudit.query?.status || null;
+    const uploadedRows = memberBulkLoadUploadedRows(this.uploadSession?.members || [], this.memberUpdateAudits, this.members);
+    const uploadedForAction = memberAction
+      ? uploadedRows.filter(row => row.memberAction === memberAction)
+      : uploadedRows;
+    this.applyFilterToList(this.filters.membersUploaded, uploadedForAction);
+    const auditRows = memberUpdateAuditRows(this.memberUpdateAudits, this.members);
+    const auditsForAction = memberAction
+      ? auditRows.filter(row => row.memberAction === memberAction)
+      : auditRows;
+    this.applyFilterToList(this.filters.memberUpdateAudit, auditsForAction);
     this.updateTabHeadings();
   }
 
@@ -1286,6 +1333,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       [StoredValue.SEARCH]: this.quickSearch?.trim() || null,
       [StoredValue.SESSION]: this.sessionToUrlParam(this.uploadSession?.createdDate) || null,
       [StoredValue.STATUS]: isDefaultStatus ? null : kebabCase(statusTitle),
+      [StoredValue.SORT]: this.uploadedMembersSortIsDefault() ? null : this.uploadedMembersSortKey,
+      [StoredValue.SORT_ORDER]: this.uploadedMembersSortIsDefault() ? null : this.sortDirectionParam(this.uploadedMembersSortDirection),
+      [StoredValue.AUDIT_SORT]: this.memberAuditSortIsDefault() ? null : this.memberAuditSortKey,
+      [StoredValue.AUDIT_SORT_ORDER]: this.memberAuditSortIsDefault() ? null : this.sortDirectionParam(this.memberAuditSortDirection),
       [StoredValue.DATE_RANGE_PRESET]: null,
       [StoredValue.DATE_FROM]: null,
       [StoredValue.DATE_TO]: null
@@ -1303,6 +1354,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       [StoredValue.SEARCH]: null,
       [StoredValue.SESSION]: null,
       [StoredValue.STATUS]: null,
+      [StoredValue.SORT]: null,
+      [StoredValue.SORT_ORDER]: null,
+      [StoredValue.AUDIT_SORT]: null,
+      [StoredValue.AUDIT_SORT_ORDER]: null,
       [StoredValue.DATE_RANGE_PRESET]: this.historyPreset,
       [StoredValue.DATE_FROM]: isCustom && this.historyRange
         ? this.dateUtils.yearMonthDayWithDashes(this.historyRange.from)
@@ -1320,6 +1375,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       [StoredValue.SEARCH]: null,
       [StoredValue.SESSION]: null,
       [StoredValue.STATUS]: null,
+      [StoredValue.SORT]: null,
+      [StoredValue.SORT_ORDER]: null,
+      [StoredValue.AUDIT_SORT]: null,
+      [StoredValue.AUDIT_SORT_ORDER]: null,
       [StoredValue.DATE_RANGE_PRESET]: null,
       [StoredValue.DATE_FROM]: null,
       [StoredValue.DATE_TO]: null
@@ -1351,8 +1410,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.applyingQueryParams = true;
     try {
       const previousSessionId = this.uploadSession?.id || null;
-      const previousStatusTitle = this.filters?.memberUpdateAudit?.query?.title || null;
-      const previousSearch = this.quickSearch;
       this.applyTabsFromQueryParams(params[StoredValue.TAB], params[StoredValue.SUB_TAB]);
       const onUploadHistory = this.tabActive(MemberBulkLoadTab.UPLOAD_HISTORY);
       const onManageHistory = this.tabActive(MemberBulkLoadTab.MANAGE_HISTORY);
@@ -1363,6 +1420,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         ? this.uploadSessionStatuses.find(status => status.title === resolvedStatus) || this.uploadSessionStatuses[0]
         : this.uploadSessionStatuses[0];
       this.pendingSessionParam = onUploadHistory ? (params[StoredValue.SESSION] || null) : null;
+      this.applySortFromQueryParams(onUploadHistory ? params : {});
       this.applyPendingSessionSelection();
       if (onManageHistory) {
         this.applyManageHistoryFromQueryParams(params);
@@ -1372,15 +1430,15 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       }
       if (onUploadHistory) {
         const sessionChanged = !!this.uploadSession && this.uploadSession.id !== previousSessionId;
-        const statusChanged = this.filters.memberUpdateAudit.query?.title !== previousStatusTitle;
-        const needsAuditRefresh = sessionChanged || statusChanged || !this.memberUpdateAudits?.length;
+        const needsAuditRefresh = sessionChanged || !this.memberUpdateAudits?.length;
         if (needsAuditRefresh) {
           void this.refreshMemberUpdateAudit();
         } else {
           this.filterLists();
         }
       } else if (onManageHistory) {
-        if (params[StoredValue.SUB_TAB] || params[StoredValue.SESSION] || params[StoredValue.SEARCH] || params[StoredValue.STATUS]) {
+        if (params[StoredValue.SUB_TAB] || params[StoredValue.SESSION] || params[StoredValue.SEARCH] || params[StoredValue.STATUS]
+          || params[StoredValue.SORT] || params[StoredValue.SORT_ORDER] || params[StoredValue.AUDIT_SORT] || params[StoredValue.AUDIT_SORT_ORDER]) {
           this.syncManageHistoryQueryParams();
         }
       } else if (
@@ -1388,6 +1446,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         || params[StoredValue.SESSION]
         || params[StoredValue.SEARCH]
         || params[StoredValue.STATUS]
+        || params[StoredValue.SORT]
+        || params[StoredValue.SORT_ORDER]
+        || params[StoredValue.AUDIT_SORT]
+        || params[StoredValue.AUDIT_SORT_ORDER]
         || params[StoredValue.DATE_RANGE_PRESET]
         || params[StoredValue.DATE_FROM]
         || params[StoredValue.DATE_TO]
@@ -1465,18 +1527,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return this.stringUtils.stringify(errorMessage);
   }
 
-  showMemberUpdateAuditColumn(field: string) {
-    return this.filters.memberUpdateAudit.sortField.startsWith(field);
-  }
-
-  showMembersUploadedColumn(field: string) {
-    return this.filters.membersUploaded.sortField === field;
-  }
-
-  sortMemberUpdateAuditBy(field: string) {
-    this.applySortTo(field, this.filters.memberUpdateAudit, this.memberUpdateAudits);
-  }
-
   protected auditChangeSummary(audit: MemberUpdateAudit): string {
     return this.memberBulkLoadService.summariseFieldChanges(audit.fieldChanges);
   }
@@ -1485,30 +1535,73 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return this.auditSummaryFormatted(this.auditSummary());
   }
 
-  applySortTo(field: string, filterSource: MemberTableFilter | MemberUpdateAuditTableFilter, unfilteredList: any[]) {
-    this.logger.debug("sorting by field", field, "current value of filterSource", filterSource);
-    filterSource.sortField = field;
-    filterSource.sortFunction = field;
-    filterSource.reverseSort = !filterSource.reverseSort;
-    filterSource.sortDirection = filterSource.reverseSort ? DESCENDING : ASCENDING;
-    this.logger.debug("sorting by field", field, "new value of filterSource", filterSource);
-    this.applyFilterToList(filterSource, unfilteredList);
+  applyFilterToList<T>(filter: { results: T[] }, unfilteredList: T[]) {
+    this.notify?.setBusy();
+    filter.results = this.searchFilterPipe.transform(unfilteredList, this.quickSearch);
+    this.notify?.clearBusy();
   }
 
-  applyFilterToList(filter: MemberTableFilter | MemberUpdateAuditTableFilter, unfilteredList: any[]) {
-    this.notify.setBusy();
-    const filteredResults = sortBy(this.searchFilterPipe.transform(unfilteredList, this.quickSearch), filter.sortField);
-    filter.results = filter.reverseSort ? filteredResults.reverse() : filteredResults;
-    this.notify.clearBusy();
+  onUploadedMembersSort(state: SortableTableSortState): void {
+    this.uploadedMembersSortKey = state.key || "email";
+    this.uploadedMembersSortDirection = state.direction === ASCENDING ? ASCENDING : DESCENDING;
+    this.filters.membersUploaded.sortField = this.uploadedMembersSortKey;
+    this.filters.membersUploaded.sortDirection = this.uploadedMembersSortDirection;
+    this.filters.membersUploaded.reverseSort = this.uploadedMembersSortDirection === DESCENDING;
+    this.syncUploadHistoryQueryParams();
+  }
+
+  onMemberAuditSort(state: SortableTableSortState): void {
+    this.memberAuditSortKey = state.key || "updateTime";
+    this.memberAuditSortDirection = state.direction === ASCENDING ? ASCENDING : DESCENDING;
+    this.filters.memberUpdateAudit.sortField = this.memberAuditSortKey;
+    this.filters.memberUpdateAudit.sortDirection = this.memberAuditSortDirection;
+    this.filters.memberUpdateAudit.reverseSort = this.memberAuditSortDirection === DESCENDING;
+    this.syncUploadHistoryQueryParams();
+  }
+
+  trackUploadedMember(_index: number, row: MemberBulkLoadUploadedRow): string {
+    return row.membershipNumber || row.email || `row-${row.rowNumber}`;
+  }
+
+  trackMemberAudit(_index: number, row: MemberUpdateAuditRow): string {
+    return row.id || `${row.uploadSessionId}-${row.rowNumber}`;
+  }
+
+  private uploadedMembersSortIsDefault(): boolean {
+    return this.uploadedMembersSortKey === "email" && this.uploadedMembersSortDirection === DESCENDING;
+  }
+
+  private memberAuditSortIsDefault(): boolean {
+    return this.memberAuditSortKey === "updateTime" && this.memberAuditSortDirection === DESCENDING;
+  }
+
+  private sortDirectionParam(direction: string): SortDirection {
+    return direction === ASCENDING ? SortDirection.ASC : SortDirection.DESC;
+  }
+
+  private applySortFromQueryParams(params: Record<string, string>): void {
+    if (this.filters) {
+      const uploadedSortKey = params[StoredValue.SORT];
+      const uploadedSortOrder = params[StoredValue.SORT_ORDER];
+      this.uploadedMembersSortKey = uploadedSortKey || "email";
+      this.uploadedMembersSortDirection = uploadedSortOrder === SortDirection.ASC ? ASCENDING : DESCENDING;
+      this.filters.membersUploaded.sortField = this.uploadedMembersSortKey;
+      this.filters.membersUploaded.sortDirection = this.uploadedMembersSortDirection;
+      this.filters.membersUploaded.reverseSort = this.uploadedMembersSortDirection === DESCENDING;
+      const auditSortKey = params[StoredValue.AUDIT_SORT];
+      const auditSortOrder = params[StoredValue.AUDIT_SORT_ORDER];
+      this.memberAuditSortKey = auditSortKey || "updateTime";
+      this.memberAuditSortDirection = auditSortOrder === SortDirection.ASC ? ASCENDING : DESCENDING;
+      this.filters.memberUpdateAudit.sortField = this.memberAuditSortKey;
+      this.filters.memberUpdateAudit.sortDirection = this.memberAuditSortDirection;
+      this.filters.memberUpdateAudit.reverseSort = this.memberAuditSortDirection === DESCENDING;
+    }
   }
 
   refreshMemberUpdateAudit(): Promise<MemberUpdateAudit[]> {
     if (this.uploadSession && this.uploadSession.id) {
       const uploadSessionId = this.uploadSession.id;
-      const criteria: any = {uploadSessionId};
-      if (this.filters.memberUpdateAudit.query.status) {
-        criteria.memberAction = this.filters.memberUpdateAudit.query.status;
-      }
+      const criteria = {uploadSessionId};
       this.logger.debug("querying member audit records with", criteria);
       return this.memberUpdateAuditService.all({criteria, sort: {updateTime: -1}}).then(memberUpdateAudits => {
         this.memberUpdateAudits = memberUpdateAudits;
@@ -1581,10 +1674,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     }
   }
 
-  memberTrack(member: { membershipNumber?: string; email?: string }, index: number): string {
-    return member?.membershipNumber || member?.email || `member-${index}`;
-  }
-
   selectSubTab(subTab: MemberBulkLoadSubTab): void {
     this.subTab = kebabCase(subTab);
     if (!this.tabActive(MemberBulkLoadTab.UPLOAD_HISTORY)) {
@@ -1622,14 +1711,74 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   uploadSessionChanged() {
     this.notify.setBusy();
     this.notify.hide();
+    this.cancelCommitteeSummary();
     this.logger.info("upload session:", this.uploadSession);
     this.syncUploadHistoryQueryParams();
     this.filterLists();
     this.refreshMemberUpdateAudit().then(() => this.notify.clearBusy());
   }
 
-  sortMembersUploadedBy(field) {
-    this.applySortTo(field, this.filters.membersUploaded, this.uploadSession?.members || []);
+  committeeSummaryConfigured(): boolean {
+    return !!this.mailMessagingConfig?.mailConfig?.memberBulkLoadDigestConfigId;
+  }
+
+  offerCommitteeSummary() {
+    if (!this.uploadSession?.id) {
+      this.notify.warning({
+        title: "No upload session",
+        message: "Choose an upload session before sending a committee summary."
+      });
+    } else {
+      this.selectTab(MemberBulkLoadTab.UPLOAD_HISTORY);
+      const uploadedBy = this.members.find(member => member.id === this.uploadSession.createdBy);
+      const uploadedByName = memberFullName(
+        uploadedBy,
+        this.uploadSession.createdBy === "system" ? "System" : "Unknown member"
+      );
+      this.committeeSummaryDigest = memberBulkLoadDigest(
+        this.uploadSession,
+        this.memberUpdateAudits,
+        this.members,
+        uploadedByName
+      );
+      this.committeeSummaryArmed = true;
+    }
+  }
+
+  cancelCommitteeSummary() {
+    this.committeeSummaryArmed = false;
+    this.committeeSummaryDigest = null;
+  }
+
+  async sendCommitteeSummary() {
+    if (this.uploadSession?.id && !this.sendingCommitteeSummary) {
+      this.sendingCommitteeSummary = true;
+      this.notify.setBusy();
+      try {
+        const result = await this.memberBulkLoadAuditService.sendCommitteeSummary(this.uploadSession.id);
+        if (result.sent) {
+          this.notify.success({
+            title: "Committee summary sent",
+            message: `Sent to ${this.stringUtils.pluraliseWithCount(result.recipientCount, "committee recipient")}: ${result.recipients.join(", ")}.`
+          });
+          this.cancelCommitteeSummary();
+        } else {
+          this.notify.error({
+            title: "Committee summary not sent",
+            message: "Check Mail Settings → Built-in Processes for the member bulk load summary mapping, sender and committee recipients."
+          });
+        }
+      } catch (error) {
+        this.logger.error("sendCommitteeSummary failed", error);
+        this.notify.error({
+          title: "Committee summary not sent",
+          message: extractErrorMessage(error)
+        });
+      } finally {
+        this.sendingCommitteeSummary = false;
+        this.notify.clearBusy();
+      }
+    }
   }
 
   refreshMemberBulkLoadAudit(): Promise<any> {

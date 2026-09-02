@@ -356,7 +356,11 @@ export interface BuiltInProcessMappings {
   bookingNotificationConfigId: string;
   memberSyncNotificationConfigId: string;
   volunteerNotificationConfigId: string;
+  memberBulkLoadDigestConfigId: string;
 }
+
+export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
+export const MEMBER_BULK_LOAD_DIGEST_SUBJECT_TEXT = "Member bulk load summary";
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
   forgotPasswordNotificationConfigId: "Forgotten Password Reset",
@@ -365,10 +369,8 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   contactUsNotificationConfigId: "Contact Us",
   bookingNotificationConfigId: "Booking Notification",
   memberSyncNotificationConfigId: "Member Sync Notification",
-  volunteerNotificationConfigId: "Rights of Way Volunteer Correspondence"
+  volunteerNotificationConfigId: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT
 };
-
-export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
 export const PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT = "Photographs and video";
 export const PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME = "photographs-and-video";
 
@@ -731,6 +733,22 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "secretary",
     replyToRole: "secretary",
     signOffRoles: ["secretary"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: MEMBER_BULK_LOAD_DIGEST_SUBJECT_TEXT,
+      suffixParameter: ""
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    templateName: "member-sync-notification",
+    senderRole: "membership",
+    replyToRole: "membership",
+    signOffRoles: ["membership"],
+    bccRoles: [],
     bannerId: null
   }
 ];

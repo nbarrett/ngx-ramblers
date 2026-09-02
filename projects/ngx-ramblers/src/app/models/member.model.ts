@@ -68,7 +68,7 @@ export interface MemberCookie {
 
 export interface SessionStatus {
   title: string;
-  status?: string;
+  status?: MemberAction;
 }
 
 export interface MailchimpSegmentIds {
@@ -358,6 +358,42 @@ export interface MemberUpdateAudit extends Auditable {
   auditErrorMessage?: object;
 }
 
+export interface MemberUpdateAuditRow extends MemberUpdateAudit {
+  memberName: string;
+  searchableText: string;
+}
+
+export interface MemberBulkLoadUploadedRow extends RamblersMember {
+  rowNumber: number;
+  memberAction: MemberAction | null;
+  searchableText: string;
+}
+
+export interface MemberBulkLoadDigestMember {
+  name: string;
+  membershipNumber: string;
+  changeSummary: string;
+  errorText: string | null;
+}
+
+export interface MemberBulkLoadDigest {
+  sessionId: string;
+  uploadedOn: number;
+  uploadedByName: string;
+  dataFileName: string;
+  created: MemberBulkLoadDigestMember[];
+  updated: MemberBulkLoadDigestMember[];
+  errors: MemberBulkLoadDigestMember[];
+  skippedCount: number;
+  totalAudits: number;
+}
+
+export interface MemberBulkLoadDigestSendResult {
+  sent: boolean;
+  recipientCount: number;
+  recipients: string[];
+}
+
 export enum MemberAction {
   matched = "matched",
   found = "found",
@@ -456,3 +492,5 @@ export interface DisplayMember {
 export const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
 export const NONE = "(none)";
+
+export const NO_CHANGES_OR_DIFFERENCES = "No changes or differences found";
