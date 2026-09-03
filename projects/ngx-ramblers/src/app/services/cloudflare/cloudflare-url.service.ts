@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import { apexHost } from "../../functions/hosts";
 
 @Injectable({
   providedIn: "root"
@@ -24,7 +25,7 @@ export class CloudflareUrlService {
   }
 
   emailRoutingOverview(accountId: string, baseDomain: string): string {
-    return `${this.base}/${accountId}/${baseDomain}/email/routing/overview`;
+    return `${this.base}/${accountId}/${apexHost(baseDomain).toLowerCase()}/email/routing/overview`;
   }
 
   emailRoutingRules(accountId: string, zoneId: string): string {
