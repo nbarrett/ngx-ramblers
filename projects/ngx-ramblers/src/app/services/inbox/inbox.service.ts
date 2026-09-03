@@ -29,6 +29,7 @@ import {
 } from "../../models/inbox.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { CommonDataService } from "../common-data-service";
+import { UnassignedCommitteeRolesResponse } from "../../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -171,6 +172,11 @@ export class InboxService {
   async orphanedThreads(): Promise<OrphanedInboxThreadsResponse> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/orphaned-threads`));
     return response.response as OrphanedInboxThreadsResponse;
+  }
+
+  async unassignedCommitteeRoles(): Promise<UnassignedCommitteeRolesResponse> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/unassigned-roles`));
+    return response.response as UnassignedCommitteeRolesResponse;
   }
 
   async remapThreads(request: InboxThreadRemapRequest): Promise<InboxThreadRemapResponse> {

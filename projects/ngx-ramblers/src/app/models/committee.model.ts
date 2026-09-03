@@ -421,6 +421,35 @@ export function roleRecipientMemberIds(role: CommitteeMember): string[] {
     .filter((memberId): memberId is string => Boolean(memberId));
 }
 
+export interface CommitteeRoleMissingMember {
+  memberId: string;
+  primary: boolean;
+  deletedAt: number | null;
+  deletedBy: string | null;
+  fullName: string | null;
+}
+
+export interface UnassignedCommitteeRole {
+  role: CommitteeMember;
+  missingMembers: CommitteeRoleMissingMember[];
+}
+
+export interface UnassignedCommitteeRolesResponse {
+  unassignedRoles: UnassignedCommitteeRole[];
+  totalCount: number;
+}
+
+export function reassignCommitteeRoleMember(role: CommitteeMember, fromMemberId: string, toMemberId: string, toFullName: string): CommitteeMember {
+  const primary = role.memberId === fromMemberId;
+  const inboxRecipients = role.inboxRecipients?.map(recipient => recipient.memberId === fromMemberId ? {...recipient, memberId: toMemberId} : recipient);
+  return {
+    ...role,
+    memberId: primary ? toMemberId : role.memberId,
+    fullName: primary ? toFullName : role.fullName,
+    ...(inboxRecipients ? {inboxRecipients} : {})
+  };
+}
+
 export function reusableNotificationRecipients(role: CommitteeMember): InboxRoleRecipient[] {
   return roleNotificationRecipients(role)
     .filter(recipient => recipient.notify)
