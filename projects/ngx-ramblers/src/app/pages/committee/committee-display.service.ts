@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep } from "es-toolkit/compat";
+import { cloneDeep, toPairs } from "es-toolkit/compat";
 import { last } from "es-toolkit/compat";
 import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -102,12 +102,21 @@ export class CommitteeDisplayService {
     return !!committeeFile?.document;
   }
 
-  documentPageUrl(committeeFile: CommitteeFile, sourcePagePath?: string, base: string = this.urlService.baseUrl()): string {
+  documentQueryParams(committeeFile: CommitteeFile): Record<string, string> {
     const slug = this.committeeFileSlug(committeeFile);
     if (committeeFile?.id && slug) {
-      const pagePath = sourcePagePath || this.urlService.urlPath();
       const param = this.isComposedDocument(committeeFile) ? StoredValue.DOCUMENT : StoredValue.FILE;
-      return `${base}/${pagePath}?${param}=${slug}`;
+      return {[param]: slug};
+    } else {
+      return {};
+    }
+  }
+
+  documentPageUrl(committeeFile: CommitteeFile, sourcePagePath?: string, base: string = this.urlService.baseUrl()): string {
+    const query = toPairs(this.documentQueryParams(committeeFile)).map(([param, slug]) => `${param}=${slug}`).join("&");
+    if (query) {
+      const pagePath = sourcePagePath || this.urlService.urlPath();
+      return `${base}/${pagePath}?${query}`;
     } else {
       return "";
     }
