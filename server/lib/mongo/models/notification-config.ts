@@ -14,6 +14,7 @@ const notificationConfigSchema = new mongoose.Schema({
   preSendActions: [{type: String}],
   defaultMemberSelection: {type: String},
   postSendActions: [{type: String}],
+  nextNotificationConfigId: {type: String},
   monthsInPast: {type: Number},
   timeUnit: {type: String},
   defaultListId: {type: Number},

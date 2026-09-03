@@ -26,7 +26,7 @@ function reportBulkDeleteProgress(message: string, completed?: number, total?: n
 }
 
 export async function applyPostSendActionsToMembers(memberIds: string[], postSendActions: WorkflowAction[], performedBy: string): Promise<PostSendActionsResult> {
-  const result: PostSendActionsResult = { disabled: 0, deleted: 0 };
+  const result: PostSendActionsResult = { disabled: 0, deleted: 0, disabledMemberIds: [], deletedMemberIds: [] };
   if (!memberIds?.length || !postSendActions?.length) {
     return result;
   }
@@ -34,12 +34,14 @@ export async function applyPostSendActionsToMembers(memberIds: string[], postSen
     const toDisable = await memberModel.find({ _id: { $in: memberIds } }).lean();
     const updated = await memberModel.updateMany({ _id: { $in: memberIds } }, { $set: { groupMember: false } });
     result.disabled = updated.modifiedCount || 0;
+    result.disabledMemberIds = toDisable.map((doc: any) => doc._id.toString());
     debugLog("applyPostSendActions DISABLE_GROUP_MEMBER: cleared groupMember on", result.disabled, "of", memberIds.length, "members");
     await removeFromBrevoAndWriteBackConsent(toDisable as unknown as Member[], performedBy);
   }
   if (postSendActions.includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER)) {
     const cascade = await bulkDeleteMembersCascade(memberIds, performedBy);
-    result.deleted = cascade.deletionResponses.filter(response => response.deleted).length;
+    result.deletedMemberIds = cascade.deletionResponses.filter(response => response.deleted).map(response => response.id);
+    result.deleted = result.deletedMemberIds.length;
     debugLog("applyPostSendActions BULK_DELETE_GROUP_MEMBER: deleted", result.deleted, "members,", cascade.auditRowsDeleted, "audit rows,", cascade.orphanRowsDeleted, "orphan rows");
   }
   return result;

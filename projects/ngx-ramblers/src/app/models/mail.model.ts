@@ -88,6 +88,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   preSendActions: WorkflowAction[];
   defaultMemberSelection: MemberSelection;
   postSendActions: WorkflowAction[];
+  nextNotificationConfigId?: string | null;
   monthsInPast?: number;
   timeUnit?: NotificationTimeUnit;
   defaultListId?: number;
@@ -125,6 +126,8 @@ export enum WorkflowAction {
 export interface PostSendActionsResult {
   disabled: number;
   deleted: number;
+  disabledMemberIds: string[];
+  deletedMemberIds: string[];
 }
 
 export interface MemberSelector {

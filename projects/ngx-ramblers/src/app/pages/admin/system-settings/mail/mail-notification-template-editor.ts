@@ -440,11 +440,11 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                     <div class="row">
                       <div class="col-sm-6">
                         <div class="form-group">
-                          <label for="member-selection">
+                          <label for="pre-send-action">
                             Pre-Send Action</label>
                           <select [compareWith]="arrayComparer" class="form-control input-sm"
                                   [(ngModel)]="notificationConfig.preSendActions"
-                                  id="member-selection">
+                                  id="pre-send-action">
                             @for (type of workflowActions; track type.key) {
                               <option
                                 [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
@@ -455,11 +455,11 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       </div>
                       <div class="col-sm-6">
                         <div class="form-group">
-                          <label for="member-selection">
+                          <label for="post-send-action">
                             Post-Send Action</label>
                           <select [compareWith]="arrayComparer" class="form-control input-sm"
                                   [(ngModel)]="notificationConfig.postSendActions"
-                                  id="member-selection">
+                                  id="post-send-action">
                             @for (type of workflowActions; track type.key) {
                               <option
                                 [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
@@ -470,6 +470,25 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       </div>
                     </div>
                   }
+                }
+                @if (!isWorkflowConfig) {
+                  <div class="row">
+                    <div class="col-sm-12">
+                      <div class="form-group">
+                        <label for="then-run">Then Run</label>
+                        <select class="form-control input-sm"
+                                [ngModel]="notificationConfig.nextNotificationConfigId || null"
+                                (ngModelChange)="notificationConfig.nextNotificationConfigId = $event"
+                                id="then-run">
+                          <option [ngValue]="null">None</option>
+                          @for (candidate of thenRunCandidates(); track candidate.id) {
+                            <option [ngValue]="candidate.id">{{ cachedConfigLabels.get(candidate) || candidate?.subject?.text }}</option>
+                          }
+                        </select>
+                        <small class="form-text text-muted">After this email has been sent, the composer offers this configuration as the next step.</small>
+                      </div>
+                    </div>
+                  </div>
                 }
                 @if (notificationConfig?.contentPreset) {
                   <div class="row">
@@ -822,6 +841,12 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       this.cachedConfigLabels.set(config, this.configLabel(config));
     });
     this.isWorkflowConfig = this.mailMessagingService.workflowIdsFor(this.mailMessagingConfig?.mailConfig)?.includes(this.notificationConfig?.id);
+  }
+
+  thenRunCandidates(): NotificationConfig[] {
+    const workflowIds: string[] = this.mailMessagingService.workflowIdsFor(this.mailMessagingConfig?.mailConfig) || [];
+    return (this.mailMessagingConfig?.notificationConfigs || [])
+      .filter(config => !!config.id && config !== this.notificationConfig && !workflowIds.includes(config.id));
   }
 
   configIssues(config?: NotificationConfig): string[] {
