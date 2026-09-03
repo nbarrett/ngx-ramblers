@@ -5,6 +5,7 @@ import { ApiResponse } from "../../models/api-response.model";
 import {
   GoogleCloudSetupStatusView,
   InboxAliasConfigView,
+  InboxAliasSummary,
   InboxJunkAccess,
   InboxRoleNotificationSetting,
   InboxAccessMode,
@@ -42,8 +43,13 @@ export class InboxService {
   private BASE_URL = "api/inbox";
 
   async listAliases(): Promise<InboxAliasConfigView[]> {
-    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/aliases`));
-    return response.response as InboxAliasConfigView[];
+    return (await this.aliasSummary()).aliases;
+  }
+
+  async aliasSummary(): Promise<InboxAliasSummary> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse & {configuredAliasCount?: number}>(`${this.BASE_URL}/aliases`)) as ApiResponse & {configuredAliasCount?: number};
+    const aliases = (response.response as InboxAliasConfigView[]) ?? [];
+    return {aliases, configuredAliasCount: response.configuredAliasCount ?? aliases.length};
   }
 
   async listAliasesForConfiguration(): Promise<InboxAliasConfigView[]> {

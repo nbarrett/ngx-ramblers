@@ -40,6 +40,16 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       margin-left: 0.5rem
     .inbox-notification-badge:hover
       background-color: #ffc107
+    .inbox-notification-badge:focus
+      background: #f9b104
+      background-image: none
+      outline: none
+      box-shadow: none
+    .inbox-notification-badge:focus:hover
+      background: #ffc107
+    .inbox-notification-badge:focus-visible
+      outline: 2px solid #fff
+      outline-offset: -2px
     .inbox-notification-badge .inbox-icon
       color: #212529
       font-size: 0.9rem

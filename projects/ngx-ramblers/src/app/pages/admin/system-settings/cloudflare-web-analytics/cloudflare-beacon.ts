@@ -10,7 +10,7 @@ export function initializeCloudflareBeacon(systemConfigService: SystemConfigServ
   return async () => {
     try {
       if (!environment.production) {
-        logger.info("Cloudflare Web Analytics skipped in non-production builds");
+        logger.debug("Cloudflare Web Analytics skipped in non-production builds");
       } else {
         const config: SystemConfig = await firstValueFrom(systemConfigService.events());
         const settings = config.cloudflareWebAnalytics;
