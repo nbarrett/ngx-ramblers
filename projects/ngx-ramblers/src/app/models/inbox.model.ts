@@ -161,6 +161,11 @@ export interface InboxAliasConfigView extends Omit<InboxAliasConfig, "recipients
   recipients: InboxAliasRecipientView[];
 }
 
+export interface InboxAliasSummary {
+  aliases: InboxAliasConfigView[];
+  configuredAliasCount: number;
+}
+
 export interface InboxRoleNotificationSetting {
   roleType: string;
   roleEmail?: string | null;

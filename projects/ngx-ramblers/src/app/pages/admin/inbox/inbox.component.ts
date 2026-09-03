@@ -37,7 +37,7 @@ import {
   hiddenInboxFolders,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
-import { BrandingMode } from "../../../models/mail.model";
+import { BrandingMode, MailSettingsTab } from "../../../models/mail.model";
 import { EmailComposerStepKey } from "../../../models/email-composer.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { DeviceSize } from "../../../models/page.model";
@@ -58,6 +58,8 @@ import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-fram
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
 import { UIDateFormat } from "../../../models/date-format.model";
+import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
+import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 
 @Component({
   selector: "app-inbox",
@@ -222,12 +224,15 @@ import { UIDateFormat } from "../../../models/date-format.model";
       } @else if (aliases.length === 0) {
         <div class="alert alert-warning inbox-alert">
           <fa-icon [icon]="faTriangleExclamation"/>
-          @if (internalInbox) {
+          @if (configuredAliasCount > 0) {
+            <strong class="ms-2">No mailboxes shared with you -</strong>
+            <span class="ms-1">This site has {{ configuredAliasCount === 1 ? "a mailbox" : configuredAliasCount + " mailboxes" }} set up, but none is visible to you. You need to hold a committee role that receives mail, or have a mailbox shared with you under <a [routerLink]="['/' + committeeSettingsPath]">Committee Settings</a>. A role still pointing at a member who has since been deleted counts as unassigned.</span>
+          } @else if (internalInbox) {
             <strong class="ms-2">No committee roles with addresses -</strong>
-            <span class="ms-1">This site delivers mail straight to the inbox. Add committee roles with email addresses in Committee Settings and they'll appear here automatically.</span>
+            <span class="ms-1">This site delivers mail straight to the inbox. Add committee roles with email addresses in <a [routerLink]="['/' + committeeSettingsPath]">Committee Settings</a> and they'll appear here automatically.</span>
           } @else {
             <strong class="ms-2">No role mailboxes connected -</strong>
-            <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/' + adminSettingsSystemSettingsPath]" [queryParams]="mailSettingsQueryParams">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
+            <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/' + mailSettingsPath]" [queryParams]="mailSettingsInboxQueryParams">Mail Settings &rarr; Inbox</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
           }
         </div>
       }
@@ -667,12 +672,17 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private pushSubscriptionService = inject(InboxPushSubscriptionService);
   private inboxNotificationService = inject(InboxNotificationService);
-  protected readonly mailSettingsQueryParams = {[StoredValue.TAB]: "external-systems", [StoredValue.SUB_TAB]: "mail"};
+  protected readonly mailSettingsPath = AdminPath.MAIL_SETTINGS;
+  protected readonly committeeSettingsPath = AdminSettingsPath.COMMITTEE_SETTINGS;
+  protected readonly mailSettingsInboxQueryParams = {[StoredValue.TAB]: kebabCase(MailSettingsTab.GMAIL_INBOX)};
+  protected configuredAliasCount = 0;
   protected readonly pushStatus$ = this.pushSubscriptionService.status$;
   protected readonly faBell = faBell;
   protected readonly faBellSlash = faBellSlash;
   private webSocketClientService = inject(WebSocketClientService);
   private systemConfigService = inject(SystemConfigService);
+  private committeeConfigService = inject(CommitteeConfigService);
+  private committeeReferenceData: CommitteeReferenceData | null = null;
   protected internalInbox = false;
   private notifierService = inject(NotifierService);
   protected stringUtils = inject(StringUtilsService);
@@ -974,7 +984,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private touchStartY = 0;
   private suppressThreadClick = false;
 
-  adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   private subscriptions: Subscription[] = [];
   private openThreadRequestId = 0;
   private mailboxViewInitialised = false;
@@ -994,6 +1003,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe(config =>
       this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS));
     this.subscriptions.push(this.inboxNotificationService.total$.subscribe(total => this.unreadTotal = total));
+    this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data));
     this.subscriptions.push(this.inboxNotificationService.breakdown$.subscribe(rows =>
       this.unreadByRole = new Map(rows.map(row => [row.roleType, row.unreadCount]))));
     this.updateMobile();
@@ -1300,8 +1310,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.busy = true;
     try {
       if (reloadAccess || this.aliases.length === 0) {
-        const [aliases, canReadJunk] = await Promise.all([this.inboxService.listAliases(), this.inboxService.junkAccessible()]);
-        this.aliases = aliases;
+        const [aliasSummary, canReadJunk] = await Promise.all([this.inboxService.aliasSummary(), this.inboxService.junkAccessible()]);
+        this.aliases = aliasSummary.aliases;
+        this.configuredAliasCount = aliasSummary.configuredAliasCount;
         this.canReadJunk = canReadJunk;
       }
       if (!this.mailboxViewInitialised) {
@@ -1439,10 +1450,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isInboxGeneralRoleType(alias.roleType)) {
       return "Other inbox mail";
     } else if (this.mailboxLabelMode === InboxMailboxLabelMode.PERSON) {
-      return alias.assignedMemberName || this.stringUtils.asTitle(alias.roleType);
+      return alias.assignedMemberName || this.roleLabel(alias.roleType);
     } else {
-      return this.stringUtils.asTitle(alias.roleType);
+      return this.roleLabel(alias.roleType);
     }
+  }
+
+  private roleLabel(roleType: string): string {
+    return this.committeeReferenceData?.description(roleType) || this.stringUtils.asTitle(roleType);
   }
 
   onMailboxLabelModeChange(mode: InboxMailboxLabelMode): void {

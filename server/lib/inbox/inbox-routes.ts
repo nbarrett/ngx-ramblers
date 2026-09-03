@@ -757,7 +757,7 @@ router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Resp
       const visibleConnection = connection && !isConfigAdministrator ? {...connection, gmailAccountEmail: null} : connection;
       return sanitiseAlias(alias, visibleConnection);
     });
-    res.json({request: {messageType}, response: await withAssignedMemberNames(views)});
+    res.json({request: {messageType}, response: await withAssignedMemberNames(views), configuredAliasCount: aliases.length});
   } catch (error) {
     errorDebugLog("Error listing inbox aliases:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
