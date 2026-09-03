@@ -1,5 +1,5 @@
 import { AdminPath } from "../../models/admin-route-paths.model";
-import { ChangeDetectorRef, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, DoCheck, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -665,9 +665,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       </div>
       }
       <div class="d-none" #eventsContent>
-        @if ((state.eventInclusion === EventInclusionMode.AUTO_INCLUDE || state.eventInclusion === EventInclusionMode.SINGLE_EVENT) && synthesisedNotificationForCommittee()) {
+        @if (!eventsStepOmitted() && (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE || state.eventInclusion === EventInclusionMode.SINGLE_EVENT) && committeeNotification) {
           <app-committee-notification-details
-            [notification]="synthesisedNotificationForCommittee()!"
+            [notification]="committeeNotification"
             [members]="members"
             [sourcePagePath]="state.context?.sourcePagePath ?? ''"
             [sourcePageTitle]="state.context?.sourcePageTitle ?? ''"
@@ -2221,7 +2221,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     </ng-template>
   `
 })
-export class EmailComposer implements OnInit, OnDestroy {
+export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   @HostListener("input")
   @HostListener("change")
@@ -3638,10 +3638,16 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
+  private eventSliderRangeValue: DateRange | null = null;
+
   protected eventSliderRange(): DateRange | null {
     const filter = this.state.groupEventsFilter;
-    if (!filter?.fromDate?.value || !filter?.toDate?.value) return null;
-    return { from: filter.fromDate.value, to: filter.toDate.value };
+    if (!filter?.fromDate?.value || !filter?.toDate?.value) {
+      this.eventSliderRangeValue = null;
+    } else if (!this.eventSliderRangeValue || this.eventSliderRangeValue.from !== filter.fromDate.value || this.eventSliderRangeValue.to !== filter.toDate.value) {
+      this.eventSliderRangeValue = { from: filter.fromDate.value, to: filter.toDate.value };
+    }
+    return this.eventSliderRangeValue;
   }
 
   onEventDateRangeChange(range: DateRange): void {
@@ -3797,24 +3803,50 @@ export class EmailComposer implements OnInit, OnDestroy {
     return merged;
   }
 
-  synthesisedNotificationForCommittee(): Notification | null {
-    if (!this.state.notificationConfig || !this.state.groupEventsFilter) return null;
-    return {
-      cancelled: false,
-      content: {
-        notificationConfig: this.state.notificationConfig,
-        text: { value: "", include: false },
-        signoffText: { value: "", include: false },
-        title: { value: this.state.subject ?? "", include: false },
-        addresseeType: this.addresseePlaceholder(),
-        listId: this.state.selectedListId ?? undefined,
-        selectedMemberIds: this.state.selectedMemberIds,
-        signoffAs: { value: "", include: false },
-        includeDownloadInformation: false
-      },
-      groupEvents: this.state.groupEvents,
-      groupEventsFilter: this.state.groupEventsFilter
-    };
+  protected committeeNotification: Notification | null = null;
+  private committeeNotificationInputs: unknown[] = [];
+
+  ngDoCheck(): void {
+    this.refreshCommitteeNotification();
+  }
+
+  private refreshCommitteeNotification(): void {
+    if (!this.state.notificationConfig || !this.state.groupEventsFilter) {
+      this.committeeNotification = null;
+      this.committeeNotificationInputs = [];
+    } else {
+      const inputs = [
+        this.state.notificationConfig,
+        this.state.subject ?? "",
+        this.addresseePlaceholder(),
+        this.state.selectedListId ?? undefined,
+        this.state.selectedMemberIds,
+        this.state.groupEvents,
+        this.state.groupEventsFilter
+      ];
+      const unchanged = this.committeeNotification
+        && this.committeeNotificationInputs.length === inputs.length
+        && this.committeeNotificationInputs.every((value, index) => value === inputs[index]);
+      if (!unchanged) {
+        this.committeeNotificationInputs = inputs;
+        this.committeeNotification = {
+          cancelled: false,
+          content: {
+            notificationConfig: this.state.notificationConfig,
+            text: { value: "", include: false },
+            signoffText: { value: "", include: false },
+            title: { value: this.state.subject ?? "", include: false },
+            addresseeType: this.addresseePlaceholder(),
+            listId: this.state.selectedListId ?? undefined,
+            selectedMemberIds: this.state.selectedMemberIds,
+            signoffAs: { value: "", include: false },
+            includeDownloadInformation: false
+          },
+          groupEvents: this.state.groupEvents,
+          groupEventsFilter: this.state.groupEventsFilter
+        };
+      }
+    }
   }
 
   private renderedEventsHtml(): string {
