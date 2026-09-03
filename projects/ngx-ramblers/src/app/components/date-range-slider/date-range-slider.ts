@@ -263,9 +263,13 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   @Input() maxDate?: DateTime;
   @Input()
   set range(value: DateRange | null | undefined) {
+    const next = value ?? null;
+    const unchanged = this.rangeInputSet
+      && next?.from === this.pendingExternalRange?.from
+      && next?.to === this.pendingExternalRange?.to;
     this.rangeInputSet = true;
-    this.pendingExternalRange = value ?? null;
-    if (this.initialized) {
+    this.pendingExternalRange = next;
+    if (this.initialized && !unchanged) {
       this.applyExternalRange();
     }
   }
