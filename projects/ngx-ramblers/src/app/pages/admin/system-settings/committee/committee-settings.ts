@@ -78,6 +78,7 @@ import { cloneDeep, isBoolean, isEqual, isString } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
+import { CommitteeUnassignedRolesComponent } from "./committee-unassigned-roles";
 import { CommitteeMemberEditor } from "./committee-member";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
@@ -283,6 +284,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       </div>
                     </div>
                   </div>
+                  <app-committee-unassigned-roles/>
                   @if (committeeMembersLoaded && !editingRoleDraft && committeeMembersWithoutRole.length && !committeeRolesAlertDismissed) {
                     <div class="alert alert-warning committee-roles-alert">
                       <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
@@ -888,7 +890,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent, CommitteeUnassignedRolesComponent]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   @ViewChild(CommitteeMemberEditor) private roleEditor: CommitteeMemberEditor | null = null;

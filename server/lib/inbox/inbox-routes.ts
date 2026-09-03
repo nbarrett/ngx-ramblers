@@ -54,6 +54,7 @@ import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inbox
 import { assignedMembersByMemberId, clearDerivedAliasCache, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses, siteInternalEmails } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import { folderlessThreadIds, orphanedInboxThreads, remapCandidatesFrom, remapInboxThreads, restoreThreadsToInbox } from "./inbox-orphaned-threads";
+import { handleUnassignedCommitteeRoles } from "./inbox-unassigned-roles-controller";
 import { sentMessageRows } from "./inbox-sent";
 import {
   conversationCount,
@@ -1035,6 +1036,8 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
+
+router.get("/unassigned-roles", authConfig.authenticate(), handleUnassignedCommitteeRoles);
 
 router.get("/orphaned-threads", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {

@@ -53,6 +53,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import { AttachmentPreviewComponent } from "../../../modules/common/attachment-preview/attachment-preview";
 import { InboxCalendarInviteComponent } from "./inbox-calendar-invite";
 import { InboxOrphanedThreadsComponent } from "./inbox-orphaned-threads.component";
+import { CommitteeUnassignedRolesComponent } from "../system-settings/committee/committee-unassigned-roles";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
@@ -60,7 +61,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent, SectionToggle],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent, CommitteeUnassignedRolesComponent, SectionToggle],
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Mail" [showTitle]="false" [showBreadcrumb]="!mobile">
@@ -212,6 +213,7 @@ import { UIDateFormat } from "../../../models/date-format.model";
           }
         </div>
       }
+      <app-committee-unassigned-roles (reassigned)="refresh()"/>
       @if (!loadedOnce) {
         <div class="alert alert-warning inbox-alert d-flex align-items-center">
           <fa-icon [icon]="faRotateRight" [animation]="'spin'"/>

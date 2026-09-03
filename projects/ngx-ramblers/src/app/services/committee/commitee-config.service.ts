@@ -1,8 +1,10 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { applyCommitteeRoleDefaultSender, BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, RoleType, roleEmailAddresses } from "../../models/committee.model";
+import { applyCommitteeRoleDefaultSender, BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, reassignCommitteeRoleMember, RoleType, roleEmailAddresses } from "../../models/committee.model";
 import { normaliseEmail } from "../../functions/strings";
+import { memberFullName } from "../../functions/member-names";
+import { Member } from "../../models/member.model";
 import { ConfigKey } from "../../models/config.model";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -38,7 +40,14 @@ export class CommitteeConfigService {
   };
 
   refreshConfig(): void {
-    this.config.queryConfig<CommitteeConfig>(ConfigKey.COMMITTEE, {
+    this.queryConfig().then(committeeConfig => {
+      this.logger.info("notifying subscribers with committeeConfig:", committeeConfig);
+      this.publishConfig(committeeConfig);
+    });
+  }
+
+  private queryConfig(): Promise<CommitteeConfig> {
+    return this.config.queryConfig<CommitteeConfig>(ConfigKey.COMMITTEE, {
       roles: [],
       contactUs: {
         chairman: this.emptyCommitteeMember(),
@@ -52,11 +61,7 @@ export class CommitteeConfigService {
       fileTypes: [],
       meetingTypes: [],
       expenses: {costPerMile: DEFAULT_COST_PER_MILE}
-    }).then((queriedConfig: CommitteeConfig) => {
-      const committeeConfig = this.applyNameAndDescription(this.migrateConfig(queriedConfig));
-      this.logger.info("notifying subscribers with committeeConfig:", committeeConfig);
-      this.publishConfig(committeeConfig);
-    });
+    }).then((queriedConfig: CommitteeConfig) => this.applyNameAndDescription(this.migrateConfig(queriedConfig)));
   }
 
   private migrateConfig(queriedConfig: CommitteeConfig) {
@@ -160,6 +165,35 @@ export class CommitteeConfigService {
             return Promise.reject(error);
           });
       }
+    }
+  }
+
+  reassignRoleMember(roleType: string, fromMemberIds: string[], member: Member): Promise<void> {
+    if (!this.memberLoginService.allowMemberAdminEdits()) {
+      return Promise.reject("You cannot reassign committee roles here.");
+    } else {
+      return this.queryConfig().then(config => {
+        const currentRole = config?.roles?.find(role => role.type === roleType) ?? null;
+        if (!currentRole) {
+          return Promise.reject("Committee settings could not be loaded.");
+        } else {
+          const fullName = memberFullName(member);
+          const reassignedRole = fromMemberIds.reduce((role, fromMemberId) => reassignCommitteeRoleMember(role, fromMemberId, member.id, fullName), currentRole);
+          const updatedRole = {...reassignedRole, nameAndDescription: this.nameAndDescriptionFrom(reassignedRole)};
+          const next = {
+            ...config,
+            roles: config.roles.map(role => role.type === roleType ? updatedRole : role)
+          };
+          return this.saveConfig(next)
+            .then(() => {
+              this.refreshConfig();
+            })
+            .catch(error => {
+              this.refreshConfig();
+              return Promise.reject(error);
+            });
+        }
+      });
     }
   }
 
