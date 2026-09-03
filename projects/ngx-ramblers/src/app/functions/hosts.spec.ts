@@ -24,6 +24,7 @@ describe("apexHost", () => {
 
   it("strips a leading www. prefix", () => {
     expect(apexHost("www.example.com")).toBe("example.com");
+    expect(apexHost("WWW.Example.com")).toBe("Example.com");
   });
 
   it("leaves hosts without a www prefix unchanged", () => {

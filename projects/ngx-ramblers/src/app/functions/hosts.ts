@@ -1,7 +1,7 @@
 import { DnsProvider, dnsProviderLabels } from "../models/environment-setup.model";
 
 export function apexHost(host: string | undefined | null): string {
-  return (host || "").replace(/^www\./, "");
+  return (host || "").replace(/^www\./i, "");
 }
 
 export const RAMBLERS_NATIONAL_DOMAIN = "ramblers.org.uk";
