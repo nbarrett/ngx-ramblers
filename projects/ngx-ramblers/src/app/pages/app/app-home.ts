@@ -335,21 +335,21 @@ export class AppHomeComponent implements OnInit, OnDestroy {
           walksOnly: true
         })
       ]);
-      this.offlineByKey = await this.followCache.statusByKey();
       const live = [
         ...this.ramblersLibrary.recentSummaries(),
         ...this.payloadService.summariesFromPages(pages || [])
       ];
-      const cached = navigator.onLine ? [] : await this.followCache.summaries();
-      this.routes = [...cached, ...live].filter((route, index, list) => {
-        const key = followCacheKey(route);
-        return list.findIndex(item => followCacheKey(item) === key) === index;
-      });
       this.walks = (walks || []).sort((left, right) => {
         const leftDate = left.groupEvent?.start_date_time || "";
         const rightDate = right.groupEvent?.start_date_time || "";
         return leftDate < rightDate ? -1 : (leftDate > rightDate ? 1 : 0);
       });
+      const cached = navigator.onLine ? [] : await this.followCache.summaries();
+      this.routes = [...cached, ...live].filter((route, index, list) => {
+        const key = followCacheKey(route);
+        return list.findIndex(item => followCacheKey(item) === key) === index;
+      });
+      this.offlineByKey = await this.followCache.statusByKey();
       this.logger.info("load: routes", this.routes.length, "walks", this.walks.length);
     } catch (error) {
       this.logger.error("load failed", error);

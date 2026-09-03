@@ -7,10 +7,13 @@ import {
   RouteFollowSummary
 } from "../../models/route-follow.model";
 import { DateUtilsService } from "../date-utils.service";
+import { NgxLoggerLevel } from "ngx-logger";
+import { Logger, LoggerFactory } from "../logger-factory.service";
 
 const DB_NAME = "ngx-follow";
 const DB_VERSION = 1;
 const ROUTES_STORE = "routes";
+const DB_OPEN_TIMEOUT_MS = 5000;
 
 export interface CachedFollowRoute {
   key: string;
@@ -25,6 +28,7 @@ export interface CachedFollowRoute {
 })
 export class RouteFollowCacheService {
   private dateUtils = inject(DateUtilsService);
+  private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowCacheService", NgxLoggerLevel.ERROR);
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   keyForPayload(payload: RouteFollowPayload): string | null {
@@ -72,8 +76,13 @@ export class RouteFollowCacheService {
   }
 
   async payload(key: string): Promise<RouteFollowPayload | null> {
-    const record = await this.cached(key);
-    return record?.payload || null;
+    try {
+      const record = await this.cached(key);
+      return record?.payload || null;
+    } catch (error) {
+      this.logger.warn("route cache read failed for", key, error);
+      return null;
+    }
   }
 
   async status(key: string | null): Promise<RouteFollowOfflineStatus> {
@@ -92,7 +101,7 @@ export class RouteFollowCacheService {
   }
 
   async summaries(): Promise<RouteFollowSummary[]> {
-    const records = await this.allRoutes();
+    const records = await this.allRoutesOrNone();
     return records.map(record => ({
       source: record.payload.source,
       title: record.payload.title,
@@ -106,11 +115,20 @@ export class RouteFollowCacheService {
   }
 
   async statusByKey(): Promise<Record<string, RouteFollowOfflineStatus>> {
-    const records = await this.allRoutes();
+    const records = await this.allRoutesOrNone();
     return records.reduce((acc, record) => {
       acc[record.key] = record.tilesReady ? RouteFollowOfflineStatus.AVAILABLE : RouteFollowOfflineStatus.SAVING;
       return acc;
     }, {} as Record<string, RouteFollowOfflineStatus>);
+  }
+
+  private async allRoutesOrNone(): Promise<CachedFollowRoute[]> {
+    try {
+      return await this.allRoutes();
+    } catch (error) {
+      this.logger.warn("route cache unavailable:", error);
+      return [];
+    }
   }
 
   async prefetchTiles(urls: string[], onProgress?: (done: number, total: number, bytes: number) => void): Promise<{saved: number; total: number; bytes: number}> {
@@ -158,15 +176,29 @@ export class RouteFollowCacheService {
       return this.dbPromise;
     } else {
       this.dbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = () => {
-          const db = request.result;
-          if (!db.objectStoreNames.contains(ROUTES_STORE)) {
-            db.createObjectStore(ROUTES_STORE, {keyPath: "key"});
-          }
+        const settle = (outcome: () => void) => {
+          window.clearTimeout(timer);
+          outcome();
         };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+        const fail = (reason: unknown) => settle(() => {
+          this.dbPromise = null;
+          reject(reason);
+        });
+        const timer = window.setTimeout(() => fail(new Error("Route cache did not open in time")), DB_OPEN_TIMEOUT_MS);
+        try {
+          const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(ROUTES_STORE)) {
+              db.createObjectStore(ROUTES_STORE, {keyPath: "key"});
+            }
+          };
+          request.onsuccess = () => settle(() => resolve(request.result));
+          request.onerror = () => fail(request.error);
+          request.onblocked = () => fail(new Error("Route cache is blocked by another open tab"));
+        } catch (error) {
+          fail(error);
+        }
       });
       return this.dbPromise;
     }

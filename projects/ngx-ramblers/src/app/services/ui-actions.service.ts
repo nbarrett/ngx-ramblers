@@ -35,8 +35,17 @@ export class UiActionsService {
     return alias ? allowedValues.find(value => value === alias || kebabCase(value) === alias) || null : null;
   }
 
+  private storedValue(parameter: string): string | null {
+    try {
+      return localStorage.getItem(parameter);
+    } catch (error) {
+      this.logger.warn("local storage unavailable when reading", parameter, error);
+      return null;
+    }
+  }
+
   initialValueFor(parameter: string, defaultValue?: any): string {
-    const localStorageValue = localStorage.getItem(parameter);
+    const localStorageValue = this.storedValue(parameter);
     const value = localStorageValue || defaultValue;
     this.logger.debug("initial value for:", parameter, "localStorage:", localStorageValue, "default:", defaultValue, "is:", value);
     return value;
@@ -56,7 +65,11 @@ export class UiActionsService {
     if (parameter) {
       const storedValue: string = isObject(value) ? JSON.stringify(value) : value?.toString();
       this.logger.debug("saving value for:", parameter, "as:", storedValue);
-      localStorage.setItem(parameter, storedValue);
+      try {
+        localStorage.setItem(parameter, storedValue);
+      } catch (error) {
+        this.logger.warn("local storage unavailable when saving", parameter, error);
+      }
     } else {
       this.logger.error("saveValueFor:no parameter value supplied for value:", value);
     }
@@ -64,11 +77,15 @@ export class UiActionsService {
 
   removeItemFor(parameter: string) {
     this.logger.debug("removing value for:", parameter);
-    localStorage.removeItem(parameter);
+    try {
+      localStorage.removeItem(parameter);
+    } catch (error) {
+      this.logger.warn("local storage unavailable when removing", parameter, error);
+    }
   }
 
   itemExistsFor(parameter: string): boolean {
-    const exists = !!localStorage.getItem(parameter);
+    const exists = !!this.storedValue(parameter);
     this.logger.debug("item exists for:", parameter, "->", exists);
     return exists;
   }
