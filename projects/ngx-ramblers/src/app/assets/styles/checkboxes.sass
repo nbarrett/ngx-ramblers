@@ -13,6 +13,13 @@ $checkbox-dash: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg
     float: none
     margin-left: 0
 
+  &:has(> .form-text)
+    flex-wrap: wrap
+
+  > .form-text
+    flex: 1 0 100%
+    margin-left: 1.75rem
+
 .form-check-inline:not(.form-switch)
   display: inline-flex
   width: auto
