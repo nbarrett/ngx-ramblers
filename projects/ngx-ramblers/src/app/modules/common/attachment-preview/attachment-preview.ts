@@ -16,6 +16,7 @@ import { isBrowser } from "es-toolkit";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UrlService } from "../../../services/url.service";
+import { isOfficeContentType, isOfficeFileName, officeViewerEmbedUrl } from "../../../functions/office-viewer";
 import { DraggableModalComponent } from "../draggable-modal/draggable-modal";
 import { ThumbnailHeadingFrameComponent } from "../thumbnail-heading-frame/thumbnail-heading-frame";
 
@@ -121,6 +122,11 @@ import { ThumbnailHeadingFrameComponent } from "../thumbnail-heading-frame/thumb
                 </div>
               }
             }
+            @case (AttachmentPreviewKind.OFFICE) {
+              <iframe [src]="previewSafeUrl" class="draggable-modal-frame attachment-preview-frame"
+                      [title]="previewedAttachment.filename"></iframe>
+              <div class="text-muted small mt-2">Shown with Microsoft's online viewer. If it does not appear, use Download instead.</div>
+            }
             @case (AttachmentPreviewKind.TEXT) {
               @if (previewText === null) {
                 <div class="text-muted">Loading preview...</div>
@@ -195,9 +201,7 @@ export class AttachmentPreviewComponent {
     this.previewCsvHeadings = [];
     this.previewCsvTotalRows = 0;
     this.previewCalendarEvents = null;
-    this.previewSafeUrl = this.previewKind === AttachmentPreviewKind.PDF
-      ? this.sanitiser.bypassSecurityTrustResourceUrl(this.urlService.sameOriginUrl(attachment.url))
-      : null;
+    this.previewSafeUrl = this.previewFrameUrl(attachment);
     if (this.previewKind === AttachmentPreviewKind.CSV) {
       await this.loadCsvPreview(attachment);
     } else if (this.previewKind === AttachmentPreviewKind.ICS) {
@@ -217,6 +221,25 @@ export class AttachmentPreviewComponent {
     this.previewSafeUrl = null;
   }
 
+  private previewFrameUrl(attachment: AttachmentPreview): SafeResourceUrl | null {
+    if (this.previewKind === AttachmentPreviewKind.PDF) {
+      return this.sanitiser.bypassSecurityTrustResourceUrl(this.urlService.sameOriginUrl(attachment.url));
+    } else if (this.previewKind === AttachmentPreviewKind.OFFICE) {
+      return this.sanitiser.bypassSecurityTrustResourceUrl(officeViewerEmbedUrl(this.publicUrl(attachment.url)));
+    } else {
+      return null;
+    }
+  }
+
+  private publicUrl(url: string): string {
+    try {
+      const parsed = new URL(url, this.urlService.publicBaseUrl());
+      return this.urlService.isRemoteUrl(url) ? url : `${this.urlService.publicBaseUrl().replace(/\/$/, "")}${parsed.pathname}${parsed.search}`;
+    } catch {
+      return url;
+    }
+  }
+
   private previewKindFor(attachment: AttachmentPreview): AttachmentPreviewKind {
     const contentType = (attachment.contentType || "").toLowerCase();
     const filename = (attachment.filename || "").toLowerCase();
@@ -229,6 +252,8 @@ export class AttachmentPreviewComponent {
       return AttachmentPreviewKind.ICS;
     } else if (contentType.includes("csv") || filename.endsWith(".csv")) {
       return AttachmentPreviewKind.CSV;
+    } else if (isOfficeFileName(filename) || isOfficeFileName(url) || isOfficeContentType(contentType)) {
+      return AttachmentPreviewKind.OFFICE;
     } else {
       const textExtensions = [".txt", ".json", ".md", ".log"];
       if (contentType.startsWith("text/") || contentType.includes("json") || textExtensions.some(extension => filename.endsWith(extension))) {

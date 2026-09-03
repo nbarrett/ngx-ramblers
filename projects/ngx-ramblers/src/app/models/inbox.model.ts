@@ -248,6 +248,7 @@ export enum AttachmentPreviewKind {
   ICS = "ics",
   CSV = "csv",
   TEXT = "text",
+  OFFICE = "office",
   NONE = "none"
 }
 
