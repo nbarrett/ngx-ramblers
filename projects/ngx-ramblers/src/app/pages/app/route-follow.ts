@@ -437,6 +437,9 @@ import proj4 from "proj4";
           } @else if (!hasLine && !canEditRoute) {
             <p class="follow-library-note">Ramblers publish the start of this route. The line and turn-by-turn stay on their site, so this screen will take you to the start.</p>
           }
+          @if (loginPrompt) {
+            <p class="follow-library-note">Editing and recording are for walk leaders and admins. <a [href]="loginUrl()">Log in</a> to see those options here.</p>
+          }
           @if (hasLine && progress?.mode !== RouteFollowMode.EDITING) {
             <div class="follow-stats">
               <div class="follow-stat">
@@ -570,6 +573,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected payload: RouteFollowPayload | null = null;
   protected progress: RouteFollowProgress | null = null;
   protected loading = true;
+  protected loginPrompt = false;
   protected error: string | null = null;
   protected options: L.MapOptions | null = null;
   protected layers: L.Layer[] = [];
@@ -1970,8 +1974,17 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     return !!payload && ((payload.points?.length || 0) >= 2 || (payload.waypoints?.length || 0) > 0);
   }
 
+  protected loginUrl(): string {
+    return `/login?${StoredValue.REDIRECT}=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+  }
+
   private async cachedPayload(key: string | null): Promise<RouteFollowPayload | null> {
-    return key ? this.followCache.payload(key) : null;
+    try {
+      return key ? await this.followCache.payload(key) : null;
+    } catch (error) {
+      this.logger.warn("cached route unavailable", error);
+      return null;
+    }
   }
 
   private async applyLoaded(loaded: RouteFollowPayload | null): Promise<void> {
@@ -1984,6 +1997,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else {
       this.payload = loaded;
       this.canEditRoute = this.routeIsEditable(loaded);
+      this.loginPrompt = !this.canEditRoute && loaded.source !== RouteFollowSource.RAMBLERS_LIBRARY && !this.memberLogin.memberLoggedIn();
       this.styleRoute = this.styleFromPayload(loaded);
       this.rememberSavedStyle(loaded);
       const stored = this.mapControls.queryInitialState({osStyle: loaded.osStyle});

@@ -6,6 +6,8 @@ import { filter } from "rxjs/operators";
 import { environment } from "../../../environments/environment";
 import { AppAppearance, appAppearanceFromStored, AppInstallPlatform, AppPath, nextAppAppearance } from "../../models/route-follow.model";
 import { StoredValue } from "../../models/ui-actions";
+import { NgxLoggerLevel } from "ngx-logger";
+import { Logger, LoggerFactory } from "../logger-factory.service";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -18,6 +20,7 @@ interface BeforeInstallPromptEvent extends Event {
 export class AppShellService {
   private router = inject(Router);
   private document = inject(DOCUMENT);
+  private logger: Logger = inject(LoggerFactory).createLogger("AppShellService", NgxLoggerLevel.ERROR);
   private activeSubject = new BehaviorSubject<boolean>(this.isAppUrl(this.router.url));
   readonly active$ = this.activeSubject.asObservable();
   private installPrompt: BeforeInstallPromptEvent | null = null;
@@ -97,7 +100,11 @@ export class AppShellService {
   }
 
   setAppearance(appearance: AppAppearance): void {
-    this.document.defaultView?.localStorage.setItem(StoredValue.APP_APPEARANCE, appearance);
+    try {
+      this.document.defaultView?.localStorage.setItem(StoredValue.APP_APPEARANCE, appearance);
+    } catch (error) {
+      this.logger.warn("could not store app appearance", error);
+    }
     this.appearanceSubject.next(appearance);
     this.applyAppearance(appearance);
   }
@@ -120,7 +127,12 @@ export class AppShellService {
   }
 
   private storedAppearance(): AppAppearance {
-    return appAppearanceFromStored(this.document.defaultView?.localStorage.getItem(StoredValue.APP_APPEARANCE) || null);
+    try {
+      return appAppearanceFromStored(this.document.defaultView?.localStorage.getItem(StoredValue.APP_APPEARANCE) || null);
+    } catch (error) {
+      this.logger.warn("could not read stored app appearance", error);
+      return appAppearanceFromStored(null);
+    }
   }
 
   private applyAppearance(appearance: AppAppearance): void {
