@@ -349,7 +349,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
       @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
       @let composeValidationVisible = stepperActiveTab === EmailComposerStepKey.COMPOSE && (composeUnbrandedNoRecipients || composeStepErrors().length > 0);
-      @if (inboxReplyLoading || creatingReleaseNoteUpdate || notifyTarget.showAlert || postSendActionWarningVisible() || recipientsValidationVisible || composeValidationVisible) {
+      @if (inboxReplyLoading || creatingReleaseNoteUpdate || notifyTarget.showAlert || postSendActionWarningVisible() || precedingConfig() || recipientsValidationVisible || composeValidationVisible) {
         <div class="email-composer-validation-summary" [attr.role]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'status' : null" [attr.aria-live]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'polite' : null">
           @if (inboxReplyLoading) {
             <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Loading reply…</h5>
@@ -369,6 +369,16 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <ul class="list-arrow">
                 <li>{{ notifyTarget.alertMessage }}</li>
               </ul>
+            }
+            @if (precedingConfig(); as preceding) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>"{{ state.notificationConfig?.subject?.text }}" is usually sent after "{{ preceding.subject?.text }}"</h5>
+              <ul class="list-arrow">
+                <li>The "{{ preceding.subject?.text }}" email type is set to run this email as its next step, so normally you would start there.</li>
+                <li>Send this on its own only if that step has already been done.</li>
+              </ul>
+              <button type="button" class="btn btn-primary mb-2" (click)="onEmailConfigChanged(preceding)">
+                <fa-icon [icon]="faArrowRight" class="me-1"/>Start with "{{ preceding.subject?.text }}"
+              </button>
             }
             @if (bulkDeletionPending()) {
               <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
@@ -630,6 +640,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             }
             @case (EmailComposerStepKey.SEND) {
               @if (sendComplete()) {
+                @if (nextConfigAfterSend) {
+                  <button type="button" class="btn btn-primary" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
+                }
                 <button type="button" class="btn btn-primary" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
                 <button type="button" class="btn btn-quiet" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
               } @else {
@@ -2178,6 +2191,17 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   </span>
                 }
               </div>
+              @if (nextConfigAfterSend) {
+                <div class="alert alert-warning mt-3">
+                  <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Next step: "{{ nextConfigAfterSend.subject?.text }}"</h5>
+                  <ul class="list-arrow">
+                    <li>This email type is set to run "{{ nextConfigAfterSend.subject?.text }}" afterwards. Continue to select its recipients and send it.</li>
+                  </ul>
+                  <button type="button" class="btn btn-primary" (click)="continueToNextConfig()">
+                    <fa-icon [icon]="faArrowRight" class="me-1"/>Continue to "{{ nextConfigAfterSend.subject?.text }}"
+                  </button>
+                </div>
+              }
               @if (batchProgress.entries?.length > 0 && (batchProgress.failedCount > 0 || batchProgress.skippedCount > 0 || batchSendComplete())) {
                 <details class="mt-2">
                   <summary>Per-recipient detail</summary>
@@ -2332,6 +2356,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected lastSavedAt: number | null = null;
   protected sendInProgress = false;
   protected campaignSendComplete = false;
+  protected nextConfigAfterSend: NotificationConfig | null = null;
+  private postSendRefresh: Promise<void> = Promise.resolve();
   private automaticCampaignReleaseTaskEnabled: boolean | null = null;
   protected unbrandedListSendWarningDismissed = false;
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
@@ -2475,13 +2501,64 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     await this.applyVolunteerAudience();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.syncRecipientAddressMode();
+    this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
+    await this.refreshDrafts();
+  }
+
+  private async loadMemberBulkLoadDateMap(): Promise<MemberBulkLoadDateMap | null> {
     try {
-      this.memberBulkLoadDateMap = await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
+      return await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
     } catch (error) {
       this.logger.warn("could not load memberBulkLoadDateMap:", error);
-      this.memberBulkLoadDateMap = null;
+      return null;
     }
-    await this.refreshDrafts();
+  }
+
+  private configById(id: string | null | undefined): NotificationConfig | null {
+    return id ? (this.mailMessagingConfig?.notificationConfigs ?? []).find(config => config.id === id) ?? null : null;
+  }
+
+  protected precedingConfig(): NotificationConfig | null {
+    const currentId = this.state.notificationConfig?.id;
+    return currentId && this.state.brandingMode !== BrandingMode.UNBRANDED
+      ? (this.mailMessagingConfig?.notificationConfigs ?? []).find(config => config.nextNotificationConfigId === currentId && config.id !== currentId) ?? null
+      : null;
+  }
+
+  private offerNextConfigAfterSend(): void {
+    this.nextConfigAfterSend = this.state.brandingMode === BrandingMode.UNBRANDED
+      ? null
+      : this.configById(this.state.notificationConfig?.nextNotificationConfigId);
+  }
+
+  async continueToNextConfig(): Promise<void> {
+    const next = this.nextConfigAfterSend;
+    if (next) {
+      await this.postSendRefresh;
+      this.nextConfigAfterSend = null;
+      this.batchProgress = null;
+      this.campaignSendComplete = false;
+      this.sendConfirm.clear();
+      this.notify.hide();
+      this.state.subject = "";
+      this.state.selectedMemberIds = [];
+      this.onEmailConfigChanged(next);
+      this.goToStepKey(EmailComposerStepKey.RECIPIENTS);
+    }
+  }
+
+  private async refreshMembersAfterPostSendActions(): Promise<void> {
+    if ((this.state.notificationConfig?.postSendActions ?? []).length > 0) {
+      try {
+        this.allMembers = await this.memberService.privilegedFields();
+        this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
+        this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
+        this.logger.info("refreshed", this.members.length, "group members after post-send actions");
+      } catch (error) {
+        this.logger.error("could not refresh members after post-send actions:", error);
+      }
+      this.changeDetector.markForCheck();
+    }
   }
 
   ngOnDestroy(): void {
@@ -5297,20 +5374,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.syncStateToUrl({ [StoredValue.MEMBER]: null });
   }
 
-  private configHasWorkflowAction(action: WorkflowAction): boolean {
-    const config = this.state.notificationConfig;
-    if (!config) {
-      return false;
-    }
-    return [...(config.preSendActions ?? []), ...(config.postSendActions ?? [])].includes(action);
+  private configHasPostSendAction(action: WorkflowAction): boolean {
+    return (this.state.notificationConfig?.postSendActions ?? []).includes(action);
   }
 
   protected bulkDeletionPending(): boolean {
-    return this.configHasWorkflowAction(WorkflowAction.BULK_DELETE_GROUP_MEMBER);
+    return this.configHasPostSendAction(WorkflowAction.BULK_DELETE_GROUP_MEMBER);
   }
 
   protected memberDisablePending(): boolean {
-    return this.configHasWorkflowAction(WorkflowAction.DISABLE_GROUP_MEMBER);
+    return this.configHasPostSendAction(WorkflowAction.DISABLE_GROUP_MEMBER);
   }
 
   private workflowRemovesRecipients(): boolean {
@@ -6264,6 +6337,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     });
     this.batchProgress = null;
     this.campaignSendComplete = false;
+    this.nextConfigAfterSend = null;
     this.committeeFiles = new Map();
     this.committeeFileUrlInput = "";
     this.committeeFileUrlError = null;
@@ -6746,6 +6820,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       await this.startBatchTransactionalSend(roleMemberIds);
     } else {
       this.campaignSendComplete = true;
+      this.offerNextConfigAfterSend();
       this.sendInProgress = false;
       await this.recordSentToHistory();
       this.notify.hide();
@@ -6773,6 +6848,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
     try {
       const result = await this.memberService.applyPostSendActions(listMemberIds, postSendActions);
+      await this.refreshMembersAfterPostSendActions();
       const parts: string[] = [];
       if (result.deleted) {
         parts.push(`${this.stringUtils.pluraliseWithCount(result.deleted, "member")} removed`);
@@ -6910,6 +6986,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
             this.pollSubscription = null;
             this.notify.hide();
             void this.recordSentToHistory(this.batchProgress?.totalRecipients);
+            this.postSendRefresh = this.refreshMembersAfterPostSendActions();
+            if (progress.status === BatchSendStatus.COMPLETED || progress.status === BatchSendStatus.COMPLETED_WITH_ERRORS) {
+              this.offerNextConfigAfterSend();
+            }
           }
         },
         error: error => {

@@ -23,7 +23,7 @@ import {
   AddresseeType,
   ComposerExternalRecipient
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
-import { BrandingMode, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BrandingMode, PostSendActionsResult, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
 import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
@@ -461,30 +461,36 @@ function escapeHeaderName(raw: string): string {
   return raw;
 }
 
-async function applyPostSendActions(notifConfig: NotificationConfig | null, memberIds: string[], currentMemberId: string | null, log: debug.Debugger): Promise<void> {
+async function applyPostSendActions(notifConfig: NotificationConfig | null, memberIds: string[], currentMemberId: string | null, log: debug.Debugger): Promise<PostSendActionsResult> {
   const result = await applyPostSendActionsToMembers(memberIds, notifConfig?.postSendActions ?? [], currentMemberId ?? "");
   if (result.disabled || result.deleted) {
     log("applyPostSendActions: disabled", result.disabled, "and deleted", result.deleted, "of", memberIds.length, "in-scope members");
   }
+  return result;
 }
 
-function annotateWorkflowActionNotes(entries: BatchSendProgressEntry[], notifConfig: NotificationConfig | null, passwordResetGenerated: boolean): void {
-  const postSendActions = notifConfig?.postSendActions ?? [];
+export function workflowActionNote(memberId: string, postSendActions: WorkflowAction[], passwordResetGenerated: boolean, result: PostSendActionsResult): string {
   const notes: string[] = [];
   if (passwordResetGenerated) {
     notes.push("Password reset link generated");
   }
   if (postSendActions.includes(WorkflowAction.DISABLE_GROUP_MEMBER)) {
-    notes.push("Removed from group");
+    notes.push(result.disabledMemberIds.includes(memberId) ? "Removed from group" : "Not removed from group");
   }
   if (postSendActions.includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER)) {
-    notes.push("Deleted from database");
+    notes.push(result.deletedMemberIds.includes(memberId) ? "Deleted from database" : "Not deleted from database");
   }
-  if (notes.length === 0) {
-    return;
-  }
-  const actionNote = notes.join("; ");
-  entries.forEach(entry => { entry.note = actionNote; });
+  return notes.join("; ");
+}
+
+function annotateWorkflowActionNotes(entries: BatchSendProgressEntry[], notifConfig: NotificationConfig | null, passwordResetGenerated: boolean, result: PostSendActionsResult): void {
+  const postSendActions = notifConfig?.postSendActions ?? [];
+  entries.forEach(entry => {
+    const note = workflowActionNote(entry.memberId, postSendActions, passwordResetGenerated, result);
+    if (note) {
+      entry.note = note;
+    }
+  });
 }
 
 async function processBatch(jobId: string, request: BatchTransactionalSendRequest, baseUrl: string, currentMemberId: string | null): Promise<void> {
@@ -736,12 +742,11 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       sentBy: currentMemberId,
       entries: sentEntries.map(entry => ({ memberId: entry.memberId, email: entry.email, sentAt: entry.sentAt ?? dateTimeNow().toMillis() }))
     });
-    const skippedEntries = memberEntries.filter(entry => entry.status === BatchSendEntryStatus.Skipped);
-    const skippedMemberIds = skippedEntries.map(entry => entry.memberId);
-    const postSendMemberIds = Array.from(new Set([...sentMemberIds, ...skippedMemberIds]));
-    await applyPostSendActions(notifConfig, postSendMemberIds, currentMemberId, debugLog);
-    annotateWorkflowActionNotes(sentEntries, notifConfig, generatePasswordResetIds);
-    annotateWorkflowActionNotes(skippedEntries, notifConfig, false);
+    const otherEntries = memberEntries.filter(entry => entry.status !== BatchSendEntryStatus.Sent);
+    const postSendMemberIds = Array.from(new Set(memberEntries.map(entry => entry.memberId)));
+    const postSendResult = await applyPostSendActions(notifConfig, postSendMemberIds, currentMemberId, debugLog);
+    annotateWorkflowActionNotes(sentEntries, notifConfig, generatePasswordResetIds, postSendResult);
+    annotateWorkflowActionNotes(otherEntries, notifConfig, false, postSendResult);
     progress.completedAt = dateTimeNow().toMillis();
     progress.status = progress.failedCount === 0 ? BatchSendStatus.COMPLETED : BatchSendStatus.COMPLETED_WITH_ERRORS;
   } catch (error: any) {
