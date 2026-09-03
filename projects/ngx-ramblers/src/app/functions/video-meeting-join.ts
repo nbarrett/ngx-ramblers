@@ -221,9 +221,9 @@ export function duplicateOccupantIdsToKick(
 
 export function jitsiEmbedConfigOverwrite(config: VideoMeetingRuntimeConfig, subject: string, silent = false): JitsiEmbedConfigOverwrite {
   return {
-    prejoinPageEnabled: false,
+    prejoinPageEnabled: true,
     prejoinConfig: {
-      enabled: false,
+      enabled: true,
       hideExtraJoinButtons: ["no-audio", "no-video"]
     },
     disableLobby: !config.enableLobby,

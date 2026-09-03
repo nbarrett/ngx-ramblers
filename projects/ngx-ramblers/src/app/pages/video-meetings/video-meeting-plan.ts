@@ -90,8 +90,8 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
         <span modalTitle>Delete this meeting?</span>
         <div modalBody>
           <app-alert-panel title="This cannot be undone">
-            <p class="mb-2"><strong>{{ pendingDeleteEntry.title }}</strong> will be
-              removed from the calendar and the committee documents page.</p>
+            <p class="mb-2"><strong>{{ pendingDeleteEntry.title }}</strong> on
+              <strong>{{ pendingDeleteWhen() }}</strong> will be removed from the calendar and the committee documents page.</p>
             @if (cancellationPeople.length > 0) {
               <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="email-invitees" [(ngModel)]="emailInviteesOnDelete">
@@ -503,6 +503,10 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.cancellationPeople = [];
     this.deleteError = null;
     void this.loadCancellationPeople(entry);
+  }
+
+  pendingDeleteWhen(): string {
+    return this.pendingDeleteEntry ? this.dateUtils.asString(this.pendingDeleteEntry.dateValue, null, UIDateFormat.DISPLAY_DATE_AT_TIME) : "";
   }
 
   cancelDelete(): void {

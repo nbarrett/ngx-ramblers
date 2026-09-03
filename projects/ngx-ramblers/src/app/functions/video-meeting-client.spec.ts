@@ -231,6 +231,43 @@ describe("videoMeetingMediaHelp", () => {
   const ipad = videoMeetingClient({userAgent: IPAD_SAFARI, coarsePointer: true});
   const desktop = videoMeetingClient({userAgent: DESKTOP_CHROME, coarsePointer: false});
 
+  it("offers the microphone picker when an unmuted microphone is producing no sound", () => {
+    const help = videoMeetingMediaHelp({
+      inMeeting: true,
+      audioAvailable: true,
+      videoAvailable: true,
+      audioMuted: false,
+      joinedMuted: false,
+      remoteParticipantCount: 2,
+      cannotHearDismissed: false,
+      microphoneOffDismissed: false,
+      microphoneSilent: true,
+      microphoneSilentDismissed: false,
+      coarsePointer: false
+    }, desktop);
+    expect(help?.issue).toEqual(VideoMeetingMediaIssue.MICROPHONE_SILENT);
+    expect(help?.primaryAction).toEqual(VideoMeetingMediaAction.CHOOSE_MICROPHONE);
+    expect(help?.secondaryAction).toEqual(VideoMeetingMediaAction.DISMISS);
+  });
+
+  it("stays quiet about a silent microphone once dismissed or when muted", () => {
+    const base = {
+      inMeeting: true,
+      audioAvailable: true,
+      videoAvailable: true,
+      audioMuted: false,
+      joinedMuted: false,
+      remoteParticipantCount: 0,
+      cannotHearDismissed: false,
+      microphoneOffDismissed: false,
+      microphoneSilent: true,
+      microphoneSilentDismissed: true,
+      coarsePointer: false
+    };
+    expect(videoMeetingMediaHelp(base, desktop)).toBeNull();
+    expect(videoMeetingMediaHelp({...base, microphoneSilentDismissed: false, audioMuted: true}, desktop)).toBeNull();
+  });
+
   it("explains how to unblock the microphone on iPad Safari", () => {
     const help = videoMeetingMediaHelp({
       inMeeting: true,
@@ -241,6 +278,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 1,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: true
     }, ipad);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.MEDIA_BLOCKED);
@@ -260,6 +299,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 0,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help?.title).toEqual("Your camera and microphone are blocked");
@@ -276,6 +317,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 1,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: true
     }, ipad);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.CANNOT_HEAR);
@@ -292,6 +335,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 1,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help).toEqual(null);
@@ -307,6 +352,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 0,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.MICROPHONE_OFF);
@@ -324,6 +371,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 0,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: false
     }, desktop);
     expect(help).toEqual(null);
@@ -339,6 +388,8 @@ describe("videoMeetingMediaHelp", () => {
       remoteParticipantCount: 2,
       cannotHearDismissed: false,
       microphoneOffDismissed: false,
+      microphoneSilent: false,
+      microphoneSilentDismissed: false,
       coarsePointer: true
     }, ipad);
     expect(help?.issue).toEqual(VideoMeetingMediaIssue.MEDIA_BLOCKED);

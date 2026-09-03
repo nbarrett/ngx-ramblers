@@ -141,10 +141,11 @@ describe("videoMeetingPeople", () => {
 
 describe("jitsiEmbedConfigOverwrite", () => {
 
-  it("skips the Jitsi prejoin screen so our own join dialog is the only join step", () => {
+  it("keeps the Jitsi prejoin screen so people check their microphone and camera before entering", () => {
     const overwrite = jitsiEmbedConfigOverwrite(runtime(), "Committee meeting");
-    expect(overwrite.prejoinPageEnabled).toEqual(false);
-    expect(overwrite.prejoinConfig.enabled).toEqual(false);
+    expect(overwrite.prejoinPageEnabled).toEqual(true);
+    expect(overwrite.prejoinConfig.enabled).toEqual(true);
+    expect(overwrite.prejoinConfig.hideExtraJoinButtons).toEqual(["no-audio", "no-video"]);
     expect(overwrite.transcription.enabled).toEqual(false);
     expect(overwrite.transcription.disableClosedCaptions).toEqual(true);
     expect(overwrite.transcribingEnabled).toEqual(false);

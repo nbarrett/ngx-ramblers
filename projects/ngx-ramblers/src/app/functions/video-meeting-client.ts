@@ -159,6 +159,16 @@ export function videoMeetingJoinActionLabel(client: VideoMeetingClient): string 
 export function videoMeetingMediaHelp(state: VideoMeetingMediaState, client: VideoMeetingClient): VideoMeetingMediaHelp | null {
   if (state.inMeeting && (state.audioAvailable === false || state.videoAvailable === false)) {
     return mediaBlockedHelp(state, client);
+  } else if (state.inMeeting && state.audioMuted === false && state.microphoneSilent && !state.microphoneSilentDismissed) {
+    return {
+      issue: VideoMeetingMediaIssue.MICROPHONE_SILENT,
+      title: "We cannot hear anything from your microphone",
+      body: "Your microphone is on but no sound is reaching it. Choose a different microphone, or check it is not muted on your device.",
+      primaryAction: VideoMeetingMediaAction.CHOOSE_MICROPHONE,
+      primaryLabel: "Choose microphone",
+      secondaryAction: VideoMeetingMediaAction.DISMISS,
+      secondaryLabel: "Dismiss"
+    };
   } else if (state.inMeeting && state.coarsePointer && state.remoteParticipantCount > 0 && !state.cannotHearDismissed) {
     return {
       issue: VideoMeetingMediaIssue.CANNOT_HEAR,

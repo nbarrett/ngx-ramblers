@@ -153,6 +153,7 @@ export enum VideoMeetingBrowser {
 export enum VideoMeetingMediaIssue {
   MEDIA_BLOCKED = "media-blocked",
   MICROPHONE_OFF = "microphone-off",
+  MICROPHONE_SILENT = "microphone-silent",
   CANNOT_HEAR = "cannot-hear"
 }
 
@@ -161,7 +162,8 @@ export enum VideoMeetingMediaAction {
   TRY_AGAIN = "try-again",
   COPY_LINK = "copy-link",
   DISMISS = "dismiss",
-  STAY_MUTED = "stay-muted"
+  STAY_MUTED = "stay-muted",
+  CHOOSE_MICROPHONE = "choose-microphone"
 }
 
 export interface VideoMeetingClientHints {
@@ -191,6 +193,8 @@ export interface VideoMeetingMediaState {
   remoteParticipantCount: number;
   cannotHearDismissed: boolean;
   microphoneOffDismissed: boolean;
+  microphoneSilent: boolean;
+  microphoneSilentDismissed: boolean;
   coarsePointer: boolean;
 }
 
@@ -432,6 +436,39 @@ export interface SameRoomDetectorOptions {
 }
 
 export interface SameRoomDetector {
+  start(): Promise<boolean>;
+  stop(): void;
+}
+
+export enum MeetingDeviceKind {
+  AUDIO_INPUT = "audioInput",
+  AUDIO_OUTPUT = "audioOutput",
+  VIDEO_INPUT = "videoInput"
+}
+
+export interface MeetingDevice {
+  deviceId: string;
+  label: string;
+}
+
+export interface MeetingDeviceLists {
+  audioInput: MeetingDevice[];
+  audioOutput: MeetingDevice[];
+  videoInput: MeetingDevice[];
+}
+
+export interface MeetingCurrentDevices {
+  audioInput: MeetingDevice | null;
+  audioOutput: MeetingDevice | null;
+  videoInput: MeetingDevice | null;
+}
+
+export interface MicLevelMeterOptions {
+  deviceId: string | null;
+  onLevel: (level: number) => void;
+}
+
+export interface MicLevelMeter {
   start(): Promise<boolean>;
   stop(): void;
 }
