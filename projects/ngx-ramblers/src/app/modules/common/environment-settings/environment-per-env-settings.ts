@@ -172,17 +172,19 @@ import { toKebabCase } from "../../../functions/strings";
                      autocomplete="off"
                      placeholder="e.g., staging, production">
             </div>
-            <div class="col-md-6 mb-3 d-flex align-items-end">
+            <div class="col-md-6 mb-3">
               <div class="form-check">
                 <input type="checkbox"
                        class="form-check-input"
                        id="ngxLite"
                        [(ngModel)]="currentEnvironment.ngxLite"
                        name="ngxLite">
-                <label class="form-check-label" for="ngxLite">
-                  NGX-Lite Mode
-                </label>
-                <small class="form-text text-muted d-block">Email-only mode for groups that don't run a full public site. Trims the public nav bar to essentials (Walks always; Social only when local social events exist) and hides admin content with no email purpose. Platform Admin visibility is separate, controlled by PLATFORM_ADMIN_ENABLED.</small>
+                <div class="flex-grow-1 min-w-0">
+                  <label class="form-check-label" for="ngxLite">
+                    NGX-Lite Mode
+                  </label>
+                  <small class="form-text text-muted d-block">Email-only mode for groups that don't run a full public site. Trims the public nav bar to essentials (Walks always; Social only when local social events exist) and hides admin content with no email purpose. Platform Admin visibility is separate, controlled by PLATFORM_ADMIN_ENABLED.</small>
+                </div>
               </div>
             </div>
           </div>
