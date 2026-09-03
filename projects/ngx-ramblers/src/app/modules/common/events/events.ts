@@ -170,7 +170,8 @@ export class Events implements OnInit, OnDestroy {
         this.logger.error("received error:", error);
         this.notify.error({
           title: "Problem viewing events",
-          message: error
+          message: error,
+          continue: true
         });
       });
   }

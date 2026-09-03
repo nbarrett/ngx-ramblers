@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { firstValueFrom, Observable, ReplaySubject } from "rxjs";
+import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
@@ -20,15 +20,18 @@ export class WalksConfigService {
   private broadcastService = inject<BroadcastService<WalksConfig>>(BroadcastService);
   private subject = new ReplaySubject<WalksConfig>();
   private cachedWalksConfig: WalksConfig;
+  private initialLoad: Promise<WalksConfig>;
 
   constructor() {
-    this.refresh();
+    this.initialLoad = this.refresh();
+    this.initialLoad.catch(error => this.logger.error("initial walks config load failed:", error));
   }
 
-  async refresh() {
+  async refresh(): Promise<WalksConfig> {
     this.logger.info("refresh query:started");
     const cachedWalksConfig = await this.getConfig();
     this.cacheAndNotify(cachedWalksConfig);
+    return this.cachedWalksConfig;
   }
 
   private cacheAndNotify(walksConfig: WalksConfig) {
@@ -50,8 +53,12 @@ export class WalksConfigService {
     return this.cachedWalksConfig;
   }
 
-  public async walksConfigLoaded(): Promise<WalksConfig> {
-    return firstValueFrom(this.subject);
+  public walksConfigLoaded(): Promise<WalksConfig> {
+    if (this.cachedWalksConfig) {
+      return Promise.resolve(this.cachedWalksConfig);
+    } else {
+      return this.initialLoad.catch(() => this.refresh());
+    }
   }
 
   public events(): Observable<WalksConfig> {

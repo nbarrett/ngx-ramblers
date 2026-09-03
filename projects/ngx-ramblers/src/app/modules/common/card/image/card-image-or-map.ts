@@ -104,6 +104,7 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
           <img (error)="imageError($event)"
                src="{{basicMedia?.url}}"
                alt="{{basicMedia?.alt}}"
+               loading="lazy"
                [height]="this.imageConfig.height"
                class="card-img-top"/>
         </a>
@@ -111,6 +112,7 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
         <img (error)="imageError($event)"
              src="{{basicMedia?.url}}"
              alt="{{basicMedia?.alt}}"
+             loading="lazy"
              [height]="this.imageConfig.height"
              class="card-img-top"/>
       }
