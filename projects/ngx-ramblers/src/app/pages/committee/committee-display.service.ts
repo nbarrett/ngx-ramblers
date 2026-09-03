@@ -22,6 +22,7 @@ import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { committeeDocumentSlug, meetingMinutesDocumentSlug } from "../../functions/committee-documents-page";
 import { MEETING_MINUTES_TEMPLATE_ID } from "../../models/video-meeting.model";
+import { officeViewerEmbedUrl, officeViewerUrl } from "../../functions/office-viewer";
 
 @Injectable({
   providedIn: "root"
@@ -155,8 +156,7 @@ export class CommitteeDisplayService {
 
   attachmentEmbedUrl(committeeFile: CommitteeFile): string {
     if (this.isOfficeViewable(committeeFile)) {
-      const source = this.committeeFileUrl(committeeFile, undefined, this.urlService.publicBaseUrl());
-      return source ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(source)}` : "";
+      return officeViewerEmbedUrl(this.committeeFileUrl(committeeFile, undefined, this.urlService.publicBaseUrl()));
     } else {
       const url = this.committeeFileUrl(committeeFile, FileServeDisposition.INLINE);
       return url && this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, ["pdf"]) ? `${url}#view=FitH` : url;
@@ -181,8 +181,7 @@ export class CommitteeDisplayService {
   }
 
   private officeViewerUrl(committeeFile: CommitteeFile): string {
-    const source = this.committeeFileUrl(committeeFile, undefined, this.urlService.publicBaseUrl());
-    return source ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(source)}` : "";
+    return officeViewerUrl(this.committeeFileUrl(committeeFile, undefined, this.urlService.publicBaseUrl()));
   }
 
   private committeeFileUrl(committeeFile: CommitteeFile, disposition?: FileServeDisposition, base: string = this.urlService.baseUrl()) {
