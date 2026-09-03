@@ -3,7 +3,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { first, last } from "es-toolkit/compat";
-import { faEdit, faEnvelope, faTrash, faCheck, faBan, faDownload, faUpRightFromSquare, faCaretDown, faFileImport, faPrint } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faEnvelope, faTrash, faCheck, faBan, faDownload, faUpRightFromSquare, faCaretDown, faFileImport, faPrint, faEye } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { AuthService } from "../../../auth/auth.service";
 import { CommitteeDocumentEditMode, CommitteeFile } from "../../../models/committee.model";
@@ -94,6 +94,11 @@ import { UIDateFormat } from "../../../models/date-format.model";
                         <li><hr class="dropdown-divider my-1"></li>
                         @if (display.canViewInBrowser(committeeFile)) {
                           <li>
+                            <a class="dropdown-item" role="button" (click)="viewInThisTab(committeeFile)">
+                              <fa-icon [icon]="faEye" class="fa-icon me-2"/>Preview
+                            </a>
+                          </li>
+                          <li>
                             <a class="dropdown-item" target="_blank" rel="noopener"
                                [href]="display.viewUrl(committeeFile, documentsSourcePath)">
                               <fa-icon [icon]="faUpRightFromSquare" class="fa-icon me-2"/>View in new tab
@@ -171,6 +176,12 @@ import { UIDateFormat } from "../../../models/date-format.model";
                       </div>
                     } @else {
                       <div class="d-none d-sm-flex gap-2 flex-wrap mt-2">
+                        @if (display.canViewInBrowser(committeeFile)) {
+                          <button (click)="viewInThisTab(committeeFile)"
+                                  class="btn btn-secondary btn-sm">
+                            <fa-icon [icon]="faEye" class="me-1"></fa-icon>Preview
+                          </button>
+                        }
                         @if (display.allowEditCommitteeFile(committeeFile)) {
                           <button (click)="editCommitteeFile(committeeFile)"
                                   class="btn btn-success btn-sm">
@@ -223,6 +234,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   faBan = faBan;
   faDownload = faDownload;
   faUpRightFromSquare = faUpRightFromSquare;
+  faEye = faEye;
   faCaretDown = faCaretDown;
   faFileImport = faFileImport;
   faPrint = faPrint;
@@ -439,6 +451,14 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     };
     this.editingFileIsNew = false;
     this.previewingDocument = this.requestedDocumentMode === CommitteeDocumentEditMode.PREVIEW;
+  }
+
+  viewInThisTab(committeeFile: CommitteeFile): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.display.documentQueryParams(committeeFile),
+      queryParamsHandling: "merge"
+    });
   }
 
   async convertToComposedDocument(committeeFile: CommitteeFile): Promise<void> {
