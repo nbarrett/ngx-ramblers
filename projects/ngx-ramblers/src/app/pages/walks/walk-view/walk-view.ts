@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { isNumber, values } from "es-toolkit/compat";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
@@ -24,6 +24,10 @@ import { UiActionsService } from "../../../services/ui-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { CurrentLocationService } from "../../../services/maps/current-location.service";
+import { DrivingOrigin } from "../../../shared/components/driving-origin";
+import { DrivingOriginMode } from "../../../models/current-location.model";
+import { LatLngLiteral } from "leaflet";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
@@ -131,7 +135,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
           </div>
           <div class="walk-view-media">
             @if (!display.displayMap(displayedWalk?.walk) || displayedWalk?.walk?.groupEvent?.media?.length > 0) {
-              <app-group-event-images [extendedGroupEvent]="displayedWalk?.walk"/>
+              <app-group-event-images [extendedGroupEvent]="displayedWalk?.walk" [heightScale]="mapExpanded ? 2 : 1"/>
             }
             @if (display.displayMap(displayedWalk?.walk)) {
               <div class="walk-view-map">
@@ -170,15 +174,15 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                 }
               </div>
               <ng-template #mapDisplayControls>
-                <form class="rounded img-thumbnail map-radio-frame d-flex flex-wrap align-items-center justify-content-start">
-                  <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
-                    <span class="me-2 fw-bold">Show Map As</span>
-                    <div class="form-check form-check-inline ms-2">
+                <form class="rounded img-thumbnail map-radio-frame d-flex" [class.flex-column]="mapOptionsStacked" [class.align-items-start]="!mapOptionsStacked">
+                  <span class="fw-bold text-nowrap me-3 map-options-label" [class.mb-2]="mapOptionsStacked">Show Map As</span>
+                  <div class="d-flex flex-wrap align-items-center flex-grow-1 map-options">
+                    <div class="form-check form-check-inline">
                       <input class="form-check-input" type="radio" [name]="'mapView-' + index"
                              [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
                              id="{{index}}-pin-view-mode-start"
                              [value]="false" (ngModelChange)="mapProviderChanged()">
-                      <label class="form-check-label" for="{{index}}-pin-view-mode-start">
+                      <label class="form-check-label text-nowrap" for="{{index}}-pin-view-mode-start">
                         {{ mapViewLabel }}</label>
                     </div>
                     <div class="form-check form-check-inline">
@@ -186,11 +190,9 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                              [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
                              id="{{index}}-google-maps-mode-start"
                              [value]="true" (ngModelChange)="mapProviderChanged()">
-                      <label class="form-check-label" for="{{index}}-google-maps-mode-start">
+                      <label class="form-check-label text-nowrap" for="{{index}}-google-maps-mode-start">
                         Google Maps</label>
                     </div>
-                  </div>
-                  <div class="ms-2 me-2 d-flex align-items-center flex-wrap" [class.mt-2]="mapControlsStacked" [class.w-100]="mapControlsStacked">
                     <div class="form-check form-check-inline">
                       <input class="form-check-input" id="{{index}}-show-start-point"
                              type="radio"
@@ -222,28 +224,12 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                         </div>
                       }
                     }
+                    @if (showGoogleMapsView) {
+                      <app-driving-origin #drivingOriginControl [name]="'mapDisplay-' + index" [mode]="drivingOriginMode" [postcode]="fromPostcode" [locating]="locatingMe"
+                                          (modeChange)="changeMapView($event === DrivingOriginMode.MY_LOCATION ? MapDisplay.SHOW_DRIVING_DIRECTIONS_FROM_HERE : MapDisplay.SHOW_DRIVING_DIRECTIONS)"
+                                          (postcodeChange)="changeFromPostcode($event)"/>
+                    }
                   </div>
-                  @if (showGoogleMapsView) {
-                    <div class="ms-2 me-2" [class.w-100]="mapControlsStacked" [class.mt-2]="mapControlsStacked">
-                      <div class="form-check">
-                        <div class="d-flex align-items-center flex-wrap">
-                          <input id="{{index}}-show-driving-directions"
-                                 type="radio"
-                                 class="form-check-input align-middle"
-                                 (ngModelChange)="changeMapView($event)"
-                                 [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
-                                 [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
-                          <label class="form-check-label text-nowrap align-middle ms-2"
-                                 for="{{index}}-show-driving-directions">
-                            Driving from</label>
-                          <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
-                                 [ngModel]="fromPostcode" name="fromPostcode"
-                                 (ngModelChange)="changeFromPostcode($event)"
-                                 type="text" #fromPostcodeInput>
-                        </div>
-                      </div>
-                    </div>
-                  }
                 </form>
               </ng-template>
             }
@@ -454,7 +440,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, DrivingOrigin]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -466,6 +452,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   public displayedWalk: DisplayedWalk;
   public displayLinks: boolean;
   public fromPostcode = "";
+  public fromLocation: LatLngLiteral | null = null;
+  public locatingMe = false;
+  protected currentLocation = inject(CurrentLocationService);
+  protected readonly DrivingOriginMode = DrivingOriginMode;
   public mapDisplay: MapDisplay = MapDisplay.SHOW_START_POINT;
   public allowWalkAdminEdits: boolean;
   public googleMapsUrl: SafeResourceUrl;
@@ -706,7 +696,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   get mapViewLabel(): string {
     return this.hasOsApiKey ? "OS Maps" : "Pin Location View";
   }
-  @ViewChild("fromPostcodeInput") fromPostcodeInput: ElementRef<HTMLInputElement>;
+  @ViewChild("drivingOriginControl") drivingOriginControl: DrivingOrigin;
   @ViewChild(MapEditComponent) mapEditComponent: MapEditComponent;
   @Input() index: number;
 
@@ -742,9 +732,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.walkDetailsMapHeight = walksConfig?.walkDetailsMapHeight || 380;
       this.configuredMapProvider = walksConfig?.walkDetailsMapProvider || WalkDetailsMapProvider.OS_MAPS;
       if (!this.mapProviderTouched) {
-        const defaultToGoogleMaps = walksConfig?.walkDetailsMapProvider === WalkDetailsMapProvider.GOOGLE_MAPS;
-        if (defaultToGoogleMaps !== this.showGoogleMapsView) {
-          this.showGoogleMapsView = defaultToGoogleMaps;
+        const requestedProvider = this.mapOptionsFollowUrl ? this.route.snapshot.queryParamMap.get(StoredValue.MAP_PROVIDER) : null;
+        const showGoogleMaps = requestedProvider ? requestedProvider === WalkDetailsMapProvider.GOOGLE_MAPS : walksConfig?.walkDetailsMapProvider === WalkDetailsMapProvider.GOOGLE_MAPS;
+        if (showGoogleMaps !== this.showGoogleMapsView) {
+          this.showGoogleMapsView = showGoogleMaps;
           this.configureMapDisplay();
         }
       }
@@ -796,7 +787,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.mapDisplay = MapDisplay.SHOW_START_POINT;
       this.logger.info("configureMapDisplay:mapDisplay changed to:", this.mapDisplay);
     }
-    if (this.showGoogleMapsView && this.validFromPostcodeEntered() && !this.showDrivingDirections()) {
+    if (this.showGoogleMapsView && this.hasDrivingOrigin() && !this.showDrivingDirections()) {
       this.changeMapView(MapDisplay.SHOW_DRIVING_DIRECTIONS);
     } else {
       this.suppressMapToggle = true;
@@ -864,7 +855,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   updateGoogleMapIfApplicable() {
     if (this.showGoogleMapsView) {
-      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk?.groupEvent?.end_location?.postcode : this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
+      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.drivingOrigin(), this.showEndPoint() ? this.displayedWalk?.walk?.groupEvent?.end_location?.postcode : this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
       this.logger.info("updateGoogleMap:Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
       if (!this.suppressMapToggle) {
         this.toggleGoogleOrLeafletMapViewAndBack();
@@ -882,7 +873,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   autoSelectMapDisplay() {
     const switchToShowStartPoint = this.drivingDirectionsDisabled() && this.showDrivingDirections();
-    const switchToShowDrivingDirections = this.validFromPostcodeEntered() && !this.showDrivingDirections() && this.showGoogleMapsView;
+    const switchToShowDrivingDirections = this.hasDrivingOrigin() && !this.showDrivingDirections() && this.showGoogleMapsView;
     this.logger.info("autoSelectMapDisplay on entering: drivingDirectionsDisabled:", this.drivingDirectionsDisabled(), "switchToShowStartPoint:", switchToShowStartPoint, "switchToShowDrivingDirections:", switchToShowDrivingDirections, "mapDisplay:", this.mapDisplay, "fromPostcode:", this.fromPostcode);
     if (switchToShowStartPoint || (this.showGoogleMapsView && this.mapDisplay === MapDisplay.SHOW_START_AND_END_POINT)) {
       this.mapDisplay = MapDisplay.SHOW_START_POINT;
@@ -893,7 +884,11 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   showDrivingDirections(): boolean {
-    return this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS;
+    return this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS || this.drivingFromMyLocation();
+  }
+
+  drivingFromMyLocation(): boolean {
+    return this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS_FROM_HERE;
   }
 
   showEndPoint(): boolean {
@@ -901,11 +896,34 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   drivingDirectionsDisabled() {
-    return !this.validFromPostcodeEntered() || !this.showGoogleMapsView;
+    return !this.hasDrivingOrigin() || !this.showGoogleMapsView;
   }
 
   validFromPostcodeEntered() {
     return this.fromPostcode?.length >= 3;
+  }
+
+  hasDrivingOrigin(): boolean {
+    return this.drivingFromMyLocation() ? !!this.fromLocation || this.locatingMe : this.validFromPostcodeEntered();
+  }
+
+  drivingOrigin(): string {
+    return this.drivingFromMyLocation() && this.fromLocation ? this.currentLocation.asOrigin(this.fromLocation) : this.fromPostcode;
+  }
+
+  private async driveFromMyLocation(): Promise<void> {
+    this.locatingMe = true;
+    const position = await this.currentLocation.currentPosition();
+    this.locatingMe = false;
+    if (position && this.drivingFromMyLocation()) {
+      this.fromLocation = position;
+      this.suppressMapToggle = true;
+      this.updateGoogleMapIfApplicable();
+    } else if (!position) {
+      this.fromLocation = null;
+      this.notify.warning({title: "Location not available", message: "Your browser did not share your location, so type a postcode to drive from instead."});
+      this.changeMapView(this.validFromPostcodeEntered() ? MapDisplay.SHOW_DRIVING_DIRECTIONS : MapDisplay.SHOW_START_POINT);
+    }
   }
 
   durationInFutureFor(walk: ExtendedGroupEvent) {
@@ -918,7 +936,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.mapDisplayTouched = true;
     this.mapDisplay = newValue;
     this.syncMapOptionsToUrl();
-    if (this.showGoogleMapsView && newValue === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
+    if (newValue === MapDisplay.SHOW_DRIVING_DIRECTIONS_FROM_HERE) {
+      void this.driveFromMyLocation();
+    } else if (this.showGoogleMapsView && newValue === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
       this.suppressMapToggle = true;
       this.updateGoogleMapIfApplicable();
       this.focusFromPostcodeInput();
@@ -966,7 +986,11 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   private focusFromPostcodeInput() {
-    setTimeout(() => this.fromPostcodeInput?.nativeElement?.focus(), 0);
+    this.drivingOriginControl?.focusPostcode();
+  }
+
+  protected get drivingOriginMode(): DrivingOriginMode | null {
+    return this.drivingFromMyLocation() ? DrivingOriginMode.MY_LOCATION : this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS ? DrivingOriginMode.POSTCODE : null;
   }
 
   private applyMapOptionsFromQuery(paramMap: ParamMap) {
@@ -974,6 +998,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       const requestedDisplay = values(MapDisplay).find(mapDisplay => mapDisplay === paramMap.get(StoredValue.MAP_DISPLAY));
       if (requestedDisplay) {
         this.mapDisplay = requestedDisplay;
+        if (requestedDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS_FROM_HERE && !this.fromLocation) {
+          void this.driveFromMyLocation();
+        }
       }
       const requestedPostcode = paramMap.get(StoredValue.FROM_POSTCODE);
       if (requestedPostcode && requestedPostcode !== this.fromPostcode) {
@@ -1029,7 +1056,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     }
   }
 
-  protected get mapControlsStacked(): boolean {
+  protected get mapOptionsStacked(): boolean {
     return !this.mapExpanded && !this.mapFullScreen;
   }
 
