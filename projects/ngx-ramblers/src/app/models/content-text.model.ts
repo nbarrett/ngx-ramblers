@@ -9,7 +9,7 @@ import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 import { SharedDistrictStyle } from "./system.model";
 import { MapProvider } from "./map.model";
-import { RouteGuideData, RouteWaypointKind } from "./route-follow.model";
+import { RouteGuideData, RouteGuidePanelPosition, RouteTurnModifier, RouteWaypointKind } from "./route-follow.model";
 import { SortDirection } from "./sort.model";
 import { enumKeyValues } from "../functions/enums";
 import {
@@ -233,7 +233,16 @@ export interface MapMarker {
   longitude: number;
   label?: string;
   instruction?: string;
+  note?: string;
+  turn?: RouteTurnModifier;
+  wayName?: string;
   kind?: RouteWaypointKind;
+}
+
+export interface RouteGuideEntry {
+  marker: MapMarker;
+  index: number;
+  distanceMetres: number | null;
 }
 
 export interface MapData {
@@ -249,6 +258,7 @@ export interface MapData {
   showWaypointsDefault?: boolean;
   allowWaypointsToggle?: boolean;
   autoFitBounds?: boolean;
+  guidePanel?: RouteGuidePanelPosition;
   routes: MapRoute[];
   markers?: MapMarker[];
 }
@@ -636,6 +646,14 @@ export enum PageContentPath {
   ADMIN_SETTINGS_ACTION_BUTTONS = `${BuiltInPath.ADMIN_SETTINGS}#${BuiltInAnchor.ACTION_BUTTONS}`,
   ADMIN_PLATFORM_ACTION_BUTTONS = `${BuiltInPath.ADMIN_PLATFORM}#${BuiltInAnchor.ACTION_BUTTONS}`,
   ENVIRONMENT_MANAGEMENT_ACTION_BUTTONS = `${BuiltInPath.ENVIRONMENT_MANAGEMENT}#${BuiltInAnchor.ACTION_BUTTONS}`,
+}
+
+export enum MapEditorSection {
+  MARKERS = "markers",
+  ROUTES = "routes",
+  TEXT = "text",
+  PREVIEW = "preview",
+  DISPLAY = "display"
 }
 
 export enum PageContentType {

@@ -159,13 +159,21 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     if (!pageContent) { return { path: this.contentPath, rows: [] } as PageContent; }
     const filteredPageContent: PageContent = {
       ...pageContent,
-      rows: this.visibleRows(pageContent)?.map(row => {
-        const columns = this.columnsFilteredForAccessLevel(row.columns || []);
-        return {...row, columns};
-      }) || []
+      rows: this.rowsFilteredForAccessLevel(pageContent.rows)
     };
     this.logger.info("pageContentFilteredForAccessLevel:filteredPageContent:", filteredPageContent);
     return filteredPageContent;
+  }
+
+  private rowsFilteredForAccessLevel(rows: PageContentRow[]): PageContentRow[] {
+    return (rows || []).filter(row => this.rowIsVisible(row)).map(row => ({
+      ...row,
+      columns: this.columnsFilteredForAccessLevel(row.columns || []).map(column => this.columnFilteredForAccessLevel(column))
+    }));
+  }
+
+  private columnFilteredForAccessLevel(column: PageContentColumn): PageContentColumn {
+    return column.rows ? {...column, rows: this.rowsFilteredForAccessLevel(column.rows)} : column;
   }
 
   columnsFilteredForAccessLevel(columns: PageContentColumn[]): PageContentColumn[] {
@@ -180,7 +188,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   }
 
   private rowIsVisible(row: PageContentRow): boolean {
-    return row.columns.length === 0 || this.columnsFilteredForAccessLevel(row.columns).length > 0;
+    return (row.columns || []).length === 0 || this.columnsFilteredForAccessLevel(row.columns).length > 0;
   }
 
   private async loadSharedFragments(pageContent: PageContent) {

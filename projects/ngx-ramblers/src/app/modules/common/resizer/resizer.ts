@@ -192,6 +192,7 @@ export class ResizerComponent implements OnDestroy {
   @Output() resizeEnd = new EventEmitter<number>();
   @Output() sizeClear = new EventEmitter<void>();
   @Input() resizeHint: string = null;
+  @Input() growsTowardsStart = false;
 
   @Input("canClear") set canClearValue(value: boolean) {
     this.canClear = coerceBooleanProperty(value);
@@ -323,7 +324,7 @@ export class ResizerComponent implements OnDestroy {
         this.leftColumn.columns = newLeft;
         this.rightColumn.columns = this.combinedCols - newLeft;
       } else {
-        this.size = Math.min(this.maxSize, Math.max(this.minSize, this.startSize + delta));
+        this.size = Math.min(this.maxSize, Math.max(this.minSize, this.startSize + (this.growsTowardsStart ? -delta : delta)));
         this.sizeChange.emit(this.size);
       }
     });

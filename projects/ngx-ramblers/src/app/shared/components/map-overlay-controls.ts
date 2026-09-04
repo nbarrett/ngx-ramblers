@@ -6,6 +6,7 @@ import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-bu
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
 import { isUndefined } from "es-toolkit/compat";
 import { MapDefaultsService } from "../../services/maps/map-defaults.service";
+import { ROUTE_GUIDE_PANEL_OPTIONS, RouteGuidePanelPosition } from "../../models/route-follow.model";
 
 interface MapSliderControl {
   key: string;
@@ -34,6 +35,7 @@ export interface MapOverlayConfig {
   showWaypointsDefault?: boolean;
   allowWaypointsToggle?: boolean;
   autoFitBounds?: boolean;
+  guidePanel?: RouteGuidePanelPosition;
 }
 
 interface MapOverlayDefaults {
@@ -244,6 +246,17 @@ interface MapOverlayDefaults {
             </label>
           </div>
         </div>
+        <div class="col-md-3 col-6">
+          <label class="form-label-sm" for="guide-panel-{{id}}">Directions panel</label>
+          <select class="form-control"
+                  id="guide-panel-{{id}}"
+                  [ngModel]="config.guidePanel || guidePanelOptions[0].value"
+                  (ngModelChange)="config.guidePanel = $event; onChange()">
+            @for (option of guidePanelOptions; track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </div>
       }
     </div>
 
@@ -284,6 +297,7 @@ interface MapOverlayDefaults {
   imports: [CommonModule, FormsModule, BadgeButtonComponent]
 })
 export class MapOverlayControls implements OnInit, DoCheck {
+  protected readonly guidePanelOptions = ROUTE_GUIDE_PANEL_OPTIONS;
   @Input() config!: MapOverlayConfig;
   @Input() id = "";
   @Input() defaults?: Partial<MapOverlayDefaults>;

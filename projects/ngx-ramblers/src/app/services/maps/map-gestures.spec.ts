@@ -1,5 +1,5 @@
 import { RouteFollowReturnDirection } from "../../models/route-follow.model";
-import { mapAngleDelta, returnDirectionFrom, screenDeltaToLocal } from "./map-gestures";
+import { mapAngleDelta, returnDirectionFrom, screenDeltaToLocal, unwrapBearing } from "./map-gestures";
 
 describe("mapAngleDelta", () => {
   it("returns the shortest signed turn between two headings", () => {
@@ -7,6 +7,14 @@ describe("mapAngleDelta", () => {
     expect(mapAngleDelta(40, 10)).toBe(-30);
     expect(mapAngleDelta(350, 10)).toBe(20);
     expect(mapAngleDelta(10, 350)).toBe(-20);
+  });
+});
+
+describe("unwrapBearing", () => {
+  it("keeps turning the short way round instead of unwinding through north", () => {
+    expect(unwrapBearing(170, -170)).toBe(190);
+    expect(unwrapBearing(190, 0)).toBe(360);
+    expect(unwrapBearing(-10, 10)).toBe(10);
   });
 });
 

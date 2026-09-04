@@ -54,7 +54,7 @@ import { DistanceValidationService } from "../../../../services/walks/distance-v
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grid Ref:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="'http://gridreferencefinder.com/?gr=' + display.gridReferenceFrom(walk.groupEvent.start_location)" target="_blank">
+          <a [href]="display.gridReferenceAbsoluteLink(display.gridReferenceFrom(walk.groupEvent.start_location))" target="_blank">
             {{ display.gridReferenceFrom(walk.groupEvent.start_location) | valueOrDefault }}</a></td>
       </tr>
       <tr>

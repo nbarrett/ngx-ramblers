@@ -89,6 +89,7 @@
 
 .follow-top:not(.has-banner)
   flex-direction: row
+  flex-wrap: wrap
   align-items: flex-start
   gap: 8px
 
@@ -240,11 +241,9 @@
   box-shadow: var(--follow-shadow)
 
 .follow-instruction
-  position: absolute
-  top: calc(86px + env(safe-area-inset-top, 0px))
-  left: 12px
-  right: 12px
-  z-index: 5
+  flex: 0 0 100%
+  margin-top: 8px
+  pointer-events: auto
   display: flex
   gap: 12px
   align-items: flex-start
@@ -253,9 +252,6 @@
   border-radius: 16px
   padding: 12px 14px
   box-shadow: var(--follow-shadow)
-
-.follow-instruction.has-banner-offset
-  top: calc(128px + env(safe-area-inset-top, 0px))
 
 .follow-instruction-number
   width: 32px
@@ -797,3 +793,70 @@
   font-size: 0.8rem
   font-weight: 600
   text-align: center
+
+.follow-directions-note
+  margin: 0 0 10px
+  color: var(--follow-muted)
+  font-size: 0.9rem
+
+.follow-directions-list
+  margin: 0
+  padding-left: 1.25rem
+
+.follow-directions-list li
+  margin-bottom: 10px
+  line-height: 1.45
+
+.follow-instruction-body
+  min-width: 0
+
+.follow-instruction-note
+  margin: 4px 0 0
+  font-size: 0.9rem
+  color: var(--follow-muted)
+
+.follow-instruction-next
+  margin: 6px 0 0
+  font-size: 0.9rem
+  color: var(--follow-muted)
+  display: flex
+  align-items: center
+  gap: 6px
+
+.follow-directions-count
+  font-size: 0.85rem
+  font-weight: 600
+  color: var(--follow-muted)
+
+.follow-directions-steps
+  padding-left: 0
+  list-style: none
+
+.follow-directions-step
+  display: flex
+  gap: 10px
+  padding: 8px 10px
+  border: 1px solid var(--follow-handle)
+  border-radius: 10px
+  cursor: pointer
+
+.follow-directions-step.active
+  border-color: #d81b60
+  background: rgba(216, 27, 96, 0.08)
+
+.follow-directions-number
+  flex: 0 0 28px
+  height: 28px
+  border-radius: 50%
+  background: var(--follow-secondary)
+  color: var(--follow-secondary-ink)
+  font-weight: 700
+  display: flex
+  align-items: center
+  justify-content: center
+
+.follow-directions-body
+  display: flex
+  flex-direction: column
+  gap: 4px
+  min-width: 0

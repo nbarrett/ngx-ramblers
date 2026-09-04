@@ -1,11 +1,15 @@
 import * as L from "leaflet";
-import { MapGestureAnchor, RouteFollowReturnDirection } from "../../models/route-follow.model";
+import { MAP_BEARING_TRANSITION_MS, MAP_GESTURES_FRAME_CLASS, MapCoverSize, MapGestureAnchor, RouteFollowReturnDirection } from "../../models/route-follow.model";
 
 const gesturesByMap = new WeakMap<L.Map, MapGestures>();
 const installState = {done: false};
 
 export function mapAngleDelta(from: number, to: number): number {
   return ((to - from + 540) % 360) - 180;
+}
+
+export function unwrapBearing(current: number, next: number): number {
+  return current + mapAngleDelta(((current % 360) + 360) % 360, next);
 }
 
 export function returnDirectionFrom(heading: number, bearingToRoute: number): RouteFollowReturnDirection {
@@ -62,6 +66,8 @@ export function installLeafletMapGestures(): void {
 export class MapGestures {
   private map: L.Map | null = null;
   private bearing = 0;
+  private displayBearing = 0;
+  private settleTimer: ReturnType<typeof setTimeout> | null = null;
   private pinchActive = false;
   private anchor: MapGestureAnchor | null = null;
   private onBearing: ((bearing: number) => void) | null = null;
@@ -70,6 +76,7 @@ export class MapGestures {
   private northButton: HTMLElement | null = null;
   private northControl: L.Control | null = null;
   private coverScale = 1;
+  private coverSize: MapCoverSize | null = null;
   private gesture = {active: false, startBearing: 0};
   private hookedDraggable: {on: (type: string, fn: () => void) => void; off: (type: string, fn: () => void) => void} | null = null;
 
@@ -108,6 +115,7 @@ export class MapGestures {
       el.removeEventListener("gesturechange", this.onGestureChange, true);
       el.removeEventListener("gestureend", this.onGestureEnd, true);
       this.map.off("resize", this.onMapResize);
+      this.clearSettleTimer();
       el.classList.remove("map-gestures-enabled");
       if (this.originalToContainer) {
         this.map.mouseEventToContainerPoint = this.originalToContainer;
@@ -141,14 +149,14 @@ export class MapGestures {
     this.onUserRotate = onUserRotate;
   }
 
-  resetNorth(): void {
-    this.setBearing(0);
+  resetNorth(animate = false): void {
+    this.setBearing(0, animate);
   }
 
-  setBearing(next: number): void {
+  setBearing(next: number, animate = false): void {
     const normalised = ((next % 360) + 360) % 360;
     this.bearing = normalised > 180 ? normalised - 360 : normalised;
-    this.applyBearing();
+    this.applyBearing(animate);
     if (this.onBearing) {
       this.onBearing(this.bearing);
     }
@@ -164,7 +172,10 @@ export class MapGestures {
     } else {
       const onNorthClick = (event: Event) => {
         L.DomEvent.stop(event);
-        this.resetNorth();
+        if (this.onUserRotate) {
+          this.onUserRotate();
+        }
+        this.resetNorth(true);
       };
       const NorthControl = L.Control.extend({
         options: {position: "topleft"},
@@ -313,40 +324,116 @@ export class MapGestures {
     this.applyBearing();
   };
 
-  private applyBearing(): void {
+  private applyBearing(animate = false): void {
     if (this.map) {
       const el = this.map.getContainer();
+      const parent = el.parentElement;
+      const transition = animate ? MAP_BEARING_TRANSITION_MS : 0;
+      this.displayBearing = unwrapBearing(this.displayBearing, this.bearing);
+      this.clearSettleTimer();
       el.style.transformOrigin = "center center";
+      el.style.setProperty("--map-bearing", `${this.displayBearing}deg`);
+      el.style.setProperty("--map-bearing-transition", `${transition}ms`);
+      el.style.transition = transition ? `transform ${transition}ms ease` : "none";
+      this.coverScale = 1;
       if (this.bearing === 0) {
-        this.coverScale = 1;
-        el.style.transform = "none";
+        el.style.transform = transition ? `rotate(${this.displayBearing}deg)` : "none";
+        if (transition) {
+          this.settleTimer = setTimeout(() => this.settleNorth(), transition);
+        } else {
+          this.restoreCoverSize(el, parent);
+        }
       } else {
-        this.coverScale = this.scaleToCover();
-        el.style.transform = `rotate(${this.bearing}deg) scale(${this.coverScale})`;
+        const frameWidth = parent?.clientWidth || 0;
+        const frameHeight = parent?.clientHeight || 0;
+        if (parent && frameWidth >= 2 && frameHeight >= 2) {
+          const side = Math.ceil(Math.hypot(frameWidth, frameHeight));
+          this.rememberCoverSize(el, parent);
+          el.style.flex = "0 0 auto";
+          el.style.maxWidth = "none";
+          el.style.maxHeight = "none";
+          el.style.width = `${side}px`;
+          el.style.height = `${side}px`;
+          el.style.marginLeft = `${Math.round((frameWidth - side) / 2)}px`;
+          el.style.marginTop = `${Math.round((frameHeight - side) / 2)}px`;
+        }
+        el.style.transform = `rotate(${this.displayBearing}deg)`;
+        this.map.invalidateSize({animate: false});
       }
-      this.updateNorthControl();
+      this.updateNorthControl(transition);
     }
   }
 
-  private scaleToCover(): number {
-    if (!this.map) {
-      return 1;
-    } else {
+  private settleNorth(): void {
+    if (this.map && this.bearing === 0) {
       const el = this.map.getContainer();
-      const width = el.clientWidth || 1;
-      const height = el.clientHeight || 1;
-      const radians = (this.bearing * Math.PI) / 180;
-      const absCos = Math.abs(Math.cos(radians));
-      const absSin = Math.abs(Math.sin(radians));
-      const scaleX = (width * absCos + height * absSin) / width;
-      const scaleY = (width * absSin + height * absCos) / height;
-      return Math.max(scaleX, scaleY);
+      el.style.transition = "none";
+      el.style.transform = "none";
+      this.restoreCoverSize(el, el.parentElement);
     }
   }
 
-  private updateNorthControl(): void {
+  private clearSettleTimer(): void {
+    if (this.settleTimer) {
+      clearTimeout(this.settleTimer);
+      this.settleTimer = null;
+    }
+  }
+
+  private rememberCoverSize(el: HTMLElement, parent: HTMLElement | null): void {
+    if (!this.coverSize) {
+      this.coverSize = {
+        width: el.style.width,
+        height: el.style.height,
+        marginLeft: el.style.marginLeft,
+        marginTop: el.style.marginTop,
+        flex: el.style.flex,
+        maxWidth: el.style.maxWidth,
+        maxHeight: el.style.maxHeight,
+        parentOverflow: parent?.style.overflow || "",
+        parentPosition: parent?.style.position || ""
+      };
+      if (parent) {
+        parent.classList.add(MAP_GESTURES_FRAME_CLASS);
+        parent.style.overflow = "hidden";
+        if (!getComputedStyle(parent).position || getComputedStyle(parent).position === "static") {
+          parent.style.position = "relative";
+        }
+        const controls = el.querySelector(".leaflet-control-container");
+        if (controls) {
+          parent.appendChild(controls);
+        }
+      }
+    }
+  }
+
+  private restoreCoverSize(el: HTMLElement, parent: HTMLElement | null): void {
+    if (this.coverSize) {
+      el.style.width = this.coverSize.width;
+      el.style.height = this.coverSize.height;
+      el.style.marginLeft = this.coverSize.marginLeft;
+      el.style.marginTop = this.coverSize.marginTop;
+      el.style.flex = this.coverSize.flex;
+      el.style.maxWidth = this.coverSize.maxWidth;
+      el.style.maxHeight = this.coverSize.maxHeight;
+      if (parent) {
+        parent.classList.remove(MAP_GESTURES_FRAME_CLASS);
+        parent.style.overflow = this.coverSize.parentOverflow;
+        parent.style.position = this.coverSize.parentPosition;
+        const controls = parent.querySelector(":scope > .leaflet-control-container");
+        if (controls) {
+          el.appendChild(controls);
+        }
+      }
+      this.coverSize = null;
+      this.map?.invalidateSize({animate: false});
+    }
+  }
+
+  private updateNorthControl(transition = 0): void {
     if (this.northButton) {
-      this.northButton.style.transform = this.bearing === 0 ? "" : `rotate(${-this.bearing}deg)`;
+      this.northButton.style.transition = transition ? `transform ${transition}ms ease` : "none";
+      this.northButton.style.transform = this.bearing === 0 && !transition ? "" : `rotate(${-this.displayBearing}deg)`;
       this.northButton.classList.toggle("is-rotated", Math.abs(this.bearing) > 1);
     }
   }

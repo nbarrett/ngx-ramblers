@@ -6,6 +6,7 @@ import * as proj4leaflet from "proj4leaflet";
 import { SystemConfigService } from "../system/system-config.service";
 import { OsMapsBrandingService } from "./os-maps-branding.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
+import { markersSyncedWithLocation, pageLocation } from "../../functions/map-location-markers";
 import { MapProvider, OSMapStyle, osStyleForKey } from "../../models/map.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -255,33 +256,18 @@ export class MapTilesService {
     if (!row.map) {
       this.logger.info("syncMarkersFromLocation: no map");
     } else {
-      const locationRow: PageContentRow = pageContent?.rows?.find(row => row.type === PageContentType.LOCATION && row.location);
-      if (!locationRow?.location) {
+      const location = pageLocation(pageContent);
+      if (!location) {
         this.logger.info("syncMarkersFromLocation: no location row found in pageContent rows:", pageContent?.rows);
       } else {
-        const hasStartLocation = locationRow.location.start?.latitude != null && locationRow.location.start?.longitude != null;
-        const hasEndLocation = locationRow.location.end?.latitude != null && locationRow.location.end?.longitude != null;
+        const hasStartLocation = location.start?.latitude != null && location.start?.longitude != null;
+        const hasEndLocation = location.end?.latitude != null && location.end?.longitude != null;
         if (!hasStartLocation && !hasEndLocation) {
-          this.logger.info("syncMarkersFromLocation: no start or end location found in location:", locationRow.location);
+          this.logger.info("syncMarkersFromLocation: no start or end location found in location:", location);
         } else {
           this.logger.info("syncMarkersFromLocation: sufficient data to initialise markers map:", row.map, "from pageContent rows:", pageContent?.rows);
-          const desiredMarkers: MapMarker[] = [];
-          if (hasStartLocation) {
-            desiredMarkers.push({
-              latitude: locationRow.location.start.latitude,
-              longitude: locationRow.location.start.longitude,
-              label: locationRow.location.start.description || "Start"
-            });
-          }
-          if (hasEndLocation) {
-            desiredMarkers.push({
-              latitude: locationRow.location.end.latitude,
-              longitude: locationRow.location.end.longitude,
-              label: locationRow.location.end.description || "End"
-            });
-          }
-
           const currentMarkers = row.map.markers || [];
+          const desiredMarkers: MapMarker[] = markersSyncedWithLocation(currentMarkers, location);
           if (!this.haveMarkersChanged(currentMarkers, desiredMarkers)) {
             this.logger.info("syncMarkersFromLocation: Markers already synced with location row");
           } else {

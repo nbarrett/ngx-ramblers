@@ -1,3 +1,7 @@
+import * as L from "leaflet";
+import { Difficulty, LocationDetails, Metadata } from "./ramblers-walks-manager";
+import { Feature } from "./walk-feature.model";
+import { PageContentColumn, PageContentRow } from "./content-text.model";
 export enum AppPath {
   ROOT = "app",
   FOLLOW = "follow"
@@ -19,11 +23,135 @@ export enum RouteWaypointKind {
   END = "end"
 }
 
-export enum RouteDifficulty {
-  EASY = "easy",
-  LEISURELY = "leisurely",
-  MODERATE = "moderate",
-  STRENUOUS = "strenuous"
+export enum RouteTurnModifier {
+  STRAIGHT = "straight",
+  SLIGHT_LEFT = "slight-left",
+  LEFT = "left",
+  SHARP_LEFT = "sharp-left",
+  SLIGHT_RIGHT = "slight-right",
+  RIGHT = "right",
+  SHARP_RIGHT = "sharp-right",
+  U_TURN = "u-turn"
+}
+
+export enum RouteTurnStepKind {
+  START = "start",
+  TURN = "turn",
+  CONTINUE = "continue",
+  FINISH = "finish"
+}
+
+export const ROUTE_GUIDE_DEFAULT_WIDTH = 380;
+export const ROUTE_GUIDE_MIN_WIDTH = 260;
+export const ROUTE_GUIDE_MAP_MIN_WIDTH = 320;
+export const ROUTE_FIT_PADDING = 32;
+export const ROUTE_FULLSCREEN_FIT_PADDING = 48;
+export const ROUTE_RESIZE_SETTLE_MS = 60;
+export const ROUTE_FULLSCREEN_SETTLE_MS = 150;
+export const ROUTE_GUIDE_DEFAULT_HEIGHT = 320;
+export const ROUTE_GUIDE_MIN_HEIGHT = 160;
+export const ROUTE_GUIDE_MAX_HEIGHT = 1200;
+
+export enum RouteGuidePanelPosition {
+  ABOVE = "above",
+  BELOW = "below",
+  RIGHT = "right",
+  LEFT = "left",
+  HIDDEN = "hidden"
+}
+
+export interface RouteGuidePanelOption {
+  value: RouteGuidePanelPosition;
+  label: string;
+}
+
+export enum WrittenDirectionsDisplay {
+  ALWAYS = "always",
+  HIDE_WHEN_FOLLOWING = "hide-when-following",
+  NEVER = "never"
+}
+
+export interface WrittenDirectionsOption {
+  value: WrittenDirectionsDisplay;
+  label: string;
+}
+
+export const WRITTEN_DIRECTIONS_DEFAULT = WrittenDirectionsDisplay.HIDE_WHEN_FOLLOWING;
+
+export const WRITTEN_DIRECTIONS_OPTIONS: WrittenDirectionsOption[] = [
+  {value: WrittenDirectionsDisplay.ALWAYS, label: "Always show them on the page"},
+  {value: WrittenDirectionsDisplay.HIDE_WHEN_FOLLOWING, label: "Hide them while the step-by-step directions are open"},
+  {value: WrittenDirectionsDisplay.NEVER, label: "Never show them on the page"}
+];
+
+export const ROUTE_GUIDE_PANEL_OPTIONS: RouteGuidePanelOption[] = [
+  {value: RouteGuidePanelPosition.ABOVE, label: "Above the map"},
+  {value: RouteGuidePanelPosition.BELOW, label: "Below the map"},
+  {value: RouteGuidePanelPosition.RIGHT, label: "Beside the map, on the right"},
+  {value: RouteGuidePanelPosition.LEFT, label: "Beside the map, on the left"},
+  {value: RouteGuidePanelPosition.HIDDEN, label: "Hidden"}
+];
+
+export interface LocatedPlace {
+  name: string;
+  latitude: number;
+  longitude: number;
+  stepIndices?: number[];
+}
+
+export enum RouteWayNamesSource {
+  VALHALLA = "valhalla",
+  NONE = "none"
+}
+
+export interface RouteWayName {
+  name: string;
+  use: string;
+}
+
+export interface RouteTurnStep {
+  index: number;
+  latitude: number;
+  longitude: number;
+  kind: RouteTurnStepKind;
+  modifier: RouteTurnModifier | null;
+  bearingChange: number;
+  wayName: string | null;
+  wayUse: string | null;
+  distanceFromStartMetres: number;
+  distanceToNextMetres: number;
+  instruction: string;
+}
+
+export interface RouteTurnStepsRequest {
+  gpxFile: {rootFolder?: string; awsFileName: string};
+  directions?: string[];
+}
+
+export interface RouteTurnStepsResponse {
+  steps: RouteTurnStep[];
+  pointCount: number;
+  namedPointCount: number;
+  namesSource: RouteWayNamesSource;
+  notes?: string[];
+  placesLocated?: number;
+  placesTried?: number;
+  places?: LocatedPlace[];
+}
+
+export interface ValhallaTraceEdge {
+  names?: string[];
+  use?: string;
+}
+
+export interface ValhallaMatchedPoint {
+  edge_index?: number;
+  type?: string;
+}
+
+export interface ValhallaTraceAttributes {
+  edges?: ValhallaTraceEdge[];
+  matched_points?: ValhallaMatchedPoint[];
 }
 
 export enum RouteFollowMode {
@@ -141,6 +269,51 @@ export enum RouteFollowSource {
   OS_MAPS = "os-maps"
 }
 
+export const MAP_GESTURES_FRAME_CLASS = "map-gestures-frame";
+export const MAP_BEARING_TRANSITION_MS = 700;
+export const ROUTE_TRAVEL_MIN_MS = 700;
+export const ROUTE_TRAVEL_MAX_MS = 2500;
+export const ROUTE_TRAVEL_MS_PER_METRE = 1.5;
+export const ROUTE_STEP_SPEED_DEFAULT = 1;
+export const ROUTE_STEP_SPEED_MIN = 0.5;
+export const ROUTE_STEP_SPEED_MAX = 4;
+export const ROUTE_STEP_SPEED_STEP = 0.5;
+export const ROUTE_TRAVEL_HEADING_SMOOTHING = 0.12;
+export const ROUTE_TRAVEL_RING_LIFT_PX = 22;
+export const ROUTE_TRAVEL_SETTLE_FROM = 0.75;
+export const HEADING_RING_CLASS = "ngx-heading-ring";
+export const ROUTE_STEP_POPUP_CLASS = "route-step-popup";
+export const ROUTE_STEP_POPUP_MIN_WIDTH = 260;
+export const ROUTE_STEP_POPUP_MAX_WIDTH = 560;
+
+export interface RoutePointAlong {
+  point: RouteFollowPoint;
+  index: number;
+}
+
+export interface RouteTravelOptions {
+  map: L.Map;
+  points: RouteFollowPoint[];
+  fromIndex: number;
+  toIndex: number;
+  headingUp: boolean;
+  travellerIcon?: L.DivIcon;
+  speed?: number;
+  onDone?: () => void;
+}
+
+export interface MapCoverSize {
+  width: string;
+  height: string;
+  marginLeft: string;
+  marginTop: string;
+  flex: string;
+  maxWidth: string;
+  maxHeight: string;
+  parentOverflow: string;
+  parentPosition: string;
+}
+
 export interface MapGestureAnchor {
   distance: number;
   angle: number;
@@ -152,13 +325,88 @@ export interface MapGestureAnchor {
 
 export type FollowMapGestureAnchor = MapGestureAnchor;
 
+export enum RoutePageStep {
+  ABOUT = "about",
+  START = "start",
+  LINE = "line",
+  DIRECTIONS = "directions",
+  WRITE_UP = "write-up",
+  PHOTOS = "photos",
+  DISPLAY = "display"
+}
+
+export interface RoutePageStepDefinition {
+  key: RoutePageStep;
+  label: string;
+  hint: string;
+}
+
+export const ROUTE_PAGE_STEPS: RoutePageStepDefinition[] = [
+  {key: RoutePageStep.ABOUT, label: "About the route", hint: "Title, summary, difficulty, distance, time and features"},
+  {key: RoutePageStep.START, label: "Where it starts", hint: "Place, postcode and grid reference"},
+  {key: RoutePageStep.LINE, label: "The route", hint: "Upload a GPX file or import from OS Maps"},
+  {key: RoutePageStep.DIRECTIONS, label: "Directions", hint: "Generate the turns, then step through and edit them"},
+  {key: RoutePageStep.WRITE_UP, label: "The write-up", hint: "Getting there, parking, refreshments and points of interest"},
+  {key: RoutePageStep.PHOTOS, label: "Photos", hint: "The banner and the pictures on the page"},
+  {key: RoutePageStep.DISPLAY, label: "How it's shown", hint: "Map style, height and where the directions sit"}
+];
+
+export enum RouteDetailsPart {
+  ABOUT = "about",
+  START = "start",
+  ALL = "all"
+}
+
+export const ROUTE_EXCLUDED_FEATURES: Feature[] = [Feature.CAR_SHARING, Feature.COACH_TRIP, Feature.INTRODUCTORY_WALK];
+
+export interface WriteUpSection {
+  row: PageContentRow;
+  container: PageContentRow[];
+  column: PageContentColumn;
+  label: string;
+  preview: string;
+}
+
+export const ROUTE_AUTOSAVE_DELAY_MS = 1500;
+export const ROUTE_UNDO_LIMIT = 50;
+
+export enum RouteSaveState {
+  PENDING = "pending",
+  SAVING = "saving",
+  SAVED = "saved",
+  FAILED = "failed"
+}
+
+export const ROUTE_SAVE_STATE_LABELS: Record<RouteSaveState, string> = {
+  [RouteSaveState.PENDING]: "Unsaved changes",
+  [RouteSaveState.SAVING]: "Saving…",
+  [RouteSaveState.SAVED]: "Saved",
+  [RouteSaveState.FAILED]: "Save failed"
+};
+
+export const ROUTE_SUGGESTED_SECTIONS = ["Getting there", "Parking", "Refreshments", "Points of interest", "Directions"];
+
+export interface RouteDownload {
+  label: string;
+  url: string;
+  fileName: string;
+}
+
 export interface RouteGuideData {
   title?: string;
   summary?: string;
-  distanceMiles?: number;
+  difficulty?: Difficulty;
+  distance_miles?: number;
+  distance_km?: number;
   durationMinutes?: number;
-  difficulty?: RouteDifficulty;
-  startDescription?: string;
+  milesPerHour?: number;
+  estimateDuration?: boolean;
+  start_location?: LocationDetails;
+  writtenDirections?: string;
+  writtenDirectionsDisplay?: WrittenDirectionsDisplay;
+  facilities?: Metadata[];
+  transport?: Metadata[];
+  accessibility?: Metadata[];
 }
 
 export interface RouteFollowWaypoint {
@@ -167,6 +415,8 @@ export interface RouteFollowWaypoint {
   longitude: number;
   label?: string;
   instruction?: string | null;
+  note?: string | null;
+  turn?: RouteTurnModifier | null;
   kind?: RouteWaypointKind;
 }
 
@@ -194,6 +444,7 @@ export interface RouteFollowProgress {
   nextWaypoint: RouteFollowWaypoint | null;
   nextWaypointMetres: number | null;
   approachedWaypoint: RouteFollowWaypoint | null;
+  currentWaypoint: RouteFollowWaypoint | null;
   offRoute: boolean;
   completedMetres: number;
   totalMetres: number;
@@ -220,6 +471,7 @@ export interface RouteFollowPayload {
   waypoints: RouteFollowWaypoint[];
   totalMetres: number;
   guide: RouteGuideData | null;
+  directions?: string[];
 }
 
 export interface RouteFollowSummary {
@@ -307,6 +559,7 @@ export function firstCompleted<T>(promise: Promise<T>, timeoutMs: number, timeou
 }
 
 export const ROUTE_FOLLOW_APPROACH_METRES = 40;
+export const ROUTE_FOLLOW_NUDGE_METRES = 50;
 export const ROUTE_FOLLOW_OFF_ROUTE_METRES = 50;
 export const ROUTE_FOLLOW_WALKING_METRES_PER_MINUTE = 75;
 export const ROUTE_FOLLOW_ARROW_SPACING_METRES = 220;

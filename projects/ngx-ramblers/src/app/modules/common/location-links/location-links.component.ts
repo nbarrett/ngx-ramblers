@@ -1,4 +1,4 @@
-import { Component, Input, inject } from "@angular/core";
+import { Component, HostBinding, Input, inject } from "@angular/core";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { RelatedLinkComponent } from "../related-links/related-link";
 import { CopyIconComponent } from "../copy-icon/copy-icon";
@@ -10,10 +10,18 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 @Component({
   selector: "app-location-links",
   imports: [RelatedLinkComponent, CopyIconComponent, TooltipDirective],
+  styles: [`
+    :host.inline
+      display: flex
+      flex-wrap: wrap
+      align-items: center
+      column-gap: 1.5rem
+      row-gap: 0.25rem
+  `],
   template: `
     @if (location) {
       @if (showDescription && location?.description) {
-        <div app-related-link [mediaWidth]="mediaWidth">
+        <div app-related-link [mediaWidth]="inline ? 0 : mediaWidth">
           <div title>
             {{ elementName("Description") }}
           </div>
@@ -23,7 +31,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         </div>
       }
       @if (location?.postcode) {
-        <div app-related-link [mediaWidth]="mediaWidth">
+        <div app-related-link [mediaWidth]="inline ? 0 : mediaWidth">
           <div title>
             <app-copy-icon [value]="location.postcode"
                            [elementName]="elementName('Postcode')"/>
@@ -40,7 +48,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         </div>
       }
       @if (gridReferenceValue()) {
-        <div app-related-link [mediaWidth]="mediaWidth">
+        <div app-related-link [mediaWidth]="inline ? 0 : mediaWidth">
           <div title>
             <app-copy-icon [value]="gridReferenceValue()"
                            [elementName]="elementName('Grid Ref')"/>
@@ -57,7 +65,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         </div>
       }
       @if (location?.latitude && location?.longitude) {
-        <div app-related-link [mediaWidth]="mediaWidth">
+        <div app-related-link [mediaWidth]="inline ? 0 : mediaWidth">
           <div title>
             <app-copy-icon [value]="coordinateValue()"
                            [elementName]="elementName('Coordinates')"/>
@@ -77,6 +85,7 @@ export class LocationLinksComponent {
   @Input() mediaWidth = 70;
   @Input() labelPrefix = "";
   @Input() showDescription = true;
+  @HostBinding("class.inline") @Input() inline = false;
 
   private display = inject(WalkDisplayService);
   googleMapsService = inject(GoogleMapsService);

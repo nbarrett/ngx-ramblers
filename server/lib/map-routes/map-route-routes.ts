@@ -3,11 +3,13 @@ import multer from "multer";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
 import { importEsriRoute } from "./map-route-import";
+import { routeTurnStepsHandler } from "./route-turn-steps";
 
 const router = express.Router();
 const upload = multer({dest: envConfig.server.uploadDir});
 
 router.post("/import-esri", authConfig.authenticate(), upload.single("file"), importEsriRoute);
+router.post("/turn-steps", authConfig.authenticate(), routeTurnStepsHandler);
 
 router.post("/upload-esri", authConfig.authenticate(), upload.single("file"), (req: Request, res: Response) => {
   const uploadedFile = req.file;

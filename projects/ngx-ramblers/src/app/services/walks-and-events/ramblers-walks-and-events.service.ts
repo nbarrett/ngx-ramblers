@@ -105,6 +105,8 @@ import { UrlService } from "../url.service";
 import { FeaturesService } from "../features.service";
 import { LinksService } from "../links.service";
 
+const QUARTER_HOUR_MINUTES = 15;
+
 @Injectable({
   providedIn: "root"
 })
@@ -1321,14 +1323,19 @@ export class RamblersWalksAndEventsService {
     }
   }
 
+  public walkDurationMinutes(distanceMiles: number | string, milesPerHour: number): number {
+    const minutes = this.dateUtils.durationInMsecsForDistanceInMiles(distanceMiles, milesPerHour) / 60000;
+    return Math.ceil(minutes / QUARTER_HOUR_MINUTES) * QUARTER_HOUR_MINUTES;
+  }
+
   public walkFinishTime(extendedGroupEvent: ExtendedGroupEvent, milesPerHour?: number): string {
     const finishTimeMillis = this.dateUtils.startTimeAsValue(extendedGroupEvent) +
       this.dateUtils.durationInMsecsForDistanceInMiles(extendedGroupEvent?.groupEvent?.distance_miles, extendedGroupEvent.fields.milesPerHour || milesPerHour);
     let finishDateTime = this.dateUtils.asDateTime(finishTimeMillis);
     const minutes = finishDateTime.minute;
-    const remainder = minutes % 15;
+    const remainder = minutes % QUARTER_HOUR_MINUTES;
     if (remainder !== 0) {
-      finishDateTime = finishDateTime.plus({ minutes: 15 - remainder });
+      finishDateTime = finishDateTime.plus({ minutes: QUARTER_HOUR_MINUTES - remainder });
     }
     finishDateTime = finishDateTime.set({ second: 0 });
     finishDateTime = finishDateTime.set({ millisecond: 0 });

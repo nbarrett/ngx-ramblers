@@ -15,13 +15,24 @@ import { FeaturesService } from "../../../services/features.service";
 
       .event-panel-inner
         margin-bottom: 0
+
+      h1
+        font-size: 16px
+        font-weight: bold
+
+      .feature-grid
+        display: grid
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))
+        gap: 4px 16px
     `],
     template: `
-      <div class="event-panel rounded event-panel-inner">
+      <div [class.event-panel]="shaded" [class.event-panel-inner]="shaded" [class.rounded]="shaded">
         <h1>Features</h1>
-        @for (feature of featuresService.combinedFeatures(extendedGroupEvent.groupEvent); track feature.code) {
-          <app-walk-feature [feature]="feature"/>
-        }
+        <div class="feature-grid">
+          @for (feature of featuresService.combinedFeatures(extendedGroupEvent.groupEvent); track feature.code) {
+            <app-walk-feature [feature]="feature"/>
+          }
+        </div>
       </div>`,
     imports: [WalkEditFeatureCategoryComponent]
 })
@@ -33,6 +44,7 @@ export class WalkFeaturesComponent implements OnInit {
   display = inject(WalkDisplayService);
 
   @Input() public extendedGroupEvent: ExtendedGroupEvent;
+  @Input() public shaded = true;
 
   ngOnInit() {
     this.logger.info("ngOnInit:features:", this.extendedGroupEvent);

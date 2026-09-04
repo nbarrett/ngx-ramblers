@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { CategorisedFeatures, FEATURE_CATEGORIES, FeatureCategory } from "../../../models/walk-feature.model";
+import { CategorisedFeatures, Feature, FEATURE_CATEGORIES, FeatureCategory } from "../../../models/walk-feature.model";
 import { WalkEditFeatureCategoryComponent } from "../walk-view/walk-feature";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
@@ -46,11 +46,14 @@ export class WalkFeatureListComponent implements OnInit {
   @Input() displayedWalk!: DisplayedWalk;
   @Input() featureCategory!: FeatureCategory;
   @Input() inputDisabled = false;
+  @Input() excludedFeatures: Feature[] = [];
   private featureKey: string;
 
   async ngOnInit() {
     this.featureKey = this.featureCategory.toLowerCase();
-    this.categorisedFeatures = this.featureCategories.filter(item => item.category === this.featureCategory);
+    this.categorisedFeatures = this.featureCategories
+      .filter(item => item.category === this.featureCategory)
+      .map(item => ({...item, features: item.features.filter(feature => !this.excludedFeatures.includes(feature.code as Feature))}));
     this.logger.info("ngOnInit for featureKey", this.featureKey, "with categorised features:", this.categorisedFeatures);
   }
 

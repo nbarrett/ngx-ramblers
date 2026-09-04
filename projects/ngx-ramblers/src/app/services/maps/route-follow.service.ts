@@ -28,6 +28,7 @@ import {
 import { GeoDistanceService } from "./geo-distance.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { returnDirectionFrom } from "./map-gestures";
+import { cumulativeDistances, projectOnSegment } from "../../functions/route-geometry";
 
 @Injectable({
   providedIn: "root"
@@ -396,6 +397,14 @@ export class RouteFollowService {
     return remaining.length > 0 ? {waypoint: remaining[0].waypoint, metres: remaining[0].metres} : null;
   }
 
+  currentWaypointFrom(progressMetres: number): RouteFollowWaypoint | null {
+    const reached = this.waypoints
+      .map(waypoint => ({waypoint, along: this.snapToRoute(waypoint)?.progressMetres ?? 0}))
+      .filter(item => item.along <= progressMetres + ROUTE_FOLLOW_APPROACH_METRES)
+      .sort((left, right) => right.along - left.along);
+    return reached[0]?.waypoint || null;
+  }
+
   formatDistance(metres: number | null): string {
     if (!isNumber(metres) || metres < 0) {
       return "";
@@ -506,6 +515,7 @@ export class RouteFollowService {
       nextWaypoint: next?.waypoint || approached || null,
       nextWaypointMetres: next?.metres ?? (approached ? 0 : null),
       approachedWaypoint: approached,
+      currentWaypoint: approached || this.currentWaypointFrom(progressMetres),
       offRoute,
       completedMetres: progressMetres,
       totalMetres: this.totalMetres(),
@@ -597,34 +607,11 @@ export class RouteFollowService {
   }
 
   private projectOnSegment(point: RouteFollowPoint, start: RouteFollowPoint, end: RouteFollowPoint): {point: RouteFollowPoint; distanceMetres: number; alongMetres: number} {
-    const startToEnd = this.metresBetween(start, end);
-    if (startToEnd === 0) {
-      return {point: start, distanceMetres: this.metresBetween(point, start), alongMetres: 0};
-    } else {
-      const dx = end.longitude - start.longitude;
-      const dy = end.latitude - start.latitude;
-      const tUnclamped = ((point.longitude - start.longitude) * dx + (point.latitude - start.latitude) * dy) / (dx * dx + dy * dy);
-      const t = tUnclamped < 0 ? 0 : (tUnclamped > 1 ? 1 : tUnclamped);
-      const projected: RouteFollowPoint = {
-        latitude: start.latitude + dy * t,
-        longitude: start.longitude + dx * t
-      };
-      return {
-        point: projected,
-        distanceMetres: this.metresBetween(point, projected),
-        alongMetres: startToEnd * t
-      };
-    }
+    return projectOnSegment(point, start, end);
   }
 
   private buildCumulative(points: RouteFollowPoint[]): number[] {
-    return points.reduce((acc: number[], point, index) => {
-      if (index === 0) {
-        return [0];
-      } else {
-        return [...acc, acc[index - 1] + this.metresBetween(points[index - 1], point)];
-      }
-    }, []);
+    return cumulativeDistances(points);
   }
 
   private metresBetween(from: RouteFollowPoint, to: RouteFollowPoint): number {
@@ -680,6 +667,7 @@ export class RouteFollowService {
       nextWaypoint: null,
       nextWaypointMetres: null,
       approachedWaypoint: null,
+      currentWaypoint: null,
       offRoute: false,
       completedMetres: 0,
       totalMetres: 0,

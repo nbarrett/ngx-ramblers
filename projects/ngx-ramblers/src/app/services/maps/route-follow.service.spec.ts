@@ -84,6 +84,15 @@ describe("RouteFollowService", () => {
     expect(service.progress().approachedWaypoint?.instruction).toBe("Turn left at the stile");
   });
 
+  it("keeps the last waypoint reached as the current direction until the next one is reached", () => {
+    service.applyPosition(eastWest[1], 90, 5);
+    expect(service.progress().currentWaypoint?.id).toBe("mid");
+    service.applyPosition({latitude: 51.2, longitude: 1.013}, 90, 5);
+    expect(service.progress().approachedWaypoint).toBeNull();
+    expect(service.progress().currentWaypoint?.id).toBe("mid");
+    expect(service.progress().nextWaypoint?.id).toBe("end");
+  });
+
   it("flags off-route when the walker is far from the line", () => {
     service.applyPosition({latitude: 51.25, longitude: 1.01}, 0, 5);
     expect(service.progress().offRoute).toBe(true);
