@@ -105,8 +105,16 @@ export class ExtendedGroupEventQueryService {
           ]
         };
       case FilterCriteria.DELETED_EVENTS:
-        return {[EventEventField.EVENT_TYPE]: {$eq: EventType.DELETED.toString()}};
+        return this.deletedEventsCriteria();
     }
+  }
+
+  deletedEventsCriteria(): MongoCriteria {
+    return {[EventEventField.EVENT_TYPE]: {$eq: EventType.DELETED.toString()}};
+  }
+
+  excludingDeletedEventsCriteria(): MongoCriteria {
+    return {[EventEventField.EVENT_TYPE]: {$ne: EventType.DELETED.toString()}};
   }
 
   eventIdCriteriaFor(identifier: string): MongoCriteria {
