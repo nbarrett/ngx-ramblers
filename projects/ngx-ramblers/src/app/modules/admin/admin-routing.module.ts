@@ -34,6 +34,10 @@ const rp = adminRelativePath;
         .then(m => m.AdminComponent), canActivate: [SystemHealthyGuard, AreaExistsGuard]
     },
     {
+      path: rp(AdminPath.VERSION), loadComponent: () => import("../../pages/version/version-page")
+        .then(m => m.VersionPageComponent), canActivate: [SystemHealthyGuard]
+    },
+    {
       path: rp(AdminPath.BANNERS), loadComponent: () => import("../../pages/banner/banner.component")
         .then(m => m.BannerComponent),
       canActivate: [SystemHealthyGuard]

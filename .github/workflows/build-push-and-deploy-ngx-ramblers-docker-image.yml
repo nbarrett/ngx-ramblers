@@ -175,8 +175,25 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
 
+      - name: Describe the commit being built
+        id: build-info
+        run: |
+          echo "commit_message=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build the Docker image
-        run: docker build . --build-arg BUILD_NUMBER=${{ github.run_number }} --file Dockerfile --target website --tag ngx-ramblers:${{ github.run_number }}
+        env:
+          BUILD_COMMIT_MESSAGE: ${{ steps.build-info.outputs.commit_message }}
+        run: >
+          docker build .
+          --build-arg BUILD_NUMBER=${{ github.run_number }}
+          --build-arg BUILD_COMMIT_SHA=${{ github.sha }}
+          --build-arg "BUILD_COMMIT_MESSAGE=$BUILD_COMMIT_MESSAGE"
+          --build-arg BUILD_BRANCH=${{ github.ref_name }}
+          --build-arg BUILD_TIMESTAMP=${{ steps.build-info.outputs.timestamp }}
+          --build-arg BUILD_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --build-arg BUILD_IMAGE_TAG=${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+          --file Dockerfile --target website --tag ngx-ramblers:${{ github.run_number }}
 
       - name: Tag the Docker image (latest)
         if: github.ref_name == 'main'
