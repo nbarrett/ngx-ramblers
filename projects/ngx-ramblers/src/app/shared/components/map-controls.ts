@@ -129,7 +129,7 @@ export interface MapControlsState {
       }
 
       @if (config.showSmoothScroll && !isUndefined(state.smoothScroll)) {
-        <div class="form-check form-switch">
+        <div class="form-check form-check-inline align-items-center mb-0 map-control-item">
           <input class="form-check-input" type="checkbox" id="smooth-scroll-toggle"
                  [ngModel]="state.smoothScroll"
                  (ngModelChange)="onSmoothScrollChange($event)"
@@ -141,7 +141,7 @@ export interface MapControlsState {
       }
 
       @if (config.showAutoShowAll && !isUndefined(state.autoShowAll)) {
-        <div class="form-check form-switch">
+        <div class="form-check form-check-inline align-items-center mb-0 map-control-item">
           <input class="form-check-input" type="checkbox" id="auto-show-toggle"
                  [ngModel]="state.autoShowAll"
                  (ngModelChange)="onAutoShowAllChange($event)"
