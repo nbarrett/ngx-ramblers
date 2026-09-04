@@ -158,6 +158,10 @@ async function inboxThreadByIdOrSlug(tenantSlug: string, idOrSlug: string): Prom
   return found.thread;
 }
 
+function inboxThreadId(thread: InboxThread, fallback: string): string {
+  return (thread.id ?? (thread as unknown as {_id?: {toString(): string}})._id?.toString() ?? fallback).toString();
+}
+
 async function accessibleThread(req: Request, res: Response, threadId: string): Promise<InboxThread | null> {
   const thread = await inboxThreadByIdOrSlug(defaultTenantSlug(), threadId);
   if (!thread) {
@@ -1104,7 +1108,8 @@ router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: 
     if (!thread) {
       return;
     }
-    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).sort({receivedAt: 1, sentAt: 1}).lean();
+    const threadId = inboxThreadId(thread, req.params.id);
+    const storedMessages = await inboxMessageModel.find({threadId}).sort({receivedAt: 1, sentAt: 1}).lean();
     const connection = await resolveThreadConnection(thread, storedMessages as InboxMessage[]);
     if (!connection) {
       res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for role ${thread.roleType}`});
@@ -1114,7 +1119,7 @@ router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: 
       const storedMessage = message as InboxMessage;
       return hydrateMessage(await connectionForMessage(storedMessage, connection), storedMessage);
     }));
-    const correspondent = await refreshThreadCorrespondent(connection, req.params.id, messages);
+    const correspondent = await refreshThreadCorrespondent(connection, threadId, messages);
     const threadForMember = {
       ...thread,
       ...(correspondent ? {externalAddress: correspondent} : {}),
@@ -1133,7 +1138,8 @@ async function updateThreadReadState(req: Request, res: Response, unread: boolea
   if (!thread) {
     return;
   }
-  const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
+  const threadId = inboxThreadId(thread, req.params.id);
+  const storedMessages = await inboxMessageModel.find({threadId}).lean() as InboxMessage[];
   const connection = await resolveThreadConnection(thread, storedMessages);
   if (!connection) {
     res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for thread ${req.params.id}`});
@@ -1155,9 +1161,9 @@ async function updateThreadReadState(req: Request, res: Response, unread: boolea
       ? {$pull: {readByMemberIds: memberId}, $set: {unread: true}}
       : {$addToSet: {readByMemberIds: memberId}, $set: {unread: false}})
     : {$set: {unread}};
-  await inboxThreadModel.updateOne({_id: req.params.id}, readStateUpdate);
+  await inboxThreadModel.updateOne({_id: threadId}, readStateUpdate);
   const unreadCountForRole = await unreadConversationCountForRole(thread.roleType, memberId);
-  broadcast(MessageType.INBOX_THREAD_UPDATED, {threadId: req.params.id, messageId: "", roleType: thread.roleType, unreadCountForRole} as InboxNewMessageEvent);
+  broadcast(MessageType.INBOX_THREAD_UPDATED, {threadId, messageId: "", roleType: thread.roleType, unreadCountForRole} as InboxNewMessageEvent);
   res.json({request: {messageType}, response: {marked: true}});
   Array.from(idsByConnection.entries()).reduce<Promise<void>>(async (acc, [cid, ids]) => {
     await acc;
@@ -1210,7 +1216,7 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
       return;
     }
     const selected = await inboxMessageModel.findOne({
-      threadId: req.params.id,
+      threadId: inboxThreadId(thread, req.params.id),
       ...(composeRequest?.messageId ? {messageId: composeRequest.messageId} : {})
     }).sort({receivedAt: -1, sentAt: -1}).lean();
     if (!selected) {
@@ -1259,7 +1265,7 @@ router.delete("/threads/:id", authConfig.authenticate(), async (req: Request, re
     if (!thread) {
       return;
     }
-    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
+    const storedMessages = await inboxMessageModel.find({threadId: inboxThreadId(thread, req.params.id)}).lean() as InboxMessage[];
     if (thread.folder === InboxThreadFolder.JUNK) {
       const connection = await resolveThreadConnection(thread, storedMessages);
       if (connection) {
@@ -1295,7 +1301,7 @@ router.post("/threads/:id/move-to-inbox", authConfig.authenticate(), async (req:
     } else if (thread.folder !== InboxThreadFolder.JUNK) {
       res.json({request: {messageType}, response: {moved: false, roleType: thread.roleType}});
     } else {
-    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
+    const storedMessages = await inboxMessageModel.find({threadId: inboxThreadId(thread, req.params.id)}).lean() as InboxMessage[];
     const connection = await resolveThreadConnection(thread, storedMessages);
     if (!connection) {
       res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for thread ${req.params.id}`});
