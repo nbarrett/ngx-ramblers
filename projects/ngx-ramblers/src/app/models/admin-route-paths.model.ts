@@ -25,6 +25,7 @@ export enum AdminPath {
   MEETING_PLAN = "admin/meetings/plan",
   MAINTENANCE = "admin/maintenance",
   SET_PASSWORD = "admin/set-password",
+  VERSION = "admin/version",
 }
 
 export function adminRelativePath(fullPath: string): string {

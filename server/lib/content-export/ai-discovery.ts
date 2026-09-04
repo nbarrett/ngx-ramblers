@@ -1,7 +1,10 @@
 import { isString } from "es-toolkit/compat";
+import { RELEASE_FEED_TYPE, ReleaseFeed, ReleaseFeedEntry } from "../../../projects/ngx-ramblers/src/app/models/release-feed.model";
+
+export { RELEASE_FEED_TYPE };
+export type { ReleaseFeed, ReleaseFeedEntry };
 
 export const FOR_AI_PATH = "for-ai";
-export const RELEASE_FEED_TYPE = "release-feed";
 export const DEFAULT_RELEASE_FEED_LIMIT = 50;
 
 const RELEASE_ENTRY_LINE = /^-\s*\[([^\]]+)\]\(([^)]+)\)(\s*📸)?\s*$/;
@@ -16,28 +19,6 @@ const OPTIONAL_HUB_PATHS = [
 export interface AiDiscoverySite {
   siteName: string;
   baseUrl: string;
-}
-
-export interface ReleaseFeedEntry {
-  title: string;
-  path: string;
-  url: string;
-  markdownUrl: string;
-  jsonUrl: string;
-  htmlUrl: string;
-  hasImages: boolean;
-}
-
-export interface ReleaseFeed {
-  title: string;
-  description: string;
-  type: typeof RELEASE_FEED_TYPE;
-  generated: string;
-  indexPath: string;
-  indexUrl: string;
-  humansIndexPath: string | null;
-  humansIndexUrl: string | null;
-  entries: ReleaseFeedEntry[];
 }
 
 export interface ParsedReleaseEntry {

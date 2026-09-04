@@ -11,6 +11,7 @@ import { PageAccessGuard } from "./guards/page-access-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
 import { MeetingRoomLeaveGuard } from "./guards/meeting-room-leave-guard";
 import { AdminContentPath } from "./models/admin-route-paths.model";
+import { LEGACY_VERSION_PAGE_PATH, VERSION_PAGE_PATH } from "./models/build-version.model";
 
 const routes: Routes = [
   {
@@ -60,6 +61,9 @@ const routes: Routes = [
     path: "site-map", loadComponent: () => import("./pages/site-map/site-map-page")
       .then(m => m.SiteMapPageComponent),
     canActivate: [SystemHealthyGuard]
+  },
+  {
+    path: LEGACY_VERSION_PAGE_PATH, redirectTo: VERSION_PAGE_PATH, pathMatch: "full"
   },
   {
     path: "video-meetings/guest/:room",
