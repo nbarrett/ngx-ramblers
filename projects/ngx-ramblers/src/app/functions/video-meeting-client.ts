@@ -31,7 +31,7 @@ export function videoMeetingClient(hints: VideoMeetingClientHints): VideoMeeting
   const platform = (hints.platform || "").toLowerCase();
   const maxTouchPoints = hints.maxTouchPoints || 0;
   const device = meetingDevice(ua, platform, maxTouchPoints);
-  const browser = meetingBrowser(ua);
+  const browser = hints.brave ? VideoMeetingBrowser.BRAVE : meetingBrowser(ua);
   const inAppBrowser = isInAppBrowser(ua, device);
   const recommendedBrowserLabel = recommendedBrowser(device);
   return {
@@ -141,7 +141,8 @@ export function clientHintsFromWindow(win: Window): VideoMeetingClientHints {
     platform: nav?.platform || "",
     maxTouchPoints: nav?.maxTouchPoints || 0,
     vendor: nav?.vendor || "",
-    coarsePointer: !!win.matchMedia && win.matchMedia("(pointer: coarse)").matches
+    coarsePointer: !!win.matchMedia && win.matchMedia("(pointer: coarse)").matches,
+    brave: !!(nav as { brave?: unknown })?.brave
   };
 }
 
@@ -159,8 +160,8 @@ export function videoMeetingJoinGuidance(client: VideoMeetingClient): string {
   } else if (client.device === VideoMeetingDevice.IPAD || client.device === VideoMeetingDevice.IPHONE) {
     if (client.browser === VideoMeetingBrowser.SAFARI) {
       return `Your ${client.deviceLabel} will ask to use the camera and microphone. Tap Allow so others can see and hear you. You will see a preview of yourself before you enter the meeting.`;
-    } else if (client.browser === VideoMeetingBrowser.CHROME) {
-      return `Chrome will ask to use the camera and microphone. Tap Allow. If it does not ask, open the ${client.deviceLabel} Settings app, tap Chrome, and turn on Camera and Microphone. You will see a preview of yourself before you enter the meeting.`;
+    } else if (client.browser === VideoMeetingBrowser.CHROME || client.browser === VideoMeetingBrowser.BRAVE) {
+      return `${client.browserLabel} will ask to use the camera and microphone. Tap Allow. If it does not ask, open the ${client.deviceLabel} Settings app, tap ${client.browserLabel}, and turn on Camera and Microphone. You will see a preview of yourself before you enter the meeting.`;
     } else {
       return `When asked, allow the camera and microphone. If nothing happens, open this page in Safari instead of ${client.browserLabel}. You will see a preview of yourself before you enter the meeting.`;
     }
@@ -180,7 +181,7 @@ export function videoMeetingJoinActionLabel(client: VideoMeetingClient): string 
 }
 
 export function videoMeetingMediaHelp(state: VideoMeetingMediaState, client: VideoMeetingClient): VideoMeetingMediaHelp | null {
-  if (state.inMeeting && (state.audioAvailable === false || state.videoAvailable === false)) {
+  if ((state.inMeeting || state.permissionDenied) && (state.audioAvailable === false || state.videoAvailable === false)) {
     return mediaBlockedHelp(state, client);
   } else if (state.inMeeting && state.audioMuted === false && state.microphoneSilent && !state.microphoneSilentDismissed) {
     return {
@@ -215,6 +216,10 @@ export function videoMeetingMediaHelp(state: VideoMeetingMediaState, client: Vid
   } else {
     return null;
   }
+}
+
+export function microphoneBlockedGuidance(client: VideoMeetingClient): string {
+  return blockedRecovery("microphone", client);
 }
 
 function mediaBlockedHelp(state: VideoMeetingMediaState, client: VideoMeetingClient): VideoMeetingMediaHelp {
@@ -256,8 +261,8 @@ function blockedRecovery(blocked: string, client: VideoMeetingClient): string {
   } else if (client.device === VideoMeetingDevice.IPAD || client.device === VideoMeetingDevice.IPHONE) {
     if (client.browser === VideoMeetingBrowser.SAFARI) {
       return `Your ${client.deviceLabel} has blocked the ${blocked}. Tap the aA icon in the Safari address bar, tap Website Settings, set Camera and Microphone to Allow, then tap Try again.`;
-    } else if (client.browser === VideoMeetingBrowser.CHROME) {
-      return `Chrome has blocked the ${blocked}. Open the ${client.deviceLabel} Settings app, tap Chrome, turn on Camera and Microphone, then return here and tap Try again.`;
+    } else if (client.browser === VideoMeetingBrowser.CHROME || client.browser === VideoMeetingBrowser.BRAVE) {
+      return `${client.browserLabel} has blocked the ${blocked}. Open the ${client.deviceLabel} Settings app, tap ${client.browserLabel}, turn on Camera and Microphone, then return here and tap Try again. If ${client.browserLabel} asks again, tap Allow.`;
     } else {
       return `The ${blocked} is blocked. Open this page in Safari, allow camera and microphone when asked, then tap Try again.`;
     }
@@ -341,6 +346,8 @@ function browserLabel(browser: VideoMeetingBrowser): string {
     return "Firefox";
   } else if (browser === VideoMeetingBrowser.EDGE) {
     return "Edge";
+  } else if (browser === VideoMeetingBrowser.BRAVE) {
+    return "Brave";
   } else {
     return "this browser";
   }
