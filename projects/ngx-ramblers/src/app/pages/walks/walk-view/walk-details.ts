@@ -1,4 +1,6 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Subscription } from "rxjs";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 import {
   faMapMarkerAlt,
   faPeopleGroup,
@@ -9,7 +11,6 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DisplayedWalk, WalkType } from "../../../models/walk.model";
-import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AscentValidationService } from "../../../services/walks/ascent-validation.service";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
@@ -57,6 +58,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
           {{ display.isWalk(displayedWalk.walk) ? 'Starting Point &' : '' }} Details
         </h1>
         <div class="row">
+          @if (showPostcode && displayedWalk?.walk?.groupEvent?.start_location?.postcode) {
           <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
             <div title>
               <app-copy-icon [value]="displayedWalk?.walk?.groupEvent?.start_location?.postcode"
@@ -65,13 +67,14 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
             </div>
             <div content>
               <a
-                tooltip="Click to locate postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
-                [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
-                target="_blank">
+                tooltip="Show postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on the map"
+                [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
+                >
                 {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a>
             </div>
           </div>
-          @if (display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)) {
+          }
+          @if (showGridReference && display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth"
                  class="col-sm-6">
               <div title>
@@ -82,12 +85,13 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
               <div content>
                 <a content
                    [href]="display.gridReferenceLink(display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location))"
-                   tooltip="Click to locate grid reference {{display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)}} on UK Grid Reference Finder"
-                   target="_blank">{{ display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location) }}</a>
+                   tooltip="Show grid reference {{display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)}} on the map"
+                   >{{ display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location) }}</a>
               </div>
             </div>
           }
           @if (displayedWalk.showEndpoint) {
+            @if (showPostcode && displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
                 <app-copy-icon [value]="displayedWalk?.walk?.groupEvent?.end_location?.postcode"
@@ -96,13 +100,14 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
               </div>
               <div content>
                 <a
-                  tooltip="Click to locate finish postcode {{displayedWalk?.walk?.groupEvent?.end_location?.postcode}} on Google Maps"
-                  [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.end_location?.postcode)"
-                  target="_blank">
+                  tooltip="Show finish postcode {{displayedWalk?.walk?.groupEvent?.end_location?.postcode}} on the map"
+                  [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.end_location?.postcode)"
+                  >
                   {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</a>
               </div>
             </div>
-            @if (display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location)) {
+            }
+            @if (showGridReference && display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location)) {
               <div app-related-link [mediaWidth]="walkDetailsMediaWidth"
                    class="col-sm-6">
                 <div title>
@@ -113,8 +118,8 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                 <div content>
                   <a content
                      [href]="display.gridReferenceLink(display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location))"
-                     tooltip="Click to locate finish grid reference {{display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location)}} on UK Grid Reference Finder"
-                     target="_blank">{{ display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location) }}</a>
+                     tooltip="Show finish grid reference {{display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location)}} on the map"
+                     >{{ display.gridReferenceFrom(displayedWalk?.walk?.groupEvent?.end_location) }}</a>
                 </div>
               </div>
             }
@@ -160,8 +165,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                 <fa-icon [icon]="faMapMarkerAlt" class="fa-icon me-2"></fa-icon>
                 Meeting Point
               </p>
-              <div>@if (displayedWalk?.walk?.groupEvent?.meeting_date_time) {Meet at: {{ dateUtils.displayTime(displayedWalk?.walk?.groupEvent?.meeting_date_time) }}}@if (displayedWalk?.walk?.groupEvent?.meeting_date_time && (displayedWalk?.walk?.groupEvent?.meeting_location?.description || displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)) { — }{{ displayedWalk?.walk?.groupEvent?.meeting_location?.description }}@if (displayedWalk?.walk?.groupEvent?.meeting_location?.description && displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {, }@if (displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {<a [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)"
-                   target="_blank"
+              <div>@if (displayedWalk?.walk?.groupEvent?.meeting_date_time) {Meet at: {{ dateUtils.displayTime(displayedWalk?.walk?.groupEvent?.meeting_date_time) }}}@if (displayedWalk?.walk?.groupEvent?.meeting_date_time && (displayedWalk?.walk?.groupEvent?.meeting_location?.description || displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)) { — }{{ displayedWalk?.walk?.groupEvent?.meeting_location?.description }}@if (displayedWalk?.walk?.groupEvent?.meeting_location?.description && displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {, }@if (displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {<a [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)"
                    tooltip="Click to locate meeting point {{displayedWalk?.walk?.groupEvent?.meeting_location?.postcode}} on Google Maps">{{ displayedWalk?.walk?.groupEvent?.meeting_location?.postcode }}</a>}</div>
             </div>
           }
@@ -180,10 +184,9 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
     imports: [FontAwesomeModule, TooltipDirective, RelatedLinkComponent, CopyIconComponent, WalkGradingComponent, MarkdownComponent, NormaliseMarkdownPipe]
 })
 
-export class WalkDetailsComponent implements OnInit {
+export class WalkDetailsComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkDetailsComponent", NgxLoggerLevel.ERROR);
-  googleMapsService = inject(GoogleMapsService);
   distanceValidationService = inject(DistanceValidationService);
   ascentValidationService = inject(AscentValidationService);
   display = inject(WalkDisplayService);
@@ -192,6 +195,10 @@ export class WalkDetailsComponent implements OnInit {
   @Input()
   public displayedWalk: DisplayedWalk;
   public walkDetailsMediaWidth = 70;
+  private walksConfigService = inject(WalksConfigService);
+  private subscriptions: Subscription[] = [];
+  showPostcode = true;
+  showGridReference = true;
   protected readonly faPersonWalkingDashedLineArrowRight = faPersonWalkingDashedLineArrowRight;
   protected readonly faPersonWalkingArrowLoopLeft = faPersonWalkingArrowLoopLeft;
   protected readonly faRulerHorizontal = faRulerHorizontal;
@@ -203,6 +210,14 @@ export class WalkDetailsComponent implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit", this.displayedWalk);
+    this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
+      this.showPostcode = walksConfig?.walkDetailsShowPostcode !== false;
+      this.showGridReference = walksConfig?.walkDetailsShowGridReference !== false;
+    }));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   elementNameStart(elementName: string) {

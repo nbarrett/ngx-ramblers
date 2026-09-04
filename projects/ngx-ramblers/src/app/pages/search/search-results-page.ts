@@ -3,7 +3,9 @@ import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
-import { faCalendarDays, faFileLines, faMagnifyingGlass, faPersonWalking, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faFileLines, faMagnifyingGlass, faMapLocationDot, faPersonWalking, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { locateSuggestionFor } from "../../functions/locate";
+import { LOCATE_PAGE_PATH, LocateSuggestion } from "../../models/locate.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { SiteSearchGroup, SiteSearchIndexStatus, SiteSearchRelevance, SiteSearchResult, SiteSearchResultType } from "../../models/site-search.model";
@@ -65,6 +67,12 @@ const INDEXING_POLL_MS = 600;
           <span>Building the search index for the first time. Your results will appear automatically when it's ready…</span>
         </p>
       } @else if (submittedQuery.length >= minQueryLength) {
+        @if (locateSuggestion) {
+          <a class="search-result search-locate mb-4" [routerLink]="'/' + LOCATE_PAGE_PATH" [queryParams]="locateSuggestion.queryParams">
+            <span class="search-result-type type-locate"><fa-icon [icon]="faMapLocationDot" class="me-1"/>Map</span>
+            <span class="search-result-title">{{ locateSuggestion.label }}</span>
+          </a>
+        }
         @if (results.length) {
           <p class="text-muted mb-4">{{ summaryText() }} for "{{ submittedQuery }}"</p>
           @for (group of groups; track group.type) {
@@ -128,10 +136,13 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
 
   faMagnifyingGlass = faMagnifyingGlass;
   faXmark = faXmark;
+  protected readonly faMapLocationDot = faMapLocationDot;
+  protected readonly LOCATE_PAGE_PATH = LOCATE_PAGE_PATH;
   minQueryLength = MIN_QUERY_LENGTH;
   query = "";
   submittedQuery = "";
   results: SiteSearchResult[] = [];
+  locateSuggestion: LocateSuggestion | null = null;
   groups: SiteSearchGroup[] = [];
   searching = false;
   indexing = false;
@@ -282,6 +293,7 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
     this.clearIndexingPoll();
     const trimmed = (query || "").trim();
     this.submittedQuery = trimmed;
+    this.locateSuggestion = locateSuggestionFor(trimmed);
     if (trimmed.length < MIN_QUERY_LENGTH) {
       this.results = [];
       this.groups = [];

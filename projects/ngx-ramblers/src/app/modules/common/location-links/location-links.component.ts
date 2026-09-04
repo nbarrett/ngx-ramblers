@@ -3,7 +3,6 @@ import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { RelatedLinkComponent } from "../related-links/related-link";
 import { CopyIconComponent } from "../copy-icon/copy-icon";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
-import { GoogleMapsService } from "../../../services/google-maps.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 
@@ -38,11 +37,10 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
             {{ elementName("Postcode") }}
           </div>
           <div content>
-            <a [href]="googleMapsService.urlForPostcode(location.postcode)"
-               target="_blank" rel="noopener"
-               tooltip="View postcode {{ location.postcode }} on Google Maps">
+            <a [href]="display.postcodeLink(location.postcode)"
+               tooltip="Show postcode {{ location.postcode }} on the map">
               {{ location.postcode }}
-              <small class="text-muted ms-1">(Maps)</small>
+              <small class="text-muted ms-1">(Map)</small>
             </a>
           </div>
         </div>
@@ -56,8 +54,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
           </div>
           <div content>
             <a [href]="gridReferenceLink()"
-               target="_blank" rel="noopener"
-               tooltip="View grid reference {{ gridReferenceValue() }} on GridReferenceFinder">
+               tooltip="Show grid reference {{ gridReferenceValue() }} on the map">
               {{ gridReferenceValue() }}
               <small class="text-muted ms-1">(Map)</small>
             </a>
@@ -88,7 +85,6 @@ export class LocationLinksComponent {
   @HostBinding("class.inline") @Input() inline = false;
 
   private display = inject(WalkDisplayService);
-  googleMapsService = inject(GoogleMapsService);
   private numberUtils = inject(NumberUtilsService);
 
   elementName(name: string): string {

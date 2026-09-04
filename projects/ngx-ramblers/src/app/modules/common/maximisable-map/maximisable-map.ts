@@ -87,7 +87,7 @@ export interface MaximisableMapState {
       border: 1px solid rgba(29, 53, 87, 0.1)
     .map-full-screen-container .map-full-screen-bar-text
       min-width: 0
-      flex: 1 1 auto
+      flex: 0 1 auto
     .map-full-screen-container .map-full-screen-bar-title
       font-weight: 600
       font-size: 0.95rem
@@ -106,6 +106,8 @@ export interface MaximisableMapState {
       align-items: center
       flex-wrap: wrap
       gap: 0.5rem
+      flex: 1 1 0
+      min-width: 0
     .map-full-screen-container .map-full-screen-bar-actions:empty
       display: none
     .map-full-screen-container .map-full-screen-exit

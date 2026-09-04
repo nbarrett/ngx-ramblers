@@ -1,11 +1,14 @@
 import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
-import { faCalendarPlus, faRoute } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarPlus, faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { isBrowser } from "es-toolkit";
 import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } from "../../../models/inbox.model";
 import { calendarAppLabel, calendarAppsForDevice, calendarEventFromGroupEvent, calendarHrefFor, deviceKindFromUserAgent } from "../../../functions/calendar-add";
 import { RelatedLinkComponent } from "./related-link";
+import { directionsLinks } from "../../../functions/locate";
+import { AppShellService } from "../../../services/maps/app-shell.service";
+import { DirectionsLink } from "../../../models/locate.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayedWalk, Links } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
@@ -31,7 +34,7 @@ import { FileNameData } from "../../../models/aws-object.model";
         <img title class="related-links-ramblers-image"
              src="favicon.ico"
              alt="On Ramblers"/>
-        <a content tooltip="Click to view on Ramblers Walks and Events Manager" target="_blank"
+        <a content tooltip="Click to view on Ramblers Walks and Events Manager"
            [href]="displayedWalk?.ramblersLink">On Ramblers</a>
       </div>
     }
@@ -41,7 +44,7 @@ import { FileNameData } from "../../../models/aws-object.model";
         <img title class="related-links-image"
              src="/assets/images/local/meetup.ico"
              alt="View {{meetupService.meetupPublishedStatus(displayedWalk)}} event on Meetup"/>
-        <a content target="_blank" tooltip="Click to view the route for This Walk on Meetup"
+        <a content tooltip="Click to view the route for This Walk on Meetup"
            [href]="links.meetup.href">View {{ meetupService.meetupPublishedStatus(displayedWalk) }}
           event on Meetup</a>
       </div>
@@ -53,11 +56,24 @@ import { FileNameData } from "../../../models/aws-object.model";
              src="/assets/images/local/ordnance-survey.png"
              alt="View map on OS Maps"/>
         <a content tooltip="Click to view this walk start on Ordnance Survey Maps"
-           target="_blank"
            [href]="osMapsHref()">
           View map on OS Maps
         </a>
       </div>
+    }
+    @if (locateStartLink()) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+        <fa-icon title [icon]="faMapLocationDot" class="fa-icon"/>
+        <a content [href]="locateStartLink()" tooltip="Show the start on the OS map, with the grid reference, postcode and directions">Locate the start on the map</a>
+      </div>
+    }
+    @if (showLink('relatedLinkShowDirections')) {
+      @for (link of directionsToStart(); track link.app) {
+        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+          <fa-icon title [icon]="faDirections" class="fa-icon"/>
+          <a content [href]="link.url" target="_blank" rel="noopener" tooltip="Directions to the start from where you are, in {{ link.app }} (opens in a new tab)">Directions in {{ link.app }}</a>
+        </div>
+      }
     }
     @if (gpxDownloadUrl() && showLink('relatedLinkShowGpx')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
@@ -94,7 +110,6 @@ import { FileNameData } from "../../../models/aws-object.model";
              src="/assets/images/local/w3w.png"
              alt="View start location in what3words"/>
         <a content tooltip="Click to view the start location in what3words"
-           target="_blank"
            [href]="what3wordsHref()">
           View start location in what3words
         </a>
@@ -104,7 +119,6 @@ import { FileNameData } from "../../../models/aws-object.model";
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
         <fa-icon title [icon]="displayedWalk?.walk?.fields.venue.type | toVenueIcon" class="fa-icon"></fa-icon>
         <a content [href]="displayedWalk?.walk?.fields?.venue?.url || googleMapsService.urlForPostcode(displayedWalk?.walk?.fields.venue.postcode)"
-           target="_blank"
            tooltip="{{displayedWalk?.walk?.fields?.venue?.url ? 'Visit ' + displayedWalk?.walk?.fields.venue.name + ' website' : 'View ' + venueLabel() + ' on Google Maps'}}">{{ venueLabel() }}: {{ displayedWalk?.walk?.fields.venue.name }}</a>
       </div>
     }
@@ -128,6 +142,9 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   public walksConfig: WalksConfig;
   private subscriptions: Subscription[] = [];
   protected readonly faRoute = faRoute;
+  protected readonly faDirections = faDiamondTurnRight;
+  protected readonly faMapLocationDot = faMapLocationDot;
+  private appShell = inject(AppShellService);
   protected readonly faCalendarPlus = faCalendarPlus;
   protected readonly faGoogle = faGoogle;
   protected readonly faMicrosoft = faMicrosoft;
@@ -203,6 +220,17 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
       href = `https://what3words.com/map/@${coords.latitude},${coords.longitude}`;
     }
     return href;
+  }
+
+  locateStartLink(): string | null {
+    const start = this.displayedWalk?.walk?.groupEvent?.start_location;
+    const gridReference = this.display.gridReferenceFrom(start);
+    return gridReference ? this.display.gridReferenceLink(gridReference) : (start?.postcode ? this.display.postcodeLink(start.postcode) : null);
+  }
+
+  directionsToStart(): DirectionsLink[] {
+    const coords = this.startCoordinates();
+    return coords ? directionsLinks(coords.latitude, coords.longitude, this.appShell.platform()) : [];
   }
 
   private startCoordinates(): { latitude: number; longitude: number } | null {

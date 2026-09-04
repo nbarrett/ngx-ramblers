@@ -8,9 +8,11 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AddressQueryService } from "../../services/walks/address-query.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { GridReferenceLookupResponse } from "../../models/address-model";
+import { locationLabel } from "../../functions/locate";
 
 export interface LocationSuggestion {
   label: string;
+  description?: string;
   lat: number;
   lng: number;
   postcode?: string;
@@ -126,7 +128,8 @@ export class LocationAutocompleteComponent implements OnInit, OnChanges {
 
   private toLocationSuggestion(response: GridReferenceLookupResponse, fallback: string): LocationSuggestion {
     return {
-      label: response.description || response.postcode || fallback,
+      label: locationLabel(response.postcode, response.description, fallback),
+      description: response.description,
       lat: response.latlng?.lat || 0,
       lng: response.latlng?.lng || 0,
       postcode: response.postcode,
@@ -142,7 +145,7 @@ export class LocationAutocompleteComponent implements OnInit, OnChanges {
     }
     this.logger.info(`Location selected:`, location);
     const response: GridReferenceLookupResponse = {
-      description: location.label,
+      description: location.description || location.label,
       latlng: { lat: location.lat, lng: location.lng },
       postcode: location.postcode,
       gridReference6: location.gridReference6,

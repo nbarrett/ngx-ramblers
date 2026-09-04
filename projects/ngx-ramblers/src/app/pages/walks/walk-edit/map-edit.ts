@@ -16,7 +16,6 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { DEFAULT_OS_STYLE, LocationType, MapProvider } from "../../../models/map.model";
 import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
-import { GoogleMapsService } from "../../../services/google-maps.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
@@ -115,7 +114,6 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private httpClient = inject(HttpClient);
   private urlService = inject(UrlService);
   private mapZoom = inject(MapZoomService);
-  private googleMapsService = inject(GoogleMapsService);
   private gpxLayers: L.Layer[] = [];
   private startMarker: L.Marker | null = null;
 
@@ -483,10 +481,10 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     const grid = this.display.gridReferenceFrom(location);
     const descriptionHtml = description ? `<div class="small">${this.escapeHtml(description)}</div>` : "";
     const postcodeHtml = postcode
-      ? `<div class="small"><a href="${this.escapeHtml(this.googleMapsService.urlForPostcode(postcode))}" target="_blank" rel="noopener">${this.escapeHtml(postcode)}</a></div>`
+      ? `<div class="small"><a href="${this.escapeHtml(this.display.postcodeLink(postcode))}">${this.escapeHtml(postcode)}</a></div>`
       : "";
     const gridHtml = grid
-      ? `<div class="small"><a href="${this.escapeHtml(this.display.gridReferenceLink(grid))}" target="_blank" rel="noopener">${this.escapeHtml(grid)}</a></div>`
+      ? `<div class="small"><a href="${this.escapeHtml(this.display.gridReferenceLink(grid, this.map?.getZoom()))}">${this.escapeHtml(grid)}</a></div>`
       : "";
     return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${this.escapeHtml(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
   }

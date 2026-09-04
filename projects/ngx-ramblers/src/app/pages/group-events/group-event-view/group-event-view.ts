@@ -1,3 +1,4 @@
+import { WalkDisplayService } from "../../walks/walk-display.service";
 import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
 import { faFile, faHouse, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -99,8 +100,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
                   <div content>
                     <a
                       tooltip="Click to locate postcode {{groupEvent?.groupEvent?.location?.postcode}} on Google Maps"
-                      [href]="googleMapsService.urlForPostcode(groupEvent?.groupEvent?.location?.postcode)"
-                      target="_blank">{{ groupEvent?.groupEvent?.location?.postcode }}</a>
+                      [href]="walkDisplay.postcodeLink(groupEvent?.groupEvent?.location?.postcode)">{{ groupEvent?.groupEvent?.location?.postcode }}</a>
                   </div>
                 </div>
                 @if (links.meetup) {
@@ -197,6 +197,7 @@ export class GroupEventView implements OnInit {
   googleMapsService = inject(GoogleMapsService);
   private notifierService = inject(NotifierService);
   display = inject(GroupEventDisplayService);
+  walkDisplay = inject(WalkDisplayService);
   linksService = inject(LinksService);
   urlService = inject(UrlService);
   private systemConfigService = inject(SystemConfigService);

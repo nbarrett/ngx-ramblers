@@ -7,7 +7,16 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkRiskAssessmentSection, WalksConfig } from "../../models/walks-config.model";
+import {
+  DEFAULT_REGULAR_WALK_DAY,
+  DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS,
+  WalkAlbumPanelStyle,
+  WalkDetailsImageStyle,
+  WalkDetailsMapProvider,
+  WalkRiskAssessmentSection,
+  WalksConfig,
+  DEFAULT_GRID_REFERENCE_DIGITS
+} from "../../models/walks-config.model";
 import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
@@ -94,6 +103,7 @@ export class WalksConfigService {
       relatedLinkShowMeetup: true,
       relatedLinkShowOsMaps: true,
       relatedLinkShowWhat3words: true,
+      relatedLinkShowDirections: true,
       relatedLinkShowVenue: true,
       relatedLinkShowGpx: true,
       relatedLinkShowCalendar: true,
@@ -101,6 +111,10 @@ export class WalksConfigService {
       walkCreationAccessLevel: AccessLevel.HIDDEN,
       hideAwaitingLeaderFromPublic: false,
       hideNonApprovedWalksFromPublic: false,
+      walkDetailsShowPostcode: true,
+      walkDetailsShowGridReference: true,
+      walkDetailsGridReferenceDigits: DEFAULT_GRID_REFERENCE_DIGITS,
+      walkDetailsGridReferenceSpaced: true,
       walkDetailsImageStyle: WalkDetailsImageStyle.CROPPED,
       walkDetailsImageHeight: 200,
       walkDetailsMapHeight: 380,

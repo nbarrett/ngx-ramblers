@@ -1,12 +1,6 @@
 import expect from "expect";
 import {describe, it} from "mocha";
-import {
-  gridCodeFrom,
-  gridReference10From,
-  gridReference6From,
-  gridReference8From,
-  gridReferenceFrom
-} from "./grid-reference";
+import { gridCodeFrom, gridReference10From, gridReference6From, gridReference8From, gridReferenceFrom, formatGridReference } from "./grid-reference";
 
 describe("Grid Reference Functions", () => {
 
@@ -427,4 +421,22 @@ describe("Grid Reference Functions", () => {
     });
   });
 
+});
+
+describe("formatGridReference", () => {
+  it("spaces a ten figure reference the way Ramblers shares it", () => {
+    expect(formatGridReference("TR0862317039")).toBe("TR 08623 17039");
+    expect(formatGridReference("tr 08623 17039")).toBe("TR 08623 17039");
+  });
+
+  it("shortens to eight or six figures and can drop the spaces", () => {
+    expect(formatGridReference("TR0862317039", 8)).toBe("TR 0862 1703");
+    expect(formatGridReference("TR0862317039", 6, false)).toBe("TR086170");
+    expect(formatGridReference("TR086170", 10)).toBe("TR 086 170");
+  });
+
+  it("leaves anything it does not recognise alone", () => {
+    expect(formatGridReference("not a grid reference")).toBe("not a grid reference");
+    expect(formatGridReference("")).toBe("");
+  });
 });

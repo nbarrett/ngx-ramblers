@@ -3,7 +3,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DisplayedWalk, EventType, WalkViewMode } from "../../../models/walk.model";
-import { GoogleMapsService } from "../../../services/google-maps.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -81,8 +80,7 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
               <dt class="font-weight-bold me-2">Postcode:</dt>
               <dd><a class="rams-text-decoration-pink"
                      tooltip="Click to locate postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
-                     [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
-                     target="_blank">
+                     [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.start_location?.postcode)">
                 {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
             </dl>
           }
@@ -162,7 +160,6 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   private subscriptions: Subscription[] = [];
   public mediaQueryService: MediaQueryService = inject(MediaQueryService);
-  public googleMapsService = inject(GoogleMapsService);
   protected memberLoginService = inject(MemberLoginService);
   public display = inject(WalkDisplayService);
   public meetupService = inject(MeetupService);

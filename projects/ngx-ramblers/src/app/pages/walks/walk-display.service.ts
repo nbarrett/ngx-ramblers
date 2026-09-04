@@ -1,3 +1,5 @@
+import { locatePagePath } from "../../functions/locate";
+import { LOCATE_DEFAULT_BASE_PATH } from "../../models/locate.model";
 import { Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
@@ -33,7 +35,8 @@ import { GroupEventService } from "../../services/walks-and-events/group-event.s
 import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../../services/event-defaults.service";
 import { WalksConfigService } from "../../services/system/walks-config.service";
-import { DEFAULT_REGULAR_WALK_DAY } from "../../models/walks-config.model";
+import { DEFAULT_GRID_REFERENCE_DIGITS, DEFAULT_REGULAR_WALK_DAY, WalkDetailsMapProvider } from "../../models/walks-config.model";
+import { formatGridReference } from "../../functions/grid-reference";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
@@ -238,14 +241,30 @@ export class WalkDisplayService {
   googleMapsUrl(showDrivingDirections: boolean, fromPostcode: string, toPostcode: string): SafeResourceUrl {
     this.logger.debug("googleMapsUrl:showDrivingDirections:", showDrivingDirections, "fromPostcode:", fromPostcode, "toPostcode:", toPostcode);
     if (this.googleMapsConfig?.apiKey && this.googleMapsConfig?.zoomLevel) {
-      const googleMapsUrl = this.sanitiser.bypassSecurityTrustResourceUrl(showDrivingDirections ?
-        `https://www.google.com/maps/embed/v1/directions?origin=${fromPostcode}&destination=${toPostcode}&key=${this.googleMapsConfig?.apiKey}` :
-        `https://www.google.com/maps/embed/v1/place?q=${toPostcode}&zoom=${this.googleMapsConfig?.zoomLevel || 12}&key=${this.googleMapsConfig?.apiKey}`);
+      const googleMapsUrl = showDrivingDirections ?
+        this.googleDirectionsEmbedUrl(fromPostcode, toPostcode) :
+        this.googlePlaceEmbedUrl(toPostcode, this.googleMapsConfig?.zoomLevel || 12);
       this.logger.debug("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
       return googleMapsUrl;
     } else {
       this.logger.warn("can't set googleMapsUrl as apiKey:", this.googleMapsConfig?.apiKey, "zoomLevel:", this.googleMapsConfig?.zoomLevel);
     }
+  }
+
+  googleDirectionsEmbedUrl(origin: string, destination: string): SafeResourceUrl | null {
+    return this.googleMapsConfig?.apiKey
+      ? this.sanitiser.bypassSecurityTrustResourceUrl(`https://www.google.com/maps/embed/v1/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&key=${this.googleMapsConfig.apiKey}`)
+      : null;
+  }
+
+  googlePlaceEmbedUrl(query: string, zoom: number): SafeResourceUrl | null {
+    return this.googleMapsConfig?.apiKey
+      ? this.sanitiser.bypassSecurityTrustResourceUrl(`https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(query)}&zoom=${zoom}&key=${this.googleMapsConfig.apiKey}`)
+      : null;
+  }
+
+  googleDirectionsAvailable(): boolean {
+    return !!this.googleMapsConfig?.apiKey;
   }
 
   mapViewReady(googleMapsUrl: SafeResourceUrl): boolean {
@@ -387,8 +406,16 @@ export class WalkDisplayService {
     return eventType;
   }
 
-  gridReferenceLink(gridReference: string): string {
-    return `https://gridreferencefinder.com/?gr=${gridReference}`;
+  gridReferenceLink(gridReference: string, zoom?: number): string {
+    return locatePagePath({gridRef: gridReference, zoom}, this.urlService.relativeUrl());
+  }
+
+  gridReferenceAbsoluteLink(gridReference: string): string {
+    return `${this.urlService.baseUrl()}${locatePagePath({gridRef: gridReference}, LOCATE_DEFAULT_BASE_PATH)}`;
+  }
+
+  postcodeLink(postcode: string): string {
+    return locatePagePath({postcode, provider: WalkDetailsMapProvider.GOOGLE_MAPS}, this.urlService.relativeUrl());
   }
 
   toWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
@@ -675,7 +702,9 @@ export class WalkDisplayService {
   }
 
   gridReferenceFrom(location: LocationDetails) {
-    return location?.grid_reference_10 || location?.grid_reference_8 || location?.grid_reference_6 || "";
+    const config = this.walksConfigService.walksConfig();
+    const raw = location?.grid_reference_10 || location?.grid_reference_8 || location?.grid_reference_6 || "";
+    return raw ? formatGridReference(raw, config?.walkDetailsGridReferenceDigits ?? DEFAULT_GRID_REFERENCE_DIGITS, config?.walkDetailsGridReferenceSpaced !== false) : "";
   }
 
   contactAccessLevelFieldsFor(event?: ExtendedGroupEvent): ContactAccessLevelFieldKeys {
