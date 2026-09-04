@@ -46,7 +46,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
                                          [direction]="dateRangeDirection"
                                          (directionChange)="onDirectionChange($event)"/>
       <div programmeSticky class="programme-sticky-slot">
-        <div class="programme-toolbar">
+        <div class="programme-toolbar sticky-collapsible">
           <app-date-range-selector class="range-controls" [minDate]="minDate" [maxDate]="maxDate"
                                    [direction]="dateRangeDirection" [range]="range"
                                    (rangeChange)="onRangeChange($event)"/>

@@ -9,6 +9,7 @@ import { EventField, EventStartDateAscending, GroupEventField } from "../../mode
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
+import { ExtendedGroupEventQueryService } from "./extended-group-event-query.service";
 import { DateUtilsService } from "../date-utils.service";
 import { DateTime } from "luxon";
 import { DateRangeBounds } from "../../models/walk-programme.model";
@@ -27,6 +28,7 @@ export class WalkProgrammeService {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkProgrammeService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private dateUtils = inject(DateUtilsService);
   private BASE_URL = "/api/database/group-event";
   private CALENDAR_MAX_EVENTS = 500;
@@ -79,6 +81,7 @@ export class WalkProgrammeService {
         $gte: this.dateUtils.isoDateTime(parameters.dateFrom),
         $lte: this.dateUtils.isoDateTime(parameters.dateTo)
       },
+      ...this.extendedGroupEventQueryService.excludingDeletedEventsCriteria(),
       ...(parameters.walksOnly ? {[GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK} : {})
     };
     const dataQueryOptions: DataQueryOptions = {
@@ -98,6 +101,7 @@ export class WalkProgrammeService {
     const criteria: object = {
       $and: [
         {[GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK},
+        this.extendedGroupEventQueryService.excludingDeletedEventsCriteria(),
         {
           [GroupEventField.START_DATE]: {
             $gte: this.dateUtils.isoDateTime(dateFrom),
