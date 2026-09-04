@@ -55,22 +55,46 @@ describe("VersionCheckService", () => {
     expect(reloads).toBe(0);
   });
 
-  it("defers the reload while the user has been editing", async () => {
-    document.dispatchEvent(new Event("input", {bubbles: true}));
+  function typeInto(element: HTMLElement) {
+    document.body.appendChild(element);
+    element.dispatchEvent(new Event("input", {bubbles: true}));
+    element.remove();
+  }
+
+  it("defers the reload while the user has been typing, and says so", async () => {
+    const deferred: boolean[] = [];
+    service.reloadDeferred$.subscribe(value => deferred.push(value));
+    typeInto(document.createElement("textarea"));
     const check = service["checkForNewVersion"]();
     respondWith("746");
     await check;
     expect(reloads).toBe(0);
+    expect(deferred[deferred.length - 1]).toBe(true);
+  });
+
+  it("still reloads when the only interaction was a checkbox", async () => {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    typeInto(checkbox);
+    const check = service["checkForNewVersion"]();
+    respondWith("746");
+    await check;
+    expect(reloads).toBe(1);
   });
 
   it("reloads once the user stops editing", async () => {
-    document.dispatchEvent(new Event("input", {bubbles: true}));
+    typeInto(document.createElement("textarea"));
     const check = service["checkForNewVersion"]();
     respondWith("746");
     await check;
     expect(reloads).toBe(0);
     service["userHasEditedSinceNavigation"] = false;
     service["reloadIfReady"]();
+    expect(reloads).toBe(1);
+  });
+
+  it("reloads immediately when asked to from the notice", () => {
+    service.reloadNow();
     expect(reloads).toBe(1);
   });
 });

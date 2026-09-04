@@ -2,11 +2,13 @@ import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
-import { firstValueFrom } from "rxjs";
+import { BehaviorSubject, firstValueFrom, Observable } from "rxjs";
 import { filter } from "rxjs/operators";
 import { BuildVersion, VERSION_CHECK_INTERVAL_MS } from "../models/build-version.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { RouteFollowService } from "./maps/route-follow.service";
+
+const NON_TEXT_INPUT_TYPES = ["checkbox", "radio", "range", "color", "file", "submit", "button", "reset", "image"];
 
 @Injectable({
   providedIn: "root"
@@ -21,6 +23,8 @@ export class VersionCheckService {
   private runningBuildNumber: string;
   private newVersionAvailable = false;
   private userHasEditedSinceNavigation = false;
+  private reloadDeferredSubject = new BehaviorSubject<boolean>(false);
+  readonly reloadDeferred$: Observable<boolean> = this.reloadDeferredSubject.asObservable();
 
   initialise(): void {
     this.captureRunningVersion();
@@ -30,7 +34,11 @@ export class VersionCheckService {
         this.checkForNewVersion();
       }
     });
-    document.addEventListener("input", () => this.userHasEditedSinceNavigation = true, true);
+    document.addEventListener("input", event => {
+      if (this.isTextEntry(event.target)) {
+        this.userHasEditedSinceNavigation = true;
+      }
+    }, true);
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe(() => {
@@ -86,10 +94,30 @@ export class VersionCheckService {
     return true;
   }
 
+  reloadNow(): void {
+    this.reloadPage();
+  }
+
+  private isTextEntry(target: EventTarget | null): boolean {
+    if (target instanceof HTMLTextAreaElement) {
+      return true;
+    } else if (target instanceof HTMLInputElement) {
+      return !NON_TEXT_INPUT_TYPES.includes(target.type);
+    } else if (target instanceof HTMLElement) {
+      return target.isContentEditable;
+    } else {
+      return false;
+    }
+  }
+
   private reloadIfReady(): void {
     if (this.newVersionAvailable && this.safeToReload()) {
       this.logger.info("reloading to pick up new version");
+      this.reloadDeferredSubject.next(false);
       this.reloadPage();
+    } else if (this.newVersionAvailable) {
+      this.logger.info("new version available but reload deferred while the page is busy");
+      this.reloadDeferredSubject.next(true);
     }
   }
 

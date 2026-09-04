@@ -11,6 +11,7 @@ import { VersionCheckService } from "../services/version-check.service";
 import { CanonicalLinkService } from "../services/canonical-link.service";
 import { AppShellService } from "../services/maps/app-shell.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
+import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
 
 @Component({
     selector: "app-root",
@@ -24,6 +25,7 @@ import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-mee
       @if (!appShellActive) {
         <app-navbar/>
         <app-rejoin-meeting-banner/>
+        <app-new-version-banner/>
       }
       <router-outlet/>
     </div>
@@ -32,7 +34,7 @@ import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-mee
     }
     `,
     styleUrls: ["./container.sass"],
-    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent]
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
