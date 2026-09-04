@@ -1,3 +1,4 @@
+import * as L from "leaflet";
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { MapTilesService } from "./map-tiles.service";
@@ -36,7 +37,7 @@ describe("MapTilesService", () => {
 
   it("creates an OS tile layer for 27700 styles without falling back to OSM", () => {
     const service = TestBed.inject(MapTilesService);
-    const layer = service.createBaseLayer(MapProvider.OS, DEFAULT_OS_STYLE);
+    const layer = service.createBaseLayer(MapProvider.OS, DEFAULT_OS_STYLE) as L.TileLayer;
 
     expect(layer.getAttribution()).toContain("Contains OS data");
     expect(layer.getAttribution()).toContain("Crown copyright");
@@ -45,7 +46,7 @@ describe("MapTilesService", () => {
 
   it("lets OS Explorer overzoom two levels past its native tiles", () => {
     const service = TestBed.inject(MapTilesService);
-    const layer = service.createBaseLayer(MapProvider.OS, OSMapStyle.LEISURE_27700.key);
+    const layer = service.createBaseLayer(MapProvider.OS, OSMapStyle.LEISURE_27700.key) as L.TileLayer;
 
     expect(layer.options.maxNativeZoom).toBe(9);
     expect(layer.options.maxZoom).toBe(11);
@@ -53,7 +54,7 @@ describe("MapTilesService", () => {
 
   it("exposes OS Outdoor native zooms through 13", () => {
     const service = TestBed.inject(MapTilesService);
-    const layer = service.createBaseLayer(MapProvider.OS, OSMapStyle.OUTDOOR_27700.key);
+    const layer = service.createBaseLayer(MapProvider.OS, OSMapStyle.OUTDOOR_27700.key) as L.TileLayer;
 
     expect(layer.options.maxNativeZoom).toBe(13);
     expect(layer.options.maxZoom).toBe(13);
@@ -92,5 +93,14 @@ describe("MapTilesService", () => {
       MapProvider.OS, OSMapStyle.LEISURE_27700.key, 51.2
     );
     expect(back).toBe(7);
+  });
+
+  it("layers Esri imagery with its place labels for the aerial photo provider", () => {
+    const service = TestBed.inject(MapTilesService);
+    const layer = service.createBaseLayer(MapProvider.AERIAL, "") as L.LayerGroup;
+    const layers = layer.getLayers() as L.TileLayer[];
+    expect(layers.length).toBe(2);
+    expect(layers[0].options.attribution).toContain("Esri");
+    expect(layers[0].options.maxZoom).toBe(19);
   });
 });

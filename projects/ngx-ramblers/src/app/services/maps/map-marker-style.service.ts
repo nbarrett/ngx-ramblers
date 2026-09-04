@@ -7,10 +7,7 @@ import { WalkStatus } from "../../models/ramblers-walks-manager";
 @Injectable({ providedIn: "root" })
 export class MapMarkerStyleService {
   markerIcon(provider: MapProvider, style: string, walkStatus?: WalkStatus): L.Icon | L.DivIcon {
-    if (provider === MapProvider.OS) {
-      return this.explorerPinIcon(walkStatus);
-    }
-    return new L.Icon.Default();
+    return provider === MapProvider.OS || provider === MapProvider.AERIAL ? this.explorerPinIcon(walkStatus) : new L.Icon.Default();
   }
 
   numberedMarkerColour(provider: MapProvider | string | undefined): string {

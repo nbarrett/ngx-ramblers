@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy, NO_REGULAR_WALK_DAY, RISK_ASSESSMENT_CONTENT_CATEGORY, RISK_ASSESSMENT_HEADING_NAME, riskAssessmentContentName, WalkRiskAssessmentSection } from "../../../models/walks-config.model";
+import { GRID_REFERENCE_DIGIT_OPTIONS, WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy, NO_REGULAR_WALK_DAY, RISK_ASSESSMENT_CONTENT_CATEGORY, RISK_ASSESSMENT_HEADING_NAME, riskAssessmentContentName, WalkRiskAssessmentSection } from "../../../models/walks-config.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -304,6 +304,33 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                     </div>
                     <div class="row">
                     <div class="col-lg-5">
+                      <div class="fw-bold mb-2">Start and finish location</div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.walkDetailsShowPostcode"
+                               type="checkbox" class="form-check-input"
+                               id="walk-details-show-postcode">
+                        <label class="form-check-label" for="walk-details-show-postcode">Show the postcode — handy for sat navs, but only ever the nearest one, so some groups prefer to leave it off</label>
+                      </div>
+                      <div class="form-check mb-3">
+                        <input [(ngModel)]="walksConfig.walkDetailsShowGridReference"
+                               type="checkbox" class="form-check-input"
+                               id="walk-details-show-grid-reference">
+                        <label class="form-check-label" for="walk-details-show-grid-reference">Show the grid reference — pinpoints the exact spot and opens the Locate map</label>
+                      </div>
+                      <div class="form-group mb-2">
+                        <label for="walk-details-grid-reference-digits">Grid reference length</label>
+                        <select class="form-select" id="walk-details-grid-reference-digits" [(ngModel)]="walksConfig.walkDetailsGridReferenceDigits">
+                          @for (option of gridReferenceDigitOptions; track option.value) {
+                            <option [ngValue]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="form-check mb-3">
+                        <input [(ngModel)]="walksConfig.walkDetailsGridReferenceSpaced"
+                               type="checkbox" class="form-check-input"
+                               id="walk-details-grid-reference-spaced">
+                        <label class="form-check-label" for="walk-details-grid-reference-spaced">Space the figures as Ramblers does (TR 08624 17039) rather than run together (TR0862417039)</label>
+                      </div>
                       <div class="fw-bold mb-2">Image</div>
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.walkDetailsImageStyle"
@@ -395,6 +422,12 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                                type="checkbox" class="form-check-input"
                                id="related-link-show-what3words">
                         <label class="form-check-label" for="related-link-show-what3words">what3words (from start location)</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowDirections"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-directions">
+                        <label class="form-check-label" for="related-link-show-directions">Directions to the start in Google Maps, Apple Maps or Waze</label>
                       </div>
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowVenue"
@@ -711,6 +744,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   protected readonly areaGroupQueryParams = {[StoredValue.TAB]: "area-group"};
   protected readonly View = View;
   protected readonly WalkConfigTab = WalkConfigTab;
+  protected readonly gridReferenceDigitOptions = GRID_REFERENCE_DIGIT_OPTIONS;
   protected readonly WalkAlbumPanelStyle = WalkAlbumPanelStyle;
   protected readonly WalkDetailsImageStyle = WalkDetailsImageStyle;
   protected readonly WalkDetailsMapProvider = WalkDetailsMapProvider;

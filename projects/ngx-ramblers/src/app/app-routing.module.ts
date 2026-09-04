@@ -1,5 +1,5 @@
 import { inject, NgModule } from "@angular/core";
-import { NoPreloading, RouterModule, Routes } from "@angular/router";
+import { NoPreloading, RouterModule, Routes, UrlMatchResult, UrlSegment } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { hasDynamicPath, hasEditSubPath, hasEmailComposerPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath, hasWalksAreaSubPath } from "./services/path-matchers";
@@ -12,6 +12,11 @@ import { SystemHealthyGuard } from "./guards/system-healthy-guard";
 import { MeetingRoomLeaveGuard } from "./guards/meeting-room-leave-guard";
 import { AdminContentPath } from "./models/admin-route-paths.model";
 import { LEGACY_VERSION_PAGE_PATH, VERSION_PAGE_PATH } from "./models/build-version.model";
+import { LOCATE_PAGE_PATH } from "./models/locate.model";
+
+export function locateMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  return segments.length > 0 && segments[segments.length - 1].path === LOCATE_PAGE_PATH ? {consumed: segments} : null;
+}
 
 const routes: Routes = [
   {
@@ -19,6 +24,11 @@ const routes: Routes = [
     loadComponent: () => import("./pages/home/home.component")
       .then(m => m.HomeComponent),
     canActivate: [SystemHealthyGuard, contactUsGuard]
+  },
+  {
+    matcher: locateMatcher, loadComponent: () => import("./pages/locate/locate-page")
+      .then(m => m.LocatePageComponent),
+    canActivate: [SystemHealthyGuard]
   },
   {
     path: "admin", loadChildren: () => import("./modules/admin/admin-routing.module")

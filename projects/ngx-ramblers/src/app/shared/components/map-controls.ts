@@ -7,6 +7,7 @@ import { MapProvider, MapStyleInfo, MAP_PROVIDER_LABELS, OS_MAP_STYLE_LIST, OUTD
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { isUndefined } from "es-toolkit/compat";
 import { asNumber } from "../../functions/numbers";
+import { KeyValue } from "../../functions/enums";
 
 export interface MapControlsConfig {
   showProvider?: boolean;
@@ -92,6 +93,10 @@ export interface MapControlsState {
             <option [ngValue]="MapProvider.OS" [disabled]="!hasOsApiKey">
               {{ hasOsApiKey ? providerLabels[MapProvider.OS] : providerLabels[MapProvider.OS] + " (API key required)" }}
             </option>
+            <option [ngValue]="MapProvider.AERIAL">{{ providerLabels[MapProvider.AERIAL] }}</option>
+            @for (option of extraProviders; track option.value) {
+              <option [ngValue]="option.value">{{ option.key }}</option>
+            }
           </select>
         </div>
       }
@@ -171,6 +176,8 @@ export class MapControls implements OnInit {
     provider: MapProvider.OSM,
     osStyle: OUTDOOR_OS_STYLE
   };
+
+  @Input() extraProviders: KeyValue<string>[] = [];
 
   @Output() stateChange = new EventEmitter<MapControlsState>();
   @Output() providerChange = new EventEmitter<MapProvider>();

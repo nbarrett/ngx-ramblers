@@ -7,7 +7,7 @@ import { SystemConfigService } from "../system/system-config.service";
 import { OsMapsBrandingService } from "./os-maps-branding.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
 import { markersSyncedWithLocation, pageLocation } from "../../functions/map-location-markers";
-import { MapProvider, OSMapStyle, osStyleForKey } from "../../models/map.model";
+import { AERIAL_ATTRIBUTION, AERIAL_IMAGERY_URL, AERIAL_LABELS_URL, MapProvider, OSMapStyle, osStyleForKey } from "../../models/map.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -56,7 +56,7 @@ export class MapTilesService {
     this.projInitialized = true;
   }
 
-  createBaseLayer(provider: MapProvider, style: string): L.TileLayer {
+  createBaseLayer(provider: MapProvider, style: string): L.Layer {
     this.initializeProjections();
     const maxZoom = this.maxZoomForStyle(provider, style);
     const options: L.TileLayerOptions = {
@@ -64,7 +64,12 @@ export class MapTilesService {
       maxZoom,
       maxNativeZoom: this.nativeMaxZoomForStyle(provider, style)
     };
-    if (provider === MapProvider.OS) {
+    if (provider === MapProvider.AERIAL) {
+      return L.layerGroup([
+        this.withTileRetry(L.tileLayer(AERIAL_IMAGERY_URL, {...options, attribution: AERIAL_ATTRIBUTION})),
+        this.withTileRetry(L.tileLayer(AERIAL_LABELS_URL, {...options, pane: "overlayPane"}))
+      ]);
+    } else if (provider === MapProvider.OS) {
       if (!this.osApiKeyConfigured()) {
         return this.withBranding(this.withTileRetry(L.tileLayer(this.osmUrl(), {
           ...options,

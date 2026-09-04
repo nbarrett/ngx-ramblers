@@ -6,7 +6,8 @@ import { EventEventField } from "./walk.model";
 
 export enum MapProvider {
   OSM = "osm",
-  OS = "os"
+  OS = "os",
+  AERIAL = "aerial"
 }
 
 export interface CachedMapView {
@@ -24,13 +25,19 @@ export const UK_MAP_ZOOM = 5;
 
 export const MAP_PROVIDER_LABELS: Record<MapProvider, string> = {
   [MapProvider.OSM]: "OpenStreetMap",
-  [MapProvider.OS]: "OS Maps"
+  [MapProvider.OS]: "OS Maps",
+  [MapProvider.AERIAL]: "Aerial photo"
 };
 
 export const MAP_PROVIDER_OPTIONS: KeyValue<MapProvider>[] = [
   { key: MAP_PROVIDER_LABELS[MapProvider.OSM], value: MapProvider.OSM },
-  { key: MAP_PROVIDER_LABELS[MapProvider.OS], value: MapProvider.OS }
+  { key: MAP_PROVIDER_LABELS[MapProvider.OS], value: MapProvider.OS },
+  { key: MAP_PROVIDER_LABELS[MapProvider.AERIAL], value: MapProvider.AERIAL }
 ];
+
+export const AERIAL_IMAGERY_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+export const AERIAL_LABELS_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+export const AERIAL_ATTRIBUTION = "Imagery © Esri, Maxar, Earthstar Geographics and the GIS User Community";
 
 export function mapProviderFromLabel(value: string): MapProvider | null {
   if (value === MAP_PROVIDER_LABELS[MapProvider.OSM]) {
