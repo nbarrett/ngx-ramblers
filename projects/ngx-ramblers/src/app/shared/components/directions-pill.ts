@@ -19,6 +19,7 @@ import { DirectionsApp, DirectionsLink } from "../../models/locate.model";
           <a class="control-pill-btn" [href]="link.url" target="_blank" rel="noopener" [title]="'Directions to ' + label + ' in ' + link.app + ' (opens in a new tab)'">{{ link.app }}</a>
         }
       }
+      <ng-content/>
     </div>`
 })
 export class DirectionsPill {

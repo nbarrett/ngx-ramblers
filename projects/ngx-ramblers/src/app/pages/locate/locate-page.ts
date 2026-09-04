@@ -22,6 +22,7 @@ import { StoredValue } from "../../models/ui-actions";
 import { LocationLinksComponent } from "../../modules/common/location-links/location-links.component";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { GridReferenceService } from "../../services/maps/grid-reference.service";
+import { CurrentLocationService } from "../../services/maps/current-location.service";
 import { MapMarkerStyleService } from "../../services/maps/map-marker-style.service";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { PageService } from "../../services/page.service";
@@ -29,6 +30,9 @@ import { UiActionsService } from "../../services/ui-actions.service";
 import { UrlService } from "../../services/url.service";
 import { AddressQueryService } from "../../services/walks/address-query.service";
 import { DirectionsPill } from "../../shared/components/directions-pill";
+import { DrivingOrigin } from "../../shared/components/driving-origin";
+import { DrivingOriginMode } from "../../models/current-location.model";
+import { MemberLoginService } from "../../services/member/member-login.service";
 import { LocationAutocompleteComponent } from "../../shared/components/location-autocomplete";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../shared/components/map-controls";
 import { ResizerComponent } from "../../modules/common/resizer/resizer";
@@ -38,7 +42,7 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
 
 @Component({
   selector: "app-locate-page",
-  imports: [FontAwesomeModule, LeafletModule, RouterLink, NgTemplateOutlet, LocationAutocompleteComponent, LocationLinksComponent, DirectionsPill, MapControls, ResizerComponent, MaximisableMapComponent],
+  imports: [FontAwesomeModule, LeafletModule, RouterLink, NgTemplateOutlet, LocationAutocompleteComponent, LocationLinksComponent, DirectionsPill, MapControls, ResizerComponent, DrivingOrigin, MaximisableMapComponent],
   styles: [`
     .locate-map-stack
       width: 100%
@@ -82,7 +86,13 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
         @if (location) {
           <app-directions-pill [latitude]="location.latitude" [longitude]="location.longitude"
                                [inlineApps]="inlineApps" [shownApp]="shownApp"
-                               (show)="toggleApp($event)"/>
+                               (show)="toggleApp($event)">
+            @if (shownApp === DirectionsApp.GOOGLE_MAPS) {
+              <span class="control-pill-divider"></span>
+              <app-driving-origin name="locate-driving-origin" [mode]="originMode" [postcode]="originPostcode" [locating]="locating"
+                                  (modeChange)="setOriginMode($event)" (postcodeChange)="setOriginPostcode($event)"/>
+            }
+          </app-directions-pill>
         }
       </ng-template>
       @if (frameUrl || options) {
@@ -122,7 +132,7 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
           @if (!mapFullScreen) {
             <ng-container *ngTemplateOutlet="directionsTemplate"/>
           }
-          <a class="small d-inline-flex align-items-center" [href]="osMapsLink" target="_blank" rel="noopener" title="Opens in a new tab">
+          <a class="small d-inline-flex align-items-center ms-auto" [href]="osMapsLink" target="_blank" rel="noopener" title="Opens in a new tab">
             <img class="related-links-image me-2" src="/assets/images/local/ordnance-survey.png" alt=""/>Open location in OS Maps <fa-icon [icon]="faExternal" class="ms-1"/>
           </a>
         </div>
@@ -164,10 +174,16 @@ export class LocatePageComponent implements OnInit, OnDestroy {
   readonly minMapHeight = LOCATE_MAP_HEIGHT_MIN;
   readonly maxMapHeight = LOCATE_MAP_HEIGHT_MAX;
   private sanitiser = inject(DomSanitizer);
+  private currentLocation = inject(CurrentLocationService);
   private googleMaps = inject(GoogleMapsService);
   frameUrl: SafeResourceUrl | null = null;
   frameMessage = "";
   shownApp: DirectionsApp | null = null;
+  originMode: DrivingOriginMode = DrivingOriginMode.MY_LOCATION;
+  originPostcode = "";
+  locating = false;
+  protected readonly DirectionsApp = DirectionsApp;
+  private memberLoginService = inject(MemberLoginService);
   private lastView: {centre: L.LatLng; zoom: number} = {centre: L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]), zoom: LOCATE_OVERVIEW_ZOOM};
   options: L.MapOptions | null = null;
   layers: L.Layer[] = [];
@@ -185,6 +201,8 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.googleMaps.events().subscribe(() => {
       if (this.googleMapView && !this.frameUrl) {
         this.buildMap(this.point ? L.latLng(this.point.latitude, this.point.longitude) : this.lastView.centre, this.lastView.zoom);
+      } else if (this.shownApp === DirectionsApp.GOOGLE_MAPS && !this.frameUrl && this.point) {
+        this.showGoogleDirections();
       }
     }));
     const requestedStyle = params.get(StoredValue.MAP_OS_STYLE);
@@ -200,6 +218,9 @@ export class LocatePageComponent implements OnInit, OnDestroy {
       this.locateFromPostcodeQuery();
     }
     this.buildMap(initial ? L.latLng(initial.latitude, initial.longitude) : L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]), this.zoom);
+    const fromPostcode = params.get(StoredValue.FROM_POSTCODE);
+    this.originPostcode = fromPostcode || (this.memberLoginService.memberLoggedIn() ? this.memberLoginService.loggedInMember().postcode || "" : "");
+    this.originMode = fromPostcode ? DrivingOriginMode.POSTCODE : DrivingOriginMode.MY_LOCATION;
     const requestedApp = this.uiActions.queryValueForAlias(params.get(StoredValue.DIRECTIONS), values(DirectionsApp)) as DirectionsApp | null;
     if (requestedApp && initial) {
       setTimeout(() => this.toggleApp(requestedApp));
@@ -255,9 +276,8 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     this.frameMessage = "";
     void this.uiActions.updateQueryParameters({[StoredValue.DIRECTIONS]: null});
     const centre = this.map?.getCenter() || (this.point ? L.latLng(this.point.latitude, this.point.longitude) : L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]));
-    const zoom = this.map && this.point
-      ? this.mapTiles.matchingZoom(this.leafletProvider(), this.controlsState.osStyle, this.map.getZoom(), String(state.provider) === WalkDetailsMapProvider.GOOGLE_MAPS ? MapProvider.OSM : state.provider, state.osStyle, centre.lat)
-      : this.zoom;
+    const targetProvider = String(state.provider) === WalkDetailsMapProvider.GOOGLE_MAPS ? MapProvider.OSM : state.provider;
+    const zoom = this.mapTiles.matchingZoom(this.leafletProvider(), this.controlsState.osStyle, this.currentZoom(), targetProvider, state.osStyle, centre.lat);
     this.controlsState = {...this.controlsState, provider: state.provider, osStyle: state.osStyle};
     this.syncControlsToUrl();
     this.options = null;
@@ -285,20 +305,50 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     if (this.shownApp === app) {
       this.hideFrame();
     } else if (app === DirectionsApp.WAZE && this.point) {
-      const zoom = this.mapTiles.matchingZoom(this.leafletProvider(), this.controlsState.osStyle, this.map?.getZoom() ?? this.zoom, MapProvider.OSM, "", this.point.latitude);
+      const zoom = this.mapTiles.matchingZoom(this.leafletProvider(), this.controlsState.osStyle, this.currentZoom(), MapProvider.OSM, "", this.point.latitude);
       this.showFrame(app, this.sanitiser.bypassSecurityTrustResourceUrl(wazeEmbedUrl(this.point.latitude, this.point.longitude, zoom)));
-    } else if (app === DirectionsApp.GOOGLE_MAPS && this.point && navigator.geolocation) {
+    } else if (app === DirectionsApp.GOOGLE_MAPS && this.point) {
+      this.shownApp = app;
+      this.showGoogleDirections();
+    }
+  }
+
+  setOriginMode(mode: DrivingOriginMode): void {
+    this.originMode = mode;
+    this.showGoogleDirections();
+  }
+
+  setOriginPostcode(postcode: string): void {
+    this.originPostcode = postcode;
+    if (this.originMode === DrivingOriginMode.POSTCODE && postcode.trim().length >= 3) {
+      this.showGoogleDirections();
+    }
+  }
+
+  private showGoogleDirections(): void {
+    if (this.originMode === DrivingOriginMode.POSTCODE) {
+      void this.uiActions.updateQueryParameters({[StoredValue.FROM_POSTCODE]: this.originPostcode.trim() || null});
+      if (this.originPostcode.trim().length >= 3) {
+        this.showGoogleDirectionsFrom(this.originPostcode.trim());
+      } else {
+        this.frameMessage = "Type the postcode to drive from.";
+      }
+    } else {
+      void this.uiActions.updateQueryParameters({[StoredValue.FROM_POSTCODE]: null});
       this.frameMessage = "Finding where you are…";
-      navigator.geolocation.getCurrentPosition(
-        position => this.zone.run(() => this.showGoogleDirectionsFrom(`${position.coords.latitude},${position.coords.longitude}`)),
-        () => this.zone.run(() => {
-          this.frameMessage = "Your location is not available, so directions start from the nearest postcode.";
-          this.showGoogleDirectionsFrom(this.location?.postcode || "");
-        }),
-        {enableHighAccuracy: false, timeout: 8000, maximumAge: 60000}
-      );
-    } else if (app === DirectionsApp.GOOGLE_MAPS) {
-      this.frameMessage = "This browser cannot share your location.";
+      this.locating = true;
+      this.currentLocation.currentPosition().then(position => {
+        this.locating = false;
+        if (position) {
+          this.showGoogleDirectionsFrom(this.currentLocation.asOrigin(position));
+        } else {
+          this.frameMessage = "Your location is not available, so choose a postcode to drive from.";
+          this.originMode = DrivingOriginMode.POSTCODE;
+          if (this.originPostcode.trim().length >= 3) {
+            this.showGoogleDirectionsFrom(this.originPostcode.trim());
+          }
+        }
+      });
     }
   }
 
@@ -319,7 +369,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     this.marker = null;
     this.shownApp = app;
     this.frameUrl = url;
-    this.frameMessage = this.frameMessage === "Finding where you are…" ? "" : this.frameMessage;
+    this.frameMessage = "";
     void this.uiActions.updateQueryParameters({[StoredValue.DIRECTIONS]: this.uiActions.queryValueAliasFor(app)});
   }
 
@@ -336,6 +386,10 @@ export class LocatePageComponent implements OnInit, OnDestroy {
       setTimeout(() => this.buildMap(centre, this.lastView.zoom));
     }
     return showing;
+  }
+
+  private currentZoom(): number {
+    return this.map ? this.map.getZoom() : (this.point ? this.pointZoom(this.point.latitude) : this.overviewZoom());
   }
 
   private leafletProvider(): MapProvider {
@@ -357,6 +411,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
   private buildMap(centre: L.LatLng, zoom: number): void {
     const {provider, osStyle} = this.controlsState;
     this.lastView = {centre, zoom};
+    this.zoom = zoom;
     if (this.googleMapView) {
       this.options = null;
       this.layers = [];

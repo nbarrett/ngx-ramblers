@@ -81,7 +81,7 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
                 @for (basicMedia of allBasicMedia(); track basicMedia.url; let slideIndex = $index) {
                   <div class="swiper-slide">
                     <app-card-image [unconstrainedHeight]="naturalImageHeight"
-                                    [height]="naturalImageHeight ? null : croppedImageHeight"
+                                    [height]="naturalImageHeight ? null : croppedImageHeight * heightScale"
                                     [focalPoint]="naturalImageHeight ? null : mediaAt(slideIndex)?.focalPoint"
                                     [imageSource]="basicMedia.url"/>
                   </div>
@@ -90,7 +90,7 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
             </div>
           } @else {
             <app-card-image [unconstrainedHeight]="naturalImageHeight"
-                            [height]="naturalImageHeight ? null : croppedImageHeight"
+                            [height]="naturalImageHeight ? null : croppedImageHeight * heightScale"
                             [focalPoint]="naturalImageHeight ? null : currentMedia()?.focalPoint"
                             [imageSource]="imageSourceOrPreview()"/>
           }
@@ -143,6 +143,7 @@ export class GroupEventImages implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   private walksConfigService = inject(WalksConfigService);
   private subscriptions: Subscription[] = [];
+  @Input() heightScale = 1;
   protected naturalImageHeight = false;
   protected croppedImageHeight = 200;
   protected readonly defaultFocalPoint: FocalPoint = {x: 50, y: 50, zoom: 1};
