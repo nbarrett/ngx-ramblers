@@ -12,6 +12,10 @@ import {
   SimpleChanges
 } from "@angular/core";
 import * as L from "leaflet";
+
+const DEFAULT_OPACITY_NORMAL = 0.5;
+const DEFAULT_OPACITY_HOVER = 0.8;
+const DEFAULT_TEXT_OPACITY = 0.9;
 import { FormsModule } from "@angular/forms";
 
 declare module "leaflet" {
@@ -728,6 +732,8 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   private savedCenter: L.LatLng | null = null;
   private savedZoom = 9;
   private preserveNextView = false;
+  private readonly zoomEndHandler = () => this.handleZoomEnd();
+  private readonly moveEndHandler = () => this.handleMoveEnd();
   private parishLayer: L.GeoJSON | null = null;
   private volunteerParishes: Map<string, VolunteerParish> = new Map();
   private volunteerAssignments: Map<string, VolunteerMapAssignment[]> = new Map();
@@ -907,9 +913,9 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     this.provider = (this.cmsSettings?.provider as MapProvider) || this.provider;
     this.osStyle = this.cmsSettings?.osStyle || this.osStyle;
     this.showControls = false;
-    this.opacityNormal = this.cmsSettings?.opacityNormal || 0.5;
-    this.opacityHover = this.cmsSettings?.opacityHover || 0.8;
-    this.textOpacity = this.cmsSettings?.textOpacity || 0.9;
+    this.opacityNormal = this.cmsSettings?.opacityNormal || DEFAULT_OPACITY_NORMAL;
+    this.opacityHover = this.cmsSettings?.opacityHover || DEFAULT_OPACITY_HOVER;
+    this.textOpacity = this.cmsSettings?.textOpacity || DEFAULT_TEXT_OPACITY;
     this.selectedGroups = this.previewSelectedGroups || this.cmsSettings?.selectedGroups || [];
     this.clickAction = this.uiActions.initialValueFor(StoredValue.AREA_MAP_CLICK_ACTION, AreaMapClickAction.GROUP_WEBSITE) as AreaMapClickAction;
     this.areaColors = this.cmsSettings?.areaColors || {};
@@ -927,7 +933,6 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     if (this.cmsSettings?.mapCenter && this.cmsSettings?.mapZoom) {
       this.savedCenter = L.latLng(this.cmsSettings.mapCenter[0], this.cmsSettings.mapCenter[1]);
       this.savedZoom = this.cmsSettings.mapZoom;
-      this.preserveNextView = true;
       this.logger.info("Restored CMS map position:", {
         savedCenter: this.savedCenter,
         savedZoom: this.savedZoom
@@ -946,10 +951,10 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
       this.cmsSettingsSubscription = this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_CHANGED, (event: NamedEvent<any>) => {
         if (event.data === this.row && this.row?.areaMap) {
           this.restyleParishLayer();
-          const selectedGroupsChanged = JSON.stringify(this.row.areaMap.selectedGroups) !== JSON.stringify(this.selectedGroups);
-          const opacityNormalChanged = this.row.areaMap.opacityNormal !== this.opacityNormal;
-          const opacityHoverChanged = this.row.areaMap.opacityHover !== this.opacityHover;
-          const textOpacityChanged = this.row.areaMap.textOpacity !== this.textOpacity;
+          const selectedGroupsChanged = JSON.stringify(this.row.areaMap.selectedGroups || []) !== JSON.stringify(this.selectedGroups || []);
+          const opacityNormalChanged = (this.row.areaMap.opacityNormal || DEFAULT_OPACITY_NORMAL) !== this.opacityNormal;
+          const opacityHoverChanged = (this.row.areaMap.opacityHover || DEFAULT_OPACITY_HOVER) !== this.opacityHover;
+          const textOpacityChanged = (this.row.areaMap.textOpacity || DEFAULT_TEXT_OPACITY) !== this.textOpacity;
           const heightChanged = this.row.areaMap.mapHeight !== this.mapHeight;
           const zoomChanged = this.row.areaMap.mapZoom !== this.savedZoom;
           const centerChanged = this.row.areaMap.mapCenter &&
@@ -964,15 +969,15 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
           }
 
           if (opacityNormalChanged) {
-            this.opacityNormal = this.row.areaMap.opacityNormal;
+            this.opacityNormal = this.row.areaMap.opacityNormal || DEFAULT_OPACITY_NORMAL;
           }
 
           if (opacityHoverChanged) {
-            this.opacityHover = this.row.areaMap.opacityHover;
+            this.opacityHover = this.row.areaMap.opacityHover || DEFAULT_OPACITY_HOVER;
           }
 
           if (textOpacityChanged) {
-            this.textOpacity = this.row.areaMap.textOpacity;
+            this.textOpacity = this.row.areaMap.textOpacity || DEFAULT_TEXT_OPACITY;
           }
 
           if (heightChanged) {
@@ -992,29 +997,30 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
           if (zoomChanged && this.mapRef) {
             this.savedZoom = this.row.areaMap.mapZoom;
-            this.mapRef.off("zoomend");
+            this.mapRef.off("zoomend", this.zoomEndHandler);
             this.mapRef.setZoom(this.row.areaMap.mapZoom);
             setTimeout(() => {
               if (this.mapRef) {
                 this.mapRef.invalidateSize();
-                this.mapRef.on("zoomend", () => this.handleZoomEnd());
+                this.mapRef.on("zoomend", this.zoomEndHandler);
               }
             }, 50);
           }
 
           if (centerChanged && this.mapRef && this.row.areaMap.mapCenter) {
             this.savedCenter = L.latLng(this.row.areaMap.mapCenter[0], this.row.areaMap.mapCenter[1]);
-            this.mapRef.off("moveend");
+            this.mapRef.off("moveend", this.moveEndHandler);
             this.mapRef.setView(this.savedCenter, this.mapRef.getZoom(), { animate: false });
             setTimeout(() => {
               if (this.mapRef) {
-                this.mapRef.on("moveend", () => this.handleMoveEnd());
+                this.mapRef.on("moveend", this.moveEndHandler);
               }
             }, 0);
           }
 
           if (selectedGroupsChanged || opacityNormalChanged || opacityHoverChanged || textOpacityChanged) {
             if (this.mapRef) {
+              this.preserveCurrentView();
               this.updateMap();
             }
           }
@@ -1171,8 +1177,8 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     this.mapRef = map;
     this.logger.info("Map ready, preview:", this.preview, "fitBounds:", !!this.fitBounds);
 
-    map.on("zoomend", () => this.handleZoomEnd());
-    map.on("moveend", () => this.handleMoveEnd());
+    map.on("zoomend", this.zoomEndHandler);
+    map.on("moveend", this.moveEndHandler);
 
     if (this.preview) {
       this.applyFitBoundsWhenReady();
@@ -1367,11 +1373,10 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   }
 
   private rebuildMapWithGeoJSON() {
-    this.logger.info("rebuildMapWithGeoJSON: fetching data from backend");
+    this.logger.info("rebuildMapWithGeoJSON: fetching data from backend, preserving view:", this.preserveNextView);
     this.dataLoading = true;
     this.resetOverlayState();
     this.configureMapOptions();
-    this.preserveNextView = false;
     this.areas.getRegionWithBoundsAsync(this.region, {
       north: 51.55,
       south: 50.90,
@@ -1753,16 +1758,22 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   }
 
   private loadParishesIfEnabled(areas: GroupAreaConfig[], areaBounds?: L.LatLngBounds) {
-    if (!this.cmsSettings?.showParishes) {
-      return;
-    }
-    const boundsFromAreas = areaBounds?.isValid() ? areaBounds : this.computeBoundsFromAreas(areas);
-    const bounds = boundsFromAreas.isValid() ? boundsFromAreas : this.computeBoundsFromMapSettings();
-    if (bounds.isValid()) {
-      this.loadParishOverlay(bounds, areas);
+    if (this.cmsSettings?.showParishes) {
+      const boundsFromAreas = areaBounds?.isValid() ? areaBounds : this.computeBoundsFromAreas(areas);
+      const bounds = boundsFromAreas.isValid() ? boundsFromAreas : this.computeBoundsFromMapSettings();
+      if (bounds.isValid()) {
+        this.loadParishOverlay(bounds, areas);
+      } else {
+        this.logger.warn("Cannot load parishes: no valid bounds available from areas or map settings");
+        this.finishPreservedView();
+      }
     } else {
-      this.logger.warn("Cannot load parishes: no valid bounds available from areas or map settings");
+      this.finishPreservedView();
     }
+  }
+
+  private finishPreservedView() {
+    this.preserveNextView = false;
   }
 
   private computeBoundsFromMapSettings(): L.LatLngBounds {
@@ -1839,6 +1850,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
       error: (error) => {
         this.logger.error("Failed to load parishes:", error);
         this.parishesLoading = false;
+        this.finishPreservedView();
       }
     });
   }
@@ -1858,6 +1870,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     this.parishCount = features.length;
     this.replaceParishLayer({type: "FeatureCollection", features});
     this.attachParishLayerToMap();
+    this.finishPreservedView();
   }
 
   private parishOverlayFilter(): ParishOverlayFilter {
@@ -2041,7 +2054,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
       } else {
         this.layers = [this.parishLayer];
         const parishBounds = this.parishLayer.getBounds();
-        if (parishBounds.isValid()) {
+        if (parishBounds.isValid() && !this.preserveNextView) {
           this.fitBounds = parishBounds.pad(0.05);
         }
       }
@@ -2179,6 +2192,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
         const currentZoom = this.mapRef.getZoom();
         if (currentZoom && isFinite(currentZoom) && currentZoom >= 2 && currentZoom <= 18) {
           this.logger.info("CMS mode: updating editor zoom to:", currentZoom);
+          this.savedZoom = currentZoom;
           this.row.areaMap.mapZoom = currentZoom;
           this.broadcastCmsChange();
         }
@@ -2289,6 +2303,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
         const center = this.mapRef.getCenter();
         this.logger.info("CMS mode: updating editor center to:", center.lat, center.lng);
         if (this.row.areaMap) {
+          this.savedCenter = center;
           this.row.areaMap.mapCenter = [center.lat, center.lng];
           this.broadcastCmsChange();
         }

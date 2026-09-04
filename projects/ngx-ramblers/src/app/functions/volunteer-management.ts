@@ -86,6 +86,7 @@ export function volunteerSupporterRows(assignments: VolunteerAssignment[], paris
       assignmentId: assignment.id ?? "",
       parishName: volunteerAssignmentScopeLabel(assignment, parish?.parishName),
       localAuthorityName: parish?.localAuthorityName ?? "",
+      rightsOfWayGroupCode: assignment.rightsOfWayGroupCode || parish?.rightsOfWayGroupCode || "",
       roleLabel: volunteerRoleLabel(assignment.roleType),
       coverLabel: volunteerCoverLabel(assignment.coverage)
     }]);
@@ -314,14 +315,20 @@ export function volunteerParishSummaryFilterMatches(parish: VolunteerParish, ass
   }
 }
 
+export function rightsOfWayGroupMatches(groupCode: string | null | undefined, filterCode: string | null | undefined): boolean {
+  const wanted = (filterCode || "").trim().toLowerCase();
+  return !wanted || (groupCode || "").trim().toLowerCase() === wanted;
+}
+
 export function filterVolunteerParishes(parishes: VolunteerParish[], activeAssignments: VolunteerAssignment[], members: VolunteerSupporterIdentity[], criteria: VolunteerParishFilterCriteria): VolunteerParish[] {
   const searchText = criteria.searchText.trim().toLowerCase();
   return parishes.filter(parish => {
     const assignments = volunteerAssignmentsForParish(activeAssignments, parish.parishCode);
-    const textMatches = !searchText || [parish.parishName, parish.parishCode, parish.localAuthorityName, parish.sectorCode, ...assignments.map(assignment => volunteerAssignmentDisplayName(assignment, members))]
+    const textMatches = !searchText || [parish.parishName, parish.parishCode, parish.localAuthorityName, parish.sectorCode, parish.rightsOfWayGroupCode, ...assignments.map(assignment => volunteerAssignmentDisplayName(assignment, members))]
       .some(value => value?.toLowerCase().includes(searchText));
     const roleMatches = !criteria.roleFilter || assignments.some(assignment => assignment.roleType === criteria.roleFilter);
-    return textMatches && roleMatches && volunteerParishSummaryFilterMatches(parish, assignments, criteria.summaryFilter);
+    const groupMatches = rightsOfWayGroupMatches(parish.rightsOfWayGroupCode, criteria.rightsOfWayGroupCode);
+    return textMatches && roleMatches && groupMatches && volunteerParishSummaryFilterMatches(parish, assignments, criteria.summaryFilter);
   });
 }
 
@@ -346,13 +353,16 @@ export function volunteerParishTableRows(parishes: VolunteerParish[], activeAssi
 export function filterVolunteerSupporterRows(rows: VolunteerSupporterRow[], criteria: VolunteerSupporterFilterCriteria): VolunteerSupporterRow[] {
   const searchText = criteria.searchText.trim().toLowerCase();
   return rows.filter(row => {
-    const textMatches = !searchText || [row.displayName, row.email, row.roles, row.parishes]
+    const groupCodes = uniq(row.assignments.map(entry => entry.rightsOfWayGroupCode).filter(code => !!code)).join(" ");
+    const textMatches = !searchText || [row.displayName, row.email, row.roles, row.parishes, groupCodes]
       .some(value => value?.toLowerCase().includes(searchText));
     const roleMatches = !criteria.roleFilter || row.assignments
       .some(entry => entry.assignment.status === VolunteerAssignmentStatus.ACTIVE && entry.assignment.roleType === criteria.roleFilter);
     const coverageMatches = !criteria.coverageFilter || row.assignments
       .some(entry => entry.assignment.status === VolunteerAssignmentStatus.ACTIVE && entry.assignment.coverage === criteria.coverageFilter);
-    return textMatches && roleMatches && coverageMatches && volunteerSupporterStatusMatches(row, criteria.statusFilter);
+    const groupMatches = !criteria.rightsOfWayGroupCode || row.assignments
+      .some(entry => entry.assignment.status === VolunteerAssignmentStatus.ACTIVE && rightsOfWayGroupMatches(entry.rightsOfWayGroupCode, criteria.rightsOfWayGroupCode));
+    return textMatches && roleMatches && coverageMatches && groupMatches && volunteerSupporterStatusMatches(row, criteria.statusFilter);
   });
 }
 

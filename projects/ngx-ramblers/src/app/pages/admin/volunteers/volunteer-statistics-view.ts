@@ -1,4 +1,4 @@
-import { Component, inject, Input } from "@angular/core";
+import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCopy } from "@fortawesome/free-solid-svg-icons";
@@ -71,10 +71,11 @@ import { ClipboardService } from "../../../services/clipboard.service";
             <h2>Coverage by rights-of-way group</h2>
             <button type="button" class="btn btn-quiet btn-sm" (click)="copyAreas(statistics.byGroup, 'Rights-of-way group')"><fa-icon [icon]="faCopy"/> Copy</button>
           </div>
-          <ng-container [ngTemplateOutlet]="areaTable" [ngTemplateOutletContext]="{areas: statistics.byGroup, heading: 'Rights-of-way group'}"/>
+          <p class="stats-note">Click a group to see its volunteers and their parishes.</p>
+          <ng-container [ngTemplateOutlet]="areaTable" [ngTemplateOutletContext]="{areas: statistics.byGroup, heading: 'Rights-of-way group', selectable: true}"/>
         </section>
 
-        <ng-template #areaTable let-areas="areas" let-heading="heading">
+        <ng-template #areaTable let-areas="areas" let-heading="heading" let-selectable="selectable">
           <div class="stats-table-scroll">
             <table class="stats-table">
               <thead>
@@ -83,7 +84,13 @@ import { ClipboardService } from "../../../services/clipboard.service";
               <tbody>
                 @for (area of areas; track area.key) {
                   <tr>
-                    <td>{{ area.label }}</td>
+                    <td>
+                      @if (selectable && area.key) {
+                        <a href="#" (click)="selectGroup($event, area.key)">{{ area.label }}</a>
+                      } @else {
+                        {{ area.label }}
+                      }
+                    </td>
                     <td class="num">{{ area.eligibleParishes }}</td>
                     <td class="num">{{ area.localFootpathOfficerHolders }}</td>
                     <td class="num" [class.has-vacancy]="area.localFootpathOfficerVacancies > 0">{{ area.localFootpathOfficerVacancies }}</td>
@@ -218,12 +225,18 @@ export class VolunteerStatisticsView {
   private clipboard = inject(ClipboardService);
   protected readonly faCopy = faCopy;
 
+  @Output() groupSelected = new EventEmitter<string>();
   @Input() statistics: VolunteerStatistics;
 
   protected copyCoverage(): void {
     const header = ["Role", "Permanent", "Temporary cover", "Vacant", "Eligible parishes"];
     const rows = this.statistics.coverage.map(row => [row.roleLabel, row.permanent, row.temporary, row.vacant, row.eligibleParishes]);
     this.copyTable(header, rows);
+  }
+
+  protected selectGroup(event: Event, groupCode: string): void {
+    event.preventDefault();
+    this.groupSelected.emit(groupCode);
   }
 
   protected copyAreas(areas: VolunteerAreaCoverageStat[], heading: string): void {
