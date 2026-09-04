@@ -6,7 +6,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faArrowsRotate, faAward, faChevronDown, faChevronUp, faCircleExclamation, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { forkJoin } from "rxjs";
-import { values } from "es-toolkit/compat";
+import { uniq, values } from "es-toolkit/compat";
 import { PageComponent } from "../../../page/page.component";
 import { Member } from "../../../models/member.model";
 import {
@@ -170,7 +170,7 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
                 <label class="search-control">
                   <fa-icon [icon]="faMagnifyingGlass"/>
                   <input class="form-control" type="search" [ngModel]="searchText" (ngModelChange)="onSearchChange($event)"
-                         [placeholder]="view === VolunteerWorkspaceView.VOLUNTEERS ? 'Search volunteers, emails, roles or parishes' : 'Search parishes, supporters, authorities or sectors'">
+                         [placeholder]="view === VolunteerWorkspaceView.VOLUNTEERS ? 'Search volunteers, emails, roles, parishes or groups' : 'Search parishes, supporters, authorities, sectors or groups'">
                 </label>
                 <div class="filter-controls">
                   @if (view !== VolunteerWorkspaceView.REPORTS && view !== VolunteerWorkspaceView.CONTACTS) {
@@ -179,6 +179,14 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
                       <option [ngValue]="VolunteerRoleType.LOCAL_FOOTPATH_OFFICER">Local Footpath Officers</option>
                       <option [ngValue]="VolunteerRoleType.PARISH_FOOTPATH_OBSERVER">Parish Footpath Observers</option>
                       <option [ngValue]="VolunteerRoleType.GROUP_COORDINATOR">Group Coordinators</option>
+                    </select>
+                  }
+                  @if (groupFilterAvailable && rightsOfWayGroupCodes.length > 0) {
+                    <select class="form-select" [class.filter-active]="groupFilter" [ngModel]="groupFilter" (ngModelChange)="onGroupFilterChange($event)" aria-label="Filter by rights-of-way group">
+                      <option [ngValue]="null">All rights-of-way groups</option>
+                      @for (code of rightsOfWayGroupCodes; track code) {
+                        <option [ngValue]="code">{{ code }}</option>
+                      }
                     </select>
                   }
                   @if (view === VolunteerWorkspaceView.VOLUNTEERS) {
@@ -284,7 +292,7 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
             } @else if (view === VolunteerWorkspaceView.MAP) {
               <app-dynamic-content [anchor]="'map'" contentPathReadOnly preventRedirect/>
             } @else if (view === VolunteerWorkspaceView.STATISTICS) {
-              <app-volunteer-statistics-view [statistics]="statistics"/>
+              <app-volunteer-statistics-view [statistics]="statistics" (groupSelected)="showGroupVolunteers($event)"/>
             } @else if (view === VolunteerWorkspaceView.REPORTS) {
               <app-volunteer-report-view
                 [report]="report"
@@ -534,6 +542,7 @@ export class VolunteerManagementComponent implements OnInit {
   view = VolunteerWorkspaceView.PARISHES;
   searchText = "";
   roleFilter: VolunteerRoleType | null = null;
+  groupFilter: string | null = null;
   statusFilter: VolunteerAssignmentStatusFilter | null = null;
   coverageFilter: VolunteerAssignmentCoverage | null = null;
   summaryFilter: VolunteerSummaryFilter | null = null;
@@ -688,7 +697,8 @@ export class VolunteerManagementComponent implements OnInit {
       contactRetentionDays: this.systemConfigService.systemConfig()?.volunteers?.contactRetentionDays,
       now: this.dateUtils.nowAsValue(),
       directoryColumns: this.directoryColumns,
-      includeTemporaryAsVacant: this.vacancyIncludeTemporary
+      includeTemporaryAsVacant: this.vacancyIncludeTemporary,
+      rightsOfWayGroupCode: this.groupFilter
     });
     const searchText = this.searchText.trim().toLowerCase();
     return searchText ? {...report, rows: report.rows.filter(row => values(row).some(value => String(value).toLowerCase().includes(searchText)))} : report;
@@ -768,7 +778,8 @@ export class VolunteerManagementComponent implements OnInit {
     const parishes = filterVolunteerParishes(this.snapshot?.parishes ?? [], this.activeAssignments, this.members, {
       searchText: this.searchText,
       roleFilter: this.roleFilter,
-      summaryFilter: this.summaryFilter
+      summaryFilter: this.summaryFilter,
+      rightsOfWayGroupCode: this.groupFilter
     });
     return volunteerParishTableRows(parishes, this.activeAssignments, this.members);
   }
@@ -778,7 +789,8 @@ export class VolunteerManagementComponent implements OnInit {
       searchText: this.searchText,
       roleFilter: this.roleFilter,
       statusFilter: this.statusFilter,
-      coverageFilter: this.coverageFilter
+      coverageFilter: this.coverageFilter,
+      rightsOfWayGroupCode: this.groupFilter
     });
   }
 
@@ -797,6 +809,28 @@ export class VolunteerManagementComponent implements OnInit {
     this.closeContactEditor();
     this.closeParishEditor();
     this.syncQueryParameters();
+  }
+
+  get groupFilterAvailable(): boolean {
+    return [VolunteerWorkspaceView.PARISHES, VolunteerWorkspaceView.VOLUNTEERS, VolunteerWorkspaceView.REPORTS].includes(this.view);
+  }
+
+  get rightsOfWayGroupCodes(): string[] {
+    return uniq((this.snapshot?.parishes ?? []).map(parish => (parish.rightsOfWayGroupCode || "").trim()).filter(code => !!code)).sort();
+  }
+
+  onGroupFilterChange(groupFilter: string | null): void {
+    this.groupFilter = groupFilter || null;
+    this.syncQueryParameters();
+  }
+
+  showGroupVolunteers(groupCode: string): void {
+    this.groupFilter = groupCode;
+    this.searchText = "";
+    this.roleFilter = null;
+    this.statusFilter = null;
+    this.coverageFilter = null;
+    this.selectView(VolunteerWorkspaceView.VOLUNTEERS);
   }
 
   showSupporter(displayName: string): void {
@@ -1046,6 +1080,7 @@ export class VolunteerManagementComponent implements OnInit {
     this.uiActions.updateQueryParameters({
       [StoredValue.TAB]: this.view,
       [StoredValue.SEARCH]: this.searchText || null,
+      [StoredValue.GROUP]: this.groupFilterAvailable ? this.groupFilter : null,
       [StoredValue.ROLE]: contactsView ? null : this.roleFilter,
       [StoredValue.STATUS]: volunteersView ? this.statusFilter : null,
       [StoredValue.COVERAGE]: volunteersView ? this.coverageFilter : null,
@@ -1085,6 +1120,7 @@ export class VolunteerManagementComponent implements OnInit {
     this.view = this.uiActions.queryValueForAlias(this.uiActions.queryParameter(StoredValue.TAB), values(VolunteerWorkspaceView)) as VolunteerWorkspaceView
       || VolunteerWorkspaceView.PARISHES;
     this.searchText = this.uiActions.queryParameter(StoredValue.SEARCH) ?? "";
+    this.groupFilter = this.uiActions.queryParameter(StoredValue.GROUP) || null;
     this.roleFilter = this.uiActions.queryValueForAlias(this.uiActions.queryParameter(StoredValue.ROLE), values(VolunteerRoleType)) as VolunteerRoleType;
     this.statusFilter = this.uiActions.queryValueForAlias(this.uiActions.queryParameter(StoredValue.STATUS), values(VolunteerAssignmentStatusFilter)) as VolunteerAssignmentStatusFilter;
     this.coverageFilter = this.uiActions.queryValueForAlias(this.uiActions.queryParameter(StoredValue.COVERAGE), values(VolunteerAssignmentCoverage)) as VolunteerAssignmentCoverage;

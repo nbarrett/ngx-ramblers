@@ -21,6 +21,7 @@ import {
   volunteerAssignmentScopeLabel,
   volunteerParishCoverageLabel,
   volunteerRoleLabel,
+  rightsOfWayGroupMatches,
   volunteerSupporterRows
 } from "./volunteer-management";
 import { externalContactDisplayName, externalContactDuplicates, externalContactTypeLabel } from "./external-contacts";
@@ -37,6 +38,7 @@ export interface VolunteerReportInput {
   now?: number;
   directoryColumns?: VolunteerDirectoryColumn[];
   includeTemporaryAsVacant?: boolean;
+  rightsOfWayGroupCode?: string | null;
 }
 
 const PARISH_ROLES = [VolunteerRoleType.LOCAL_FOOTPATH_OFFICER, VolunteerRoleType.PARISH_FOOTPATH_OBSERVER];
@@ -90,13 +92,27 @@ function volunteerReportDescription(reportType: VolunteerReportType): string {
   }
 }
 
-export function volunteerReport(reportType: VolunteerReportType, input: VolunteerReportInput): VolunteerReport {
+export function scopeReportInputToRightsOfWayGroup(input: VolunteerReportInput): VolunteerReportInput {
+  const groupCode = (input.rightsOfWayGroupCode || "").trim();
+  if (!groupCode) {
+    return input;
+  } else {
+    const parishes = input.parishes.filter(parish => rightsOfWayGroupMatches(parish.rightsOfWayGroupCode, groupCode));
+    const parishCodes = new Set(parishes.map(parish => parish.parishCode));
+    const assignments = input.assignments.filter(assignment => (assignment.parishCode && parishCodes.has(assignment.parishCode)) || rightsOfWayGroupMatches(assignment.rightsOfWayGroupCode, groupCode));
+    return {...input, parishes, assignments};
+  }
+}
+
+export function volunteerReport(reportType: VolunteerReportType, unscopedInput: VolunteerReportInput): VolunteerReport {
+  const input = scopeReportInputToRightsOfWayGroup(unscopedInput);
   const activeAssignments = volunteerActiveAssignments(input.assignments);
   const supporterRows = volunteerSupporterRows(input.assignments, input.parishes, input.members);
+  const scopeNote = input.rightsOfWayGroupCode ? ` Showing the ${input.rightsOfWayGroupCode} rights-of-way group only.` : "";
   return {
     type: reportType,
     title: volunteerReportTitle(reportType),
-    description: volunteerReportDescription(reportType),
+    description: volunteerReportDescription(reportType) + scopeNote,
     columns: reportColumns(reportType, input),
     rows: reportRows(reportType, input, activeAssignments, supporterRows),
     groupByKey: reportGroupByKey(reportType)
@@ -129,6 +145,7 @@ function reportColumns(reportType: VolunteerReportType, input: VolunteerReportIn
       {key: "volunteer", label: "Volunteer"},
       {key: "role", label: "Role"},
       {key: "parishName", label: "Parish"},
+      {key: "rightsOfWayGroup", label: "Rights-of-way group"},
       {key: "cover", label: "Cover"},
       {key: "effectiveFrom", label: "From"},
       {key: "effectiveTo", label: "To"}
@@ -149,6 +166,7 @@ function reportColumns(reportType: VolunteerReportType, input: VolunteerReportIn
       {key: "volunteer", label: "Volunteer"},
       {key: "email", label: "Email"},
       {key: "role", label: "Role"},
+      {key: "rightsOfWayGroup", label: "Rights-of-way group"},
       {key: "parishCount", label: "Parishes"},
       {key: "parishNames", label: "Parish names"}
     ];
@@ -156,6 +174,7 @@ function reportColumns(reportType: VolunteerReportType, input: VolunteerReportIn
     return [
       {key: "volunteer", label: "Volunteer"},
       {key: "email", label: "Email"},
+      {key: "rightsOfWayGroup", label: "Rights-of-way group"},
       {key: "localFootpathOfficerParishes", label: "LFO parishes"},
       {key: "parishFootpathObserverParishes", label: "PFO parishes"}
     ];
@@ -299,11 +318,12 @@ function vacancyRows(input: VolunteerReportInput, activeAssignments: VolunteerAs
 }
 
 function coverTypeRows(input: VolunteerReportInput, activeAssignments: VolunteerAssignment[]): Record<string, string | number>[] {
-  const parishLookup = new Map(input.parishes.map(parish => [parish.parishCode, parish.parishName]));
+  const parishLookup = new Map(input.parishes.map(parish => [parish.parishCode, parish]));
   return activeAssignments.map(assignment => ({
     volunteer: volunteerAssignmentDisplayName(assignment, input.members),
     role: volunteerRoleLabel(assignment.roleType),
-    parishName: volunteerAssignmentScopeLabel(assignment, parishLookup.get(assignment.parishCode)),
+    parishName: volunteerAssignmentScopeLabel(assignment, parishLookup.get(assignment.parishCode)?.parishName),
+    rightsOfWayGroup: assignment.rightsOfWayGroupCode || parishLookup.get(assignment.parishCode)?.rightsOfWayGroupCode || "",
     cover: assignment.coverage === VolunteerAssignmentCoverage.TEMPORARY ? "Temporary" : "Permanent",
     effectiveFrom: assignment.effectiveFrom ? input.formatDate(assignment.effectiveFrom) : "",
     effectiveTo: assignment.effectiveTo ? input.formatDate(assignment.effectiveTo) : ""
@@ -329,6 +349,13 @@ function parishesForRole(row: VolunteerSupporterRow, roleType: VolunteerRoleType
     .map(entry => entry.parishName));
 }
 
+function groupsForRoles(row: VolunteerSupporterRow, roleTypes: VolunteerRoleType[]): string {
+  return uniq(row.assignments
+    .filter(entry => roleTypes.includes(entry.assignment.roleType) && entry.assignment.status === VolunteerAssignmentStatus.ACTIVE)
+    .map(entry => entry.rightsOfWayGroupCode)
+    .filter(code => !!code)).join(", ");
+}
+
 function activeRoleHolderRows(supporterRows: VolunteerSupporterRow[]): Record<string, string | number>[] {
   return supporterRows
     .filter(row => row.activeAssignmentCount > 0)
@@ -339,6 +366,7 @@ function activeRoleHolderRows(supporterRows: VolunteerSupporterRow[]): Record<st
         volunteer: row.displayName,
         email: row.email,
         role: volunteerRoleLabel(entry.roleType),
+        rightsOfWayGroup: groupsForRoles(row, [entry.roleType]),
         parishCount: entry.parishNames.length,
         parishNames: entry.parishNames.join(", ")
       })));
@@ -355,6 +383,7 @@ function combinedRoleHolderRows(supporterRows: VolunteerSupporterRow[]): Record<
     .map(entry => ({
       volunteer: entry.row.displayName,
       email: entry.row.email,
+      rightsOfWayGroup: groupsForRoles(entry.row, PARISH_ROLES),
       localFootpathOfficerParishes: entry.localFootpathOfficerParishes.join(", "),
       parishFootpathObserverParishes: entry.parishFootpathObserverParishes.join(", ")
     }));

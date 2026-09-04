@@ -181,6 +181,7 @@ export enum VolunteerParishSortField {
   STATUS = "status",
   ASSIGNEE = "assignee",
   AUTHORITY = "authority",
+  RIGHTS_OF_WAY_GROUP = "rightsOfWayGroupCode",
   LOCAL_FOOTPATH_OFFICER = "localFootpathOfficer",
   PARISH_FOOTPATH_OBSERVER = "parishFootpathObserver",
   COVERAGE = "coverage"
@@ -189,6 +190,7 @@ export enum VolunteerParishSortField {
 export enum VolunteerParishTableColumn {
   PARISH_NAME = "parishName",
   AUTHORITY = "authority",
+  RIGHTS_OF_WAY_GROUP = "rightsOfWayGroupCode",
   LOCAL_FOOTPATH_OFFICER = "localFootpathOfficer",
   PARISH_FOOTPATH_OBSERVER = "parishFootpathObserver",
   COVERAGE = "coverage",
@@ -304,6 +306,7 @@ export interface VolunteerParishFilterCriteria {
   searchText: string;
   roleFilter: VolunteerRoleType | null;
   summaryFilter: VolunteerSummaryFilter | null;
+  rightsOfWayGroupCode?: string | null;
 }
 
 export interface VolunteerSupporterFilterCriteria {
@@ -311,6 +314,7 @@ export interface VolunteerSupporterFilterCriteria {
   roleFilter: VolunteerRoleType | null;
   statusFilter: VolunteerAssignmentStatusFilter | null;
   coverageFilter: VolunteerAssignmentCoverage | null;
+  rightsOfWayGroupCode?: string | null;
 }
 
 export interface VolunteerSupporterIdentity {
@@ -326,6 +330,7 @@ export interface VolunteerSupporterAssignment {
   assignmentId: string;
   parishName: string;
   localAuthorityName: string;
+  rightsOfWayGroupCode: string;
   roleLabel: string;
   coverLabel: string;
 }

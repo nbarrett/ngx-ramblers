@@ -196,6 +196,7 @@ export class VolunteerParishView {
   protected readonly columns: SortableTableColumn<VolunteerParishTableRow>[] = [
     {key: VolunteerParishTableColumn.PARISH_NAME, label: "Parish", sortKey: VolunteerParishSortField.PARISH_NAME},
     {key: VolunteerParishTableColumn.AUTHORITY, label: "Authority / sector", sortKey: VolunteerParishSortField.AUTHORITY},
+    {key: VolunteerParishTableColumn.RIGHTS_OF_WAY_GROUP, label: "Group", sortKey: VolunteerParishSortField.RIGHTS_OF_WAY_GROUP},
     {key: VolunteerParishTableColumn.LOCAL_FOOTPATH_OFFICER, label: "LFO", sortKey: VolunteerParishSortField.LOCAL_FOOTPATH_OFFICER},
     {key: VolunteerParishTableColumn.PARISH_FOOTPATH_OBSERVER, label: "PFO", sortKey: VolunteerParishSortField.PARISH_FOOTPATH_OBSERVER},
     {key: VolunteerParishTableColumn.COVERAGE, label: "Coverage", sortKey: VolunteerParishSortField.COVERAGE},
