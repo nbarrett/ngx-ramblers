@@ -109,9 +109,25 @@
 
 .meeting-toolbar
   max-width: 100%
+  overflow-x: auto
 
   &::-webkit-scrollbar
     height: 0
+
+@media (max-width: 768px)
+  .meeting-bar
+    flex-wrap: wrap
+
+  .meeting-toolbar
+    order: 10
+    width: 100%
+    flex-wrap: wrap
+    justify-content: center
+    overflow: visible
+
+  .meeting-tool
+    min-width: 46px
+    min-height: 48px
 
 .meeting-tool
   display: inline-flex
@@ -152,6 +168,12 @@
 
   fa-icon
     animation: meeting-rec-blink 1.4s ease-in-out infinite
+
+.meeting-tool.tool-indicator
+  cursor: default
+
+  &:hover
+    background: transparent
 
 .meeting-tool.tool-leave
   color: #ff6b6b

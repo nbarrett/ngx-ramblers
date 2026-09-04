@@ -91,12 +91,15 @@ import {
   videoMeetingJoinActionLabel,
   videoMeetingJoinGuidance,
   videoMeetingJoinTitle,
-  videoMeetingMediaHelp
+  videoMeetingMediaHelp,
+  microphoneBlockedGuidance
 } from "../../functions/video-meeting-client";
 import { StoredValue } from "../../models/ui-actions";
 import { AdminPath } from "../../models/admin-route-paths.model";
 import { appendUniqueLine, lineFromJitsiChat, lineFromJitsiTranscription } from "../../functions/video-meeting-minutes";
 import { createMeetingAudioRecorder } from "../../functions/meeting-audio-recorder";
+import { meetingRecordingMessage, meetingRecordingMessageFrom } from "../../functions/meeting-recording-message";
+import { MediaPermissionOutcome, mediaPermissionsDenied, requestMediaPermissions } from "../../functions/media-permissions";
 import { pruneSpeakerTimeline, speakersInWindow } from "../../functions/meeting-speakers";
 import { createMicLevelMeter, deviceLabel, meetingCurrentDevices, meetingDeviceLists, microphoneLooksSilent, recentLevels, SILENT_MICROPHONE_PEAK, SILENT_MICROPHONE_SAMPLES } from "../../functions/mic-level-meter";
 
@@ -120,13 +123,17 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
         <span class="meeting-bar-room fw-semibold text-truncate">{{ displayTitle }}</span>
         <span class="flex-grow-1"></span>
         @if (inMeeting) {
-          <div class="meeting-toolbar d-flex align-items-stretch overflow-auto">
-            @if (notesEnabled) {
+          <div class="meeting-toolbar d-flex align-items-stretch">
+            @if (notesEnabled && localIsModerator) {
               <button type="button" class="meeting-tool" [class.tool-rec-on]="recordingEnabled" (click)="toggleRecording()"
                       [title]="recordingEnabled ? transcribeDetail : 'Start recording for minutes'"
                       [attr.aria-label]="recordingEnabled ? 'Recording - tap to stop' : 'Not recording - tap to start'">
                 <fa-icon [icon]="faCircleDot"/><span class="meeting-tool-label">Record</span>
               </button>
+            } @else if (recordingByModerator) {
+              <span class="meeting-tool tool-rec-on tool-indicator" role="status" title="This meeting is being recorded for minutes">
+                <fa-icon [icon]="faCircleDot"/><span class="meeting-tool-label">Recording</span>
+              </span>
             }
             <button type="button" class="meeting-tool" title="Open chat" (click)="jitsiCommand('toggleChat')">
               <fa-icon [icon]="faMessage"/><span class="meeting-tool-label">Chat</span>
@@ -304,7 +311,11 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
                 <div class="progress-bar" [class.bg-success]="micLevel > 0.02" [style.width.%]="micLevelPercent"></div>
               </div>
             </div>
-            <span class="text-muted small">Say something. The bar should move when you speak.</span>
+            @if (audioAvailable === false) {
+              <span class="text-danger small">{{ microphoneBlockedGuidance }}</span>
+            } @else {
+              <span class="text-muted small">Say something. The bar should move when you speak.</span>
+            }
             @if (deviceLists.audioOutput.length) {
               <label class="form-label mb-0" for="meeting-speaker">Speaker</label>
               <select id="meeting-speaker" class="form-select" [ngModel]="currentDevices.audioOutput?.deviceId || ''"
@@ -337,7 +348,7 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
           </div>
         }
 
-        @if (phase === roomPhase.READY && !error) {
+        @if (phase === roomPhase.READY && !error && !mediaDialog) {
           <div class="meeting-dialog-scrim"></div>
           <div class="meeting-dialog join d-flex flex-column overflow-hidden bg-white text-dark rounded-3 shadow">
             <div class="d-flex align-items-center justify-content-between flex-shrink-0 px-3 py-2 fw-semibold border-bottom">
@@ -425,8 +436,14 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
           <div class="meeting-help-banner">
             <app-alert-panel title="This meeting is being recorded for minutes" [icon]="faCircleDot"
                              [variant]="alertWarning" actionsEnd>
-              What is said is transcribed so the group gets written minutes afterwards, kept within the group. You can
-              turn recording off at any time with the Recording button in the bar.
+              @if (recordingByModerator) {
+                The moderator has started recording. What is said is transcribed so the group gets written minutes
+                afterwards, kept within the group. The Recording indicator in the bar stays lit for as long as the
+                meeting is being recorded.
+              } @else {
+                What is said is transcribed so the group gets written minutes afterwards, kept within the group. You can
+                turn recording off at any time with the Recording button in the bar.
+              }
               <button alertActions type="button" class="btn btn-quiet" (click)="dismissRecordingNotice()">OK</button>
             </app-alert-panel>
           </div>
@@ -454,7 +471,9 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
               <button type="button" class="btn btn-danger w-100" (click)="leave()">
                 <fa-icon [icon]="faPhoneSlash" class="me-2"/>Leave
               </button>
-              <button type="button" class="btn btn-quiet w-100" (click)="cancelLeave()">Stay</button>
+              <button type="button" class="btn btn-quiet w-100" (click)="cancelLeave()">
+                <fa-icon [icon]="faVideo" class="me-2"/>Stay
+              </button>
             </div>
           </div>
         }
@@ -643,6 +662,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   sharingScreen = false;
   reconnectPrompt = false;
   recordingEnabled = false;
+  recordingByModerator = false;
   recordingNoticeVisible = false;
   meetingEnded = false;
   transcribeStatus: TranscribeStatus = TranscribeStatus.OFF;
@@ -656,7 +676,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   private config: VideoMeetingRuntimeConfig;
   private api: any;
   private token: string;
-  private localIsModerator = false;
+  protected localIsModerator = false;
   private skipPrepare = false;
   private transcriptLines: string[] = [];
   private chatLines: string[] = [];
@@ -689,6 +709,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
 
   private cannotHearDismissed = false;
   private microphoneOffDismissed = false;
+  private permissionDenied = false;
   private leavingOnPurpose = false;
   private pendingNavigation: ((allowed: boolean) => void) | null = null;
   private recovering = false;
@@ -793,6 +814,10 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     return value === VideoMeetingLayout.GALLERY ? this.faTableCells : this.faUser;
   }
 
+  get microphoneBlockedGuidance(): string {
+    return microphoneBlockedGuidance(this.client);
+  }
+
   get micLevelPercent(): number {
     return Math.round(this.micLevel * 100);
   }
@@ -870,7 +895,23 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
       window.location.assign(jitsiHostPageUrl(this.config.host, this.room, this.displayTitle));
     } else {
       this.rememberThisRoom();
-      this.phase = VideoMeetingRoomPhase.JOINING;
+      void this.joinAfterPermissionCheck();
+    }
+  }
+
+  private async joinAfterPermissionCheck(): Promise<void> {
+    this.phase = VideoMeetingRoomPhase.JOINING;
+    this.showConnecting("Checking your camera and microphone…");
+    const permissions = this.silentJoin ? null : await requestMediaPermissions(window);
+    if (permissions && mediaPermissionsDenied(permissions)) {
+      this.hideConnecting();
+      this.phase = VideoMeetingRoomPhase.READY;
+      this.permissionDenied = true;
+      this.audioAvailable = permissions.audio !== MediaPermissionOutcome.DENIED;
+      this.videoAvailable = permissions.video !== MediaPermissionOutcome.DENIED;
+      this.refreshMediaHelp();
+    } else {
+      this.permissionDenied = false;
       this.showConnecting("Connecting to your meeting…");
       this.mountMeeting(this.token);
     }
@@ -1054,8 +1095,10 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.api.addEventListener("participantJoined", (payload: { id?: string }) => this.zone.run(() => {
       this.refreshParticipantCount();
       this.replaceDuplicateOccupants(payload?.id || null);
+      this.broadcastRecordingState();
     }));
     this.api.addEventListener("participantLeft", () => this.zone.run(() => this.refreshParticipantCount()));
+    this.api.addEventListener("endpointTextMessageReceived", (payload: unknown) => this.zone.run(() => this.onEndpointTextMessage(payload)));
     this.api.addEventListener("participantRoleChanged", (payload: { id?: string; role?: string }) => this.zone.run(() => {
       if (payload?.id && payload.id === this.localParticipantId) {
         this.localIsModerator = payload.role === "moderator";
@@ -1099,6 +1142,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.applyMeetingLayout();
     this.startStableTimer();
     this.showRecordingNotice();
+    this.broadcastRecordingState();
 
     this.refreshParticipantCount();
     this.replaceDuplicateOccupants(this.localParticipantId);
@@ -1133,6 +1177,26 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
       this.recordingNoticeVisible = false;
       this.transcribeStatus = TranscribeStatus.OFF;
       this.transcribeDetail = "";
+    }
+    this.broadcastRecordingState();
+  }
+
+  private broadcastRecordingState(): void {
+    if (this.notesEnabled && this.localIsModerator && this.inMeeting) {
+      this.jitsiCommand("sendEndpointTextMessage", "", meetingRecordingMessage(this.recordingEnabled));
+    }
+  }
+
+  private onEndpointTextMessage(payload: unknown): void {
+    const message = meetingRecordingMessageFrom(payload);
+    if (message && !this.localIsModerator) {
+      const startedRecording = message.recording && !this.recordingByModerator;
+      this.recordingByModerator = message.recording;
+      if (startedRecording) {
+        this.showRecordingNotice();
+      } else if (!message.recording) {
+        this.dismissRecordingNotice();
+      }
     }
   }
 
@@ -1262,7 +1326,8 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
       microphoneOffDismissed: this.microphoneOffDismissed,
       microphoneSilent: this.microphoneSilent,
       microphoneSilentDismissed: this.microphoneSilentDismissed,
-      coarsePointer: this.client.coarsePointer
+      coarsePointer: this.client.coarsePointer,
+      permissionDenied: this.permissionDenied
     }, this.client);
   }
 
@@ -1309,9 +1374,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.cannotHearDismissed = false;
     this.microphoneOffDismissed = false;
     this.mediaHelp = null;
-    this.phase = VideoMeetingRoomPhase.JOINING;
-    this.showConnecting("Connecting to your meeting…");
-    this.mountMeeting(this.token);
+    void this.joinAfterPermissionCheck();
   }
 
   copyGuestJoinLink(): void {
@@ -2020,7 +2083,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   }
 
   private showRecordingNotice(): void {
-    if (this.notesEnabled && this.recordingEnabled) {
+    if (this.notesEnabled && (this.recordingEnabled || this.recordingByModerator)) {
       this.recordingNoticeVisible = true;
       if (this.recordingNoticeTimer !== null) {
         window.clearTimeout(this.recordingNoticeTimer);
@@ -2109,6 +2172,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.people = [];
     this.showPeople = false;
     this.localIsModerator = false;
+    this.recordingByModerator = false;
     const api = this.api;
     this.api = undefined;
     if (api) {

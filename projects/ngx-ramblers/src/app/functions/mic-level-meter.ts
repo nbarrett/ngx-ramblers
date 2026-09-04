@@ -33,11 +33,17 @@ export function recentLevels(levels: number[], level: number, keep: number): num
   return [...levels, level].slice(-keep);
 }
 
+const HARDWARE_IDENTIFIER_SUFFIX = /\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i;
+
+export function friendlyDeviceLabel(label: string): string {
+  return label.replace(HARDWARE_IDENTIFIER_SUFFIX, "").trim();
+}
+
 function deviceFrom(item: unknown): MeetingDevice | null {
   const record = isObject(item) ? item as { [key: string]: unknown } : {};
   const deviceId = isString(record["deviceId"]) ? record["deviceId"] : "";
   if (deviceId) {
-    return {deviceId, label: isString(record["label"]) ? record["label"] : ""};
+    return {deviceId, label: friendlyDeviceLabel(isString(record["label"]) ? record["label"] : "")};
   } else {
     return null;
   }

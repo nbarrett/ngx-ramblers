@@ -1,4 +1,4 @@
-import { deviceLabel, meetingCurrentDevices, meetingDeviceLists, micLevelFromSamples, microphoneLooksSilent, recentLevels } from "./mic-level-meter";
+import { friendlyDeviceLabel, deviceLabel, meetingCurrentDevices, meetingDeviceLists, micLevelFromSamples, microphoneLooksSilent, recentLevels } from "./mic-level-meter";
 
 describe("mic level meter", () => {
 
@@ -36,5 +36,12 @@ describe("mic level meter", () => {
     expect(current.videoInput).toBeNull();
     expect(deviceLabel(current.audioInput, "Microphone")).toEqual("Headset");
     expect(deviceLabel(null, "Microphone")).toEqual("Microphone");
+  });
+
+  it("drops hardware identifiers from device labels but keeps meaningful suffixes", () => {
+    const lists = meetingDeviceLists({videoInput: [{deviceId: "cam-1", label: "FaceTime HD Camera (467C:1317)"}]});
+    expect(lists.videoInput).toEqual([{deviceId: "cam-1", label: "FaceTime HD Camera"}]);
+    expect(friendlyDeviceLabel("Default - MacBook Pro Speakers (Built-in)")).toEqual("Default - MacBook Pro Speakers (Built-in)");
+    expect(friendlyDeviceLabel("Nick's iPhone 10s max Camera")).toEqual("Nick's iPhone 10s max Camera");
   });
 });

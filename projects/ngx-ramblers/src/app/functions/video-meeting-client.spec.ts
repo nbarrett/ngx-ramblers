@@ -23,7 +23,8 @@ import {
   videoMeetingJoinActionLabel,
   videoMeetingJoinGuidance,
   videoMeetingJoinTitle,
-  videoMeetingMediaHelp
+  videoMeetingMediaHelp,
+  microphoneBlockedGuidance
 } from "./video-meeting-client";
 
 const IPHONE_SAFARI = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -72,6 +73,14 @@ describe("videoMeetingClient", () => {
       coarsePointer: false
     });
     expect(client.device).toEqual(VideoMeetingDevice.COMPUTER);
+  });
+
+  it("recognises Brave on iPhone from the navigator flag and names it in the guidance", () => {
+    const client = videoMeetingClient({userAgent: IPHONE_SAFARI, coarsePointer: true, brave: true});
+    expect(client.browser).toEqual(VideoMeetingBrowser.BRAVE);
+    expect(client.browserLabel).toEqual("Brave");
+    expect(videoMeetingJoinGuidance(client)).toContain("tap Brave, and turn on Camera and Microphone");
+    expect(microphoneBlockedGuidance(client)).toContain("Brave has blocked the microphone");
   });
 
   it("recognises Chrome on iPhone", () => {

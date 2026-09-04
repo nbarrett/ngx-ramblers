@@ -147,6 +147,7 @@ export enum VideoMeetingBrowser {
   CHROME = "chrome",
   FIREFOX = "firefox",
   EDGE = "edge",
+  BRAVE = "brave",
   OTHER = "other"
 }
 
@@ -172,6 +173,7 @@ export interface VideoMeetingClientHints {
   maxTouchPoints?: number;
   vendor?: string;
   coarsePointer?: boolean;
+  brave?: boolean;
 }
 
 export interface VideoMeetingClient {
@@ -196,6 +198,7 @@ export interface VideoMeetingMediaState {
   microphoneSilent: boolean;
   microphoneSilentDismissed: boolean;
   coarsePointer: boolean;
+  permissionDenied?: boolean;
 }
 
 export interface VideoMeetingMediaHelp {
@@ -509,4 +512,11 @@ export interface MeetingAudioTranscriptionResponse {
   saved: number;
   discarded: number;
   text: string;
+}
+
+export const MEETING_RECORDING_MESSAGE = "ngx-meeting-recording";
+
+export interface MeetingRecordingMessage {
+  name: string;
+  recording: boolean;
 }
