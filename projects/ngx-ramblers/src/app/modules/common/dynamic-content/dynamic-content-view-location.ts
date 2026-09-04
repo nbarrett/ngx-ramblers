@@ -12,6 +12,7 @@ import { LocationLinksComponent } from "../location-links/location-links.compone
             [location]="row.location.start"
             [labelPrefix]="row.location.end ? 'Start' : ''"
             [showDescription]="true"
+            [inline]="!row.location.end"
             [mediaWidth]="90"/>
         </div>
         @if (row.location.end) {

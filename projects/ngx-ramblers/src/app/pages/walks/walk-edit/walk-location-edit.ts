@@ -2,7 +2,8 @@ import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faMap, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faMap, faMapLocationDot, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { formatGridReference } from "../../../functions/grid-reference";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -112,17 +113,18 @@ import { LocationType } from "../../../models/map.model";
             <label for="grid-reference">{{ locationType }} Grid Reference</label>
             <div class="input-group">
               <input [disabled]="disabled"
-                [(ngModel)]="locationDetails.grid_reference_10"
+                [ngModel]="gridReferenceText"
                 (ngModelChange)="gridReferenceInput($event)"
+                (blur)="formatGridReferenceText()"
                 [class.is-invalid]="locationDetails.grid_reference_10 && !gridReferenceValid()"
                 type="text" class="form-control input-sm" id="grid-reference"
                 placeholder="Enter {{locationType}} Grid Reference here">
               <button type="button" class="btn btn-outline-secondary pointer"
                 (click)="viewGridReference(display.gridReferenceFrom(locationDetails))"
-                [disabled]="disabled"
+                [disabled]="disabled || !locationDetails?.grid_reference_10"
                 placement="top"
-                tooltip="View {{locationType}} Grid Reference position in gridreferencefinder.com">
-                <img src="/assets/images/local/grid-reference-finder.ico"/>
+                tooltip="Show the {{locationType | lowercase}} grid reference on the map">
+                <fa-icon [icon]="faMapLocationDot"/>
               </button>
             </div>
           </div>
@@ -213,6 +215,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   @Input("locationDetails") set initialiseWalk(locationDetails: LocationDetails) {
     this.logger.info("locationDetails:", locationDetails);
     this.locationDetails = locationDetails;
+    this.formatGridReferenceText();
     this.showLeafletView = this.shouldShowLeafletView();
     this.updateGoogleMapsUrl();
   }
@@ -235,6 +238,8 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   public faPencil = faPencil;
   public faMapPin = faMapPin;
   public faMap = faMap;
+  public faMapLocationDot = faMapLocationDot;
+  public gridReferenceText = "";
   public showGoogleMapsView = false;
   public gridRefLookupBusy = false;
 
@@ -357,16 +362,24 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   }
 
   gridReferenceInput(value: string) {
-    const trimmed = value?.trim();
-    if (trimmed && !this.gridReferenceValid()) {
+    this.gridReferenceText = value;
+    const compact = (value || "").toUpperCase().replace(/\s/g, "");
+    if (this.locationDetails) {
+      this.locationDetails.grid_reference_10 = compact;
+    }
+    if (compact && !this.gridReferenceValid()) {
       this.notify?.warning({
         title: "Invalid format",
-        message: "Grid reference must be 2 letters followed by 6-10 digits (e.g., TQ8441731443)"
+        message: `Grid reference must be 2 letters followed by 6 to 10 digits, such as ${formatGridReference("TQ8441731443")}`
       });
-    } else if (trimmed && this.gridReferenceValid()) {
+    } else if (compact && this.gridReferenceValid()) {
       this.notify?.clearBusy();
     }
-    this.gridReferenceInput$.next(value);
+    this.gridReferenceInput$.next(compact);
+  }
+
+  formatGridReferenceText(): void {
+    this.gridReferenceText = this.locationDetails?.grid_reference_10 ? this.display.gridReferenceFrom(this.locationDetails) : "";
   }
 
   async gridReferenceChange() {

@@ -42,6 +42,7 @@ const PageContentRow = new mongoose.Schema({
   albumIndex: {type: Object},
   areaMap: {type: Object},
   map: {type: Object},
+  routeGuide: {type: Object},
   fragment: {type: Object},
   location: {type: Object},
   migrationPlaceholder: {type: Boolean},

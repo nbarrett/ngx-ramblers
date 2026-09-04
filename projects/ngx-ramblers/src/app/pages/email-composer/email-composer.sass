@@ -478,97 +478,8 @@
   min-height: 0
   line-height: 1.3
 
-.fragment-list
-  display: flex
-  flex-direction: column
-  gap: 6px
-
-.fragment-row
-  background-color: #ffffff
-  border: 1px solid #ced4da
-  border-radius: 4px
-  position: relative
-  display: flex
-  flex-direction: column
-
-.fragment-row-hover-before,
-.fragment-row-hover-after
-  position: relative
-
-.fragment-row-hover-before::before
-  content: ""
-  position: absolute
-  top: -2px
-  left: 0
-  right: 0
-  height: 3px
-  background-color: #f29401
-
-.fragment-row-hover-after::after
-  content: ""
-  position: absolute
-  bottom: -2px
-  left: 0
-  right: 0
-  height: 3px
-  background-color: #f29401
-
-.fragment-row-header
-  display: flex
-  align-items: center
-  gap: 8px
-  padding: 8px 10px
-  cursor: grab
-  background-color: #f8f9fa
-  border-bottom: 1px solid #e9ecef
-
-.fragment-row-header:active
-  cursor: grabbing
-
-.fragment-handle
-  color: #6c757d
-  display: inline-flex
-  align-items: center
-
-.fragment-icon
-  display: inline-flex
-  align-items: center
-  color: #495057
-
-.fragment-meta
-  flex-grow: 1
-  min-width: 0
-  display: flex
-  flex-direction: column
-
-.fragment-label
-  font-weight: 600
-  font-size: 14px
-
-.fragment-preview
-  white-space: nowrap
-  overflow: hidden
-  text-overflow: ellipsis
-
-.fragment-divider-cell
-  border-top: 1px solid #e9ecef
-  padding: 6px 10px
-
 .fragment-divider-cell ::ng-deep ng-select
   min-width: 0 !important
-
-.fragment-chevron
-  display: inline-flex
-  align-items: center
-  color: #6c757d
-  padding: 0 6px
-
-.fragment-row-header-clickable
-  cursor: pointer
-
-.fragment-row-body
-  border-top: 1px solid #e9ecef
-  padding: 12px
 
 .composer-multi-column-row
   display: grid
@@ -603,13 +514,6 @@
   display: flex
   justify-content: center
   margin-top: 4px
-
-.fragment-list-tail
-  height: 12px
-
-.fragment-list-tail-hover
-  border-radius: 4px
-  background-color: rgba(242, 148, 1, 0.2)
 
 .fragment-template-frame
   width: 100%

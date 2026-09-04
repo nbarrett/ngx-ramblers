@@ -109,8 +109,8 @@ export class RouteFollowCacheService {
       walkId: record.payload.walkId,
       routeId: record.payload.routeId,
       ramblersSlug: record.payload.ramblersSlug,
-      distanceMiles: record.payload.guide?.distanceMiles || null,
-      startDescription: record.payload.guide?.startDescription || null
+      distanceMiles: record.payload.guide?.distance_miles || null,
+      startDescription: record.payload.guide?.start_location?.description || record.payload.guide?.start_location?.postcode || null
     }));
   }
 

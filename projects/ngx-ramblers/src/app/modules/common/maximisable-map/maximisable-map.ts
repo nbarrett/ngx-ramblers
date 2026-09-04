@@ -25,6 +25,9 @@ export interface MaximisableMapState {
             <div class="map-full-screen-bar-title">{{ title || "Map" }}</div>
             <div class="map-full-screen-bar-hint">Press Escape to leave full screen</div>
           </div>
+          <div class="map-full-screen-bar-actions">
+            <ng-content select="[slot=bar-actions]"/>
+          </div>
           <button type="button" class="btn btn-primary btn-sm map-full-screen-exit"
                   (click)="exitFullScreen()"
                   aria-label="Exit full screen map">
@@ -98,6 +101,13 @@ export interface MaximisableMapState {
       line-height: 1.2
       color: #5c6b7a
       margin-top: 0.15rem
+    .map-full-screen-container .map-full-screen-bar-actions
+      display: flex
+      align-items: center
+      flex-wrap: wrap
+      gap: 0.5rem
+    .map-full-screen-container .map-full-screen-bar-actions:empty
+      display: none
     .map-full-screen-container .map-full-screen-exit
       flex-shrink: 0
       min-height: 40px
@@ -147,7 +157,7 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (this.syncToUrl) {
-      this.subscriptions.push(this.route.queryParamMap.subscribe(paramMap => this.applyFromQuery(paramMap)));
+      this.subscriptions.push(this.route.queryParamMap.subscribe(paramMap => queueMicrotask(() => this.applyFromQuery(paramMap))));
     }
   }
 

@@ -1,4 +1,6 @@
 import { Component, HostListener, inject, NgZone, OnDestroy, OnInit } from "@angular/core";
+import { turnRotationDegrees } from "../../functions/route-turns";
+import { nearestPointIndex } from "../../functions/route-geometry";
 import { ActivatedRoute, Router } from "@angular/router";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -10,7 +12,11 @@ import {
   faEraser,
   faFlagCheckered,
   faFloppyDisk,
+  faArrowUp,
+  faChevronLeft,
+  faChevronRight,
   faLayerGroup,
+  faListOl,
   faLocationArrow,
   faMoon,
   faPause,
@@ -64,6 +70,7 @@ import {
   formatMapSaveProgress,
   formatOsGridReference,
   isLiveFollowMode,
+  ROUTE_FOLLOW_NUDGE_METRES,
   RouteFollowProgressPaint,
   routeFollowProgressPaintFrom,
   ROUTE_FOLLOW_HEADING_UP_MIN_DELTA,
@@ -87,6 +94,7 @@ import { RouteFollowService } from "../../services/maps/route-follow.service";
 import { RouteFollowSaveService } from "../../services/maps/route-follow-save.service";
 import { OsMapsExportService } from "../../services/maps/os-maps-export.service";
 import { MapGestures, mapAngleDelta, mapGesturesFor } from "../../services/maps/map-gestures";
+import { travelAlongRoute } from "../../services/maps/route-travel";
 import { PageContentService } from "../../services/page-content.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walks/walk-display.service";
@@ -177,14 +185,83 @@ import proj4 from "proj4";
               <div class="follow-tape-grid">{{ gridReference }}</div>
             }
           </div>
-        </div>
-        @if (progress?.approachedWaypoint && instructionText) {
-          <div class="follow-instruction" [class.has-banner-offset]="showOffRoute || !!locationMessage">
-            <div class="follow-instruction-number">{{ waypointNumber(progress.approachedWaypoint) }}</div>
-            <div>
-              <h2>{{ instructionText }}</h2>
-              <p>{{ nextDistanceLabel }}</p>
+            @if (instructionWaypoint && instructionText) {
+            <div class="follow-instruction">
+              <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
+                @if (instructionWaypoint.turn) {
+                  <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(instructionWaypoint) + 'deg)'"/>
+                } @else {
+                  {{ waypointNumber(instructionWaypoint) }}
+                }
+              </div>
+              <div class="follow-instruction-body">
+                <h2>{{ instructionText }}</h2>
+                @if (instructionWaypoint.note) {
+                  <p class="follow-instruction-note">{{ instructionWaypoint.note }}</p>
+                }
+                @if (upcomingWaypoint) {
+                  <p class="follow-instruction-next">
+                    @if (upcomingWaypoint.turn) {
+                      <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(upcomingWaypoint) + 'deg)'"/>
+                    }
+                    Then {{ upcomingWaypoint.instruction || upcomingWaypoint.label || "the next waypoint" }} · {{ nextDistanceLabel }}
+                  </p>
+                } @else {
+                  <p>{{ nextDistanceLabel }}</p>
+                }
+              </div>
             </div>
+          }
+        </div>
+        @if (showDirections) {
+          <div class="follow-style-scrim" (click)="closeDirections()"></div>
+          <div class="follow-style-picker" role="dialog" aria-label="Directions">
+            <div class="follow-style-picker-head">
+              <h2>Directions</h2>
+              <div class="follow-style-picker-head-actions">
+                @if (directedWaypoints.length) {
+                  <button type="button" class="follow-icon-btn" (click)="browseStep(-1)" [disabled]="browsedIndex <= 0" aria-label="Previous step">
+                    <fa-icon [icon]="faChevronLeft"/>
+                  </button>
+                  <span class="follow-directions-count">{{ browsedIndex + 1 }} / {{ directedWaypoints.length }}</span>
+                  <button type="button" class="follow-icon-btn" (click)="browseStep(1)" [disabled]="browsedIndex >= directedWaypoints.length - 1" aria-label="Next step">
+                    <fa-icon [icon]="faChevronRight"/>
+                  </button>
+                }
+                <button type="button" class="follow-icon-btn" (click)="closeDirections()" aria-label="Close directions">
+                  <fa-icon [icon]="faXmark"/>
+                </button>
+              </div>
+            </div>
+            @if (directedWaypoints.length) {
+              <p class="follow-directions-note">Tap a step to see it on the map, or step through with the arrows. Your position keeps tracking underneath.</p>
+              <ol class="follow-directions-list follow-directions-steps">
+                @for (waypoint of directedWaypoints; track waypoint.id; let index = $index) {
+                  <li class="follow-directions-step" [class.active]="waypoint === browsedWaypoint" (click)="browseWaypoint(waypoint)">
+                    <span class="follow-directions-number" [style.background]="markerColour" [style.color]="'#ffffff'">
+                      @if (waypoint.turn) {
+                        <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(waypoint) + 'deg)'"/>
+                      } @else {
+                        {{ waypointNumber(waypoint, index) }}
+                      }
+                    </span>
+                    <span class="follow-directions-body">
+                      <span>{{ waypoint.instruction }}</span>
+                      @if (waypoint.note) {
+                        <span class="follow-directions-note">{{ waypoint.note }}</span>
+                      }
+                    </span>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <p class="follow-directions-note">From the route page. The map keeps tracking you while you read.</p>
+              <ol class="follow-directions-list">
+                @for (direction of directions; track $index) {
+                  <li>{{ direction }}</li>
+                }
+              </ol>
+            }
           </div>
         }
         @if (showStylePicker) {
@@ -220,7 +297,7 @@ import proj4 from "proj4";
             <div class="follow-style-row">
               @if (styleRoute) {
                 <div class="follow-style-section follow-style-route">
-                  <p class="follow-style-heading">Route line</p>
+                  <p class="follow-style-heading">Route style</p>
                   <app-map-route-style-palette [route]="styleRoute" inline
                     (styleChange)="onRouteStyleChange()"/>
                 </div>
@@ -324,6 +401,15 @@ import proj4 from "proj4";
                       [attr.aria-label]="appearanceLabel()">
                 <fa-icon [icon]="appearanceIcon()"/>
               </button>
+              @if (directionsAvailable) {
+                <button class="follow-tool" type="button" [class.is-active]="showDirections"
+                        (click)="toggleDirections()"
+                        tooltip="Directions" [isDisabled]="!tooltipsEnabled"
+                        placement="left" container=".follow-app"
+                        aria-label="Directions">
+                  <fa-icon [icon]="faListOl"/>
+                </button>
+              }
               <button class="follow-tool" type="button" [class.is-active]="showStylePicker"
                       (click)="toggleStylePicker()"
                       tooltip="Map style" [isDisabled]="!tooltipsEnabled"
@@ -419,7 +505,7 @@ import proj4 from "proj4";
               </div>
             </div>
           } @else if (progress?.mode === RouteFollowMode.RECORDING) {
-            <p class="follow-library-note">Walk the route. The line is drawn as you go. If there are a lot of points, Save asks whether to reduce the data density first.</p>
+            <p class="follow-library-note">Walk the route. It is drawn as you go. If there are a lot of points, Save asks whether to reduce the data density first.</p>
           } @else if (progress?.mode === RouteFollowMode.EDITING) {
             <div class="follow-edit-notes">
               <p class="follow-library-note">{{ editToolNote }}</p>
@@ -435,7 +521,7 @@ import proj4 from "proj4";
               </div>
             }
           } @else if (!hasLine && !canEditRoute) {
-            <p class="follow-library-note">Ramblers publish the start of this route. The line and turn-by-turn stay on their site, so this screen will take you to the start.</p>
+            <p class="follow-library-note">Ramblers publish the start of this route. The route itself and the turn-by-turn stay on their site, so this screen will take you to the start.</p>
           }
           @if (loginPrompt) {
             <p class="follow-library-note">Editing and recording are for walk leaders and admins. <a [href]="loginUrl()">Log in</a> to see those options here.</p>
@@ -647,6 +733,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly previewSpeedMin = ROUTE_FOLLOW_PREVIEW_SPEED_MIN;
   protected readonly previewSpeedMax = ROUTE_FOLLOW_PREVIEW_SPEED_MAX;
   protected showStylePicker = false;
+  protected showDirections = false;
   private stylePickerFromProvider = MapProvider.OS;
   private stylePickerFromStyle = DEFAULT_OS_STYLE;
   protected mapProvider: MapProvider = MapProvider.OS;
@@ -659,6 +746,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly osTermsHref = OsMapsBrandingHref.TERMS;
   protected readonly osErrorHref = OsMapsBrandingHref.ERROR_REPORTING;
   protected readonly faLayerGroup = faLayerGroup;
+  protected readonly faListOl = faListOl;
+  protected readonly faArrowUp = faArrowUp;
+  protected readonly faChevronLeft = faChevronLeft;
+  protected readonly faChevronRight = faChevronRight;
+  private nudgedWaypointId: string | null = null;
+  protected browsedWaypoint: RouteFollowWaypoint | null = null;
   protected readonly faXmark = faXmark;
   protected mapScale: FollowMapScaleBar = {label: "", midLabel: "", widthPx: 0};
   protected gridReference = "";
@@ -683,6 +776,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.followService.progress$.subscribe(progress => {
       const previous = this.progress;
       this.progress = progress;
+      this.nudgeBeforeTurn(progress);
       this.refreshHud();
       if (this.headingOnlyUpdate(previous, progress)) {
         this.refreshHeadingVisuals();
@@ -706,6 +800,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cancelTravel();
     const container = this.mapRef?.getContainer();
     if (container) {
       container.removeEventListener("pointerdown", this.onEditPointerDown);
@@ -788,7 +883,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.editTool === RouteFollowEditTool.ERASER) {
       return "Tap a point to remove it. Switch back to the pencil to move or add points. Reverse swaps the start and finish.";
     } else {
-      return "Drag a white point to move it. Tap the line, or just beside it, to add a point on the route. Tap away from the line to continue from the nearer end. Reverse swaps the start and finish.";
+      return "Drag a white point to move it. Tap the route, or just beside it, to add a point to it. Tap away from the route to continue from the nearer end. Reverse swaps the start and finish.";
     }
   }
 
@@ -811,13 +906,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else if (direction === RouteFollowReturnDirection.BACK) {
       return "Off the route. Head back.";
     } else {
-      return "Off the route. Head back to the line.";
+      return "Off the route. Head back to it.";
     }
   }
 
   get instructionWaypoint(): RouteFollowWaypoint | null {
-    if (this.progress?.approachedWaypoint || this.progress?.nextWaypoint) {
-      return this.progress.approachedWaypoint || this.progress.nextWaypoint;
+    if (this.showOffRoute && this.progress?.nextWaypoint) {
+      return this.progress.nextWaypoint;
+    } else if (this.progress?.currentWaypoint || this.browsedWaypoint || this.progress?.nextWaypoint) {
+      return this.progress?.currentWaypoint || this.browsedWaypoint || this.progress?.nextWaypoint;
     } else {
       return this.payload?.waypoints?.[0] || null;
     }
@@ -827,12 +924,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     const waypoint = this.instructionWaypoint;
     if (!waypoint) {
       return "";
-    } else if (this.progress?.approachedWaypoint) {
+    } else if (this.progress?.currentWaypoint || this.browsedWaypoint) {
       return waypoint.instruction || waypoint.label || "You are here";
     } else if (!this.hasLine) {
       return waypoint.instruction || "Walk to the start of this Ramblers route";
     } else if (this.progress?.mode === RouteFollowMode.IDLE) {
-      return waypoint.instruction || "Start here, then follow the line";
+      return waypoint.instruction || "Start here, then follow the route";
     } else {
       return waypoint.instruction || waypoint.label || "Continue along the path";
     }
@@ -911,6 +1008,85 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.fitRoute();
     }
     setTimeout(() => map.invalidateSize(), 200);
+  }
+
+  get upcomingWaypoint(): RouteFollowWaypoint | null {
+    const next = this.progress?.nextWaypoint || null;
+    return next && next !== this.instructionWaypoint && !this.progress?.approachedWaypoint ? next : null;
+  }
+
+  turnDegrees(waypoint: RouteFollowWaypoint | null): number {
+    return turnRotationDegrees(waypoint?.turn);
+  }
+
+  private nudgeBeforeTurn(progress: RouteFollowProgress | null): void {
+    const next = progress?.nextWaypoint;
+    const metres = progress?.nextWaypointMetres;
+    if (next && isNumber(metres) && metres <= ROUTE_FOLLOW_NUDGE_METRES && isLiveFollowMode(progress.mode) && this.nudgedWaypointId !== next.id) {
+      this.nudgedWaypointId = next.id;
+      navigator.vibrate?.([120, 60, 120]);
+    }
+  }
+
+  get directions(): string[] {
+    return this.payload?.directions || [];
+  }
+
+  get markerColour(): string {
+    return this.markerStyle.numberedMarkerColour(this.payload?.provider);
+  }
+
+  get directedWaypoints(): RouteFollowWaypoint[] {
+    return (this.payload?.waypoints || []).filter(waypoint => !!waypoint.instruction);
+  }
+
+  get directionsAvailable(): boolean {
+    return this.directions.length > 0 || this.directedWaypoints.length > 0;
+  }
+
+  get browsedIndex(): number {
+    return this.directedWaypoints.findIndex(waypoint => waypoint === this.browsedWaypoint);
+  }
+
+  browseWaypoint(waypoint: RouteFollowWaypoint): void {
+    const previous = this.browsedWaypoint;
+    const points = this.payload?.points || [];
+    this.browsedWaypoint = waypoint;
+    this.followUser = false;
+    this.cancelTravel();
+    if (this.mapRef && previous && previous !== waypoint && points.length > 1) {
+      if (this.mapRef.getZoom() < 16) {
+        this.mapRef.setZoom(16, {animate: false});
+      }
+      this.cancelTravel = travelAlongRoute({
+        map: this.mapRef,
+        points,
+        fromIndex: nearestPointIndex(points, previous),
+        toIndex: nearestPointIndex(points, waypoint),
+        headingUp: this.headingUp && !this.progress,
+        travellerIcon: this.markerStyle.headingRingIcon(this.payload?.provider, 0)
+      });
+    } else if (this.mapRef) {
+      this.mapRef.setView([waypoint.latitude, waypoint.longitude], Math.max(this.mapRef.getZoom(), 16), {animate: true});
+    }
+  }
+
+  private cancelTravel: () => void = () => undefined;
+
+  browseStep(offset: number): void {
+    const waypoints = this.directedWaypoints;
+    const target = Math.min(Math.max(this.browsedIndex + offset, 0), waypoints.length - 1);
+    if (waypoints[target]) {
+      this.browseWaypoint(waypoints[target]);
+    }
+  }
+
+  toggleDirections(): void {
+    this.showDirections = !this.showDirections;
+  }
+
+  closeDirections(): void {
+    this.showDirections = false;
   }
 
   toggleStylePicker(): void {
@@ -1023,23 +1199,23 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.headingUp || Math.abs(this.mapBearing) > 1) {
       this.headingUp = false;
       if (gestures) {
-        gestures.resetNorth();
+        gestures.resetNorth(true);
       }
       this.mapBearing = 0;
     } else {
       this.headingUp = true;
-      this.applyHeadingUp();
+      this.applyHeadingUp(true);
     }
     this.persistFollowSession();
   }
 
-  private applyHeadingUp(): void {
+  private applyHeadingUp(animate = false): void {
     const gestures = this.gestures || (this.mapRef ? mapGesturesFor(this.mapRef) : null);
     this.gestures = gestures;
     const next = -this.currentHeading();
     if (Math.abs(mapAngleDelta(this.mapBearing, next)) >= ROUTE_FOLLOW_HEADING_UP_MIN_DELTA) {
       if (gestures) {
-        gestures.setBearing(next);
+        gestures.setBearing(next, animate);
       }
       this.mapBearing = next;
     }

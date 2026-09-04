@@ -53,6 +53,7 @@ import { FragmentSelectorComponent } from "./fragment-selector.component";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
+import { DynamicContentSiteEditRoute } from "./dynamic-content-site-edit-route";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
@@ -795,7 +796,10 @@ import { ClipboardService } from "../../../services/clipboard.service";
                             [templateSourceOptions]="templateSourceOptions"
                             [templateExtractOptions]="templateExtractOptions"
                             [allowColumnMappings]="allowColumnMappings"/>
-                          @if (actions.isMap(nestedRow)) {
+                          @if (actions.isMap(nestedRow) || actions.isRoute(nestedRow)) {
+                            @if (actions.isRoute(nestedRow)) {
+                              <app-dynamic-content-site-edit-route [row]="nestedRow" [id]="'nested-route-' + rowIndex + '-' + columnIndex + '-' + nestedRowIndex"/>
+                            }
                             <app-dynamic-content-site-edit-map
                               [row]="nestedRow"
                               [id]="'nested-map-' + rowIndex + '-' + columnIndex + '-' + nestedRowIndex"
@@ -829,7 +833,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [ContentTextEditor, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent, ColumnImageDisplaySettingsComponent]
+    imports: [ContentTextEditor, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent, ColumnImageDisplaySettingsComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 

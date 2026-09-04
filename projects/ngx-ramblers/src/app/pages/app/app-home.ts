@@ -325,7 +325,10 @@ export class AppHomeComponent implements OnInit, OnDestroy {
             $or: [
               {"rows.type": PageContentType.MAP},
               {"rows.type": PageContentType.ROUTE},
-              {"rows.map.routes.gpxFile.awsFileName": {$exists: true}}
+              {"rows.columns.rows.type": PageContentType.MAP},
+              {"rows.columns.rows.type": PageContentType.ROUTE},
+              {"rows.map.routes.gpxFile.awsFileName": {$exists: true}},
+              {"rows.columns.rows.map.routes.gpxFile.awsFileName": {$exists: true}}
             ]
           }
         }),

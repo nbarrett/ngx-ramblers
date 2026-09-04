@@ -9,14 +9,10 @@ import { SvgComponent } from "../../../modules/common/svg/svg";
 @Component({
   selector: "app-walk-feature",
   template: `
-    <div class="row">
-      <div class="col-sm-12">
-        <div class="d-inline-flex align-items-center flex-wrap">
-          <app-svg [disabled]="disabled" [height]="17" [width]="17" [icon]="'i-' + feature.code"
-                   [colour]="mintcakeColor"/>
-          <div class="ms-3">{{ feature.description }}</div>
-        </div>
-      </div>
+    <div class="d-inline-flex align-items-center">
+      <app-svg [disabled]="disabled" [height]="17" [width]="17" [icon]="'i-' + feature.code"
+               [colour]="mintcakeColor"/>
+      <div class="ms-3">{{ feature.description }}</div>
     </div>`,
   imports: [SvgComponent]
 })

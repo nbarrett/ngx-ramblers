@@ -4,6 +4,7 @@ import { firstValueFrom, timeout } from "rxjs";
 import { isNumber, isString } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FileNameData, ServerFileNameData } from "../../models/aws-object.model";
+import { LocationDetails } from "../../models/ramblers-walks-manager";
 import { MapData, MapMarker, MapRoute, PageContent, PageContentRow, PageContentType, PaletteColor } from "../../models/content-text.model";
 import { OsMapsListedRoute } from "../../models/os-maps-export.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
@@ -21,6 +22,7 @@ import {
 } from "../../models/route-follow.model";
 import { generateUid } from "../../functions/numbers";
 import { eventSlug } from "../../functions/walks/event-slug";
+import { routeDirectionsFromPage } from "../../functions/route-directions";
 import { GpxParserService } from "./gpx-parser.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
@@ -85,8 +87,8 @@ export class RouteFollowPayloadService {
         walkId: null,
         routeId: route.id,
         ramblersSlug: null,
-        distanceMiles: row.routeGuide?.distanceMiles ?? null,
-        startDescription: row.routeGuide?.startDescription || null
+        distanceMiles: row.routeGuide?.distance_miles ?? null,
+        startDescription: row.routeGuide?.start_location?.description || row.routeGuide?.start_location?.postcode || null
       } : null;
     }).filter((item): item is RouteFollowSummary => !!item);
   }
@@ -128,9 +130,9 @@ export class RouteFollowPayloadService {
       guide: {
         title: route.title,
         summary: route.description,
-        distanceMiles: route.distanceMiles,
+        distance_miles: route.distanceMiles,
         durationMinutes: route.durationMinutes,
-        startDescription: route.startDescription
+        start_location: route.startDescription ? {description: route.startDescription} as LocationDetails : undefined
       }
     };
   }
@@ -174,7 +176,8 @@ export class RouteFollowPayloadService {
         points,
         waypoints,
         totalMetres: parsed.totalMetres,
-        guide: row.routeGuide || null
+        guide: row.routeGuide || null,
+        directions: routeDirectionsFromPage(page)
       };
     }
   }
@@ -202,8 +205,7 @@ export class RouteFollowPayloadService {
         totalMetres: parsed.totalMetres,
         guide: {
           title: route.title,
-          distanceMiles: route.distanceMetres ? route.distanceMetres / 1609.34 : null,
-          startDescription: null
+          distance_miles: route.distanceMetres ? route.distanceMetres / 1609.34 : null
         }
       };
     }
@@ -245,8 +247,13 @@ export class RouteFollowPayloadService {
         guide: {
           title: walk.groupEvent?.title,
           summary: walk.groupEvent?.description,
-          distanceMiles: walk.groupEvent?.distance_miles,
-          startDescription: walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode
+          distance_miles: walk.groupEvent?.distance_miles,
+          distance_km: walk.groupEvent?.distance_km,
+          difficulty: walk.groupEvent?.difficulty,
+          start_location: walk.groupEvent?.start_location,
+          facilities: walk.groupEvent?.facilities,
+          transport: walk.groupEvent?.transport,
+          accessibility: walk.groupEvent?.accessibility
         }
       };
     }
@@ -275,6 +282,8 @@ export class RouteFollowPayloadService {
       longitude: marker.longitude,
       label: marker.label || String(index + 1),
       instruction: marker.instruction || null,
+      note: marker.note || null,
+      turn: marker.turn || null,
       kind: marker.kind || RouteWaypointKind.WAYPOINT
     };
   }

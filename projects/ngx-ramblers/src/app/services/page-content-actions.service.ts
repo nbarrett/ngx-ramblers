@@ -486,10 +486,10 @@ export class PageContentActionsService {
       row.routeGuide = {
         title: "",
         summary: "",
-        distanceMiles: null,
+        distance_miles: null,
+        distance_km: null,
         durationMinutes: null,
-        difficulty: null,
-        startDescription: ""
+        difficulty: null
       };
     }
     this.ensureMapData(row);

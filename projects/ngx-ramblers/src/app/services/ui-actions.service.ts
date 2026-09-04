@@ -22,9 +22,14 @@ export class UiActionsService {
     return this.updateQueryParameters({[parameter]: value}, replaceUrl);
   }
 
+  private queryParameterNavigation: Promise<boolean> = Promise.resolve(true);
+
   updateQueryParameters(parameters: StoredValueQueryParameters, replaceUrl = true): Promise<boolean> {
     this.logger.debug("updateQueryParameters:", parameters, "replaceUrl:", replaceUrl);
-    return this.router.navigate([], {queryParams: parameters, queryParamsHandling: "merge", replaceUrl});
+    this.queryParameterNavigation = this.queryParameterNavigation
+      .catch(() => false)
+      .then(() => this.router.navigate([], {queryParams: parameters, queryParamsHandling: "merge", replaceUrl}));
+    return this.queryParameterNavigation;
   }
 
   queryValueAliasFor(value: string): string {

@@ -11,6 +11,7 @@ import {
   faImages,
   faPaste,
   faPencil,
+  faRoute,
   faRemove,
   faSave,
   faSpinner,
@@ -67,6 +68,8 @@ import { fieldStartsWithPath } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
 import { assignDeep } from "../../../functions/object-utils";
 import { UiActionsService } from "../../../services/ui-actions.service";
+import { RoutePageEditor } from "./route-page-editor";
+import { routeRowIn } from "../../../functions/map-location-markers";
 import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -132,6 +135,22 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
         <div class="card mb-2">
           <div class="card-body">
             <div class="page-content-edit-sticky-scope">
+            @if (isRoutePage()) {
+              <div class="album-view-switch mb-3">
+                <div class="album-view-switch-copy">
+                  <strong>{{ routeWorkflow ? "Guided route editor" : "Full page editor" }}</strong>
+                  <span>
+                    {{ routeWorkflow
+                      ? "One step at a time: about the route, where it starts, the route itself, the directions, the write-up and how it's shown."
+                      : "Every row and column on the page is available." }}
+                  </span>
+                </div>
+                <button type="button" class="btn btn-quiet album-view-switch-button" (click)="toggleRouteWorkflow()">
+                  <fa-icon [icon]="routeWorkflow ? faPencil : faRoute"/>
+                  {{ routeWorkflow ? "Open full page editor" : "Use guided route editor" }}
+                </button>
+              </div>
+            }
             @if (pageHasAlbum()) {
               <div class="album-view-switch mb-3">
                 <div class="album-view-switch-copy">
@@ -155,6 +174,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
             } @else {
             <h4 class="card-title">Page content for {{ pageContent.path }} (<small
               class="text-muted">{{ stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row') }}</small>)</h4>
+
             <div class="page-content-actions-sticky" appStickyControls>
               <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
             </div>
@@ -245,6 +265,9 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               </div>
             }
             }
+            @if (isRoutePage() && routeWorkflow) {
+              <app-route-page-editor [pageContent]="pageContent" (openFullEditor)="toggleRouteWorkflow()"/>
+            } @else {
             @for (row of pageContent?.rows; track row; let rowIndex = $index) {
               @if (albumWorkflow) {
                 @if (actions.isCarouselOrAlbum(row)) {
@@ -651,6 +674,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               </div>
               }
             }
+            }
             </div>
           </div>
         </div>
@@ -836,7 +860,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, RoutePageEditor, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -872,6 +896,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   protected urlService = inject(UrlService);
   public albumWorkflow = false;
+  public routeWorkflow = true;
+  protected readonly faRoute = faRoute;
   protected pageService = inject(PageService);
   protected uiActionsService = inject(UiActionsService);
   protected stringUtils = inject(StringUtilsService);
@@ -1042,6 +1068,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.albumWorkflow = new URLSearchParams(window.location.search).get(StoredValue.ALBUM_WORKFLOW) === "1";
+    this.routeWorkflow = new URLSearchParams(window.location.search).get(StoredValue.ROUTE_WORKFLOW) !== "0";
     this.systemConfigService.events().subscribe(item => {
       const pageHrefs: string[] = item.group.pages.map(link => link.href).filter(item => item);
       this.logger.debug("pageHrefs received as:", pageHrefs);
@@ -1086,15 +1113,28 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return this.pageContent?.rows?.some(row => this.actions.isAlbum(row)) || false;
   }
 
-  protected toggleAlbumWorkflow(): void {
-    this.albumWorkflow = !this.albumWorkflow;
+  protected isRoutePage(): boolean {
+    return !!routeRowIn(this.pageContent);
+  }
+
+  protected toggleRouteWorkflow(): void {
+    this.routeWorkflow = !this.routeWorkflow;
+    this.replaceQueryParameter(StoredValue.ROUTE_WORKFLOW, this.routeWorkflow ? null : "0");
+  }
+
+  private replaceQueryParameter(parameter: StoredValue, value: string | null): void {
     const urlTree = this.router.createUrlTree([], {
       relativeTo: this.activatedRoute,
-      queryParams: {[StoredValue.ALBUM_WORKFLOW]: this.albumWorkflow ? "1" : null},
+      queryParams: {[parameter]: value},
       queryParamsHandling: "merge",
       fragment: this.activatedRoute.snapshot.fragment
     });
     this.location.replaceState(this.router.serializeUrl(urlTree));
+  }
+
+  protected toggleAlbumWorkflow(): void {
+    this.albumWorkflow = !this.albumWorkflow;
+    this.replaceQueryParameter(StoredValue.ALBUM_WORKFLOW, this.albumWorkflow ? "1" : null);
   }
 
   deriveInsertableData() {

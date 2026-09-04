@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
 import { MapProvider } from "../../models/map.model";
+import { HEADING_RING_CLASS } from "../../models/route-follow.model";
 import { WalkStatus } from "../../models/ramblers-walks-manager";
 
 @Injectable({ providedIn: "root" })
@@ -12,17 +13,39 @@ export class MapMarkerStyleService {
     return new L.Icon.Default();
   }
 
-  numberedMarkerIcon(label: string, provider: MapProvider, style: string): L.DivIcon {
-    const color = provider === MapProvider.OS ? "#453C90" : "#c21d4b";
+  numberedMarkerColour(provider: MapProvider | string | undefined): string {
+    return provider === MapProvider.OS ? "#453C90" : "#c21d4b";
+  }
+
+  numberedMarkerIcon(label: string, provider: MapProvider, style: string, travelBearing: number | null = null): L.DivIcon {
+    const color = this.numberedMarkerColour(provider);
     const text = (label || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const fontSize = text.length > 2 ? 9 : 12;
-    const html = `
+    const heading = travelBearing === null ? "" : this.headingRingHtml(color, travelBearing);
+    const html = `${heading}
       <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="display:block;color:${color}">
         <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="currentColor" stroke="#ffffff" stroke-width="2"/>
         <circle cx="14" cy="14" r="8" fill="#ffffff"/>
         <text x="14" y="14" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}" font-weight="700" fill="currentColor">${text}</text>
       </svg>`;
-    return L.divIcon({ className: "ngx-numbered-pin", html, iconSize: [28, 36] as any, iconAnchor: [14, 36] as any, popupAnchor: [0, -28] as any });
+    return L.divIcon({ className: "ngx-numbered-pin", html, iconSize: [28, 36] as any, iconAnchor: [14, 36] as any, popupAnchor: [0, travelBearing === null ? -28 : -58] as any });
+  }
+
+  headingRingIcon(provider: MapProvider | string | undefined, travelBearing: number): L.DivIcon {
+    return L.divIcon({className: HEADING_RING_CLASS, html: this.headingRingHtml(this.numberedMarkerColour(provider), travelBearing), iconSize: [56, 56], iconAnchor: [28, 28]});
+  }
+
+  private headingRingHtml(color: string, travelBearing: number): string {
+    return `
+      <div class="ngx-pin-heading">
+        <div class="ngx-pin-heading-inner" style="--pin-bearing:${travelBearing}deg">
+          <svg width="56" height="56" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" style="display:block;color:${color}">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#ffffff" stroke-width="6"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="currentColor" stroke-width="3"/>
+            <polygon points="28,0 18,13 38,13" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>`;
   }
 
   followLocationIcon(heading: number): L.DivIcon {
@@ -33,7 +56,7 @@ export class MapMarkerStyleService {
       </svg>
     </div>`;
     return L.divIcon({
-      className: "follow-leaflet-icon",
+      className: "follow-leaflet-icon follow-pointer-icon",
       html,
       iconSize: [18, 20],
       iconAnchor: [9, 11]

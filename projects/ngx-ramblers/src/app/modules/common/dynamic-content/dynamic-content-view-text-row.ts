@@ -15,6 +15,7 @@ import { EventsRow } from "../events/events-row";
 import { ActionButtons } from "../action-buttons/action-buttons";
 import { AreaMap } from "../../../pages/area-map/area-map";
 import { DynamicContentViewMap } from "./dynamic-content-view-map";
+import { DynamicContentViewRoute } from "./dynamic-content-view-route";
 import { DynamicContentViewIndex } from "./dynamic-content-view-index";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { firstLinkHref, firstLinkText } from "../../../functions/strings";
@@ -74,6 +75,9 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                 }
                 @if (actions.isMap(nestedRow)) {
                   <app-dynamic-content-view-map [row]="nestedRow" [pageContent]="pageContent"/>
+                }
+                @if (actions.isRoute(nestedRow)) {
+                  <app-dynamic-content-view-route [row]="nestedRow" [pageContent]="pageContent"/>
                 }
                 @if (actions.isSharedFragment(nestedRow) && nestedRow?.fragment?.pageContentId) {
                   @for (fragmentRow of fragmentRowsFor(nestedRow); track fragmentRow; let fragmentRowIndex = $index) {
@@ -170,7 +174,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [ContentTextEditor, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, YoutubeEmbed]
+    imports: [ContentTextEditor, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, YoutubeEmbed]
 })
 export class DynamicContentViewTextRow implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRow", NgxLoggerLevel.ERROR);
