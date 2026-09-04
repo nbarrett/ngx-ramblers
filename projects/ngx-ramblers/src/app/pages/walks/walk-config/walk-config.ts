@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
 import { faArrowDown, faArrowUp, faGear, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -166,11 +166,10 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                       <label class="form-check-label" for="require-risk-assessment">Require risk assessment to be completed before approving walks</label>
                     </div>
                     <p class="mb-3">The wording below is the group's risk assessment. Walk leaders review it when they create a walk and tick each section. Their acknowledgement is stored on that walk.</p>
-                    <app-content-text-editor standalone
+                    <app-content-text-editor standalone presentationMode
                                            [category]="RISK_ASSESSMENT_CONTENT_CATEGORY"
                                            [name]="RISK_ASSESSMENT_HEADING_NAME"
-                                           [description]="'Risk assessment heading'"
-                                           [initialView]="View.EDIT"/>
+                                           [description]="'Risk assessment heading'"/>
                     <div class="badge-button mb-1" (click)="addRiskAssessmentSection()">
                       <fa-icon [icon]="faPlus"></fa-icon>
                       Add section
@@ -216,7 +215,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                                [(ngModel)]="section.title"
                                placeholder="Section title">
                       </div>
-                      <app-content-text-editor standalone
+                      <app-content-text-editor #riskAssessmentEditor standalone
                                              [category]="RISK_ASSESSMENT_CONTENT_CATEGORY"
                                              [name]="riskAssessmentContentName(section.key)"
                                              [description]="section.title"
@@ -707,6 +706,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   protected readonly riskAssessmentContentName = riskAssessmentContentName;
   private tab: WalkConfigTab = WalkConfigTab.GENERAL;
   private subscriptions: Subscription[] = [];
+  @ViewChildren("riskAssessmentEditor") riskAssessmentEditors: QueryList<ContentTextEditor>;
 
   protected readonly areaGroupQueryParams = {[StoredValue.TAB]: "area-group"};
   protected readonly View = View;
@@ -1037,7 +1037,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     const sections = this.walksConfig.riskAssessmentSections || [];
     const title = "New section";
     const key = this.uniqueSectionKey(kebabCase(title) || "section", sections);
-    this.walksConfig.riskAssessmentSections = [...sections, {key, title}];
+    this.walksConfig.riskAssessmentSections = [{key, title}, ...sections];
   }
 
   removeRiskAssessmentSection(section: WalkRiskAssessmentSection) {
@@ -1133,7 +1133,8 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   }
 
   save(): Promise<void> {
-    return this.walksConfigService.saveConfig(this.walksConfig)
+    return this.saveRiskAssessmentContent()
+      .then(() => this.walksConfigService.saveConfig(this.walksConfig))
       .then(() => this.meetupService.saveConfig(this.notify, this.meetupConfig))
       .then(() => {
         this.notify.success({title: "Walk configuration", message: "Saved successfully"});
@@ -1151,13 +1152,27 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   }
 
   undoChanges(): void {
+    this.revertRiskAssessmentContent();
     void this.walksConfigService.refresh();
     void this.meetupService.queryConfig().then(config => this.meetupConfig = config);
   }
 
   cancel(): void {
+    this.revertRiskAssessmentContent();
     void this.walksConfigService.refresh();
     void this.meetupService.queryConfig().then(config => this.meetupConfig = config);
     void this.navigateToWalksAdmin();
+  }
+
+  private unsavedRiskAssessmentEditors(): ContentTextEditor[] {
+    return (this.riskAssessmentEditors?.toArray() || []).filter(editor => editor.dirty());
+  }
+
+  private saveRiskAssessmentContent(): Promise<ContentText[]> {
+    return Promise.all(this.unsavedRiskAssessmentEditors().map(editor => editor.save()));
+  }
+
+  private revertRiskAssessmentContent(): void {
+    this.unsavedRiskAssessmentEditors().forEach(editor => editor.revert());
   }
 }
