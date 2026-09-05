@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperclip, faPaperPlane, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperclip, faPaperPlane, faPenToSquare, faFileLines, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, uniqBy, values } from "es-toolkit/compat";
@@ -38,7 +38,9 @@ import {
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
 import { BrandingMode, MailSettingsTab } from "../../../models/mail.model";
-import { EmailComposerStepKey } from "../../../models/email-composer.model";
+import { EmailComposerStepKey, EmailCompositionStatus, EmailCompositionSummary } from "../../../models/email-composer.model";
+import { EmailCompositionsService } from "../../../services/email-composer/email-compositions.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { DeviceSize } from "../../../models/page.model";
 import { UrlService } from "../../../services/url.service";
@@ -104,6 +106,7 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
                 <option [ngValue]="alias.roleType">{{ aliasDisplayLabel(alias) }}</option>
               }
               <option [ngValue]="InboxThreadFolder.SENT">Sent</option>
+              <option [ngValue]="InboxThreadFolder.DRAFTS">Drafts</option>
               @if (canReadJunk) {
                 <option [ngValue]="InboxThreadFolder.JUNK">Junk mail</option>
               }
@@ -333,6 +336,16 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
                   <fa-icon [icon]="faPaperPlane" class="me-2"/><span class="inbox-nav-label">Sent</span>
                 </button>
               </div>
+              <div class="inbox-nav-row">
+                <span class="inbox-nav-twisty"></span>
+                <button class="inbox-nav-node" type="button" [class.active]="viewingDrafts"
+                        (click)="selectMailboxView(InboxThreadFolder.DRAFTS)">
+                  <fa-icon [icon]="faFileLines" class="me-2"/><span class="inbox-nav-label">Drafts</span>
+                  @if (drafts.length > 0) {
+                    <span class="inbox-nav-count">{{ drafts.length }}</span>
+                  }
+                </button>
+              </div>
               @if (canReadJunk) {
                 <div class="inbox-nav-row">
                   <span class="inbox-nav-twisty"></span>
@@ -447,7 +460,24 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
             </div>
           }
           <div class="inbox-thread-list" [class.inbox-list-compact]="compactList" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)">
-          @if (threadListTotalCount === 0) {
+          @if (viewingDrafts) {
+            @if (filteredDrafts.length === 0) {
+              <div class="p-3 text-muted">{{ conversationSearchTerm ? 'No drafts match "' + conversationSearchTerm + '".' : "No drafts yet. Anything you save in the email composer, and drafts other committee members have shared, will appear here." }}</div>
+            }
+            @for (draft of filteredDrafts; track draft.id) {
+              <div class="inbox-thread-row d-flex align-items-center gap-2" (click)="openDraft(draft)">
+                <fa-icon [icon]="faFileLines" class="flex-shrink-0 inbox-draft-icon"/>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="inbox-thread-from flex-grow-1 text-truncate">{{ draftOwnerLabel(draft) }}</div>
+                    <div class="inbox-thread-time flex-shrink-0">{{ draft.savedAt | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS }}</div>
+                  </div>
+                  <div class="inbox-thread-subject">{{ draft.title || "(untitled draft)" }}</div>
+                  <div class="inbox-thread-preview">{{ draft.shared ? "Shared with the committee" : "Only you can see this draft" }} · Click to continue in the email composer</div>
+                </div>
+              </div>
+            }
+          } @else if (threadListTotalCount === 0) {
             <div class="p-3 text-muted">No conversations yet. Once an alias is connected and synced, threads will appear here.</div>
           } @else if (filteredThreads.length === 0) {
             @if (conversationSearchTerm) {
@@ -543,7 +573,9 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
             </div>
           }
           <div class="inbox-detail" (scroll)="onMessageScroll($event)">
-          @if (!selectedThread) {
+          @if (viewingDrafts) {
+            <div class="text-muted">Drafts open in the email composer. Choose one on the left to carry on where you left off.</div>
+          } @else if (!selectedThread) {
             <div class="text-muted">Select a conversation to read it.</div>
           } @else if (loadingThread) {
             <div class="text-muted">Loading conversation...</div>
@@ -694,6 +726,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly faBars = faBars;
   protected readonly faBan = faBan;
   protected readonly faPaperPlane = faPaperPlane;
+  protected readonly faFileLines = faFileLines;
   protected readonly faPenToSquare = faPenToSquare;
   protected readonly faReply = faReply;
   protected readonly faRotateRight = faRotateRight;
@@ -863,6 +896,33 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedMailboxView === InboxThreadFolder.SENT;
   }
 
+  get viewingDrafts(): boolean {
+    return this.selectedMailboxView === InboxThreadFolder.DRAFTS;
+  }
+
+  get filteredDrafts(): EmailCompositionSummary[] {
+    const term = this.conversationSearchTerm.trim().toLowerCase();
+    return term ? this.drafts.filter(draft => (draft.title || "").toLowerCase().includes(term)) : this.drafts;
+  }
+
+  draftOwnerLabel(draft: EmailCompositionSummary): string {
+    const memberId = this.memberLoginService.loggedInMember()?.memberId;
+    return draft.ownerMemberId === memberId ? "Your draft" : "Shared draft";
+  }
+
+  openDraft(draft: EmailCompositionSummary): void {
+    void this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {queryParams: {[StoredValue.DRAFT_ID]: draft.id}});
+  }
+
+  private async loadDrafts(): Promise<void> {
+    try {
+      this.drafts = (await this.emailCompositionsService.listSummaries(EmailCompositionStatus.Draft)).sort((first, second) => second.savedAt - first.savedAt);
+    } catch (error) {
+      this.logger.warn("loadDrafts failed", error);
+      this.drafts = [];
+    }
+  }
+
   get inboxNodeActive(): boolean {
     return this.selectedMailboxView === InboxViewScope.ALL_ACCESSIBLE;
   }
@@ -921,6 +981,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedThreadIds = new Set<string>();
   public threadListUnreadCount = 0;
   public threadListTotalCount = 0;
+  public drafts: EmailCompositionSummary[] = [];
+  private emailCompositionsService = inject(EmailCompositionsService);
+  private memberLoginService = inject(MemberLoginService);
   public selectedThread: InboxThread | null = null;
   public selectedThreadId: string | null = null;
   public selectedMessages: InboxMessage[] = [];
@@ -1330,7 +1393,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.applyConversationSearchFromUrl();
         this.mailboxViewInitialised = true;
       }
-      if (this.viewingJunk && this.canReadJunk) {
+      void this.loadDrafts();
+      if (this.viewingDrafts) {
+        this.threads = [];
+        this.threadListUnreadCount = 0;
+        this.threadListTotalCount = 0;
+        this.selectedThread = null;
+        this.selectedThreadId = null;
+      } else if (this.viewingJunk && this.canReadJunk) {
         const junkResponse = await this.inboxService.listThreads(null, null, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.JUNK, null, this.conversationSearchTerm);
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = junkResponse.unreadCount;
@@ -1354,6 +1424,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
           && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)
           && this.selectedMailboxView !== InboxThreadFolder.SENT
+          && this.selectedMailboxView !== InboxThreadFolder.DRAFTS
           && this.selectedMailboxView !== InboxThreadFolder.JUNK
           && this.selectedMailboxView !== InboxThreadFolder.DELETED) {
           this.selectedMailboxView = InboxViewScope.ALL_ACCESSIBLE;
@@ -1525,7 +1596,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (values(InboxViewScope).includes(param as InboxViewScope)) {
       this.selectedMailboxView = param;
-    } else if (hiddenInboxFolders().concat(InboxThreadFolder.SENT).includes(param as InboxThreadFolder)) {
+    } else if (hiddenInboxFolders().concat(InboxThreadFolder.SENT, InboxThreadFolder.DRAFTS).includes(param as InboxThreadFolder)) {
       this.selectedMailboxView = param;
     } else {
       const alias = this.aliases.find(candidate => candidate.roleEmail.split("@")[0] === param);
