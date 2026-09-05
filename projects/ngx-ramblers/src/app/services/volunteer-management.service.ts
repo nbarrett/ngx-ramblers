@@ -1,7 +1,9 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { map, Observable } from "rxjs";
-import { VolunteerAssignment, VolunteerAssignmentBulkRequest, VolunteerAssignmentBulkResponse, VolunteerAssignmentRequest, VolunteerDeleteGroupResponse, VolunteerManagementApiResponse, VolunteerManagementSnapshot, VolunteerMapCoverage, VolunteerMyInformation, VolunteerParish } from "../models/volunteer-management.model";
+import { VolunteerAssignment, VolunteerAssignmentBulkRequest, VolunteerAssignmentBulkResponse, VolunteerAssignmentRequest, VolunteerDeleteGroupResponse, VolunteerManagementApiResponse, VolunteerManagementSnapshot, VolunteerMapCoverage, VolunteerMyInformation, VolunteerParish,
+  VolunteerAccessScope
+} from "../models/volunteer-management.model";
 import {
   VolunteerExportAudit,
   VolunteerExportAuditRequest,
@@ -28,6 +30,11 @@ export class VolunteerManagementService {
     const params = new HttpParams().set("groupCode", groupCode);
     return this.http.get<VolunteerManagementApiResponse>(`${this.baseUrl}/coverage`, {params})
       .pipe(map(apiResponse => apiResponse.response as VolunteerMapCoverage));
+  }
+
+  access(): Observable<VolunteerAccessScope> {
+    return this.http.get<VolunteerManagementApiResponse>(`${this.baseUrl}/access`)
+      .pipe(map(response => response.response as VolunteerAccessScope));
   }
 
   myInformation(groupCode: string): Observable<VolunteerMyInformation> {

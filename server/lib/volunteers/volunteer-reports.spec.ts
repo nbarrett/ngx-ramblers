@@ -146,6 +146,24 @@ describe("volunteer reports", () => {
     expect(volunteerReport(VolunteerReportType.COVER_TYPE, input).groupByKey).toEqual(undefined);
   });
 
+  it("lists one row per officer for each eligible parish, LFO then PFO then second PFO, in parish order", () => {
+    const withSecondPfo = [...assignments, assignment({id: "six", parishCode: "B", supporterId: "supporter-1", roleType: VolunteerRoleType.PARISH_FOOTPATH_OBSERVER, effectiveFrom: 2})];
+    const report = volunteerReport(VolunteerReportType.PARISH_LIST, {...input, assignments: withSecondPfo});
+    expect(report.columns.map(column => column.key)).toEqual(["parishCode", "parishName", "role", "volunteer", "email"]);
+    expect(report.rows.map(row => [row.parishName, row.role, row.volunteer, row.email])).toEqual([
+      ["Alpha", "LFO", "Ada Lovelace", "ada@example.org"],
+      ["Alpha", "PFO", "Ada Lovelace", "ada@example.org"],
+      ["Beta", "LFO", "Alan Turing", ""],
+      ["Beta", "PFO", "Jo Bloggs", ""],
+      ["Beta", "Second PFO", "Ada Lovelace", "ada@example.org"]
+    ]);
+  });
+
+  it("scopes the parish list to a rights-of-way group", () => {
+    const report = volunteerReport(VolunteerReportType.PARISH_LIST, {...input, rightsOfWayGroupCode: "G2"});
+    expect(report.rows.map(row => row.parishName)).toEqual(["Beta", "Beta"]);
+  });
+
   it("includes coordinators among the current role holders", () => {
     const withCoordinator = [...assignments, assignment({id: "coordinator", supporterId: "supporter-2", roleType: VolunteerRoleType.GROUP_COORDINATOR})];
     const report = volunteerReport(VolunteerReportType.ACTIVE_ROLE_HOLDERS, {...input, assignments: withCoordinator});
