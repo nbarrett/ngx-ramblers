@@ -209,6 +209,11 @@ export class DateUtilsService {
     return this.isoDateTime();
   }
 
+  startOfTodayAt(time24: string): number {
+    const [hour, minute] = (time24 || "").split(":").map(part => Number(part));
+    return this.asDateTime(this.dateTimeNowAsValue()).startOf("day").set({hour: Number.isFinite(hour) ? hour : 0, minute: Number.isFinite(minute) ? minute : 0}).toMillis();
+  }
+
   isoDateTimeStartOfDay(): string {
     return this.isoDateTime(this.dateTimeNowNoTime());
   }

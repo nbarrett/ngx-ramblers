@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -12,7 +12,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { WalkDisplayService } from "../walk-display.service";
 import { PageComponent } from "../../../page/page.component";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
-import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { StoredValue } from "../../../models/ui-actions";
 
@@ -31,6 +31,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private display = inject(WalkDisplayService);
   private eventDefaultsService = inject(EventDefaultsService);
+  private router = inject(Router);
   public displayedWalk: DisplayedWalk;
   public notifyTarget: AlertTarget = {};
   pageTitle: string;
@@ -43,25 +44,23 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
       if (paramMap.get(RouteParam.WALK_ID) === "add") {
         const pendingWalk = this.display.pendingNewWalkEvent;
         this.display.pendingNewWalkEvent = null;
-        const walk = pendingWalk || this.eventDefaultsService.createDefault({
-          fields: {
-            inputSource: InputSource.MANUALLY_CREATED
-          },
-          groupEvent: {
-            start_date_time: this.dateUtils.isoDateTimeStartOfDay()
+        if (!pendingWalk && !this.display.memberCanCreateWalk() && !this.display.allowAdminEdits()) {
+          this.logger.warn("direct create-walk link used without permission; returning to walks");
+          void this.router.navigate(["/" + this.display.walksArea()]);
+        } else {
+          const walk = pendingWalk || this.display.newMemberLedWalk();
+          if (!walk.groupEvent.start_date_time) {
+            walk.groupEvent.start_date_time = this.dateUtils.isoDateTimeStartOfDay();
           }
-        });
-        if (!walk.groupEvent.start_date_time) {
-          walk.groupEvent.start_date_time = this.dateUtils.isoDateTimeStartOfDay();
+          this.displayedWalk = {
+            hasFeatures: false,
+            walkAccessMode: WalksReferenceService.walkAccessModes.add,
+            walk,
+            status: EventType.AWAITING_LEADER,
+            showEndpoint: false
+          };
+          this.setPageTitle();
         }
-        this.displayedWalk = {
-          hasFeatures: false,
-          walkAccessMode: WalksReferenceService.walkAccessModes.add,
-          walk,
-          status: EventType.AWAITING_LEADER,
-          showEndpoint: false
-        };
-        this.setPageTitle();
       } else {
         const walkId = paramMap.get(RouteParam.WALK_ID);
         this.logger.debug("querying walk-id", walkId);

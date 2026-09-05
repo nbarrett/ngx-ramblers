@@ -75,6 +75,7 @@ export interface WalksConfig {
   relatedLinkShowCalendar?: boolean;
   regularWalkDay?: number;
   walkCreationAccessLevel?: AccessLevel;
+  defaultWalkStartTime?: string;
   walkPhotoContributionAccessLevel?: AccessLevel;
   hideAwaitingLeaderFromPublic?: boolean;
   hideNonApprovedWalksFromPublic?: boolean;
@@ -92,6 +93,8 @@ export interface WalksConfig {
   programmeOverviewDefaultWeeks?: number;
   calendarDefaultColourBy?: CalendarColourBy;
 }
+
+export const DEFAULT_WALK_START_TIME = "10:30";
 
 export enum CalendarColourBy {
   STATUS = "status",

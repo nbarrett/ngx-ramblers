@@ -12,8 +12,25 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { GRID_REFERENCE_DIGIT_OPTIONS, WalksConfig, WalkConfigTab, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkViewPreviewGhost, CalendarColourBy, NO_REGULAR_WALK_DAY, RISK_ASSESSMENT_CONTENT_CATEGORY, RISK_ASSESSMENT_HEADING_NAME, riskAssessmentContentName, WalkRiskAssessmentSection } from "../../../models/walks-config.model";
+import {
+  CalendarColourBy,
+  DEFAULT_WALK_START_TIME,
+  GRID_REFERENCE_DIGIT_OPTIONS,
+  NO_REGULAR_WALK_DAY,
+  RISK_ASSESSMENT_CONTENT_CATEGORY,
+  RISK_ASSESSMENT_HEADING_NAME,
+  WalkAlbumPanelStyle,
+  WalkConfigTab,
+  WalkDetailsImageStyle,
+  WalkDetailsMapProvider,
+  WalkRiskAssessmentSection,
+  WalkViewPreviewGhost,
+  WalksConfig,
+  riskAssessmentContentName
+} from "../../../models/walks-config.model";
 import { AccessLevel } from "../../../models/member-resource.model";
+import { TimePicker } from "../../../date-and-time/time-picker";
+import { UIDateFormat } from "../../../models/date-format.model";
 import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ContentTextService } from "../../../services/content-text.service";
@@ -85,6 +102,12 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                             <option [ngValue]="day.value">{{ day.label }}</option>
                           }
                         </select>
+                      </div>
+                      <div class="form-group mb-3">
+                        <div app-time-picker id="default-walk-start-time" label="Default start time for new walks"
+                             [value]="defaultWalkStartTimeAsIso()"
+                             (timeChange)="defaultWalkStartTimeChanged($event)"></div>
+                        <small class="form-text text-muted">Used when a leader creates a walk; they can change it on the walk.</small>
                       </div>
                       <div class="form-group mb-3">
                         <label for="walk-creation-access-level">Walk leader self-service - who can create their own walk</label>
@@ -676,7 +699,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       margin-top: 0
   `],
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent, TooltipDirective]
+  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent, TooltipDirective, TimePicker]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
@@ -739,6 +762,14 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
     [AccessLevel.PUBLIC]: "Public"
   };
+  defaultWalkStartTimeAsIso(): string {
+    return this.dateUtils.isoDateTime(this.dateUtils.startOfTodayAt(this.walksConfig?.defaultWalkStartTime || DEFAULT_WALK_START_TIME));
+  }
+
+  defaultWalkStartTimeChanged(isoDateTime: string): void {
+    this.walksConfig.defaultWalkStartTime = this.dateUtils.asDateTime(isoDateTime).toFormat(UIDateFormat.RAMBLERS_TIME);
+  }
+
   faGear = faGear;
   faPlus = faPlus;
   faTrash = faTrash;
@@ -781,6 +812,9 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
       this.walksConfig = config;
       if (!this.walksConfig.walkCreationAccessLevel) {
         this.walksConfig.walkCreationAccessLevel = AccessLevel.HIDDEN;
+      }
+      if (!this.walksConfig.defaultWalkStartTime) {
+        this.walksConfig.defaultWalkStartTime = DEFAULT_WALK_START_TIME;
       }
       if (!this.walksConfig.walkPhotoContributionAccessLevel) {
         this.walksConfig.walkPhotoContributionAccessLevel = AccessLevel.LOGGED_IN_MEMBER;

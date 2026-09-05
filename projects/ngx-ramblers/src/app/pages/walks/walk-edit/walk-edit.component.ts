@@ -805,14 +805,35 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private backfillContactDetailsFromWalkLeader() {
     const walk = this.displayedWalk?.walk;
     const walkLeaderId = walk?.groupEvent?.walk_leader?.id;
-    if (!walkLeaderId || walk?.fields?.contactDetails?.memberId || this.displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
+    const linkedMemberId = walk?.fields?.contactDetails?.memberId;
+    if (this.displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
       return;
+    } else if (linkedMemberId) {
+      this.completeContactDetailsFromMember(linkedMemberId);
+    } else if (walkLeaderId) {
+      const member = this.display.members.find(member => member.id === walkLeaderId);
+      if (member) {
+        this.logger.info("backfillContactDetailsFromWalkLeader:repairing contactDetails from walk_leader id:", walkLeaderId, "member:", member.displayName);
+        walk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+        if (walk.fields.publishing?.ramblers && !walk.fields.publishing.ramblers.contactName) {
+          walk.fields.publishing.ramblers.contactName = member.contactId ?? null;
+        }
+      }
     }
-    const member = this.display.members.find(member => member.id === walkLeaderId);
-    if (member) {
-      this.logger.info("backfillContactDetailsFromWalkLeader:repairing contactDetails from walk_leader id:", walkLeaderId, "member:", member.displayName);
-      walk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
-      if (walk.fields.publishing?.ramblers && !walk.fields.publishing.ramblers.contactName) {
+  }
+
+  private completeContactDetailsFromMember(memberId: string) {
+    const walk = this.displayedWalk.walk;
+    const contactDetails = walk.fields.contactDetails;
+    const member = this.display.members.find(candidate => candidate.id === memberId);
+    const contactNameMissing = walk.fields.publishing?.ramblers && !walk.fields.publishing.ramblers.contactName;
+    if (member && (contactNameMissing || !contactDetails.email || !contactDetails.phone || !contactDetails.contactId)) {
+      this.logger.info("backfillContactDetailsFromWalkLeader:completing contact details for linked member:", member.displayName);
+      contactDetails.contactId = contactDetails.contactId || member.contactId || null;
+      contactDetails.displayName = contactDetails.displayName || member.displayName;
+      contactDetails.email = contactDetails.email || member.email || null;
+      contactDetails.phone = contactDetails.phone || member.mobileNumber || null;
+      if (contactNameMissing) {
         walk.fields.publishing.ramblers.contactName = member.contactId ?? null;
       }
     }
