@@ -84,6 +84,7 @@ export enum InboxNotifySource {
 export enum InboxThreadFolder {
   INBOX = "inbox",
   SENT = "sent",
+  DRAFTS = "drafts",
   JUNK = "junk",
   DELETED = "deleted"
 }
