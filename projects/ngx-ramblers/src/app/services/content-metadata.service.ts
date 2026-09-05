@@ -17,7 +17,8 @@ import {
   S3_BASE_URL,
   S3_METADATA_URL,
   S3Metadata,
-  S3MetadataApiResponse
+  S3MetadataApiResponse,
+  publishedFiles
 } from "../models/content-metadata.model";
 import { SearchFilterPipe } from "../pipes/search-filter.pipe";
 import { sortBy } from "../functions/arrays";
@@ -173,14 +174,18 @@ export class ContentMetadataService {
     return this.albumCataloguePromise;
   }
 
-  async items(rootFolder: RootFolder, name: string): Promise<ContentMetadata> {
+  async items(rootFolder: RootFolder, name: string, includeDrafts = false): Promise<ContentMetadata> {
     const options: DataQueryOptions = {criteria: {$or: [{name}, {contentMetaDataType: name}]}};
     const params = this.commonDataService.toHttpParams(options);
     this.logger.debug("items:criteria:params", params.toString());
     const apiResponse: ContentMetadataApiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponse>(this.BASE_URL, {params}), this.contentMetadataSubject);
     const response = this.optionallyMigrate(apiResponse.response, rootFolder || RootFolder.carousels, name);
     this.logger.info("items:transformed apiResponse", response);
-    return response;
+    return includeDrafts ? response : this.withoutDrafts(response);
+  }
+
+  withoutDrafts(contentMetadata: ContentMetadata): ContentMetadata {
+    return contentMetadata ? {...contentMetadata, files: publishedFiles(contentMetadata.files)} : contentMetadata;
   }
 
   async listMetaData(prefix: string): Promise<S3Metadata[]> {

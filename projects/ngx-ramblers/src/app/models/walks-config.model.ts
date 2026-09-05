@@ -75,6 +75,7 @@ export interface WalksConfig {
   relatedLinkShowCalendar?: boolean;
   regularWalkDay?: number;
   walkCreationAccessLevel?: AccessLevel;
+  walkPhotoContributionAccessLevel?: AccessLevel;
   hideAwaitingLeaderFromPublic?: boolean;
   hideNonApprovedWalksFromPublic?: boolean;
   walkDetailsShowPostcode?: boolean;

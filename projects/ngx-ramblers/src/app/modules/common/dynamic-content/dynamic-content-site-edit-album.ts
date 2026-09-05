@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { isEqual, kebabCase } from "es-toolkit/compat";
-import { faChevronDown, faChevronUp, faImages, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -24,7 +24,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { GroupEventSummary, GroupEventType } from "../../../models/committee.model";
 import { enumKeyValues, enumValueForKey, KeyValue } from "../../../functions/enums";
-import { ContentMetadata, LazyLoadingMetadata } from "../../../models/content-metadata.model";
+import { AlbumEditRole, LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -47,9 +47,7 @@ import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/foc
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
 import { RangeSliderComponent } from "../../../components/range-slider";
 import { ZoomSliderComponent } from "../zoom-slider/zoom-slider";
-import { PageContentService } from "../../../services/page-content.service";
-import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { WalkAlbumWorkflow } from "./walk-album-workflow";
 
 function scaleOptions(...entries: [number, string][]): { value: number; label: string }[] {
   return entries.map(([value, name]) => ({value, label: `${name} (${value}x)`}));
@@ -59,40 +57,7 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
     selector: "app-dynamic-content-site-edit-album",
     template: `
       @if (albumWorkflow) {
-        <div class="walk-album-workflow">
-          <div class="alert alert-warning walk-album-workflow-intro mb-3">
-            <fa-icon [icon]="faImages" class="flex-shrink-0 mt-1"/>
-            <div class="ms-2 min-w-0">
-              <strong class="d-block">Walk photo album</strong>
-              <span class="d-none d-md-inline">Check the walk report, then add photos. Save when you finish and you will return to the walk.</span>
-              <span class="d-md-none">Review the report, add photos, then save to return to the walk.</span>
-            </div>
-          </div>
-          <section class="walk-album-workflow-report mb-3">
-            <button type="button"
-                    class="walk-album-workflow-report-toggle"
-                    [attr.aria-expanded]="workflowReportExpanded"
-                    (click)="toggleWorkflowReport()">
-              <span class="min-w-0">
-                <span class="d-block fw-semibold">Walk report</span>
-                <span class="small text-muted">{{ workflowReportToggleHint() }}</span>
-              </span>
-              <fa-icon [icon]="workflowReportExpanded ? faChevronUp : faChevronDown"/>
-            </button>
-            @if (workflowReportExpanded) {
-              <div class="walk-album-workflow-report-body">
-                <app-content-text-editor [data]="{text: row.carousel.preAlbumText, name: 'walk report'}"
-                                     (changed)="onWorkflowPreAlbumTextChanged($event)"/>
-              </div>
-            }
-          </section>
-          <section class="walk-album-workflow-photos">
-            <h5 class="walk-album-workflow-photos-title">Photos</h5>
-            <app-image-list-edit [name]="row?.carousel?.name"
-                                 [workflowMode]="true"
-                                 (exit)="onWorkflowImageExit($event)"/>
-          </section>
-        </div>
+        <app-walk-album-workflow [row]="row" [pageContent]="pageContent" [role]="AlbumEditRole.CURATOR"/>
       } @else if (!actions.editActive(rowIndex)) {
         @if (actions.isAlbum(row)) {
           <tabset class="custom-tabset">
@@ -613,58 +578,9 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
       font-size: 0.85rem
       color: #6c757d
 
-    .walk-album-workflow
-      padding-bottom: 0
-
-    .walk-album-workflow-intro
-      display: flex
-      align-items: flex-start
-      margin-bottom: 0.75rem
-      padding: 0.75rem 0.85rem
-
-    .walk-album-workflow-report
-      border: 1px solid #dee2e6
-      border-radius: 12px
-      background: #fff
-      overflow: hidden
-
-    .walk-album-workflow-report-toggle
-      width: 100%
-      min-height: 52px
-      display: flex
-      align-items: center
-      justify-content: space-between
-      gap: 0.75rem
-      border: 0
-      background: #f8f9fa
-      color: var(--ramblers-colour-granite, #404143)
-      text-align: left
-      padding: 0.75rem 0.9rem
-      touch-action: manipulation
-      -webkit-tap-highlight-color: transparent
-
-    .walk-album-workflow-report-toggle .fw-semibold
-      color: var(--ramblers-colour-granite, #404143)
-
-    .walk-album-workflow-report-toggle fa-icon
-      color: var(--ramblers-colour-granite, #404143)
-
-    .walk-album-workflow-report-body
-      padding: 0.75rem 0.85rem 0.9rem
-      border-top: 1px solid #dee2e6
-
-    .walk-album-workflow-photos-title
-      font-size: 1.05rem
-      font-weight: 700
-      margin: 0 0 0.65rem
-
-    @media (min-width: 768px)
-      .walk-album-workflow
-        padding-bottom: 0
-
     ${rangeSliderStyles}
   `],
-  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule, ZoomSliderComponent]
+  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule, ZoomSliderComponent, WalkAlbumWorkflow]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
@@ -675,12 +591,8 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   actions = inject(PageContentActionsService);
   urlService = inject(UrlService);
-  private pageContentService = inject(PageContentService);
-  private createWalkAlbumService = inject(CreateWalkAlbumService);
-  private siteEditService = inject(SiteEditService);
   public row: PageContentRow;
   public albumWorkflow = false;
-  public workflowReportExpanded = true;
 
   @Input("row") set rowValue(row: PageContentRow) {
     this.logger.info("row changed:", row);
@@ -699,9 +611,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   faRemove = faRemove;
   groupEventType: GroupEventType;
   protected readonly faPencil = faPencil;
-  protected readonly faImages = faImages;
-  protected readonly faChevronUp = faChevronUp;
-  protected readonly faChevronDown = faChevronDown;
+  protected readonly AlbumEditRole = AlbumEditRole;
 
   protected readonly AlbumEditTab = AlbumEditTab;
   protected readonly enumValueForKey = enumValueForKey;
@@ -727,11 +637,6 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     this.albumWorkflow = urlParams.get(StoredValue.ALBUM_WORKFLOW) === "1";
     this.tab = (tabParameter || defaultValue) as AlbumEditTab;
     this.logger.info("initialised with tab:", this.tab, "from URL param:", tabParameter, "albumWorkflow:", this.albumWorkflow);
-    if (this.albumWorkflow && this.row?.carousel) {
-      this.row.carousel.showPreAlbumText = true;
-      this.workflowReportExpanded = true;
-    }
-
     if (!this.row?.carousel?.galleryViewOptions) {
       this.row.carousel.galleryViewOptions = DEFAULT_GALLERY_OPTIONS;
     }
@@ -812,57 +717,6 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   introductoryTextChanged(event: ContentText) {
     this.row.carousel.introductoryText = event.text;
     this.row.carousel.introductoryTextStyles = event.styles;
-  }
-
-  toggleWorkflowReport(): void {
-    this.workflowReportExpanded = !this.workflowReportExpanded;
-  }
-
-  workflowReportToggleHint(): string {
-    if (this.workflowReportExpanded) {
-      return "Tap to hide while you add photos";
-    }
-    const text = this.row?.carousel?.preAlbumText || "";
-    if (!text.trim()) {
-      return "No report yet - tap to write one";
-    }
-    return "Tap to review or edit the walk report";
-  }
-
-  onWorkflowPreAlbumTextChanged(event: ContentText) {
-    if (!this.row?.carousel) {
-      return;
-    }
-    this.row.carousel.preAlbumText = event?.text || "";
-    this.row.carousel.showPreAlbumText = true;
-    this.saveWorkflowPageContent();
-  }
-
-  async onWorkflowImageExit(saved?: ContentMetadata | null): Promise<void> {
-    const albumName = this.row?.carousel?.name;
-    if (saved) {
-      await this.saveWorkflowPageContent();
-      this.createWalkAlbumService.clearPendingAlbum(saved.name || albumName);
-    }
-    const returnedToWalk = await this.createWalkAlbumService.navigateBackToWalkIfNeeded(albumName);
-    if (!returnedToWalk) {
-      if (this.siteEditService.active()) {
-        this.siteEditService.toggle(false);
-      }
-      this.location.back();
-    }
-  }
-
-  private async saveWorkflowPageContent(): Promise<void> {
-    if (!this.pageContent?.path) {
-      return;
-    }
-    try {
-      await this.pageContentService.createOrUpdate(this.pageContent);
-      this.logger.info("saved walk report page content for", this.pageContent.path);
-    } catch (error) {
-      this.logger.warn("failed to save walk report page content", error);
-    }
   }
 
   lazyLoadingMetadataUpdated(metadata: LazyLoadingMetadata) {

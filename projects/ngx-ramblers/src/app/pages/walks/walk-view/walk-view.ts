@@ -54,6 +54,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { AlbumEditRole } from "../../../models/content-metadata.model";
+import { socialPublishingEnabled } from "../../../functions/social-publishing";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
@@ -276,10 +278,10 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                     [tooltip]="albumActionTooltip()"
                     class="btn btn-quiet btn-sm walk-view-action">
               <fa-icon [icon]="faImages"/>
-              <span>{{ creatingAlbum ? "Creating…" : (walkAlbumPath ? "Edit album" : "Create album") }}</span>
+              <span>{{ albumActionCaption() }}</span>
             </button>
           }
-          @if (canShareWalk() || showPublishToRamblers || showSocialPublishing()) {
+          @if (canShareWalk() || showPublishToRamblers || showSocialPublishing() || showAlbumShare()) {
             <div class="btn-group walk-view-split" dropdown container="body">
               @if (showPublishToRamblers && publishBlockedUntilApproved()) {
                 <button type="button" disabled
@@ -344,9 +346,18 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                 @if (showSocialPublishing()) {
                   <li>
                     <a class="dropdown-item" role="button" (click)="openSocialPublish()"
-                       tooltip="Preview and post this walk to Facebook or Instagram"
+                       tooltip="Let people know this walk is coming up by posting it to Facebook or Instagram"
                        placement="left" container="body">
-                      <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
+                      <fa-icon [icon]="faShareNodes" class="me-2"/>Promote walk on social media
+                    </a>
+                  </li>
+                }
+                @if (showAlbumShare()) {
+                  <li>
+                    <a class="dropdown-item" role="button" (click)="openAlbumShare()"
+                       tooltip="Post photos from this walk's album to Facebook or Instagram"
+                       placement="left" container="body">
+                      <fa-icon [icon]="faShareNodes" class="me-2"/>Share photos on social media
                     </a>
                   </li>
                 }
@@ -485,6 +496,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected walkAlbumPath: string | null = null;
   protected walkAlbumName: string | null = null;
   protected walkAlbumCoverUrl: string | null = null;
+  protected walkAlbumDraftCount = 0;
+  protected albumRole: AlbumEditRole | null = null;
   private mapTiles = inject(MapTilesService);
   private uiActions = inject(UiActionsService);
   private route = inject(ActivatedRoute);
@@ -587,7 +600,19 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   showSocialPublishing(): boolean {
     const externalSystems = this.systemConfigService.systemConfig()?.externalSystems;
     return !!this.allowWalkAdminEdits
+      && !this.eventHasStarted()
       && (!!externalSystems?.facebook?.eventPublishingEnabled || !!externalSystems?.instagram?.eventPublishingEnabled);
+  }
+
+  showAlbumShare(): boolean {
+    return this.albumRole === AlbumEditRole.CURATOR
+      && !!this.walkAlbumPath
+      && !!this.walkAlbumCoverUrl
+      && socialPublishingEnabled(this.systemConfigService.systemConfig());
+  }
+
+  openAlbumShare(): void {
+    void this.urlService.navigateUnconditionallyTo(this.walkAlbumPath.split("/").filter(Boolean), {[StoredValue.ALBUM_SHARE]: "1"}, "");
   }
 
   openSocialPublish(): void {
@@ -611,9 +636,25 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   showAlbumAction(): boolean {
-    return this.allowWalkAdminEdits
-      && this.memberLoginService.allowContentEdits()
-      && this.eventHasStarted();
+    return !!this.albumRole && this.eventHasStarted() && (this.memberLoginService.memberLoggedIn() || !!this.walkAlbumPath);
+  }
+
+  albumCurator(): boolean {
+    return this.albumRole === AlbumEditRole.CURATOR;
+  }
+
+  albumActionCaption(): string {
+    if (this.creatingAlbum) {
+      return "Creating…";
+    } else if (!this.albumCurator()) {
+      return "Add photos";
+    } else if (!this.walkAlbumPath) {
+      return "Create album";
+    } else if (this.walkAlbumDraftCount > 0) {
+      return `Review ${this.stringUtils.pluraliseWithCount(this.walkAlbumDraftCount, "new photo")}`;
+    } else {
+      return "Edit album";
+    }
   }
 
   eventHasStarted(walk: ExtendedGroupEvent = this.displayedWalk?.walk): boolean {
@@ -622,69 +663,76 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   albumActionTooltip(): string {
-    if (this.walkAlbumPath) {
+    if (!this.albumCurator()) {
+      return "Add your photos from this walk. They will appear once the walk leader or an administrator approves them";
+    } else if (this.walkAlbumDraftCount > 0) {
+      return "Members have added photos that are waiting for your approval";
+    } else if (this.walkAlbumPath) {
       return "Open the walk report and photo upload for this album";
+    } else {
+      return "Create a photo album for this walk, then edit the walk report and upload photos";
     }
-    return "Create a photo album for this walk, then edit the walk report and upload photos";
   }
 
   async createPhotoAlbum() {
-    if (!this.showAlbumAction() || !this.eventHasStarted()) {
-      return;
-    }
-    if (this.walkAlbumPath) {
-      await this.openAlbumPageInSiteEdit(this.walkAlbumPath);
-      return;
-    }
-    this.creatingAlbum = true;
-    this.notify.progress({title: "Photo album", message: "Creating the album page and writing the walk report"});
-    try {
-      const albumPath = await this.createWalkAlbumService.createFromWalk(this.displayedWalk.walk);
-      this.walkAlbumPath = albumPath;
-      this.resolveWalkAlbumPath(this.displayedWalk.walk);
-      await this.openAlbumPageInSiteEdit(albumPath, true);
-      this.creatingAlbum = false;
-    } catch (error) {
-      this.notify.error({title: "Could not create the photo album", message: error});
-      this.creatingAlbum = false;
+    if (!this.showAlbumAction()) {
+      this.logger.info("createPhotoAlbum: not available for this member or walk");
+    } else if (this.walkAlbumPath) {
+      await this.openAlbumWorkflow(this.walkAlbumPath);
+    } else {
+      this.creatingAlbum = true;
+      this.notify.progress({title: "Photo album", message: "Creating the album page and writing the walk report"});
+      try {
+        const albumPath = await this.createWalkAlbumService.createFromWalk(this.displayedWalk.walk);
+        this.walkAlbumPath = albumPath;
+        this.resolveWalkAlbumPath(this.displayedWalk.walk);
+        await this.openAlbumWorkflow(albumPath);
+        this.creatingAlbum = false;
+      } catch (error) {
+        this.notify.error({title: "Could not create the photo album", message: error});
+        this.creatingAlbum = false;
+      }
     }
   }
 
-  private async openAlbumPageInSiteEdit(albumPath: string, _openPreAlbumText = false): Promise<void> {
-    if (!albumPath) {
-      return;
+  private async openAlbumWorkflow(albumPath: string): Promise<void> {
+    if (albumPath) {
+      const currentSegments = this.urlService.pathSegments().filter(Boolean);
+      if (currentSegments.length > 0) {
+        this.createWalkAlbumService.rememberReturnToWalk(currentSegments);
+      }
+      if (this.albumCurator()) {
+        this.createWalkAlbumService.markAlbumForAutoCover(this.walkAlbumName || albumPath);
+      }
+      if (this.memberLoginService.allowContentEdits() && !this.siteEditService.active()) {
+        this.siteEditService.toggle(true);
+      }
+      await this.urlService.navigateUnconditionallyTo(
+        albumPath.split("/").filter(Boolean),
+        {[StoredValue.ALBUM_WORKFLOW]: "1"},
+        ""
+      );
     }
-    const currentSegments = this.urlService.pathSegments().filter(Boolean);
-    if (currentSegments.length > 0) {
-      this.createWalkAlbumService.rememberReturnToWalk(currentSegments);
-    }
-    this.createWalkAlbumService.markAlbumForAutoCover(this.walkAlbumName || albumPath);
-    if (!this.siteEditService.active()) {
-      this.siteEditService.toggle(true);
-    }
-    await this.urlService.navigateUnconditionallyTo(
-      albumPath.split("/").filter(Boolean),
-      {[StoredValue.ALBUM_WORKFLOW]: "1"},
-      ""
-    );
   }
 
   private resolveWalkAlbumPath(walk: ExtendedGroupEvent) {
     this.walkAlbumPath = null;
     this.walkAlbumName = null;
     this.walkAlbumCoverUrl = null;
-    if (!walk) {
-      return;
+    this.walkAlbumDraftCount = 0;
+    this.albumRole = this.createWalkAlbumService.albumEditRoleForWalk(walk);
+    if (walk) {
+      this.createWalkAlbumService.existingAlbumLinkFor(walk)
+        .then(link => {
+          if (this.displayedWalk?.walk?.id === walk.id || this.displayedWalk?.walk === walk) {
+            this.walkAlbumPath = link?.path || null;
+            this.walkAlbumName = link?.albumName || link?.path || null;
+            this.walkAlbumCoverUrl = link?.coverImageUrl || null;
+            this.walkAlbumDraftCount = link?.draftCount || 0;
+          }
+        })
+        .catch(error => this.logger.warn("resolveWalkAlbumPath failed", error));
     }
-    this.createWalkAlbumService.existingAlbumLinkFor(walk)
-      .then(link => {
-        if (this.displayedWalk?.walk?.id === walk.id || this.displayedWalk?.walk === walk) {
-          this.walkAlbumPath = link?.path || null;
-          this.walkAlbumName = link?.albumName || link?.path || null;
-          this.walkAlbumCoverUrl = link?.coverImageUrl || null;
-        }
-      })
-      .catch(error => this.logger.warn("resolveWalkAlbumPath failed", error));
   }
   public mapExpanded = false;
   @Input() showPanelExpander = true;
@@ -745,6 +793,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.display.refreshCachedData();
       this.loggedIn = loginResponse?.memberLoggedIn;
       this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
+      this.resolveWalkAlbumPath(this.displayedWalk?.walk);
       this.refreshPublishAction(this.displayedWalk?.walk);
       this.refreshHomePostcode();
       this.updateGoogleMapIfApplicable();

@@ -1,27 +1,30 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AlbumView, FocalPointTarget, PageContentRow } from "../../../models/content-text.model";
+import { AlbumView, FocalPointTarget, PageContent, PageContentRow } from "../../../models/content-text.model";
 import { FocalPoint } from "../focal-point-picker/focal-point-picker";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
-import { ContentMetadata, LazyLoadingMetadata } from "../../../models/content-metadata.model";
+import { AlbumEditRole, ContentMetadata, draftFiles, LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { MarkdownComponent } from "ngx-markdown";
 import { CardImageComponent } from "../card/image/card-image";
 import { AlbumComponent } from "../../../album/view/album";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { SocialShareAlbumComponent } from "../../../carousel/edit/social-share-album/social-share-album";
 import { SocialPostLinksComponent } from "../../../album/view/social-post-links";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { RootFolder } from "../../../models/system.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faChevronDown, faChevronUp, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronUp, faCircleExclamation, faImages, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { EventSlugResolverService } from "../../../services/walks-and-events/event-slug-resolver.service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { SocialPublishService } from "../../../services/social/social-publish.service";
+import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
+import { StoredValue } from "../../../models/ui-actions";
+import { WalkAlbumWorkflow } from "./walk-album-workflow";
 
 @Component({
   selector: "app-dynamic-content-view-album",
@@ -91,6 +94,19 @@ import { SocialPublishService } from "../../../services/social/social-publish.se
     .share-panel-shell
       margin-bottom: 1.25rem
 
+    .album-contribute-bar
+      display: flex
+      flex-wrap: wrap
+      align-items: center
+      gap: 12px
+      margin: 0 0 1rem
+
+    .album-drafts-alert
+      display: flex
+      align-items: flex-start
+      gap: 0.5rem
+      margin: 0 0 1rem
+
     @media (max-width: 767.98px)
       .share-toggle-bar
         align-items: stretch
@@ -100,8 +116,36 @@ import { SocialPublishService } from "../../../services/social/social-publish.se
         width: 100%
   `],
   template: `
-    @if (actions.isAlbum(row)) {
+    @if (actions.isAlbum(row) && albumWorkflow && role && walkAlbum()) {
       <div [class]="actions.rowClasses(row)">
+        <div class="col-sm-12">
+          <app-walk-album-workflow [row]="row" [pageContent]="pageContent" [role]="role"/>
+        </div>
+      </div>
+    } @else if (actions.isAlbum(row)) {
+      <div [class]="actions.rowClasses(row)">
+        @if (walkAlbum() && role === AlbumEditRole.CURATOR && pendingDraftCount > 0) {
+          <div class="col-sm-12">
+            <div class="alert alert-warning album-drafts-alert">
+              <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+              <div class="flex-grow-1 min-w-0">
+                <strong class="d-block">{{ pendingDraftCount }} {{ pendingDraftCount === 1 ? "photo is" : "photos are" }} awaiting approval</strong>
+                <span>Members have added photos to this album. They stay hidden from visitors until you approve them.</span>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm flex-shrink-0" (click)="openWorkflow()">
+                <fa-icon [icon]="faImages" class="me-2"/>Review photos
+              </button>
+            </div>
+          </div>
+        } @else if (walkAlbum() && role) {
+          <div class="col-sm-12">
+            <div class="album-contribute-bar">
+              <button type="button" class="btn btn-quiet btn-sm" (click)="openWorkflow()">
+                <fa-icon [icon]="faImages" class="me-2"/>{{ role === AlbumEditRole.CURATOR ? "Edit album" : "Add photos" }}
+              </button>
+            </div>
+          </div>
+        }
         @if (row.carousel.showTitle && row.carousel.albumView !== AlbumView.BACKGROUNDS) {
           <div class="col-sm-12">
             <h1>{{ row.carousel.title }}</h1>
@@ -173,13 +217,20 @@ import { SocialPublishService } from "../../../services/social/social-publish.se
         </div>
       </div>
     }`,
-  imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe, SocialShareAlbumComponent, SocialPostLinksComponent, FontAwesomeModule]
+  imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe, SocialShareAlbumComponent, SocialPostLinksComponent, FontAwesomeModule, WalkAlbumWorkflow]
 })
 export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   protected readonly AlbumView = AlbumView;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronUp = faChevronUp;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faImages = faImages;
+  protected readonly AlbumEditRole = AlbumEditRole;
+  public role: AlbumEditRole | null = null;
+  public albumWorkflow = false;
+  public pendingDraftCount = 0;
+  private shareRequested = false;
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public shareAlbumContentMetadata: ContentMetadata = null;
   public canShareAlbum = false;
@@ -188,7 +239,9 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
   public urlService: UrlService = inject(UrlService);
-  private memberLoginService = inject(MemberLoginService);
+  private createWalkAlbumService = inject(CreateWalkAlbumService);
+  private activatedRoute = inject(ActivatedRoute);
+  private router = inject(Router);
   private socialPublishService = inject(SocialPublishService);
   private eventSlugResolver = inject(EventSlugResolverService);
   private broadcastService = inject(BroadcastService);
@@ -200,6 +253,8 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
   public row: PageContentRow;
   @Input()
   public index: number;
+  @Input()
+  public pageContent: PageContent;
 
   ngOnInit() {
     this.logger.info("ngOnInit for", this.row.carousel?.name);
@@ -207,17 +262,58 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
     this.loadSocialPostLinkPresence();
     this.subscriptions.push(
       this.broadcastService.on(NamedEventType.MEMBER_LOGIN_COMPLETE, () => this.refreshShareAccess()),
-      this.broadcastService.on(NamedEventType.MEMBER_LOGOUT_COMPLETE, () => this.refreshShareAccess())
+      this.broadcastService.on(NamedEventType.MEMBER_LOGOUT_COMPLETE, () => this.refreshShareAccess()),
+      this.activatedRoute.queryParamMap.subscribe(params => {
+        this.albumWorkflow = params.get(StoredValue.ALBUM_WORKFLOW) === "1";
+        this.shareRequested = params.get(StoredValue.ALBUM_SHARE) === "1";
+        if (!this.albumWorkflow) {
+          this.refreshPendingDraftCount();
+        }
+        this.expandShareIfRequested();
+      })
     );
+  }
+
+  walkAlbum(): boolean {
+    return !!this.row?.carousel?.eventId;
+  }
+
+  openWorkflow(): void {
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {[StoredValue.ALBUM_WORKFLOW]: "1"},
+      queryParamsHandling: "merge"
+    });
+  }
+
+  private expandShareIfRequested(): void {
+    if (this.shareRequested && this.canShareAlbum && !this.shareExpanded) {
+      this.expandShare();
+    }
+  }
+
+  private refreshPendingDraftCount(): void {
+    const albumName = this.row?.carousel?.name;
+    if (this.walkAlbum() && this.role === AlbumEditRole.CURATOR && albumName) {
+      this.contentMetadataService.items(RootFolder.carousels, albumName, true)
+        .then(contentMetadata => this.pendingDraftCount = draftFiles(contentMetadata?.files).length)
+        .catch(error => {
+          this.logger.warn("refreshPendingDraftCount failed for", albumName, error);
+          this.pendingDraftCount = 0;
+        });
+    } else {
+      this.pendingDraftCount = 0;
+    }
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private refreshShareAccess(): void {
+  private async refreshShareAccess(): Promise<void> {
     const albumAllowsShare = !!this.row?.carousel?.allowSocialShare;
-    const allowed = albumAllowsShare && !!this.memberLoginService.allowContentEdits();
+    this.role = await this.createWalkAlbumService.albumEditRoleForEventId(this.row?.carousel?.eventId);
+    const allowed = albumAllowsShare && this.role === AlbumEditRole.CURATOR;
     this.canShareAlbum = allowed;
     if (allowed) {
       if (!this.shareAlbumContentMetadata) {
@@ -227,7 +323,9 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
       this.shareExpanded = false;
       this.shareAlbumContentMetadata = null;
     }
-    this.logger.info("refreshShareAccess: canShareAlbum", allowed, "albumAllowsShare", albumAllowsShare);
+    this.refreshPendingDraftCount();
+    this.expandShareIfRequested();
+    this.logger.info("refreshShareAccess: canShareAlbum", allowed, "albumAllowsShare", albumAllowsShare, "role:", this.role);
   }
 
   toggleShare(): void {

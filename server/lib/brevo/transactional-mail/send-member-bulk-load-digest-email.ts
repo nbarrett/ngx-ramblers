@@ -27,7 +27,7 @@ debugLog.enabled = false;
 
 const TEMPLATE_NAME = "member-sync-notification";
 
-function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref: string): string {
+export function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref: string): string {
   const selectedBanner = banners?.find(item => item.id === bannerId);
   if (selectedBanner?.fileNameData) {
     return `${groupHref}/api/aws/s3/${selectedBanner.fileNameData.rootFolder}/${selectedBanner.fileNameData.awsFileName}`;
@@ -36,18 +36,18 @@ function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref:
   }
 }
 
-function emailAddressForRole(roles: CommitteeMember[], role: string): EmailAddress | null {
+export function emailAddressForRole(roles: CommitteeMember[], role: string): EmailAddress | null {
   const committeeMember = roles.find(member => member?.type === role) || roles.find(member => !!member?.email);
   return committeeMember?.email ? {name: committeeMember.fullName, email: committeeMember.email} : null;
 }
 
-function emailAddressesForRoles(roles: CommitteeMember[], roleNames: string[]): EmailAddress[] {
+export function emailAddressesForRoles(roles: CommitteeMember[], roleNames: string[]): EmailAddress[] {
   return (roleNames || [])
     .map(role => emailAddressForRole(roles, role))
     .filter(address => !!address?.email);
 }
 
-function buildSubject(notifConfig: NotificationConfig, params: Record<string, any>): string {
+export function buildSubject(notifConfig: NotificationConfig, params: Record<string, any>): string {
   const resolveParameter = (parameter: string): string | null =>
     parameter ? parameter.split(".").reduce((value: any, key: string) => value?.[key], params) : null;
   const prefix = resolveParameter(notifConfig.subject?.prefixParameter);

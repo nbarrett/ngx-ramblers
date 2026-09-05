@@ -55,6 +55,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
           @if (actions.isAlbum(row)) {
             <app-dynamic-content-view-album
               [row]="row"
+              [pageContent]="viewablePageContent"
               [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
           }
           @if (actions.isCommitteeDocuments(row)) {

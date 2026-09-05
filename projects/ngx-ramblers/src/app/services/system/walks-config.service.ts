@@ -109,6 +109,7 @@ export class WalksConfigService {
       relatedLinkShowCalendar: true,
       regularWalkDay: DEFAULT_REGULAR_WALK_DAY,
       walkCreationAccessLevel: AccessLevel.HIDDEN,
+      walkPhotoContributionAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
       hideAwaitingLeaderFromPublic: false,
       hideNonApprovedWalksFromPublic: false,
       walkDetailsShowPostcode: true,

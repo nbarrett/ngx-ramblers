@@ -55,6 +55,7 @@ import { DEFAULT_WALKS_AREA } from "../../models/walks-route-paths.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
 import { eventSlug } from "../../functions/walks/event-slug";
+import { memberLeadsWalk } from "../../functions/walks/walk-leader-fields";
 import { PageService } from "../../services/page.service";
 import { StoredValue } from "../../models/ui-actions";
 import {
@@ -292,7 +293,7 @@ export class WalkDisplayService {
 
   loggedInMemberIsLeadingWalk(walk: ExtendedGroupEvent) {
     const memberId = this.memberLoginService.memberLoggedIn() && this.memberLoginService.loggedInMember()?.memberId;
-    return !!memberId && [walk?.fields?.contactDetails?.memberId, walk?.groupEvent?.walk_leader?.id].includes(memberId);
+    return memberLeadsWalk(memberId, walk);
   }
 
   async refreshCachedData() {

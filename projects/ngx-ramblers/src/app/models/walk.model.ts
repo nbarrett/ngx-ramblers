@@ -501,6 +501,26 @@ export interface WalkImageRow {
 
 export const WALK_IMAGE_CSV_COLUMN_HEADINGS: string[] = ["Walk ID", "Image GUID", "Local Filename", "Image Order"];
 
+export enum WalkGpxField {
+  SHAPE = "shape",
+  DISTANCE = "distance",
+  ASCENT = "ascent",
+  START_LOCATION = "start-location",
+  END_LOCATION = "end-location"
+}
+
+export interface WalkGpxFieldProposal {
+  field: WalkGpxField;
+  label: string;
+  currentValue: string;
+  proposedValue: string;
+  apply: boolean;
+}
+
+export const GPX_CIRCULAR_ENDS_METRES = 100;
+export const KM_PER_MILE = 1.609344;
+export const FEET_PER_METRE = 3.28084;
+
 export interface GpxFileListItem {
   fileData: FileNameData;
   startLat: number;

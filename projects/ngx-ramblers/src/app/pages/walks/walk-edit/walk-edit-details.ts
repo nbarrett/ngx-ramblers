@@ -1,11 +1,11 @@
 import { AfterViewInit, Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
 import { Subscription } from "rxjs";
 import { Router } from "@angular/router";
-import { DetailsTab, DisplayedWalk, GpxFileListItem, INITIALISED_LOCATION, WalkType } from "../../../models/walk.model";
+import { DetailsTab, DisplayedWalk, FEET_PER_METRE, GPX_CIRCULAR_ENDS_METRES, GpxFileListItem, INITIALISED_LOCATION, KM_PER_MILE, WalkGpxField, WalkGpxFieldProposal, WalkType } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { WalkLocationEditComponent } from "./walk-location-edit";
 import { EventAscentEdit } from "./event-ascent-edit.component";
-import { Difficulty } from "../../../models/ramblers-walks-manager";
+import { Difficulty, LocationDetails } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep, isString } from "es-toolkit/compat";
@@ -27,9 +27,19 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.model";
+import { AppPath, RouteFollowQueryParam, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
+import { GpxParserService, GpxTrack, GpxTrackPoint } from "../../../services/maps/gpx-parser.service";
+import { RouteTurnsService } from "../../../services/maps/route-turns.service";
+import { UrlService } from "../../../services/url.service";
+import { NumberUtilsService } from "../../../services/number-utils.service";
+import { HttpClient } from "@angular/common/http";
+import { firstValueFrom } from "rxjs";
+import { LatLng } from "leaflet";
+import { FileNameData } from "../../../models/aws-object.model";
+import { GridReferenceLookupResponse } from "../../../models/address-model";
+import { sortBy } from "../../../functions/arrays";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCloudArrowUp, faMap, faPencil, faRightLeft, faTableColumns } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPencil, faRightLeft, faTableColumns, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -162,9 +172,63 @@ import { faCloudArrowUp, faMap, faPencil, faRightLeft, faTableColumns } from "@f
                     (click)="openFollowEditor()">
                     <fa-icon class="me-2" [icon]="faPencil"/>Record or edit
                   </button>
+                  @if (displayedWalk?.walk?.fields?.gpxFile?.awsFileName) {
+                    <button
+                      type="button"
+                      class="btn btn-quiet"
+                      [disabled]="inputDisabled || gpxProposalsLoading"
+                      (click)="proposeFromSelectedGpx()">
+                      <fa-icon class="me-2" [icon]="faWandMagicSparkles"/>Fill details from route
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-quiet"
+                      [disabled]="inputDisabled || turnsGenerating"
+                      (click)="generateTurns()">
+                      @if (turnsGenerating) {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                      } @else {
+                        <fa-icon class="me-2" [icon]="faDiamondTurnRight"/>
+                      }
+                      Generate turns
+                    </button>
+                  }
                 </div>
                 @if (uploadError) {
                   <small class="text-danger">{{ uploadError }}</small>
+                }
+                @if (gpxProposalsLoading) {
+                  <small class="text-muted d-block mt-2"><span class="spinner-border spinner-border-sm me-2"></span>Reading the route and looking up its start and finish…</small>
+                }
+                @if (gpxProposals.length > 0) {
+                  <div class="alert alert-warning d-flex align-items-start mt-2">
+                    <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+                    <div class="ms-2 flex-grow-1 min-w-0">
+                      <strong class="d-block">Details found in the route</strong>
+                      <span class="d-block mb-2">Tick the details you want to take from the GPX file. Those that would replace something already entered are unticked.</span>
+                      @for (proposal of gpxProposals; track proposal.field) {
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" [id]="'gpx-proposal-' + proposal.field"
+                                 [(ngModel)]="proposal.apply">
+                          <label class="form-check-label" [for]="'gpx-proposal-' + proposal.field">
+                            <strong>{{ proposal.label }}:</strong> {{ proposal.proposedValue }}
+                            @if (proposal.currentValue) {
+                              <span class="text-muted">(currently {{ proposal.currentValue }})</span>
+                            }
+                          </label>
+                        </div>
+                      }
+                      <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-primary btn-sm" (click)="applyGpxProposals()">
+                          <fa-icon class="me-2" [icon]="faWandMagicSparkles"/>Apply ticked details
+                        </button>
+                        <button type="button" class="btn btn-quiet btn-sm" (click)="gpxProposals = []">Not now</button>
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (turnsMessage) {
+                  <small class="text-muted d-block mt-2">{{ turnsMessage }}</small>
                 }
               </div>
             </div>
@@ -282,6 +346,18 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   private dateUtils = inject(DateUtilsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private addressQueryService = inject(AddressQueryService);
+  private gpxParser = inject(GpxParserService);
+  private routeTurns = inject(RouteTurnsService);
+  private urlService = inject(UrlService);
+  private numberUtils = inject(NumberUtilsService);
+  private httpClient = inject(HttpClient);
+  public gpxProposals: WalkGpxFieldProposal[] = [];
+  public gpxProposalsLoading = false;
+  public turnsGenerating = false;
+  public turnsMessage: string | null = null;
+  protected readonly faWandMagicSparkles = faWandMagicSparkles;
+  protected readonly faDiamondTurnRight = faDiamondTurnRight;
+  protected readonly faCircleExclamation = faCircleExclamation;
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
@@ -544,6 +620,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     this.uploadInProgress = true;
     this.uploadError = null;
 
+    const gpxContent = file.text();
     this.walkGpxService.uploadGpxFile(file).subscribe({
       next: (response) => {
         if (!this.displayedWalk.walk.fields) {
@@ -557,6 +634,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
           message: `File ${file.name} uploaded successfully`
         });
         this.loadGpxFiles();
+        gpxContent.then(content => this.proposeFromGpxContent(content));
       },
       error: (error) => {
         this.uploadInProgress = false;
@@ -566,6 +644,156 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     });
 
     input.value = "";
+  }
+
+  async proposeFromSelectedGpx(): Promise<void> {
+    const gpxFile: FileNameData = this.displayedWalk?.walk?.fields?.gpxFile;
+    if (gpxFile?.awsFileName) {
+      this.gpxProposalsLoading = true;
+      try {
+        const content = await firstValueFrom(this.httpClient.get(this.urlService.resourceRelativePathForAWSFileName(`gpx-routes/${gpxFile.awsFileName}`), {responseType: "text"}));
+        await this.proposeFromGpxContent(content);
+      } catch (error) {
+        this.gpxProposalsLoading = false;
+        this.notify.error({title: "Could not read the GPX file", message: error?.message || error});
+      }
+    }
+  }
+
+  private async proposeFromGpxContent(content: string): Promise<void> {
+    this.gpxProposalsLoading = true;
+    this.gpxProposals = [];
+    try {
+      const parsed = this.gpxParser.parseGpxFile(content);
+      const track: GpxTrack = (parsed.tracks || []).reduce((longest, candidate) => (candidate.points?.length || 0) > (longest?.points?.length || 0) ? candidate : longest, null as GpxTrack | null);
+      const points = track?.points || [];
+      if (points.length < 2) {
+        this.notify.warning({title: "No route found", message: "The GPX file does not contain a track to read details from"});
+      } else {
+        const groupEvent = this.displayedWalk.walk.groupEvent;
+        const first = points[0];
+        const last = points[points.length - 1];
+        const circular = this.metresBetween(first, last) <= GPX_CIRCULAR_ENDS_METRES;
+        const shape = circular ? WalkType.CIRCULAR : WalkType.LINEAR;
+        const km = (track.totalDistance || 0) / 1000;
+        const miles = km / KM_PER_MILE;
+        const ascentMetres = Math.round(track.totalAscent || 0);
+        const startLocation = await this.locationFor(first);
+        const endLocation = circular ? null : await this.locationFor(last);
+        const proposals: WalkGpxFieldProposal[] = [
+          this.proposal(WalkGpxField.SHAPE, "Walk type", groupEvent.shape ? this.stringUtils.asTitle(groupEvent.shape) : "", shape),
+          this.proposal(WalkGpxField.DISTANCE, "Distance", groupEvent.distance_miles ? `${groupEvent.distance_miles} miles` : "", `${miles.toFixed(1)} miles (${km.toFixed(1)} km)`),
+          ascentMetres > 0 ? this.proposal(WalkGpxField.ASCENT, "Ascent", groupEvent.ascent_metres ? `${groupEvent.ascent_metres} m` : "", `${ascentMetres} m (${Math.round(ascentMetres * FEET_PER_METRE)} ft)`) : null,
+          startLocation ? this.proposal(WalkGpxField.START_LOCATION, "Start", this.locationSummary(groupEvent.start_location), this.locationSummary(startLocation)) : null,
+          endLocation ? this.proposal(WalkGpxField.END_LOCATION, "Finish", this.locationSummary(groupEvent.end_location), this.locationSummary(endLocation)) : null
+        ].filter(item => !!item);
+        this.pendingGpxValues = {shape, miles, km, ascentMetres, startLocation, endLocation};
+        this.gpxProposals = proposals.filter(item => item.currentValue !== item.proposedValue);
+        if (this.gpxProposals.length === 0) {
+          this.notify.success({title: "Route checked", message: "The walk details already match the GPX file"});
+        }
+      }
+    } catch (error) {
+      this.logger.error("proposeFromGpxContent failed", error);
+      this.notify.error({title: "Could not read the GPX file", message: error?.message || error});
+    } finally {
+      this.gpxProposalsLoading = false;
+    }
+  }
+
+  private pendingGpxValues: {shape: WalkType; miles: number; km: number; ascentMetres: number; startLocation: LocationDetails | null; endLocation: LocationDetails | null} | null = null;
+
+  applyGpxProposals(): void {
+    const groupEvent = this.displayedWalk.walk.groupEvent;
+    const values = this.pendingGpxValues;
+    const applied = this.gpxProposals.filter(item => item.apply);
+    if (values) {
+      applied.forEach(item => {
+        if (item.field === WalkGpxField.SHAPE) {
+          groupEvent.shape = values.shape.toLowerCase();
+          this.walkTypeChange();
+        } else if (item.field === WalkGpxField.DISTANCE) {
+          groupEvent.distance_miles = Number(values.miles.toFixed(1));
+          groupEvent.distance_km = Number(values.km.toFixed(1));
+        } else if (item.field === WalkGpxField.ASCENT) {
+          groupEvent.ascent_metres = values.ascentMetres;
+          groupEvent.ascent_feet = Math.round(values.ascentMetres * FEET_PER_METRE);
+        } else if (item.field === WalkGpxField.START_LOCATION && values.startLocation) {
+          groupEvent.start_location = values.startLocation;
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_MEETING_LOCATION_CHANGED, values.startLocation.postcode));
+        } else if (item.field === WalkGpxField.END_LOCATION && values.endLocation) {
+          groupEvent.end_location = values.endLocation;
+        }
+      });
+    }
+    this.gpxProposals = [];
+    this.notify.success({title: "Route details applied", message: applied.length > 0 ? `${this.stringUtils.pluraliseWithCount(applied.length, "detail")} taken from the GPX file` : "Nothing was changed"});
+  }
+
+  async generateTurns(): Promise<void> {
+    const gpxFile: FileNameData = this.displayedWalk?.walk?.fields?.gpxFile;
+    if (gpxFile?.awsFileName) {
+      this.turnsGenerating = true;
+      this.turnsMessage = "Reading the route and looking up the way names…";
+      try {
+        const response = await this.routeTurns.turnSteps({gpxFile: {awsFileName: gpxFile.awsFileName}});
+        const kept = (this.displayedWalk.walk.fields.routeWaypoints || []).filter(waypoint => waypoint.kind !== RouteWaypointKind.TURN);
+        const generated: RouteFollowWaypoint[] = response.steps.map((step, index) => ({
+          id: this.numberUtils.generateUid(),
+          latitude: step.latitude,
+          longitude: step.longitude,
+          label: String(index + 1),
+          instruction: step.instruction,
+          kind: RouteWaypointKind.TURN,
+          ...(step.modifier ? {turn: step.modifier} : {})
+        }));
+        this.displayedWalk.walk.fields.routeWaypoints = [...kept, ...generated];
+        const turns = response.steps.filter(step => step.kind === RouteTurnStepKind.TURN).length;
+        this.turnsMessage = `Found ${this.stringUtils.pluraliseWithCount(turns, "turn")} on the route. Save the walk to keep them, then check them with Record or edit.`;
+      } catch (error) {
+        this.turnsMessage = `Could not generate turns: ${error?.error?.message || error?.message || "the server did not respond"}`;
+      } finally {
+        this.turnsGenerating = false;
+      }
+    }
+  }
+
+  private proposal(field: WalkGpxField, label: string, currentValue: string, proposedValue: string): WalkGpxFieldProposal {
+    return {field, label, currentValue, proposedValue, apply: !currentValue};
+  }
+
+  private metresBetween(from: GpxTrackPoint, to: GpxTrackPoint): number {
+    const earthRadius = 6371e3;
+    const lat1 = from.latitude * Math.PI / 180;
+    const lat2 = to.latitude * Math.PI / 180;
+    const deltaLat = (to.latitude - from.latitude) * Math.PI / 180;
+    const deltaLng = (to.longitude - from.longitude) * Math.PI / 180;
+    const haversine = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+    return earthRadius * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  }
+
+  private async locationFor(point: GpxTrackPoint): Promise<LocationDetails | null> {
+    try {
+      const responses: GridReferenceLookupResponse[] = await this.addressQueryService.gridReferenceLookupFromLatLng(new LatLng(point.latitude, point.longitude));
+      const closest = (responses || []).sort(sortBy("distance"))[0];
+      return {
+        ...cloneDeep(INITIALISED_LOCATION),
+        latitude: point.latitude,
+        longitude: point.longitude,
+        postcode: closest?.postcode || "",
+        description: closest?.description || "",
+        grid_reference_6: closest?.gridReference6 || "",
+        grid_reference_8: closest?.gridReference8 || "",
+        grid_reference_10: closest?.gridReference10 || ""
+      };
+    } catch (error) {
+      this.logger.warn("locationFor lookup failed", error);
+      return {...cloneDeep(INITIALISED_LOCATION), latitude: point.latitude, longitude: point.longitude};
+    }
+  }
+
+  private locationSummary(location: LocationDetails | null): string {
+    return [location?.postcode, location?.grid_reference_8 || location?.grid_reference_6, location?.description].filter(Boolean).join(", ");
   }
 
   walkTypeChange() {

@@ -148,6 +148,29 @@ export interface WalkAlbumLink {
   path: string;
   albumName: string;
   coverImageUrl: string | null;
+  draftCount: number;
+}
+
+export enum AlbumEditRole {
+  CURATOR = "curator",
+  CONTRIBUTOR = "contributor"
+}
+
+export enum WalkAlbumWorkflowStage {
+  PHOTOS = "photos",
+  SHARE = "share"
+}
+
+export function isDraftItem(item: ContentMetadataItem): boolean {
+  return !!item?.draft;
+}
+
+export function publishedFiles(files: ContentMetadataItem[]): ContentMetadataItem[] {
+  return (files || []).filter(item => !isDraftItem(item));
+}
+
+export function draftFiles(files: ContentMetadataItem[]): ContentMetadataItem[] {
+  return (files || []).filter(isDraftItem);
 }
 
 export interface ContentMetadataResizeRequest {
@@ -198,6 +221,23 @@ export interface ContentMetadataItem extends WithMongoId, HasEventId {
   tags?: number[];
   youtubeId?: string;
   cropperPosition?: ImageCropperPosition | null;
+  uploadedBy?: string;
+  uploadedByName?: string;
+  uploadedByEmail?: string;
+  uploadedAt?: number;
+  draft?: boolean;
+}
+
+export interface AlbumContributor {
+  memberId?: string;
+  name?: string;
+  email?: string;
+}
+
+export function contributorOwnsItem(contributor: AlbumContributor | null, item: ContentMetadataItem): boolean {
+  const byMember = !!contributor?.memberId && item?.uploadedBy === contributor.memberId;
+  const byEmail = !!contributor?.email && (item?.uploadedByEmail || "").toLowerCase() === contributor.email.toLowerCase();
+  return byMember || byEmail;
 }
 
 export interface DuplicateImages {

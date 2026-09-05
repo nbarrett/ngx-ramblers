@@ -2,10 +2,11 @@ import express from "express";
 import * as authConfig from "../auth/auth-config";
 import * as controller from "./aws-controllers";
 import { receiveFileUpload, uploadFile } from "./file-upload";
+import { requirePhotoContributionAccess, restrictPublicUploadToAlbums } from "../walks/photo-contribution-access";
 
 const router = express.Router();
 
-router.post("/s3/file-upload", authConfig.authenticate(), receiveFileUpload, uploadFile);
+router.post("/s3/file-upload", authConfig.optionalAuthenticate(), requirePhotoContributionAccess, restrictPublicUploadToAlbums, receiveFileUpload, uploadFile);
 router.get("/list-buckets", controller.listBuckets);
 router.get("/metadata/list-objects", controller.listObjects);
 router.get("/metadata/list-prefixes", controller.listPrefixes);

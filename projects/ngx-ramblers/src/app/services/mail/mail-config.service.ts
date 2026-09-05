@@ -22,6 +22,7 @@ export class MailConfigService {
       memberSyncNotificationConfigId: null,
       volunteerNotificationConfigId: null,
       memberBulkLoadDigestConfigId: null,
+      photoUploadNotificationConfigId: null,
       allowUpdateLists: false,
       apiKey: null,
       allowSendCampaign: true,

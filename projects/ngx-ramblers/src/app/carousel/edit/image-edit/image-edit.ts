@@ -10,6 +10,7 @@ import {
   uploadGroupEventType
 } from "../../../models/committee.model";
 import {
+  AlbumEditRole,
   ContentMetadata,
   ContentMetadataItem,
   DuplicateImages,
@@ -31,6 +32,8 @@ import {
   faAngleDown,
   faAngleUp,
   faBook,
+  faCircleCheck,
+  faCircleExclamation,
   faCopy,
   faCropSimple,
   faImage,
@@ -85,6 +88,22 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
             }
             <div class="col-sm-7">
               <div class="form-group">
+                @if (item.draft) {
+                  <div class="alert alert-warning d-flex align-items-start gap-2 mb-2 py-2">
+                    <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+                    <div class="flex-grow-1 min-w-0">
+                      <strong class="d-block">Awaiting approval</strong>
+                      <span>{{ uploadedByDescription() }}</span>
+                    </div>
+                    @if (!limitedActions()) {
+                      <button type="button" class="btn btn-primary btn-sm flex-shrink-0" [disabled]="editActive" (click)="approve.emit(item)">
+                        <fa-icon [icon]="faCircleCheck" class="me-2"/>Approve
+                      </button>
+                    }
+                  </div>
+                } @else if (item.uploadedBy || item.uploadedByEmail) {
+                  <div class="small text-muted mb-2">{{ uploadedByDescription() }}</div>
+                }
                 <div class="row mb-2">
                   <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
                   <div class="col text-end">
@@ -125,14 +144,17 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                   <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faRemove" caption="Delete"
                                     (click)="callDelete()"/>
                 </div>
+                @if (!limitedActions()) {
                 <div class="col-6 col-lg-4">
                   <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faAdd" caption="Insert"
                                     (click)="callInsert()"/>
                 </div>
+                }
                 <div class="col-6 col-lg-4">
                   <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faPencil" caption="Edit image"
                                     (click)="editImage()"/>
                 </div>
+                @if (!limitedActions()) {
                 <div class="col-6 col-lg-4">
                   <app-badge-button fullWidth noRightMargin [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
                                     (click)="callMoveUp()"/>
@@ -172,6 +194,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                                     caption="Clear Image Data"
                                     (click)="clearImageData()"/>
                 </div>
+                }
               </div>
             </div>
             <div class="col-sm-5">
@@ -182,6 +205,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                           rows="2" [id]="stringUtils.kebabCase('image-title', index)"
                           placeholder="Enter title for image"></textarea>
               </div>
+              @if (!limitedActions()) {
               <div class="row">
                 <div class="col-sm-5">
                   <app-group-event-type-selector [dataSource]="item.dateSource" label="Date Source" includeUpload
@@ -226,6 +250,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                   If provided, this will display as a YouTube video instead of an image
                 </small>
               </div>
+              }
               @if (item.originalFileName) {
                 <div class="form-group">
                   <label [for]="'original-name-' + index">Original Name</label>
@@ -234,7 +259,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                 </div>
               }
             </div>
-            @if (item?.dateSource !== 'upload') {
+            @if (item?.dateSource !== 'upload' && !limitedActions()) {
               <div class="col-sm-12">
                 <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
                                           [eventId]="item.eventId"
@@ -353,6 +378,8 @@ export class ImageEditComponent implements OnInit {
   @Output() imageInsert: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() copyToAlbum: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() approve: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Input() role: AlbumEditRole = AlbumEditRole.CURATOR;
 
   private noImageSave: boolean;
   private nonDestructive = true;
@@ -381,6 +408,19 @@ export class ImageEditComponent implements OnInit {
   protected readonly faCropSimple = faCropSimple;
   protected readonly faLink = faLink;
   protected readonly faLinkSlash = faLinkSlash;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faCircleCheck = faCircleCheck;
+
+  limitedActions(): boolean {
+    return this.role === AlbumEditRole.CONTRIBUTOR;
+  }
+
+  uploadedByDescription(): string {
+    const when = this.item?.uploadedAt ? ` on ${this.dateUtils.displayDateAndTime(this.item.uploadedAt)}` : "";
+    const identity = [this.item?.uploadedByName, this.item?.uploadedByEmail].filter(Boolean).join(", ") || (this.item?.uploadedBy ? `member ${this.item.uploadedBy}` : "");
+    const who = identity ? ` by ${identity}` : "";
+    return `Uploaded${who}${when}`;
+  }
 
   ngOnInit() {
     this.editActive = false;

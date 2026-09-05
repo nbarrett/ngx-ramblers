@@ -19,7 +19,12 @@ const contentMetadataItem = new mongoose.Schema({
   originalFileName: {type: String},
   text: {type: String},
   tags: [{type: Number}],
-  cropperPosition: {type: imageCropperPosition, default: null}
+  cropperPosition: {type: imageCropperPosition, default: null},
+  uploadedBy: {type: String},
+  uploadedByName: {type: String},
+  uploadedByEmail: {type: String},
+  uploadedAt: {type: Number},
+  draft: {type: Boolean}
 });
 
 const imageTag = new mongoose.Schema({
