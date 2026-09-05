@@ -217,6 +217,10 @@ export class InboxService {
     return response.response as InboxThreadUpdateResult;
   }
 
+  async restoreThread(threadId: string): Promise<void> {
+    await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/restore`, {}));
+  }
+
   async moveThreadToInbox(threadId: string): Promise<void> {
     await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/move-to-inbox`, {}));
   }
