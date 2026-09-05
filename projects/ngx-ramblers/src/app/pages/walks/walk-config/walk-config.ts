@@ -28,7 +28,7 @@ import {
   WalksConfig,
   riskAssessmentContentName
 } from "../../../models/walks-config.model";
-import { AccessLevel } from "../../../models/member-resource.model";
+import { AccessLevel, generalAccessLevels } from "../../../models/member-resource.model";
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { enumValues } from "../../../functions/enums";
@@ -80,6 +80,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                  [heading]="WalkConfigTab.GENERAL">
               <div class="img-thumbnail thumbnail-admin-edit">
                 @if (walksConfig) {
+                  <div class="thumbnail-heading-frame">
+                    <div class="thumbnail-heading">Walk programme defaults</div>
+                    <div markdown class="list-arrow mb-3">
+                      <ul>
+                        <li>Defaults used when walks are created and checked: the walking pace that works out finish times, the regular walking day and start time that seed walk slots and new walks, how the programme overview and calendar first appear, and which details a leader must enter before a walk can be approved.</li>
+                      </ul>
+                    </div>
                   <div class="row">
                     <div class="col-md-6">
                       <div class="form-group mb-3">
@@ -107,28 +114,10 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         <div app-time-picker id="default-walk-start-time" label="Default start time for new walks"
                              [value]="defaultWalkStartTimeAsIso()"
                              (timeChange)="defaultWalkStartTimeChanged($event)"></div>
-                        <small class="form-text text-muted">Used when a leader creates a walk; they can change it on the walk.</small>
+                        <small class="form-text text-muted d-block">Used when walk slots are added and when a leader creates a walk; it can be changed on each walk.</small>
                       </div>
-                      <div class="form-group mb-3">
-                        <label for="walk-creation-access-level">Walk leader self-service - who can create their own walk</label>
-                        <select [(ngModel)]="walksConfig.walkCreationAccessLevel"
-                                class="form-control input-sm"
-                                id="walk-creation-access-level">
-                          @for (level of accessLevels; track level) {
-                            <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
-                          }
-                        </select>
-                      </div>
-                      <div class="form-group mb-3">
-                        <label for="walk-photo-contribution-access-level">Walk photos - who can add photos to a walk's album for approval (walk leaders and admins always can)</label>
-                        <select [(ngModel)]="walksConfig.walkPhotoContributionAccessLevel"
-                                class="form-control input-sm"
-                                id="walk-photo-contribution-access-level">
-                          @for (level of accessLevels; track level) {
-                            <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
-                          }
-                        </select>
-                      </div>
+                    </div>
+                    <div class="col-md-6">
                       <div class="form-group mb-3">
                         <label for="programme-overview-default-weeks">Programme Overview default date range (weeks ahead)</label>
                         <input [(ngModel)]="walksConfig.programmeOverviewDefaultWeeks"
@@ -149,8 +138,6 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                           }
                         </select>
                       </div>
-                    </div>
-                    <div class="col-md-6">
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.requireFinishTime"
                                type="checkbox"
@@ -178,6 +165,38 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                                class="form-check-input"
                                id="rematch-walk-leaders-on-member-change">
                         <label class="form-check-label" for="rematch-walk-leaders-on-member-change">Automatically match unmatched walk leaders to members when Member Bulk Load is run</label>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                  <div class="thumbnail-heading-frame">
+                    <div class="thumbnail-heading">Walk leader self-service</div>
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="form-group mb-3">
+                          <label for="walk-creation-access-level">Who can create their own walk</label>
+                          <select [(ngModel)]="walksConfig.walkCreationAccessLevel"
+                                  class="form-control input-sm"
+                                  id="walk-creation-access-level">
+                            @for (level of accessLevels; track level) {
+                              <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+                            }
+                          </select>
+                          <small class="form-text text-muted">Shows the add-walk option on the walks page, and lets the walks area's <code>edit/add</code> address be used as a link in your own how-to pages.</small>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-group mb-3">
+                          <label for="walk-photo-contribution-access-level">Who can add photos to a walk's album for approval</label>
+                          <select [(ngModel)]="walksConfig.walkPhotoContributionAccessLevel"
+                                  class="form-control input-sm"
+                                  id="walk-photo-contribution-access-level">
+                            @for (level of accessLevels; track level) {
+                              <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+                            }
+                          </select>
+                          <small class="form-text text-muted">Photos added by anyone other than the walk leader or an admin wait as drafts until approved. The walk leader, walk admins and content admins can always add and approve. Who can promote an upcoming walk on social media is set per event type in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="areaGroupQueryParams">Admin &gt; Settings &gt; System Settings &gt; Group / Area Configuration</a>.</small>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -262,21 +281,26 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                  (selectTab)="selectTab(WalkConfigTab.MEETUP)"
                  [heading]="WalkConfigTab.MEETUP">
               <div class="img-thumbnail thumbnail-admin-edit">
-                <div markdown class="list-arrow mb-2">
-                  <ul>
-                    <li>Here you can configure default settings that will be used when creating Meetup events.</li>
-                  </ul>
+                <div class="thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Meetup event defaults</div>
+                  <div markdown class="list-arrow mb-3">
+                    <ul>
+                      <li>These defaults are applied each time a walk is published to Meetup: the description prefix, whether the event is created as a draft or published, the RSVP limit and whether members are announced.</li>
+                      <li>The Meetup account, group and API connection used for publishing are set in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="meetupQueryParams"><strong>Admin &gt; Settings &gt; System Settings &gt; Meetup</strong></a>.</li>
+                    </ul>
+                  </div>
+                  @if (meetupConfig) {
+                    <app-walk-meetup-config-parameters [config]="meetupConfig"
+                                                       [contentTextItems]="contentTextItems"/>
+                  }
                 </div>
-                @if (meetupConfig) {
-                  <app-walk-meetup-config-parameters [config]="meetupConfig"
-                                                     [contentTextItems]="contentTextItems"/>
-                }
-                <div class="mb-2 mt-4">
-                  <ul class="list-arrow">
-                    <li>Here you can configure content text that will automatically be added to the beginning of
-                      the walk description on Meetup events we create.
-                    </li>
-                  </ul>
+                <div class="thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Description prefix content</div>
+                  <div markdown class="list-arrow mb-3">
+                    <ul>
+                      <li>Each content item here is a piece of text that can be added to the beginning of the walk description on Meetup events we create. Choose which one is used under Meetup event defaults above.</li>
+                    </ul>
+                  </div>
                   <div class="row mb-2">
                     <div class="col-sm-12">
                       <div class="d-inline-flex align-items-end flex-wrap gap-2">
@@ -753,11 +777,13 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   private mapPreviewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   protected exampleLocation: LocationDetails = this.defaultExampleLocation();
   public weekdayOptions: { label: string; value: number }[] = [];
-  public accessLevels: AccessLevel[] = enumValues(AccessLevel);
+  public accessLevels: AccessLevel[] = generalAccessLevels();
   public accessLevelDescriptions: Record<AccessLevel, string> = {
     [AccessLevel.HIDDEN]: "No access",
     [AccessLevel.ENVIRONMENT_ADMIN]: "Environment admin",
     [AccessLevel.MEMBER_ADMIN]: "Member admin",
+    [AccessLevel.EVENT_ADMIN]: "Walk or event admin",
+    [AccessLevel.EVENT_LEADER]: "Event leader or organiser",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
     [AccessLevel.PUBLIC]: "Public"
@@ -783,6 +809,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   @ViewChildren("riskAssessmentEditor") riskAssessmentEditors: QueryList<ContentTextEditor>;
 
   protected readonly areaGroupQueryParams = {[StoredValue.TAB]: "area-group"};
+  protected readonly meetupQueryParams = {[StoredValue.TAB]: "meetup"};
   protected readonly View = View;
   protected readonly WalkConfigTab = WalkConfigTab;
   protected readonly gridReferenceDigitOptions = GRID_REFERENCE_DIGIT_OPTIONS;

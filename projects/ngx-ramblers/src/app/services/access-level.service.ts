@@ -24,7 +24,7 @@ export class AccessLevelService {
       return this.memberLoginService.allowCommittee();
     } else if (level === AccessLevel.MEMBER_ADMIN) {
       return this.memberLoginService.allowMemberAdminEdits();
-    } else if (level === AccessLevel.HIDDEN) {
+    } else if (level === AccessLevel.HIDDEN || level === AccessLevel.EVENT_ADMIN || level === AccessLevel.EVENT_LEADER) {
       return false;
     } else {
       return true;

@@ -200,6 +200,7 @@ export interface Organisation extends Group {
   walkContactPhoneAccessLevel?: AccessLevel;
   walkContactEmailAccessLevel?: AccessLevel;
   walkContactDetailsAccessLevel?: AccessLevel;
+  walkPromotionAccessLevel?: AccessLevel;
   walkContactDetailsPublic?: boolean;
   showWalkOnRamblersLink: boolean;
   showWalkRelatedLinks?: boolean;
@@ -209,6 +210,7 @@ export interface Organisation extends Group {
   socialContactPhoneAccessLevel?: AccessLevel;
   socialContactEmailAccessLevel?: AccessLevel;
   socialDetailsAccessLevel?: AccessLevel;
+  socialPromotionAccessLevel?: AccessLevel;
   socialDetailsPublic?: boolean;
   showSocialOnRamblersLink: boolean;
   showSocialRelatedLinks?: boolean;
