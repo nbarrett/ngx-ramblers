@@ -15,7 +15,7 @@ export class WalksReferenceService {
 
   static walkAccessModes = {
     view: {caption: "view", title: "View"} as WalkAccessMode,
-    add: {caption: "add", title: "Add new"} as WalkAccessMode,
+    add: {caption: "add", title: "Add new", walkWritable: true} as WalkAccessMode,
     edit: {caption: "edit", title: "Edit existing", walkWritable: true} as WalkAccessMode,
     lead: {caption: "lead", title: "Lead this", initialiseWalkLeader: true, walkWritable: true} as WalkAccessMode
   };

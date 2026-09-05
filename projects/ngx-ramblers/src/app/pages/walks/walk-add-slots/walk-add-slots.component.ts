@@ -34,7 +34,7 @@ import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/sea
 import { DataQueryOptions } from "../../../models/api-request.model";
 import { GroupEventField } from "../../../models/walk.model";
 import { WeekdayNumbers } from "luxon";
-import { DEFAULT_REGULAR_WALK_DAY } from "../../../models/walks-config.model";
+import { DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_START_TIME } from "../../../models/walks-config.model";
 
 @Component({
     selector: "app-walk-add-slots",
@@ -249,11 +249,14 @@ export class WalkAddSlotsComponent implements OnInit {
       } else {
       }
     });
-    this.walksConfigService.events().subscribe(() => this.applyRegularWalkDay());
+    this.walksConfigService.events().subscribe(walksConfig => {
+      this.applyRegularWalkDay();
+      this.startTime = this.dateUtils.isoDateTime(this.dateUtils.startOfTodayAt(walksConfig?.defaultWalkStartTime || DEFAULT_WALK_START_TIME));
+    });
     this.todayValue = this.dateUtils.dateTimeNowNoTime().toMillis();
     this.applyRegularWalkDay();
     this.singleDate = this.dateUtils.asDateValue(this.todayValue);
-    this.startTime = this.dateUtils.isoDateTime(this.dateUtils.dateTimeNowNoTime().set({ hour: 10, minute: 0 }).valueOf());
+    this.startTime = this.dateUtils.isoDateTime(this.dateUtils.startOfTodayAt(this.walksConfigService.walksConfig()?.defaultWalkStartTime || DEFAULT_WALK_START_TIME));
     this.bulk = true;
   }
 

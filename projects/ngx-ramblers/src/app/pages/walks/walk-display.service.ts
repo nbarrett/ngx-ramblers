@@ -35,7 +35,7 @@ import { GroupEventService } from "../../services/walks-and-events/group-event.s
 import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../../services/event-defaults.service";
 import { WalksConfigService } from "../../services/system/walks-config.service";
-import { DEFAULT_GRID_REFERENCE_DIGITS, DEFAULT_REGULAR_WALK_DAY, WalkDetailsMapProvider } from "../../models/walks-config.model";
+import { DEFAULT_GRID_REFERENCE_DIGITS, DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_START_TIME, WalkDetailsMapProvider } from "../../models/walks-config.model";
 import { formatGridReference } from "../../functions/grid-reference";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
@@ -362,17 +362,28 @@ export class WalkDisplayService {
     return dayName ? `Add non-${dayName} walk` : "Add walk";
   }
 
-  async addMemberLedWalk(): Promise<void> {
+  newMemberLedWalk(): ExtendedGroupEvent {
     const member = this.memberLoginService.loggedInMember();
-    const walk = this.eventDefaultsService.createDefault({fields: {inputSource: InputSource.MANUALLY_CREATED}});
-    walk.fields.contactDetails = {
+    const startTime = this.walksConfigService.walksConfig()?.defaultWalkStartTime || DEFAULT_WALK_START_TIME;
+    const walk = this.eventDefaultsService.createDefault({
+      fields: {inputSource: InputSource.MANUALLY_CREATED},
+      groupEvent: {start_date_time: this.dateUtils.isoDateTime(this.dateUtils.startOfTodayAt(startTime))}
+    });
+    const memberRecord = this.members.find(candidate => candidate.id === member.memberId);
+    walk.fields.contactDetails = memberRecord ? this.eventDefaultsService.contactDetailsFrom(memberRecord) : {
       contactId: null,
       memberId: member.memberId,
       displayName: [member.firstName, member.lastName].filter(item => !!item).join(" "),
       email: null,
       phone: null
     };
+    walk.fields.publishing.ramblers.contactName = memberRecord?.contactId ?? null;
     walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingWalkDetails.eventType, "Walk created by leader")];
+    return walk;
+  }
+
+  async addMemberLedWalk(): Promise<void> {
+    const walk = this.newMemberLedWalk();
     this.pendingNewWalkEvent = walk;
     this.viewReturnUrl = this.location.path();
     await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, "add"]);

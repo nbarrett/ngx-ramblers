@@ -7,16 +7,7 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import {
-  DEFAULT_REGULAR_WALK_DAY,
-  DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS,
-  WalkAlbumPanelStyle,
-  WalkDetailsImageStyle,
-  WalkDetailsMapProvider,
-  WalkRiskAssessmentSection,
-  WalksConfig,
-  DEFAULT_GRID_REFERENCE_DIGITS
-} from "../../models/walks-config.model";
+import { DEFAULT_GRID_REFERENCE_DIGITS, DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_RISK_ASSESSMENT_SECTIONS, DEFAULT_WALK_START_TIME, WalkAlbumPanelStyle, WalkDetailsImageStyle, WalkDetailsMapProvider, WalkRiskAssessmentSection, WalksConfig } from "../../models/walks-config.model";
 import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
@@ -109,6 +100,7 @@ export class WalksConfigService {
       relatedLinkShowCalendar: true,
       regularWalkDay: DEFAULT_REGULAR_WALK_DAY,
       walkCreationAccessLevel: AccessLevel.HIDDEN,
+      defaultWalkStartTime: DEFAULT_WALK_START_TIME,
       walkPhotoContributionAccessLevel: AccessLevel.LOGGED_IN_MEMBER,
       hideAwaitingLeaderFromPublic: false,
       hideNonApprovedWalksFromPublic: false,
