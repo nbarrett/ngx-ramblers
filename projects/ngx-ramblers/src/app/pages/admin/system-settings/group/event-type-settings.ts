@@ -8,7 +8,7 @@ import { RamblersEventType } from "../../../../models/ramblers-walks-manager";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
 import { CommitteeReferenceData } from "../../../../services/committee/committee-reference-data";
-import { AccessLevel } from "../../../../models/member-resource.model";
+import { AccessLevel, EVENT_ACTION_ACCESS_LEVELS, generalAccessLevels } from "../../../../models/member-resource.model";
 import {
   ContactAccessLevelFieldKeys,
   migrateContactAccessLevels,
@@ -20,6 +20,7 @@ import { uniqueCommitteeMembersByType } from "../../../../functions/committee-me
 interface EventTypeFieldMapping {
   population: keyof Organisation;
   contactAccessLevels: ContactAccessLevelFieldKeys;
+  promotionAccessLevel: keyof Organisation;
   showOnRamblersLink: keyof Organisation;
   showRelatedLinks: keyof Organisation;
   photoAlbumBasePath: keyof Organisation;
@@ -35,6 +36,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
   [RamblersEventType.GROUP_WALK]: {
     population: "walkPopulation",
     contactAccessLevels: WALK_CONTACT_ACCESS_LEVEL_FIELDS,
+    promotionAccessLevel: "walkPromotionAccessLevel",
     showOnRamblersLink: "showWalkOnRamblersLink",
     showRelatedLinks: "showWalkRelatedLinks",
     photoAlbumBasePath: "walkPhotoAlbumBasePath",
@@ -48,6 +50,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
   [RamblersEventType.GROUP_EVENT]: {
     population: "socialEventPopulation",
     contactAccessLevels: SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS,
+    promotionAccessLevel: "socialPromotionAccessLevel",
     showOnRamblersLink: "showSocialOnRamblersLink",
     showRelatedLinks: "showSocialRelatedLinks",
     photoAlbumBasePath: "socialPhotoAlbumBasePath",
@@ -101,6 +104,18 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
       <small class="form-text text-muted d-block">
         Controls who can see the contact link. The form of that link (Contact Us form, Ramblers website, or email)
         is set by Contact Method below. The raw email address is only shown when Contact Method is Mailto.
+      </small>
+    </div>
+    <div class="form-group">
+      <label [for]="idFor('promotion-access-level')">{{ eventTypeTitle }} social media promotion - who can post an upcoming {{ eventTypeTitle.toLowerCase() }} to the group's Facebook Page or Instagram</label>
+      <select [(ngModel)]="group[fields.promotionAccessLevel]"
+              class="form-control input-sm" [id]="idFor('promotion-access-level')">
+        @for (level of eventActionAccessLevels; track level) {
+          <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+        }
+      </select>
+      <small class="form-text text-muted d-block">
+        Only applies when Facebook or Instagram event publishing is enabled under External Systems. Event leader or organiser means the person leading that {{ eventTypeTitle.toLowerCase() }}, as well as the admins.
       </small>
     </div>
     <div class="form-group">
@@ -178,11 +193,14 @@ export class EventTypeSettingsComponent implements OnInit {
   contactUsValue = EventLeaderContactMethod.CONTACT_US;
   protected readonly RamblersEventType = RamblersEventType;
   committeeRoles: CommitteeMember[] = [];
-  accessLevels: AccessLevel[] = enumValues(AccessLevel);
+  accessLevels: AccessLevel[] = generalAccessLevels();
+  eventActionAccessLevels: AccessLevel[] = EVENT_ACTION_ACCESS_LEVELS;
   accessLevelDescriptions: Record<AccessLevel, string> = {
     [AccessLevel.HIDDEN]: "No access",
     [AccessLevel.ENVIRONMENT_ADMIN]: "Environment admin",
     [AccessLevel.MEMBER_ADMIN]: "Member admin",
+    [AccessLevel.EVENT_ADMIN]: "Walk or event admin",
+    [AccessLevel.EVENT_LEADER]: "Event leader or organiser",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
     [AccessLevel.PUBLIC]: "Public"
@@ -213,6 +231,9 @@ export class EventTypeSettingsComponent implements OnInit {
 
   private applyDefaults() {
     migrateContactAccessLevels(this.group, this.fields.contactAccessLevels);
+    if (!this.group[this.fields.promotionAccessLevel]) {
+      this.group[this.fields.promotionAccessLevel] = AccessLevel.EVENT_ADMIN as never;
+    }
     if (!this.group[this.fields.contactMethod]) {
       (this.group as any)[this.fields.contactMethod] = this.group[this.fields.legacyContactMethod] ?? EventLeaderContactMethod.CONTACT_US;
     }

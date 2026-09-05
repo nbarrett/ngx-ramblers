@@ -10,6 +10,9 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { UrlService } from "../../../services/url.service";
 import { GroupEventDisplayService } from "../group-event-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { eventAccessPermitted } from "../../../functions/event-access-level";
+import { memberLeadsWalk } from "../../../functions/walks/walk-leader-fields";
 import { PageService } from "../../../services/page.service";
 import { MarkdownComponent } from "ngx-markdown";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
@@ -44,7 +47,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       </div>
       <div class="card-body">
         <div class="position-relative">
-          @if (display.allow.edits) {
+          @if (display.allow.edits || showSocialPublishing()) {
             <div class="float-end d-flex gap-2">
               @if (showSocialPublishing()) {
                 <div class="btn-group" dropdown container="body">
@@ -63,9 +66,11 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
                   </ul>
                 </div>
               }
-              <input type="submit" value="edit"
-                     (click)="editGroupEvent()" [disabled]="notifyTarget.busy"
-                     tooltip="Edit event" class="btn btn-primary">
+              @if (display.allow.edits) {
+                <input type="submit" value="edit"
+                       (click)="editGroupEvent()" [disabled]="notifyTarget.busy"
+                       tooltip="Edit event" class="btn btn-primary">
+              }
             </div>
           }
         </div>
@@ -201,6 +206,7 @@ export class GroupEventView implements OnInit {
   linksService = inject(LinksService);
   urlService = inject(UrlService);
   private systemConfigService = inject(SystemConfigService);
+  private memberLoginService = inject(MemberLoginService);
   @ViewChild("socialPublish") private socialPublish: EventSocialPublishModalComponent;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faCloudArrowUp = faCloudArrowUp;
@@ -257,8 +263,17 @@ export class GroupEventView implements OnInit {
   }
 
   showSocialPublishing(): boolean {
-    const externalSystems = this.systemConfigService.systemConfig()?.externalSystems;
-    return !!externalSystems?.facebook?.eventPublishingEnabled || !!externalSystems?.instagram?.eventPublishingEnabled;
+    const systemConfig = this.systemConfigService.systemConfig();
+    const externalSystems = systemConfig?.externalSystems;
+    const publishingEnabled = !!externalSystems?.facebook?.eventPublishingEnabled || !!externalSystems?.instagram?.eventPublishingEnabled;
+    const loggedIn = this.memberLoginService.memberLoggedIn();
+    return publishingEnabled && eventAccessPermitted(systemConfig?.group?.socialPromotionAccessLevel, {
+      loggedIn,
+      committee: loggedIn && this.memberLoginService.allowCommittee(),
+      memberAdmin: loggedIn && this.memberLoginService.allowMemberAdminEdits(),
+      eventAdmin: loggedIn && this.memberLoginService.allowSocialAdminEdits(),
+      eventLeader: loggedIn && memberLeadsWalk(this.memberLoginService.loggedInMember()?.memberId, this.groupEvent)
+    });
   }
 
   openSocialPublish(): void {

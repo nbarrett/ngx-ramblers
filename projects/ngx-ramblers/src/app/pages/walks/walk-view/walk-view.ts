@@ -55,6 +55,7 @@ import {
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { AlbumEditRole } from "../../../models/content-metadata.model";
+import { eventAccessPermitted } from "../../../functions/event-access-level";
 import { socialPublishingEnabled } from "../../../functions/social-publishing";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { GroupEventImages } from "./group-event-images";
@@ -597,9 +598,19 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   public readonly publishBlockedTooltip = "Cannot be published until it's approved.";
 
+  canPromoteWalk(): boolean {
+    return eventAccessPermitted(this.systemConfigService.systemConfig()?.group?.walkPromotionAccessLevel, {
+      loggedIn: this.memberLoginService.memberLoggedIn(),
+      committee: this.memberLoginService.memberLoggedIn() && this.memberLoginService.allowCommittee(),
+      memberAdmin: this.memberLoginService.memberLoggedIn() && this.memberLoginService.allowMemberAdminEdits(),
+      eventAdmin: !!this.allowWalkAdminEdits,
+      eventLeader: this.display.loggedInMemberIsLeadingWalk(this.displayedWalk?.walk)
+    });
+  }
+
   showSocialPublishing(): boolean {
     const externalSystems = this.systemConfigService.systemConfig()?.externalSystems;
-    return !!this.allowWalkAdminEdits
+    return this.canPromoteWalk()
       && !this.eventHasStarted()
       && (!!externalSystems?.facebook?.eventPublishingEnabled || !!externalSystems?.instagram?.eventPublishingEnabled);
   }

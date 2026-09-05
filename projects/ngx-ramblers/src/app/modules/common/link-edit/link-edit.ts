@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faClose, faDownLong, faUpLong } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AccessLevel } from "../../../models/member-resource.model";
+import { AccessLevel, generalAccessLevels } from "../../../models/member-resource.model";
 import { Link } from "../../../models/page.model";
 import { move } from "../../../functions/arrays";
 import { isUndefined } from "es-toolkit/compat";
@@ -63,11 +63,13 @@ export class LinkEditComponent implements OnInit {
   @Input() links: Link[];
   @Output() delete: EventEmitter<Link> = new EventEmitter();
   uniqueId: string = this.numberUtilsService.generateUid();
-  accessLevels: AccessLevel[] = enumValues(AccessLevel);
+  accessLevels: AccessLevel[] = generalAccessLevels();
   accessLevelDescriptions: Record<AccessLevel, string> = {
     [AccessLevel.HIDDEN]: "Hidden",
     [AccessLevel.ENVIRONMENT_ADMIN]: "Environment Admin",
     [AccessLevel.MEMBER_ADMIN]: "Member Admin",
+    [AccessLevel.EVENT_ADMIN]: "Walk or Event Admin",
+    [AccessLevel.EVENT_LEADER]: "Event Leader or Organiser",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged In Member",
     [AccessLevel.PUBLIC]: "Public"
