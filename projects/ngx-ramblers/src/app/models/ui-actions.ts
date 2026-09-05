@@ -219,6 +219,8 @@ export enum StoredValue {
   START_DATE = "start-date",
   STATUS = "status",
   STEP = "step",
+  TRACK = "track",
+  VIA = "via",
   STORY = "story",
   SUBJECT = "subject",
   SUB_TAB = "sub-tab",

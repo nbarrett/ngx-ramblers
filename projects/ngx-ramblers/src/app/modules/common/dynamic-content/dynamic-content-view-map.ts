@@ -34,12 +34,14 @@ import {
 import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { cloneDeep, isArray, isString, isUndefined, keys } from "es-toolkit/compat";
 import { isAuthoredMarker } from "../../../functions/map-location-markers";
+import { markersOnTrack, trackOptions } from "../../../functions/route-directions";
+import { branchChoiceLabel, branchMarkers, composeRoute, routeBranches, viaFromQuery } from "../../../functions/route-branches";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { AsyncPipe, NgClass, NgTemplateOutlet } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
-import { faArrowUp, faDownload, faExclamationTriangle, faPlus, faSearch, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUp, faCodeFork, faDownload, faExclamationTriangle, faPlus, faRoute, faSearch, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { mapGesturesFor } from "../../../services/maps/map-gestures";
 import { MaximisableMapComponent, MaximisableMapState } from "../maximisable-map/maximisable-map";
@@ -52,7 +54,7 @@ import { travelBearingAt, turnRotationDegrees } from "../../../functions/route-t
 import { travelAlongRoute } from "../../../services/maps/route-travel";
 import { distanceAlongRouteMetres } from "../../../functions/route-directions";
 import { cumulativeDistances, nearestPointIndex, pointAlongRoute, snapToRoute } from "../../../functions/route-geometry";
-import { ROUTE_FULLSCREEN_FIT_PADDING, ROUTE_FULLSCREEN_SETTLE_MS, ROUTE_FIT_PADDING, ROUTE_RESIZE_SETTLE_MS, ROUTE_AUTOSAVE_DELAY_MS, ROUTE_UNDO_LIMIT, RouteWaypointKind, ROUTE_GUIDE_DEFAULT_HEIGHT, ROUTE_GUIDE_MAX_HEIGHT, ROUTE_GUIDE_MIN_HEIGHT, ROUTE_GUIDE_DEFAULT_WIDTH, ROUTE_GUIDE_MAP_MIN_WIDTH, ROUTE_GUIDE_MIN_WIDTH, RouteSaveState, RouteDownload, ROUTE_STEP_POPUP_MAX_WIDTH, ROUTE_STEP_POPUP_MIN_WIDTH, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_POPUP_CLASS, RouteFollowPoint, RouteGuidePanelPosition } from "../../../models/route-follow.model";
+import { RouteBranch, ROUTE_ALTERNATIVE_TRACK_COLOURS, ROUTE_ALTERNATIVE_TRACK_DASH, ROUTE_ALTERNATIVE_TRACK_OPACITY, RouteTrackOption, RouteFollowQueryParam, ROUTE_FULLSCREEN_FIT_PADDING, ROUTE_FULLSCREEN_SETTLE_MS, ROUTE_FIT_PADDING, ROUTE_RESIZE_SETTLE_MS, ROUTE_AUTOSAVE_DELAY_MS, ROUTE_UNDO_LIMIT, RouteWaypointKind, ROUTE_GUIDE_DEFAULT_HEIGHT, ROUTE_GUIDE_MAX_HEIGHT, ROUTE_GUIDE_MIN_HEIGHT, ROUTE_GUIDE_DEFAULT_WIDTH, ROUTE_GUIDE_MAP_MIN_WIDTH, ROUTE_GUIDE_MIN_WIDTH, RouteSaveState, RouteDownload, ROUTE_STEP_POPUP_MAX_WIDTH, ROUTE_STEP_POPUP_MIN_WIDTH, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_POPUP_CLASS, RouteFollowPoint, RouteGuidePanelPosition } from "../../../models/route-follow.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AlertModule } from "ngx-bootstrap/alert";
 import { FormsModule } from "@angular/forms";
@@ -428,7 +430,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                        (sizeChange)="onGuideWidthChange($event)" (resizeEnd)="saveGuideWidth()"/>
         }
         <ng-template #stepControls>
-          <app-route-step-controls [activeIndex]="activeIndex" [count]="guideEntries.length" [fullscreen]="fullscreen" [headingUp]="headingUp" [canFollow]="canFollowRoute"
+          <app-route-step-controls [tracks]="selectableTracks" [selectedTrack]="selectedTrack" (trackChange)="selectTrack($event)" [activeIndex]="activeIndex" [count]="guideEntries.length" [fullscreen]="fullscreen" [headingUp]="headingUp" [canFollow]="canFollowRoute"
                                    [speed]="stepSpeed" [id]="guideListId" (speedChange)="setStepSpeed($event)" [guideOpen]="guideOpen" (toggleGuide)="toggleGuide()"
                                    [canEdit]="canLiveEdit" [editing]="liveEditing" [saveState]="saveState" (toggleEdit)="toggleLiveEdit()" [canUndo]="canUndo" (undo)="undo()" (discard)="discardLiveEdit()"
                                    (previous)="previousStep()" (next)="nextStep()" (first)="firstStep()" (toggleHeading)="toggleMapHeading()"
@@ -459,6 +461,28 @@ import { DateUtilsService } from "../../../services/date-utils.service";
             }
             <ol class="route-guide-list mb-0" [id]="guideListId" [style.max-height.px]="fullscreen ? null : guideHeight">
               @for (entry of guideEntries; track entry.index) {
+                @if (entry.forkIndex !== undefined) {
+                  <li class="route-guide-item route-guide-fork" [class.active]="activeMarker === entry.marker" [attr.data-guide-index]="entry.index"
+                      role="button" tabindex="0" (click)="focusWaypoint(entry)" (keydown.enter)="focusWaypoint(entry)">
+                    <span class="route-guide-number" [style.background]="markerColour"><fa-icon [icon]="faCodeFork"/></span>
+                    <span class="route-guide-body">
+                      <span class="route-guide-distance">
+                        @if (entry.distanceMetres !== null) {
+                          {{ milesAlong(entry.distanceMetres) }}
+                        }
+                      </span>
+                      <span class="route-step-instruction">{{ forkHeading(entry) }}</span>
+                      <span class="d-flex flex-wrap gap-2 mt-1 route-guide-actions" (click)="$event.stopPropagation()">
+                        <button type="button" class="btn btn-sm" [class.btn-primary]="branchTaken(forkBranch(entry))" [class.btn-quiet]="!branchTaken(forkBranch(entry))" (click)="chooseBranch(forkBranch(entry), true)">
+                          <fa-icon [icon]="faCodeFork" class="me-1"/>{{ branchChoice(forkBranch(entry)).shortCut }}
+                        </button>
+                        <button type="button" class="btn btn-sm" [class.btn-primary]="!branchTaken(forkBranch(entry))" [class.btn-quiet]="branchTaken(forkBranch(entry))" (click)="chooseBranch(forkBranch(entry), false)">
+                          <fa-icon [icon]="faRoute" class="me-1"/>{{ branchChoice(forkBranch(entry)).mainRoute }}
+                        </button>
+                      </span>
+                    </span>
+                  </li>
+                } @else {
                 <li class="route-guide-item" [class.active]="activeMarker === entry.marker" [attr.data-guide-index]="entry.index"
                     [style.border-left-color]="activeMarker === entry.marker ? null : markerColour"
                     role="button" tabindex="0" (click)="focusWaypoint(entry)" (keydown.enter)="focusWaypoint(entry)">
@@ -495,6 +519,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                     }
                   </span>
                 </li>
+                }
               }
             </ol>
             @if (!fullscreen) {
@@ -789,6 +814,47 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   protected readonly maxGuideHeight = ROUTE_GUIDE_MAX_HEIGHT;
   protected stepSpeed = Number(this.uiActions.initialValueFor(StoredValue.ROUTE_STEP_SPEED)) || ROUTE_STEP_SPEED_DEFAULT;
   public guideOpen = false;
+  protected tracks: RouteTrackOption[] = [];
+  private allTrackPoints: RouteFollowPoint[] = [];
+  protected branches: RouteBranch[] = [];
+  protected via: number[] = viaFromQuery(this.activatedRoute.snapshot.queryParamMap.get(StoredValue.VIA));
+  private mainTrackPoints: RouteFollowPoint[] = [];
+
+  protected readonly faCodeFork = faCodeFork;
+  protected readonly faRoute = faRoute;
+
+  forkBranch(entry: RouteGuideEntry): RouteBranch {
+    return this.branches.find(branch => branch.index === entry.forkIndex);
+  }
+
+  forkHeading(entry: RouteGuideEntry): string {
+    const branch = this.forkBranch(entry);
+    return this.branchTaken(branch) ? `Taking ${branch.label.toLowerCase()} from here` : `${branch.label} leaves the main route here`;
+  }
+
+  branchTaken(branch: RouteBranch): boolean {
+    return this.via.includes(branch.index);
+  }
+
+  branchChoice(branch: RouteBranch): {shortCut: string; mainRoute: string} {
+    return branchChoiceLabel(branch);
+  }
+
+  chooseBranch(branch: RouteBranch, take: boolean): void {
+    const via = take ? [...this.via.filter(index => index !== branch.index), branch.index].sort((left, right) => left - right) : this.via.filter(index => index !== branch.index);
+    this.via = via;
+    this.guideCache = null;
+    this.activeMarker = null;
+    this.cancelTravel();
+    void this.uiActions.updateQueryParameters({[StoredValue.VIA]: via.length > 0 ? via.join(",") : null, [StoredValue.STEP]: null});
+    this.loadingRoutes = true;
+    void this.loadRoutes();
+  }
+
+  get selectableTracks(): RouteTrackOption[] {
+    return this.tracks.filter(track => track.selectable);
+  }
+  protected selectedTrack = Number(this.activatedRoute.snapshot.queryParamMap.get(StoredValue.TRACK)) || 0;
   protected liveEditing = false;
   private undoStack: MapMarker[][] = [];
   private editSnapshot: MapMarker[] | null = null;
@@ -1170,6 +1236,12 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const currentBounds = this.mapRef?.getBounds();
     const maxTracksWithoutFiltering = 500;
 
+    const firstRouteData = this.visibleRoutes.length > 0 ? await this.routeDataForRoute(this.visibleRoutes[0]) : null;
+    const trackList = (firstRouteData?.tracksWithBounds || []).map(twb => twb.track);
+    this.tracks = this.row.routeGuide ? trackOptions(trackList) : [];
+    this.selectedTrack = this.tracks[this.selectedTrack]?.selectable ? this.selectedTrack : 0;
+    this.allTrackPoints = trackList.flatMap(track => track.points || []);
+
     const allRouteLayers = await Promise.all(
       this.visibleRoutes.map(async route => {
         const gpxData = await this.routeDataForRoute(route);
@@ -1196,16 +1268,20 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
         this.logger.info(`loadRoutes: Rendering ${tracksToRender.length} of ${gpxData.totalFeatures} tracks for ${route.name} (viewport filtering: ${this.useViewportFiltering})`);
 
         return tracksToRender
-          .map(twb => this.createRouteLayer(twb.track, gpxData.waypoints, route))
+          .map(twb => this.createRouteLayer(twb.track, gpxData.waypoints, route, route === this.visibleRoutes[0] ? gpxData.tracksWithBounds.indexOf(twb) : 0))
           .filter((layer): layer is L.Layer => layer !== null);
       })
     );
 
     routeLayers.push(...allRouteLayers.flat());
 
-    const firstRouteData = this.visibleRoutes.length > 0 ? await this.routeDataForRoute(this.visibleRoutes[0]) : null;
-    this.routePoints = firstRouteData?.tracksWithBounds?.[0]?.track?.points || [];
-    const markers = this.row.map?.markers || [];
+    this.branches = this.tracks.length > 1 ? routeBranches(trackList) : [];
+    this.mainTrackPoints = trackList[0]?.points || [];
+    this.routePoints = this.branches.length > 0 ? composeRoute(this.mainTrackPoints, this.branches, this.via).points : (trackList[this.selectedTrack]?.points || []);
+    if (this.branches.length > 0) {
+      routeLayers.push(...this.createPathLayers(this.routePoints, this.visibleRoutes[0]));
+    }
+    const markers = this.tracks.length > 1 ? this.markersForGuide(this.row.map?.markers || []) : (this.row.map?.markers || []);
     const markerLayers = this.createStandaloneMarkers(markers);
     const allLayers = [...routeLayers, ...markerLayers];
     const hasContent = allLayers.length > 0;
@@ -1446,15 +1522,38 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     };
   }
 
-  private createRouteLayer(track: GpxTrack, waypoints: GpxWaypoint[], route: MapRouteViewModel): L.Layer | null {
+  private createPathLayers(points: RouteFollowPoint[], route: MapRouteViewModel): L.Layer[] {
+    const latLngs = points.map(point => [point.latitude, point.longitude] as [number, number]);
+    const color = route.color || PaletteColor.ROSE;
+    const weight = route.weight || 8;
+    return latLngs.length < 2 ? [] : [
+      L.polyline(latLngs, {color: "#ffffff", weight: weight + 4, opacity: 0.6, lineCap: "round", lineJoin: "round"}),
+      L.polyline(latLngs, {color, weight, opacity: route.opacity ?? 1.0, lineCap: "round", lineJoin: "round", smoothFactor: 1})
+    ];
+  }
+
+  private markersForGuide(markers: MapMarker[]): MapMarker[] {
+    const taken = this.branches.filter(branch => this.branchTaken(branch));
+    return [...markersOnTrack(markers, this.routePoints), ...taken.flatMap(branch => branchMarkers(branch))];
+  }
+
+  private forkEntries(): RouteGuideEntry[] {
+    return this.branches.map((branch, position) => {
+      const marker: MapMarker = {id: `fork-${branch.index}`, latitude: branch.forkPoint.latitude, longitude: branch.forkPoint.longitude, label: "?", instruction: `${branch.label} ahead`, kind: RouteWaypointKind.WAYPOINT};
+      return {marker, index: 100000 + position, distanceMetres: distanceAlongRouteMetres(this.routePoints, branch.forkPoint), forkIndex: branch.index};
+    });
+  }
+
+  private createRouteLayer(track: GpxTrack, waypoints: GpxWaypoint[], route: MapRouteViewModel, trackIndex = 0): L.Layer | null {
     const latLngs = this.gpxParser.toLeafletLatLngs(track);
     if (latLngs.length < 2) {
       return null;
     }
 
-    const color = route.color || PaletteColor.ROSE;
+    const alternative = this.tracks.length > 1 && (this.branches.length > 0 || trackIndex !== this.selectedTrack);
+    const color = alternative ? ROUTE_ALTERNATIVE_TRACK_COLOURS[trackIndex % ROUTE_ALTERNATIVE_TRACK_COLOURS.length] : (route.color || PaletteColor.ROSE);
     const weight = route.weight || 8;
-    const opacity = route.opacity ?? 1.0;
+    const opacity = (route.opacity ?? 1.0) * (alternative ? ROUTE_ALTERNATIVE_TRACK_OPACITY : 1);
     const haloWeight = weight + 4;
     const haloOpacity = 0.6;
 
@@ -1472,11 +1571,12 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       opacity,
       lineCap: "round",
       lineJoin: "round",
-      smoothFactor: 1
+      smoothFactor: 1,
+      ...(alternative ? {dashArray: ROUTE_ALTERNATIVE_TRACK_DASH} : {})
     });
 
     if (!this.editingNow) {
-      core.bindPopup(this.createPopupContent(track, route));
+      core.bindPopup(this.createPopupContent(track, route, trackIndex));
     }
 
     const routeGroup = L.layerGroup([halo, core]);
@@ -1492,8 +1592,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
 
-  private createPopupContent(track: GpxTrack, route: MapRouteViewModel): string {
-    const pathName = this.row?.routeGuide?.title || track.name || route.name || "Route";
+  private createPopupContent(track: GpxTrack, route: MapRouteViewModel, trackIndex = 0): string {
+    const option = this.tracks.length > 1 ? this.tracks[trackIndex] : null;
+    const pathName = option ? `${this.row?.routeGuide?.title || route.name || "Route"}: ${option.label}` : (this.row?.routeGuide?.title || track.name || route.name || "Route");
     const pathType = track.description;
 
     let content = `<div><strong>${this.escapeHtml(pathName)}</strong></div>`;
@@ -1596,13 +1697,17 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   get guideEntries(): RouteGuideEntry[] {
-    const markers = this.row?.map?.markers || [];
-    if (!this.guideCache || this.guideCache.markers !== markers || this.guideCache.points !== this.routePoints) {
-      const entries = markers
+    const rowMarkers = this.row?.map?.markers || [];
+    if (!this.guideCache || this.guideCache.markers !== rowMarkers || this.guideCache.points !== this.routePoints) {
+      const markers = this.tracks.length > 1 && !this.stepsEditing ? this.markersForGuide(rowMarkers) : rowMarkers;
+      const stepEntries = markers
         .map((marker, index) => ({marker, index}))
         .filter(entry => this.stepsEditing ? isAuthoredMarker(entry.marker) : !!entry.marker.instruction?.trim())
         .map(entry => ({...entry, distanceMetres: distanceAlongRouteMetres(this.routePoints, entry.marker)}));
-      this.guideCache = {markers, points: this.routePoints, entries};
+      const entries = this.branches.length > 0 && !this.stepsEditing
+        ? [...stepEntries, ...this.forkEntries()].sort((left, right) => (left.distanceMetres ?? 0) - (right.distanceMetres ?? 0))
+        : stepEntries;
+      this.guideCache = {markers: rowMarkers, points: this.routePoints, entries};
     }
     return this.guideCache.entries;
   }
@@ -2008,9 +2113,28 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     this.uiActions.saveValueFor(StoredValue.ROUTE_GUIDE_WIDTH, this.guideWidth);
   }
 
+  selectTrack(index: number): void {
+    if (index !== this.selectedTrack) {
+      this.selectedTrack = index;
+      this.guideCache = null;
+      this.activeMarker = null;
+      this.cancelTravel();
+      void this.uiActions.updateQueryParameters({[StoredValue.TRACK]: index > 0 ? String(index) : null, [StoredValue.STEP]: null});
+      this.loadingRoutes = true;
+      void this.loadRoutes().then(() => {
+        if (this.mapRef && this.allTrackPoints.length > 1) {
+          this.mapRef.fitBounds(L.latLngBounds(this.allTrackPoints.map(point => [point.latitude, point.longitude])), {animate: false, padding: [ROUTE_FIT_PADDING, ROUTE_FIT_PADDING]});
+        }
+      });
+    }
+  }
+
   openFollow(): void {
     const route = (this.row.map?.routes || []).find(item => item.visible !== false && item.gpxFile?.awsFileName);
     const queryParams: Record<string, string> = {};
+    if (this.selectedTrack > 0) {
+      queryParams[RouteFollowQueryParam.TRACK] = String(this.selectedTrack);
+    }
     if (this.pageContent?.path) {
       queryParams.path = this.pageContent.path;
     }

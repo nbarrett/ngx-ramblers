@@ -12,7 +12,9 @@ export enum RouteFollowQueryParam {
   ROUTE_ID = "routeId",
   WALK_ID = "walkId",
   RAMBLERS_SLUG = "ramblersSlug",
-  OS_MAPS_ROUTE_ID = "osMapsRouteId"
+  OS_MAPS_ROUTE_ID = "osMapsRouteId",
+  TRACK = "track",
+  VIA = "via"
 }
 
 export enum RouteWaypointKind {
@@ -45,6 +47,38 @@ export const ROUTE_GUIDE_DEFAULT_WIDTH = 380;
 export const ROUTE_GUIDE_MIN_WIDTH = 260;
 export const ROUTE_GUIDE_MAP_MIN_WIDTH = 320;
 export const ROUTE_FIT_PADDING = 32;
+export const ROUTE_TRACK_MAX_METRES = 60;
+export const ROUTE_ALTERNATIVE_TRACK_COLOURS = ["#2a8a8a", "#5a45c6", "#4a8c3f", "#c2571d"];
+export const ROUTE_ALTERNATIVE_TRACK_DASH = "10 10";
+export const ROUTE_ALTERNATIVE_TRACK_OPACITY = 0.7;
+
+export const ROUTE_ALTERNATIVE_MIN_FRACTION = 0.3;
+export const ROUTE_BRANCH_JOIN_METRES = 80;
+export const ROUTE_FORK_PROMPT_METRES = 150;
+export const ROUTE_SHORT_CUT_MIN_SAVING = 0.25;
+
+export interface RouteBranch {
+  index: number;
+  label: string;
+  points: RouteFollowPoint[];
+  forkMetres: number;
+  rejoinMetres: number;
+  branchMetres: number;
+  mainMetres: number;
+  forkPoint: RouteFollowPoint;
+}
+
+export interface RouteComposition {
+  points: RouteFollowPoint[];
+  taken: number[];
+}
+
+export interface RouteTrackOption {
+  index: number;
+  label: string;
+  distanceMiles: number;
+  selectable: boolean;
+}
 export const ROUTE_FULLSCREEN_FIT_PADDING = 48;
 export const ROUTE_RESIZE_SETTLE_MS = 60;
 export const ROUTE_FULLSCREEN_SETTLE_MS = 150;
@@ -107,6 +141,7 @@ export enum RouteWayNamesSource {
 export interface RouteWayName {
   name: string;
   use: string;
+  reference?: string;
 }
 
 export interface RouteTurnStep {
@@ -118,6 +153,7 @@ export interface RouteTurnStep {
   bearingChange: number;
   wayName: string | null;
   wayUse: string | null;
+  wayReference?: string | null;
   distanceFromStartMetres: number;
   distanceToNextMetres: number;
   instruction: string;
@@ -133,6 +169,7 @@ export interface RouteTurnStepsResponse {
   pointCount: number;
   namedPointCount: number;
   namesSource: RouteWayNamesSource;
+  trackCount?: number;
   notes?: string[];
   placesLocated?: number;
   placesTried?: number;
@@ -472,6 +509,8 @@ export interface RouteFollowPayload {
   totalMetres: number;
   guide: RouteGuideData | null;
   directions?: string[];
+  branches?: RouteBranch[];
+  via?: number[];
 }
 
 export interface RouteFollowSummary {

@@ -243,6 +243,7 @@ export interface RouteGuideEntry {
   marker: MapMarker;
   index: number;
   distanceMetres: number | null;
+  forkIndex?: number;
 }
 
 export interface MapData {
