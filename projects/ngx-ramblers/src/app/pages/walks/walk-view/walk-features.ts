@@ -16,17 +16,20 @@ import { FeaturesService } from "../../../services/features.service";
       .event-panel-inner
         margin-bottom: 0
 
-      h1
+      .feature-grid app-walk-feature
+        display: block
+
+      .unshaded h1
         font-size: 16px
         font-weight: bold
 
-      .feature-grid
+      .unshaded .feature-grid
         display: grid
         grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))
         gap: 4px 16px
     `],
     template: `
-      <div [class.event-panel]="shaded" [class.event-panel-inner]="shaded" [class.rounded]="shaded">
+      <div [class.event-panel]="shaded" [class.event-panel-inner]="shaded" [class.rounded]="shaded" [class.unshaded]="!shaded">
         <h1>Features</h1>
         <div class="feature-grid">
           @for (feature of featuresService.combinedFeatures(extendedGroupEvent.groupEvent); track feature.code) {
