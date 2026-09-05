@@ -1,5 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
+import { markersOnTrack } from "../../functions/route-directions";
+import { branchMarkers, composeRoute, routeBranches } from "../../functions/route-branches";
 import { firstValueFrom, timeout } from "rxjs";
 import { isNumber, isString } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -150,18 +152,23 @@ export class RouteFollowPayloadService {
     };
   }
 
-  async payloadFromPage(page: PageContent, routeId?: string | null): Promise<RouteFollowPayload | null> {
+  async payloadFromPage(page: PageContent, routeId?: string | null, trackIndex = 0, via: number[] = []): Promise<RouteFollowPayload | null> {
     const row = this.followableRow(page, routeId) || this.firstMapRow(page);
     const map = row?.map;
     if (!row || !map) {
       return null;
     } else {
       const route = this.preferredRoute(map, routeId);
-      const parsed = route ? await this.loadGpx(route.gpxFile) : {points: [] as RouteFollowPoint[], waypoints: [] as RouteFollowWaypoint[], totalMetres: 0};
-      const points = parsed.points;
-      const waypoints = this.mergeWaypoints(map.markers || [], parsed.waypoints);
+      const parsed = route ? await this.loadGpx(route.gpxFile, trackIndex) : {points: [] as RouteFollowPoint[], waypoints: [] as RouteFollowWaypoint[], totalMetres: 0, tracks: [] as RouteFollowPoint[][]};
+      const branches = trackIndex === 0 ? routeBranches(parsed.tracks.map(trackPoints => ({points: trackPoints}))) : [];
+      const composition = composeRoute(parsed.points, branches, via);
+      const points = composition.points;
+      const taken = branches.filter(branch => composition.taken.includes(branch.index));
+      const waypoints = this.mergeWaypoints([...markersOnTrack(map.markers || [], points), ...taken.flatMap(branch => branchMarkers(branch))], parsed.waypoints);
       return {
         source: RouteFollowSource.PAGE,
+        branches,
+        via: composition.taken,
         title: row.routeGuide?.title || route?.name || this.titleFromPath(page.path),
         path: page.path || null,
         walkId: null,
@@ -297,22 +304,22 @@ export class RouteFollowPayloadService {
     }
   }
 
-  private async loadGpx(fileData: FileNameData | Partial<ServerFileNameData> | undefined): Promise<{points: RouteFollowPoint[]; waypoints: RouteFollowWaypoint[]; totalMetres: number}> {
+  private async loadGpx(fileData: FileNameData | Partial<ServerFileNameData> | undefined, trackIndex = 0): Promise<{points: RouteFollowPoint[]; waypoints: RouteFollowWaypoint[]; totalMetres: number; tracks: RouteFollowPoint[][]}> {
     const url = this.gpxDownloadUrl(fileData);
     if (!url) {
-      return {points: [], waypoints: [], totalMetres: 0};
+      return {points: [], waypoints: [], totalMetres: 0, tracks: []};
     } else {
       try {
         const content = await firstValueFrom(this.http.get(url, {responseType: "text"}).pipe(timeout(ROUTE_FOLLOW_NETWORK_TIMEOUT_MS)));
         const parsed = this.gpxParser.parseGpxFile(content);
-        const points = (parsed.tracks || []).reduce((acc: RouteFollowPoint[], track) => {
-          const trackPoints = (track.points || []).map(point => ({
-            latitude: point.latitude,
-            longitude: point.longitude,
-            elevation: isNumber(point.elevation) ? point.elevation : null
-          }));
-          return [...acc, ...trackPoints];
-        }, []);
+        const tracks = parsed.tracks || [];
+        const chosen = tracks[trackIndex] || tracks[0];
+        const toPoints = (track: {points?: {latitude: number; longitude: number; elevation?: number | null}[]} | undefined): RouteFollowPoint[] => (track?.points || []).map(point => ({
+          latitude: point.latitude,
+          longitude: point.longitude,
+          elevation: isNumber(point.elevation) ? point.elevation : null
+        }));
+        const points = toPoints(chosen);
         const waypoints = (parsed.waypoints || []).map((waypoint, index) => ({
           id: generateUid(),
           latitude: waypoint.latitude,
@@ -321,11 +328,11 @@ export class RouteFollowPayloadService {
           instruction: waypoint.description || null,
           kind: RouteWaypointKind.WAYPOINT
         }));
-        const totalMetres = (parsed.tracks || []).reduce((sum, track) => sum + (track.totalDistance || 0), 0);
-        return {points, waypoints, totalMetres};
+        const totalMetres = chosen?.totalDistance || 0;
+        return {points, waypoints, totalMetres, tracks: tracks.map(toPoints)};
       } catch (error) {
         this.logger.error("loadGpx failed for", url, error);
-        return {points: [], waypoints: [], totalMetres: 0};
+        return {points: [], waypoints: [], totalMetres: 0, tracks: []};
       }
     }
   }

@@ -1,12 +1,13 @@
+import { FormsModule } from "@angular/forms";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCheck, faChevronLeft, faChevronRight, faExpand, faGaugeHigh, faListOl, faPencil, faPersonWalking, faRotateLeft, faTrashCan, faUndo, faUpLong } from "@fortawesome/free-solid-svg-icons";
-import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX, ROUTE_STEP_SPEED_MIN, ROUTE_STEP_SPEED_STEP, RouteSaveState } from "../../models/route-follow.model";
+import { faCheck, faChevronLeft, faChevronRight, faExpand, faGaugeHigh, faListOl, faPencil, faPersonWalking, faRotateLeft, faTrashCan, faUndo, faUpLong, faCodeFork } from "@fortawesome/free-solid-svg-icons";
+import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX, ROUTE_STEP_SPEED_MIN, ROUTE_STEP_SPEED_STEP, RouteSaveState, RouteTrackOption } from "../../models/route-follow.model";
 
 @Component({
   selector: "app-route-step-controls",
-  imports: [FontAwesomeModule, NgTemplateOutlet],
+  imports: [FontAwesomeModule, NgTemplateOutlet, FormsModule],
   template: `
     <div class="d-flex flex-wrap align-items-center gap-2 control-pill-row">
       @if (!fullscreen) {
@@ -20,6 +21,17 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
                     [title]="guideOpen ? 'Hide the written directions' : 'Show the written directions'">
               <fa-icon [icon]="faListOl"/><span class="d-none d-sm-inline">{{ guideOpen ? "Hide directions" : "Directions" }}</span>
             </button>
+          }
+          @if (tracks.length > 1) {
+            <span class="control-pill-divider"></span>
+            <label class="control-pill-range-label" [attr.for]="'route-track-' + id" title="This file holds more than one route: choose which one to follow">
+              <fa-icon [icon]="faCodeFork"/><span class="d-none d-sm-inline">Route</span>
+              <select class="form-select form-select-sm" [id]="'route-track-' + id" [ngModel]="selectedTrack" (ngModelChange)="trackChange.emit($event)" aria-label="Choose which route to follow">
+                @for (track of tracks; track track.index) {
+                  <option [ngValue]="track.index">{{ track.label }} ({{ track.distanceMiles }} miles)</option>
+                }
+              </select>
+            </label>
           }
           @if (canFollow) {
             <span class="control-pill-divider"></span>
@@ -63,6 +75,19 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
       }
       @if (fullscreen && (count > 0 || canFollow)) {
         <div class="control-pill" role="group" aria-label="Map and route options">
+          @if (tracks.length > 1) {
+            <label class="control-pill-range-label" [attr.for]="'route-track-' + id" title="This file holds more than one route: choose which one to follow">
+              <fa-icon [icon]="faCodeFork"/><span class="d-none d-sm-inline">Route</span>
+              <select class="form-select form-select-sm" [id]="'route-track-' + id" [ngModel]="selectedTrack" (ngModelChange)="trackChange.emit($event)" aria-label="Choose which route to follow">
+                @for (track of tracks; track track.index) {
+                  <option [ngValue]="track.index">{{ track.label }} ({{ track.distanceMiles }} miles)</option>
+                }
+              </select>
+            </label>
+          }
+          @if (tracks.length > 1 && canEdit) {
+            <span class="control-pill-divider"></span>
+          }
           @if (canEdit) {
             <button type="button" class="control-pill-btn" [class.active]="editing" (click)="toggleEdit.emit()" [attr.aria-pressed]="editing"
                     [title]="editing ? 'Finish editing the directions' : 'Edit the directions and drag the pins'">
@@ -135,6 +160,10 @@ export class RouteStepControls {
   @Input() speed = ROUTE_STEP_SPEED_DEFAULT;
   @Input() id = "";
   @Output() speedChange = new EventEmitter<number>();
+  @Input() tracks: RouteTrackOption[] = [];
+  @Input() selectedTrack = 0;
+  @Output() trackChange = new EventEmitter<number>();
+  protected readonly faCodeFork = faCodeFork;
   protected readonly speedMin = ROUTE_STEP_SPEED_MIN;
   protected readonly speedMax = ROUTE_STEP_SPEED_MAX;
   protected readonly speedStep = ROUTE_STEP_SPEED_STEP;

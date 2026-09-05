@@ -35,9 +35,14 @@ export function thinnedTrack(points: RouteFollowPoint[], maxPoints = MAX_TURN_PO
   return stride <= 1 ? points : points.filter((point, index) => index % stride === 0 || index === points.length - 1);
 }
 
+export function trackCountFromGpx(gpx: string): number {
+  return new DOMParser().parseFromString(gpx, "text/xml").getElementsByTagName("trk").length;
+}
+
 export function trackPointsFromGpx(gpx: string): RouteFollowPoint[] {
   const document = new DOMParser().parseFromString(gpx, "text/xml");
-  const elements = document.getElementsByTagName("trkpt");
+  const firstTrack = document.getElementsByTagName("trk").item(0);
+  const elements = (firstTrack || document).getElementsByTagName("trkpt");
   return Array.from({length: elements.length}, (_, index) => elements.item(index))
     .map(element => ({latitude: parseFloat(element?.getAttribute("lat") || ""), longitude: parseFloat(element?.getAttribute("lon") || "")}))
     .filter(point => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
@@ -189,6 +194,7 @@ export async function routeTurnStepsHandler(req: Request, res: Response): Promis
           pointCount: points.length,
           namedPointCount: wayNames.filter(way => !!way).length,
           namesSource: trace ? RouteWayNamesSource.VALHALLA : RouteWayNamesSource.NONE,
+          trackCount: trackCountFromGpx(gpx),
           ...(narrative ? {notes: narrative.notes, placesLocated: narrative.placesLocated, placesTried: narrative.placesTried, places: narrative.places} : {})
         };
         debugLog("turn steps for", key, "points:", points.length, "named:", response.namedPointCount, "steps:", response.steps.length);

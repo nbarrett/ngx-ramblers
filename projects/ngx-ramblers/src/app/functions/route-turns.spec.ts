@@ -1,5 +1,5 @@
 import { RouteTurnModifier, RouteTurnStepKind, RouteWayName } from "../models/route-follow.model";
-import { assignSentencesToSteps, attachNarrative, spreadUnmatchedSentences, bearingChange, travelBearingAt, compassDirection, namesFromValhallaTrace, placeNameCandidates, routeTurnSteps, stepIndexAtDistance, stepIndexForPlace, stepIndicesForPlace, turnCandidates, turnModifierFor, turnRotationDegrees } from "./route-turns";
+import { assignSentencesToSteps, attachNarrative, isWayReference, spreadUnmatchedSentences, bearingChange, travelBearingAt, compassDirection, namesFromValhallaTrace, placeNameCandidates, routeTurnSteps, stepIndexAtDistance, stepIndexForPlace, stepIndicesForPlace, turnCandidates, turnModifierFor, turnRotationDegrees } from "./route-turns";
 
 const STEP = 0.0005;
 const north = [0, 1, 2, 3, 4, 5].map(step => ({latitude: 51 + step * STEP, longitude: 1}));
@@ -136,10 +136,11 @@ describe("stepIndexForPlace", () => {
 });
 
 describe("attachNarrative", () => {
-  it("hangs each sentence on the step whose way it names, and the rest on the current step", () => {
+  it("keeps sentences with their paragraph unless a sentence has its own anchor, which moves it forward", () => {
     const steps = [{wayName: "St. Marys Meadow"}, {wayName: "Preston Hill"}, {wayName: null}, {wayName: "Wenderton Lane"}];
     const notes = attachNarrative([
-      "From the car park turn right along the High Street. Continue and cross the road to take Preston Hill on the left. Near the top of the hill take the lane on the left, Wenderton Lane, and follow it to the next junction.",
+      "From the car park turn right along the High Street. Continue and cross the road to take Preston Hill on the left.",
+      "Near the top of the hill take the lane on the left, Wenderton Lane, and follow it to the next junction.",
       "Here go left towards the woods."
     ], steps);
     expect(notes).toEqual([
@@ -148,6 +149,26 @@ describe("attachNarrative", () => {
       "",
       "Near the top of the hill take the lane on the left, Wenderton Lane, and follow it to the next junction. Here go left towards the woods."
     ]);
+  });
+
+  it("attaches a paragraph that opens with a turn to the next step turning the same way", () => {
+    const steps = [{wayName: null, instruction: "Start heading east"}, {wayName: null, instruction: "Turn right along the footpath"}, {wayName: null, instruction: "Turn left along the footpath"}, {wayName: null, instruction: "Bear right along the track"}, {wayName: "Mill Lane", instruction: "Turn left onto Mill Lane"}];
+    const notes = attachNarrative(["Cross the road and turn left along it, taking care.", "Bear right at the barn.", "Turn left into Mill Lane."], steps);
+    expect(notes).toEqual(["", "", "Cross the road and turn left along it, taking care.", "Bear right at the barn.", "Turn left into Mill Lane."]);
+  });
+
+  it("keeps a sentence with no anchor beside the sentence before it within a paragraph, but lets a new paragraph move on to the next steps", () => {
+    const steps = [{wayName: "High Street"}, {wayName: null}, {wayName: null}, {wayName: null}, {wayName: "Mill Lane"}];
+    const notes = attachNarrative(["Leave along the High Street.", "Go through the gate. Cross the field.", "Enter the wood.", "Turn left into Mill Lane."], steps);
+    expect(notes).toEqual(["Leave along the High Street.", "Go through the gate. Cross the field.", "", "Enter the wood.", "Turn left into Mill Lane."]);
+  });
+
+  it("does not let a road named again at the end of the directions pin the closing sentences to the start", () => {
+    const steps = Array.from({length: 10}, (_, index) => ({wayName: index === 0 || index === 9 ? "Mill Road" : null, instruction: index % 2 ? "Turn left along the footpath" : "Turn right along the footpath"}));
+    const notes = attachNarrative(["Park in Mill Road and walk north.", "Turn left at the barn.", "Turn right at the stile.", "Turn left by the pond.", "Turn right and follow the hedge back to Mill Road."], steps);
+    expect(notes[0]).toBe("Park in Mill Road and walk north.");
+    expect(notes[9]).toBe("Turn right and follow the hedge back to Mill Road.");
+    expect(notes.filter(note => note).length).toBe(5);
   });
 
   it("chooses the monotonic assignment that matches the most sentences, so one stray mention does not drag the rest forward", () => {
@@ -159,8 +180,20 @@ describe("attachNarrative", () => {
   it("pools located places with way names, takes the earliest step ahead and never moves backwards", () => {
     const steps = [{wayName: "High Street"}, {wayName: null}, {wayName: null}, {wayName: "High Street"}];
     const locate = (sentence: string) => sentence.includes("Seaton") ? [2] : (sentence.includes("High Street") ? [3] : []);
-    const notes = attachNarrative(["Leave along the High Street. Walk to the hamlet of Seaton. Return along the High Street. Back at the car park, finish."], steps, locate);
+    const notes = attachNarrative(["Leave along the High Street.", "Walk to the hamlet of Seaton.", "Return along the High Street. Back at the car park, finish."], steps, locate);
     expect(notes).toEqual(["Leave along the High Street.", "", "Walk to the hamlet of Seaton.", "Return along the High Street. Back at the car park, finish."]);
+  });
+});
+
+describe("isWayReference", () => {
+  it("recognises definitive-map and numeric references but not road names", () => {
+    ["SR47", "SR 47", "FP12A", "0192/SR48/1", "MR123/2", "1234"].forEach(name => expect(isWayReference(name)).toBe(true));
+    ["High Street", "A20", "Row Dow Lane", "B2211 Ashford Road", ""].filter(name => name !== "A20").forEach(name => expect(isWayReference(name)).toBe(false));
+  });
+
+  it("moves a reference-shaped name out of the way name so the wording says footpath", () => {
+    const trace = {edges: [{names: ["SR47"], use: "footway"}, {names: ["High Street"], use: "road"}], matched_points: [{type: "matched", edge_index: 0}, {type: "matched", edge_index: 1}]} as any;
+    expect(namesFromValhallaTrace(trace, 2)).toEqual([{name: "", use: "footway", reference: "SR47"}, {name: "High Street", use: "road"}]);
   });
 });
 

@@ -1,4 +1,4 @@
-import { directionParagraphsFromText, distanceAlongRouteMetres, routeDirectionsFromPage, routeDirectionsFromText, waypointsSpacedAlongRoute } from "./route-directions";
+import { directionParagraphsFromText, distanceAlongRouteMetres, routeDirectionsFromPage, routeDirectionsFromText, waypointsSpacedAlongRoute, routeIntroductionFromText } from "./route-directions";
 import { PageContent, PageContentType } from "../models/content-text.model";
 
 const WINGHAM = `Kent Ramblers Walk 86
@@ -112,5 +112,49 @@ describe("waypointsSpacedAlongRoute", () => {
   it("returns nothing without a usable line", () => {
     expect(waypointsSpacedAlongRoute([line[0]], ["one"], () => "a")).toEqual([]);
     expect(waypointsSpacedAlongRoute(line, [], () => "a")).toEqual([]);
+  });
+});
+
+describe("routeIntroductionFromText", () => {
+  const text = [
+    "Distance: 4.5 or 3 Miles (2h 15m or 1h 30m)",
+    "",
+    "OS Map: Explorer 147 (Start at grid reference TQ525594)",
+    "",
+    "Park in the public car park in Otford opposite the pub in the High Street. At weekends it is also possible to park near the junction of two roads but on weekdays there are parking restrictions.",
+    "",
+    "Turn left out of car park into High Street and take first lane on left. Cross railway and follow path between high fences to road.",
+    "",
+    "Cross road and turn left along it. After 140 metres take footpath on right, steeply uphill through a couple of gates to a seat."
+  ].join("\n");
+
+  it("treats paragraphs before the first movement sentence as the introduction, leaving out distance and map lines", () => {
+    expect(routeIntroductionFromText(text)).toBe("Park in the public car park in Otford opposite the pub in the High Street. At weekends it is also possible to park near the junction of two roads but on weekdays there are parking restrictions.");
+  });
+
+  it("starts the directions at the first paragraph that begins with a movement", () => {
+    expect(directionParagraphsFromText(text)).toEqual([
+      "Turn left out of car park into High Street and take first lane on left. Cross railway and follow path between high fences to road.",
+      "Cross road and turn left along it. After 140 metres take footpath on right, steeply uphill through a couple of gates to a seat."
+    ]);
+  });
+
+  it("treats a parking paragraph as introduction even when it mentions turns, and starts at the first real direction", () => {
+    const text = [
+      "There is a free car park at the meadows, off the lane. If approaching from the east take the left turn just past the church.",
+      "From the car park entrance turn left along the private drive to the old stable block. At the corner go through a gate on the right.",
+      "Cross the meadow and bear right to the footbridge over the river, then follow the bank to the road."
+    ].join("\n\n");
+    expect(routeIntroductionFromText(text)).toBe("There is a free car park at the meadows, off the lane. If approaching from the east take the left turn just past the church.");
+    expect(directionParagraphsFromText(text).length).toBe(2);
+    expect(directionParagraphsFromText(text)[0]).toMatch(/^From the car park entrance/);
+  });
+
+  it("takes the lines before a numbered list as the introduction", () => {
+    expect(routeIntroductionFromText("Start from the village hall car park, where there is plenty of room.\n\n1. Turn left along the road.\n2. Take the stile on the right.")).toBe("Start from the village hall car park, where there is plenty of room.");
+  });
+
+  it("gives nothing when the directions start straight away", () => {
+    expect(routeIntroductionFromText("Turn left out of the car park. Follow the lane to the church.\n\nCross the road and take the path opposite.")).toBe("");
   });
 });

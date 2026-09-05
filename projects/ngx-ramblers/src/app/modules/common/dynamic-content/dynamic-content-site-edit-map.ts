@@ -32,7 +32,7 @@ import { MapOverlayConfig, MapOverlayControls } from "../../../shared/components
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { faAdd, faDiamondTurnRight, faEye, faEyeSlash, faListOl, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
-import { routeDirectionsFromPage, waypointsSpacedAlongRoute } from "../../../functions/route-directions";
+import { routeDirectionsFromPage, routeIntroductionFromPage, waypointsSpacedAlongRoute } from "../../../functions/route-directions";
 import { RouteTurnsService } from "../../../services/maps/route-turns.service";
 import { ServerFileNameData } from "../../../models/aws-object.model";
 import { attachNarrative } from "../../../functions/route-turns";
@@ -854,12 +854,17 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
           }
         });
         this.row.map.markers = [...kept, ...generated];
+        const introduction = routeIntroductionFromPage(this.pageContent);
+        if (this.row.routeGuide && !this.row.routeGuide.summary?.trim() && introduction) {
+          this.row.routeGuide.summary = introduction;
+        }
         const turns = response.steps.filter(step => step.kind === RouteTurnStepKind.TURN).length;
         const naming = response.namesSource === RouteWayNamesSource.VALHALLA
           ? `OpenStreetMap knew the way for ${response.namedPointCount} of ${response.pointCount} points on the route`
           : "the way-name lookup was unavailable, so the turns have no road or path names";
         const places = response.placesTried ? `; ${response.placesLocated} of ${response.placesTried} place names in the directions were found on the map and used to place the notes` : "";
-        this.waypointMessage = `Found ${turns} turns on the route; ${naming}${places}. Check each one, drag any that sit wrongly, then save the page.`;
+        const tracks = (response.trackCount || 1) > 1 ? ` The GPX holds ${response.trackCount} tracks: the steps follow the first, and the others are drawn on the map as alternatives.` : "";
+        this.waypointMessage = `Found ${turns} turns on the route; ${naming}${places}. Check each one, drag any that sit wrongly, then save the page.${tracks}`;
         this.broadcastChange();
       } catch (error) {
         this.waypointMessage = `Could not generate turns: ${error?.error?.message || error?.message || "the server did not respond"}.`;

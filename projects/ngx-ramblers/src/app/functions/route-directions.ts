@@ -1,13 +1,16 @@
 import { MapMarker, PageContent, PageContentRow } from "../models/content-text.model";
 import { routeRowIn } from "./map-location-markers";
 import { RouteFollowPoint, RouteWaypointKind } from "../models/route-follow.model";
-import { cumulativeDistances, nearestPointIndex } from "./route-geometry";
+import { cumulativeDistances, nearestPointIndex, snapToRoute } from "./route-geometry";
+import { ROUTE_ALTERNATIVE_MIN_FRACTION, ROUTE_TRACK_MAX_METRES, RouteTrackOption } from "../models/route-follow.model";
 
 const DIRECTION_START = /^\s*(?:\d+[.)]|\(\d+\))\s+(.+?)\s*$/;
 const BLOCK_BREAK = /^\s*(?:#{1,6}\s|\*\s\*\s\*|---|___|!\[)/;
 const DIRECTION_WORDS = /\b(turn|left|right|follow|cross|path|stile|gate|footpath|bridleway|lane|track|continue|bear|keep|climb|descend|proceed|ahead|junction|signpost|fingerpost|field|pass|straight)\b/i;
 const METADATA_LINE = /^\s*(distance|os map|start|refreshments?|parking|grade|time|length|map)\s*:/i;
 const MIN_DIRECTION_PARAGRAPHS = 2;
+const MOVEMENT_START = /^(?:turn|go|take|cross|follow|walk|head|continue|bear|keep|climb|descend|leave|proceed|make for|set off|exit|with (?:your|the) back|facing)\b/i;
+const MIN_INTRODUCTION_WORDS = 4;
 
 export function routeDirectionsFromText(text: string): string[] {
   const items = (text || "").split(/\r?\n/).reduce((collected: string[][], line) => {
@@ -43,9 +46,46 @@ function looksLikeDirection(paragraph: string): boolean {
   return words >= 6 && !METADATA_LINE.test(paragraph) && !BLOCK_BREAK.test(paragraph) && !/\]\(/.test(paragraph) && DIRECTION_WORDS.test(paragraph);
 }
 
+function startsWithMovement(paragraph: string): boolean {
+  return MOVEMENT_START.test(paragraph.replace(/^[*_#>\s]+/, ""));
+}
+
+function paragraphsOf(text: string): string[] {
+  return (text || "").split(/\r?\n\s*\r?\n/).map(paragraph => paragraph.replace(/\s+/g, " ").trim()).filter(paragraph => paragraph.length > 0);
+}
+
+const SCENE_SETTING = /^(?:there (?:is|are)\b|park(?:ing)?\b|start(?:ing)?\s+(?:from|at|in|by)\b|the (?:walk|route) (?:starts|begins)\b|(?:if )?approaching\b)/i;
+
+function isSceneSetting(paragraph: string): boolean {
+  return SCENE_SETTING.test(paragraph.replace(/^[*_#>\s]+/, ""));
+}
+
+function firstDirectionIndex(paragraphs: string[]): number {
+  const chosen = paragraphs.map((paragraph, index) => ({paragraph, index})).find(item => looksLikeDirection(item.paragraph) && !isSceneSetting(item.paragraph));
+  return chosen ? chosen.index : -1;
+}
+
+export function routeIntroductionFromText(text: string): string {
+  const numberedStart = (text || "").split(/\r?\n/).findIndex(line => DIRECTION_START.test(line));
+  const before = numberedStart > 0 && routeDirectionsFromText(text).length > 1
+    ? paragraphsOf((text || "").split(/\r?\n/).slice(0, numberedStart).join("\n"))
+    : (() => {
+      const paragraphs = paragraphsOf(text);
+      const first = firstDirectionIndex(paragraphs);
+      return first > 0 ? paragraphs.slice(0, first) : [];
+    })();
+  return before
+    .filter(paragraph => !METADATA_LINE.test(paragraph) && !BLOCK_BREAK.test(paragraph) && paragraph.split(/\s+/).length >= MIN_INTRODUCTION_WORDS)
+    .join("\n\n");
+}
+
+export function routeIntroductionFromPage(page: PageContent | null | undefined): string {
+  return routeIntroductionFromText(routeRowIn(page)?.routeGuide?.writtenDirections || "");
+}
+
 export function directionParagraphsFromText(text: string): string[] {
-  const paragraphs = (text || "").split(/\r?\n\s*\r?\n/).map(paragraph => paragraph.replace(/\s+/g, " ").trim()).filter(paragraph => paragraph.length > 0);
-  const first = paragraphs.findIndex(looksLikeDirection);
+  const paragraphs = paragraphsOf(text);
+  const first = firstDirectionIndex(paragraphs);
   const last = paragraphs.reduce((found, paragraph, index) => looksLikeDirection(paragraph) ? index : found, -1);
   const run = first >= 0 ? paragraphs.slice(first, last + 1).filter(paragraph => !METADATA_LINE.test(paragraph) && !BLOCK_BREAK.test(paragraph)) : [];
   return run.filter(looksLikeDirection).length >= MIN_DIRECTION_PARAGRAPHS ? run : [];
@@ -109,4 +149,31 @@ export function waypointsSpacedAlongRoute(points: RouteFollowPoint[], directions
       };
     });
   }
+}
+
+export function markersOnTrack(markers: MapMarker[], points: RouteFollowPoint[], maxMetres = ROUTE_TRACK_MAX_METRES): MapMarker[] {
+  if (points.length < 2) {
+    return markers;
+  } else {
+    const cumulative = cumulativeDistances(points);
+    return markers.filter(marker => !marker.instruction || (snapToRoute(points, cumulative, marker)?.distanceMetres ?? Infinity) <= maxMetres);
+  }
+}
+
+export function trackOptions(tracks: {name?: string; points: RouteFollowPoint[]; totalDistance?: number}[]): RouteTrackOption[] {
+  const names = tracks.map(track => (track.name || "").trim());
+  const distinct = new Set(names.filter(name => !!name)).size === tracks.length;
+  const metres = tracks.map(track => track.totalDistance || cumulativeDistances(track.points).slice(-1)[0] || 0);
+  const longest = Math.max(0, ...metres);
+  return tracks.map((track, index) => {
+    const selectable = index === 0 || metres[index] >= longest * ROUTE_ALTERNATIVE_MIN_FRACTION;
+    const alternatives = tracks.slice(0, index).filter((_, earlier) => earlier > 0 && metres[earlier] >= longest * ROUTE_ALTERNATIVE_MIN_FRACTION).length;
+    const links = tracks.slice(0, index).filter((_, earlier) => earlier > 0 && metres[earlier] < longest * ROUTE_ALTERNATIVE_MIN_FRACTION).length;
+    return {
+      index,
+      label: distinct ? names[index] : (index === 0 ? "Main route" : (selectable ? `Alternative ${alternatives + 1}` : `Link section ${links + 1}`)),
+      distanceMiles: Math.round((metres[index] / 1609.344) * 10) / 10,
+      selectable
+    };
+  });
 }

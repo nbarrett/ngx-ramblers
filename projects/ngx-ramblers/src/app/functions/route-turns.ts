@@ -20,6 +20,8 @@ const NAME_CONNECTORS = ["of", "the", "and", "on", "de", "le", "la"];
 const GENERIC_PLACE_WORDS = ["church", "inn", "inns", "pub", "school", "station", "bridge", "river", "lane", "road", "street", "hill", "farm", "wood", "woods", "mill", "hall", "green", "common", "park", "castle", "path", "footpath", "track", "gate", "stile", "field", "fields", "junction", "t-junction", "crossroads", "village", "town", "car", "cottages", "house", "houses", "meadow", "lake", "lakes", "pond", "weir", "bridleway", "byway", "estate", "manor", "court", "corner", "way"];
 const NAME_STOP_WORDS = ["turn", "continue", "take", "here", "near", "when", "once", "return", "bear", "cross", "leave", "descend", "follow", "keep", "pass", "preferably", "there", "the", "you", "walk", "after", "as", "at", "on", "in", "from", "to", "or", "go", "this", "these", "then", "now", "climb", "head", "ignore", "just", "look", "carry", "retrace", "before", "beyond", "where", "if", "it", "a", "an", "and", "but", "with", "over", "under", "through", "along", "onto", "into", "up", "down", "left", "right", "ahead", "straight", "please", "note", "beware", "care", "taking", "stay", "join", "rejoin", "start", "finish", "end", "well", "some", "many", "much", "next", "last", "first", "second", "third", "your", "our", "we", "they", "he", "she", "i", "no", "not", "yes", "so", "very", "quite", "rather", "also", "eventually", "immediately", "soon", "shortly", "later", "again", "back", "half", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "mile", "miles", "metres", "yards", "km", "m", "l", "r", "t"];
 const UNMATCHED = "unmatched";
+const NARRATIVE_WINDOW = 0.5;
+const WAY_REFERENCE = /^(?:[A-Z]{1,3}\s?\d{1,4}[A-Z]?|\d{2,5}|[A-Z0-9]{1,6}(?:\/[A-Z0-9]{1,6})+)$/;
 const COMPASS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
 const WAY_LABELS: {[use: string]: string} = {
   footway: "the footpath",
@@ -117,6 +119,10 @@ export function turnCandidates(points: RouteFollowPoint[]): {index: number; chan
       return merged;
     }, []);
   }
+}
+
+export function isWayReference(name: string | null | undefined): boolean {
+  return WAY_REFERENCE.test((name || "").trim());
 }
 
 export function wayLabel(way: RouteWayName | null | undefined): string {
@@ -244,6 +250,7 @@ export function routeTurnSteps(points: RouteFollowPoint[], wayNames: (RouteWayNa
         modifier: step.modifier,
         bearingChange: Math.round(step.bearingChange),
         wayName: step.way?.name || null,
+        wayReference: step.way?.reference || null,
         wayUse: step.way?.use || null,
         distanceFromStartMetres: Math.round(cumulative[step.index]),
         distanceToNextMetres: Math.round(next ? cumulative[next.index] - cumulative[step.index] : 0),
@@ -259,7 +266,8 @@ export function namesFromValhallaTrace(trace: ValhallaTraceAttributes | null, co
   return Array.from({length: count}, (_, index) => {
     const point = matched[index];
     const edge = point && point.type !== UNMATCHED && point.edge_index !== undefined ? edges[point.edge_index] : null;
-    return edge ? {name: (edge.names || [])[0] || "", use: edge.use || ""} : null;
+    const name = edge ? (edge.names || [])[0] || "" : "";
+    return edge ? (isWayReference(name) ? {name: "", use: edge.use || "", reference: name} : {name, use: edge.use || ""}) : null;
   });
 }
 
@@ -397,10 +405,49 @@ export function spreadUnmatchedSentences(assignment: number[], candidates: numbe
   });
 }
 
-export function attachNarrative(directions: string[], steps: {wayName?: string | null}[], locate?: (sentence: string) => number[]): string[] {
-  const sentences = directions.flatMap(sentencesOf);
-  const candidates = sentences.map(sentence => sentenceCandidates(sentence, steps, locate));
-  const assignment = spreadUnmatchedSentences(assignSentencesToSteps(candidates, steps.length), candidates, steps.length);
+const TURN_SIDE = /\b(?:turn|bear|fork|keep|go|veer)\s+(?:sharp\s+|slight(?:ly)?\s+|half\s+)?(left|right)\b/i;
+
+function turnSide(text: string): string | null {
+  const match = (text || "").match(TURN_SIDE);
+  return match ? match[1].toLowerCase() : null;
+}
+
+export function refineBySide(assignment: number[], candidates: number[][], units: string[], steps: {instruction?: string | null}[], paragraphOf: number[] = units.map(() => 0)): number[] {
+  const matched = assignment.map((step, position) => candidates[position].includes(step));
+  const last = steps.length - 1;
+  return assignment.reduce((refined: number[], step, position) => {
+    const side = turnSide(units[position]);
+    const previous = position > 0 ? refined[position - 1] : 0;
+    const nextAnchor = matched.findIndex((isMatched, index) => index > position && isMatched);
+    const ceiling = nextAnchor >= 0 ? Math.max(previous, assignment[nextAnchor]) : last;
+    const sameSide = (index: number) => side !== null && turnSide(steps[index]?.instruction || "") === side;
+    if (matched[position]) {
+      const ahead = candidates[position].filter(candidate => candidate >= previous);
+      const preferred = ahead.find(sameSide) ?? ahead[0];
+      return [...refined, preferred ?? Math.max(step, previous)];
+    } else if (side !== null) {
+      const from = position > 0 && paragraphOf[position] === paragraphOf[position - 1] ? previous + 1 : previous;
+      const bySide = steps.findIndex((candidate, index) => index >= from && index <= ceiling && sameSide(index));
+      return [...refined, bySide >= 0 ? bySide : previous];
+    } else if (position > 0 && paragraphOf[position] === paragraphOf[position - 1]) {
+      return [...refined, previous];
+    } else {
+      return [...refined, Math.min(Math.max(step, previous), ceiling)];
+    }
+  }, []);
+}
+
+export function attachNarrative(directions: string[], steps: {wayName?: string | null; instruction?: string | null}[], locate?: (sentence: string) => number[]): string[] {
+  const paragraphs = directions.map(direction => (direction || "").replace(/\s+/g, " ").trim()).filter(direction => direction.length > 0);
+  const units = paragraphs.flatMap((paragraph, paragraphIndex) => sentencesOf(paragraph).map(sentence => ({sentence, paragraphIndex})));
+  const sentences = units.map(unit => unit.sentence);
+  const paragraphOf = units.map(unit => unit.paragraphIndex);
+  const earliestFor = (position: number) => Math.floor((position / Math.max(1, sentences.length) - NARRATIVE_WINDOW) * steps.length);
+  const candidates = sentences.map((sentence, position) => sentenceCandidates(sentence, steps, locate)
+    .filter(index => index >= earliestFor(position))
+    .sort((left, right) => left - right));
+  const spread = spreadUnmatchedSentences(assignSentencesToSteps(candidates, steps.length), candidates, steps.length);
+  const assignment = refineBySide(spread, candidates, sentences, steps, paragraphOf);
   const notes: string[][] = steps.map(() => []);
   sentences.forEach((sentence, position) => {
     const target = assignment[position];
@@ -408,5 +455,5 @@ export function attachNarrative(directions: string[], steps: {wayName?: string |
       notes[target].push(sentence);
     }
   });
-  return notes.map(sentence => sentence.join(" "));
+  return notes.map(parts => parts.join(" "));
 }

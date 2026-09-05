@@ -1,6 +1,6 @@
 import { Component, HostListener, inject, NgZone, OnDestroy, OnInit } from "@angular/core";
 import { turnRotationDegrees } from "../../functions/route-turns";
-import { nearestPointIndex } from "../../functions/route-geometry";
+import { nearestPointIndex, cumulativeDistances, snapToRoute } from "../../functions/route-geometry";
 import { ActivatedRoute, Router } from "@angular/router";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -29,8 +29,7 @@ import {
   faStop,
   faSun,
   faUpLong,
-  faXmark
-} from "@fortawesome/free-solid-svg-icons";
+  faXmark, faCodeFork } from "@fortawesome/free-solid-svg-icons";
 import * as L from "leaflet";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -77,7 +76,9 @@ import {
   ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
   ROUTE_FOLLOW_NETWORK_TIMEOUT_MS,
   RouteFollowOfflineStatus,
-  sheetStateAfterDrag
+  sheetStateAfterDrag,
+  RouteBranch,
+  ROUTE_FORK_PROMPT_METRES
 } from "../../models/route-follow.model";
 import { DEFAULT_OS_STYLE, MAP_BASEMAP_CHOICES, MapBasemapChoice, MapProvider } from "../../models/map.model";
 import { OsMapsBrandingHref } from "../../models/os-maps-branding.model";
@@ -87,6 +88,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { AppShellService } from "../../services/maps/app-shell.service";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { MapMarkerStyleService } from "../../services/maps/map-marker-style.service";
+import { branchChoiceLabel, viaFromQuery } from "../../functions/route-branches";
 import { RouteFollowPayloadService } from "../../services/maps/route-follow-payload.service";
 import { RamblersLibraryRouteService } from "../../services/maps/ramblers-library-route.service";
 import { RouteFollowCacheService } from "../../services/maps/route-follow-cache.service";
@@ -143,14 +145,21 @@ import proj4 from "proj4";
           </div>
         }
         <h1 class="visually-hidden">{{ payload?.title }}</h1>
-        <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage">
+        <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead">
           <div class="follow-top-bar">
             <button class="follow-icon-btn" type="button" (click)="closeFollow()"
                     tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
                     aria-label="Close follow">
               <fa-icon [icon]="faXmark"/>
             </button>
-            @if (showOffRoute) {
+            @if (forkAhead) {
+              <div class="follow-off-route follow-fork">
+                <fa-icon [icon]="faCodeFork"/>
+                <span>{{ forkAhead.label }} ahead. Which way?</span>
+                <button type="button" class="btn btn-sm btn-primary ms-2" (click)="chooseFork(forkAhead, true)">{{ forkChoice(forkAhead).shortCut }}</button>
+                <button type="button" class="btn btn-sm btn-light ms-1" (click)="chooseFork(forkAhead, false)">{{ forkChoice(forkAhead).mainRoute }}</button>
+              </div>
+            } @else if (showOffRoute) {
               <div class="follow-off-route">
                 <fa-icon [icon]="faCircleExclamation"/>
                 {{ offRouteMessage }}
@@ -643,6 +652,36 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private pageContentService = inject(PageContentService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private payloadService = inject(RouteFollowPayloadService);
+  private via: number[] = [];
+  private decidedForks: number[] = [];
+  protected readonly faCodeFork = faCodeFork;
+
+  get forkAhead(): RouteBranch | null {
+    const progress = this.progress?.snap?.progressMetres;
+    const branches = this.payload?.branches || [];
+    if (progress === undefined || progress === null || branches.length === 0 || !isLiveFollowMode(this.progress.mode)) {
+      return null;
+    } else {
+      const cumulative = cumulativeDistances(this.payload.points);
+      return branches.find(branch => {
+        const forkOnPath = snapToRoute(this.payload.points, cumulative, branch.forkPoint);
+        const ahead = forkOnPath ? forkOnPath.progressMetres - progress : Number.POSITIVE_INFINITY;
+        return !this.decidedForks.includes(branch.index) && !this.via.includes(branch.index) && ahead >= 0 && ahead <= ROUTE_FORK_PROMPT_METRES;
+      }) || null;
+    }
+  }
+
+  forkChoice(branch: RouteBranch): {shortCut: string; mainRoute: string} {
+    return branchChoiceLabel(branch);
+  }
+
+  chooseFork(branch: RouteBranch, take: boolean): void {
+    this.decidedForks = [...this.decidedForks, branch.index];
+    if (take) {
+      const via = [...this.via, branch.index].sort((left, right) => left - right);
+      void this.uiActions.updateQueryParameter(StoredValue.VIA, via.join(","));
+    }
+  }
   private routeSave = inject(RouteFollowSaveService);
   private osMapsExport = inject(OsMapsExportService);
   private ramblersLibrary = inject(RamblersLibraryRouteService);
@@ -794,7 +833,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         params.get(RouteFollowQueryParam.ROUTE_ID),
         params.get(RouteFollowQueryParam.WALK_ID),
         params.get(RouteFollowQueryParam.RAMBLERS_SLUG),
-        params.get(RouteFollowQueryParam.OS_MAPS_ROUTE_ID)
+        params.get(RouteFollowQueryParam.OS_MAPS_ROUTE_ID),
+        Number(params.get(RouteFollowQueryParam.TRACK)) || 0,
+        viaFromQuery(params.get(RouteFollowQueryParam.VIA))
       );
     }));
   }
@@ -2097,7 +2138,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null): Promise<void> {
+  private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = []): Promise<void> {
+    this.via = via;
     this.loading = true;
     this.error = null;
     this.loadedWalk = null;
@@ -2110,10 +2152,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       await this.applyLoaded(cached);
       this.loading = false;
       this.revealIdleSheet();
-      void this.refreshFromNetwork(path, routeId, walkId, ramblersSlug, osMapsRouteId);
+      void this.refreshFromNetwork(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
     } else {
       try {
-        const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId);
+        const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
         await this.applyLoaded(this.usablePayload(loaded) ? loaded : null);
       } catch (error) {
         this.logger.error("load failed", error);
@@ -2126,18 +2168,18 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private networkPayload(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null): Promise<RouteFollowPayload | null> {
+  private networkPayload(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = []): Promise<RouteFollowPayload | null> {
     const request = osMapsRouteId
       ? this.loadOsMapsRoute(osMapsRouteId)
       : (ramblersSlug
         ? this.loadRamblers(ramblersSlug)
-        : (walkId ? this.loadWalk(walkId) : this.loadPage(path, routeId)));
+        : (walkId ? this.loadWalk(walkId) : this.loadPage(path, routeId, trackIndex, via)));
     return firstCompleted(request, ROUTE_FOLLOW_NETWORK_TIMEOUT_MS, "Route follow network timed out");
   }
 
-  private async refreshFromNetwork(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null): Promise<void> {
+  private async refreshFromNetwork(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = []): Promise<void> {
     try {
-      const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId);
+      const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
       if (this.usablePayload(loaded) && !isLiveFollowMode(this.progress?.mode)) {
         await this.applyLoaded(loaded);
       }
@@ -2193,12 +2235,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async loadPage(path: string | null, routeId: string | null): Promise<RouteFollowPayload | null> {
+  private async loadPage(path: string | null, routeId: string | null, trackIndex = 0, via: number[] = []): Promise<RouteFollowPayload | null> {
     if (!path) {
       return null;
     } else {
       const page = await this.pageContentService.findByPath(path);
-      return page ? this.payloadService.payloadFromPage(page, routeId) : null;
+      return page ? this.payloadService.payloadFromPage(page, routeId, trackIndex, via) : null;
     }
   }
 
