@@ -52,7 +52,7 @@ import { migrationsRoutes } from "./mongo/routes/migrations";
 import { createWebSocketServer } from "./websockets/websocket-server";
 import http from "http";
 import { Server } from "node:http";
-import { health, systemStatus } from "./health/health";
+import { health, invalidateMigrationStatusCache, systemStatus } from "./health/health";
 import { buildVersion, deploymentInfo } from "./config/build-version";
 import { flyMachineState, flyMemoryHistory, flyStats, heapSnapshot, memoryUsage, restartMachine } from "./health/memory";
 import { startMemoryWatchdog } from "./health/memory-watchdog";
@@ -313,6 +313,7 @@ async function runMigrationsInBackground() {
   debugLog("⏳Checking database migrations...");
   try {
     const migrationResult = await migrationRunner.runPendingMigrations();
+    invalidateMigrationStatusCache();
 
     if (migrationResult.appliedFiles.length > 0) {
       debugLog(`✅ Applied ${pluraliseWithCount(migrationResult.appliedFiles.length, "migration")}:`, migrationResult.appliedFiles);
