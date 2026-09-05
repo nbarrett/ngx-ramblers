@@ -8,6 +8,8 @@ import { queryWalkLeaders } from "../controllers/extended-group-event";
 import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 import { uploadWalkGpx } from "../../walks/walk-gpx-upload";
 import { listWalkGpxFiles } from "../../walks/walk-gpx-list";
+import { notifyWalkPhotosAdded } from "../../walks/walk-album-photos-added";
+import { requirePhotoContributionAccess } from "../../walks/photo-contribution-access";
 import { syncWalksManagerData, getLastSyncTimestamp } from "../../walks/walks-manager-sync";
 import { handleWalkLeaderRematch } from "../controllers/walk-leader-rematch";
 import { systemConfig } from "../../config/system-config";
@@ -44,6 +46,7 @@ router.post("/leader-rematch", authConfig.authenticate(), handleWalkLeaderRematc
 
 router.post("/gpx/upload", authConfig.authenticate(), upload.single("file"), uploadWalkGpx);
 router.get("/gpx/list", listWalkGpxFiles);
+router.post("/album-photos-added", authConfig.optionalAuthenticate(), requirePhotoContributionAccess, notifyWalkPhotosAdded);
 router.get("/event-stats", authConfig.authenticate(), eventStats);
 router.get("/earliest-date", earliestDate);
 router.post("/agm-stats", authConfig.authenticate(), agmStats);

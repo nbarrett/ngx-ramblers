@@ -29,6 +29,7 @@ export enum StoredValue {
   ALBUM_TAB = "album-tab",
   ALBUM_VIEW = "album-view",
   ALBUM_WORKFLOW = "album-workflow",
+  ALBUM_SHARE = "album-share",
   ROUTE_WORKFLOW = "route-workflow",
   ROUTE_EDITOR_STEP = "route-step",
   ROUTE_PLACE_STEPS = "route-place-steps",

@@ -7,6 +7,10 @@ export type WebsiteWalkLeaderDisplayName = string;
 export type WalksManagerContactNameForCsv = string;
 export type WalksManagerListedWalkLeaderName = string;
 
+export function memberLeadsWalk(memberId: string, walk: ExtendedGroupEvent): boolean {
+  return !!memberId && [walk?.fields?.contactDetails?.memberId, walk?.groupEvent?.walk_leader?.id].includes(memberId);
+}
+
 export function websiteWalkLeaderDisplayName(walk: ExtendedGroupEvent): WebsiteWalkLeaderDisplayName {
   return (walk?.fields?.contactDetails?.displayName || "").trim();
 }

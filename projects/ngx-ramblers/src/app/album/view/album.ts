@@ -233,7 +233,7 @@ export class AlbumComponent implements OnInit {
         this.logger.info("ignoring CONTENT_METADATA_CHANGED", {incomingName, currentAlbum: this.album?.name});
       } else {
         this.logger.info("received CONTENT_METADATA_CHANGED for album", incomingName, namedEvent);
-        this.applyContentMetadata(namedEvent.data);
+        this.applyContentMetadata(this.contentMetadataService.withoutDrafts(namedEvent.data));
       }
     });
   }

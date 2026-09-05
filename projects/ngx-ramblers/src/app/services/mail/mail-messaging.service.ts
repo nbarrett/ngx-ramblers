@@ -267,7 +267,8 @@ export class MailMessagingService {
       mailConfig.bookingNotificationConfigId,
       mailConfig.memberSyncNotificationConfigId,
       mailConfig.volunteerNotificationConfigId,
-      mailConfig.memberBulkLoadDigestConfigId
+      mailConfig.memberBulkLoadDigestConfigId,
+      mailConfig.photoUploadNotificationConfigId
     ];
   }
 

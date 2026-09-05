@@ -3,7 +3,7 @@ import { Router } from "@angular/router";
 import { isObject, isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
-import { ContentMetadata, ContentMetadataItem, WalkAlbumLink } from "../../models/content-metadata.model";
+import { AlbumEditRole, ContentMetadata, ContentMetadataItem, draftFiles, publishedFiles, WalkAlbumLink } from "../../models/content-metadata.model";
 import { ContentTemplateType, PageContent, PageContentRow, PageContentType, USER_TEMPLATES_PATH_PREFIX } from "../../models/content-text.model";
 import { RootFolder, SystemConfig } from "../../models/system.model";
 import { ContentMetadataService } from "../content-metadata.service";
@@ -15,7 +15,15 @@ import { SystemConfigService } from "../system/system-config.service";
 import { AiService } from "../ai/ai.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
-import { walkLeaderFirstNameForAlbumThanks } from "../../functions/walks/walk-leader-fields";
+import { memberLeadsWalk, walkLeaderFirstNameForAlbumThanks } from "../../functions/walks/walk-leader-fields";
+import { MemberLoginService } from "../member/member-login.service";
+import { MemberResourcesReferenceDataService } from "../member/member-resources-reference-data.service";
+import { WalksConfigService } from "../system/walks-config.service";
+import { AccessLevel } from "../../models/member-resource.model";
+import { WalksAndEventsService } from "../walks-and-events/walks-and-events.service";
+import { HttpClient } from "@angular/common/http";
+import { firstValueFrom } from "rxjs";
+import { WalkPhotosAddedNotificationRequest, WalkPhotosAddedNotificationResponse } from "../../models/mail.model";
 import { socialPublishingEnabled } from "../../functions/social-publishing";
 import { SiteEditService } from "../../site-edit/site-edit.service";
 
@@ -34,11 +42,53 @@ export class CreateWalkAlbumService {
   private systemConfigService = inject(SystemConfigService);
   private aiService = inject(AiService);
   private siteEditService = inject(SiteEditService);
+  private memberLoginService = inject(MemberLoginService);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  private walksConfigService = inject(WalksConfigService);
+  private walksAndEventsService = inject(WalksAndEventsService);
+  private http = inject(HttpClient);
   private config: SystemConfig;
   private readonly WALK_ALBUM_TEMPLATE_PATH = `${USER_TEMPLATES_PATH_PREFIX}walk-album`;
 
   constructor() {
     this.systemConfigService.events().subscribe(config => this.config = config);
+  }
+
+  photoContributionAllowed(): boolean {
+    const accessLevel = this.walksConfigService.walksConfig()?.walkPhotoContributionAccessLevel ?? AccessLevel.LOGGED_IN_MEMBER;
+    return !!this.memberResourcesReferenceData.accessLevelFor(accessLevel)?.filter();
+  }
+
+  private curator(): boolean {
+    return this.memberLoginService.memberLoggedIn() && (this.memberLoginService.allowContentEdits() || this.memberLoginService.allowWalkAdminEdits());
+  }
+
+  albumEditRoleForWalk(walk: ExtendedGroupEvent | null): AlbumEditRole | null {
+    if (this.curator() || (this.memberLoginService.memberLoggedIn() && memberLeadsWalk(this.memberLoginService.loggedInMember()?.memberId, walk))) {
+      return AlbumEditRole.CURATOR;
+    } else if (walk && this.photoContributionAllowed()) {
+      return AlbumEditRole.CONTRIBUTOR;
+    } else {
+      return null;
+    }
+  }
+
+  async albumEditRoleForEventId(eventId: string | null): Promise<AlbumEditRole | null> {
+    if (this.curator()) {
+      return AlbumEditRole.CURATOR;
+    } else if (!eventId) {
+      return null;
+    } else {
+      const walk = await this.walksAndEventsService.queryById(eventId).catch(error => {
+        this.logger.warn("albumEditRoleForEventId: could not load event", eventId, error);
+        return null;
+      });
+      return this.albumEditRoleForWalk(walk);
+    }
+  }
+
+  async notifyPhotosAdded(request: WalkPhotosAddedNotificationRequest): Promise<WalkPhotosAddedNotificationResponse> {
+    return firstValueFrom(this.http.post<WalkPhotosAddedNotificationResponse>("/api/database/walks/album-photos-added", request));
   }
 
   private navAreaFor(eventType: RamblersEventType): string {
@@ -153,17 +203,18 @@ export class CreateWalkAlbumService {
     const albumRow = matchingRow
       || (page.rows || []).find(row => row?.carousel?.name || row?.type === PageContentType.ALBUM);
     const albumName = albumRow?.carousel?.name || path;
-    const album = await this.contentMetadataService.items(RootFolder.carousels, albumName).catch(() => null)
-      || (albumName !== path ? await this.contentMetadataService.items(RootFolder.carousels, path).catch(() => null) : null);
+    const album = await this.contentMetadataService.items(RootFolder.carousels, albumName, true).catch(() => null)
+      || (albumName !== path ? await this.contentMetadataService.items(RootFolder.carousels, path, true).catch(() => null) : null);
     return {
       path,
       albumName: album?.name || albumName,
-      coverImageUrl: this.coverImageUrlFor(album)
+      coverImageUrl: this.coverImageUrlFor(album),
+      draftCount: draftFiles(album?.files).length
     };
   }
 
   private coverImageUrlFor(album: ContentMetadata | null): string | null {
-    const files = album?.files?.filter(file => !!file?.image) || [];
+    const files = publishedFiles(album?.files).filter(file => !!file?.image);
     if (files.length === 0) {
       return null;
     }
@@ -259,7 +310,7 @@ export class CreateWalkAlbumService {
   }
 
   private async ensureContentMetadata(albumName: string): Promise<void> {
-    const existing = await this.contentMetadataService.items(RootFolder.carousels, albumName).catch(() => null);
+    const existing = await this.contentMetadataService.items(RootFolder.carousels, albumName, true).catch(() => null);
     if (existing?.id) {
       return;
     }
@@ -304,7 +355,7 @@ export class CreateWalkAlbumService {
     }
     const metadata = contentMetadata?.name === albumName
       ? contentMetadata
-      : await this.contentMetadataService.items(RootFolder.carousels, albumName).catch(() => null);
+      : await this.contentMetadataService.items(RootFolder.carousels, albumName, true).catch(() => null);
     const imageCount = (metadata?.files || []).filter(file => !!file?.image).length;
     if (imageCount > 0) {
       this.clearPendingAlbum(albumName);
@@ -485,7 +536,7 @@ export class CreateWalkAlbumService {
     if (!album?.name || album.coverImage) {
       return album;
     }
-    const files = (album.files || []).filter(file => !!file?.image);
+    const files = publishedFiles(album.files).filter(file => !!file?.image);
     if (files.length === 0) {
       return album;
     }

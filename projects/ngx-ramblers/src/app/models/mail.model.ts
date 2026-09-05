@@ -360,10 +360,12 @@ export interface BuiltInProcessMappings {
   memberSyncNotificationConfigId: string;
   volunteerNotificationConfigId: string;
   memberBulkLoadDigestConfigId: string;
+  photoUploadNotificationConfigId: string;
 }
 
 export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
 export const MEMBER_BULK_LOAD_DIGEST_SUBJECT_TEXT = "Member bulk load summary";
+export const PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT = "Walk photos added";
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
   forgotPasswordNotificationConfigId: "Forgotten Password Reset",
@@ -372,10 +374,24 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   contactUsNotificationConfigId: "Contact Us",
   bookingNotificationConfigId: "Booking Notification",
   memberSyncNotificationConfigId: "Member Sync Notification",
-  volunteerNotificationConfigId: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT
+  volunteerNotificationConfigId: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT,
+  photoUploadNotificationConfigId: PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT
 };
 export const PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT = "Photographs and video";
 export const PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME = "photographs-and-video";
+
+export interface WalkPhotosAddedNotificationRequest {
+  walkId: string;
+  albumPath: string;
+  photoCount: number;
+  contributorName?: string;
+  contributorEmail?: string;
+}
+
+export interface WalkPhotosAddedNotificationResponse {
+  sent: boolean;
+  recipients: EmailAddress[];
+}
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {
   request: any;

@@ -97,6 +97,16 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         </select>
                       </div>
                       <div class="form-group mb-3">
+                        <label for="walk-photo-contribution-access-level">Walk photos - who can add photos to a walk's album for approval (walk leaders and admins always can)</label>
+                        <select [(ngModel)]="walksConfig.walkPhotoContributionAccessLevel"
+                                class="form-control input-sm"
+                                id="walk-photo-contribution-access-level">
+                          @for (level of accessLevels; track level) {
+                            <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="form-group mb-3">
                         <label for="programme-overview-default-weeks">Programme Overview default date range (weeks ahead)</label>
                         <input [(ngModel)]="walksConfig.programmeOverviewDefaultWeeks"
                                type="number"
@@ -771,6 +781,9 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
       this.walksConfig = config;
       if (!this.walksConfig.walkCreationAccessLevel) {
         this.walksConfig.walkCreationAccessLevel = AccessLevel.HIDDEN;
+      }
+      if (!this.walksConfig.walkPhotoContributionAccessLevel) {
+        this.walksConfig.walkPhotoContributionAccessLevel = AccessLevel.LOGGED_IN_MEMBER;
       }
       if (!this.walksConfig.walkAlbumPanelStyle) {
         this.walksConfig.walkAlbumPanelStyle = WalkAlbumPanelStyle.CARD;

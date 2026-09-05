@@ -29,6 +29,7 @@ import {
   faBookOpen,
   faCamera,
   faCircleCheck,
+  faCircleExclamation,
   faCircleInfo,
   faCloudArrowUp,
   faCompress,
@@ -59,7 +60,11 @@ import {
   ImageFilterType,
   ImageTag,
   RECENT_PHOTOS,
-  S3Metadata
+  S3Metadata,
+  AlbumEditRole,
+  AlbumContributor,
+  contributorOwnsItem,
+  draftFiles
 } from "../../../models/content-metadata.model";
 import { Tag } from "../../../models/tag.model";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
@@ -815,7 +820,19 @@ import { uploadGroupEventType } from "../../../models/committee.model";
           }
         </div>
       </div>
-      @if (imagesExist()) {
+      @if (!contributor() && pendingDrafts().length > 0) {
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
+          <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+          <div class="flex-grow-1 min-w-0">
+            <strong class="d-block">{{ stringUtils.pluraliseWithCount(pendingDrafts().length, "photo") }} awaiting approval</strong>
+            <span>Added by members and hidden from visitors until approved. Approve each one below, or all at once, then save.</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm flex-shrink-0" [disabled]="disabled()" (click)="approveAll()">
+            <fa-icon [icon]="faCircleCheck" class="me-2"/>Approve all
+          </button>
+        </div>
+      }
+      @if (imagesExist() && !contributor()) {
         <div class="reorder-view-switch">
           <button type="button" class="btn btn-quiet album-compact-action"
                   [disabled]="disabled() || photosWorking()"
@@ -1036,6 +1053,8 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
         <app-image-edit nonDestructive
                         [index]="index"
+                        [role]="role"
+                        (approve)="approve($event)"
                         [duplicateImages]="duplicateImages"
                         [contentMetadata]="contentMetadata"
                         [s3Metadata]="metaDataFor(imageMetaDataItem)"
@@ -1136,6 +1155,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   @Input() workflowMode = false;
+  @Input() role: AlbumEditRole = AlbumEditRole.CURATOR;
+  @Input() contributorIdentity: AlbumContributor | null = null;
   @HostBinding("class.workflow-mode") get workflowModeClass(): boolean {
     return this.workflowMode;
   }
@@ -1221,6 +1242,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faFile = faFile;
   protected readonly faTableCells = faTableCells;
   protected readonly faCircleCheck = faCircleCheck;
+  protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faCompress = faCompress;
   protected readonly faImages = faImages;
@@ -1538,7 +1560,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private   filterFiles() {
-    this.filteredFiles = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.duplicateImages, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
+    const filtered = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.duplicateImages, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
+    this.filteredFiles = this.contributor() ? filtered.filter(item => item.draft && contributorOwnsItem(this.uploaderIdentity(), item)) : filtered;
     this.logger.info("filteredFiles:", this.filteredFiles);
   }
 
@@ -1546,7 +1569,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.setBusy();
     this.name = name;
     this.logger.info("image metadata refresh started for name:", name);
-    return this.contentMetadataService.items(RootFolder.carousels, this.name)
+    return this.contentMetadataService.items(RootFolder.carousels, this.name, true)
       .then((contentMetaData: ContentMetadata) => {
         this.contentMetadata = contentMetaData;
         this.logger.info("this.contentMetadataService:returned:", contentMetaData);
@@ -1699,7 +1722,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         this.contentMetadata = savedContent;
         await this.createWalkAlbumService.ensureAlbumPageAfterSave(this.contentMetadata?.name);
         this.contentMetadata = await this.createWalkAlbumService.applyAutoCoverIfNeeded(this.contentMetadata, {
-          force: this.workflowMode
+          force: this.workflowMode && !this.contributor()
         });
         await this.refreshS3Metadata();
         this.postMetadataRetrieveMapping();
@@ -1733,7 +1756,37 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   applyAllowEdits() {
-    this.allow.edit = this.memberLoginService.allowContentEdits();
+    this.allow.edit = (this.memberLoginService.memberLoggedIn() && this.memberLoginService.allowContentEdits()) || (this.workflowMode && !!this.role);
+  }
+
+  contributor(): boolean {
+    return this.role === AlbumEditRole.CONTRIBUTOR;
+  }
+
+  private uploaderIdentity(): AlbumContributor | null {
+    if (this.contributorIdentity) {
+      return this.contributorIdentity;
+    } else if (this.memberLoginService.memberLoggedIn()) {
+      const member = this.memberLoginService.loggedInMember();
+      return {memberId: member?.memberId, name: [member?.firstName, member?.lastName].filter(Boolean).join(" ")};
+    } else {
+      return null;
+    }
+  }
+
+  pendingDrafts(): ContentMetadataItem[] {
+    return draftFiles(this.contentMetadata?.files);
+  }
+
+  approve(item: ContentMetadataItem): void {
+    item.draft = false;
+    this.applyFilter();
+  }
+
+  approveAll(): void {
+    this.pendingDrafts().forEach(item => item.draft = false);
+    this.applyFilter();
+    this.notify.success({title: "Photos approved", message: "Save to make them visible to everyone"});
   }
 
   saveOrUpdateSuccessful() {
@@ -1987,9 +2040,16 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   imageInsert(...items: ContentMetadataItem[]) {
     const defaultDateSource = this.contentMetadataService.defaultDateSourceFor(this.contentMetadata.files);
+    const identity = this.uploaderIdentity();
+    const uploadedAt = this.dateUtils.dateTimeNow().toMillis();
     const initialisedItems = items.map(item => ({
       ...item,
-      dateSource: !item.dateSource || item.dateSource === uploadGroupEventType.area ? defaultDateSource : item.dateSource
+      dateSource: !item.dateSource || item.dateSource === uploadGroupEventType.area ? defaultDateSource : item.dateSource,
+      uploadedBy: item.uploadedBy || identity?.memberId,
+      uploadedByName: item.uploadedByName || identity?.name,
+      uploadedByEmail: item.uploadedByEmail || identity?.email,
+      uploadedAt: item.uploadedAt || uploadedAt,
+      draft: this.contributor()
     }));
     this.logger.info("insert:new items", initialisedItems, "before:", this.contentMetadata.files);
     if (this.contentMetadata.files) {
