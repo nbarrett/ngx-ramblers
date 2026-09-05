@@ -102,7 +102,8 @@ export enum VolunteerReportType {
   UNRESOLVED_SUPPORTER_LINKS = "unresolved-supporter-links",
   MISSING_CONTACT_INFORMATION = "missing-contact-information",
   PARISH_CODES_FOR_MAPPING = "parish-codes-for-mapping",
-  ASSIGNMENT_DIRECTORY = "assignment-directory"
+  ASSIGNMENT_DIRECTORY = "assignment-directory",
+  PARISH_LIST = "parish-list"
 }
 
 export enum VolunteerDirectoryColumn {
@@ -483,10 +484,16 @@ export interface VolunteerStatistics {
   byGroup: VolunteerAreaCoverageStat[];
 }
 
+export interface VolunteerAccessScope {
+  allGroups: boolean;
+  rightsOfWayGroupCodes: string[];
+}
+
 export interface VolunteerManagementSnapshot {
   parishes: VolunteerParish[];
   assignments: VolunteerAssignment[];
   summary: VolunteerCoverageSummary;
+  scope?: VolunteerAccessScope;
 }
 
 export interface VolunteerMyPersonRef {
@@ -559,5 +566,5 @@ export interface VolunteerDeleteGroupResponse {
 }
 
 export interface VolunteerManagementApiResponse extends ApiResponse {
-  response?: VolunteerParish | VolunteerAssignment | VolunteerManagementSnapshot | VolunteerMapCoverage | VolunteerDeleteGroupResponse | VolunteerAssignmentBulkResponse | VolunteerMyInformation;
+  response?: VolunteerParish | VolunteerAssignment | VolunteerManagementSnapshot | VolunteerMapCoverage | VolunteerDeleteGroupResponse | VolunteerAssignmentBulkResponse | VolunteerMyInformation | VolunteerAccessScope;
 }

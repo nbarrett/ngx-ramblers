@@ -63,6 +63,8 @@ export function volunteerReportTitle(reportType: VolunteerReportType): string {
     return "Data quality exceptions";
   } else if (reportType === VolunteerReportType.ASSIGNMENT_DIRECTORY) {
     return "Assignment directory";
+  } else if (reportType === VolunteerReportType.PARISH_LIST) {
+    return "Parish list";
   } else {
     return "Parish codes for mapping";
   }
@@ -87,6 +89,8 @@ function volunteerReportDescription(reportType: VolunteerReportType): string {
     return "Records that need attention: role holders with no email address, contacts missing an email or telephone number, contacts that look like duplicates, assignments or contacts pointing at a parish that no longer exists, and, where a retention window is set, contacts held longer than the window with no parish link.";
   } else if (reportType === VolunteerReportType.ASSIGNMENT_DIRECTORY) {
     return "One row per active assignment with the volunteer, their role and where they cover. Choose which contact columns to include before downloading.";
+  } else if (reportType === VolunteerReportType.PARISH_LIST) {
+    return "One row per parish with its LFO, PFO and second PFO and their emails, in parish order: the list to compare against what a group sends you.";
   } else {
     return "Official parish codes with their coverage status, laid out for use in mapping software.";
   }
@@ -130,7 +134,15 @@ function reportGroupByKey(reportType: VolunteerReportType): string | undefined {
 }
 
 function reportColumns(reportType: VolunteerReportType, input: VolunteerReportInput): {key: string; label: string}[] {
-  if (reportType === VolunteerReportType.VACANCIES) {
+  if (reportType === VolunteerReportType.PARISH_LIST) {
+    return [
+      {key: "parishCode", label: "Parish code"},
+      {key: "parishName", label: "Parish"},
+      {key: "role", label: "Role"},
+      {key: "volunteer", label: "Name"},
+      {key: "email", label: "Email"}
+    ];
+  } else if (reportType === VolunteerReportType.VACANCIES) {
     return [
       {key: "parishName", label: "Parish"},
       {key: "parishCode", label: "Parish code"},
@@ -258,9 +270,36 @@ function reportRows(reportType: VolunteerReportType, input: VolunteerReportInput
     ];
   } else if (reportType === VolunteerReportType.ASSIGNMENT_DIRECTORY) {
     return assignmentDirectoryRows(input, activeAssignments);
+  } else if (reportType === VolunteerReportType.PARISH_LIST) {
+    return parishListRows(input, activeAssignments);
   } else {
     return parishCodeRows(input, activeAssignments);
   }
+}
+
+function parishListRows(input: VolunteerReportInput, activeAssignments: VolunteerAssignment[]): Record<string, string | number>[] {
+  const memberLookup = new Map(input.members.map(member => [member.id, member]));
+  const holders = (parishCode: string, roleType: VolunteerRoleType): VolunteerAssignment[] => volunteerAssignmentsForParish(activeAssignments, parishCode, roleType)
+    .sort((first, second) => (first.effectiveFrom || 0) - (second.effectiveFrom || 0));
+  const row = (parish: VolunteerParish, role: string, assignment: VolunteerAssignment | undefined) => ({
+    parishCode: parish.parishCode,
+    parishName: parish.parishName,
+    role,
+    volunteer: assignment ? volunteerAssignmentDisplayName(assignment, input.members) : "Vacant",
+    email: assignment?.supporterId ? memberLookup.get(assignment.supporterId)?.email ?? "" : ""
+  });
+  return eligibleParishes(input.parishes)
+    .sort((first, second) => first.parishName.localeCompare(second.parishName))
+    .flatMap(parish => {
+      const lfos = holders(parish.parishCode, VolunteerRoleType.LOCAL_FOOTPATH_OFFICER);
+      const pfos = holders(parish.parishCode, VolunteerRoleType.PARISH_FOOTPATH_OBSERVER);
+      return [
+        row(parish, "LFO", lfos[0]),
+        ...lfos.slice(1).map(assignment => row(parish, "Second LFO", assignment)),
+        row(parish, "PFO", pfos[0]),
+        ...pfos.slice(1).map((assignment, index) => row(parish, index === 0 ? "Second PFO" : `PFO ${index + 2}`, assignment))
+      ];
+    });
 }
 
 function assignmentDirectoryRows(input: VolunteerReportInput, activeAssignments: VolunteerAssignment[]): Record<string, string | number>[] {

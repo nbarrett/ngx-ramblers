@@ -3,7 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faMap } from "@fortawesome/free-solid-svg-icons";
+import { faMap, faPeopleGroup } from "@fortawesome/free-solid-svg-icons";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { BuiltInAnchor, PageContent, PageContentPath } from "../../../models/content-text.model";
@@ -33,6 +33,11 @@ import { DynamicContentComponent } from "../../../modules/common/dynamic-content
             <fa-icon [icon]="faMap" class="me-2"/>My volunteer information
           </a>
         }
+        @if (coordinatesGroups) {
+          <a class="btn btn-primary mt-3 ms-2" [routerLink]="['/' + AdminMembersPath.VOLUNTEERS]">
+            <fa-icon [icon]="faPeopleGroup" class="me-2"/>My group's parishes and officers
+          </a>
+        }
       }
     </app-page>
   `,
@@ -52,6 +57,8 @@ export class ProfileLandingComponent implements OnInit, OnDestroy {
   notifyTarget: AlertTarget = {};
   loggedIn = false;
   hasVolunteerAssignments = false;
+  coordinatesGroups = false;
+  protected readonly faPeopleGroup = faPeopleGroup;
   defaultPageContent: PageContent;
 
   protected readonly BuiltInAnchor = BuiltInAnchor;
@@ -88,6 +95,10 @@ export class ProfileLandingComponent implements OnInit, OnDestroy {
       this.subscriptions.push(this.volunteerManagementService.myInformation(groupCode).subscribe({
         next: information => this.hasVolunteerAssignments = information.parishCount > 0,
         error: error => this.logger.debug("Failed to check volunteer assignments", error)
+      }));
+      this.subscriptions.push(this.volunteerManagementService.access().subscribe({
+        next: scope => this.coordinatesGroups = !scope.allGroups && scope.rightsOfWayGroupCodes.length > 0,
+        error: error => this.logger.debug("Failed to check volunteer access", error)
       }));
     } else {
       this.hasVolunteerAssignments = false;

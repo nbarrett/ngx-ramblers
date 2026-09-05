@@ -20,7 +20,8 @@ import {
   VolunteerRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/volunteer-management.model";
 import { envConfig } from "../env-config/env-config";
-import { volunteerCoverageSummary } from "../../../projects/ngx-ramblers/src/app/functions/volunteer-management";
+import { scopedSnapshot, volunteerCoverageSummary } from "../../../projects/ngx-ramblers/src/app/functions/volunteer-management";
+import { assignmentInScope, parishInScope, volunteerScopeOf } from "./volunteer-management-access";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { volunteerAssignment } from "../mongo/models/volunteer-assignment";
@@ -46,7 +47,7 @@ export async function snapshot(req: Request, res: Response): Promise<void> {
       ]);
       const parishes = parishDocuments.map(document => transforms.toObjectWithId(document)) as VolunteerParish[];
       const assignments = assignmentDocuments.map(document => transforms.toObjectWithId(document)) as VolunteerAssignment[];
-      const response: VolunteerManagementSnapshot = {parishes, assignments, summary: volunteerCoverageSummary(parishes, assignments)};
+      const response: VolunteerManagementSnapshot = scopedSnapshot({parishes, assignments, summary: volunteerCoverageSummary(parishes, assignments)}, volunteerScopeOf(res));
       res.status(200).json({action: ApiAction.QUERY, response});
     } else {
       res.status(400).json({error: "groupCode is required"});
@@ -102,7 +103,9 @@ export async function saveParish(req: Request, res: Response): Promise<void> {
     const now = dateTimeNowAsValue();
     const updatedBy = authenticatedMemberId(req);
     const parish = req.body as VolunteerParish;
-    if (parish.groupCode && parish.parishCode && parish.parishName) {
+    if (!(await parishInScope(res, parish.groupCode, parish.parishCode))) {
+      res.status(403).json({error: "This parish is outside your rights-of-way group"});
+    } else if (parish.groupCode && parish.parishCode && parish.parishName) {
       const document = await volunteerParish.findOneAndUpdate(
         {groupCode: parish.groupCode, parishCode: parish.parishCode},
         {$set: {...omit(parish, ["id"]), eligibility: parish.eligibility ?? VolunteerParishEligibility.ACTIVE, updatedAt: now, updatedBy}},
@@ -126,7 +129,10 @@ export async function createAssignment(req: Request, res: Response): Promise<voi
     const scopedTarget = input.scope === VolunteerAssignmentScope.RIGHTS_OF_WAY_GROUP ? input.rightsOfWayGroupCode
       : input.scope === VolunteerAssignmentScope.SECTOR ? input.sectorCode
         : input.parishCode;
-    if (input.groupCode && scopedTarget && input.roleType) {
+    const requested: Partial<VolunteerAssignment> = {groupCode: input.groupCode, parishCode: input.scope === VolunteerAssignmentScope.PARISH || !input.scope ? input.parishCode : undefined, rightsOfWayGroupCode: input.rightsOfWayGroupCode};
+    if (!(await assignmentInScope(res, requested))) {
+      res.status(403).json({error: "This parish is outside your rights-of-way group"});
+    } else if (input.groupCode && scopedTarget && input.roleType) {
       const document = await volunteerAssignment.create({
         ...omit(input, ["id", "createdAt", "createdBy", "updatedAt", "updatedBy", "effectiveTo"]),
         coverage: input.coverage ?? VolunteerAssignmentCoverage.PERMANENT,
@@ -157,16 +163,19 @@ export async function updateAssignment(req: Request, res: Response): Promise<voi
     const updatedBy = authenticatedMemberId(req);
     const input = req.body as VolunteerAssignmentRequest;
     const existing = await volunteerAssignment.findById(req.params.id).exec();
-    const document = await volunteerAssignment.findByIdAndUpdate(
+    const allowed = await assignmentInScope(res, existing ? transforms.toObjectWithId(existing) as VolunteerAssignment : null);
+    const document = allowed ? await volunteerAssignment.findByIdAndUpdate(
       req.params.id,
       {$set: {...omit(input, ["id", "createdAt", "createdBy"]), identityStatus: input.supporterId ? VolunteerAssignmentIdentityStatus.LINKED : VolunteerAssignmentIdentityStatus.UNRESOLVED, updatedAt: now, updatedBy}},
       {new: true, runValidators: true}
-    ).exec();
+    ).exec() : null;
     if (document) {
       const updated = transforms.toObjectWithId(document) as VolunteerAssignment;
       const before = existing ? transforms.toObjectWithId(existing) as VolunteerAssignment : null;
       await recordVolunteerAssignmentAudit(VolunteerAssignmentAuditAction.UPDATED, before, updated, updatedBy);
       res.status(200).json({action: ApiAction.UPDATE, response: updated});
+    } else if (!allowed) {
+      res.status(403).json({error: "This assignment is outside your rights-of-way group"});
     } else {
       res.status(404).json({error: "Volunteer assignment not found"});
     }
@@ -181,17 +190,20 @@ export async function endAssignment(req: Request, res: Response): Promise<void> 
     const now = dateTimeNowAsValue();
     const updatedBy = authenticatedMemberId(req);
     const existing = await volunteerAssignment.findById(req.params.id).exec();
-    const document = await volunteerAssignment.findByIdAndUpdate(req.params.id, {$set: {
+    const allowed = await assignmentInScope(res, existing ? transforms.toObjectWithId(existing) as VolunteerAssignment : null);
+    const document = allowed ? await volunteerAssignment.findByIdAndUpdate(req.params.id, {$set: {
       status: VolunteerAssignmentStatus.ENDED,
       effectiveTo: now,
       updatedAt: now,
       updatedBy
-    }}, {new: true, runValidators: true}).exec();
+    }}, {new: true, runValidators: true}).exec() : null;
     if (document) {
       const ended = transforms.toObjectWithId(document) as VolunteerAssignment;
       const before = existing ? transforms.toObjectWithId(existing) as VolunteerAssignment : null;
       await recordVolunteerAssignmentAudit(VolunteerAssignmentAuditAction.ENDED, before, ended, updatedBy);
       res.status(200).json({action: ApiAction.UPDATE, response: ended});
+    } else if (!allowed) {
+      res.status(403).json({error: "This assignment is outside your rights-of-way group"});
     } else {
       res.status(404).json({error: "Volunteer assignment not found"});
     }
@@ -232,10 +244,15 @@ export async function bulkUpdateAssignments(req: Request, res: Response): Promis
     if (input.groupCode && (input.assignmentIds?.length ?? 0) > 0 && plan) {
       const criteria = {_id: {$in: input.assignmentIds}, groupCode: input.groupCode};
       const before = (await volunteerAssignment.find(criteria).exec()).map(document => transforms.toObjectWithId(document)) as VolunteerAssignment[];
-      await volunteerAssignment.updateMany(criteria, {$set: {...plan.update, updatedAt: now, updatedBy}}, {runValidators: true}).exec();
-      const assignments = (await volunteerAssignment.find(criteria).exec()).map(document => transforms.toObjectWithId(document)) as VolunteerAssignment[];
-      await recordVolunteerAssignmentAudits(plan.auditAction, before, assignments, updatedBy);
-      res.status(200).json({action: ApiAction.UPDATE, response: {updated: assignments.length, assignments}});
+      const inScope = await Promise.all(before.map(assignment => assignmentInScope(res, assignment)));
+      if (inScope.some(allowed => !allowed)) {
+        res.status(403).json({error: "One or more of these assignments is outside your rights-of-way group"});
+      } else {
+        await volunteerAssignment.updateMany(criteria, {$set: {...plan.update, updatedAt: now, updatedBy}}, {runValidators: true}).exec();
+        const assignments = (await volunteerAssignment.find(criteria).exec()).map(document => transforms.toObjectWithId(document)) as VolunteerAssignment[];
+        await recordVolunteerAssignmentAudits(plan.auditAction, before, assignments, updatedBy);
+        res.status(200).json({action: ApiAction.UPDATE, response: {updated: assignments.length, assignments}});
+      }
     } else {
       res.status(400).json({error: "groupCode, a supported action and at least one assignmentId are required"});
     }

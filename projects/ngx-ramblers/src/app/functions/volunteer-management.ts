@@ -20,12 +20,43 @@ import {
   VolunteerSupporterFilterCriteria,
   VolunteerSupporterIdentity,
   VolunteerSupporterRow,
-  VOLUNTEER_ROLE_MAX_ASSIGNEES
+  VOLUNTEER_ROLE_MAX_ASSIGNEES,
+  VolunteerAccessScope,
+  VolunteerManagementSnapshot,
+  VolunteerWorkspaceView,
+  VolunteerReportType
 } from "../models/volunteer-management.model";
 import { MemberCookie } from "../models/member.model";
 import { VolunteerMergeFields } from "../models/mail.model";
 import { isNumber, isUndefined, uniq } from "es-toolkit/compat";
 import { memberFullName } from "./member-names";
+
+export const COORDINATOR_VIEWS = [VolunteerWorkspaceView.PARISHES, VolunteerWorkspaceView.VOLUNTEERS, VolunteerWorkspaceView.REPORTS];
+export const COORDINATOR_REPORTS = [VolunteerReportType.PARISH_LIST, VolunteerReportType.VACANCIES, VolunteerReportType.ACTIVE_ROLE_HOLDERS];
+
+export function coordinatorGroupCodes(assignments: VolunteerAssignment[], memberId: string): string[] {
+  return uniq(assignments
+    .filter(assignment => assignment.status === VolunteerAssignmentStatus.ACTIVE
+      && assignment.roleType === VolunteerRoleType.GROUP_COORDINATOR
+      && assignment.supporterId === memberId
+      && !!(assignment.rightsOfWayGroupCode || "").trim())
+    .map(assignment => assignment.rightsOfWayGroupCode.trim()));
+}
+
+export function scopeAllowsRightsOfWayGroup(scope: VolunteerAccessScope | null | undefined, rightsOfWayGroupCode: string | null | undefined): boolean {
+  return !scope || scope.allGroups || scope.rightsOfWayGroupCodes.some(code => rightsOfWayGroupMatches(rightsOfWayGroupCode, code));
+}
+
+export function scopedSnapshot(snapshot: VolunteerManagementSnapshot, scope: VolunteerAccessScope): VolunteerManagementSnapshot {
+  if (scope.allGroups) {
+    return {...snapshot, scope};
+  } else {
+    const parishes = snapshot.parishes.filter(parish => scopeAllowsRightsOfWayGroup(scope, parish.rightsOfWayGroupCode));
+    const parishCodes = new Set(parishes.map(parish => parish.parishCode));
+    const assignments = snapshot.assignments.filter(assignment => (assignment.parishCode && parishCodes.has(assignment.parishCode)) || (!assignment.parishCode && scopeAllowsRightsOfWayGroup(scope, assignment.rightsOfWayGroupCode)));
+    return {parishes, assignments, summary: volunteerCoverageSummary(parishes, assignments), scope};
+  }
+}
 
 export function volunteerAdminAllowed(member: Partial<MemberCookie>): boolean {
   return member.volunteerAdmin === true || (isUndefined(member.volunteerAdmin) && member.memberAdmin === true);

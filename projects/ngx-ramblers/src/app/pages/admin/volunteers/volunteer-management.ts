@@ -5,7 +5,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faArrowsRotate, faAward, faChevronDown, faChevronUp, faCircleExclamation, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { forkJoin } from "rxjs";
+import { forkJoin, of } from "rxjs";
 import { uniq, values } from "es-toolkit/compat";
 import { PageComponent } from "../../../page/page.component";
 import { Member } from "../../../models/member.model";
@@ -33,7 +33,8 @@ import {
   VolunteerReport,
   VolunteerReportType,
   VolunteerStatistics,
-  VolunteerWorkspaceView
+  VolunteerWorkspaceView,
+  VolunteerAccessScope
 } from "../../../models/volunteer-management.model";
 import {
   filterVolunteerParishes,
@@ -41,9 +42,12 @@ import {
   volunteerActiveAssignments,
   volunteerAssignmentsForParish,
   volunteerParishTableRows,
-  volunteerSupporterRows
+  volunteerSupporterRows,
+  COORDINATOR_VIEWS,
+  COORDINATOR_REPORTS
 } from "../../../functions/volunteer-management";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { VolunteerManagementService } from "../../../services/volunteer-management.service";
@@ -182,8 +186,10 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
                     </select>
                   }
                   @if (groupFilterAvailable && rightsOfWayGroupCodes.length > 0) {
-                    <select class="form-select" [class.filter-active]="groupFilter" [ngModel]="groupFilter" (ngModelChange)="onGroupFilterChange($event)" aria-label="Filter by rights-of-way group">
-                      <option [ngValue]="null">All rights-of-way groups</option>
+                    <select class="form-select" [class.filter-active]="groupFilter" [ngModel]="groupFilter" (ngModelChange)="onGroupFilterChange($event)" aria-label="Filter by rights-of-way group" [disabled]="scopedToGroups && rightsOfWayGroupCodes.length === 1">
+                      @if (!scopedToGroups) {
+                        <option [ngValue]="null">All rights-of-way groups</option>
+                      }
                       @for (code of rightsOfWayGroupCodes; track code) {
                         <option [ngValue]="code">{{ code }}</option>
                       }
@@ -296,6 +302,7 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
             } @else if (view === VolunteerWorkspaceView.REPORTS) {
               <app-volunteer-report-view
                 [report]="report"
+                [reportTypes]="reportTypes"
                 [reportType]="reportType"
                 [directoryColumns]="directoryColumns"
                 [includeTemporaryAsVacant]="vacancyIncludeTemporary"
@@ -500,6 +507,7 @@ import { externalContactRows, externalContactTypeLabel, filterExternalContacts }
 export class VolunteerManagementComponent implements OnInit {
   private service = inject(VolunteerManagementService);
   private memberService = inject(MemberService);
+  private memberLoginService = inject(MemberLoginService);
   private systemConfigService = inject(SystemConfigService);
   private uiActions = inject(UiActionsService);
   private externalRecipientService = inject(ExternalRecipientService);
@@ -514,7 +522,7 @@ export class VolunteerManagementComponent implements OnInit {
   protected readonly VolunteerAssignmentStatusFilter = VolunteerAssignmentStatusFilter;
   protected readonly VolunteerAssignmentCoverage = VolunteerAssignmentCoverage;
   protected readonly contactTypes = values(ExternalContactType);
-  protected readonly viewTabs: SectionToggleTab[] = [
+  protected readonly allViewTabs: SectionToggleTab[] = [
     {value: VolunteerWorkspaceView.PARISHES, label: "Parishes"},
     {value: VolunteerWorkspaceView.VOLUNTEERS, label: "Volunteers"},
     {value: VolunteerWorkspaceView.CONTACTS, label: "Contacts"},
@@ -532,6 +540,19 @@ export class VolunteerManagementComponent implements OnInit {
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
 
   snapshot: VolunteerManagementSnapshot | null = null;
+  scope: VolunteerAccessScope | null = null;
+
+  get scopedToGroups(): boolean {
+    return !!this.scope && !this.scope.allGroups;
+  }
+
+  get viewTabs(): SectionToggleTab[] {
+    return this.scopedToGroups ? this.allViewTabs.filter(tab => COORDINATOR_VIEWS.includes(tab.value as VolunteerWorkspaceView)) : this.allViewTabs;
+  }
+
+  get reportTypes(): VolunteerReportType[] {
+    return this.scopedToGroups ? COORDINATOR_REPORTS : values(VolunteerReportType);
+  }
   members: Member[] = [];
   groupCode = "";
   loading = false;
@@ -580,11 +601,12 @@ export class VolunteerManagementComponent implements OnInit {
       forkJoin({
         snapshot: this.service.snapshot(this.groupCode),
         members: this.memberService.all(this.memberService.publicFieldsDataQueryOptions),
-        contacts: this.externalRecipientService.list()
+        contacts: this.memberLoginService.allowVolunteerAdminEdits() ? this.externalRecipientService.list() : of([] as ExternalRecipient[])
       }).subscribe({
         next: result => {
           this.members = result.members;
           this.contacts = result.contacts;
+          this.applyScope(result.snapshot.scope);
           this.applySnapshot(result.snapshot);
           this.loading = false;
         },
@@ -816,7 +838,8 @@ export class VolunteerManagementComponent implements OnInit {
   }
 
   get rightsOfWayGroupCodes(): string[] {
-    return uniq((this.snapshot?.parishes ?? []).map(parish => (parish.rightsOfWayGroupCode || "").trim()).filter(code => !!code)).sort();
+    const fromParishes = uniq((this.snapshot?.parishes ?? []).map(parish => (parish.rightsOfWayGroupCode || "").trim()).filter(code => !!code)).sort();
+    return this.scopedToGroups ? fromParishes.filter(code => this.scope.rightsOfWayGroupCodes.includes(code)) : fromParishes;
   }
 
   onGroupFilterChange(groupFilter: string | null): void {
@@ -1061,6 +1084,23 @@ export class VolunteerManagementComponent implements OnInit {
         this.saving = false;
       }
     });
+  }
+
+  private applyScope(scope: VolunteerAccessScope | undefined): void {
+    this.scope = scope ?? null;
+    if (this.scopedToGroups) {
+      const codes = this.scope.rightsOfWayGroupCodes;
+      if (!codes.includes(this.groupFilter || "")) {
+        this.groupFilter = codes[0] ?? null;
+      }
+      if (!COORDINATOR_VIEWS.includes(this.view)) {
+        this.view = VolunteerWorkspaceView.PARISHES;
+      }
+      if (!COORDINATOR_REPORTS.includes(this.reportType)) {
+        this.reportType = VolunteerReportType.PARISH_LIST;
+      }
+      this.syncQueryParameters();
+    }
   }
 
   private applySnapshot(snapshot: VolunteerManagementSnapshot): void {

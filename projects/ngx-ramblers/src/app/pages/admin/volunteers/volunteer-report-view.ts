@@ -135,7 +135,7 @@ export class VolunteerReportView {
   private clipboard = inject(ClipboardService);
   protected readonly faCopy = faCopy;
   protected readonly faDownload = faDownload;
-  protected readonly reportTypes = values(VolunteerReportType);
+  @Input() reportTypes: VolunteerReportType[] = values(VolunteerReportType);
   protected readonly VolunteerReportType = VolunteerReportType;
   protected readonly VolunteerDirectoryColumn = VolunteerDirectoryColumn;
 
@@ -198,7 +198,7 @@ export class VolunteerReportView {
       key: column.key,
       label: column.label,
       sortKey: column.key,
-      cellClass: column.key === "parishCode" || column.key === "status" ? "nowrap" : undefined,
+      cellClass: column.key === "parishCode" || column.key === "status" || this.reportType === VolunteerReportType.PARISH_LIST ? "nowrap" : undefined,
       cellGetter: (row: Record<string, string | number>) => row[column.key]
     }));
   }

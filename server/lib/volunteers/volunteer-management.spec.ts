@@ -8,7 +8,10 @@ import {
   volunteerCoverageSummary,
   volunteerMergeFieldsFor,
   volunteerRoleCapacityWarning,
-  volunteerSupporterRows
+  volunteerSupporterRows,
+  coordinatorGroupCodes,
+  scopeAllowsRightsOfWayGroup,
+  scopedSnapshot
 } from "../../../projects/ngx-ramblers/src/app/functions/volunteer-management";
 import {
   VolunteerAssignment,
@@ -19,7 +22,8 @@ import {
   VolunteerParish,
   VolunteerParishEligibility,
   VolunteerRoleType,
-  VolunteerSupporterIdentity
+  VolunteerSupporterIdentity,
+  VolunteerAssignmentScope
 } from "../../../projects/ngx-ramblers/src/app/models/volunteer-management.model";
 
 describe("volunteer management", () => {
@@ -285,5 +289,38 @@ describe("volunteer management", () => {
       expect(changes.map(change => change.fieldName)).toEqual(["supporterId", "roleType", "coverage", "status", "effectiveFrom", "notes"]);
       expect(changes.every(change => change.from === "")).toEqual(true);
     });
+  });
+});
+
+describe("group coordinator scope", () => {
+  const coordinator = (overrides: Partial<VolunteerAssignment>): VolunteerAssignment => ({
+    id: "c", groupCode: "EK", supporterId: "member-1", identityStatus: VolunteerAssignmentIdentityStatus.LINKED,
+    roleType: VolunteerRoleType.GROUP_COORDINATOR, scope: VolunteerAssignmentScope.RIGHTS_OF_WAY_GROUP, rightsOfWayGroupCode: "G1",
+    coverage: VolunteerAssignmentCoverage.PERMANENT, status: VolunteerAssignmentStatus.ACTIVE, effectiveFrom: 1, createdAt: 1, createdBy: "t", updatedAt: 1, updatedBy: "t",
+    ...overrides
+  } as VolunteerAssignment);
+
+  it("gives a member the groups they actively coordinate and nothing else", () => {
+    const assignments = [coordinator({id: "a"}), coordinator({id: "b", rightsOfWayGroupCode: "G2", status: VolunteerAssignmentStatus.ENDED}), coordinator({id: "c", supporterId: "member-2", rightsOfWayGroupCode: "G3"}), coordinator({id: "d", roleType: VolunteerRoleType.LOCAL_FOOTPATH_OFFICER, parishCode: "A", rightsOfWayGroupCode: "G4"})];
+    expect(coordinatorGroupCodes(assignments, "member-1")).toEqual(["G1"]);
+    expect(coordinatorGroupCodes(assignments, "member-3")).toEqual([]);
+  });
+
+  it("allows everything for an admin and only the coordinated groups otherwise", () => {
+    expect(scopeAllowsRightsOfWayGroup({allGroups: true, rightsOfWayGroupCodes: []}, "G9")).toEqual(true);
+    expect(scopeAllowsRightsOfWayGroup({allGroups: false, rightsOfWayGroupCodes: ["G1"]}, "G1")).toEqual(true);
+    expect(scopeAllowsRightsOfWayGroup({allGroups: false, rightsOfWayGroupCodes: ["G1"]}, "G2")).toEqual(false);
+  });
+
+  it("narrows a snapshot to the coordinated group's parishes and their assignments", () => {
+    const parishes = [
+      {groupCode: "EK", parishCode: "A", parishName: "Alpha", rightsOfWayGroupCode: "G1", eligibility: VolunteerParishEligibility.ACTIVE},
+      {groupCode: "EK", parishCode: "B", parishName: "Beta", rightsOfWayGroupCode: "G2", eligibility: VolunteerParishEligibility.ACTIVE}
+    ] as VolunteerParish[];
+    const assignments = [coordinator({id: "a"}), coordinator({id: "lfo-a", roleType: VolunteerRoleType.LOCAL_FOOTPATH_OFFICER, scope: VolunteerAssignmentScope.PARISH, parishCode: "A", rightsOfWayGroupCode: undefined}), coordinator({id: "lfo-b", roleType: VolunteerRoleType.LOCAL_FOOTPATH_OFFICER, scope: VolunteerAssignmentScope.PARISH, parishCode: "B", rightsOfWayGroupCode: undefined}), coordinator({id: "other", rightsOfWayGroupCode: "G2"})];
+    const scoped = scopedSnapshot({parishes, assignments, summary: {} as any}, {allGroups: false, rightsOfWayGroupCodes: ["G1"]});
+    expect(scoped.parishes.map(parish => parish.parishCode)).toEqual(["A"]);
+    expect(scoped.assignments.map(assignment => assignment.id)).toEqual(["a", "lfo-a"]);
+    expect(scoped.scope).toEqual({allGroups: false, rightsOfWayGroupCodes: ["G1"]});
   });
 });
