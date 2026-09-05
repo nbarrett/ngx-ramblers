@@ -1273,15 +1273,33 @@ router.delete("/threads/:id", authConfig.authenticate(), async (req: Request, re
           trashMessage(connection, externalId).catch(trashError => debugLog(`trash failed for ${externalId}: ${(trashError as Error).message}`))));
       }
     }
+    const threadId = inboxThreadId(thread, req.params.id);
     if (thread.folder === InboxThreadFolder.DELETED) {
-      await permanentlyDeleteThread(req.params.id);
+      await permanentlyDeleteThread(threadId);
       res.json({request: {messageType}, response: {deletedCount: 1}});
     } else {
-      await recordThreadDeletion(thread, storedMessages, req.params.id);
+      await recordThreadDeletion(thread, storedMessages, threadId);
       res.json({request: {messageType}, response: {deletedCount: 1}});
     }
   } catch (error) {
     errorDebugLog("Error deleting inbox thread:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.post("/threads/:id/restore", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const thread = await accessibleThread(req, res, req.params.id);
+    if (!thread) {
+      return;
+    }
+    const restored = thread.folder === InboxThreadFolder.DELETED;
+    if (restored) {
+      await restoreDeletedThread(inboxThreadId(thread, req.params.id));
+    }
+    res.json({request: {messageType}, response: {restored, roleType: thread.roleType}});
+  } catch (error) {
+    errorDebugLog("Error restoring inbox thread:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
@@ -1296,7 +1314,7 @@ router.post("/threads/:id/move-to-inbox", authConfig.authenticate(), async (req:
       return;
     }
     if (thread.folder === InboxThreadFolder.DELETED) {
-      await restoreDeletedThread(req.params.id);
+      await restoreDeletedThread(inboxThreadId(thread, req.params.id));
       res.json({request: {messageType}, response: {moved: true, roleType: thread.roleType}});
     } else if (thread.folder !== InboxThreadFolder.JUNK) {
       res.json({request: {messageType}, response: {moved: false, roleType: thread.roleType}});

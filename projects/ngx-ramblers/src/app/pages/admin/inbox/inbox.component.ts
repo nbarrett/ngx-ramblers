@@ -823,10 +823,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         try {
           const response = await this.inboxService.getThread(requestedSlug);
           const requested = response.thread;
-          if (!this.matchingThread(this.threads, this.threadIdOf(requested))) {
-            this.threads = [requested, ...this.threads];
+          if (!this.threadBelongsToCurrentView(requested)) {
+            this.syncThreadToUrl(null);
+            return null;
+          } else {
+            if (!this.matchingThread(this.threads, this.threadIdOf(requested))) {
+              this.threads = [requested, ...this.threads];
+            }
+            return requested;
           }
-          return requested;
         } catch (error) {
           this.logger.error("Failed to open thread from URL:", error);
           return null;
@@ -845,6 +850,13 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get viewingDeleted(): boolean {
     return this.selectedMailboxView === InboxThreadFolder.DELETED;
+  }
+
+  private threadBelongsToCurrentView(thread: InboxThread): boolean {
+    const folder = thread?.folder;
+    return folder === InboxThreadFolder.DELETED ? this.viewingDeleted
+      : folder === InboxThreadFolder.JUNK ? this.viewingJunk
+      : !this.viewingDeleted && !this.viewingJunk;
   }
 
   get viewingSent(): boolean {
@@ -1051,10 +1063,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
     }
-    if (this.pendingDelete) {
-      clearTimeout(this.pendingDelete.timer);
-      void this.commitPendingDelete();
-    }
+    this.dismissPendingDelete();
   }
 
   get gridTemplateColumns(): string {
@@ -1766,6 +1775,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.selectedThreadId = null;
         this.clearSelectedMessages();
         this.loadingThread = false;
+        this.syncThreadToUrl(null);
       }
       this.selectedThreadIds.clear();
       this.allAvailableSelected = false;
@@ -1877,9 +1887,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async scheduleConversationDelete(thread: InboxThread): Promise<void> {
-    if (this.pendingDelete) {
-      await this.commitPendingDelete();
-    }
+    this.dismissPendingDelete();
     const threadId = this.threadIdOf(thread);
     const list = this.filteredThreads;
     const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === threadId);
@@ -1896,63 +1904,65 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedThread = nextThread;
     this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
     this.clearSelectedMessages();
-    this.pendingDelete = {
-      threadId,
-      removedThreads,
-      insertionIndex,
-      selectedThread: thread,
-      timer: setTimeout(() => void this.commitPendingDelete(), InboxComponent.DELETE_UNDO_MS)
-    };
-    if (nextThread) {
-      await this.openThread(nextThread);
-    } else {
-      this.mobileShowDetail = false;
-      this.syncThreadToUrl(null);
-    }
-  }
-
-  undoPendingDelete(): void {
-    const pending = this.pendingDelete;
-    if (!pending) {
-      return;
-    }
-    clearTimeout(pending.timer);
-    const insertionIndex = Math.max(0, pending.insertionIndex);
-    this.threads = [
-      ...this.threads.slice(0, insertionIndex),
-      ...pending.removedThreads,
-      ...this.threads.slice(insertionIndex)
-    ];
-    this.threadListTotalCount += 1;
-    if (pending.selectedThread && this.conversationUnread(pending.selectedThread)) {
-      this.threadListUnreadCount += 1;
-    }
-    this.pendingDelete = null;
-    if (pending.selectedThread) {
-      this.mobileShowDetail = this.mobile;
-      void this.openThread(pending.selectedThread, false);
-    }
-  }
-
-  private async commitPendingDelete(): Promise<void> {
-    const pending = this.pendingDelete;
-    if (!pending) {
-      return;
-    }
-    clearTimeout(pending.timer);
-    this.pendingDelete = null;
+    const permanent = this.viewingDeleted;
     try {
-      await this.inboxService.deleteThread(pending.threadId);
-      this.notify.success({title: "Inbox", message: this.viewingDeleted ? "Conversation permanently deleted" : "Conversation moved to Deleted"});
-    } catch (error) {
-      const insertionIndex = Math.max(0, pending.insertionIndex);
-      this.threads = [...this.threads.slice(0, insertionIndex), ...pending.removedThreads, ...this.threads.slice(insertionIndex)];
-      this.threadListTotalCount += 1;
-      if (pending.selectedThread && this.conversationUnread(pending.selectedThread)) {
-        this.threadListUnreadCount += 1;
+      await this.inboxService.deleteThread(threadId);
+      if (permanent) {
+        this.notify.success({title: "Inbox", message: "Conversation permanently deleted"});
+      } else {
+        this.pendingDelete = {
+          threadId,
+          removedThreads,
+          insertionIndex,
+          selectedThread: thread,
+          timer: setTimeout(() => this.dismissPendingDelete(), InboxComponent.DELETE_UNDO_MS)
+        };
       }
+      if (nextThread) {
+        await this.openThread(nextThread);
+      } else {
+        this.mobileShowDetail = false;
+        this.syncThreadToUrl(null);
+      }
+    } catch (error) {
+      this.restoreRemovedThreads(removedThreads, insertionIndex, thread);
       this.notify.error({title: "Delete", message: (error as Error).message});
       this.logger.error("Failed to delete conversation:", error);
+    }
+  }
+
+  private restoreRemovedThreads(removedThreads: InboxThread[], insertionIndex: number, selectedThread: InboxThread | null): void {
+    const index = Math.max(0, insertionIndex);
+    this.threads = [...this.threads.slice(0, index), ...removedThreads, ...this.threads.slice(index)];
+    this.threadListTotalCount += 1;
+    if (selectedThread && this.conversationUnread(selectedThread)) {
+      this.threadListUnreadCount += 1;
+    }
+  }
+
+  private dismissPendingDelete(): void {
+    if (this.pendingDelete) {
+      clearTimeout(this.pendingDelete.timer);
+      this.pendingDelete = null;
+    }
+  }
+
+  async undoPendingDelete(): Promise<void> {
+    const pending = this.pendingDelete;
+    if (!pending) {
+      return;
+    }
+    this.dismissPendingDelete();
+    try {
+      await this.inboxService.restoreThread(pending.threadId);
+      this.restoreRemovedThreads(pending.removedThreads, pending.insertionIndex, pending.selectedThread);
+      if (pending.selectedThread) {
+        this.mobileShowDetail = this.mobile;
+        void this.openThread(pending.selectedThread, false);
+      }
+    } catch (error) {
+      this.notify.error({title: "Undo", message: (error as Error).message});
+      this.logger.error("Failed to restore conversation:", error);
     }
   }
 
@@ -2020,6 +2030,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
       this.selectedThread = nextThread;
       this.clearSelectedMessages();
+      this.syncThreadToUrl(nextThread);
       await this.refresh(false);
       const refreshed = nextThread ? this.filteredThreads.find(thread => this.threadIdOf(thread) === this.threadIdOf(nextThread)) : null;
       if (refreshed) {
