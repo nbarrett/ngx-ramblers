@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { toPairs, isArray, isEmpty, isString } from "es-toolkit/compat";
@@ -611,18 +612,6 @@ export function parseVenueFromText(text: string): VenueParseResult {
   return { venue, confidence, warnings };
 }
 
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, "\"")
-    .replace(/&#39;/gi, "'")
-    .replace(/&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
-    .replace(/&#x([a-fA-F0-9]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-}
 
 function stripHtmlTags(html: string): string {
   return html

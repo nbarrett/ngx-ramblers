@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import debug from "debug";
 import mongoose from "mongoose";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -60,9 +61,16 @@ function sourceFromInputSource(inputSource: InputSource): EventSource {
   }
 }
 
+function withDecodedDescription<T extends {description?: string}>(location: T): T {
+  return location?.description ? {...location, description: decodeHtmlEntities(location.description)} : location;
+}
+
 export function toExtendedGroupEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): ExtendedGroupEvent {
   const groupEvent: GroupEvent = {
     ...event,
+    start_location: withDecodedDescription(event.start_location),
+    end_location: withDecodedDescription(event.end_location),
+    meeting_location: withDecodedDescription(event.meeting_location),
     item_type: event.item_type || RamblersEventType.GROUP_WALK,
     group_code: event.group_code || config?.group?.groupCode,
     group_name: groupNameFrom(config, event),

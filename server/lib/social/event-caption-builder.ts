@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { toPairs, values } from "es-toolkit/compat";
 import {
   DEFAULT_SOCIAL_EVENT_CAPTION_TEMPLATE,
@@ -35,16 +36,6 @@ function startLocationDescription(event: ExtendedGroupEvent): string {
   return [startLocation?.description, startLocation?.postcode].filter(Boolean).join(", ");
 }
 
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_whole, code) => String.fromCharCode(Number(code)))
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-}
 
 function plainTextDescription(event: ExtendedGroupEvent): string {
   return decodeHtmlEntities(
