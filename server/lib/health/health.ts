@@ -20,6 +20,11 @@ timingLog.enabled = true;
 const MIGRATION_STATUS_TTL_MS = 5 * 60 * 1000;
 const migrationStatusCache: { status: MigrationStatus | null; at: number } = { status: null, at: 0 };
 
+export function invalidateMigrationStatusCache(): void {
+  migrationStatusCache.status = null;
+  migrationStatusCache.at = 0;
+}
+
 async function migrationStatusCached(): Promise<MigrationStatus> {
   const now = dateTimeNow().toMillis();
   if (migrationStatusCache.status && now - migrationStatusCache.at < MIGRATION_STATUS_TTL_MS) {
