@@ -5,6 +5,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/address-model";
 import { isArray, padStart } from "es-toolkit/compat";
 import debug from "debug";
+import { postcodeDescription } from "./location-description";
 
 export const ENDPOINT = "https://api.postcodes.io";
 
@@ -36,7 +37,7 @@ function toPostcodeLookupErrorResponse(result: PostcodeLookupServiceResponse): P
 function toPostcodeLookupResponse(result: PostcodeLookupResult, debugLog?: debug.Debugger): PostcodeLookupResponse {
   const response: PostcodeLookupResponse = {
     distance: result.distance,
-    description: [result.parish, result.nuts, result.pfa].filter(value => value && !value.includes("unparished")).join(", "),
+    description: postcodeDescription(result),
     postcode: result.postcode,
     latitude: result.latitude,
     longitude: result.longitude,
