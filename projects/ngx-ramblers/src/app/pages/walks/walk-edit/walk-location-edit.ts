@@ -177,7 +177,8 @@ import { LocationType } from "../../../models/map.model";
               [readonly]="disabled"
               [notify]="notify"
               (postcodeOptionsChange)="handlePostcodeOptions($event)"
-              (showPostcodeSelectChange)="showPostcodeSelect = $event">
+              (showPostcodeSelectChange)="showPostcodeSelect = $event"
+              (locationChange)="onMapLocationChange()">
             </div>
           }
         </div>
@@ -377,6 +378,11 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
       this.notify?.clearBusy();
     }
     this.gridReferenceInput$.next(compact);
+  }
+
+  onMapLocationChange(): void {
+    this.formatGridReferenceText();
+    this.updateGoogleMapsUrl();
   }
 
   formatGridReferenceText(): void {

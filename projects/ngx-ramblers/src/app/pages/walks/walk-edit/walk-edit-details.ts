@@ -680,12 +680,22 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
         this.displayedWalk.walk.fields = {} as any;
       }
       this.displayedWalk.walk.fields.gpxFile = this.selectedGpxFile.fileData;
-    } else {
-      if (this.displayedWalk.walk.fields) {
-        this.displayedWalk.walk.fields.gpxFile = undefined;
-      }
+    } else if (this.displayedWalk.walk.fields) {
+      this.clearRoute();
     }
     this.displayedWalk.walk.fields = { ...this.displayedWalk.walk.fields };
+  }
+
+  private clearRoute(): void {
+    const fields = this.displayedWalk.walk.fields;
+    fields.gpxFile = null;
+    fields.routeWaypoints = [];
+    fields.routeColor = null;
+    fields.routeWeight = null;
+    fields.routeOpacity = null;
+    this.routePoints = [];
+    this.gpxProposals = [];
+    this.turnEntriesCache = null;
   }
 
   openFollowEditor(): void {
