@@ -72,13 +72,16 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
         @if (parentPath) {
           <a class="btn btn-quiet" [routerLink]="parentPath"><fa-icon [icon]="faBack" class="me-2"/>Back</a>
         }
-        <div class="locate-search">
-          <app-location-autocomplete placeholder="Grid reference, postcode or place name" [minTermLength]="2" [value]="searchLabel" (locationChange)="onLocationChange($event)"/>
-        </div>
         @if (!mapFullScreen) {
+          <ng-container *ngTemplateOutlet="searchTemplate"/>
           <ng-container *ngTemplateOutlet="mapControlsTemplate"/>
         }
       </div>
+      <ng-template #searchTemplate>
+        <div class="locate-search">
+          <app-location-autocomplete placeholder="Grid reference, postcode or place name" [minTermLength]="2" [value]="searchLabel" (locationChange)="onLocationChange($event)"/>
+        </div>
+      </ng-template>
       <ng-template #mapControlsTemplate>
         <app-map-controls [config]="controlsConfig" [state]="controlsState" [extraProviders]="extraProviders" (stateChange)="onControlsChange($event)"/>
       </ng-template>
@@ -100,6 +103,7 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
                              offsetTop="8px" offsetRight="8px" (sizeChange)="onMapSizeChange($event)">
           <div slot="bar-actions" class="d-flex flex-wrap align-items-center gap-2">
             @if (mapFullScreen) {
+              <ng-container *ngTemplateOutlet="searchTemplate"/>
               <ng-container *ngTemplateOutlet="mapControlsTemplate"/>
               <ng-container *ngTemplateOutlet="directionsTemplate"/>
             }
