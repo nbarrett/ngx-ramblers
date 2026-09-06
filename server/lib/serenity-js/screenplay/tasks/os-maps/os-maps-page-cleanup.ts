@@ -1,4 +1,5 @@
 import type { Page as NativePage } from "playwright-core";
+import { UK_CENTRE_GEOLOCATION } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 
 const MARKETING_DISMISS_BUTTON_NAMES = [
   /not right now/i,
@@ -7,11 +8,9 @@ const MARKETING_DISMISS_BUTTON_NAMES = [
   /close popup/i
 ];
 
-const OS_MAPS_GEOLOCATION = {latitude: 51.2787, longitude: 1.0804};
-
 export async function allowOsMapsGeolocation(native: NativePage): Promise<void> {
   await native.context().grantPermissions(["geolocation"]);
-  await native.context().setGeolocation(OS_MAPS_GEOLOCATION);
+  await native.context().setGeolocation(UK_CENTRE_GEOLOCATION);
 }
 
 async function clickIfVisible(native: NativePage, locator: ReturnType<NativePage["getByRole"]>): Promise<void> {

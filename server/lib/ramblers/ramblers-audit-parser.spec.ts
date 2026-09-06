@@ -65,6 +65,22 @@ describe("auditParser.parseStandardOut", () => {
     expect(auditParser.parseStandardOut("at PerformActivitiesAsPlaywrightSteps.perform (/Users/nick/dev/git-personal/ngx-ramblers/server/node_modules/@serenity-js/playwright-test/src/stage/crew/PlaywrightTestReporter.ts:1:1)")).toEqual(ignored);
     expect(auditParser.parseStandardOut("--------------------------------")).toEqual(ignored);
   });
+
+  it("drops playwright code frames and script markers", () => {
+    const ignored = [{audit: false}];
+    expect(auditParser.parseStandardOut("> 60 |     it(`should login, export ${route.name} (${route.id}) as GPX and validate the file`, async ({ actorCalled }) => {")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("|       ^")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("[clean]")).toEqual(ignored);
+    expect(auditParser.parseStandardOut("1 passed (1.4m)")).toEqual(ignored);
+  });
+
+  it("keeps a playwright load error whose test title contains the noise separator", () => {
+    const parsed = auditParser.parseStandardOut("Error: duplicate test title \"OS Maps GPX export › should login, export Requested OS Maps route (0) as GPX and validate the file\", first declared in lib/serenity-js/features/os-maps-export.ts:60");
+    expect(parsed.length).toEqual(1);
+    expect(parsed[0].audit).toEqual(true);
+    expect(parsed[0].data?.status).toEqual("error");
+    expect(parsed[0].data?.message).toContain("duplicate test title");
+  });
 });
 
 describe("auditParser.parseStandardError", () => {

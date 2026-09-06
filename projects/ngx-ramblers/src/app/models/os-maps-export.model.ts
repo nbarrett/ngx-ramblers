@@ -1,5 +1,5 @@
 import { isString } from "es-toolkit/compat";
-import { FileNameData } from "./aws-object.model";
+import { FileNameData, ServerFileNameData } from "./aws-object.model";
 
 export enum OsMapsExportFormat {
   GPX = "gpx"
@@ -47,6 +47,7 @@ export interface OsMapsRouteFixture {
 }
 
 export interface ExportedGpxSummary {
+  routeId?: string | null;
   fileName: string;
   content: string;
   name: string;
@@ -63,6 +64,16 @@ export enum OsMapsExportJobStatus {
   QUEUED = "queued",
   COMPLETED = "completed",
   FAILED = "failed"
+}
+
+export interface PersistedOsMapsGpx {
+  summary: ExportedGpxSummary;
+  gpxFile: ServerFileNameData;
+}
+
+export interface OsMapsRouteImport {
+  url: string;
+  gpxFile: FileNameData;
 }
 
 export interface OsMapsExportJobResult {
@@ -105,16 +116,19 @@ export function osMapsRouteVisible(route: OsMapsListedRoute, search: string, fil
   }
 }
 
-export const ELHAM_VALLEY_NORTH_ROUTE: OsMapsRouteFixture = {
-  id: 29532353,
-  name: "Elham Valley North",
-  url: "https://explore.osmaps.com/route/29532353/-nick--elham-valley-north-over-the-downs-57m-3hrs-easy-start-point-kingston",
-  expectedDistanceKm: 10.56,
-  minimumTrackPoints: 10,
-  minimumWaypoints: 3,
-  distanceToleranceKm: 2
-};
+export const OS_MAPS_EXPLORE_URL = "https://explore.osmaps.com/";
 
-export const OS_MAPS_EXPORT_ROUTES: OsMapsRouteFixture[] = [
-  ELHAM_VALLEY_NORTH_ROUTE
-];
+export const UK_CENTRE_GEOLOCATION = {latitude: 54.0, longitude: -2.5};
+
+export function requestedOsMapsRouteFixture(url: string): OsMapsRouteFixture {
+  const routeId = Number(osMapsRouteIdFromUrl(url)) || 0;
+  return {
+    id: routeId,
+    name: routeId ? "OS Maps route" : `OS Maps route at ${url}`,
+    url,
+    expectedDistanceKm: 0,
+    minimumTrackPoints: 1,
+    minimumWaypoints: 0,
+    distanceToleranceKm: Number.MAX_SAFE_INTEGER
+  };
+}

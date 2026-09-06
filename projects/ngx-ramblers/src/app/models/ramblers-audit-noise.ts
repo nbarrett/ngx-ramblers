@@ -18,6 +18,7 @@ const AUDIT_NOISE_MARKERS = [
   "@serenity-js/playwright-test",
   "@serenity-js/playwright",
   "Running 1 test using 1 worker",
+  "[dotenv@",
   "-------------------------------",
   "Execution Summary",
   "Scenarios:",
@@ -44,12 +45,16 @@ export function isRamblersAuditNoise(message: string | null): boolean {
   } else {
     const trimmed = message.trim();
     const compact = trimmed.replace(/\s/g, "");
+    const reportsAnError = /^\w*Error:/.test(trimmed);
     return trimmed.length <= 2
-      || AUDIT_NOISE_MARKERS.some(marker => trimmed.includes(marker))
+      || (!reportsAnError && AUDIT_NOISE_MARKERS.some(marker => trimmed.includes(marker)))
       || /^=+$/.test(compact)
       || /^[-_─━—]+$/.test(compact)
-      || /^\d+\s+failed$/i.test(trimmed)
-      || /^\d+\s+passed$/i.test(trimmed)
+      || /^\d+\s+(failed|passed|flaky|skipped)\b/i.test(trimmed)
+      || /^Running \d+ tests? using \d+ workers?$/i.test(trimmed)
+      || /^>?\s*\d+\s*\|/.test(trimmed)
+      || /^\|\s*\^*$/.test(trimmed)
+      || /^\[[\w-]+\]$/.test(trimmed)
       || /^at\s+\S/.test(trimmed);
   }
 }

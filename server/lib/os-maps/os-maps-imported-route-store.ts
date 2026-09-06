@@ -2,27 +2,21 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { osMapsImportedRoute, OsMapsImportedRouteRecord } from "../mongo/models/os-maps-imported-route";
 import { FileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { PaletteColor } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { OsMapsListedRoute, osMapsRouteIdFromUrl } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { OsMapsListedRoute, OsMapsRouteImport, osMapsRouteIdFromUrl } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 
-export async function markOsMapsRoutesImported(routeUrls: string[], gpxFiles: FileNameData[] = []): Promise<void> {
+export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[]): Promise<void> {
   const importedAt = dateTimeNowAsValue();
-  const records = (routeUrls || []).map((url, index) => {
-    const routeId = osMapsRouteIdFromUrl(url);
-    const gpxFile = gpxFiles[index] || null;
-    return routeId ? {routeId, url, importedAt, gpxFile, color: PaletteColor.COBALT, weight: 8, opacity: 1} : null;
+  const records = (imports || []).map(routeImport => {
+    const routeId = osMapsRouteIdFromUrl(routeImport.url);
+    return routeId ? {routeId, url: routeImport.url, importedAt, gpxFile: routeImport.gpxFile, color: PaletteColor.COBALT, weight: 8, opacity: 1} : null;
   }).filter((record): record is NonNullable<typeof record> => !!record);
   if (records.length > 0) {
-    await mongooseClient.execute(() => Promise.all(records.map(record => {
-      const update = record.gpxFile
-        ? record
-        : {routeId: record.routeId, url: record.url, importedAt: record.importedAt};
-      return osMapsImportedRoute.findOneAndUpdate(
-        {routeId: record.routeId},
-        update,
-        {upsert: true, new: true}
-      );
-    })));
+    await mongooseClient.execute(() => Promise.all(records.map(record => osMapsImportedRoute.findOneAndUpdate(
+      {routeId: record.routeId},
+      record,
+      {upsert: true, new: true}
+    ))));
   }
 }
 

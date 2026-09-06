@@ -3,6 +3,7 @@ import { BrowseTheWeb } from "@serenity-js/web";
 import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Page as NativePage } from "playwright-core";
 import { isString } from "es-toolkit/compat";
+import { osMapsRouteIdFromUrl } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { parseExportedGpx } from "../../../../os-maps/exported-gpx-parser";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
 import { rememberExportedGpx } from "../../questions/os-maps/exported-gpx-store";
@@ -57,7 +58,7 @@ export class ExportOsRouteToGpx extends Interaction {
             chunks.push(isString(chunk) ? chunk : Buffer.from(chunk).toString("utf8"));
           }
           const content = chunks.join("");
-          const summary = parseExportedGpx(content, fileName);
+          const summary = {...parseExportedGpx(content, fileName), routeId: osMapsRouteIdFromUrl(native.url())};
           rememberExportedGpx(summary);
           persistExportedGpxToJobPath(summary);
         }

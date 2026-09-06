@@ -51,13 +51,13 @@ export async function osMapsExportResultByJobId(jobId: string): Promise<OsMapsEx
     .then(document => toResult(document)));
 }
 
-export async function completeOsMapsExportResult(jobId: string, gpxFiles: FileNameData[]): Promise<OsMapsExportJobResult> {
+export async function completeOsMapsExportResult(jobId: string, gpxFiles: FileNameData[], error: string | null = null): Promise<OsMapsExportJobResult> {
   return mongooseClient.execute(() => osMapsExportResult.findOneAndUpdate(
     {jobId},
     {
       status: OsMapsExportJobStatus.COMPLETED,
       gpxFiles,
-      error: null,
+      error,
       completedAt: dateTimeNowAsValue()
     },
     {new: true, lean: true}

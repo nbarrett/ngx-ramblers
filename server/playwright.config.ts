@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 import type { SerenityFixtures, SerenityWorkerFixtures } from "@serenity-js/playwright-test";
 import { ConsoleReporter } from "@serenity-js/console-reporter";
 import { Environment } from "../projects/ngx-ramblers/src/app/models/environment.model";
+import { UK_CENTRE_GEOLOCATION } from "../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { DEFAULT_WAIT_TIMEOUT } from "./lib/serenity-js/config/serenity-timeouts";
 import { resolveHeadless } from "./lib/shared/playwright-browser";
 
@@ -42,7 +43,7 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
     acceptDownloads: true,
     actionTimeout: DEFAULT_WAIT_TIMEOUT.inMilliseconds(),
     baseURL: process.env[Environment.BASE_URL],
-    geolocation: {latitude: 51.2787, longitude: 1.0804},
+    geolocation: UK_CENTRE_GEOLOCATION,
     permissions: ["geolocation"],
     cueTimeout: DEFAULT_WAIT_TIMEOUT,
     interactionTimeout: DEFAULT_WAIT_TIMEOUT,
