@@ -1,3 +1,4 @@
+import { pathSuffixFor } from "./release-paths";
 import { Command } from "commander";
 import debug from "debug";
 import inquirer from "inquirer";
@@ -101,34 +102,6 @@ function getRecentCommits(count: number = 50): ConventionalCommit[] {
   return gitLog(`HEAD~${count}`, "HEAD");
 }
 
-async function removeLegacyReleasePages(
-  auth: CMSAuth,
-  releasePath: string,
-  issueNumber: string | null,
-  pathSuffix: string
-): Promise<void> {
-  if (pathSuffix) {
-    return;
-  }
-
-  const legacyPaths: string[] = [];
-  if (issueNumber) {
-    legacyPaths.push(`${releasePath}-issue-${issueNumber}`);
-  }
-  legacyPaths.push(`${releasePath}-other`);
-
-  await legacyPaths.reduce(async (previous, candidatePath) => {
-    await previous;
-    if (candidatePath === releasePath) {
-      return;
-    }
-    const legacyPage = await cms.pageContent(auth, candidatePath);
-    if (legacyPage?.id) {
-      await cms.deletePageContent(auth, legacyPage.id);
-      debugLog(`Removed legacy release page: ${candidatePath}`);
-    }
-  }, Promise.resolve());
-}
 
 function needsBuildMetadataRefresh(data: ReleaseNotesData): boolean {
   if (!data.buildNumber) {
@@ -234,18 +207,8 @@ function groupCommitsByDateAndIssue(commits: ConventionalCommit[]): ReleaseGroup
   const normalizedGroups = Array.from(groupsByDate.entries()).flatMap(([date, dateGroups]) => {
     const withIssue = dateGroups.filter(group => group.issueNumber);
     const sortedIssues = [...withIssue].sort((a, b) => asNumber(b.issueNumber) - asNumber(a.issueNumber));
-    const normalizedIssues = sortedIssues.map(group => ({
-      ...group,
-      pathSuffix: sortedIssues.length > 1 ? `-issue-${group.issueNumber}` : ""
-    }));
-
     const withoutIssue = dateGroups.filter(group => !group.issueNumber);
-    const normalizedWithoutIssue = withoutIssue.map(group => ({
-      ...group,
-      pathSuffix: withIssue.length > 0 ? "-other" : ""
-    }));
-
-    return [...normalizedIssues, ...normalizedWithoutIssue];
+    return [...sortedIssues, ...withoutIssue].map(group => ({...group, pathSuffix: pathSuffixFor(group, dateGroups)}));
   });
 
   return normalizedGroups.sort((a, b) => {
@@ -451,10 +414,6 @@ async function createReleaseNotePage(
 
   await cms.createPageContent(auth, pageContent);
   debugLog(`Created release note page: ${releasePath}`);
-
-  if (!dryRun && releasePath === basePath) {
-    await removeLegacyReleasePages(auth, releasePath, data.issueNumber, pathSuffix);
-  }
 
   const indexPage = await cms.pageContent(auth, config.indexPath);
 
