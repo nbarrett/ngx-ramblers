@@ -18,7 +18,8 @@ import {
   BrevoCampaignQueueSummary,
   NGX_BREVO_CAMPAIGN_TAG
 } from "../../../../projects/ngx-ramblers/src/app/models/brevo-campaign-queue.model";
-import { Account } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { Account, SendPurpose } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { assertSendAllowed, recordRefusal, sendAllowed } from "../send-permission";
 import { brevoEmailsSentToday, campaignDailyAllowance } from "../../../../projects/ngx-ramblers/src/app/functions/brevo-campaigns";
 import { ngxBrevoCampaign } from "../../mongo/models/ngx-brevo-campaign";
 
@@ -137,6 +138,7 @@ async function updateCampaignStatus(campaignId: number, status: Brevo.UpdateCamp
 }
 
 export async function releaseCampaign(campaignId: number): Promise<void> {
+  await assertSendAllowed(SendPurpose.CAMPAIGN_RELEASE, {subject: `Campaign ${campaignId}`});
   const summary = await campaignQueueSummary();
   if (!summary.pendingCampaigns.some(campaign => campaign.id === campaignId)) {
     throw new Error("Campaign is not in the NGX pending queue");
@@ -153,9 +155,15 @@ export async function cancelCampaign(campaignId: number): Promise<void> {
 }
 
 export async function releasePendingCampaigns(): Promise<void> {
-  const summary = await campaignQueueSummary();
-  await Promise.all(summary.pendingCampaigns.map(campaign => updateCampaignStatus(campaign.id, Brevo.UpdateCampaignStatus.Status.Queued)));
-  debugLog("Released suspended Brevo campaigns:", summary.pendingCampaigns.map(campaign => campaign.id));
+  const decision = await sendAllowed(SendPurpose.CAMPAIGN_RELEASE);
+  if (!decision.allowed) {
+    debugLog("Pending Brevo campaigns not released:", decision.message);
+    await recordRefusal(SendPurpose.CAMPAIGN_RELEASE, decision);
+  } else {
+    const summary = await campaignQueueSummary();
+    await Promise.all(summary.pendingCampaigns.map(campaign => updateCampaignStatus(campaign.id, Brevo.UpdateCampaignStatus.Status.Queued)));
+    debugLog("Released suspended Brevo campaigns:", summary.pendingCampaigns.map(campaign => campaign.id));
+  }
 }
 
 export async function queueSummaryRoute(req: Request, res: Response): Promise<void> {

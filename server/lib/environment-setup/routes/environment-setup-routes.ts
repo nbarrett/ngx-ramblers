@@ -41,6 +41,7 @@ import { configuredBrevo } from "../../brevo/brevo-config";
 import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
 import { findDomainByName } from "../../brevo/domains/domain-management";
 import { hostnameHealth, probeCustomDomain } from "../hostname-health-controllers";
+import { environmentSendControl, updateEnvironmentSendControl } from "../environment-send-control";
 import { environmentHostnameHealth, updateEnvironmentSiteUrl } from "../hostname-health";
 import { appIpAddresses, queryCertificates } from "../../fly/fly-certificates";
 import { probeFlyOrgMigrationStatus } from "../../fly/fly-org-migration";
@@ -616,6 +617,8 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
 });
 
 router.get("/hostname-status/:environmentName", requireSetupAccess, hostnameHealth);
+router.get("/send-control/:environmentName", requireSetupAccess, environmentSendControl);
+router.post("/send-control/:environmentName", requireSetupAccess, updateEnvironmentSendControl);
 
 router.post("/site-url/:environmentName", async (req: Request, res: Response) => {
   if (validateSetupAccess(req, res)) {

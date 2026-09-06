@@ -6,6 +6,7 @@ import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { handleError, successfulResponse } from "../common/messages";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
+import { assertSendAllowed, SendRefusedError } from "../send-permission";
 import {
   BLOCKED_CONTACT_REASON_LABELS,
   EmailAddress,
@@ -23,7 +24,7 @@ import {
   AddresseeType,
   ComposerExternalRecipient
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
-import { BrandingMode, PostSendActionsResult, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BrandingMode, PostSendActionsResult, SendPurpose, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
 import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
@@ -655,7 +656,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
             ? { htmlContent: request.htmlBody }
             : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
         };
-        const sendResult = await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
+        const sendResult = await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl, SendPurpose.BATCH);
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
@@ -714,7 +715,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
             ? { htmlContent: request.htmlBody }
             : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
         };
-        const externalSendResult = await sendTransactionalEmailRequest(externalEmailRequest, debugLog, baseUrl);
+        const externalSendResult = await sendTransactionalEmailRequest(externalEmailRequest, debugLog, baseUrl, SendPurpose.BATCH);
         const sentAt = dateTimeNow().toMillis();
         externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
         progress.sentCount += externalEntries.length;
@@ -767,6 +768,16 @@ export async function startBatchTransactionalSend(req: Request, res: Response): 
     }
     const isUnbranded = request.brandingMode === BrandingMode.UNBRANDED;
     const currentMemberIdForValidation = (req as AuthenticatedRequest).user?.memberId ?? null;
+    try {
+      await assertSendAllowed(SendPurpose.BATCH, {subject: request.subject, recipientCount: memberCount + externalCount, requestedBy: currentMemberIdForValidation});
+    } catch (error) {
+      if (error instanceof SendRefusedError) {
+        res.status(409).json({ request: { messageType }, error: { message: error.message } });
+        return;
+      } else {
+        throw error;
+      }
+    }
     const permissionError = await protectedEmailSendError(currentMemberIdForValidation, request.memberIds);
     if (permissionError) {
       res.status(403).json({ request: { messageType }, error: { message: permissionError } });

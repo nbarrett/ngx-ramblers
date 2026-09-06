@@ -2,9 +2,11 @@ import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, O
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
+  faBan,
   faCheckCircle,
   faExclamationTriangle,
   faKey,
+  faPlay,
   faSpinner
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -27,6 +29,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 import { EnvironmentHostnames } from "./environment-hostnames";
 import { environmentOperationErrorDetail } from "./environment-operation-error";
+import { PlatformSendControl } from "../../../models/mail.model";
+import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 
 export function emptyModifyOptions(): EnvironmentModifyOptions {
   return {
@@ -66,7 +70,7 @@ export function modifyOptionsFromStatus(envStatus: EnvironmentStatus | null): En
 
 @Component({
   selector: "app-environment-modify",
-  imports: [FormsModule, FontAwesomeModule, SessionLogsComponent, EnvironmentHostnames],
+  imports: [FormsModule, FontAwesomeModule, SessionLogsComponent, EnvironmentHostnames, DisplayDateAndTimePipe],
   template: `
     <app-environment-hostnames
       [environment]="environment"
@@ -91,6 +95,43 @@ export function modifyOptionsFromStatus(envStatus: EnvironmentStatus | null): En
             <fa-icon [icon]="faKey" class="me-1"></fa-icon>
           }
           Reset Admin Password
+        </button>
+      </div>
+    </div>
+    <div class="thumbnail-heading-frame mt-3">
+      <div class="thumbnail-heading">Email sending</div>
+      @if (sendControl?.sendingSuspended) {
+        <div class="alert alert-warning d-flex align-items-start mb-2">
+          <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
+          <div>
+            <strong>Email sending is suspended on this environment</strong>
+            <div>
+              Every send from this site is refused, including password resets, until sending is resumed here. The site's own administrators cannot switch it back on.
+              @if (sendControl.reason) {
+                Reason: {{ sendControl.reason }}.
+              }
+              @if (sendControl.changedAt) {
+                Suspended {{ sendControl.changedAt | displayDateAndTime }} by {{ sendControl.changedBy }}.
+              }
+            </div>
+          </div>
+        </div>
+      } @else {
+        <p class="mb-2">Sending is allowed, subject to the site's own Mail Settings. Suspending refuses every send from this site, including password resets, and only this screen can resume it.</p>
+      }
+      <div class="d-flex gap-2 align-items-start flex-wrap">
+        @if (!sendControl?.sendingSuspended) {
+          <input type="text" class="form-control w-auto flex-grow-1" placeholder="Reason for suspending (optional, shown to the site's administrators)"
+                 [(ngModel)]="sendControlReason" [disabled]="operationBusy || updatingSendControl || loadingSendControl">
+        }
+        <button type="button" [class]="sendControl?.sendingSuspended ? 'btn btn-primary' : 'btn btn-quiet'" (click)="toggleSendingSuspended()"
+                [disabled]="operationBusy || updatingSendControl || loadingSendControl">
+          @if (updatingSendControl || loadingSendControl) {
+            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+          } @else {
+            <fa-icon [icon]="sendControl?.sendingSuspended ? faPlay : faBan" class="me-1"></fa-icon>
+          }
+          {{ sendControl?.sendingSuspended ? "Resume email sending" : "Suspend email sending" }}
         </button>
       </div>
     </div>
@@ -203,7 +244,13 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
   setupWarnings: string[] = [];
   passwordResetResult: AdminPasswordResetResult | null = null;
   generatingPasswordReset = false;
+  sendControl: PlatformSendControl | null = null;
+  sendControlReason = "";
+  loadingSendControl = false;
+  updatingSendControl = false;
 
+  protected readonly faBan = faBan;
+  protected readonly faPlay = faPlay;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faKey = faKey;
@@ -219,11 +266,52 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
 
   async ngOnInit() {
     await this.connectWebSocket();
+    await this.loadSendControl();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.environment && !changes.environment.firstChange) {
       this.resetOperationState();
+      void this.loadSendControl();
+    }
+  }
+
+  async loadSendControl(): Promise<void> {
+    if (this.environment) {
+      this.loadingSendControl = true;
+      try {
+        const response = await this.environmentSetupService.sendControl(this.environment.name);
+        this.sendControl = response.control;
+      } catch (error) {
+        this.logger.error("Failed to load send control:", error);
+        this.sendControl = null;
+      } finally {
+        this.loadingSendControl = false;
+      }
+    } else {
+      this.sendControl = null;
+    }
+  }
+
+  async toggleSendingSuspended(): Promise<void> {
+    if (this.environment) {
+      const sendingSuspended = !this.sendControl?.sendingSuspended;
+      this.updatingSendControl = true;
+      try {
+        const response = await this.environmentSetupService.updateSendControl(this.environment.name, {
+          sendingSuspended,
+          reason: sendingSuspended ? this.sendControlReason : undefined
+        });
+        this.sendControl = response.control;
+        this.sendControlReason = "";
+        this.progressMessages.push(response.message || (sendingSuspended ? "Email sending suspended" : "Email sending resumed"));
+      } catch (error) {
+        const detail = environmentOperationErrorDetail(error);
+        this.setupWarnings = [...this.setupWarnings, `Email sending: ${detail}`];
+        this.logger.error("Send control update failed:", error);
+      } finally {
+        this.updatingSendControl = false;
+      }
     }
   }
 

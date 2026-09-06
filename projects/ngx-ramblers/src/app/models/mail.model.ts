@@ -339,6 +339,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   allowSendTransactional: boolean;
   respectHeadOfficeConsent?: boolean;
   respectEmailBlocks?: boolean;
+  allowSystemEmailsWhenTransactionalOff?: boolean;
   listSettings: ListSetting[];
   smtpServer?: string;
   smtpPort?: number;
@@ -1626,4 +1627,98 @@ export enum RecipientSortField {
   SUBSCRIBER = "subscriber",
   DATE = "date",
   CLICKED = "clicked"
+}
+
+export enum SendChannel {
+  TRANSACTIONAL = "transactional",
+  CAMPAIGN = "campaign"
+}
+
+export enum SendPurpose {
+  TRANSACTIONAL = "transactional",
+  BATCH = "batch",
+  PASSWORD_RESET = "password-reset",
+  ADMIN_ALERT = "admin-alert",
+  INBOX_DIGEST = "inbox-digest",
+  MEETING_INVITE = "meeting-invite",
+  MEMBER_SYNC_NOTIFICATION = "member-sync-notification",
+  BULK_LOAD_DIGEST = "bulk-load-digest",
+  BOOKING = "booking",
+  CAMPAIGN_SEND = "campaign-send",
+  CAMPAIGN_RELEASE = "campaign-release"
+}
+
+export const SEND_PURPOSE_DESCRIPTIONS: Record<SendPurpose, string> = {
+  [SendPurpose.TRANSACTIONAL]: "Email notification",
+  [SendPurpose.BATCH]: "Email composer send",
+  [SendPurpose.PASSWORD_RESET]: "Password reset",
+  [SendPurpose.ADMIN_ALERT]: "Admin alert",
+  [SendPurpose.INBOX_DIGEST]: "Inbox digest",
+  [SendPurpose.MEETING_INVITE]: "Video meeting invite",
+  [SendPurpose.MEMBER_SYNC_NOTIFICATION]: "Member sync notification",
+  [SendPurpose.BULK_LOAD_DIGEST]: "Member bulk load summary",
+  [SendPurpose.BOOKING]: "Booking email",
+  [SendPurpose.CAMPAIGN_SEND]: "Campaign send",
+  [SendPurpose.CAMPAIGN_RELEASE]: "Campaign release"
+};
+
+export const SYSTEM_SEND_PURPOSES: SendPurpose[] = [SendPurpose.PASSWORD_RESET, SendPurpose.ADMIN_ALERT];
+
+export const CAMPAIGN_SEND_PURPOSES: SendPurpose[] = [SendPurpose.CAMPAIGN_SEND, SendPurpose.CAMPAIGN_RELEASE];
+
+export enum SendRefusalReason {
+  PLATFORM_SUSPENDED = "platform-suspended",
+  TRANSACTIONAL_OFF = "transactional-off",
+  CAMPAIGN_OFF = "campaign-off"
+}
+
+export interface SendDecision {
+  allowed: boolean;
+  reason: SendRefusalReason | null;
+  message: string | null;
+}
+
+export interface PlatformSendControl {
+  sendingSuspended: boolean;
+  reason?: string;
+  changedAt?: number;
+  changedBy?: string;
+}
+
+export interface PlatformSendControlRequest {
+  sendingSuspended: boolean;
+  reason?: string;
+}
+
+export interface MailSendRefusal extends Identifiable {
+  purpose: SendPurpose;
+  channel: SendChannel;
+  reason: SendRefusalReason;
+  message: string;
+  subject?: string;
+  recipientCount?: number;
+  requestedBy?: string;
+  refusedAt: number;
+}
+
+export enum MailSendRefusalColumn {
+  REFUSED_AT = "refusedAt",
+  PURPOSE = "purpose",
+  SUBJECT = "subject",
+  RECIPIENT_COUNT = "recipientCount",
+  MESSAGE = "message"
+}
+
+export interface MailSendRefusalsApiResponse extends ApiResponse {
+  response: MailSendRefusal[];
+}
+
+export interface SendStatus {
+  transactional: SendDecision;
+  campaign: SendDecision;
+  platformControl: PlatformSendControl | null;
+}
+
+export interface SendStatusApiResponse extends ApiResponse {
+  response: SendStatus;
 }

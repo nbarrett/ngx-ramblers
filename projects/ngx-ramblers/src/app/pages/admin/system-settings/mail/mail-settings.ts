@@ -42,6 +42,7 @@ import { ListSubscriptionImportExportComponent } from "./list-subscription-impor
 import { MailSendersListComponent } from "./mail-senders-list";
 import { MailDomainsListComponent } from "./mail-domains-list";
 import { MailUnsubscribesListComponent } from "./mail-unsubscribes-list";
+import { MailSendRefusalsComponent } from "./mail-send-refusals";
 import { faCircleExclamation, faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { booleanOf } from "../../../../functions/strings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -245,11 +246,27 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
                             type="checkbox" class="form-check-input" id="mail-enabled">
                           <label class="form-check-label" for="mail-enabled">Allow Send Transactional</label>
+                          <div class="form-text">
+                            On by default. When off, every email this site sends is refused: email composer sends, walk and expense notifications, contact-us messages, booking emails, inbox digests, video meeting invites and member sync notifications. Each refused send is listed under Refused sends below.
+                          </div>
                         </div>
+                        @if (!mailMessagingConfig.mailConfig.allowSendTransactional) {
+                          <div class="form-check ms-4 mt-2">
+                            <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSystemEmailsWhenTransactionalOff"
+                              type="checkbox" class="form-check-input" id="allow-system-emails-when-transactional-off">
+                            <label class="form-check-label" for="allow-system-emails-when-transactional-off">Still send password reset and admin alert emails</label>
+                            <div class="form-text">
+                              On by default. When off, password reset and admin alert emails are refused as well while transactional sending is off, so members cannot reset a forgotten password until it is switched back on.
+                            </div>
+                          </div>
+                        }
                         <div class="form-check mt-2">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendCampaign"
                             type="checkbox" class="form-check-input" id="allow-send-campaign">
                           <label class="form-check-label" for="allow-send-campaign">Allow Send Campaign</label>
+                          <div class="form-text">
+                            On by default. When off, campaign sends and the overnight release of held campaigns are refused, and mailing lists are no longer synchronised with Brevo.
+                          </div>
                         </div>
                         <div class="form-check mt-2">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.respectHeadOfficeConsent"
@@ -271,6 +288,9 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                             Off by default. When on, unsubscribed or blocked members are disabled in the composer and skipped at send. Run Update Brevo Mailing Lists first if list changes may not have synced.
                           </div>
                         </div>
+                      </div>
+                      <div class="thumbnail-heading-frame mx-2 mb-3">
+                        <app-mail-send-refusals/>
                       </div>
                       <div class="form-group">
                         <label for="base-url">Base Url</label>
@@ -501,7 +521,7 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, ContentTextEditor, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, ContentTextEditor, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, MailSendRefusalsComponent, FontAwesomeModule, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];

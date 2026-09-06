@@ -18,6 +18,7 @@ import {
   ForgotPasswordIdentificationMethod,
   MailConfig,
   NotificationConfig,
+  SendPurpose,
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
@@ -27,6 +28,7 @@ import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { normalisePostcode } from "../../addresses/shared";
 import { signoffHtmlForConfig } from "./signoff-names";
+import { assertSendAllowed } from "../send-permission";
 import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 
 const messageType = "brevo:send-forgot-password-email";
@@ -245,6 +247,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
 
   debugLog("Sending forgot password email with request:", emailRequest);
 
+  await assertSendAllowed(SendPurpose.PASSWORD_RESET, {subject, recipientCount: to.length});
   const client = await brevoClient();
 
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {

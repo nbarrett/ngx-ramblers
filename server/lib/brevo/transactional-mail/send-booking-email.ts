@@ -8,6 +8,7 @@ import {
   EmailAddress,
   MailConfig,
   NotificationConfig,
+  SendPurpose,
   SendSmtpEmailRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
@@ -262,7 +263,7 @@ async function sendBookingNotification(emailType: BookingEmailType, bookingRecor
       templateName: build.templateName
     };
     debugLog("sending booking email:", emailType, "to:", primaryAttendee.email, "subject:", build.subject);
-    sendTransactionalEmailRequest(emailRequest, debugLog).then(data => {
+    sendTransactionalEmailRequest(emailRequest, debugLog, undefined, SendPurpose.BOOKING).then(data => {
       debugLog("booking email sent successfully:", JSON.stringify(data));
     }).catch((error: any) => {
       logBrevoError(messageType, error, {emailType});

@@ -3,7 +3,7 @@ import { envConfig } from "../../env-config/env-config";
 import * as config from "../../mongo/controllers/config";
 import * as transforms from "../../mongo/controllers/transforms";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
-import { EmailAddress, NotificationConfig, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { EmailAddress, NotificationConfig, SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -132,7 +132,7 @@ export async function sendMemberBulkLoadDigestEmail(digest: MemberBulkLoadDigest
     templateName: notifConfig.templateName || TEMPLATE_NAME
   };
   try {
-    await sendTransactionalEmailRequest(emailRequest, debugLog);
+    await sendTransactionalEmailRequest(emailRequest, debugLog, undefined, SendPurpose.BULK_LOAD_DIGEST);
     debugLog("committee bulk load digest sent to", recipients.map(recipient => recipient.email));
     return {sent: true, recipients};
   } catch (error: any) {

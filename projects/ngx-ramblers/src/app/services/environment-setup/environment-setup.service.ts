@@ -24,6 +24,7 @@ import {
   GroupsByAreaResponse,
   MongoClusterInfo,
   MongoDbConfig,
+  PlatformSendControlResponse,
   RamblersAreaLookup,
   ResumeEnvironmentResponse,
   SetupStatusResponse,
@@ -31,6 +32,7 @@ import {
   ValidationResult
 } from "../../models/environment-setup.model";
 import { CommonDataService } from "../common-data-service";
+import { PlatformSendControlRequest } from "../../models/mail.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
 @Injectable({
@@ -337,6 +339,24 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as { success: boolean; message: string; seededCount?: number; skippedCount?: number };
+  }
+
+  async sendControl(environmentName: string): Promise<PlatformSendControlResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/send-control/${environmentName}`, this.opts),
+      this.notifications
+    );
+    return response as any;
+  }
+
+  async updateSendControl(environmentName: string, request: PlatformSendControlRequest): Promise<PlatformSendControlResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/send-control/${environmentName}`, request, this.opts),
+      this.notifications
+    );
+    return response as any;
   }
 
   async adminPasswordReset(environmentName: string): Promise<AdminPasswordResetResult> {

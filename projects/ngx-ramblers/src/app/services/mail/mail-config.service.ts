@@ -29,6 +29,7 @@ export class MailConfigService {
       allowSendTransactional: true,
       respectHeadOfficeConsent: true,
       respectEmailBlocks: false,
+      allowSystemEmailsWhenTransactionalOff: true,
       editorUrl: BREVO_DEFAULTS.EDITOR_URL,
       baseUrl: BREVO_DEFAULTS.BASE_URL,
       myBaseUrl: BREVO_DEFAULTS.MY_BASE_URL,
