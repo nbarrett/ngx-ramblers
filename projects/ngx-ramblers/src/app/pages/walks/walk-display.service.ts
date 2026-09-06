@@ -131,7 +131,7 @@ export class WalkDisplayService {
       || walk?.fields?.inputSource === InputSource.WALKS_MANAGER_CACHE;
     return this.walkPopulationLocal()
       && !walksManagerCached
-      && this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
+      && this.walkEventService.statusFor(walk) === EventType.AWAITING_LEADER;
   }
 
   public publicVisibilityFilteringActive(): boolean {
