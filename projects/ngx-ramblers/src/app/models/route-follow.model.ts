@@ -68,6 +68,11 @@ export interface RouteBranch {
   forkPoint: RouteFollowPoint;
 }
 
+export interface RouteBranchChoice {
+  branch: RouteBranch;
+  take: boolean;
+}
+
 export interface RouteComposition {
   points: RouteFollowPoint[];
   taken: number[];
@@ -380,8 +385,8 @@ export interface RoutePageStepDefinition {
 
 export const ROUTE_PAGE_STEPS: RoutePageStepDefinition[] = [
   {key: RoutePageStep.ABOUT, label: "About the route", hint: "Title, summary, difficulty, distance, time and features"},
-  {key: RoutePageStep.START, label: "Where it starts", hint: "Place, postcode and grid reference"},
   {key: RoutePageStep.LINE, label: "The route", hint: "Upload a GPX file or import from OS Maps"},
+  {key: RoutePageStep.START, label: "Where it starts", hint: "Place, postcode and grid reference, or taken from the route"},
   {key: RoutePageStep.DIRECTIONS, label: "Directions", hint: "Generate the directions, then step through and edit them"},
   {key: RoutePageStep.WRITE_UP, label: "The write-up", hint: "Getting there, parking, refreshments and points of interest"},
   {key: RoutePageStep.PHOTOS, label: "Photos", hint: "The banner and the pictures on the page"},

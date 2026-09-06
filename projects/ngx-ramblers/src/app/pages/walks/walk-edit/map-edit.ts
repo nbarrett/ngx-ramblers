@@ -25,9 +25,12 @@ import { GpxParserService } from "../../../services/maps/gpx-parser.service";
 import { UrlService } from "../../../services/url.service";
 import { HttpClient } from "@angular/common/http";
 import { FileNameData } from "../../../models/aws-object.model";
-import { PaletteColor } from "../../../models/content-text.model";
+import { MapMarker, PaletteColor, RouteGuideEntry } from "../../../models/content-text.model";
+import { ROUTE_STEP_POPUP_OPTIONS, routeStepPopupHtml } from "../../../functions/route-step-popup";
+import { escape } from "es-toolkit";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
 import { isUndefined } from "es-toolkit/compat";
+import { RouteFollowPoint, RouteFollowWaypoint } from "../../../models/route-follow.model";
 
 const COMBINED_MAP_BOUNDS_PADDING = 0.25;
 
@@ -63,6 +66,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   @Input() initialZoomOffset: number | null = null;
+  @Input() routeGuideEntries: RouteGuideEntry[] = [];
   @Output() zoomOutLevelsChange = new EventEmitter<number>();
   private walksConfig: WalksConfig;
   private referenceZoom: number | null = null;
@@ -89,6 +93,12 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   @Input() routeWeight: number;
   @Input() routeOpacity: number;
   @Output() postcodeOptionsChange = new EventEmitter<{ postcode: string, distance: number }[]>();
+  @Input() routeWaypoints: RouteFollowWaypoint[] = [];
+  @Input() activeWaypointId: string | null = null;
+  @Input() waypointsDraggable = false;
+  @Output() waypointSelect = new EventEmitter<RouteFollowWaypoint>();
+  @Output() waypointMove = new EventEmitter<RouteFollowWaypoint>();
+  @Output() routePointsChange = new EventEmitter<RouteFollowPoint[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   public locationDetails: LocationDetails;
   public notifyTarget: AlertTarget = {};
@@ -116,6 +126,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private mapZoom = inject(MapZoomService);
   private gpxLayers: L.Layer[] = [];
   private startMarker: L.Marker | null = null;
+  private waypointLayers = new Map<string, L.Marker>();
+  private provider: MapProvider = MapProvider.OSM;
+  private providerStyle = "";
 
   async ngOnInit() {
     this.initializeSubscriptions();
@@ -148,6 +161,43 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     if (this.mapDisplayChanged(changes)) {
       this.logger.info("map display changed - showCombinedMap:", this.showCombinedMap, "endLocationDetails:", this.endLocationDetails);
       this.initializeMap();
+    }
+    if ((changes["routeWaypoints"] && !changes["routeWaypoints"].firstChange) || (changes["waypointsDraggable"] && !changes["waypointsDraggable"].firstChange)) {
+      this.renderWaypoints();
+    }
+    if (changes["activeWaypointId"]) {
+      this.focusActiveWaypoint();
+    }
+  }
+
+  private renderWaypoints(): void {
+    this.waypointLayers.forEach(layer => {
+      const index = this.layers.indexOf(layer);
+      if (index > -1) {
+        this.layers.splice(index, 1);
+      }
+    });
+    this.waypointLayers = new Map<string, L.Marker>();
+    (this.routeWaypoints || []).forEach((waypoint, index) => {
+      const label = waypoint.label || String(index + 1);
+      const marker = L.marker([waypoint.latitude, waypoint.longitude], {icon: this.markerStyle.numberedMarkerIcon(label, this.provider, this.providerStyle), draggable: this.waypointsDraggable});
+      marker.bindPopup(() => routeStepPopupHtml(waypoint as MapMarker, this.routeGuideEntries.find(entry => entry.marker === waypoint), this.markerStyle.numberedMarkerColour(this.provider)), ROUTE_STEP_POPUP_OPTIONS);
+      marker.on("click", () => this.zone.run(() => this.waypointSelect.emit(waypoint)));
+      marker.on("dragend", () => this.zone.run(() => {
+        const position = marker.getLatLng();
+        this.waypointMove.emit({...waypoint, latitude: position.lat, longitude: position.lng});
+      }));
+      this.waypointLayers.set(waypoint.id, marker);
+      this.layers.push(marker);
+    });
+  }
+
+  private focusActiveWaypoint(): void {
+    const marker = this.activeWaypointId ? this.waypointLayers.get(this.activeWaypointId) : null;
+    if (marker && this.map) {
+      const zoom = Math.min(Math.max(this.map.getZoom(), 16), this.map.getMaxZoom());
+      this.map.flyTo(marker.getLatLng(), zoom, {animate: true});
+      setTimeout(() => marker.openPopup(), 0);
     }
   }
 
@@ -245,6 +295,8 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       zoomDelta: 0.5
     };
 
+    this.provider = provider;
+    this.providerStyle = style;
     const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
     this.startMarker = L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
       this.zone.run(() => this.onMarkerDragEnd(event))
@@ -262,6 +314,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       this.layers.push(endMarker);
     }
 
+    this.renderWaypoints();
     this.fitBounds = bounds as any;
 
     if (this.map) {
@@ -299,6 +352,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
       if (parsed.tracks.length > 0) {
         const track = parsed.tracks[0];
+        this.routePointsChange.emit(track.points);
         const latLngs = this.gpxParser.toLeafletLatLngs(track);
 
         if (latLngs.length >= 2) {
@@ -479,22 +533,14 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     const description = location?.description?.trim();
     const postcode = location?.postcode?.trim();
     const grid = this.display.gridReferenceFrom(location);
-    const descriptionHtml = description ? `<div class="small">${this.escapeHtml(description)}</div>` : "";
+    const descriptionHtml = description ? `<div class="small">${escape(description)}</div>` : "";
     const postcodeHtml = postcode
-      ? `<div class="small"><a href="${this.escapeHtml(this.display.postcodeLink(postcode))}">${this.escapeHtml(postcode)}</a></div>`
+      ? `<div class="small"><a href="${escape(this.display.postcodeLink(postcode))}">${escape(postcode)}</a></div>`
       : "";
     const gridHtml = grid
-      ? `<div class="small"><a href="${this.escapeHtml(this.display.gridReferenceLink(grid, this.map?.getZoom()))}">${this.escapeHtml(grid)}</a></div>`
+      ? `<div class="small"><a href="${escape(this.display.gridReferenceLink(grid, this.map?.getZoom()))}">${escape(grid)}</a></div>`
       : "";
-    return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${this.escapeHtml(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
-  }
-
-  private escapeHtml(value: string): string {
-    return (value || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+    return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${escape(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
   }
 
   onMapZoom($event: LeafletEvent) {

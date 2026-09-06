@@ -51,7 +51,7 @@ import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { BroadcastService } from "../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
-import { ResizerComponent } from "../../modules/common/resizer/resizer";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modules/common/resizer/resizer";
 import { MaximisableMapComponent, MaximisableMapState } from "../../modules/common/maximisable-map/maximisable-map";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
@@ -493,7 +493,7 @@ import {
             </div>
           }
           @if (standalone && !mapFullScreen) {
-            <app-resizer orientation="vertical" variant="tab" compact
+            <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB" compact
                          [size]="mapHeight"
                          [minSize]="200"
                          [maxSize]="1200"
@@ -626,6 +626,9 @@ import {
   imports: [FormsModule, LeafletModule, MapControls, MapOverlay, NgSelectComponent, ResizerComponent, FontAwesomeModule, MaximisableMapComponent]
 })
 export class AreaMap implements OnInit, OnDestroy, OnChanges {
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+
   private logger: Logger = inject(LoggerFactory).createLogger("AreaMap", NgxLoggerLevel.ERROR);
   private _row?: PageContentRow;
   private _pageContent?: PageContent;

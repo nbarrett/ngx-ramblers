@@ -69,7 +69,8 @@ const publishing = new Schema({
 const linkWithSourceSchema = new Schema({
   source: {type: String},
   href: {type: String},
-  title: {type: String}
+  title: {type: String},
+  accessLevel: {type: String}
 }, {_id: false});
 
 const imageConfig = new Schema({

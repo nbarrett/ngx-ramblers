@@ -8,6 +8,7 @@ export const riskAssessmentRecord = new mongoose.Schema({
   memberId: {type: String},
   confirmed: {type: Boolean},
   confirmationDate: {type: Number},
+  riskAssessmentSection: {type: String},
   riskAssessmentKey: {type: String}
 }, {_id: false});
 
@@ -39,6 +40,7 @@ export const walkEvent = new mongoose.Schema({
 }, {_id: false});
 
 export const walkVenue = new mongoose.Schema({
+  storedVenueId: {type: String},
   venuePublish: {type: Boolean},
   isMeetingPlace: {type: Boolean},
   type: {type: String},

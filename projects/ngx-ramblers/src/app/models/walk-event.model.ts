@@ -13,14 +13,17 @@ export interface WalkEvent {
 export const AUDITED_FIELDS: string[] = [
   EventField.ATTACHMENT,
   EventField.ATTENDEES,
+  EventField.BOOKINGS_ENABLED,
   EventField.GPX_FILE,
   EventField.CONTACT_DETAILS,
   EventField.IMAGE_CONFIG,
   EventField.LINKS,
+  EventField.MAX_CAPACITY,
   EventField.MEETUP,
   EventField.MILES_PER_HOUR,
   EventField.PUBLISHING,
   EventField.RISK_ASSESSMENT,
+  EventField.ROUTE_WAYPOINTS,
   EventField.VENUE,
   GroupEventField.ACCESSIBILITY,
   GroupEventField.ADDITIONAL_DETAILS,
@@ -56,4 +59,18 @@ export const AUDITED_FIELDS: string[] = [
   GroupEventField.TRANSPORT,
   GroupEventField.URL,
   GroupEventField.WALK_LEADER,
+];
+
+export const UNAUDITED_FIELDS: string[] = [
+  EventField.BOOKING_EMAIL_OVERRIDES,
+  EventField.INPUT_SOURCE,
+  EventField.MAX_GROUP_SIZE,
+  EventField.MEMBER_PRIORITY_DAYS,
+  EventField.MIGRATED_FROM_ID,
+  EventField.NOTIFICATIONS,
+  EventField.ROUTE_COLOR,
+  EventField.ROUTE_OPACITY,
+  EventField.ROUTE_WEIGHT,
+  EventField.TAGS,
+  GroupEventField.ID
 ];

@@ -43,15 +43,16 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
             @if (step.key === RoutePageStep.ABOUT) {
               <app-route-details-edit [row]="routeRow" [part]="RouteDetailsPart.ABOUT" id="route-page"/>
             } @else if (step.key === RoutePageStep.START) {
-              <p class="guidance">Type the place, postcode or grid reference and the rest is looked up. Drag the pin on the map to place it exactly.</p>
+              <p class="guidance">Press Fill details from route to take the start from the GPX file, or type the place, postcode or grid reference and the rest is looked up. Drag the pin on the map to place it exactly.</p>
               <app-route-details-edit [row]="routeRow" [part]="RouteDetailsPart.START" id="route-page"/>
             } @else if (step.key === RoutePageStep.LINE) {
               <app-dynamic-content-site-edit-map [row]="routeRow" id="route-line" [pageContent]="pageContent" [sections]="[MapEditorSection.ROUTES]"/>
             } @else if (step.key === RoutePageStep.DIRECTIONS) {
               <p class="guidance">Generate the directions from the route, then step through them here or full screen. Each direction and note can be reworded beside the map, and each pin dragged along the route.</p>
               @if (routeRow?.routeGuide) {
-                <div class="mb-3">
-                  <label class="form-label">Written directions</label>
+                <div class="row mb-3 thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Written directions</div>
+                  <div class="col-12">
                   <app-tiptap-markdown-editor [value]="routeRow.routeGuide.writtenDirections || ''" (valueChange)="routeRow.routeGuide.writtenDirections = $event; routeGuideChanged()"
                                               placeholder="The directions as written, one paragraph or numbered item per leg. Generating the directions hangs these on the nearest turns as notes."/>
                   <label class="form-label mt-2" for="route-written-directions-display">On the page</label>
@@ -62,6 +63,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
                       <option [ngValue]="option.value">{{ option.label }}</option>
                     }
                   </select>
+                  </div>
                 </div>
               }
               <app-dynamic-content-site-edit-map [row]="routeRow" id="route-directions" [pageContent]="pageContent" [sections]="[MapEditorSection.MARKERS, MapEditorSection.PREVIEW]"/>

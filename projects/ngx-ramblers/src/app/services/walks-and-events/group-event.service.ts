@@ -222,8 +222,8 @@ export class GroupEventService {
     if (previousValue === currentValue) {
       return true;
     }
-    const previousNullish = isNull(previousValue) || isUndefined(previousValue);
-    const currentNullish = isNull(currentValue) || isUndefined(currentValue);
+    const previousNullish = isNull(previousValue) || isUndefined(previousValue) || (isArray(previousValue) && previousValue.length === 0);
+    const currentNullish = isNull(currentValue) || isUndefined(currentValue) || (isArray(currentValue) && currentValue.length === 0);
     if (previousNullish && (isString(currentValue) && currentValue.trim().length === 0)) {
       return true;
     }

@@ -112,6 +112,8 @@ export enum StoredValue {
   FORMAT = "format",
   FOLLOW_SESSION = "follow-session",
   FOLLOW_PROGRESS_PAINT = "follow-progress-paint",
+  FOLLOW_DIRECTIONS_ON_MAP = "follow-directions-on-map",
+  FOLLOW_STEP_PINS_ON_MAP = "follow-step-pins-on-map",
   FORWARD = "forward",
   FREE_ONLY = "free-only",
   FROM_POSTCODE = "from-postcode",

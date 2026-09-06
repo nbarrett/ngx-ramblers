@@ -198,15 +198,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   osMapsHref(): string | null {
-    const routeHref = this.links?.osMapsRoute?.href || null;
-    const coords = this.startCoordinates();
-    let href: string | null = null;
-    if (routeHref) {
-      href = routeHref;
-    } else if (coords) {
-      href = `https://explore.osmaps.com/pin?lat=${coords.latitude}&lon=${coords.longitude}&zoom=15`;
-    }
-    return href;
+    return this.links?.osMapsRoute?.href || null;
   }
 
   what3wordsHref(): string | null {

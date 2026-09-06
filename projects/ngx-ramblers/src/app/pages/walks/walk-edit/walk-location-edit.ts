@@ -18,6 +18,7 @@ import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { FileNameData } from "../../../models/aws-object.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { FormsModule } from "@angular/forms";
+import { LowerCasePipe } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MapEditComponent } from "./map-edit";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
@@ -184,7 +185,7 @@ import { LocationType } from "../../../models/map.model";
       }
     }`,
     styleUrls: ["./walk-edit.component.sass"],
-    imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, LocationAutocompleteComponent, FontAwesomeModule]
+    imports: [FormsModule, LowerCasePipe, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, LocationAutocompleteComponent, FontAwesomeModule]
 })
 export class WalkLocationEditComponent implements OnInit, OnDestroy {
 

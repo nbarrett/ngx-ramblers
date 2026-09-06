@@ -1,5 +1,6 @@
 import { FormsModule } from "@angular/forms";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCheck, faChevronLeft, faChevronRight, faExpand, faGaugeHigh, faListOl, faPencil, faPersonWalking, faRotateLeft, faTrashCan, faUndo, faUpLong, faCodeFork } from "@fortawesome/free-solid-svg-icons";
@@ -15,14 +16,14 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
           <button type="button" class="control-pill-btn" (click)="fullScreen.emit()" title="Show the map full screen with the directions beside it" aria-label="Full screen">
             <fa-icon [icon]="faExpand"/><span class="d-none d-sm-inline">Full screen</span>
           </button>
-          @if (count > 0) {
+          @if (count > 0 && !compact) {
             <span class="control-pill-divider"></span>
             <button type="button" class="control-pill-btn" [class.active]="guideOpen" (click)="toggleGuide.emit()" [attr.aria-pressed]="guideOpen"
                     [title]="guideOpen ? 'Hide the written directions' : 'Show the written directions'">
               <fa-icon [icon]="faListOl"/><span class="d-none d-sm-inline">{{ guideOpen ? "Hide directions" : "Directions" }}</span>
             </button>
           }
-          @if (tracks.length > 1) {
+          @if (tracks.length > 1 && !compact) {
             <span class="control-pill-divider"></span>
             <label class="control-pill-range-label" [attr.for]="'route-track-' + id" title="This file holds more than one route: choose which one to follow">
               <fa-icon [icon]="faCodeFork"/><span class="d-none d-sm-inline">Route</span>
@@ -63,6 +64,7 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
             </button>
           }
         </div>
+        @if (!compact) {
         <div class="control-pill" role="group" aria-label="Stepping speed">
           <label class="control-pill-text control-pill-range-label" [for]="'route-step-speed-' + id" title="How quickly the map travels between steps">
             <fa-icon [icon]="faGaugeHigh"/>
@@ -72,8 +74,14 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
             <span class="control-pill-range-value">{{ speed }}×</span>
           </label>
         </div>
+        }
       }
-      @if (fullscreen && (count > 0 || canFollow)) {
+      @if (compact && canEdit) {
+        <div class="control-pill" role="group" aria-label="Edit the directions">
+          <ng-container *ngTemplateOutlet="editButtons"/>
+        </div>
+      }
+      @if (fullscreen && !compact && (count > 0 || canFollow)) {
         <div class="control-pill" role="group" aria-label="Map and route options">
           @if (tracks.length > 1) {
             <label class="control-pill-range-label" [attr.for]="'route-track-' + id" title="This file holds more than one route: choose which one to follow">
@@ -89,22 +97,7 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
             <span class="control-pill-divider"></span>
           }
           @if (canEdit) {
-            <button type="button" class="control-pill-btn" [class.active]="editing" (click)="toggleEdit.emit()" [attr.aria-pressed]="editing"
-                    [title]="editing ? 'Finish editing the directions' : 'Edit the directions and drag the pins'">
-              <fa-icon [icon]="editing ? faCheck : faPencil"/><span class="d-none d-sm-inline">{{ editing ? "Done" : "Edit" }}</span>
-            </button>
-            @if (editing) {
-              <span class="control-pill-divider"></span>
-              <button type="button" class="control-pill-btn" (click)="undo.emit()" [disabled]="!canUndo" title="Undo the last change">
-                <fa-icon [icon]="faUndo"/><span class="d-none d-sm-inline">Undo</span>
-              </button>
-              <button type="button" class="control-pill-btn" (click)="discard.emit()" [disabled]="!canUndo" title="Throw away every change made since you pressed Edit">
-                <fa-icon [icon]="faTrashCan"/><span class="d-none d-sm-inline">Discard</span>
-              </button>
-            }
-            @if (editing && saveState) {
-              <span class="control-pill-text control-pill-save-state">{{ saveStateLabels[saveState] }}</span>
-            }
+            <ng-container *ngTemplateOutlet="editButtons"/>
             <span class="control-pill-divider"></span>
           }
           @if (count > 0 && !editing) {
@@ -127,6 +120,24 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
         </div>
       }
     </div>
+    <ng-template #editButtons>
+      <button type="button" class="control-pill-btn" [class.active]="editing" (click)="toggleEdit.emit()" [attr.aria-pressed]="editing"
+              [title]="editing ? 'Finish editing the directions' : 'Edit the directions and drag the pins'">
+        <fa-icon [icon]="editing ? faCheck : faPencil"/><span class="d-none d-sm-inline">{{ editing ? "Done" : "Edit" }}</span>
+      </button>
+      @if (editing) {
+        <span class="control-pill-divider"></span>
+        <button type="button" class="control-pill-btn" (click)="undo.emit()" [disabled]="!canUndo" title="Undo the last change">
+          <fa-icon [icon]="faUndo"/><span class="d-none d-sm-inline">Undo</span>
+        </button>
+        <button type="button" class="control-pill-btn" (click)="discard.emit()" [disabled]="!canUndo" title="Throw away every change made since you pressed Edit">
+          <fa-icon [icon]="faTrashCan"/><span class="d-none d-sm-inline">Discard</span>
+        </button>
+      }
+      @if (editing && saveState) {
+        <span class="control-pill-text control-pill-save-state">{{ saveStateLabels[saveState] }}</span>
+      }
+    </ng-template>
     <ng-template #followButton>
       <button type="button" class="control-pill-btn" (click)="follow.emit()" title="Follow this route on your phone" aria-label="Follow this route">
         <fa-icon [icon]="faPersonWalking"/><span class="d-none d-sm-inline">Follow this route</span>
@@ -137,6 +148,11 @@ export class RouteStepControls {
   @Input() activeIndex = -1;
   @Input() count = 0;
   @Input() fullscreen = false;
+  @Input("compact") set compactValue(value: boolean) {
+    this.compact = coerceBooleanProperty(value);
+  }
+
+  compact = false;
   @Input() headingUp = false;
   @Input() canFollow = false;
   @Input() guideOpen = false;
@@ -155,7 +171,7 @@ export class RouteStepControls {
   protected readonly faCheck = faCheck;
 
   get stepping(): boolean {
-    return this.count > 0 && (this.fullscreen || this.guideOpen);
+    return this.count > 0 && (this.compact || this.fullscreen || this.guideOpen);
   }
   @Input() speed = ROUTE_STEP_SPEED_DEFAULT;
   @Input() id = "";

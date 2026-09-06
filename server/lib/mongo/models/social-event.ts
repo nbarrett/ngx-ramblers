@@ -18,6 +18,7 @@ const notificationContent = new mongoose.Schema({
   destinationType: {type: String},
   includeDownloadInformation: {type: Boolean},
   list: {type: String},
+  listId: {type: Number},
   attendees: {include: {type: Boolean}},
   recipients: {include: {type: Boolean}, value: [{type: String}]},
   replyTo: {include: {type: Boolean}, value: {type: String}},
