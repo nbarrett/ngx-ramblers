@@ -1169,12 +1169,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   confirmClearWalkLeaderKeepDetails() {
     this.confirmAction = ConfirmType.NONE;
     this.notify.hide();
-    this.displayedWalk.walk.fields.contactDetails.memberId = null;
-    this.displayedWalk.walk.fields.contactDetails.contactId = null;
-    this.displayedWalk.walk.fields.contactDetails.displayName = null;
-    this.displayedWalk.walk.fields.contactDetails.phone = null;
-    this.displayedWalk.walk.fields.contactDetails.email = null;
-    this.displayedWalk.walk.fields.publishing.ramblers.contactName = null;
+    this.eventDefaultsService.restoreWalkLeaderName(this.displayedWalk.walk, "");
     this.setStatus(EventType.AWAITING_LEADER);
   }
 
