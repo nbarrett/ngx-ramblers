@@ -1,7 +1,16 @@
+import debug from "debug";
 import type { Locator, Page as NativePage } from "playwright-core";
+import { envConfig } from "../../../../env-config/env-config";
+import { OsMapsLoginSubmitOutcome } from "../../../../models/os-maps-identity.model";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
 import { trimmedOsMapsLogin, uniqueOsMapsIdentityErrors } from "./os-maps-login-values";
+
+const debugLog = debug(envConfig.logNamespace("os-maps-identity"));
+debugLog.enabled = true;
+const LOGIN_SUBMIT_ATTEMPTS = 3;
+const LOGIN_SUBMIT_RESPONSE_WAIT_MS = 8000;
+const OS_MAPS_EXPLORE_HOST = "explore.osmaps.com";
 
 export { trimmedOsMapsLogin, uniqueOsMapsIdentityErrors } from "./os-maps-login-values";
 
@@ -120,18 +129,64 @@ export async function waitForOsMapsSignedIn(native: NativePage, timeout = DEFAUL
   await osMapsSignedInHeader(native).first().waitFor({state: "visible", timeout});
 }
 
+async function blankOsMapsPassword(page: NativePage): Promise<void> {
+  await osMapsPasswordField(page).first().fill("").catch(() => null);
+}
+
+function leftOsMapsIdentity(page: NativePage, timeout: number): Promise<boolean> {
+  return page.waitForURL(url => url.hostname === OS_MAPS_EXPLORE_HOST, {timeout}).then(() => true).catch(() => false);
+}
+
+function osMapsIdentitySubmitResponse(page: NativePage, timeout: number): Promise<boolean> {
+  return page.waitForResponse(response => response.url().includes("/SelfAsserted"), {timeout}).then(() => true).catch(() => false);
+}
+
+async function triggerOsMapsLoginSubmit(page: NativePage, attempt: number): Promise<void> {
+  if (attempt % 2 === 0) {
+    await osMapsPasswordField(page).first().press("Enter");
+  } else {
+    await osMapsLoginSubmit(page).first().click({force: true});
+  }
+}
+
+async function submitOsMapsIdentityOnce(page: NativePage, attempt: number): Promise<OsMapsLoginSubmitOutcome> {
+  const leaveWait = leftOsMapsIdentity(page, LOGIN_SUBMIT_RESPONSE_WAIT_MS);
+  const responseWait = osMapsIdentitySubmitResponse(page, LOGIN_SUBMIT_RESPONSE_WAIT_MS);
+  await triggerOsMapsLoginSubmit(page, attempt);
+  return new Promise<OsMapsLoginSubmitOutcome>(resolve => {
+    leaveWait.then(left => left ? resolve(OsMapsLoginSubmitOutcome.LEFT_IDENTITY) : null);
+    responseWait.then(submitted => submitted ? resolve(OsMapsLoginSubmitOutcome.SUBMITTED) : null);
+    Promise.all([leaveWait, responseWait]).then(() => resolve(OsMapsLoginSubmitOutcome.IGNORED));
+  });
+}
+
+async function submitOsMapsIdentityWithRetries(page: NativePage, attempt: number): Promise<OsMapsLoginSubmitOutcome> {
+  const outcome = await submitOsMapsIdentityOnce(page, attempt);
+  const rejected = await osMapsIdentityErrorText(page);
+  debugLog("login submit attempt", attempt, "outcome:", outcome, "rejected:", rejected || "no");
+  if (rejected) {
+    await blankOsMapsPassword(page);
+    throw new Error(`OS Maps login was rejected: ${rejected}`);
+  } else if (outcome === OsMapsLoginSubmitOutcome.IGNORED && attempt < LOGIN_SUBMIT_ATTEMPTS) {
+    return submitOsMapsIdentityWithRetries(page, attempt + 1);
+  } else {
+    return outcome;
+  }
+}
+
 export async function submitOsMapsIdentityForm(page: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
   const emailValue = await osMapsEmailField(page).first().inputValue().catch(() => "");
   const passwordLength = await osMapsPasswordField(page).first().inputValue().then(value => value.length).catch(() => 0);
   const exploreWait = Math.min(30000, timeout);
-  await osMapsLoginSubmit(page).first().click({force: true});
-  const leftIdentity = await page.waitForURL(url => url.hostname === "explore.osmaps.com", {timeout: exploreWait}).then(() => true).catch(() => false);
+  const outcome = await submitOsMapsIdentityWithRetries(page, 1);
+  const leftIdentity = outcome === OsMapsLoginSubmitOutcome.LEFT_IDENTITY || await leftOsMapsIdentity(page, exploreWait);
   if (!leftIdentity) {
     const rejected = await osMapsIdentityErrorText(page);
+    await blankOsMapsPassword(page);
     if (rejected) {
       throw new Error(`OS Maps login was rejected: ${rejected}`);
     } else {
-      throw new Error(`OS Maps login did not leave the identity page (still at ${page.url()}, email length ${emailValue.length}, password length ${passwordLength})`);
+      throw new Error(`OS Maps login did not leave the identity page after ${LOGIN_SUBMIT_ATTEMPTS} submit attempts (last outcome ${outcome}, still at ${page.url()}, email length ${emailValue.length}, password length ${passwordLength})`);
     }
   }
 }

@@ -327,8 +327,6 @@ export class Venue implements OnInit, OnDestroy {
 
   private applyVenueToForm(venue: Partial<VenueModel> | VenueWithUsageStats) {
     const currentVenue = this.event.fields.venue;
-    const venuePublish = currentVenue.venuePublish;
-    const isMeetingPlace = currentVenue.isMeetingPlace;
     currentVenue.storedVenueId = (venue as VenueWithUsageStats).storedVenueId || venue.storedVenueId;
     currentVenue.type = venue.type;
     currentVenue.name = venue.name;
@@ -338,8 +336,8 @@ export class Venue implements OnInit, OnDestroy {
     currentVenue.url = venue.url;
     currentVenue.lat = venue.lat;
     currentVenue.lon = venue.lon;
-    currentVenue.venuePublish = venue.venuePublish ?? venuePublish;
-    currentVenue.isMeetingPlace = venue.isMeetingPlace ?? isMeetingPlace;
+    currentVenue.venuePublish = true;
+    currentVenue.isMeetingPlace = true;
     if (venue.type) {
       this.selectedVenueType = this.venueTypes.find(venueType => venueType.type === venue.type) || this.selectedVenueType;
     }

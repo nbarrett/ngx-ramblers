@@ -4,6 +4,7 @@ import { ServerFileNameData } from "../../../projects/ngx-ramblers/src/app/model
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { envConfig } from "../env-config/env-config";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
+import { osMapsImportedRoute } from "../mongo/models/os-maps-imported-route";
 import debug from "debug";
 import { DOMParser } from "@xmldom/xmldom";
 import { titleCase, humaniseFileStemFromUrl, hasFileExtension } from "../shared/string-utils";
@@ -14,6 +15,7 @@ import { dateTimeFromIso } from "../shared/dates";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-list"));
 debugLog.enabled = true;
 
+const IMPORTED_ROUTE_AWS_FILE_NAME = "gpxFile.awsFileName";
 const s3Cache: { client?: S3Client } = {};
 
 function s3(): S3Client {
@@ -97,11 +99,15 @@ async function processGpxFile(
     [EventField.GPX_FILE_AWS_FILE_NAME]: awsFileName
   }).exec();
 
-  const coordinates = await getOrFetchCoordinates(walk, bucket, key, awsFileName);
+  const importedRoute = walk ? null : await osMapsImportedRoute.findOne({[IMPORTED_ROUTE_AWS_FILE_NAME]: awsFileName}).lean();
+  const importedGpxFile = importedRoute?.gpxFile;
+  const coordinates = importedGpxFile?.startLat && importedGpxFile?.startLng
+    ? {startLat: importedGpxFile.startLat, startLng: importedGpxFile.startLng}
+    : await getOrFetchCoordinates(walk, bucket, key, awsFileName);
 
-  const originalFileName = walk?.fields?.gpxFile?.originalFileName || awsFileName;
+  const originalFileName = walk?.fields?.gpxFile?.originalFileName || importedGpxFile?.originalFileName || awsFileName;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.gpx$/i.test(originalFileName);
-  const title = walk?.fields?.gpxFile?.title || (isUuid ? "" : titleCase(kebabCase(humaniseFileStemFromUrl(originalFileName))));
+  const title = walk?.fields?.gpxFile?.title || importedGpxFile?.title || (isUuid ? "" : titleCase(kebabCase(humaniseFileStemFromUrl(originalFileName))));
 
   return {
     fileData: {

@@ -139,6 +139,15 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                 </div>
               </div>
             </div>
+            @if (renderMapEdit) {
+              <div class="col-sm-12 mb-4">
+                <app-walk-location-edit [locationType]="LocationType.STARTING"
+                                        [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
+                                        [disabled]="syncDisabled"
+                                        [showLocationOnly]="true"
+                                        [notify]="notify"/>
+              </div>
+            }
             <div class="col-sm-12">
               <div class="form-group">
                 <label for="gpx-route">GPX Route (Optional)</label>
@@ -152,6 +161,7 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                     (ngModelChange)="onGpxFileChange()"
                     (open)="onDropdownOpen()"
                     [clearable]="true"
+                    dropdownPosition="bottom"
                     placeholder="Select existing GPX file..."
                     class="flex-grow-1">
                     <ng-template ng-option-tmp let-item="item">
@@ -236,6 +246,7 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                                           [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
                                           [endLocationDetails]="showCombinedMap ? displayedWalk?.walk?.groupEvent.end_location : null"
                                           [showCombinedMap]="showCombinedMap"
+                                          [hideLocationDropdown]="true"
                                           [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
                                           [routeColor]="displayedWalk?.walk?.fields?.routeColor"
                                           [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
@@ -471,7 +482,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   protected display = inject(WalkDisplayService);
   difficulties = this.display.difficulties();
   tabs: DetailsTab[] = [DetailsTab.VENUE, DetailsTab.ROUTE, DetailsTab.DIRECTIONS, DetailsTab.VENUE_ROUTE_AND_DIRECTIONS];
-  selectedTab: DetailsTab = DetailsTab.ROUTE;
+  selectedTab: DetailsTab = DetailsTab.VENUE;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
@@ -977,20 +988,15 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
 
   getDropdownTitle(item: GpxFileListItem): string {
     const isUuid = item.name && item.name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/i);
-
-    if (isUuid && item.uploadDate) {
+    if (item.fileData?.title) {
+      return this.transformFilename(item.fileData.title);
+    } else if (isUuid && item.uploadDate) {
       return `Uploaded ${this.dateUtils.displayDate(item.uploadDate)}`;
-    }
-
-    if (item.walkTitle) {
-      return this.transformFilename(item.fileData.title || item.fileData.originalFileName);
-    }
-
-    if (item.fileData.originalFileName) {
+    } else if (item.fileData?.originalFileName) {
       return this.transformFilename(item.fileData.originalFileName);
+    } else {
+      return "GPX Route";
     }
-
-    return "GPX Route";
   }
 
   private transformFilename(filename: string): string {
@@ -1012,6 +1018,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
 
   async onVenuePostcodeChange(postcode: string) {
     this.logger.info("onVenuePostcodeChange: applying venue postcode to starting point:", postcode);
+    const venueName = this.displayedWalk?.walk?.fields?.venue?.name?.trim() || "";
     const startLocation = this.displayedWalk?.walk?.groupEvent?.start_location;
     if (!startLocation) {
       this.displayedWalk.walk.groupEvent.start_location = {
@@ -1021,7 +1028,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
         grid_reference_8: null,
         grid_reference_10: null,
         postcode: postcode?.toUpperCase()?.trim(),
-        description: null,
+        description: venueName || null,
         w3w: null
       };
     } else {
@@ -1031,6 +1038,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
       startLocation.grid_reference_6 = null;
       startLocation.grid_reference_8 = null;
       startLocation.grid_reference_10 = null;
+      startLocation.description = venueName || startLocation.description;
     }
 
     if (postcode?.length >= 5) {
@@ -1048,9 +1056,11 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
         location.grid_reference_10 = gridReferenceLookupResponse.gridReference10;
         location.latitude = gridReferenceLookupResponse.latlng.lat;
         location.longitude = gridReferenceLookupResponse.latlng.lng;
+        location.description = venueName || gridReferenceLookupResponse.description || location.description;
+        this.reloadGpxFilesForStartLocation();
         this.notify?.success({
-          title: "Starting point updated",
-          message: `Starting point set to ${postcode} with coordinates`
+          title: "Starting location updated",
+          message: `Starting location set to ${location.description || postcode} (${postcode}) and GPX routes near it listed`
         });
       } else {
         this.notify?.warning({
@@ -1060,11 +1070,16 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
       }
     } else {
       this.notify?.success({
-        title: "Starting point updated",
-        message: `Starting point postcode set to ${postcode}`
+        title: "Starting location updated",
+        message: `Starting location postcode set to ${postcode}`
       });
     }
 
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_START_LOCATION_CHANGED, postcode));
+  }
+
+  private reloadGpxFilesForStartLocation(): void {
+    this.gpxFilesLoaded = false;
+    this.loadGpxFiles();
   }
 }

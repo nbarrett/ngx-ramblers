@@ -227,7 +227,7 @@ export async function executeRamblersUploadJobOnWorker(
           void safePostProgress(state.callback, state.sharedSecret, {
             jobId: state.jobId,
             type: IntegrationWorkerEventType.LIFECYCLE,
-            payload: `Scenario execution complete [${formatElapsed(serenityElapsed)}]`
+            payload: `Scenario execution complete in ${formatElapsed(serenityElapsed)}`
           });
           void safePostProgress(state.callback, state.sharedSecret, {
             jobId: state.jobId,
@@ -251,7 +251,7 @@ export async function executeRamblersUploadJobOnWorker(
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
-      const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`} [${elapsed}]`;
+      const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`} in ${elapsed}`;
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
@@ -300,7 +300,7 @@ async function finishJob(
       await safePostProgress(callback, sharedSecret, {
         jobId: job.jobId,
         type: IntegrationWorkerEventType.LIFECYCLE,
-        payload: `Report upload to S3 complete [${reportUploadElapsed}]`
+        payload: `Report upload to S3 complete in ${reportUploadElapsed}`
       });
       reportKeyPrefix = reportUpload.keyPrefix;
       reportBucket = reportUpload.bucket;
@@ -310,7 +310,7 @@ async function finishJob(
   await safePostResult(callback, sharedSecret, {
     jobId: job.jobId,
     type,
-    payload: `${payload} total ${totalElapsed}`,
+    payload: `${payload}, total ${totalElapsed}`,
     status,
     reportKeyPrefix,
     reportBucket,

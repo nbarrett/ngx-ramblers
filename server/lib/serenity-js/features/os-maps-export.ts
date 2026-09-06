@@ -1,7 +1,7 @@
 import { Ensure, equals, includes, isGreaterThan } from "@serenity-js/assertions";
 import { afterEach, describe, it, test } from "@serenity-js/playwright-test";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { ELHAM_VALLEY_NORTH_ROUTE, OS_MAPS_EXPORT_ROUTES, OsMapsRouteFixture } from "../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { OsMapsRouteFixture, requestedOsMapsRouteFixture } from "../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { NavigateWithDomLoaded } from "../screenplay/tasks/common/navigate-with-dom-loaded";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { Start } from "../screenplay/tasks/common/start";
@@ -19,33 +19,16 @@ const osMapsCredentialsConfigured = !!(
 );
 const actor = resolveSerenityActorName();
 
-function fixtureForUrl(requestedUrl: string): OsMapsRouteFixture {
-  const known = OS_MAPS_EXPORT_ROUTES.find(route => requestedUrl.includes(`/route/${route.id}`));
-  if (known) {
-    return {...known, url: requestedUrl};
-  } else {
-    return {
-      ...ELHAM_VALLEY_NORTH_ROUTE,
-      id: 0,
-      name: "Requested OS Maps route",
-      url: requestedUrl,
-      expectedDistanceKm: 0,
-      minimumTrackPoints: 1,
-      minimumWaypoints: 0,
-      distanceToleranceKm: Number.MAX_SAFE_INTEGER
-    };
-  }
-}
-
 function exportRoutes(): OsMapsRouteFixture[] {
   const requestedUrls = process.env[Environment.OS_MAPS_ROUTE_URLS];
   const requestedUrl = process.env[Environment.OS_MAPS_ROUTE_URL];
   if (requestedUrls) {
-    return JSON.parse(requestedUrls).map((url: string) => fixtureForUrl(url));
+    const uniqueUrls: string[] = JSON.parse(requestedUrls).filter((url: string, index: number, all: string[]) => all.indexOf(url) === index);
+    return uniqueUrls.map(url => requestedOsMapsRouteFixture(url));
   } else if (requestedUrl) {
-    return [fixtureForUrl(requestedUrl)];
+    return [requestedOsMapsRouteFixture(requestedUrl)];
   } else {
-    return OS_MAPS_EXPORT_ROUTES;
+    return [];
   }
 }
 

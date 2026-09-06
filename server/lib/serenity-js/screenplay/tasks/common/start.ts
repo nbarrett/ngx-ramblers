@@ -3,6 +3,7 @@ import { Navigate } from "@serenity-js/web";
 import { StartWithNavigation } from "./start-with-navigation";
 import { NavigateWithDomLoaded } from "./navigate-with-dom-loaded";
 import { Accept } from "../ramblers/common/accept-cookie-prompt";
+import { OS_MAPS_EXPLORE_URL } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 
 export class Start {
 
@@ -28,6 +29,12 @@ export class Start {
     return Task.where("#actor starts on the walks and events manager",
       StartWithNavigation.to("https://walks-manager.ramblers.org.uk/walks-manager"),
       Accept.dismissCookieBanners(),
+    );
+  }
+
+  static onOsMaps(): Task {
+    return Task.where("#actor starts on OS Maps",
+      NavigateWithDomLoaded.to(OS_MAPS_EXPLORE_URL),
     );
   }
 
