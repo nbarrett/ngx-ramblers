@@ -94,10 +94,10 @@ export interface ExtendedFields {
   riskAssessment: RiskAssessmentRecord[];
   venue?: Venue;
   inputSource: InputSource;
-  gpxFile?: FileNameData;
-  routeColor?: string;
-  routeWeight?: number;
-  routeOpacity?: number;
+  gpxFile?: FileNameData | null;
+  routeColor?: string | null;
+  routeWeight?: number | null;
+  routeOpacity?: number | null;
   routeWaypoints?: RouteFollowWaypoint[];
   maxCapacity?: number;
   maxGroupSize?: number;

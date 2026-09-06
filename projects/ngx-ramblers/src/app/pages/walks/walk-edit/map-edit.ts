@@ -100,6 +100,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   @Output() waypointMove = new EventEmitter<RouteFollowWaypoint>();
   @Output() routePointsChange = new EventEmitter<RouteFollowPoint[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
+  @Output() locationChange = new EventEmitter<LocationDetails>();
   public locationDetails: LocationDetails;
   public notifyTarget: AlertTarget = {};
   public options: any;
@@ -125,6 +126,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private urlService = inject(UrlService);
   private mapZoom = inject(MapZoomService);
   private gpxLayers: L.Layer[] = [];
+  private gpxLoadSequence = 0;
   private startMarker: L.Marker | null = null;
   private waypointLayers = new Map<string, L.Marker>();
   private provider: MapProvider = MapProvider.OSM;
@@ -147,15 +149,15 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if ((changes["gpxFile"] && !changes["gpxFile"].firstChange) || ((changes["routeColor"] || changes["routeWeight"] || changes["routeOpacity"]) && this.gpxFile)) {
-      this.gpxLayers.forEach(layer => {
-        const index = this.layers.indexOf(layer);
-        if (index > -1) this.layers.splice(index, 1);
-      });
-      this.gpxLayers = [];
-
-      if (this.gpxFile) {
+    const gpxFileChanged = changes["gpxFile"] && !changes["gpxFile"].firstChange;
+    const routeStyleChanged = ["routeColor", "routeWeight", "routeOpacity"].some(key => changes[key] && !changes[key].firstChange);
+    if (gpxFileChanged || (routeStyleChanged && this.gpxFile)) {
+      this.logger.info("ngOnChanges: gpxFileChanged:", gpxFileChanged, "routeStyleChanged:", routeStyleChanged, "gpxFile:", this.gpxFile?.awsFileName || null, "layers before:", this.layers.length);
+      this.removeGpxRoute();
+      if (this.gpxFile?.awsFileName) {
         this.loadAndRenderGpxRoute();
+      } else {
+        this.routePointsChange.emit([]);
       }
     }
     if (this.mapDisplayChanged(changes)) {
@@ -336,8 +338,20 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     return this.mapTiles.hasOsApiKey();
   }
 
+  private removeGpxRoute(): void {
+    const removed = this.gpxLayers;
+    this.gpxLayers = [];
+    this.layers = this.layers.filter(layer => !removed.includes(layer));
+    removed.forEach(layer => this.map?.removeLayer(layer));
+    this.fitBounds = null;
+    this.logger.info("removeGpxRoute: removed", removed.length, "route layers, layers now:", this.layers.length);
+  }
+
   private async loadAndRenderGpxRoute() {
     if (!this.gpxFile?.awsFileName) return;
+    const sequence = this.gpxLoadSequence + 1;
+    this.gpxLoadSequence = sequence;
+    this.logger.info("loadAndRenderGpxRoute: starting load", sequence, "for", this.gpxFile.awsFileName);
 
     try {
       const gpxUrl = this.urlService.resourceRelativePathForAWSFileName(
@@ -350,7 +364,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
       const parsed = this.gpxParser.parseGpxFile(gpxContent);
 
-      if (parsed.tracks.length > 0) {
+      if (sequence !== this.gpxLoadSequence) {
+        this.logger.info("loadAndRenderGpxRoute: discarding stale load", sequence, "current is", this.gpxLoadSequence);
+      } else if (parsed.tracks.length > 0) {
         const track = parsed.tracks[0];
         this.routePointsChange.emit(track.points);
         const latLngs = this.gpxParser.toLeafletLatLngs(track);
@@ -374,8 +390,10 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
             opacity: coreOpacity
           });
 
+          this.removeGpxRoute();
           this.gpxLayers = [halo, core];
-          this.layers.push(...this.gpxLayers);
+          this.layers = [...this.layers, ...this.gpxLayers];
+          this.logger.info("loadAndRenderGpxRoute: drew route for load", sequence, "layers now:", this.layers.length);
 
           this.fitBounds = this.mapZoom.calculateBoundsFromLayers(this.gpxLayers, { paddingPercent: 0.15 });
 
@@ -462,33 +480,17 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
           });
         } else {
           const closestResponse = sortedResponses[0];
-          const closestResponseMatchingPostcode = sortedResponses.find(item => item.postcode === this.locationDetails.postcode);
-
-          const showAlert = !closestResponseMatchingPostcode || closestResponseMatchingPostcode.postcode !== closestResponse.postcode;
-          if (showAlert) {
-            const postcodeOptions = sortedResponses.map(item => ({
-              postcode: item.postcode,
-              distance: item.distance
-            }));
-            const overrideOption = `You can optionally choose a different postcode from the ${this.locationType} Postcode dropdown.`;
-            if (!closestResponseMatchingPostcode) {
-              this.notify.warning({
-                title: "New pin location",
-                message: `The new pin location does not have the same postcode as the ${this.locationType} postcode ${this.locationDetails.postcode}. ${overrideOption}`
-              });
-              this.updateLocationWith({...closestResponse, postcode: this.locationDetails.postcode});
-              postcodeOptions.splice(0, 0, {postcode: this.locationDetails.postcode, distance: null});
-            } else {
-              this.notify.warning({
-                title: "New pin location",
-                message: `The new pin location matches the ${this.locationType} postcode ${this.locationDetails.postcode}, but other postcodes are closer to the pin. ${overrideOption}`
-              });
-              this.updateLocationWith(closestResponseMatchingPostcode);
-            }
-            this.postcodeOptionsChange.emit(postcodeOptions);
+          const previousPostcode = this.locationDetails.postcode;
+          this.updateLocationWith(closestResponse);
+          if (previousPostcode && closestResponse.postcode !== previousPostcode) {
+            const postcodeOptions = sortedResponses.map(item => ({postcode: item.postcode, distance: item.distance}));
+            const previousStillListed = postcodeOptions.some(option => option.postcode === previousPostcode);
+            this.notify.warning({
+              title: "New pin location",
+              message: `The ${this.locationType} postcode has changed from ${previousPostcode} to ${closestResponse.postcode}, the closest to the pin. You can choose a different nearby postcode from the ${this.locationType} Postcode dropdown.`
+            });
+            this.postcodeOptionsChange.emit(previousStillListed ? postcodeOptions : [...postcodeOptions, {postcode: previousPostcode, distance: null}]);
             this.showPostcodeSelectChange.emit(true);
-          } else {
-            this.updateLocationWith(closestResponseMatchingPostcode);
           }
         }
       })
@@ -509,6 +511,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     if (this.startMarker) {
       this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
     }
+    this.locationChange.emit(this.locationDetails);
   }
 
   private primaryPinRole(): string {
