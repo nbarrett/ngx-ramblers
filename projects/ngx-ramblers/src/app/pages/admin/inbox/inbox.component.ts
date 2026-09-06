@@ -396,7 +396,41 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
                 (selectedTabChange)="onGroupingModeChange($event)"/>
             </div>
           }
-          @if (threads.length > 0) {
+          @if (viewingDrafts && filteredDrafts.length > 0) {
+            <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
+              <input type="checkbox" class="form-check-input mt-0" id="inbox-select-all-drafts"
+                     [checked]="allDraftsSelected()"
+                     [indeterminate]="selectedDraftIds.size > 0 && !allDraftsSelected()"
+                     (change)="toggleSelectAllDrafts()">
+              @if (selectedDraftIds.size > 0) {
+                <button type="button" class="btn btn-sm btn-danger text-nowrap" [disabled]="busy || confirmingDraftDelete" (click)="requestDeleteSelectedDrafts()">
+                  <fa-icon [icon]="faTrash" class="me-2"/>Delete {{ stringUtils.pluraliseWithCount(selectedDraftIds.size, "draft") }}
+                </button>
+              } @else {
+                <label class="text-muted small mb-0" for="inbox-select-all-drafts">Select all</label>
+              }
+            </div>
+            @if (confirmingDraftDelete) {
+              <div class="alert alert-warning d-flex align-items-start gap-2 mx-2 mb-2 px-2 py-2">
+                <fa-icon [icon]="faTriangleExclamation" class="mt-1"/>
+                <div class="flex-grow-1">
+                  <strong class="d-block">Delete {{ stringUtils.pluraliseWithCount(selectedDraftIds.size, "draft") }}?</strong>
+                  Deleted drafts cannot be recovered, and a shared draft disappears for everyone.
+                  <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="btn btn-sm btn-danger" [disabled]="deletingDrafts" (click)="deleteSelectedDrafts()">
+                      @if (deletingDrafts) {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Deleting…
+                      } @else {
+                        <fa-icon [icon]="faTrash" class="me-2"/>Delete
+                      }
+                    </button>
+                    <button type="button" class="btn btn-sm btn-quiet" [disabled]="deletingDrafts" (click)="cancelDeleteSelectedDrafts()">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            }
+          }
+          @if (!viewingDrafts && threads.length > 0) {
             <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
               <input type="checkbox" class="form-check-input mt-0" id="inbox-select-all"
                      [checked]="allSelected()"
@@ -465,7 +499,10 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
               <div class="p-3 text-muted">{{ conversationSearchTerm ? 'No drafts match "' + conversationSearchTerm + '".' : "No drafts yet. Anything you save in the email composer, and drafts other committee members have shared, will appear here." }}</div>
             }
             @for (draft of filteredDrafts; track draft.id) {
-              <div class="inbox-thread-row d-flex align-items-center gap-2" (click)="openDraft(draft)">
+              <div class="inbox-thread-row d-flex align-items-center gap-2" [class.active]="selectedDraftIds.has(draft.id)" (click)="openDraft(draft)">
+                <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
+                       [checked]="selectedDraftIds.has(draft.id)"
+                       (click)="$event.stopPropagation(); toggleDraftSelection(draft)">
                 <fa-icon [icon]="faFileLines" class="flex-shrink-0 inbox-draft-icon"/>
                 <div class="flex-grow-1 min-w-0">
                   <div class="d-flex align-items-center gap-2">
@@ -914,6 +951,62 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {queryParams: {[StoredValue.DRAFT_ID]: draft.id}});
   }
 
+  toggleDraftSelection(draft: EmailCompositionSummary): void {
+    if (this.selectedDraftIds.has(draft.id)) {
+      this.selectedDraftIds.delete(draft.id);
+    } else {
+      this.selectedDraftIds.add(draft.id);
+    }
+    if (this.selectedDraftIds.size === 0) {
+      this.confirmingDraftDelete = false;
+    }
+  }
+
+  allDraftsSelected(): boolean {
+    const visible = this.filteredDrafts;
+    return visible.length > 0 && visible.every(draft => this.selectedDraftIds.has(draft.id));
+  }
+
+  toggleSelectAllDrafts(): void {
+    const visible = this.filteredDrafts;
+    if (this.allDraftsSelected()) {
+      visible.forEach(draft => this.selectedDraftIds.delete(draft.id));
+      this.confirmingDraftDelete = false;
+    } else {
+      visible.forEach(draft => this.selectedDraftIds.add(draft.id));
+    }
+  }
+
+  requestDeleteSelectedDrafts(): void {
+    this.confirmingDraftDelete = this.selectedDraftIds.size > 0;
+  }
+
+  cancelDeleteSelectedDrafts(): void {
+    this.confirmingDraftDelete = false;
+  }
+
+  async deleteSelectedDrafts(): Promise<void> {
+    const ids = [...this.selectedDraftIds];
+    if (ids.length > 0) {
+      this.deletingDrafts = true;
+      this.busy = true;
+      try {
+        await Promise.all(ids.map(id => this.emailCompositionsService.remove(id)));
+        this.selectedDraftIds.clear();
+        this.confirmingDraftDelete = false;
+        await this.loadDrafts();
+        this.notify.success({title: "Drafts", message: `${this.stringUtils.pluraliseWithCount(ids.length, "draft")} deleted`});
+      } catch (error) {
+        this.notify.error({title: "Delete drafts", message: (error as Error).message});
+        this.logger.error("Failed to delete drafts:", error);
+        await this.loadDrafts();
+      } finally {
+        this.busy = false;
+        this.deletingDrafts = false;
+      }
+    }
+  }
+
   private async loadDrafts(): Promise<void> {
     try {
       this.drafts = (await this.emailCompositionsService.listSummaries(EmailCompositionStatus.Draft)).sort((first, second) => second.savedAt - first.savedAt);
@@ -929,6 +1022,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   selectMailboxView(view: string): void {
     this.selectedMailboxView = view;
+    this.selectedDraftIds.clear();
+    this.confirmingDraftDelete = false;
     this.mobileNavOpen = false;
     if (this.mobile) {
       this.mobileShowDetail = false;
@@ -982,6 +1077,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   public threadListUnreadCount = 0;
   public threadListTotalCount = 0;
   public drafts: EmailCompositionSummary[] = [];
+  public selectedDraftIds = new Set<string>();
+  public confirmingDraftDelete = false;
+  public deletingDrafts = false;
   private emailCompositionsService = inject(EmailCompositionsService);
   private memberLoginService = inject(MemberLoginService);
   public selectedThread: InboxThread | null = null;
