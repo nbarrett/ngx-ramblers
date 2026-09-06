@@ -6,7 +6,7 @@ import { objectBufferForKey } from "../aws/aws-controllers";
 import proj4 from "proj4";
 import { isArray, isString } from "es-toolkit/compat";
 import { LocatedPlace, RouteFollowPoint, RouteTurnStep, RouteTurnStepsRequest, RouteTurnStepsResponse, RouteWayNamesSource, ValhallaTraceAttributes } from "../../../projects/ngx-ramblers/src/app/models/route-follow.model";
-import { attachNarrative, namesFromValhallaTrace, placeNameCandidates, routeTurnSteps, stepIndicesForPlace } from "../../../projects/ngx-ramblers/src/app/functions/route-turns";
+import { attachNarrative, namesFromValhallaTrace, placeMatchesQuery, placeNameCandidates, routeTurnSteps, stepIndicesForPlace } from "../../../projects/ngx-ramblers/src/app/functions/route-turns";
 import { EPSG_27700_PROJ4 } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
 import * as systemConfig from "../config/system-config";
 import { NOMINATIM_ENDPOINT } from "../addresses/nominatim-lookup";
@@ -116,7 +116,7 @@ async function osNamesLookup(name: string, bounds: {south: number; north: number
   const boundsParameter = [minX, minY, maxX, maxY].map(value => Math.round(value)).join(",");
   const result = await fetchJson(`${OS_NAMES_ENDPOINT}?query=${encodeURIComponent(name)}&maxresults=1&bounds=${boundsParameter}&key=${encodeURIComponent(apiKey)}`);
   const entry = result.body?.results?.[0]?.GAZETTEER_ENTRY;
-  if (entry?.GEOMETRY_X !== undefined && entry?.GEOMETRY_Y !== undefined) {
+  if (entry?.GEOMETRY_X !== undefined && entry?.GEOMETRY_Y !== undefined && placeMatchesQuery(name, entry.NAME1)) {
     const [longitude, latitude] = bngToWgs84.forward([Number(entry.GEOMETRY_X), Number(entry.GEOMETRY_Y)]);
     return {status: result.status, place: {name, latitude, longitude}};
   } else {
@@ -128,7 +128,7 @@ async function nominatimLookup(name: string, bounds: {south: number; north: numb
   const viewbox = `${bounds.west},${bounds.north},${bounds.east},${bounds.south}`;
   const result = await fetchJson(`${NOMINATIM_ENDPOINT}/search?format=jsonv2&limit=1&countrycodes=gb&bounded=1&viewbox=${viewbox}&q=${encodeURIComponent(name)}`);
   const first = isArray(result.body) ? result.body[0] : null;
-  return first?.lat && first?.lon ? {name, latitude: Number(first.lat), longitude: Number(first.lon)} : null;
+  return first?.lat && first?.lon && placeMatchesQuery(name, first.name) ? {name, latitude: Number(first.lat), longitude: Number(first.lon)} : null;
 }
 
 function delay(milliseconds: number): Promise<void> {
@@ -202,7 +202,7 @@ export async function routeTurnStepsHandler(req: Request, res: Response): Promis
       }
     } catch (error) {
       debugLog("routeTurnStepsHandler failed for", key, error);
-      res.status(500).json({message: error?.message || "Could not work out the turns for this route"});
+      res.status(500).json({message: error?.message || "Could not work out the directions for this route"});
     }
   }
 }

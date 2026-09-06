@@ -206,12 +206,12 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
           </div>
           @if (routeWithGpx()) {
             <div class="mb-3 d-flex flex-wrap gap-2">
-              <app-badge-button [icon]="faDiamondTurnRight" caption="Generate turns from the route" (click)="generateTurnSteps()"/>
+              <app-badge-button [icon]="faDiamondTurnRight" caption="Generate directions from the route" (click)="generateTurnSteps()"/>
               @if (directionsAvailable()) {
                 <app-badge-button [icon]="faListOl" caption="Create waypoints from directions" (click)="createWaypointsFromDirections()"/>
               }
             </div>
-            <small class="form-text text-muted d-block mb-1">Generate turns reads the shape of the route to find every turn, names the roads and paths from OpenStreetMap where it knows them, and hangs the page's written directions on the nearest turn as notes. It replaces any turns generated before and keeps waypoints you placed yourself. Every turn is a draft: check it, drag it along the route if it sits wrongly, reword or remove it, then save the page.</small>
+            <small class="form-text text-muted d-block mb-1">Generate directions reads the shape of the route to find every turn, names the roads and paths from OpenStreetMap where it knows them, and hangs the page's written directions on the nearest turn as notes. It replaces any directions generated before and keeps waypoints you placed yourself. Every direction is a draft: check it, drag it along the route if it sits wrongly, reword or remove it, then save the page.</small>
             @if (directionsAvailable()) {
               <small class="form-text text-muted d-block mb-1">Create waypoints from directions instead places one numbered waypoint per numbered direction, spaced evenly along the route as a first guess, for you to drag into place.</small>
             }
@@ -861,13 +861,13 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
         const turns = response.steps.filter(step => step.kind === RouteTurnStepKind.TURN).length;
         const naming = response.namesSource === RouteWayNamesSource.VALHALLA
           ? `OpenStreetMap knew the way for ${response.namedPointCount} of ${response.pointCount} points on the route`
-          : "the way-name lookup was unavailable, so the turns have no road or path names";
+          : "the way-name lookup was unavailable, so the directions have no road or path names";
         const places = response.placesTried ? `; ${response.placesLocated} of ${response.placesTried} place names in the directions were found on the map and used to place the notes` : "";
         const tracks = (response.trackCount || 1) > 1 ? ` The GPX holds ${response.trackCount} tracks: the steps follow the first, and the others are drawn on the map as alternatives.` : "";
-        this.waypointMessage = `Found ${turns} turns on the route; ${naming}${places}. Check each one, drag any that sit wrongly, then save the page.${tracks}`;
+        this.waypointMessage = `Found ${turns} directions on the route; ${naming}${places}. Check each one, drag any that sit wrongly, then save the page.${tracks}`;
         this.broadcastChange();
       } catch (error) {
-        this.waypointMessage = `Could not generate turns: ${error?.error?.message || error?.message || "the server did not respond"}.`;
+        this.waypointMessage = `Could not generate directions: ${error?.error?.message || error?.message || "the server did not respond"}.`;
       }
     }
   }

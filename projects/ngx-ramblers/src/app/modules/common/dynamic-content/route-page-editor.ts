@@ -48,12 +48,12 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
             } @else if (step.key === RoutePageStep.LINE) {
               <app-dynamic-content-site-edit-map [row]="routeRow" id="route-line" [pageContent]="pageContent" [sections]="[MapEditorSection.ROUTES]"/>
             } @else if (step.key === RoutePageStep.DIRECTIONS) {
-              <p class="guidance">Generate the turns from the route, then step through them here or full screen. Each direction and note can be reworded beside the map, and each pin dragged along the route.</p>
+              <p class="guidance">Generate the directions from the route, then step through them here or full screen. Each direction and note can be reworded beside the map, and each pin dragged along the route.</p>
               @if (routeRow?.routeGuide) {
                 <div class="mb-3">
                   <label class="form-label">Written directions</label>
                   <app-tiptap-markdown-editor [value]="routeRow.routeGuide.writtenDirections || ''" (valueChange)="routeRow.routeGuide.writtenDirections = $event; routeGuideChanged()"
-                                              placeholder="The directions as written, one paragraph or numbered item per leg. Generating the turns hangs these on the nearest turns as notes."/>
+                                              placeholder="The directions as written, one paragraph or numbered item per leg. Generating the directions hangs these on the nearest turns as notes."/>
                   <label class="form-label mt-2" for="route-written-directions-display">On the page</label>
                   <select class="form-control" id="route-written-directions-display"
                           [ngModel]="routeRow.routeGuide.writtenDirectionsDisplay || WRITTEN_DIRECTIONS_DEFAULT"
