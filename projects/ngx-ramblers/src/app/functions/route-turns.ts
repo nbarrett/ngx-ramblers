@@ -21,6 +21,7 @@ const GENERIC_PLACE_WORDS = ["church", "inn", "inns", "pub", "school", "station"
 const NAME_STOP_WORDS = ["turn", "continue", "take", "here", "near", "when", "once", "return", "bear", "cross", "leave", "descend", "follow", "keep", "pass", "preferably", "there", "the", "you", "walk", "after", "as", "at", "on", "in", "from", "to", "or", "go", "this", "these", "then", "now", "climb", "head", "ignore", "just", "look", "carry", "retrace", "before", "beyond", "where", "if", "it", "a", "an", "and", "but", "with", "over", "under", "through", "along", "onto", "into", "up", "down", "left", "right", "ahead", "straight", "please", "note", "beware", "care", "taking", "stay", "join", "rejoin", "start", "finish", "end", "well", "some", "many", "much", "next", "last", "first", "second", "third", "your", "our", "we", "they", "he", "she", "i", "no", "not", "yes", "so", "very", "quite", "rather", "also", "eventually", "immediately", "soon", "shortly", "later", "again", "back", "half", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "mile", "miles", "metres", "yards", "km", "m", "l", "r", "t"];
 const UNMATCHED = "unmatched";
 const NARRATIVE_WINDOW = 0.5;
+const SQUEEZED_SENTENCES = 3;
 const WAY_REFERENCE = /^(?:[A-Z]{1,3}\s?\d{1,4}[A-Z]?|\d{2,5}|[A-Z0-9]{1,6}(?:\/[A-Z0-9]{1,6})+)$/;
 const COMPASS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
 const WAY_LABELS: {[use: string]: string} = {
@@ -306,6 +307,18 @@ export function placeNameCandidates(sentence: string): string[] {
     .filter((name, index, names) => names.indexOf(name) === index);
 }
 
+function nameTokens(text: string | null | undefined): string[] {
+  return (text || "").toLowerCase().split(/[^a-z0-9'\u2019]+/).filter(token => token.length > 0);
+}
+
+export function placeMatchesQuery(query: string, resultName: string | null | undefined): boolean {
+  const result = nameTokens(resultName);
+  const queryTokens = nameTokens(query);
+  const distinctive = queryTokens.filter(token => !GENERIC_PLACE_WORDS.includes(token) && !NAME_CONNECTORS.includes(token));
+  const required = distinctive.length > 0 ? distinctive : queryTokens;
+  return result.length > 0 && required.length > 0 && required.every(token => result.includes(token));
+}
+
 export function stepIndexAtDistance(steps: {distanceFromStartMetres: number}[], distanceMetres: number): number {
   return steps.reduce((best, step, index) => step.distanceFromStartMetres <= distanceMetres ? index : best, 0);
 }
@@ -386,6 +399,22 @@ export function assignSentencesToSteps(candidates: number[][], stepCount: number
   }
 }
 
+export function relaxSqueezedAnchors(candidates: number[][], stepCount: number): number[][] {
+  const assignment = assignSentencesToSteps(candidates, stepCount);
+  const expected = (position: number) => position * stepCount / Math.max(1, candidates.length);
+  const deviation = (position: number) => Math.abs(assignment[position] - expected(position));
+  const anchors = assignment.map((step, position) => candidates[position].includes(step) ? position : -1).filter(position => position >= 0);
+  const squeezed = anchors
+    .map((position, index) => ({position, next: anchors[index + 1]}))
+    .find(pair => pair.next !== undefined && assignment[pair.position] === assignment[pair.next] && pair.next - pair.position - 1 >= SQUEEZED_SENTENCES);
+  if (!squeezed) {
+    return candidates;
+  } else {
+    const drop = deviation(squeezed.position) >= deviation(squeezed.next) ? squeezed.position : squeezed.next;
+    return relaxSqueezedAnchors(candidates.map((options, position) => position === drop ? options.filter(step => step !== assignment[drop]) : options), stepCount);
+  }
+}
+
 export function spreadUnmatchedSentences(assignment: number[], candidates: number[][], stepCount: number): number[] {
   const matched = assignment.map((step, position) => candidates[position].includes(step));
   const clamp = (step: number) => Math.min(stepCount - 1, Math.max(0, step));
@@ -405,11 +434,13 @@ export function spreadUnmatchedSentences(assignment: number[], candidates: numbe
   });
 }
 
-const TURN_SIDE = /\b(?:turn|bear|fork|keep|go|veer)\s+(?:sharp\s+|slight(?:ly)?\s+|half\s+)?(left|right)\b/i;
+const TURN_SIDE = /\b(?:turn|bear|fork|keep|go|veer)\s+(?:sharp\s+|slight(?:ly)?\s+|half\s+)?(left|right|[LR])\b/i;
+const SIDE_ABBREVIATIONS: Record<string, string> = {l: "left", r: "right"};
 
-function turnSide(text: string): string | null {
+export function turnSide(text: string): string | null {
   const match = (text || "").match(TURN_SIDE);
-  return match ? match[1].toLowerCase() : null;
+  const side = match ? match[1].toLowerCase() : null;
+  return side ? SIDE_ABBREVIATIONS[side] || side : null;
 }
 
 export function refineBySide(assignment: number[], candidates: number[][], units: string[], steps: {instruction?: string | null}[], paragraphOf: number[] = units.map(() => 0)): number[] {
@@ -426,7 +457,7 @@ export function refineBySide(assignment: number[], candidates: number[][], units
       const preferred = ahead.find(sameSide) ?? ahead[0];
       return [...refined, preferred ?? Math.max(step, previous)];
     } else if (side !== null) {
-      const from = position > 0 && paragraphOf[position] === paragraphOf[position - 1] ? previous + 1 : previous;
+      const from = position > 0 && paragraphOf[position] === paragraphOf[position - 1] ? previous + 1 : Math.max(previous, step);
       const bySide = steps.findIndex((candidate, index) => index >= from && index <= ceiling && sameSide(index));
       return [...refined, bySide >= 0 ? bySide : previous];
     } else if (position > 0 && paragraphOf[position] === paragraphOf[position - 1]) {
@@ -446,8 +477,9 @@ export function attachNarrative(directions: string[], steps: {wayName?: string |
   const candidates = sentences.map((sentence, position) => sentenceCandidates(sentence, steps, locate)
     .filter(index => index >= earliestFor(position))
     .sort((left, right) => left - right));
-  const spread = spreadUnmatchedSentences(assignSentencesToSteps(candidates, steps.length), candidates, steps.length);
-  const assignment = refineBySide(spread, candidates, sentences, steps, paragraphOf);
+  const anchored = relaxSqueezedAnchors(candidates, steps.length);
+  const spread = spreadUnmatchedSentences(assignSentencesToSteps(anchored, steps.length), anchored, steps.length);
+  const assignment = refineBySide(spread, anchored, sentences, steps, paragraphOf);
   const notes: string[][] = steps.map(() => []);
   sentences.forEach((sentence, position) => {
     const target = assignment[position];

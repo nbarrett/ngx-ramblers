@@ -382,7 +382,7 @@ export const ROUTE_PAGE_STEPS: RoutePageStepDefinition[] = [
   {key: RoutePageStep.ABOUT, label: "About the route", hint: "Title, summary, difficulty, distance, time and features"},
   {key: RoutePageStep.START, label: "Where it starts", hint: "Place, postcode and grid reference"},
   {key: RoutePageStep.LINE, label: "The route", hint: "Upload a GPX file or import from OS Maps"},
-  {key: RoutePageStep.DIRECTIONS, label: "Directions", hint: "Generate the turns, then step through and edit them"},
+  {key: RoutePageStep.DIRECTIONS, label: "Directions", hint: "Generate the directions, then step through and edit them"},
   {key: RoutePageStep.WRITE_UP, label: "The write-up", hint: "Getting there, parking, refreshments and points of interest"},
   {key: RoutePageStep.PHOTOS, label: "Photos", hint: "The banner and the pictures on the page"},
   {key: RoutePageStep.DISPLAY, label: "How it's shown", hint: "Map style, height and where the directions sit"}

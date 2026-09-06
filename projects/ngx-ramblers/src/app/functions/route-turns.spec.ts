@@ -1,5 +1,5 @@
 import { RouteTurnModifier, RouteTurnStepKind, RouteWayName } from "../models/route-follow.model";
-import { assignSentencesToSteps, attachNarrative, isWayReference, spreadUnmatchedSentences, bearingChange, travelBearingAt, compassDirection, namesFromValhallaTrace, placeNameCandidates, routeTurnSteps, stepIndexAtDistance, stepIndexForPlace, stepIndicesForPlace, turnCandidates, turnModifierFor, turnRotationDegrees } from "./route-turns";
+import { assignSentencesToSteps, attachNarrative, isWayReference, spreadUnmatchedSentences, bearingChange, travelBearingAt, compassDirection, namesFromValhallaTrace, placeMatchesQuery, placeNameCandidates, relaxSqueezedAnchors, routeTurnSteps, stepIndexAtDistance, stepIndexForPlace, stepIndicesForPlace, turnCandidates, turnModifierFor, turnRotationDegrees, turnSide } from "./route-turns";
 
 const STEP = 0.0005;
 const north = [0, 1, 2, 3, 4, 5].map(step => ({latitude: 51 + step * STEP, longitude: 1}));
@@ -182,6 +182,45 @@ describe("attachNarrative", () => {
     const locate = (sentence: string) => sentence.includes("Seaton") ? [2] : (sentence.includes("High Street") ? [3] : []);
     const notes = attachNarrative(["Leave along the High Street.", "Walk to the hamlet of Seaton.", "Return along the High Street. Back at the car park, finish."], steps, locate);
     expect(notes).toEqual(["Leave along the High Street.", "", "Walk to the hamlet of Seaton.", "Return along the High Street. Back at the car park, finish."]);
+  });
+});
+
+describe("relaxSqueezedAnchors", () => {
+  it("drops the anchor furthest from its place in the text when two anchors on one step squeeze sentences between them", () => {
+    const candidates = [[0], [], [7], [], [], [], [], [7], [9]];
+    const relaxed = relaxSqueezedAnchors(candidates, 10);
+    expect(relaxed[2]).toEqual([]);
+    expect(relaxed[7]).toEqual([7]);
+    expect(spreadUnmatchedSentences(assignSentencesToSteps(relaxed, 10), relaxed, 10)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 9]);
+  });
+
+  it("leaves anchors alone when only a sentence or two sit between them", () => {
+    const candidates = [[0], [4], [], [4], [8]];
+    expect(relaxSqueezedAnchors(candidates, 10)).toEqual(candidates);
+  });
+});
+
+describe("placeMatchesQuery", () => {
+  it("accepts a result whose name carries every distinctive word of the query", () => {
+    expect(placeMatchesQuery("The Fox Inn", "Fox Inn")).toBe(true);
+    expect(placeMatchesQuery("Millbrook Post Office", "Millbrook Post Office")).toBe(true);
+    expect(placeMatchesQuery("Millbrook", "Millbrook")).toBe(true);
+  });
+
+  it("rejects a result that only shares the generic word, even when its address mentions the place", () => {
+    expect(placeMatchesQuery("Millbrook Church", "Church Road")).toBe(false);
+    expect(placeMatchesQuery("Millbrook Church", "Church")).toBe(false);
+    expect(placeMatchesQuery("Millbrook Church", "")).toBe(false);
+  });
+});
+
+describe("turnSide", () => {
+  it("reads left and right, including the L and R abbreviations", () => {
+    expect(turnSide("Turn left along the road")).toEqual("left");
+    expect(turnSide("Bear slightly right at the fork")).toEqual("right");
+    expect(turnSide("Leave the churchyard and turn L along the road")).toEqual("left");
+    expect(turnSide("follow the road R into the village")).toBeNull();
+    expect(turnSide("go round the pond")).toBeNull();
   });
 });
 
