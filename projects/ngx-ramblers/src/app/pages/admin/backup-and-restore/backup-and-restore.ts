@@ -30,6 +30,7 @@ import {
   BackupRestoreTab,
   BackupSession,
   BackupSessionHistoryRow,
+  BackupSessionLogLine,
   BackupSessionStatus,
   BackupSessionTrigger,
   BackupSessionType,
@@ -143,11 +144,23 @@ const HISTORY_INVOCATION_GAP_MS = 15 * 60 * 1000;
       word-break: break-word
       overflow-wrap: anywhere
 
+      &.session-logs-live
+        min-height: 400px
+
       div
         margin-bottom: 0.25rem
         white-space: pre-wrap
         word-break: break-word
         overflow-wrap: anywhere
+
+    .session-log-line
+      animation: session-log-line-appear 400ms ease-out
+
+    @keyframes session-log-line-appear
+      0%
+        opacity: 0
+      100%
+        opacity: 1
 
     .manifest-analysis-header
       min-height: 5.5rem
@@ -525,12 +538,12 @@ const HISTORY_INVOCATION_GAP_MS = 15 * 60 * 1000;
                           <div class="alert alert-danger mb-2"><strong>Error:</strong> {{ row.error }}</div>
                         }
                         <div class="position-relative">
-                          <div class="session-logs">
-                            @if (logsNewestFirst(row).length === 0 && row.status === BackupSessionStatus.IN_PROGRESS) {
+                          <div class="session-logs" [class.session-logs-live]="row.status === BackupSessionStatus.IN_PROGRESS">
+                            @if (logLines(row).length === 0 && row.status === BackupSessionStatus.IN_PROGRESS) {
                               <div><fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Waiting for log output...</div>
                             }
-                            @for (log of logsNewestFirst(row); track $index) {
-                              <div>{{ log }}</div>
+                            @for (line of logLines(row); track line.index) {
+                              <div class="session-log-line">{{ line.text }}</div>
                             }
                           </div>
                           <div class="session-logs-copy">
@@ -1069,12 +1082,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.logger.info("WebSocket connected");
 
       this.subscriptions.push(
-        this.websocketService.receiveMessages<any>(MessageType.PROGRESS).subscribe(data => {
-          this.handleProgressUpdate(data);
-        })
-      );
-
-      this.subscriptions.push(
         this.websocketService.receiveMessages<any>(MessageType.COMPLETE).subscribe(data => {
           this.handleComplete(data);
         })
@@ -1147,18 +1154,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     this.refreshHistoryRows();
   }
 
-  private handleProgressUpdate(data: any) {
-    this.logger.info("Progress update:", data);
-    if (data.logs && data.logs.length > 0) {
-      const lastLog = data.logs[data.logs.length - 1];
-      this.notify.progress({
-        title: "Operation Progress",
-        message: lastLog
-      });
-    }
-    this.loadSessions();
-  }
-
   private handleComplete(data: any) {
     this.logger.info("Operation complete:", data);
     this.loadSessions();
@@ -1184,12 +1179,12 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     });
   }
 
-  logsNewestFirst(session: BackupSession): string[] {
-    return reversed(session?.logs);
+  logLines(session: BackupSession): BackupSessionLogLine[] {
+    return reversed((session?.logs || []).map((text, index) => ({index, text})));
   }
 
   sessionLogsText(session: BackupSession): string {
-    return this.logsNewestFirst(session).join("\n");
+    return this.logLines(session).map(line => line.text).join("\n");
   }
 
   private ensureInProgressExpanded(sessions: BackupSession[]) {
@@ -1289,7 +1284,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.backupRestoreService.listSessions(50, environmentNames).subscribe({
         next: sessions => {
-          this.sessions = sessions;
+          this.sessions = sessions.map(session => this.withExistingLogs(session));
           this.logger.info("Loaded sessions:", sessions);
           this.ensureInProgressExpanded(sessions);
           this.loadLogsForExpandedSessions();
@@ -1302,6 +1297,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
         })
       })
     );
+  }
+
+  private withExistingLogs(session: BackupSession): BackupSession {
+    const existing = this.sessions.find(candidate => (candidate._id || candidate.sessionId) === (session._id || session.sessionId));
+    return existing?.logs && !session.logs ? {...session, logs: existing.logs} : session;
   }
 
   private backupRequestFor(env: EnvironmentInfo): BackupRequest {

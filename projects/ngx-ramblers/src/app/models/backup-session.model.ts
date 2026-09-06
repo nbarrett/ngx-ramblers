@@ -72,6 +72,11 @@ export interface BackupSessionHistoryRow extends BackupSession {
   historyGroupKey: string;
 }
 
+export interface BackupSessionLogLine {
+  index: number;
+  text: string;
+}
+
 export interface BackupRequest {
   environment: string;
   database?: string;
