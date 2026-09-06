@@ -15,6 +15,7 @@ export enum ConfigKey {
   RAMBLERS_AREAS_CACHE = "ramblers-areas-cache",
   SALESFORCE = "salesforce",
   MEMBER_SYNC_POLICY = "member-sync-policy",
+  PLATFORM_SEND_CONTROL = "platform-send-control",
   SYSTEM = "system",
   LEGACY_REDIRECT = "legacy-redirect",
   WALKS = "walks",

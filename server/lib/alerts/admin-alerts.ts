@@ -10,6 +10,8 @@ import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { brevoClient } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
+import { assertSendAllowed } from "../brevo/send-permission";
+import { SendPurpose } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { booleanOf, pluraliseWithCount } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("admin-alerts"));
@@ -150,6 +152,7 @@ export async function sendAdminAlertEmail(request: AdminAlertEmailRequest): Prom
       debugLog(`No admin alert emails configured - not emailing (${request.category || "general"}): ${request.subject}`);
       return false;
     }
+    await assertSendAllowed(SendPurpose.ADMIN_ALERT, {subject: request.subject, recipientCount: recipients.length});
     const client = await brevoClient();
     const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
       subject: request.subject,

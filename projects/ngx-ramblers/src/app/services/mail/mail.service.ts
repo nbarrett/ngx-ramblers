@@ -57,6 +57,7 @@ import {
   BrevoTransactionalEmailListResponse
 } from "../../models/mail.model";
 import { BrevoCampaignProgress, BrevoCampaignQueueSummary } from "../../models/brevo-campaign-queue.model";
+import { MailSendRefusal, SendStatus } from "../../models/mail.model";
 import { SortDirection } from "../../models/sort.model";
 
 @Injectable({
@@ -179,6 +180,14 @@ export class MailService {
 
   async deleteContacts(contactRemoveFromListRequest: ContactsDeleteRequest): Promise<StatusMappedResponseSingleInput[]> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/delete`, contactRemoveFromListRequest))).response;
+  }
+
+  async sendStatus(): Promise<SendStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/send-status`))).response;
+  }
+
+  async sendRefusals(): Promise<MailSendRefusal[]> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/send-refusals`))).response;
   }
 
   async queryFolders(): Promise<FoldersListResponse> {

@@ -8,6 +8,8 @@ import { InboxMessage, InboxMessageDirection, InboxThread, InboxThreadFolder } f
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { brevoClient } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
+import { recordRefusal, sendAllowed } from "../brevo/send-permission";
+import { SendPurpose } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
@@ -63,6 +65,17 @@ export async function runInboxMessageDigest(): Promise<number> {
     debugLog("no unnotified inbox messages, nothing to send");
     return 0;
   }
+  const decision = await sendAllowed(SendPurpose.INBOX_DIGEST);
+  if (!decision.allowed) {
+    debugLog("inbox digest not sent:", decision.message);
+    await recordRefusal(SendPurpose.INBOX_DIGEST, decision, {recipientCount: messages.length});
+    return 0;
+  } else {
+    return digestMessages(messages, now);
+  }
+}
+
+async function digestMessages(messages: InboxMessage[], now: number): Promise<number> {
   const threadIds = Array.from(new Set(messages.map(message => message.threadId)));
   const threads = await inboxThreadModel.find({_id: {$in: threadIds}}).lean() as InboxThread[];
   const threadById = threads.reduce<Map<string, InboxThread>>((map, thread) => {

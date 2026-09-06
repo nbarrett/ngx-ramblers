@@ -5,12 +5,13 @@ import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { Brevo } from "@getbrevo/brevo";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
-import { SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { htmlToPlainText } from "../../shared/string-utils";
 import { keys } from "es-toolkit/compat";
 import { buildUnsubscribeApiUrl, buildUnsubscribeUrl } from "../contacts/unsubscribe-token";
 import { member } from "../../mongo/models/member";
 import { SendTransactionalEmailResult } from "./transactional-email.model";
+import { assertSendAllowed } from "../send-permission";
 
 const messageType = "brevo:send-transactional-mail";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -95,7 +96,9 @@ async function injectUnsubscribeContext(emailRequest: SendSmtpEmailRequest, over
 
 export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailRequest,
                                                     transactionalDebugLog: debug.Debugger,
-                                                    unsubscribeBaseUrlOverride?: string): Promise<SendTransactionalEmailResult> {
+                                                    unsubscribeBaseUrlOverride?: string,
+                                                    purpose: SendPurpose = SendPurpose.TRANSACTIONAL): Promise<SendTransactionalEmailResult> {
+  await assertSendAllowed(purpose, {subject: emailRequest.subject, recipientCount: emailRequest.to?.length});
   const client = await brevoClient();
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
     subject: emailRequest.subject,

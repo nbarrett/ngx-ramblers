@@ -67,6 +67,7 @@ const configAccessPolicy: Record<ConfigKey, ConfigAccess> = {
   [ConfigKey.RAMBLERS_AREAS_CACHE]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.SALESFORCE]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.MEMBER_SYNC_POLICY]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.PLATFORM_SEND_CONTROL]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.SYSTEM]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.WALKS]: ConfigAccess.PUBLIC_WITH_REDACTION,
 };
@@ -99,14 +100,22 @@ function configKeyFromQuerystring(req: Request): ConfigKey {
 
 export async function createOrUpdate(req: Request, res: Response) {
   const isAdmin = isAdminFromRequest(req);
-
   if (!isAdmin) {
     return res.status(403).json({
       message: "Admin access required to update system configuration",
       error: "Forbidden"
     });
+  } else if (req.body?.key === ConfigKey.PLATFORM_SEND_CONTROL) {
+    return res.status(403).json({
+      message: "Platform send control can only be changed from Environment Management on the platform admin site",
+      error: "Forbidden"
+    });
+  } else {
+    return updateConfigDocument(req, res);
   }
+}
 
+async function updateConfigDocument(req: Request, res: Response) {
   const {document} = transforms.criteriaAndDocument(req);
   const criteria = configCriteriaFromBody(req);
   debugLog("pre-update:body:", req.body, "criteria:", criteria, "document:", document);

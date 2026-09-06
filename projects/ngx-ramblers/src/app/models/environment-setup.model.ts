@@ -1,3 +1,4 @@
+import { PlatformSendControl } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
 import { RamblersGroupsApiResponse } from "./ramblers-walks-manager";
 import { AWS_DEFAULTS, CustomDomainEntry, FLYIO_DEFAULTS } from "./environment-config.model";
@@ -686,6 +687,12 @@ export interface EnvironmentAppResult {
   environmentName: string;
   appName: string;
   appUrl: string;
+}
+
+export interface PlatformSendControlResponse {
+  success: boolean;
+  message?: string;
+  control: PlatformSendControl;
 }
 
 export interface AdminPasswordResetResult {

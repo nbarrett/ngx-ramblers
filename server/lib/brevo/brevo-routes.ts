@@ -14,6 +14,7 @@ import { contactInfo } from "./contacts/contact-info";
 import { contactCampaignStats } from "./contacts/contact-campaign-stats";
 import { contactEvents } from "./contacts/contact-events";
 import { transactionalEmailsList } from "./transactional-mail/transactional-emails-list";
+import { sendRefusals, sendStatusRoute } from "./send-refusals";
 import { transactionalEmailContent } from "./transactional-mail/transactional-email-content";
 import { transactionalAggregatedReport } from "./transactional-mail/transactional-aggregated-report";
 import { contactUpdate } from "./contacts/contact-update";
@@ -72,6 +73,8 @@ router.get("/contacts/:identifier/info", authConfig.authenticate(), contactInfo)
 router.get("/contacts/:identifier/campaign-stats", authConfig.authenticate(), contactCampaignStats);
 router.get("/contacts/:identifier/events", authConfig.authenticate(), contactEvents);
 router.get("/contacts/:identifier/snapshot", authConfig.authenticate(), getBrevoContactSnapshot);
+router.get("/send-status", authConfig.authenticate(), sendStatusRoute);
+router.get("/send-refusals", authConfig.authenticate(), sendRefusals);
 router.get("/transactional/emails", authConfig.authenticate(), transactionalEmailsList);
 router.get("/transactional/emails/:uuid/content", authConfig.authenticate(), transactionalEmailContent);
 router.get("/transactional/aggregated-report", authConfig.authenticate(), transactionalAggregatedReport);

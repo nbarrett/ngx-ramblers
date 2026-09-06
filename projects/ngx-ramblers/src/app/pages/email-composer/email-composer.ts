@@ -171,6 +171,7 @@ import {
   MemberSelection,
   NotificationConfig,
   SendSmtpEmailParams,
+  SendStatus,
   StatusMappedResponseSingleInput,
   TemplateRenderRequest,
   WorkflowAction
@@ -2106,8 +2107,15 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </ul>
           </div>
         }
-        @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault()) {
+        @if (sendRefusalMessage() || unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault()) {
           <div class="email-composer-validation-summary">
+            @if (sendRefusalMessage()) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Sending is switched off for this site:</h5>
+              <ul class="list-arrow">
+                <li>{{ sendRefusalMessage() }}</li>
+                <li>Nothing will be sent until it is switched back on. A site administrator can check the settings under Mail Settings → API, and the platform administrator if sending has been suspended centrally.</li>
+              </ul>
+            }
             @if (unbrandedListSendBlocked()) {
               <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
               <ul class="list-arrow">
@@ -2355,6 +2363,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected composeShared = false;
   protected lastSavedAt: number | null = null;
   protected sendInProgress = false;
+  protected sendStatus: SendStatus | null = null;
   protected campaignSendComplete = false;
   protected nextConfigAfterSend: NotificationConfig | null = null;
   private postSendRefresh: Promise<void> = Promise.resolve();
@@ -2473,6 +2482,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
       this.mailMessagingConfig = config;
+      void this.loadSendStatus();
       if (config.committeeReferenceData) {
         this.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
       }
@@ -6653,7 +6663,23 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected hasSendBlockers(): boolean {
-    return this.subjectStartsWithCopyOf() || this.unbrandedListSendBlocked();
+    return this.subjectStartsWithCopyOf() || this.unbrandedListSendBlocked() || !!this.sendRefusalMessage();
+  }
+
+  protected sendRefusalMessage(): string | null {
+    const useCampaign = this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.brandingMode !== BrandingMode.UNBRANDED;
+    const decision = useCampaign ? this.sendStatus?.campaign : this.sendStatus?.transactional;
+    return decision && !decision.allowed ? decision.message : null;
+  }
+
+  private async loadSendStatus(): Promise<void> {
+    try {
+      this.sendStatus = await this.mailService.sendStatus();
+    } catch (error) {
+      this.logger.error("failed to load send status", error);
+      this.sendStatus = null;
+    }
+    this.changeDetector.markForCheck();
   }
 
   protected unbrandedListSendBlocked(): boolean {

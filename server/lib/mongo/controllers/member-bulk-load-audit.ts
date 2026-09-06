@@ -20,6 +20,8 @@ import { dateTimeFromMillis, dateTimeNowAsValue } from "../../shared/dates";
 import { memberBulkLoadDigest, memberBulkLoadDigestCountsLabel } from "../../../../projects/ngx-ramblers/src/app/functions/member-bulk-load-digest";
 import { memberFullName } from "../../../../projects/ngx-ramblers/src/app/functions/member-names";
 import { sendMemberBulkLoadDigestEmail } from "../../brevo/transactional-mail/send-member-bulk-load-digest-email";
+import { assertSendAllowed, SendRefusedError } from "../../brevo/send-permission";
+import { SendPurpose } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/audit";
 
@@ -220,6 +222,7 @@ export async function sendCommitteeSummary(req: Request, res: Response): Promise
     res.status(400).json({message: "Upload session id is required"});
   } else {
     try {
+      await assertSendAllowed(SendPurpose.BULK_LOAD_DIGEST, {requestedBy: actingUser(req)});
       const sessionDoc = await memberBulkLoadAudit.findById(sessionId).lean().exec();
       if (!sessionDoc) {
         res.status(404).json({message: "Upload session not found", id: sessionId});
@@ -264,7 +267,11 @@ export async function sendCommitteeSummary(req: Request, res: Response): Promise
       }
     } catch (error) {
       debugLog("sendCommitteeSummary failed:", error);
-      res.status(500).json({message: "Failed to send committee summary", error: transforms.parseError(error)});
+      if (error instanceof SendRefusedError) {
+        res.status(409).json({message: error.message, error: transforms.parseError(error)});
+      } else {
+        res.status(500).json({message: "Failed to send committee summary", error: transforms.parseError(error)});
+      }
     }
   }
 }

@@ -4,8 +4,10 @@ import debug from "debug";
 import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
+import { assertSendAllowed } from "../send-permission";
 import {
   SendCampaignRequest,
+  SendPurpose,
   StatusMappedResponseSingleInput
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -16,8 +18,9 @@ debugLog.enabled = false;
 
 export async function sendCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const client = await brevoClient();
     const sendCampaignRequest: SendCampaignRequest = req.body;
+    await assertSendAllowed(SendPurpose.CAMPAIGN_SEND, {subject: `Campaign ${sendCampaignRequest.campaignId}`});
+    const client = await brevoClient();
     debugLog(`About to send email campaign with  supplied sendCampaignRequest: ${sendCampaignRequest}`);
     scheduleBrevo(() => client.emailCampaigns.sendEmailCampaignNow({campaignId: sendCampaignRequest.campaignId}).withRawResponse()).then((response) => {
       debugLog("API called successfully. Returned response: " + JSON.stringify(response));

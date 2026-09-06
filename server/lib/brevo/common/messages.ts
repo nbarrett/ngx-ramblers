@@ -27,6 +27,7 @@ import { renderMarkdownToHtml } from "../../shared/markdown-renderer";
 import { renderEmailComposerMarkdown } from "../../../../projects/ngx-ramblers/src/app/functions/email-composer-markdown";
 import { errorResponse } from "../../shared/error-response";
 import { logBrevoError } from "./error-log";
+import { SendRefusedError } from "../send-permission";
 import { toPairs, isObject, isString, keys } from "es-toolkit/compat";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
@@ -424,7 +425,9 @@ export function httpStatusForBrevoError(statusCode: number | null): number {
 export function handleError(req: Request, res: Response, messageType: string, _debugLog: any, error: unknown) {
   const brevoError = error instanceof BrevoError ? error : null;
   logBrevoError(messageType, error, {request: {method: req?.method, url: req?.originalUrl, body: summariseRequestBody(req?.body)}});
-  if (brevoError) {
+  if (error instanceof SendRefusedError) {
+    res.status(409).json({request: {messageType}, error: errorResponse(error)});
+  } else if (brevoError) {
     res.status(httpStatusForBrevoError(brevoError.statusCode)).json({request: {messageType}, error: brevoError.body});
   } else {
     res.status(500).json({request: {messageType}, error: errorResponse(error)});

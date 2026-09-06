@@ -21,6 +21,8 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/member-sync-notification.model";
 import { sendMemberSyncNotificationEmail } from "../../brevo/transactional-mail/send-member-sync-notification-email";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import { assertSendAllowed, SendRefusedError } from "../../brevo/send-permission";
+import { SendPurpose } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("member-sync-notification"));
 debugLog.enabled = false;
@@ -160,6 +162,7 @@ export async function send(req: Request, res: Response): Promise<void> {
   const resend = !!req.body?.resend;
   const sentBy = actingUser(req);
   try {
+    await assertSendAllowed(SendPurpose.MEMBER_SYNC_NOTIFICATION, {recipientCount: memberIds.length, requestedBy: sentBy});
     const outcomes = await Promise.all(memberIds.map(memberId => sendForMember(memberId, sentBy, resend)));
     const result: MemberSyncNotificationSendResult = {
       sent: outcomes.filter(outcome => outcome === "sent").length,
@@ -170,6 +173,10 @@ export async function send(req: Request, res: Response): Promise<void> {
     res.status(200).json({action: ApiAction.UPDATE, response: result});
   } catch (error) {
     debugLog("send:error", error);
-    res.status(500).json({message: "Member sync notification send failed", error: parseError(error)});
+    if (error instanceof SendRefusedError) {
+      res.status(409).json({message: error.message, error: parseError(error)});
+    } else {
+      res.status(500).json({message: "Member sync notification send failed", error: parseError(error)});
+    }
   }
 }
