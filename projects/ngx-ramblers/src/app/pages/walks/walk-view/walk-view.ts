@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
-import { isNumber, values } from "es-toolkit/compat";
+import { values } from "es-toolkit/compat";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -370,14 +370,6 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
               <fa-icon [icon]="faCircleCheck" class="me-1"/>Link copied
             </span>
           }
-          @if (canRecordRoute()) {
-            <button type="button" (click)="followRoute()"
-                    [tooltip]="canFollowRoute() ? 'Edit or record this route' : 'Record a route for this start'"
-                    class="btn btn-quiet btn-sm walk-view-action">
-              <fa-icon [icon]="faPencil"/>
-              <span>{{ canFollowRoute() ? "Edit route" : "Record route" }}</span>
-            </button>
-          }
           @if (displayedWalk?.walkAccessMode?.walkWritable) {
             <button type="button"
                     (click)="display.edit(displayedWalk)"
@@ -537,17 +529,11 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   showWalkViewActions(): boolean {
-    return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers || this.canShareWalk() || this.canFollowRoute() || this.canRecordRoute());
+    return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers || this.canShareWalk() || this.canFollowRoute());
   }
 
   canFollowRoute(): boolean {
     return !!this.displayedWalk?.walk?.fields?.gpxFile?.awsFileName;
-  }
-
-  canRecordRoute(): boolean {
-    const walk = this.displayedWalk?.walk;
-    const start = walk?.groupEvent?.start_location;
-    return !!(this.displayedWalk?.walkAccessMode?.walkWritable && start && isNumber(start.latitude) && isNumber(start.longitude));
   }
 
   canShareWalk(): boolean {

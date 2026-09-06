@@ -32,16 +32,17 @@ import {
   TrackWithBounds
 } from "../../../models/map.model";
 import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
-import { cloneDeep, isArray, isString, isUndefined, keys } from "es-toolkit/compat";
-import { isAuthoredMarker } from "../../../functions/map-location-markers";
+import { isArray, isUndefined, keys } from "es-toolkit/compat";
+import { guideEntriesFor, renumberedSteps, stepAfter } from "../../../functions/route-guide-edit";
+import { RouteGuideEditSession } from "../../../services/maps/route-guide-edit-session";
 import { markersOnTrack, trackOptions } from "../../../functions/route-directions";
-import { branchChoiceLabel, branchMarkers, composeRoute, routeBranches, viaFromQuery } from "../../../functions/route-branches";
+import { branchMarkers, composeRoute, routeBranches, viaFromQuery } from "../../../functions/route-branches";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { AsyncPipe, NgClass, NgTemplateOutlet } from "@angular/common";
+import { AsyncPipe, NgTemplateOutlet } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
-import { faArrowUp, faCodeFork, faDownload, faExclamationTriangle, faPlus, faRoute, faSearch, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faDownload, faExclamationTriangle, faSearch, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { mapGesturesFor } from "../../../services/maps/map-gestures";
 import { MaximisableMapComponent, MaximisableMapState } from "../maximisable-map/maximisable-map";
@@ -49,12 +50,15 @@ import { UiActionsService } from "../../../services/ui-actions.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../resizer/resizer";
+import { RouteGuidePanel } from "../../../shared/components/route-guide-panel";
 import { StoredValue } from "../../../models/ui-actions";
-import { travelBearingAt, turnRotationDegrees } from "../../../functions/route-turns";
+import { travelBearingAt } from "../../../functions/route-turns";
+import { milesFromStart, ROUTE_STEP_POPUP_OPTIONS, routeStepPopupHtml } from "../../../functions/route-step-popup";
+import { escape } from "es-toolkit";
 import { travelAlongRoute } from "../../../services/maps/route-travel";
 import { distanceAlongRouteMetres } from "../../../functions/route-directions";
-import { cumulativeDistances, nearestPointIndex, pointAlongRoute, snapToRoute } from "../../../functions/route-geometry";
-import { RouteBranch, ROUTE_ALTERNATIVE_TRACK_COLOURS, ROUTE_ALTERNATIVE_TRACK_DASH, ROUTE_ALTERNATIVE_TRACK_OPACITY, RouteTrackOption, RouteFollowQueryParam, ROUTE_FULLSCREEN_FIT_PADDING, ROUTE_FULLSCREEN_SETTLE_MS, ROUTE_FIT_PADDING, ROUTE_RESIZE_SETTLE_MS, ROUTE_AUTOSAVE_DELAY_MS, ROUTE_UNDO_LIMIT, RouteWaypointKind, ROUTE_GUIDE_DEFAULT_HEIGHT, ROUTE_GUIDE_MAX_HEIGHT, ROUTE_GUIDE_MIN_HEIGHT, ROUTE_GUIDE_DEFAULT_WIDTH, ROUTE_GUIDE_MAP_MIN_WIDTH, ROUTE_GUIDE_MIN_WIDTH, RouteSaveState, RouteDownload, ROUTE_STEP_POPUP_MAX_WIDTH, ROUTE_STEP_POPUP_MIN_WIDTH, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_POPUP_CLASS, RouteFollowPoint, RouteGuidePanelPosition } from "../../../models/route-follow.model";
+import { cumulativeDistances, nearestPointIndex, snapToRoute } from "../../../functions/route-geometry";
+import { RouteBranch, ROUTE_ALTERNATIVE_TRACK_COLOURS, ROUTE_ALTERNATIVE_TRACK_DASH, ROUTE_ALTERNATIVE_TRACK_OPACITY, RouteTrackOption, RouteFollowQueryParam, ROUTE_FULLSCREEN_FIT_PADDING, ROUTE_FULLSCREEN_SETTLE_MS, ROUTE_FIT_PADDING, ROUTE_RESIZE_SETTLE_MS, ROUTE_AUTOSAVE_DELAY_MS, RouteWaypointKind, ROUTE_GUIDE_DEFAULT_HEIGHT, ROUTE_GUIDE_MAX_HEIGHT, ROUTE_GUIDE_MIN_HEIGHT, ROUTE_GUIDE_DEFAULT_WIDTH, ROUTE_GUIDE_MAP_MIN_WIDTH, ROUTE_GUIDE_MIN_WIDTH, RouteSaveState, RouteDownload, ROUTE_STEP_SPEED_DEFAULT, RouteFollowPoint, RouteGuidePanelPosition } from "../../../models/route-follow.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AlertModule } from "ngx-bootstrap/alert";
 import { FormsModule } from "@angular/forms";
@@ -96,51 +100,6 @@ import { DateUtilsService } from "../../../services/date-utils.service";
       flex: 1 1 480px
       min-width: 0
       width: auto
-    .route-fullscreen-shell.is-fullscreen
-      display: flex
-      flex-wrap: wrap
-      align-content: stretch
-      gap: 0
-      height: 100%
-      min-height: 0
-    .route-fullscreen-shell.is-fullscreen > .route-guide-panel
-      flex: 0 0 380px
-      max-width: 380px
-      height: 100%
-      overflow: auto
-      margin: 0
-      padding: 0.75rem
-      border-left: 1px solid var(--rsm-border, #d9dee3)
-      order: 2
-    .route-fullscreen-shell.is-fullscreen.route-side-left > .route-guide-panel
-      order: 0
-      border-left: none
-      border-right: 1px solid var(--rsm-border, #d9dee3)
-    .route-fullscreen-shell.is-fullscreen > .route-guide-panel .route-guide-list
-      max-height: none
-    .route-fullscreen-shell.is-fullscreen > .route-guide-panel
-      padding-top: 0
-    .route-guide-controls
-      position: sticky
-      top: 0
-      z-index: 2
-      background: #fff
-      padding: 0.75rem 0 0.5rem
-    .route-fullscreen-shell.is-fullscreen > .map-section
-      order: 0
-      flex: 1 1 0
-      min-width: 0
-      height: 100%
-      display: flex
-      flex-direction: column
-    .route-fullscreen-shell.is-fullscreen.route-side-left > .map-section
-      order: 2
-    .route-fullscreen-shell.is-fullscreen > .route-guide-resizer
-      order: 1
-      flex: 0 0 8px
-      width: 8px
-      height: 100%
-    .route-fullscreen-shell.is-fullscreen > .map-section > div,
     .route-fullscreen-shell.is-fullscreen .map-stack,
     .route-fullscreen-shell.is-fullscreen .map-wrapper
       flex: 1 1 auto
@@ -154,106 +113,6 @@ import { DateUtilsService } from "../../../services/date-utils.service";
       border-radius: 0
     .route-fullscreen-shell.is-fullscreen .route-panel
       display: none
-    @media (max-width: 767.98px)
-      .route-fullscreen-shell.is-fullscreen > .route-guide-panel
-        flex: 0 0 100%
-        max-width: none
-        height: 40%
-        border-left: none
-        border-top: 1px solid var(--rsm-border, #d9dee3)
-        order: 2
-      .route-fullscreen-shell.is-fullscreen > .map-section
-        flex: 0 0 100%
-        height: 60%
-      .route-fullscreen-shell.is-fullscreen > .route-guide-resizer
-        display: none
-    .route-guide-list
-      list-style: none
-      padding: 0 4px 0 0
-      max-height: 320px
-      overflow-y: auto
-      scroll-snap-type: y proximity
-      display: flex
-      flex-direction: column
-      gap: 6px
-    .route-guide-item
-      display: flex
-      gap: 10px
-      scroll-snap-align: center
-      padding: 10px 12px
-      background: #fff
-      border: 1px solid var(--rsm-border, #d9dee3)
-      border-left: 5px solid #453C90
-      border-radius: 8px
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08)
-      cursor: pointer
-      &:hover
-        border-color: var(--ramblers-colour-sunrise)
-      &.active
-        border-color: var(--ramblers-colour-sunrise)
-        background: rgba(249, 177, 4, 0.12)
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14)
-    .route-guide-link
-      font-weight: 600
-      text-decoration: underline
-      color: inherit
-    .route-guide-body
-      display: flex
-      flex-direction: column
-      gap: 2px
-      min-width: 0
-      flex: 1 1 auto
-    .route-guide-edit
-      font-size: 0.9rem
-      resize: vertical
-    ::ng-deep .route-guide-number
-      flex: 0 0 28px
-      height: 28px
-      border-radius: 50%
-      background: #453C90
-      color: #ffffff
-      font-weight: 700
-      display: flex
-      align-items: center
-      justify-content: center
-    ::ng-deep .route-guide-distance
-      display: flex
-      align-items: center
-      gap: 6px
-      font-size: 0.8rem
-      font-weight: 600
-      color: var(--rsm-muted, #5b6560)
-    ::ng-deep .route-guide-turn
-      display: inline-block
-      color: var(--rsm-text, #1b1b1b)
-    ::ng-deep .route-guide-note
-      display: block
-      margin-top: 4px
-      font-size: 0.9rem
-      color: var(--rsm-muted, #5b6560)
-    ::ng-deep .route-step-card
-      display: flex
-      gap: 10px
-      align-items: flex-start
-      min-width: 220px
-      max-width: 540px
-      font-family: inherit
-    ::ng-deep .route-step-card .route-guide-note
-      max-height: 40vh
-      overflow-y: auto
-      padding-right: 4px
-    ::ng-deep .route-step-instruction
-      display: block
-      font-weight: 600
-      font-size: 0.95rem
-      line-height: 1.3
-      color: var(--rsm-text, #1b1b1b)
-    ::ng-deep .leaflet-popup.route-step-popup .leaflet-popup-content-wrapper
-      border-left: 5px solid var(--route-pin-colour, #453C90)
-      border-radius: 10px
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28)
-    ::ng-deep .leaflet-popup.route-step-popup .leaflet-popup-content
-      margin: 12px 16px 12px 12px
     .map-wrapper
       position: relative
 
@@ -437,98 +296,22 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                                    (fullScreen)="openStepThrough()" (follow)="openFollow()"/>
         </ng-template>
         <ng-template #guidePanel>
-          <div class="thumbnail-heading-frame mb-3 route-guide-panel" [style.flex-basis.px]="fullscreen ? guideWidth : null" [style.max-width.px]="fullscreen ? guideWidth : null">
-            @if (fullscreen) {
-              <div class="route-guide-controls">
-                <ng-container *ngTemplateOutlet="stepControls"/>
-              </div>
-            }
-            <div class="thumbnail-heading">{{ editingNow ? "Steps" : "How to follow this route" }}</div>
-            @if (editing && !fullscreen) {
-              <p class="text-muted small mb-2">
-                <a href="#" class="route-guide-link" (click)="openStepThrough(); $event.preventDefault()">Full screen</a> is the best place to edit these steps: a bigger map with each step beside it, where you can reword them, drag the pins along the route, and add or remove steps. You can reword, add and remove steps here too, but it is cramped and the pins cannot be moved.
-              </p>
-            } @else {
-              <p class="text-muted small mb-2">
-                Tap a step to see where it is on the map, or step through with
-                <a href="#" class="route-guide-link" (click)="previousStep(); $event.preventDefault()">Previous</a> and
-                <a href="#" class="route-guide-link" (click)="nextStep(); $event.preventDefault()">Next</a>.
-                @if (!fullscreen) {
-                  <a href="#" class="route-guide-link" (click)="openStepThrough(); $event.preventDefault()">Full screen</a> gives you a bigger map with the directions beside it.
-                }
-                Distances are measured along the route from the start.
-              </p>
-            }
-            <ol class="route-guide-list mb-0" [id]="guideListId" [style.max-height.px]="fullscreen ? null : guideHeight">
-              @for (entry of guideEntries; track entry.index) {
-                @if (entry.forkIndex !== undefined) {
-                  <li class="route-guide-item route-guide-fork" [class.active]="activeMarker === entry.marker" [attr.data-guide-index]="entry.index"
-                      role="button" tabindex="0" (click)="focusWaypoint(entry)" (keydown.enter)="focusWaypoint(entry)">
-                    <span class="route-guide-number" [style.background]="markerColour"><fa-icon [icon]="faCodeFork"/></span>
-                    <span class="route-guide-body">
-                      <span class="route-guide-distance">
-                        @if (entry.distanceMetres !== null) {
-                          {{ milesAlong(entry.distanceMetres) }}
-                        }
-                      </span>
-                      <span class="route-step-instruction">{{ forkHeading(entry) }}</span>
-                      <span class="d-flex flex-wrap gap-2 mt-1 route-guide-actions" (click)="$event.stopPropagation()">
-                        <button type="button" class="btn btn-sm" [class.btn-primary]="branchTaken(forkBranch(entry))" [class.btn-quiet]="!branchTaken(forkBranch(entry))" (click)="chooseBranch(forkBranch(entry), true)">
-                          <fa-icon [icon]="faCodeFork" class="me-1"/>{{ branchChoice(forkBranch(entry)).shortCut }}
-                        </button>
-                        <button type="button" class="btn btn-sm" [class.btn-primary]="!branchTaken(forkBranch(entry))" [class.btn-quiet]="branchTaken(forkBranch(entry))" (click)="chooseBranch(forkBranch(entry), false)">
-                          <fa-icon [icon]="faRoute" class="me-1"/>{{ branchChoice(forkBranch(entry)).mainRoute }}
-                        </button>
-                      </span>
-                    </span>
-                  </li>
-                } @else {
-                <li class="route-guide-item" [class.active]="activeMarker === entry.marker" [attr.data-guide-index]="entry.index"
-                    [style.border-left-color]="activeMarker === entry.marker ? null : markerColour"
-                    role="button" tabindex="0" (click)="focusWaypoint(entry)" (keydown.enter)="focusWaypoint(entry)">
-                  <span class="route-guide-number" [style.background]="markerColour">{{ entry.marker.label || entry.index + 1 }}</span>
-                  <span class="route-guide-body">
-                    <span class="route-guide-distance">
-                      @if (entry.marker.turn) {
-                        <fa-icon [icon]="faArrowUp" class="route-guide-turn" [style.transform]="'rotate(' + turnDegrees(entry.marker) + 'deg)'"/>
-                      }
-                      @if (entry.distanceMetres !== null) {
-                        {{ milesAlong(entry.distanceMetres) }}
-                      }
-                    </span>
-                    @if (editingNow) {
-                      <textarea class="form-control form-control-sm route-guide-edit" rows="2" [(ngModel)]="entry.marker.instruction"
-                                (focus)="beginGuideEdit()" (change)="onGuideTextChange()" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()"
-                                placeholder="Direction, such as: Turn left through the churchyard"></textarea>
-                      <textarea class="form-control form-control-sm route-guide-edit mt-1" rows="2" [(ngModel)]="entry.marker.note"
-                                (focus)="beginGuideEdit()" (change)="onGuideTextChange()" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()"
-                                placeholder="Note shown under the direction"></textarea>
-                      <div class="d-flex flex-wrap gap-2 mt-1 route-guide-actions" (click)="$event.stopPropagation()">
-                        <button type="button" class="btn btn-sm btn-primary" (click)="addStepAfter(entry)" title="Add a step between this one and the next">
-                          <fa-icon [icon]="faPlus" class="me-1"/>Add step after
-                        </button>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="removeStep(entry)" title="Remove this step">
-                          <fa-icon [icon]="faTrash" class="me-1"/>Remove
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="route-step-instruction">{{ entry.marker.instruction }}</span>
-                      @if (entry.marker.note) {
-                        <span class="route-guide-note">{{ entry.marker.note }}</span>
-                      }
-                    }
-                  </span>
-                </li>
-                }
+          <app-route-guide-panel class="thumbnail-heading-frame mb-3 route-guide-panel"
+                                 [style.flex-basis.px]="fullscreen ? guideWidth : null" [style.max-width.px]="fullscreen ? guideWidth : null"
+                                 [entries]="guideEntries" [activeMarker]="activeMarker" [markerColour]="markerColour" [listId]="guideListId"
+                                 [fullscreen]="fullscreen" [editing]="editing" [editingNow]="editingNow" [branches]="branches" [via]="via"
+                                 [height]="guideHeight" [minHeight]="minGuideHeight" [maxHeight]="maxGuideHeight"
+                                 (stepSelect)="focusWaypoint($event)" (previous)="previousStep()" (next)="nextStep()" (fullScreen)="openStepThrough()"
+                                 (guideEdit)="beginGuideEdit()" (guideTextChange)="onGuideTextChange()" (addStep)="addStepAfter($event)" (removeStep)="removeStep($event)"
+                                 (branchChoose)="chooseBranch($event.branch, $event.take)" (heightChange)="onGuideHeightChange($event)" (heightSave)="saveGuideHeight()">
+            <ng-container ngProjectAs="[controls]">
+              @if (fullscreen) {
+                <div class="route-guide-controls">
+                  <ng-container *ngTemplateOutlet="stepControls"/>
+                </div>
               }
-            </ol>
-            @if (!fullscreen) {
-              <app-resizer orientation="vertical" variant="tab" compact
-                           [size]="guideHeight" [minSize]="minGuideHeight" [maxSize]="maxGuideHeight"
-                           resizeHint="Drag to change the height of the directions"
-                           (sizeChange)="onGuideHeightChange($event)" (resizeEnd)="saveGuideHeight()"/>
-            }
-          </div>
+            </ng-container>
+          </app-route-guide-panel>
         </ng-template>
 
         @if (!hasVisibleRoutes && !loadingRoutes) {
@@ -548,12 +331,12 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                 </app-map-controls>
               </div>
             }
-            <div [class]="showControls ? 'map-controls-overlap' : 'rounded'">
+            <div [class.map-controls-overlap]="showControls" [class.rounded]="!showControls">
               <div class="map-stack shadow" [class.has-route-panel]="hasRoutePanel">
                 <div class="map-wrapper">
                   @if (loadingRoutes || !options) {
                     <div class="card d-flex align-items-center justify-content-center map-card"
-                         [ngClass]="hasRoutePanel ? 'rounded-top' : 'rounded'"
+                         [class.rounded-top]="hasRoutePanel" [class.rounded]="!hasRoutePanel"
                          [style.height.px]="fullscreen ? null : mapHeight">
                       <div class="spinner-border text-secondary" role="status">
                         <span class="visually-hidden">Loading…</span>
@@ -561,7 +344,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                     </div>
                   } @else if (showMap) {
                     <div class="card position-relative map-card"
-                         [ngClass]="hasRoutePanel ? 'rounded-top' : 'rounded'"
+                         [class.rounded-top]="hasRoutePanel" [class.rounded]="!hasRoutePanel"
                          [style.height.px]="fullscreen ? null : mapHeight"
                          leaflet
                          [leafletOptions]="options"
@@ -748,7 +531,8 @@ import { DateUtilsService } from "../../../services/date-utils.service";
       </div>
     }
   `,
-  imports: [LeafletModule, MaximisableMapComponent, NgTemplateOutlet, MapControls, MapOverlay, MapLoadingOverlay, MarkdownComponent, NgClass, FontAwesomeModule, AlertModule, FormsModule, NgSelectComponent, AsyncPipe, NgOptionTemplateDirective, RouteStepControls, ResizerComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
+  providers: [RouteGuideEditSession],
+  imports: [LeafletModule, MaximisableMapComponent, NgTemplateOutlet, MapControls, MapOverlay, MapLoadingOverlay, MarkdownComponent, FontAwesomeModule, AlertModule, FormsModule, NgSelectComponent, AsyncPipe, NgOptionTemplateDirective, RouteStepControls, RouteGuidePanel, ResizerComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
 })
 export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCheck {
   @Input() row!: PageContentRow;
@@ -803,10 +587,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   private highlightLayer: L.Polyline | null = null;
   protected fullscreen = false;
   @ViewChild("routeMap") private routeMap?: MaximisableMapComponent;
-  protected readonly faArrowUp = faArrowUp;
   protected readonly faDownload = faDownload;
-  protected readonly faPlus = faPlus;
-  protected readonly faTrash = faTrash;
   protected headingUp = this.uiActions.initialBooleanValueFor(StoredValue.MAP_HEADING_UP, false);
   protected guideWidth = Number(this.uiActions.initialValueFor(StoredValue.ROUTE_GUIDE_WIDTH)) || ROUTE_GUIDE_DEFAULT_WIDTH;
   protected guideHeight = Number(this.uiActions.initialValueFor(StoredValue.ROUTE_GUIDE_HEIGHT)) || ROUTE_GUIDE_DEFAULT_HEIGHT;
@@ -820,25 +601,6 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   protected via: number[] = viaFromQuery(this.activatedRoute.snapshot.queryParamMap.get(StoredValue.VIA));
   private mainTrackPoints: RouteFollowPoint[] = [];
 
-  protected readonly faCodeFork = faCodeFork;
-  protected readonly faRoute = faRoute;
-
-  forkBranch(entry: RouteGuideEntry): RouteBranch {
-    return this.branches.find(branch => branch.index === entry.forkIndex);
-  }
-
-  forkHeading(entry: RouteGuideEntry): string {
-    const branch = this.forkBranch(entry);
-    return this.branchTaken(branch) ? `Taking ${branch.label.toLowerCase()} from here` : `${branch.label} leaves the main route here`;
-  }
-
-  branchTaken(branch: RouteBranch): boolean {
-    return this.via.includes(branch.index);
-  }
-
-  branchChoice(branch: RouteBranch): {shortCut: string; mainRoute: string} {
-    return branchChoiceLabel(branch);
-  }
 
   chooseBranch(branch: RouteBranch, take: boolean): void {
     const via = take ? [...this.via.filter(index => index !== branch.index), branch.index].sort((left, right) => left - right) : this.via.filter(index => index !== branch.index);
@@ -856,8 +618,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
   protected selectedTrack = Number(this.activatedRoute.snapshot.queryParamMap.get(StoredValue.TRACK)) || 0;
   protected liveEditing = false;
-  private undoStack: MapMarker[][] = [];
-  private editSnapshot: MapMarker[] | null = null;
+  private editSession = inject(RouteGuideEditSession);
   protected saveState: RouteSaveState | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | undefined;
   private memberLoginService = inject(MemberLoginService);
@@ -1533,7 +1294,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private markersForGuide(markers: MapMarker[]): MapMarker[] {
-    const taken = this.branches.filter(branch => this.branchTaken(branch));
+    const taken = this.branches.filter(branch => this.via.includes(branch.index));
     return [...markersOnTrack(markers, this.routePoints), ...taken.flatMap(branch => branchMarkers(branch))];
   }
 
@@ -1597,10 +1358,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const pathName = option ? `${this.row?.routeGuide?.title || route.name || "Route"}: ${option.label}` : (this.row?.routeGuide?.title || track.name || route.name || "Route");
     const pathType = track.description;
 
-    let content = `<div><strong>${this.escapeHtml(pathName)}</strong></div>`;
+    let content = `<div><strong>${escape(pathName)}</strong></div>`;
 
     if (pathType && pathType !== pathName) {
-      content += `<div class="mt-1"><small class="text-muted">${this.escapeHtml(pathType)}</small></div>`;
+      content += `<div class="mt-1"><small class="text-muted">${escape(pathType)}</small></div>`;
     }
 
     if (track.totalDistance) {
@@ -1700,10 +1461,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const rowMarkers = this.row?.map?.markers || [];
     if (!this.guideCache || this.guideCache.markers !== rowMarkers || this.guideCache.points !== this.routePoints) {
       const markers = this.tracks.length > 1 && !this.stepsEditing ? this.markersForGuide(rowMarkers) : rowMarkers;
-      const stepEntries = markers
-        .map((marker, index) => ({marker, index}))
-        .filter(entry => this.stepsEditing ? isAuthoredMarker(entry.marker) : !!entry.marker.instruction?.trim())
-        .map(entry => ({...entry, distanceMetres: distanceAlongRouteMetres(this.routePoints, entry.marker)}));
+      const stepEntries = guideEntriesFor(markers, this.routePoints, this.stepsEditing);
       const entries = this.branches.length > 0 && !this.stepsEditing
         ? [...stepEntries, ...this.forkEntries()].sort((left, right) => (left.distanceMetres ?? 0) - (right.distanceMetres ?? 0))
         : stepEntries;
@@ -1713,7 +1471,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   milesAlong(metres: number): string {
-    return `${(metres / 1609.344).toFixed(1)} miles from the start`;
+    return milesFromStart(metres);
   }
 
   focusWaypoint(entry: RouteGuideEntry): void {
@@ -1809,10 +1567,6 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     return this.mapMarkerStyle.numberedMarkerColour(this.row?.map?.provider);
   }
 
-  turnDegrees(marker: MapMarker): number {
-    return turnRotationDegrees(marker.turn);
-  }
-
   get guidePanelPosition(): RouteGuidePanelPosition {
     return this.row?.map?.guidePanel || RouteGuidePanelPosition.BELOW;
   }
@@ -1855,8 +1609,11 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   toggleLiveEdit(): void {
     this.liveEditing = !this.liveEditing;
     this.guideCache = null;
-    this.undoStack = [];
-    this.editSnapshot = this.liveEditing ? cloneDeep(this.row.map?.markers || []) : null;
+    if (this.liveEditing) {
+      this.editSession.begin(this.row.map?.markers || []);
+    } else {
+      this.editSession.end();
+    }
     if (this.liveEditing && this.headingUp) {
       this.toggleMapHeading();
     }
@@ -1867,15 +1624,16 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   discardLiveEdit(): void {
-    if (this.liveEditing && this.editSnapshot && this.row.map) {
-      this.row.map.markers = this.editSnapshot;
+    const snapshot = this.editSession.discard();
+    if (this.liveEditing && snapshot && this.row.map) {
+      this.row.map.markers = snapshot;
       this.waypointsChanged();
     }
     this.toggleLiveEdit();
   }
 
   get canUndo(): boolean {
-    return this.undoStack.length > 0;
+    return this.editSession.canUndo;
   }
 
   beginGuideEdit(): void {
@@ -1883,15 +1641,11 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   recordUndo(): void {
-    const snapshot = cloneDeep(this.row.map?.markers || []);
-    const top = this.undoStack[this.undoStack.length - 1];
-    if (!top || JSON.stringify(top) !== JSON.stringify(snapshot)) {
-      this.undoStack = [...this.undoStack.slice(-(ROUTE_UNDO_LIMIT - 1)), snapshot];
-    }
+    this.editSession.record(this.row.map?.markers || []);
   }
 
   undo(): void {
-    const snapshot = this.undoStack.pop();
+    const snapshot = this.editSession.undo();
     if (snapshot && this.row.map) {
       this.row.map.markers = snapshot;
       this.waypointsChanged();
@@ -1901,13 +1655,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   addStepAfter(entry: RouteGuideEntry): void {
     if (this.row.map && this.routePoints.length > 1) {
       this.recordUndo();
-      const entries = this.guideEntries;
-      const position = entries.indexOf(entry);
-      const cumulative = cumulativeDistances(this.routePoints);
-      const from = entry.distanceMetres ?? 0;
-      const next = entries[position + 1]?.distanceMetres ?? cumulative[cumulative.length - 1];
-      const along = pointAlongRoute(this.routePoints, cumulative, (from + next) / 2);
-      const marker: MapMarker = {id: this.numberUtils.generateUid(), latitude: along.point.latitude, longitude: along.point.longitude, label: "", instruction: "", kind: RouteWaypointKind.TURN};
+      const marker = stepAfter(this.routePoints, this.guideEntries, entry, this.numberUtils.generateUid());
       this.row.map.markers = [...(this.row.map.markers || []), marker];
       this.waypointsChanged();
       this.highlightWaypoint(marker);
@@ -1931,12 +1679,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private renumberSteps(): void {
-    const markers = this.row.map?.markers || [];
-    const directed = markers.filter(marker => marker.kind === RouteWaypointKind.TURN || !!marker.instruction?.trim());
-    const others = markers.filter(marker => !directed.includes(marker));
-    const ordered = [...directed].sort((left, right) => (distanceAlongRouteMetres(this.routePoints, left) ?? 0) - (distanceAlongRouteMetres(this.routePoints, right) ?? 0));
-    ordered.forEach((marker, index) => marker.label = String(index + 1));
-    this.row.map.markers = [...others, ...ordered];
+    this.row.map.markers = renumberedSteps(this.row.map?.markers || [], this.routePoints);
   }
 
   private scheduleAutosave(): void {
@@ -2452,13 +2195,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private stepPopupHtml(marker: MapMarker): string {
-    const entry = this.guideEntries.find(item => item.marker === marker);
-    const [width, height, , , pathData] = faArrowUp.icon;
-    const path = isString(pathData) ? pathData : pathData.join(" ");
-    const turn = marker.turn ? `<svg class="route-guide-turn" viewBox="0 0 ${width} ${height}" width="12" height="12" style="transform:rotate(${turnRotationDegrees(marker.turn)}deg)" aria-hidden="true"><path fill="currentColor" d="${path}"/></svg>` : "";
-    const distance = entry && entry.distanceMetres !== null ? this.escapeHtml(this.milesAlong(entry.distanceMetres)) : "";
-    const note = marker.note ? `<span class="route-guide-note">${this.escapeHtml(marker.note)}</span>` : "";
-    return `<div class="route-step-card"><span class="route-guide-number" style="background:${this.markerColour}">${this.escapeHtml(marker.label)}</span><span class="route-guide-body"><span class="route-guide-distance">${turn}${distance}</span><span class="route-step-instruction">${this.escapeHtml(marker.instruction)}</span>${note}</span></div>`;
+    return routeStepPopupHtml(marker, this.guideEntries.find(item => item.marker === marker), this.markerColour);
   }
 
   private refreshMarkerIcon(marker: MapMarker): void {
@@ -2508,11 +2245,11 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       });
       if (marker.label || marker.instruction) {
         const numbered = !!label && label.length <= 3;
-        const title = marker.instruction && numbered ? "" : `<div><strong>${this.escapeHtml(marker.label || "Waypoint")}</strong></div>`;
-        const instruction = marker.instruction ? `<div${title ? " class=\"mt-1\"" : ""}>${this.escapeHtml(marker.instruction)}</div>` : "";
-        const note = marker.note ? `<div class="mt-1"><small>${this.escapeHtml(marker.note)}</small></div>` : "";
+        const title = marker.instruction && numbered ? "" : `<div><strong>${escape(marker.label || "Waypoint")}</strong></div>`;
+        const instruction = marker.instruction ? `<div${title ? " class=\"mt-1\"" : ""}>${escape(marker.instruction)}</div>` : "";
+        const note = marker.note ? `<div class="mt-1"><small>${escape(marker.note)}</small></div>` : "";
         if (numbered && marker.instruction) {
-          leafletMarker.bindPopup(() => this.stepPopupHtml(marker), {autoPan: false, className: ROUTE_STEP_POPUP_CLASS, minWidth: ROUTE_STEP_POPUP_MIN_WIDTH, maxWidth: ROUTE_STEP_POPUP_MAX_WIDTH});
+          leafletMarker.bindPopup(() => this.stepPopupHtml(marker), ROUTE_STEP_POPUP_OPTIONS);
         } else {
           leafletMarker.bindPopup(`${title}${instruction}${note}`, {autoPan: false});
         }
@@ -2588,24 +2325,13 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private createWaypointPopupContent(name: string, description?: string): string {
-    const title = this.escapeHtml(name);
+    const title = escape(name);
     const details = description
-      ? `<div class="mt-1"><small>${this.escapeHtml(description)}</small></div>`
+      ? `<div class="mt-1"><small>${escape(description)}</small></div>`
       : `<div class="mt-1 text-muted"><small>This waypoint has no description</small></div>`;
     return `<div><strong>${title}</strong></div>${details}`;
   }
 
-  private escapeHtml(value?: string): string {
-    if (!value) {
-      return "";
-    }
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
 
   private arrowSpacing(track: GpxTrack): number {
     const distance = track.totalDistance || 0;

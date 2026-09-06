@@ -24,7 +24,7 @@ import { MapOverlayControls } from "../../../shared/components/map-overlay-contr
 import { DynamicContentViewIndexMap } from "./dynamic-content-view-index-map";
 import { IndexService } from "../../../services/index.service";
 import { IndexEntryOverrideEditor } from "./index-entry-override-editor";
-import { ResizerComponent } from "../resizer/resizer";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../resizer/resizer";
 import { DEFAULT_OS_STYLE, MapProvider, MapViewChange } from "../../../models/map.model";
 import { MapDefaultsService } from "../../../services/maps/map-defaults.service";
 import { PageService } from "../../../services/page.service";
@@ -326,7 +326,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 </div>
               </div>
             }
-            <app-resizer orientation="vertical" variant="tab" compact
+            <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB" compact
                          [size]="row.albumIndex.mapConfig.mapHeight || 500"
                          [minSize]="300"
                          [maxSize]="2000"
@@ -338,6 +338,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, ContentTextEditor, IndexEntryOverrideEditor, FontAwesomeModule, ResizerComponent]
 })
 export class IndexSiteEdit implements OnInit {
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+
   public booleanOf = booleanOf;
   public pageContentService: PageContentService = inject(PageContentService);
   public memberResourcesReferenceData: MemberResourcesReferenceDataService = inject(MemberResourcesReferenceDataService);

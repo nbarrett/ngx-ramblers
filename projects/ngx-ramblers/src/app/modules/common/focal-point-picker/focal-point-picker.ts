@@ -1,7 +1,7 @@
 import { Component, ElementRef, EventEmitter, inject, Input, NgZone, Output, ViewChild } from "@angular/core";
 import { NgStyle } from "@angular/common";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
-import { ResizerComponent } from "../resizer/resizer";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../resizer/resizer";
 import { roundZoom, ZoomSliderComponent } from "../zoom-slider/zoom-slider";
 import { FocalPoint } from "../../../models/image-cropper.model";
 
@@ -28,7 +28,7 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
       }
     </div>
     @if (resizable) {
-      <app-resizer orientation="vertical" variant="tab"
+      <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB"
         [size]="effectiveHeight"
         [minSize]="minHeight"
         [maxSize]="maxHeight"
@@ -99,6 +99,9 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
   imports: [NgStyle, ResizerComponent, ZoomSliderComponent]
 })
 export class FocalPointPickerComponent {
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+
   @ViewChild("container") container: ElementRef<HTMLDivElement>;
   @Input() imageSrc: string;
   @Input() focalPoint: FocalPoint = { x: 50, y: 50, zoom: 1 };

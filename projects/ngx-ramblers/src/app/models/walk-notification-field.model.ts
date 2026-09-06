@@ -14,6 +14,7 @@ export enum WalkNotificationValueFormat {
   METADATA = "metadata",
   PUBLISHING = "publishing",
   RISK_ASSESSMENT = "risk-assessment",
+  ROUTE_WAYPOINTS = "route-waypoints",
   SPEED = "speed",
   TEXT = "text",
   VENUE = "venue"

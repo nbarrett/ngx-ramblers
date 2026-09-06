@@ -1,20 +1,23 @@
-import { AfterViewInit, Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
+import { AfterViewInit, Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
 import { Subscription } from "rxjs";
 import { Router } from "@angular/router";
-import { DetailsTab, DisplayedWalk, FEET_PER_METRE, GPX_CIRCULAR_ENDS_METRES, GpxFileListItem, INITIALISED_LOCATION, KM_PER_MILE, WalkGpxField, WalkGpxFieldProposal, WalkType } from "../../../models/walk.model";
+import { DetailsTab, DisplayedWalk, GpxFileListItem, INITIALISED_LOCATION, WalkGpxField, WalkGpxFieldProposal, WalkType } from "../../../models/walk.model";
+import { GpxDerivedValues } from "../../../models/gpx-proposals.model";
+import { GpxProposalsService } from "../../../services/maps/gpx-proposals.service";
+import { GpxProposalsComponent } from "../../../shared/components/gpx-proposals";
 import { FormsModule } from "@angular/forms";
 import { WalkLocationEditComponent } from "./walk-location-edit";
 import { EventAscentEdit } from "./event-ascent-edit.component";
 import { Difficulty, LocationDetails } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
-import { cloneDeep, isString } from "es-toolkit/compat";
+import { cloneDeep, isString, values } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { enumValueForKey } from "../../../functions/enums";
 import { DatePipe, DecimalPipe, JsonPipe } from "@angular/common";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { WalkGpxService } from "../../../services/walks/walk-gpx.service";
-import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
+import { EM_DASH_WITH_SPACES, MapMarker, RouteGuideEntry } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -25,25 +28,32 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { TimePicker } from "../../../date-and-time/time-picker";
-import { LocationType } from "../../../models/map.model";
+import { LocationType, MapProvider } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { AppPath, RouteFollowQueryParam, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
-import { GpxParserService, GpxTrack, GpxTrackPoint } from "../../../services/maps/gpx-parser.service";
+import { AppPath, RouteFollowPoint, RouteFollowQueryParam, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
+import { MapEditComponent } from "./map-edit";
+import { RouteGuidePanel } from "../../../shared/components/route-guide-panel";
+import { RouteStepControls } from "../../../shared/components/route-step-controls";
+import { MaximisableMapComponent, MaximisableMapState } from "../../../modules/common/maximisable-map/maximisable-map";
+import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
+import { MapTilesService } from "../../../services/maps/map-tiles.service";
+import { guideEntriesFor, renumberedSteps, stepAfter } from "../../../functions/route-guide-edit";
+import { RouteGuideEditSession } from "../../../services/maps/route-guide-edit-session";
+import { RootFolder } from "../../../models/system.model";
 import { RouteTurnsService } from "../../../services/maps/route-turns.service";
 import { UrlService } from "../../../services/url.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
-import { LatLng } from "leaflet";
 import { FileNameData } from "../../../models/aws-object.model";
-import { GridReferenceLookupResponse } from "../../../models/address-model";
-import { sortBy } from "../../../functions/arrays";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPencil, faRightLeft, faTableColumns, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-walk-edit-details",
+  providers: [RouteGuideEditSession],
   imports: [
+    GpxProposalsComponent,
     FormsModule,
     WalkLocationEditComponent,
     EventAscentEdit,
@@ -55,6 +65,10 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
     DecimalPipe,
     Venue,
     SectionToggle,
+    MapEditComponent,
+    RouteGuidePanel,
+    RouteStepControls,
+    MaximisableMapComponent,
     TimePicker,
     FontAwesomeModule
   ],
@@ -65,7 +79,13 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
           [tabs]="tabs"
           [(selectedTab)]="selectedTab"
           [queryParamKey]="StoredValue.SUB_TAB"/>
-        @if (selectedTab === DetailsTab.ROUTE || selectedTab === DetailsTab.ROUTE_AND_VENUE) {
+        @if ((selectedTab === DetailsTab.VENUE || selectedTab === DetailsTab.VENUE_ROUTE_AND_DIRECTIONS) && displayedWalk?.walk?.fields?.venue) {
+          <app-venue [event]="displayedWalk.walk" [inputDisabled]="inputDisabled"
+                     [hasSeparateMeetingPoint]="hasSeparateMeetingPoint"
+                     (venuePostcodeChange)="onVenuePostcodeChange($event)"
+                     (useVenueAsMeetingPoint)="onUseVenueAsMeetingPoint($event)"/>
+        }
+        @if (selectedTab === DetailsTab.ROUTE || selectedTab === DetailsTab.VENUE_ROUTE_AND_DIRECTIONS) {
           <div class="row thumbnail-heading-frame">
             <div class="thumbnail-heading">Route</div>
             @if (false) {
@@ -180,56 +200,12 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                       (click)="proposeFromSelectedGpx()">
                       <fa-icon class="me-2" [icon]="faWandMagicSparkles"/>Fill details from route
                     </button>
-                    <button
-                      type="button"
-                      class="btn btn-quiet"
-                      [disabled]="inputDisabled || turnsGenerating"
-                      (click)="generateTurns()">
-                      @if (turnsGenerating) {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                      } @else {
-                        <fa-icon class="me-2" [icon]="faDiamondTurnRight"/>
-                      }
-                      Generate turns
-                    </button>
                   }
                 </div>
                 @if (uploadError) {
                   <small class="text-danger">{{ uploadError }}</small>
                 }
-                @if (gpxProposalsLoading) {
-                  <small class="text-muted d-block mt-2"><span class="spinner-border spinner-border-sm me-2"></span>Reading the route and looking up its start and finish…</small>
-                }
-                @if (gpxProposals.length > 0) {
-                  <div class="alert alert-warning d-flex align-items-start mt-2">
-                    <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
-                    <div class="ms-2 flex-grow-1 min-w-0">
-                      <strong class="d-block">Details found in the route</strong>
-                      <span class="d-block mb-2">Tick the details you want to take from the GPX file. Those that would replace something already entered are unticked.</span>
-                      @for (proposal of gpxProposals; track proposal.field) {
-                        <div class="form-check">
-                          <input class="form-check-input" type="checkbox" [id]="'gpx-proposal-' + proposal.field"
-                                 [(ngModel)]="proposal.apply">
-                          <label class="form-check-label" [for]="'gpx-proposal-' + proposal.field">
-                            <strong>{{ proposal.label }}:</strong> {{ proposal.proposedValue }}
-                            @if (proposal.currentValue) {
-                              <span class="text-muted">(currently {{ proposal.currentValue }})</span>
-                            }
-                          </label>
-                        </div>
-                      }
-                      <div class="d-flex gap-2 mt-2">
-                        <button type="button" class="btn btn-primary btn-sm" (click)="applyGpxProposals()">
-                          <fa-icon class="me-2" [icon]="faWandMagicSparkles"/>Apply ticked details
-                        </button>
-                        <button type="button" class="btn btn-quiet btn-sm" (click)="gpxProposals = []">Not now</button>
-                      </div>
-                    </div>
-                  </div>
-                }
-                @if (turnsMessage) {
-                  <small class="text-muted d-block mt-2">{{ turnsMessage }}</small>
-                }
+                <app-gpx-proposals id="walk" [proposals]="gpxProposals" [loading]="gpxProposalsLoading" (applied)="applyGpxProposals()" (dismissed)="gpxProposals = []"/>
               </div>
             </div>
             @if (renderMapEdit) {
@@ -330,11 +306,106 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
             }
           </div>
         }
-        @if ((selectedTab === DetailsTab.VENUE || selectedTab === DetailsTab.ROUTE_AND_VENUE) && displayedWalk?.walk?.fields?.venue) {
-          <app-venue [event]="displayedWalk.walk" [inputDisabled]="inputDisabled"
-                     [hasSeparateMeetingPoint]="hasSeparateMeetingPoint"
-                     (venuePostcodeChange)="onVenuePostcodeChange($event)"
-                     (useVenueAsMeetingPoint)="onUseVenueAsMeetingPoint($event)"/>
+        @if (selectedTab === DetailsTab.DIRECTIONS || selectedTab === DetailsTab.VENUE_ROUTE_AND_DIRECTIONS) {
+          <div class="row thumbnail-heading-frame">
+            <div class="thumbnail-heading">Directions</div>
+            <div class="col-sm-12">
+              @if (!displayedWalk?.walk?.fields?.gpxFile?.awsFileName) {
+                <div class="alert alert-warning d-flex align-items-start mb-0">
+                  <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+                  <div class="ms-2">
+                    <strong class="d-block">No route yet</strong>
+                    Choose or upload a GPX file on the Route tab first, then come back here to generate the directions.
+                  </div>
+                </div>
+              } @else {
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <button type="button" class="btn btn-primary" [disabled]="inputDisabled || turnsGenerating" (click)="generateTurns()">
+                    @if (turnsGenerating) {
+                      <span class="spinner-border spinner-border-sm me-2"></span>
+                    } @else {
+                      <fa-icon class="me-2" [icon]="faDiamondTurnRight"/>
+                    }
+                    Generate directions
+                  </button>
+                  @if (turnEntries().length > 0) {
+                    <app-route-step-controls compact [activeIndex]="activeTurnIndex()" [count]="turnEntries().length" [id]="turnListId"
+                                             [canEdit]="!inputDisabled" [editing]="directionsEdit.editing" [canUndo]="directionsEdit.canUndo"
+                                             (toggleEdit)="toggleDirectionsEdit()" (undo)="undoDirectionsEdit()" (discard)="discardDirectionsEdit()"
+                                             (previous)="previousTurn()" (next)="nextTurn()" (first)="firstTurn()" (fullScreen)="openDirectionsFullScreen()"/>
+                  }
+                </div>
+                @if (turnsMessage) {
+                  <small class="text-muted d-block mb-3">{{ turnsMessage }}</small>
+                }
+                @if (turnEntries().length === 0) {
+                  <div class="alert alert-warning d-flex align-items-start mb-0">
+                    <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+                    <div class="ms-2">
+                      <strong class="d-block">No directions yet</strong>
+                      Generate directions reads the shape of the route to find every turn and names the roads and paths where OpenStreetMap knows them. Each direction is a draft to check here, then save the walk to keep them.
+                    </div>
+                  </div>
+                } @else {
+                  <div class="row">
+                    <div class="col-lg-6 mb-3">
+                      <app-maximisable-map #directionsMap="maximisableMap" [title]="'Directions'" [allowExpanded]="false" [syncToUrl]="true"
+                                           (sizeChange)="onDirectionsMapSizeChange($event)">
+                        <div class="route-fullscreen-shell" [class.is-fullscreen]="directionsFullScreen">
+                          <div class="map-section">
+                            <div app-map-edit readonly
+                                 [style.height.px]="directionsFullScreen ? null : directionsHeight"
+                                 [locationDetails]="displayedWalk?.walk?.groupEvent?.start_location"
+                                 [locationType]="LocationType.STARTING"
+                                 [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
+                                 [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                                 [routeColor]="displayedWalk?.walk?.fields?.routeColor"
+                                 [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
+                                 [routeOpacity]="displayedWalk?.walk?.fields?.routeOpacity"
+                                 [routeWaypoints]="turnWaypoints()"
+                                 [routeGuideEntries]="turnEntries()"
+                                 [activeWaypointId]="activeTurnId"
+                                 [waypointsDraggable]="directionsEdit.editing"
+                                 (waypointMove)="onDirectionMoved($event)"
+                                 (waypointSelect)="selectTurnById($event.id)"
+                                 (routePointsChange)="routePoints = $event"
+                                 [notify]="notify"></div>
+                          </div>
+                          @if (directionsFullScreen) {
+                            <app-route-guide-panel class="thumbnail-heading-frame route-guide-panel"
+                                                   [entries]="turnEntries()" [activeMarker]="activeTurnMarker()" [markerColour]="turnMarkerColour"
+                                                   [listId]="turnListId + '-full-screen'" [fullscreen]="true"
+                                                   [editing]="directionsEdit.editing" [editingNow]="directionsEdit.editing"
+                                                   (guideEdit)="beginDirectionEdit()" (guideTextChange)="onDirectionTextChange()" (addStep)="addDirectionAfter($event)" (removeStep)="removeDirection($event)"
+                                                   (stepSelect)="selectTurn($event)" (previous)="previousTurn()" (next)="nextTurn()">
+                              <ng-container ngProjectAs="[controls]">
+                                <div class="route-guide-controls">
+                                  <app-route-step-controls compact [fullscreen]="true" [activeIndex]="activeTurnIndex()" [count]="turnEntries().length" [id]="turnListId + '-full-screen'"
+                                                           [canEdit]="!inputDisabled" [editing]="directionsEdit.editing" [canUndo]="directionsEdit.canUndo"
+                                                           (toggleEdit)="toggleDirectionsEdit()" (undo)="undoDirectionsEdit()" (discard)="discardDirectionsEdit()"
+                                                           (previous)="previousTurn()" (next)="nextTurn()" (first)="firstTurn()"/>
+                                </div>
+                              </ng-container>
+                            </app-route-guide-panel>
+                          }
+                        </div>
+                      </app-maximisable-map>
+                    </div>
+                    <div class="col-lg-6 mb-3">
+                      @if (!directionsFullScreen) {
+                        <app-route-guide-panel class="thumbnail-heading-frame-compact route-guide-panel"
+                                               [entries]="turnEntries()" [activeMarker]="activeTurnMarker()" [markerColour]="turnMarkerColour"
+                                               [listId]="turnListId" [height]="directionsHeight" [resizable]="false"
+                                               [editing]="directionsEdit.editing" [editingNow]="directionsEdit.editing"
+                                               (guideEdit)="beginDirectionEdit()" (guideTextChange)="onDirectionTextChange()" (addStep)="addDirectionAfter($event)" (removeStep)="removeDirection($event)"
+                                               (stepSelect)="selectTurn($event)" (previous)="previousTurn()" (next)="nextTurn()" (fullScreen)="openDirectionsFullScreen()"/>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          </div>
         }
       </div>
     }
@@ -346,7 +417,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   private dateUtils = inject(DateUtilsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private addressQueryService = inject(AddressQueryService);
-  private gpxParser = inject(GpxParserService);
+  private gpxProposalsService = inject(GpxProposalsService);
   private routeTurns = inject(RouteTurnsService);
   private urlService = inject(UrlService);
   private numberUtils = inject(NumberUtilsService);
@@ -355,6 +426,15 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   public gpxProposalsLoading = false;
   public turnsGenerating = false;
   public turnsMessage: string | null = null;
+  public activeTurnId: string | null = null;
+  public routePoints: RouteFollowPoint[] = [];
+  public readonly directionsHeight = 420;
+  public directionsFullScreen = false;
+  @ViewChild("directionsMap") directionsMap: MaximisableMapComponent;
+  private markerStyle = inject(MapMarkerStyleService);
+  private mapTiles = inject(MapTilesService);
+  protected directionsEdit = inject(RouteGuideEditSession);
+  private turnEntriesCache: {waypoints: RouteFollowWaypoint[]; points: RouteFollowPoint[]; editing: boolean; turnWaypoints: RouteFollowWaypoint[]; entries: RouteGuideEntry[]} | null = null;
   protected readonly faWandMagicSparkles = faWandMagicSparkles;
   protected readonly faDiamondTurnRight = faDiamondTurnRight;
   protected readonly faCircleExclamation = faCircleExclamation;
@@ -390,7 +470,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   protected readonly LocationType = LocationType;
   protected display = inject(WalkDisplayService);
   difficulties = this.display.difficulties();
-  tabs: DetailsTab[] = [DetailsTab.VENUE, DetailsTab.ROUTE, DetailsTab.ROUTE_AND_VENUE];
+  tabs: DetailsTab[] = [DetailsTab.VENUE, DetailsTab.ROUTE, DetailsTab.DIRECTIONS, DetailsTab.VENUE_ROUTE_AND_DIRECTIONS];
   selectedTab: DetailsTab = DetailsTab.ROUTE;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
@@ -651,8 +731,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     if (gpxFile?.awsFileName) {
       this.gpxProposalsLoading = true;
       try {
-        const content = await firstValueFrom(this.httpClient.get(this.urlService.resourceRelativePathForAWSFileName(`gpx-routes/${gpxFile.awsFileName}`), {responseType: "text"}));
-        await this.proposeFromGpxContent(content);
+        await this.proposeFromGpxContent(await this.gpxProposalsService.gpxContent({rootFolder: RootFolder.gpxRoutes, awsFileName: gpxFile.awsFileName}));
       } catch (error) {
         this.gpxProposalsLoading = false;
         this.notify.error({title: "Could not read the GPX file", message: error?.message || error});
@@ -664,31 +743,12 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     this.gpxProposalsLoading = true;
     this.gpxProposals = [];
     try {
-      const parsed = this.gpxParser.parseGpxFile(content);
-      const track: GpxTrack = (parsed.tracks || []).reduce((longest, candidate) => (candidate.points?.length || 0) > (longest?.points?.length || 0) ? candidate : longest, null as GpxTrack | null);
-      const points = track?.points || [];
-      if (points.length < 2) {
+      const derived = await this.gpxProposalsService.derive(content);
+      this.pendingGpxValues = derived;
+      if (!derived) {
         this.notify.warning({title: "No route found", message: "The GPX file does not contain a track to read details from"});
       } else {
-        const groupEvent = this.displayedWalk.walk.groupEvent;
-        const first = points[0];
-        const last = points[points.length - 1];
-        const circular = this.metresBetween(first, last) <= GPX_CIRCULAR_ENDS_METRES;
-        const shape = circular ? WalkType.CIRCULAR : WalkType.LINEAR;
-        const km = (track.totalDistance || 0) / 1000;
-        const miles = km / KM_PER_MILE;
-        const ascentMetres = Math.round(track.totalAscent || 0);
-        const startLocation = await this.locationFor(first);
-        const endLocation = circular ? null : await this.locationFor(last);
-        const proposals: WalkGpxFieldProposal[] = [
-          this.proposal(WalkGpxField.SHAPE, "Walk type", groupEvent.shape ? this.stringUtils.asTitle(groupEvent.shape) : "", shape),
-          this.proposal(WalkGpxField.DISTANCE, "Distance", groupEvent.distance_miles ? `${groupEvent.distance_miles} miles` : "", `${miles.toFixed(1)} miles (${km.toFixed(1)} km)`),
-          ascentMetres > 0 ? this.proposal(WalkGpxField.ASCENT, "Ascent", groupEvent.ascent_metres ? `${groupEvent.ascent_metres} m` : "", `${ascentMetres} m (${Math.round(ascentMetres * FEET_PER_METRE)} ft)`) : null,
-          startLocation ? this.proposal(WalkGpxField.START_LOCATION, "Start", this.locationSummary(groupEvent.start_location), this.locationSummary(startLocation)) : null,
-          endLocation ? this.proposal(WalkGpxField.END_LOCATION, "Finish", this.locationSummary(groupEvent.end_location), this.locationSummary(endLocation)) : null
-        ].filter(item => !!item);
-        this.pendingGpxValues = {shape, miles, km, ascentMetres, startLocation, endLocation};
-        this.gpxProposals = proposals.filter(item => item.currentValue !== item.proposedValue);
+        this.gpxProposals = this.gpxProposalsService.proposals(derived, this.displayedWalk.walk.groupEvent, values(WalkGpxField));
         if (this.gpxProposals.length === 0) {
           this.notify.success({title: "Route checked", message: "The walk details already match the GPX file"});
         }
@@ -701,30 +761,16 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     }
   }
 
-  private pendingGpxValues: {shape: WalkType; miles: number; km: number; ascentMetres: number; startLocation: LocationDetails | null; endLocation: LocationDetails | null} | null = null;
+  private pendingGpxValues: GpxDerivedValues | null = null;
 
   applyGpxProposals(): void {
     const groupEvent = this.displayedWalk.walk.groupEvent;
-    const values = this.pendingGpxValues;
-    const applied = this.gpxProposals.filter(item => item.apply);
-    if (values) {
-      applied.forEach(item => {
-        if (item.field === WalkGpxField.SHAPE) {
-          groupEvent.shape = values.shape.toLowerCase();
-          this.walkTypeChange();
-        } else if (item.field === WalkGpxField.DISTANCE) {
-          groupEvent.distance_miles = Number(values.miles.toFixed(1));
-          groupEvent.distance_km = Number(values.km.toFixed(1));
-        } else if (item.field === WalkGpxField.ASCENT) {
-          groupEvent.ascent_metres = values.ascentMetres;
-          groupEvent.ascent_feet = Math.round(values.ascentMetres * FEET_PER_METRE);
-        } else if (item.field === WalkGpxField.START_LOCATION && values.startLocation) {
-          groupEvent.start_location = values.startLocation;
-          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_MEETING_LOCATION_CHANGED, values.startLocation.postcode));
-        } else if (item.field === WalkGpxField.END_LOCATION && values.endLocation) {
-          groupEvent.end_location = values.endLocation;
-        }
-      });
+    const applied = this.pendingGpxValues ? this.gpxProposalsService.apply(this.gpxProposals, this.pendingGpxValues, groupEvent) : [];
+    if (applied.some(item => item.field === WalkGpxField.SHAPE)) {
+      this.walkTypeChange();
+    }
+    if (applied.some(item => item.field === WalkGpxField.START_LOCATION)) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_MEETING_LOCATION_CHANGED, groupEvent.start_location?.postcode));
     }
     this.gpxProposals = [];
     this.notify.success({title: "Route details applied", message: applied.length > 0 ? `${this.stringUtils.pluraliseWithCount(applied.length, "detail")} taken from the GPX file` : "Nothing was changed"});
@@ -736,7 +782,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
       this.turnsGenerating = true;
       this.turnsMessage = "Reading the route and looking up the way names…";
       try {
-        const response = await this.routeTurns.turnSteps({gpxFile: {awsFileName: gpxFile.awsFileName}});
+        const response = await this.routeTurns.turnSteps({gpxFile: {rootFolder: RootFolder.gpxRoutes, awsFileName: gpxFile.awsFileName}});
         const kept = (this.displayedWalk.walk.fields.routeWaypoints || []).filter(waypoint => waypoint.kind !== RouteWaypointKind.TURN);
         const generated: RouteFollowWaypoint[] = response.steps.map((step, index) => ({
           id: this.numberUtils.generateUid(),
@@ -749,51 +795,164 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
         }));
         this.displayedWalk.walk.fields.routeWaypoints = [...kept, ...generated];
         const turns = response.steps.filter(step => step.kind === RouteTurnStepKind.TURN).length;
-        this.turnsMessage = `Found ${this.stringUtils.pluraliseWithCount(turns, "turn")} on the route. Save the walk to keep them, then check them with Record or edit.`;
+        this.activeTurnId = null;
+        this.turnsMessage = `Found ${this.stringUtils.pluraliseWithCount(turns, "direction")} on the route. Check them below, then save the walk to keep them.`;
       } catch (error) {
-        this.turnsMessage = `Could not generate turns: ${error?.error?.message || error?.message || "the server did not respond"}`;
+        this.turnsMessage = `Could not generate directions: ${error?.error?.message || error?.message || "the server did not respond"}`;
       } finally {
         this.turnsGenerating = false;
       }
     }
   }
 
-  private proposal(field: WalkGpxField, label: string, currentValue: string, proposedValue: string): WalkGpxFieldProposal {
-    return {field, label, currentValue, proposedValue, apply: !currentValue};
+  get turnListId(): string {
+    return `walk-turns-${this.displayedWalk?.walk?.id || "new"}`;
   }
 
-  private metresBetween(from: GpxTrackPoint, to: GpxTrackPoint): number {
-    const earthRadius = 6371e3;
-    const lat1 = from.latitude * Math.PI / 180;
-    const lat2 = to.latitude * Math.PI / 180;
-    const deltaLat = (to.latitude - from.latitude) * Math.PI / 180;
-    const deltaLng = (to.longitude - from.longitude) * Math.PI / 180;
-    const haversine = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
-    return earthRadius * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  get turnMarkerColour(): string {
+    return this.markerStyle.numberedMarkerColour(this.mapTiles.hasOsApiKey() ? MapProvider.OS : MapProvider.OSM);
   }
 
-  private async locationFor(point: GpxTrackPoint): Promise<LocationDetails | null> {
-    try {
-      const responses: GridReferenceLookupResponse[] = await this.addressQueryService.gridReferenceLookupFromLatLng(new LatLng(point.latitude, point.longitude));
-      const closest = (responses || []).sort(sortBy("distance"))[0];
-      return {
-        ...cloneDeep(INITIALISED_LOCATION),
-        latitude: point.latitude,
-        longitude: point.longitude,
-        postcode: closest?.postcode || "",
-        description: closest?.description || "",
-        grid_reference_6: closest?.gridReference6 || "",
-        grid_reference_8: closest?.gridReference8 || "",
-        grid_reference_10: closest?.gridReference10 || ""
-      };
-    } catch (error) {
-      this.logger.warn("locationFor lookup failed", error);
-      return {...cloneDeep(INITIALISED_LOCATION), latitude: point.latitude, longitude: point.longitude};
+  private get directionWaypoints(): RouteFollowWaypoint[] {
+    return this.displayedWalk?.walk?.fields?.routeWaypoints || [];
+  }
+
+  private turnEntriesCached(): {turnWaypoints: RouteFollowWaypoint[]; entries: RouteGuideEntry[]} {
+    const waypoints = this.directionWaypoints;
+    const editing = this.directionsEdit.editing;
+    if (!this.turnEntriesCache || this.turnEntriesCache.waypoints !== waypoints || this.turnEntriesCache.points !== this.routePoints || this.turnEntriesCache.editing !== editing) {
+      const entries = guideEntriesFor(waypoints as MapMarker[], this.routePoints, editing);
+      const turnWaypoints = waypoints.filter(waypoint => entries.some(entry => entry.marker === waypoint));
+      this.turnEntriesCache = {waypoints, points: this.routePoints, editing, turnWaypoints, entries};
+    }
+    return this.turnEntriesCache;
+  }
+
+  private setDirectionWaypoints(markers: MapMarker[]): void {
+    this.displayedWalk.walk.fields.routeWaypoints = renumberedSteps(markers, this.routePoints) as RouteFollowWaypoint[];
+    this.turnEntriesCache = null;
+  }
+
+  toggleDirectionsEdit(): void {
+    if (this.directionsEdit.editing) {
+      this.directionsEdit.end();
+    } else {
+      this.directionsEdit.begin(this.directionWaypoints as MapMarker[]);
+    }
+    this.turnEntriesCache = null;
+  }
+
+  undoDirectionsEdit(): void {
+    const snapshot = this.directionsEdit.undo();
+    if (snapshot) {
+      this.setDirectionWaypoints(snapshot);
     }
   }
 
-  private locationSummary(location: LocationDetails | null): string {
-    return [location?.postcode, location?.grid_reference_8 || location?.grid_reference_6, location?.description].filter(Boolean).join(", ");
+  discardDirectionsEdit(): void {
+    const snapshot = this.directionsEdit.discard();
+    if (snapshot) {
+      this.setDirectionWaypoints(snapshot);
+    }
+    this.directionsEdit.end();
+    this.turnEntriesCache = null;
+  }
+
+  beginDirectionEdit(): void {
+    this.directionsEdit.record(this.directionWaypoints as MapMarker[]);
+  }
+
+  onDirectionTextChange(): void {
+    this.turnEntriesCache = null;
+  }
+
+  addDirectionAfter(entry: RouteGuideEntry): void {
+    if (this.routePoints.length > 1) {
+      this.directionsEdit.record(this.directionWaypoints as MapMarker[]);
+      const marker = stepAfter(this.routePoints, this.turnEntries(), entry, this.numberUtils.generateUid());
+      this.setDirectionWaypoints([...this.directionWaypoints as MapMarker[], marker]);
+      this.activeTurnId = marker.id;
+    }
+  }
+
+  removeDirection(entry: RouteGuideEntry): void {
+    this.directionsEdit.record(this.directionWaypoints as MapMarker[]);
+    this.setDirectionWaypoints((this.directionWaypoints as MapMarker[]).filter(marker => marker !== entry.marker));
+  }
+
+  onDirectionMoved(moved: RouteFollowWaypoint): void {
+    const target = this.directionWaypoints.find(waypoint => waypoint.id === moved.id);
+    if (target) {
+      this.directionsEdit.record(this.directionWaypoints as MapMarker[]);
+      target.latitude = moved.latitude;
+      target.longitude = moved.longitude;
+      this.setDirectionWaypoints([...this.directionWaypoints as MapMarker[]]);
+    }
+  }
+
+  turnEntries(): RouteGuideEntry[] {
+    return this.turnEntriesCached().entries;
+  }
+
+  turnWaypoints(): RouteFollowWaypoint[] {
+    return this.turnEntriesCached().turnWaypoints;
+  }
+
+  activeTurnIndex(): number {
+    return this.turnEntries().findIndex(entry => entry.marker.id === this.activeTurnId);
+  }
+
+  activeTurnMarker(): MapMarker | null {
+    return this.turnEntries().find(entry => entry.marker.id === this.activeTurnId)?.marker || null;
+  }
+
+  selectTurn(entry: RouteGuideEntry): void {
+    this.activeTurnId = entry.marker.id;
+  }
+
+  selectTurnById(id: string): void {
+    this.activeTurnId = id;
+  }
+
+  firstTurn(): void {
+    const entries = this.turnEntries();
+    if (entries.length > 0) {
+      this.selectTurn(entries[0]);
+    }
+  }
+
+  nextTurn(): void {
+    const entries = this.turnEntries();
+    const index = this.activeTurnIndex();
+    if (index >= entries.length - 1) {
+      this.firstTurn();
+    } else {
+      this.selectTurn(entries[index + 1]);
+    }
+  }
+
+  previousTurn(): void {
+    const entries = this.turnEntries();
+    const index = Math.max(this.activeTurnIndex() - 1, 0);
+    if (entries[index]) {
+      this.selectTurn(entries[index]);
+    }
+  }
+
+  openDirectionsFullScreen(): void {
+    if (!this.directionsFullScreen) {
+      this.directionsMap?.cycle();
+    }
+    if (this.activeTurnIndex() < 0) {
+      this.firstTurn();
+    }
+  }
+
+  onDirectionsMapSizeChange(state: MaximisableMapState): void {
+    this.directionsFullScreen = state.fullScreen;
+    if (state.fullScreen && this.activeTurnIndex() < 0) {
+      this.firstTurn();
+    }
   }
 
   walkTypeChange() {

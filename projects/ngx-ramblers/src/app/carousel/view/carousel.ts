@@ -31,7 +31,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
 import { cropperImageStyles, cropperWrapperStyles } from "../../functions/image-cropper-styles";
-import { ResizerComponent } from "../../modules/common/resizer/resizer";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-carousel",
@@ -121,7 +121,7 @@ import { ResizerComponent } from "../../modules/common/resizer/resizer";
       </div>
     </div>
     @if (preview) {
-      <app-resizer orientation="vertical" variant="tab" [size]="album.height || DEFAULT_HEIGHT"
+      <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB" [size]="album.height || DEFAULT_HEIGHT"
                    [minSize]="200"
                    [maxSize]="800"
                    (sizeChange)="onHeightChange($event)"/>
@@ -130,6 +130,9 @@ import { ResizerComponent } from "../../modules/common/resizer/resizer";
   imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed, ResizerComponent]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselComponent", NgxLoggerLevel.ERROR);
   pageService = inject(PageService);
   private memberLoginService = inject(MemberLoginService);

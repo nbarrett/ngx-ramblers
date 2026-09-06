@@ -19,11 +19,27 @@ import { EventDistanceEdit } from "../../../pages/walks/walk-edit/event-distance
 import { WalkLocationEditComponent } from "../../../pages/walks/walk-edit/walk-location-edit";
 import { WalkFeatureListComponent } from "../../../pages/walks/walk-edit/walk-edit-feature-category";
 import { TiptapMarkdownEditor } from "../tiptap-editor/tiptap-markdown-editor";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { WalkGpxField, WalkGpxFieldProposal } from "../../../models/walk.model";
+import { GpxDerivedValues } from "../../../models/gpx-proposals.model";
+import { FileNameData } from "../../../models/aws-object.model";
+import { GpxProposalsService } from "../../../services/maps/gpx-proposals.service";
+import { GpxProposalsComponent } from "../../../shared/components/gpx-proposals";
 
 @Component({
   selector: "app-route-details-edit",
   template: `
     @if (routeGuide) {
+      @if (gpxFile) {
+        <div class="mb-3">
+          <button type="button" class="btn btn-quiet" [disabled]="gpxProposalsLoading" (click)="proposeFromRoute()">
+            <fa-icon class="me-2" [icon]="faWandMagicSparkles"/>Fill details from route
+          </button>
+          <app-gpx-proposals [id]="'route-' + id + '-' + part" [proposals]="gpxProposals" [loading]="gpxProposalsLoading" [message]="gpxMessage"
+                             (applied)="applyGpxProposals()" (dismissed)="gpxProposals = []"/>
+        </div>
+      }
       @if (showAbout) {
         <div class="row gy-3">
           <div class="col-md-8">
@@ -82,7 +98,7 @@ import { TiptapMarkdownEditor } from "../tiptap-editor/tiptap-markdown-editor";
       }
     }
   `,
-  imports: [FormsModule, EventDistanceEdit, WalkLocationEditComponent, WalkFeatureListComponent, TiptapMarkdownEditor]
+  imports: [FormsModule, FontAwesomeModule, EventDistanceEdit, WalkLocationEditComponent, WalkFeatureListComponent, TiptapMarkdownEditor, GpxProposalsComponent]
 })
 export class RouteDetailsEdit implements OnInit, OnDestroy {
   ngOnInit(): void {
@@ -101,7 +117,13 @@ export class RouteDetailsEdit implements OnInit, OnDestroy {
   private display = inject(WalkDisplayService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksConfigService = inject(WalksConfigService);
+  private gpxProposalsService = inject(GpxProposalsService);
   private walksConfig: WalksConfig;
+  protected readonly faWandMagicSparkles = faWandMagicSparkles;
+  protected gpxProposals: WalkGpxFieldProposal[] = [];
+  protected gpxProposalsLoading = false;
+  protected gpxMessage: string | null = null;
+  private gpxValues: GpxDerivedValues | null = null;
   private subscriptions: Subscription[] = [];
   protected readonly LocationType = LocationType;
   protected readonly FeatureCategory = FeatureCategory;
@@ -139,6 +161,40 @@ export class RouteDetailsEdit implements OnInit, OnDestroy {
 
   get showStart(): boolean {
     return this.part !== RouteDetailsPart.ABOUT;
+  }
+
+  get gpxFile(): FileNameData | undefined {
+    return this.routeRow?.map?.routes?.find(route => !!route.gpxFile?.awsFileName)?.gpxFile;
+  }
+
+  private get gpxFields(): WalkGpxField[] {
+    return [...(this.showAbout ? [WalkGpxField.DISTANCE] : []), ...(this.showStart ? [WalkGpxField.START_LOCATION] : [])];
+  }
+
+  async proposeFromRoute(): Promise<void> {
+    this.gpxProposalsLoading = true;
+    this.gpxProposals = [];
+    this.gpxMessage = null;
+    try {
+      const values = await this.gpxProposalsService.derive(await this.gpxProposalsService.gpxContent(this.gpxFile));
+      this.gpxValues = values;
+      this.gpxProposals = values ? this.gpxProposalsService.proposals(values, this.asGroupEvent, this.gpxFields) : [];
+      this.gpxMessage = !values ? "The GPX file does not contain a track to read details from" : this.gpxProposals.length === 0 ? "The route details already match the GPX file" : null;
+    } catch (error) {
+      this.gpxMessage = `Could not read the GPX file: ${error?.message || error}`;
+    } finally {
+      this.gpxProposalsLoading = false;
+    }
+  }
+
+  applyGpxProposals(): void {
+    const applied = this.gpxValues ? this.gpxProposalsService.apply(this.gpxProposals, this.gpxValues, this.asGroupEvent) : [];
+    this.gpxProposals = [];
+    this.gpxMessage = applied.length > 0 ? `${applied.map(item => item.label.toLowerCase()).join(" and ")} taken from the GPX file` : "Nothing was changed";
+    if (applied.some(item => item.field === WalkGpxField.DISTANCE)) {
+      this.applyEstimate();
+    }
+    this.changed();
   }
 
   get estimating(): boolean {

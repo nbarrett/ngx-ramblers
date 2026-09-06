@@ -723,7 +723,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       HtmlLink.configure({
         openOnClick: false,
         enableClickSelection: true,
-        HTMLAttributes: {},
+        HTMLAttributes: {target: null, rel: null},
         isAllowedUri: (url, ctx) => this.linkHrefAllowed(url, ctx)
       }),
       SpacedImage.configure({ inline: false, allowBase64: false }),
@@ -1614,8 +1614,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.linkUrl = this.editorLinkHref(domLink);
     this.linkText = this.selectedPlainText();
     this.linkHrefMissing = this.editor?.isActive("link") === true && !this.linkUrl;
-    const existingTarget = domLink?.getAttribute("target")
-      || (this.editor?.getAttributes("link")["target"] as string | undefined)
+    const existingTarget = (this.editor?.getAttributes("link")["target"] as string | undefined)
+      || domLink?.getAttribute("target")
       || "";
     this.linkOpenInNewTab = existingTarget === "_blank";
     this.imageCropperOpen = false;

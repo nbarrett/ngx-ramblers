@@ -58,7 +58,7 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { YoutubeInputComponent } from "../youtube-input/youtube-input";
-import { ResizerComponent } from "../resizer/resizer";
+import { ResizerComponent, ResizerMode, ResizerOrientation, ResizerVariant } from "../resizer/resizer";
 import { ColumnImageDisplaySettingsComponent } from "../column-image-display-settings/column-image-display-settings";
 import { ClipboardService } from "../../../services/clipboard.service";
 
@@ -340,7 +340,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                                           [focalPoint]="column.imageFocalPoint"
                                           [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
                           @if (controlsShown(column) && column.imageSource) {
-                            <app-resizer orientation="vertical" variant="tab"
+                            <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB"
                               [size]="column.imageHeight || 200"
                               [minSize]="50"
                               [maxSize]="800"
@@ -813,7 +813,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                 <ng-container [ngTemplateOutlet]="columnNestedRows"></ng-container>
               }
               @if (columnIndex < row.columns.length - 1 && !expanded) {
-                <app-resizer orientation="horizontal" variant="handle" mode="grid"
+                <app-resizer [orientation]="ResizerOrientation.HORIZONTAL" [variant]="ResizerVariant.HANDLE" [mode]="ResizerMode.GRID"
                   [leftColumn]="column"
                   [rightColumn]="row.columns[columnIndex + 1]"/>
               }
@@ -836,6 +836,10 @@ import { ClipboardService } from "../../../services/clipboard.service";
     imports: [ContentTextEditor, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent, ColumnImageDisplaySettingsComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+  protected readonly ResizerMode = ResizerMode;
+
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditTextRowComponent", NgxLoggerLevel.ERROR);
   pageContentEditService = inject(PageContentEditService);

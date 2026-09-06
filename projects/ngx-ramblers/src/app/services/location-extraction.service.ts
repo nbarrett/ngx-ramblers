@@ -9,6 +9,7 @@ import { UrlService } from "./url.service";
 import { StringUtilsService } from "./string-utils.service";
 import { YouTubeService } from "./youtube.service";
 import { last } from "es-toolkit/compat";
+import { pageLocation } from "../functions/map-location-markers";
 
 @Injectable({
   providedIn: "root"
@@ -28,20 +29,13 @@ export class LocationExtractionService {
       const href = pageContent.path;
       const imageSource = this.findFirstImageInPage(pageContent);
 
-      const locationRows = pageContent.rows.filter(row => this.actions.isLocation(row));
-      this.logger.info("Page", pageContent.path, "has", locationRows.length, "location rows out of", pageContent.rows.length, "total rows");
+      const pageLocationData = pageLocation(pageContent);
+      const locatable = pageLocationData?.start && this.hasValidLocation(pageLocationData.start);
+      this.logger.info("Page", pageContent.path, "location", locatable ? "found" : "missing");
 
-      let location = null;
-      let description = null;
+      const location = locatable ? pageLocationData.start : null;
+      let description = locatable ? this.formatLocationDescription(pageLocationData.start, pageLocationData.end) : null;
       let title = null;
-
-      if (locationRows.length > 0) {
-        const firstLocationRow = locationRows[0];
-        if (firstLocationRow.location?.start && this.hasValidLocation(firstLocationRow.location.start)) {
-          location = firstLocationRow.location.start;
-          description = this.formatLocationDescription(firstLocationRow.location.start, firstLocationRow.location.end);
-        }
-      }
 
       if (!description) {
         const extracted = this.extractTitleAndDescription(pageContent);

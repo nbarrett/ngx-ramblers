@@ -6,6 +6,7 @@ import { MeetupConfig } from "../../models/meetup-config.model";
 import { Contact, LocationDetails, Media, Metadata } from "../../models/ramblers-walks-manager";
 import { ImageConfig, ImageSource, LINK_CONFIG, LinkSource, LinkWithSource, RiskAssessmentRecord } from "../../models/walk.model";
 import { Venue } from "../../models/event-venue.model";
+import { RouteFollowWaypoint, RouteWaypointKind } from "../../models/route-follow.model";
 import { WALK_NOTIFICATION_FIELDS } from "../../models/walk-notification-fields";
 import { WalkNotificationValueFormat as Format } from "../../models/walk-notification-field.model";
 import { DateUtilsService } from "../date-utils.service";
@@ -50,6 +51,8 @@ export class WalkNotificationValueService {
         return this.publishing(value);
       case Format.RISK_ASSESSMENT:
         return this.riskAssessment(value);
+      case Format.ROUTE_WAYPOINTS:
+        return this.routeWaypoints(value);
       case Format.SPEED:
         return this.speed(value);
       case Format.VENUE:
@@ -58,6 +61,16 @@ export class WalkNotificationValueService {
         return this.text(value);
       }
     }
+  }
+
+  private routeWaypoints(value: RouteFollowWaypoint[]): string {
+    const waypoints = isArray(value) ? value : [];
+    const turns = waypoints.filter(waypoint => waypoint.kind === RouteWaypointKind.TURN).length;
+    const others = waypoints.length - turns;
+    return compact([
+      turns > 0 ? `${turns} ${turns === 1 ? "direction" : "directions"}` : null,
+      others > 0 ? `${others} other ${others === 1 ? "waypoint" : "waypoints"}` : null
+    ]).join(", ") || "(none)";
   }
 
   private attendees(value: object[]): string {

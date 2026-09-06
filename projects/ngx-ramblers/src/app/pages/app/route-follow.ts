@@ -152,6 +152,35 @@ import proj4 from "proj4";
                     aria-label="Close follow">
               <fa-icon [icon]="faXmark"/>
             </button>
+            @if (directionsOnMap && instructionWaypoint && instructionText) {
+              <div class="follow-instruction">
+                <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
+                  @if (instructionWaypoint.turn) {
+                    <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(instructionWaypoint) + 'deg)'"/>
+                  } @else {
+                    {{ waypointNumber(instructionWaypoint) }}
+                  }
+                </div>
+                <div class="follow-instruction-body">
+                  <h2>{{ instructionText }}</h2>
+                  @if (instructionWaypoint.note) {
+                    <p class="follow-instruction-note">{{ instructionWaypoint.note }}</p>
+                  }
+                  @if (upcomingWaypoint) {
+                    <p class="follow-instruction-next">
+                      @if (upcomingWaypoint.turn) {
+                        <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(upcomingWaypoint) + 'deg)'"/>
+                      }
+                      Then {{ upcomingWaypoint.instruction || upcomingWaypoint.label || "the next waypoint" }} · {{ nextDistanceLabel }}
+                    </p>
+                  } @else {
+                    <p>{{ nextDistanceLabel }}</p>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+          <div class="follow-top-banner">
             @if (forkAhead) {
               <div class="follow-off-route follow-fork">
                 <fa-icon [icon]="faCodeFork"/>
@@ -194,33 +223,6 @@ import proj4 from "proj4";
               <div class="follow-tape-grid">{{ gridReference }}</div>
             }
           </div>
-            @if (instructionWaypoint && instructionText) {
-            <div class="follow-instruction">
-              <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
-                @if (instructionWaypoint.turn) {
-                  <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(instructionWaypoint) + 'deg)'"/>
-                } @else {
-                  {{ waypointNumber(instructionWaypoint) }}
-                }
-              </div>
-              <div class="follow-instruction-body">
-                <h2>{{ instructionText }}</h2>
-                @if (instructionWaypoint.note) {
-                  <p class="follow-instruction-note">{{ instructionWaypoint.note }}</p>
-                }
-                @if (upcomingWaypoint) {
-                  <p class="follow-instruction-next">
-                    @if (upcomingWaypoint.turn) {
-                      <fa-icon [icon]="faArrowUp" [style.transform]="'rotate(' + turnDegrees(upcomingWaypoint) + 'deg)'"/>
-                    }
-                    Then {{ upcomingWaypoint.instruction || upcomingWaypoint.label || "the next waypoint" }} · {{ nextDistanceLabel }}
-                  </p>
-                } @else {
-                  <p>{{ nextDistanceLabel }}</p>
-                }
-              </div>
-            </div>
-          }
         </div>
         @if (showDirections) {
           <div class="follow-style-scrim" (click)="closeDirections()"></div>
@@ -335,8 +337,22 @@ import proj4 from "proj4";
                 <a [href]="osErrorHref" target="_blank" rel="noopener">Report an error</a>
               </p>
             }
-            @if (styleRoute) {
+            @if (styleRoute || directedWaypoints.length) {
               <p class="follow-style-heading">While following</p>
+            }
+            @if (directedWaypoints.length) {
+              <div class="form-check form-switch follow-option-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="follow-directions-on-map"
+                       [checked]="directionsOnMap" (change)="toggleDirectionsOnMap()">
+                <label class="form-check-label" for="follow-directions-on-map">Show the current step at the top of the map</label>
+              </div>
+              <div class="form-check form-switch follow-option-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="follow-step-pins-on-map"
+                       [checked]="stepPinsOnMap" (change)="toggleStepPinsOnMap()">
+                <label class="form-check-label" for="follow-step-pins-on-map">Show numbered step pins on the map</label>
+              </div>
+            }
+            @if (styleRoute) {
               <div class="follow-progress-paint">
                 <button type="button" class="btn btn-sm follow-progress-paint-btn"
                         [class.btn-primary]="progressPaint === RouteFollowProgressPaint.COLOUR_WALKED"
@@ -773,6 +789,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly previewSpeedMax = ROUTE_FOLLOW_PREVIEW_SPEED_MAX;
   protected showStylePicker = false;
   protected showDirections = false;
+  protected directionsOnMap = true;
+  protected stepPinsOnMap = true;
   private stylePickerFromProvider = MapProvider.OS;
   private stylePickerFromStyle = DEFAULT_OS_STYLE;
   protected mapProvider: MapProvider = MapProvider.OS;
@@ -799,12 +817,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private skipNextFit = false;
   private lastRecordedPointCount = -1;
   private arrowGroup = L.layerGroup();
+  private waypointGroup = L.layerGroup();
   private pointerMarker: L.Marker | null = null;
 
   ngOnInit(): void {
     this.refreshTape();
     this.appearance = this.appShell.appearance();
     this.progressPaint = routeFollowProgressPaintFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_PROGRESS_PAINT, RouteFollowProgressPaint.COLOUR_WALKED));
+    this.directionsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_DIRECTIONS_ON_MAP, true);
+    this.stepPinsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_STEP_PINS_ON_MAP, true);
     this.followService.setPreviewSpeed(this.previewSpeed);
     this.showPreview = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     this.tooltipsEnabled = this.appShell.platform() === AppInstallPlatform.OTHER
@@ -1015,6 +1036,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.mapRef = map;
     this.pointerMarker = null;
     this.arrowGroup.addTo(map);
+    this.waypointGroup.addTo(map);
     this.editGroup.addTo(map);
     map.on("click", event => this.zone.run(() => this.onMapClick(event)));
     map.on("mousemove", event => this.zone.run(() => this.onEditHover(event)));
@@ -1124,6 +1146,17 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   toggleDirections(): void {
     this.showDirections = !this.showDirections;
+  }
+
+  toggleDirectionsOnMap(): void {
+    this.directionsOnMap = !this.directionsOnMap;
+    this.uiActions.saveValueFor(StoredValue.FOLLOW_DIRECTIONS_ON_MAP, this.directionsOnMap);
+  }
+
+  toggleStepPinsOnMap(): void {
+    this.stepPinsOnMap = !this.stepPinsOnMap;
+    this.uiActions.saveValueFor(StoredValue.FOLLOW_STEP_PINS_ON_MAP, this.stepPinsOnMap);
+    this.refreshWaypointPins();
   }
 
   closeDirections(): void {
@@ -2324,7 +2357,24 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     };
   }
 
+  private refreshWaypointPins(): void {
+    this.waypointGroup.clearLayers();
+    const editing = this.progress?.mode === RouteFollowMode.EDITING || this.progress?.mode === RouteFollowMode.RECORDING;
+    if (this.payload && this.stepPinsOnMap && !editing) {
+      this.directedWaypoints.forEach((waypoint, index) => {
+        const pin = L.marker([waypoint.latitude, waypoint.longitude], {
+          icon: this.markerStyle.numberedMarkerIcon(this.waypointNumber(waypoint, index), this.mapProvider, this.osStyle),
+          keyboard: false,
+          zIndexOffset: 500
+        });
+        pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        this.waypointGroup.addLayer(pin);
+      });
+    }
+  }
+
   private refreshArrows(): void {
+    this.refreshWaypointPins();
     this.arrowGroup.clearLayers();
     const recording = this.progress?.mode === RouteFollowMode.RECORDING;
     if (this.payload && this.followService.trackPoints().length >= 2 && !recording) {
@@ -2341,6 +2391,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private clearRouteOverlays(): void {
     this.arrowGroup.clearLayers();
+    this.waypointGroup.clearLayers();
     this.clearEditHandles();
     this.removeEditLine();
     this.clearPointer();

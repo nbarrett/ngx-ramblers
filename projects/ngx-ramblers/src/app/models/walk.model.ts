@@ -329,6 +329,8 @@ export enum GroupEventField {
 export enum EventField {
   ATTACHMENT = "fields.attachment",
   ATTENDEES = "fields.attendees",
+  BOOKING_EMAIL_OVERRIDES = "fields.bookingEmailOverrides",
+  BOOKINGS_ENABLED = "fields.bookingsEnabled",
   CONTACT_DETAILS = "fields.contactDetails",
   CONTACT_DETAILS_CONTACT_ID = "fields.contactDetails.contactId",
   CONTACT_DETAILS_DISPLAY_NAME = "fields.contactDetails.displayName",
@@ -337,7 +339,10 @@ export enum EventField {
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
   GPX_FILE = "fields.gpxFile",
   GPX_FILE_AWS_FILE_NAME = "fields.gpxFile.awsFileName",
+  ROUTE_COLOR = "fields.routeColor",
+  ROUTE_OPACITY = "fields.routeOpacity",
   ROUTE_WAYPOINTS = "fields.routeWaypoints",
+  ROUTE_WEIGHT = "fields.routeWeight",
   IMAGE_CONFIG = "fields.imageConfig",
   IMAGE_CONFIG_IMPORT_FROM_AREA_CODE = "fields.imageConfig.importFrom.areaCode",
   IMAGE_CONFIG_IMPORT_FROM_FILTER_PARAMETERS_SELECT_TYPE = "fields.imageConfig.importFrom.filterParameters.selectType",
@@ -345,6 +350,9 @@ export enum EventField {
   IMAGE_CONFIG_IMPORT_FROM_WALK_ID = "fields.imageConfig.importFrom.walkId",
   IMAGE_CONFIG_SOURCE = "fields.imageConfig.source",
   INPUT_SOURCE = "fields.inputSource",
+  MAX_CAPACITY = "fields.maxCapacity",
+  MAX_GROUP_SIZE = "fields.maxGroupSize",
+  MEMBER_PRIORITY_DAYS = "fields.memberPriorityDays",
   LINKS = "fields.links",
   MEETUP = "fields.meetup",
   MEETUP_ANNOUNCE = "fields.meetup.announce",
@@ -588,7 +596,8 @@ export enum RelatedLinksTab {
 export enum DetailsTab {
   VENUE = "Venue",
   ROUTE = "Route",
-  ROUTE_AND_VENUE = "Route & Venue"
+  DIRECTIONS = "Directions",
+  VENUE_ROUTE_AND_DIRECTIONS = "Venue, Route and Directions"
 }
 
 export const PUBLIC_GROUP_EVENT_SELECT: Record<string, number> = {

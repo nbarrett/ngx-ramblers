@@ -1,3 +1,4 @@
+import { escape } from "es-toolkit";
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
 import { MapProvider } from "../../models/map.model";
@@ -16,7 +17,7 @@ export class MapMarkerStyleService {
 
   numberedMarkerIcon(label: string, provider: MapProvider, style: string, travelBearing: number | null = null): L.DivIcon {
     const color = this.numberedMarkerColour(provider);
-    const text = (label || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const text = escape(label || "");
     const fontSize = text.length > 2 ? 9 : 12;
     const heading = travelBearing === null ? "" : this.headingRingHtml(color, travelBearing);
     const html = `${heading}

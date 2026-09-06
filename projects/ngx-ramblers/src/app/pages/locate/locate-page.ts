@@ -35,7 +35,7 @@ import { DrivingOriginMode } from "../../models/current-location.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { LocationAutocompleteComponent } from "../../shared/components/location-autocomplete";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../shared/components/map-controls";
-import { ResizerComponent } from "../../modules/common/resizer/resizer";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modules/common/resizer/resizer";
 import { WalkDisplayService } from "../walks/walk-display.service";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN } from "../../models/locate.model";
@@ -117,7 +117,7 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
                    (leafletClick)="onMapClick($event)"></div>
             }
             @if (!mapFullScreen) {
-              <app-resizer orientation="vertical" variant="tab" compact
+              <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB" compact
                            [size]="mapHeight" [minSize]="minMapHeight" [maxSize]="maxMapHeight"
                            (sizeChange)="onMapHeightChange($event)"/>
             }
@@ -145,6 +145,9 @@ import { LOCATE_MAP_HEIGHT_DEFAULT, LOCATE_MAP_HEIGHT_MAX, LOCATE_MAP_HEIGHT_MIN
     </div>`
 })
 export class LocatePageComponent implements OnInit, OnDestroy {
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+
   private logger: Logger = inject(LoggerFactory).createLogger("LocatePageComponent", NgxLoggerLevel.ERROR);
   private pageService = inject(PageService);
   private route = inject(ActivatedRoute);
