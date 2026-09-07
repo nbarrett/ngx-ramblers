@@ -156,6 +156,7 @@ function eventFromLines(lines: string[]): CalendarPreviewEvent {
     status: byName("STATUS")?.value || null,
     organiser: organiser ? organiserFrom(organiser) : null,
     organiserEmail: organiser ? mailtoEmail(organiser.value) || null : null,
+    organiserPhone: null,
     uid: byName("UID")?.value || null,
     sequence: Number.isFinite(sequenceValue) ? sequenceValue : 0,
     attendees: properties.map(property => property.name === "ATTENDEE" ? attendeeFrom(property) : null).filter(Boolean) as CalendarAttendee[]

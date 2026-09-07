@@ -7,6 +7,7 @@ import { FilterCriteria, SortOrder } from "../../models/api-request.model";
 import { CommitteeMember, RoleType } from "../../models/committee.model";
 import { Member, MemberFilterSelection } from "../../models/member.model";
 import { EventsData, GroupEventsPermissions } from "../../models/group-events.model";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { Confirm } from "../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
@@ -238,6 +239,15 @@ export class GroupEventDisplayService {
     const result = this.group?.socialEventPopulation === EventPopulation.LOCAL;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.socialEventPopulation, "result:", result);
     return result;
+  }
+
+  public eventTypesPopulatedLocally(eventsData: EventsData): boolean {
+    const eventTypes = eventsData?.eventTypes?.length > 0 ? eventsData.eventTypes : [RamblersEventType.GROUP_EVENT];
+    return eventTypes.every(eventType => this.populationFor(eventType) === EventPopulation.LOCAL);
+  }
+
+  private populationFor(eventType: RamblersEventType): EventPopulation {
+    return eventType === RamblersEventType.GROUP_EVENT ? this.group?.socialEventPopulation : this.group?.walkPopulation;
   }
 
   public showSocialOnRamblersLink(): boolean {

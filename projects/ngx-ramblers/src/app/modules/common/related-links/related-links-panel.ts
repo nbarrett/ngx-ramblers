@@ -30,11 +30,12 @@ import { WalksConfig } from "../../../models/walks-config.model";
       flex: 1 1 auto
   `],
   template: `
-    <div class="event-panel rounded event-panel-inner">
+    <div class="event-panel rounded event-panel-inner" [class.d-none]="!hasAnyLink">
       <h1>Related Links</h1>
       <div class="row">
         <app-related-links [displayedWalk]="displayedWalk"
-                           [walksConfigOverride]="walksConfigOverride"/>
+                           [walksConfigOverride]="walksConfigOverride"
+                           (hasAnyLinkChange)="hasAnyLink = $event"/>
       </div>
     </div>`,
   imports: [RelatedLinksComponent]
@@ -42,4 +43,5 @@ import { WalksConfig } from "../../../models/walks-config.model";
 export class RelatedLinksPanelComponent {
   @Input() displayedWalk: DisplayedWalk;
   @Input() walksConfigOverride?: WalksConfig;
+  protected hasAnyLink = true;
 }

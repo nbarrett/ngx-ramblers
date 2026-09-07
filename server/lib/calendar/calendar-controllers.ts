@@ -7,6 +7,7 @@ import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { ContentDisposition } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { icalDocument, meetingIcalDocument } from "./ical";
 import { publicImageBaseUrl } from "../social/public-base-url";
 import { dateTimeNow } from "../shared/dates";
@@ -41,9 +42,9 @@ function calendarNameFor(config: SystemConfig): string {
   return `${siteName} walks and events`;
 }
 
-function sendCalendar(res: Response, document: string, fileName: string): void {
+function sendCalendar(res: Response, document: string, fileName: string, disposition: ContentDisposition = ContentDisposition.ATTACHMENT): void {
   res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+  res.setHeader("Content-Disposition", `${disposition}; filename="${fileName}"`);
   res.setHeader("Cache-Control", CACHE_CONTROL);
   res.send(document);
 }
@@ -142,7 +143,7 @@ export async function eventsCalendarFeed(req: Request, res: Response): Promise<v
     if (events.length === MAXIMUM_FEED_EVENTS) {
       debugLog("calendar feed truncated at", MAXIMUM_FEED_EVENTS, "events");
     }
-    sendCalendar(res, icalDocument(events, config, baseUrl, calendarNameFor(config)), "walks-and-events.ics");
+    sendCalendar(res, icalDocument(events, config, baseUrl, calendarNameFor(config)), "walks-and-events.ics", ContentDisposition.INLINE);
   } catch (error) {
     errorDebugLog("eventsCalendarFeed failed, error:", error);
     res.status(500).json({message: "Calendar generation failed"});

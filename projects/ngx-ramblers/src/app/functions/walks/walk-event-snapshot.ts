@@ -1,7 +1,7 @@
 import { cloneDeep, get, isArray, isEqual, isNull, isObject, isString, isUndefined, keys, pick, set } from "es-toolkit/compat";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { AUDITED_FIELDS, WalkEvent } from "../../models/walk-event.model";
-import { EventType } from "../../models/walk.model";
+import { EventType, LinkSource } from "../../models/walk.model";
 
 export function normaliseWalkEventSnapshot(value: any): any {
   if (isUndefined(value) || isNull(value)) {
@@ -30,7 +30,12 @@ export function normaliseWalkEventSnapshot(value: any): any {
 }
 
 export function walkEventDataSnapshot(event: ExtendedGroupEvent): object {
-  return normaliseWalkEventSnapshot(pick(event, AUDITED_FIELDS));
+  const snapshot = pick(event, AUDITED_FIELDS);
+  const links = get(snapshot, ["fields", "links"]);
+  if (isArray(links)) {
+    set(snapshot, ["fields", "links"], links.filter(link => link?.source !== LinkSource.RAMBLERS));
+  }
+  return normaliseWalkEventSnapshot(snapshot);
 }
 
 export function walkEventSnapshotEvent(event: ExtendedGroupEvent, eventType: EventType, date: number, memberId: string, reason: string): WalkEvent {

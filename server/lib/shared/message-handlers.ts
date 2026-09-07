@@ -5,6 +5,7 @@ import querystring from "querystring";
 import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { isArray } from "es-toolkit/compat";
+import { maskedApiRequest, maskSecretQueryParameters } from "./mask-secrets";
 
 const logRawData = false;
 const DEFAULT_UPSTREAM_TIMEOUT_MILLIS = 15000;
@@ -30,14 +31,14 @@ function createRequestAudit(options: MessageHandlerOptions) {
     requestAudit.request.body = options.body;
   }
   if (envConfig.dev) {
-    requestAudit.request.apiRequest = options.apiRequest;
+    requestAudit.request.apiRequest = maskedApiRequest(options.apiRequest);
   }
   return requestAudit;
 }
 
 export function httpRequest(options: MessageHandlerOptions) {
   return new Promise((resolve, reject) => {
-    options.debug("sending request using API request options", options.apiRequest);
+    options.debug("sending request using API request options", maskedApiRequest(options.apiRequest));
     const requestAudit = createRequestAudit(options);
     const request = https.request(options.apiRequest, (response: http.IncomingMessage) => {
       const data = [];
@@ -84,7 +85,7 @@ export function httpRequest(options: MessageHandlerOptions) {
       });
     });
     request.setTimeout(options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS, () => {
-      request.destroy(new Error(`upstream request to ${options.apiRequest?.hostname}${options.apiRequest?.path} timed out after ${options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS}ms`));
+      request.destroy(new Error(`upstream request to ${options.apiRequest?.hostname}${maskSecretQueryParameters(options.apiRequest?.path)} timed out after ${options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS}ms`));
     });
     request.on("error", error => {
       const rejectedResponse = {

@@ -1,7 +1,10 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import * as joypixels from "emoji-toolkit";
-import { EmojiShortcodeMatch } from "../../models/emoji.model";
-import { keys, toPairs } from "es-toolkit/compat";
+import { DEFAULT_EMOJI_SYNONYMS, EMOJI_SUGGESTION_LIMIT, EmojiShortcodeMatch, EmojiSynonym } from "../../models/emoji.model";
+import { keys, toPairs, uniqBy } from "es-toolkit/compat";
+import { SystemConfigService } from "../system/system-config.service";
+
+const SKIN_TONE_PATTERN = /_tone\d|skin_tone/;
 
 @Injectable({
   providedIn: "root"
@@ -9,22 +12,47 @@ import { keys, toPairs } from "es-toolkit/compat";
 export class EmojiShortcodeService {
 
   private readonly matches: EmojiShortcodeMatch[] = this.buildMatches();
+  private readonly matchesByName: Map<string, EmojiShortcodeMatch> = new Map(this.matches.map(match => [this.nameOf(match), match]));
+  private synonyms: EmojiSynonym[] = DEFAULT_EMOJI_SYNONYMS;
 
-  suggestionsFor(query: string, limit = 36): EmojiShortcodeMatch[] {
-    const normalised = (query || "").toLowerCase().replace(/^:/, "").replace(/:$/, "");
-    const startsWith: EmojiShortcodeMatch[] = [];
-    const contains: EmojiShortcodeMatch[] = [];
+  constructor() {
+    inject(SystemConfigService).events().subscribe(config => {
+      const configured = config?.emoji?.synonyms || [];
+      this.synonyms = configured.length > 0 ? configured : DEFAULT_EMOJI_SYNONYMS;
+    });
+  }
+
+  suggestionsFor(query: string, limit = EMOJI_SUGGESTION_LIMIT): EmojiShortcodeMatch[] {
+    const normalised = (query || "").toLowerCase().replace(/^:/, "").replace(/:$/, "").replace(/[\s-]+/g, "_");
     if (normalised) {
-      this.matches.forEach(match => {
-        const name = match.shortname.slice(1, -1);
-        if (name.startsWith(normalised)) {
-          startsWith.push(match);
-        } else if (name.includes(normalised)) {
-          contains.push(match);
-        }
-      });
+      const synonymMatches = this.synonymShortnamesFor(normalised)
+        .map(name => this.matchesByName.get(name))
+        .filter(match => !!match);
+      const exact = this.matches.filter(match => this.nameOf(match) === normalised);
+      const startsWith = this.matches.filter(match => this.nameOf(match).startsWith(normalised) && this.nameOf(match) !== normalised);
+      const contains = this.matches.filter(match => this.nameOf(match).includes(normalised) && !this.nameOf(match).startsWith(normalised));
+      const ranked = uniqBy([...exact, ...synonymMatches, ...startsWith, ...contains], match => match.shortname);
+      const wantsSkinTones = SKIN_TONE_PATTERN.test(normalised);
+      const ordered = wantsSkinTones
+        ? ranked
+        : [...ranked.filter(match => !this.skinToneVariant(match)), ...ranked.filter(match => this.skinToneVariant(match))];
+      return ordered.slice(0, limit);
+    } else {
+      return [];
     }
-    return [...startsWith, ...contains].slice(0, limit);
+  }
+
+  private synonymShortnamesFor(normalised: string): string[] {
+    const keyword = normalised.replace(/_/g, "");
+    return this.synonyms.filter(synonym => synonym.keyword === keyword).flatMap(synonym => synonym.shortnames);
+  }
+
+  private nameOf(match: EmojiShortcodeMatch): string {
+    return match.shortname.slice(1, -1);
+  }
+
+  private skinToneVariant(match: EmojiShortcodeMatch): boolean {
+    return SKIN_TONE_PATTERN.test(this.nameOf(match));
   }
 
   private buildMatches(): EmojiShortcodeMatch[] {

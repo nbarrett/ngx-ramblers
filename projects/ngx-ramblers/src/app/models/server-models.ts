@@ -135,3 +135,15 @@ export interface MailchimpCreateSegmentRequest {
   static_segment: string[];
   options?: object;
 }
+
+export enum SecretQueryParameter {
+  ACCESS_TOKEN = "access_token",
+  CLIENT_SECRET = "client_secret",
+  FB_EXCHANGE_TOKEN = "fb_exchange_token",
+  INPUT_TOKEN = "input_token"
+}
+
+export enum ContentDisposition {
+  ATTACHMENT = "attachment",
+  INLINE = "inline"
+}

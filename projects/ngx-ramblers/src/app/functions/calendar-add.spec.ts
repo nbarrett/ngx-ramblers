@@ -17,6 +17,7 @@ function event(overrides: Partial<CalendarPreviewEvent> = {}): CalendarPreviewEv
     status: "CONFIRMED",
     organiser: null,
     organiserEmail: null,
+    organiserPhone: null,
     uid: "abc123@example.org",
     sequence: 0,
     attendees: [],
@@ -94,6 +95,13 @@ describe("googleCalendarUrl", () => {
     expect(url).toContain("dates=20260815%2F20260816");
   });
 
+  it("puts the walk's own page link in the event details as a clickable link", () => {
+    const url = googleCalendarUrl(event({url: "https://www.example.co.uk/walks/chilham-circular"}));
+    const details = new URL(url).searchParams.get("details");
+    expect(details).toContain("A gentle loop");
+    expect(details).toContain(`<a href="https://www.example.co.uk/walks/chilham-circular">`);
+  });
+
 });
 
 describe("outlookCalendarUrl", () => {
@@ -103,6 +111,22 @@ describe("outlookCalendarUrl", () => {
     expect(url).toContain("https://outlook.live.com/calendar/0/deeplink/compose?");
     expect(url).toContain("rru=addevent");
     expect(url).toContain("subject=Chilham+circular");
+  });
+
+  it("puts the walk's own page link in the event body as a clickable link", () => {
+    const url = outlookCalendarUrl(event({url: "https://www.example.co.uk/walks/chilham-circular"}));
+    const body = new URL(url).searchParams.get("body");
+    expect(body).toContain("A gentle loop");
+    expect(body).toContain(`<strong>Website:</strong> <a href="https://www.example.co.uk/walks/chilham-circular">`);
+  });
+
+  it("names the walk leader and their contact details in the event body", () => {
+    const body = new URL(outlookCalendarUrl(event({
+      organiser: "Rachel M",
+      organiserPhone: "07970 319734",
+      organiserEmail: "rachel@example.co.uk"
+    }))).searchParams.get("body");
+    expect(body).toContain("<strong>Walk leader:</strong> Rachel M 07970 319734 rachel@example.co.uk");
   });
 
 });
@@ -141,9 +165,9 @@ describe("localCalendarHref", () => {
   const safariMac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
   const origin = "https://www.example.co.uk";
 
-  it("hands Chrome on a Mac a webcal link so Calendar.app opens instead of a download", () => {
+  it("keeps an https link in Chrome on a Mac, because webcal: has no handler there and the click silently does nothing", () => {
     expect(localCalendarHref("/api/calendar/event/walk-1", {userAgent: chromeMac, origin}))
-      .toEqual("webcal://www.example.co.uk/api/calendar/event/walk-1");
+      .toEqual("https://www.example.co.uk/api/calendar/event/walk-1");
   });
 
   it("keeps an https link in Safari so Calendar.app can import the event", () => {

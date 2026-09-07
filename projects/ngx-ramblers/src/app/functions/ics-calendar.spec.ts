@@ -232,6 +232,7 @@ describe("meetingRoomFromCalendarEvent", () => {
       status: null,
       organiser: null,
       organiserEmail: null,
+      organiserPhone: null,
       uid: null,
       sequence: 0,
       attendees: []
