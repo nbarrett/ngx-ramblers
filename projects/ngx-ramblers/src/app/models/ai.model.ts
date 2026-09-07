@@ -1,3 +1,4 @@
+import { Subject, Subscription } from "rxjs";
 import { ApiResponse } from "./api-response.model";
 import { ReleaseNoteUpdateCategory, ReleaseNoteUpdateCoverage } from "./email-composer.model";
 
@@ -42,6 +43,39 @@ export interface ChooseCoverImageApiResponse extends ApiResponse {
 export interface TextRewriteRequest {
   input: string;
   systemPrompt?: string;
+}
+
+export enum TidyTextKind {
+  TITLE = "title",
+  DESCRIPTION = "description"
+}
+
+export interface DescriptionTidyRequest {
+  input: string;
+  kind?: TidyTextKind;
+}
+
+export interface TidyTextItem {
+  kind: TidyTextKind;
+  label: string;
+  text: string;
+  acceptedFingerprint?: string | null;
+}
+
+export interface TidyTextApplied {
+  kind: TidyTextKind;
+  text: string;
+}
+
+export interface TidyTextState {
+  item: TidyTextItem;
+  changes: Subject<string>;
+  subscription: Subscription;
+  dismissedFor: string;
+  lastChecked: string;
+  checking: boolean;
+  suggestion: string;
+  changesMarkdown: string;
 }
 
 export interface TextRewriteResponse {

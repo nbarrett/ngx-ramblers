@@ -63,6 +63,7 @@ export const AUDITED_FIELDS: string[] = [
 
 export const UNAUDITED_FIELDS: string[] = [
   EventField.BOOKING_EMAIL_OVERRIDES,
+  EventField.DESCRIPTION_TIDY_FINGERPRINT,
   EventField.INPUT_SOURCE,
   EventField.MAX_GROUP_SIZE,
   EventField.MEMBER_PRIORITY_DAYS,
@@ -72,5 +73,6 @@ export const UNAUDITED_FIELDS: string[] = [
   EventField.ROUTE_OPACITY,
   EventField.ROUTE_WEIGHT,
   EventField.TAGS,
+  EventField.TITLE_TIDY_FINGERPRINT,
   GroupEventField.ID
 ];

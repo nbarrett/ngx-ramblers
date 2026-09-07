@@ -7,6 +7,7 @@ import {
   ChooseCoverImageApiResponse,
   ChooseCoverImageResponse,
   CoverImageCandidate,
+  DescriptionTidyRequest,
   NewsletterIntroApiResponse,
   NewsletterIntroRequest,
   NewsletterIntroResponse,
@@ -17,7 +18,8 @@ import {
   ReleaseNoteUpdateRequest,
   ReleaseNoteUpdateResponse,
   TextRewriteApiResponse,
-  TextRewriteResponse
+  TextRewriteResponse,
+  TidyTextKind
 } from "../../models/ai.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -35,6 +37,12 @@ export class AiService {
   async rewrite(input: string, systemPrompt?: string): Promise<string> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<TextRewriteApiResponse>(`${this.BASE_URL}/rewrite`, {input, systemPrompt}));
     return (response.response as TextRewriteResponse)?.output;
+  }
+
+  async tidyDescription(input: string, kind: TidyTextKind = TidyTextKind.DESCRIPTION): Promise<string> {
+    const request: DescriptionTidyRequest = {input, kind};
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<TextRewriteApiResponse>(`${this.BASE_URL}/tidy-description`, request));
+    return response?.response?.output ?? input;
   }
 
   async newsletterIntro(request: NewsletterIntroRequest): Promise<string> {

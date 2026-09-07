@@ -1,12 +1,14 @@
 import express from "express";
 import * as authConfig from "../../auth/auth-config";
-import { chooseCover, rewrite, status } from "../controllers/ai";
+import { chooseCover, rewrite, status, tidyDescription } from "../controllers/ai";
 import { draftNewsletterIntro, planNewsletter } from "../controllers/newsletter";
 import { draftReleaseNoteUpdate, requireReleaseNoteUpdatePlatformAdmin } from "../controllers/release-note-update";
 
 const router = express.Router();
 
 router.post("/rewrite", authConfig.authenticate(), rewrite);
+
+router.post("/tidy-description", authConfig.authenticate(), tidyDescription);
 
 router.post("/newsletter-intro", authConfig.authenticate(), draftNewsletterIntro);
 

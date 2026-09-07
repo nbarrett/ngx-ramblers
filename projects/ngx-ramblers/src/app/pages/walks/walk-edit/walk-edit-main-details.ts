@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { FormBuilder, FormsModule, ReactiveFormsModule } from "@angular/forms";
@@ -16,8 +16,15 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
+import { WalkTextTidyComponent } from "../../../shared/components/walk-text-tidy";
+import { WalkTextTidyService } from "../../../services/ai/walk-text-tidy.service";
+import { Subscription } from "rxjs";
+import { textFingerprint } from "../../../functions/text-diff";
+import { TidyTextApplied, TidyTextItem, TidyTextKind } from "../../../models/ai.model";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 
 @Component({
+    providers: [WalkTextTidyService],
   selector: "app-walk-edit-main-details",
     imports: [
     DatePicker,
@@ -25,8 +32,7 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
     TimePicker,
     EventDistanceEdit,
     ReactiveFormsModule,
-    TiptapMarkdownEditor
-  ],
+    TiptapMarkdownEditor, WalkTextTidyComponent],
   template: `
     @if (displayedWalk?.walk?.fields) {
     <div class="img-thumbnail thumbnail-admin-edit">
@@ -88,13 +94,16 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
           <div class="col-sm-12">
             <div class="form-group">
               <label for="brief-description-and-start-point">Walk Title ({{100 - (displayedWalk.walk.groupEvent.title?.length || 0)}} characters left)</label>
-              <textarea [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
-                        (ngModelChange)="walkChanged($event)" name="title"
-                        [disabled]="syncDisabled"
-                        class="form-control input-sm" rows="3"
-                        id="brief-description-and-start-point"
-                        maxlength="100"
-                        (change)="afterTitleChange()" placeholder="Enter walk title here"></textarea>
+              <app-walk-text-tidy [item]="tidyItem(TidyTextKind.TITLE)" [disabled]="syncDisabled" (applied)="tidiedTextApplied($event)" (kept)="tidiedTextKept($event)">
+                <textarea [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
+                          (ngModelChange)="walkChanged($event)" name="title"
+                          [disabled]="syncDisabled"
+                          class="form-control input-sm" rows="3"
+                          id="brief-description-and-start-point"
+                          maxlength="100"
+                          (blur)="walkTextTidy.requestCheck(TidyTextKind.TITLE)"
+                          (change)="afterTitleChange()" placeholder="Enter walk title here"></textarea>
+              </app-walk-text-tidy>
               @if (displayedWalk.walk.groupEvent.title?.length > 100) {
                 <div class="text-danger">Title must not exceed 100 characters.</div>
               }
@@ -105,12 +114,16 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
           <div class="col-sm-12">
             <div class="form-group">
               <label for="longer-description">Walk Description</label>
-              <app-tiptap-markdown-editor
-                id="longer-description"
-                [value]="displayedWalk.walk.groupEvent.description || ''"
-                [editable]="!syncDisabled"
-                placeholder="Enter walk description here"
-                (valueChange)="descriptionChanged($event)"/>
+              <app-walk-text-tidy [item]="tidyItem(TidyTextKind.DESCRIPTION)" [disabled]="syncDisabled" (applied)="tidiedTextApplied($event)" (kept)="tidiedTextKept($event)">
+                <div (focusout)="walkTextTidy.requestCheck(TidyTextKind.DESCRIPTION)">
+                  <app-tiptap-markdown-editor
+                    id="longer-description"
+                    [value]="displayedWalk.walk.groupEvent.description || ''"
+                    [editable]="!syncDisabled"
+                    placeholder="Enter walk description here"
+                    (valueChange)="descriptionChanged($event)"/>
+                </div>
+              </app-walk-text-tidy>
             </div>
           </div>
         </div>
@@ -162,7 +175,7 @@ import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tipt
       width: 146px
   `],
 })
-export class WalkEditMainDetailsComponent implements OnInit {
+export class WalkEditMainDetailsComponent implements OnInit, OnDestroy {
   public inputDisabled = false;
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
@@ -184,6 +197,15 @@ export class WalkEditMainDetailsComponent implements OnInit {
   protected walkDate: Date;
 
   ngOnInit() {
+    this.walkTextTidy.enabled = this.walksConfigService.walksConfig()?.suggestTextTidyUps !== false
+      && this.display.walkPopulationLocal()
+      && !this.display.eventHasStarted(this.displayedWalk?.walk);
+    this.tidySubscription = this.walkTextTidy.showingChanges().subscribe(showing => this.tidyShowing = showing);
+  }
+
+  ngOnDestroy() {
+    this.tidySubscription?.unsubscribe();
+    this.walkTextTidy.destroy();
   }
 
   walkChanged($event ) {
@@ -194,6 +216,37 @@ export class WalkEditMainDetailsComponent implements OnInit {
   descriptionChanged(markdown: string) {
     this.displayedWalk.walk.groupEvent.description = markdown;
     this.walkChanged(markdown);
+  }
+
+  tidyShowing: TidyTextKind[] = [];
+  private walksConfigService = inject(WalksConfigService);
+  protected walkTextTidy = inject(WalkTextTidyService);
+  private tidySubscription: Subscription | null = null;
+  protected readonly TidyTextKind = TidyTextKind;
+
+  tidyItem(kind: TidyTextKind): TidyTextItem {
+    return kind === TidyTextKind.TITLE
+      ? {kind, label: "Walk Title", text: this.displayedWalk.walk.groupEvent.title || "", acceptedFingerprint: this.displayedWalk.walk.fields?.titleTidyFingerprint}
+      : {kind, label: "Walk Description", text: this.displayedWalk.walk.groupEvent.description || "", acceptedFingerprint: this.displayedWalk.walk.fields?.descriptionTidyFingerprint};
+  }
+
+  tidiedTextApplied(applied: TidyTextApplied) {
+    this.tidiedTextKept(applied);
+    if (applied.kind === TidyTextKind.TITLE) {
+      this.displayedWalk.walk.groupEvent.title = applied.text;
+      this.walkChanged(applied.text);
+      void this.afterTitleChange();
+    } else {
+      this.descriptionChanged(applied.text);
+    }
+  }
+
+  tidiedTextKept(kept: TidyTextApplied) {
+    if (kept.kind === TidyTextKind.TITLE) {
+      this.displayedWalk.walk.fields.titleTidyFingerprint = textFingerprint(kept.text);
+    } else {
+      this.displayedWalk.walk.fields.descriptionTidyFingerprint = textFingerprint(kept.text);
+    }
   }
 
   onDateChange(date: DateValue) {

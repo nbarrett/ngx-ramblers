@@ -89,7 +89,7 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
 
   @Input() set tabs(value: (T | SectionToggleTab)[]) {
     const next = value || [];
-    const nextSignature = next.map(tab => isString(tab) ? tab : tab.value).join("|");
+    const nextSignature = next.map(tab => isString(tab) ? tab : `${tab.value}:${tab.label}`).join("|");
     if (nextSignature === this.tabsSignature) {
       return;
     }
