@@ -33,6 +33,33 @@ import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-u
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("integration-worker-runner"));
 debugLog.enabled = true;
 const decoder = new stringDecoder.StringDecoder("utf8");
+const KEEP_ALIVE_INTERVAL_MS = 60 * 1000;
+const DEFAULT_MAX_JOB_MINUTES = 45;
+
+function maxJobDurationMs(): number {
+  const configured = Number(process.env[Environment.INTEGRATION_WORKER_MAX_JOB_MINUTES]);
+  return (Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_JOB_MINUTES) * 60 * 1000;
+}
+
+function workerPublicHealthUrl(): string | null {
+  const appName = process.env[Environment.FLY_APP_NAME];
+  return appName ? `https://${appName}.fly.dev/api/health` : null;
+}
+
+function startKeepAlive(jobId: string): () => void {
+  const healthUrl = workerPublicHealthUrl();
+  if (!healthUrl) {
+    debugLog("keep-alive not started for jobId:", jobId, "- no FLY_APP_NAME so the machine is not managed by Fly");
+    return () => null;
+  } else {
+    const timer = setInterval(() => {
+      fetch(healthUrl).then(response => debugLog("keep-alive ping for jobId:", jobId, "status:", response.status))
+        .catch(error => debugLog("keep-alive ping failed for jobId:", jobId, "error:", (error as Error).message));
+    }, KEEP_ALIVE_INTERVAL_MS);
+    debugLog("keep-alive started for jobId:", jobId, "pinging", healthUrl, "every", KEEP_ALIVE_INTERVAL_MS, "ms so Fly does not suspend the machine mid-job");
+    return () => clearInterval(timer);
+  }
+}
 
 function prepareOsMapsExportJobPath(jobId: string): {jobPath: string; metadataPath?: string} {
   const jobPath = path.join("/tmp/os-maps-export", jobId);
@@ -199,6 +226,14 @@ export async function executeRamblersUploadJobOnWorker(
   const subprocess = spawn("npm", ["run", "serenity"], {
     stdio: ["pipe", "pipe", "pipe", "ipc"]
   });
+  const stopKeepAlive = startKeepAlive(job.jobId);
+  const maxDurationMs = maxJobDurationMs();
+  const watchdog = setTimeout(() => {
+    const message = `Job stopped after exceeding the ${formatElapsed(maxDurationMs)} limit for a single worker job`;
+    debugLog("watchdog for jobId:", job.jobId, message);
+    void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
+    subprocess.kill("SIGKILL");
+  }, maxDurationMs);
   await new Promise<void>((resolve, reject) => {
     subprocess.stdout.on("data", data => {
       const state = remoteRamblersUploadExecutionState();
@@ -239,6 +274,8 @@ export async function executeRamblersUploadJobOnWorker(
     });
 
     subprocess.on("error", error => {
+      stopKeepAlive();
+      clearTimeout(watchdog);
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
@@ -247,11 +284,14 @@ export async function executeRamblersUploadJobOnWorker(
         });
     });
 
-    subprocess.on("exit", code => {
+    subprocess.on("exit", (code, signal) => {
+      stopKeepAlive();
+      clearTimeout(watchdog);
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
-      const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`} in ${elapsed}`;
+      const outcome = code === 0 ? "" : (signal ? ` after being stopped (${signal})` : ` with code ${code}`);
+      const payload = `Upload completed with ${status} for ${job.data.fileName}${outcome} in ${elapsed}`;
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
