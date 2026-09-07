@@ -140,13 +140,30 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
               </div>
             </div>
             @if (renderMapEdit) {
-              <div class="col-sm-12 mb-4">
-                <app-walk-location-edit [locationType]="LocationType.STARTING"
-                                        [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
-                                        [disabled]="syncDisabled"
-                                        [showLocationOnly]="true"
-                                        [notify]="notify"/>
-              </div>
+              @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
+                <div class="col-sm-6 mb-4">
+                  <app-walk-location-edit [locationType]="LocationType.STARTING"
+                                          [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
+                                          [disabled]="syncDisabled"
+                                          [showLocationOnly]="true"
+                                          [notify]="notify"/>
+                </div>
+                <div class="col-sm-6 mb-4">
+                  <app-walk-location-edit [locationType]="LocationType.FINISHING"
+                                          [locationDetails]="displayedWalk?.walk?.groupEvent.end_location"
+                                          [disabled]="syncDisabled"
+                                          [showLocationOnly]="true"
+                                          [notify]="notify"/>
+                </div>
+              } @else {
+                <div class="col-sm-12 mb-4">
+                  <app-walk-location-edit [locationType]="LocationType.STARTING"
+                                          [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
+                                          [disabled]="syncDisabled"
+                                          [showLocationOnly]="true"
+                                          [notify]="notify"/>
+                </div>
+              }
             }
             <div class="col-sm-12">
               <div class="form-group">
@@ -258,11 +275,12 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                   <div class="col">
                     <app-walk-location-edit [locationType]="LocationType.FINISHING"
                                             [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
+                                            [hideLocationDropdown]="true"
                                             [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
                                             [routeColor]="displayedWalk?.walk?.fields?.routeColor"
                                             [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
                                             [routeOpacity]="displayedWalk?.walk?.fields?.routeOpacity"
-                                            [disabled]="inputDisabled"
+                                            [disabled]="syncDisabled"
                                             [notify]="notify"/>
                   </div>
                 }

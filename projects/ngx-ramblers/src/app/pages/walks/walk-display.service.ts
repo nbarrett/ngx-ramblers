@@ -583,20 +583,18 @@ export class WalkDisplayService {
     return lastSegment ? this.stringUtils.asPathSegmentTitle(lastSegment) : null;
   }
 
-  public returnToPreviousView(walk?: ExtendedGroupEvent): void {
+  public returnToPreviousView(walk?: ExtendedGroupEvent, replaceHistory = false): void {
     const returnUrl = this.viewReturnUrl;
     this.viewReturnUrl = null;
-    this.logger.info("returnToPreviousView:returnUrl:", returnUrl, "historyLength:", window.history.length);
+    this.logger.info("returnToPreviousView:returnUrl:", returnUrl, "historyLength:", window.history.length, "replaceHistory:", replaceHistory);
     if (returnUrl && !this.isFollowPath(returnUrl)) {
       const [pathWithQuery, fragment] = returnUrl.split("#");
       const [path, queryString] = pathWithQuery.split("?");
-      this.router.navigate([path], {queryParams: this.queryParamsFrom(queryString), fragment});
+      this.router.navigate([path], {queryParams: this.queryParamsFrom(queryString), fragment, replaceUrl: replaceHistory});
     } else if (walk) {
-      this.router.navigate(this.publicWalkLink(walk));
-    } else if (window.history.length > 1) {
-      this.location.back();
+      this.router.navigate(this.publicWalkLink(walk), {replaceUrl: replaceHistory});
     } else {
-      this.router.navigate(["/" + this.walksListArea()]);
+      this.router.navigate(["/" + this.walksListArea()], {replaceUrl: replaceHistory});
     }
   }
 
@@ -660,7 +658,7 @@ export class WalkDisplayService {
   }
 
   closeEditView(walk: ExtendedGroupEvent) {
-    this.returnToPreviousView(walk);
+    this.returnToPreviousView(walk, true);
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }
 
