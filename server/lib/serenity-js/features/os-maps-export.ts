@@ -13,6 +13,7 @@ import { ExportedGpxFile } from "../screenplay/questions/os-maps/exported-gpx-fi
 import { ExportedGpxValidator } from "../screenplay/questions/os-maps/exported-gpx-validator";
 import { clearExportedGpx } from "../screenplay/questions/os-maps/exported-gpx-store";
 import { resolveSerenityActorName } from "../resolve-actor-name";
+import { OS_MAPS_SCENARIO_TIMEOUT } from "../config/serenity-timeouts";
 
 const osMapsCredentialsConfigured = !!(
   process.env[Environment.OS_EMAIL] && process.env[Environment.OS_PASSWORD]
@@ -33,6 +34,8 @@ function exportRoutes(): OsMapsRouteFixture[] {
 }
 
 describe("OS Maps GPX export", () => {
+
+  test.setTimeout(OS_MAPS_SCENARIO_TIMEOUT.inMilliseconds());
 
   afterEach(async ({ actorCalled }) => {
     clearExportedGpx();

@@ -184,6 +184,8 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   loginConfigured = false;
   currentJobFileName: string | null = null;
+  private currentJobId: string | null = null;
+  private destroyed = false;
   faSync = faSync;
   faSpinner = faSpinner;
   faDownload = faDownload;
@@ -239,6 +241,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.searchWait.timer) {
       clearTimeout(this.searchWait.timer);
     }
@@ -405,15 +408,16 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       try {
         const started = await this.osMapsExportService.exportRoutes(routeUrls);
         this.currentJobFileName = started.fileName || this.currentJobFileName;
-        const result = await this.osMapsExportService.waitForExport(started.jobId);
+        this.currentJobId = started.jobId;
+        const result = await this.osMapsExportService.waitForExport(started.jobId, () => !this.destroyed && this.currentJobId === started.jobId);
         if (result.status === OsMapsExportJobStatus.COMPLETED) {
           this.successMessage = `${this.stringUtils.pluraliseWithCount(result.gpxFiles.length, "GPX file")} saved and ready to attach to a walk`;
           this.warningMessage = result.error || "";
           await this.loadListing();
         } else if (result.status === OsMapsExportJobStatus.FAILED) {
           this.errorMessage = await this.lastJobError(started.fileName) || result.error || "Failed to convert the selected routes";
-        } else {
-          this.errorMessage = "Conversion is still running. Check back shortly, or try again.";
+        } else if (!this.destroyed) {
+          this.warningMessage = "The conversion is taking longer than expected and this page has stopped waiting for it. The job progress below keeps updating; reload the routes list once it has finished.";
         }
       } catch (error) {
         this.logger.error("convertSelected failed:", error);

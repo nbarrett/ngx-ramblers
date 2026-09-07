@@ -8,6 +8,21 @@ const MARKETING_DISMISS_BUTTON_NAMES = [
   /close popup/i
 ];
 
+const OS_MAPS_BACKGROUND_HOST_PATTERN = /(^|\.)(oscptiles\.com|qualtrics\.com|amplitude\.com)$/i;
+const OS_MAPS_BACKGROUND_RESOURCE_TYPES = ["image", "media", "font"];
+
+export async function blockOsMapsBackgroundTraffic(native: NativePage): Promise<void> {
+  await native.context().route("**/*", route => {
+    const request = route.request();
+    const hostname = new URL(request.url()).hostname;
+    if (OS_MAPS_BACKGROUND_HOST_PATTERN.test(hostname) || OS_MAPS_BACKGROUND_RESOURCE_TYPES.includes(request.resourceType())) {
+      return route.abort();
+    } else {
+      return route.continue();
+    }
+  });
+}
+
 export async function allowOsMapsGeolocation(native: NativePage): Promise<void> {
   await native.context().grantPermissions(["geolocation"]);
   await native.context().setGeolocation(UK_CENTRE_GEOLOCATION);
@@ -61,9 +76,6 @@ export async function removeOsMapsBlockingOverlays(native: NativePage): Promise<
 
 export async function clearOsMapsInterruptions(native: NativePage): Promise<void> {
   await allowOsMapsGeolocation(native);
-  await acceptOsMapsCookieBanner(native);
-  await dismissOsMapsMarketingPopups(native);
-  await removeOsMapsBlockingOverlays(native);
   await acceptOsMapsCookieBanner(native);
   await dismissOsMapsMarketingPopups(native);
   await removeOsMapsBlockingOverlays(native);
