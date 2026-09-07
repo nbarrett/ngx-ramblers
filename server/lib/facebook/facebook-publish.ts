@@ -163,3 +163,17 @@ export async function publishAlbumToFacebook(
 ): Promise<SocialPublishResult> {
   return publishToFacebookPage(facebook, {images, caption, postStyle: FacebookPostStyle.PHOTO_WITH_LINK}, onProgress);
 }
+
+export async function deleteFacebookPost(facebook: Facebook, postId: string): Promise<void> {
+  if (!facebook?.pageAccessToken) {
+    throw new Error("Facebook is not configured: a Page access token is required");
+  }
+  debugLog("deleting post:", postId);
+  await graphApiRequest({
+    method: GraphApiMethod.DELETE,
+    path: `/${postId}`,
+    params: {access_token: facebook.pageAccessToken},
+    debug: debugLog
+  });
+  debugLog("deleted post:", postId);
+}

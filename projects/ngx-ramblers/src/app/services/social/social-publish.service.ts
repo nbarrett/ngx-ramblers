@@ -4,6 +4,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, Subject, Subscription } from "rxjs";
 import { filter, take } from "rxjs/operators";
 import {
+  DeletePublicationApiResponse,
+  DeletePublicationRequest,
   EventImageAttachApiResponse,
   EventImageAttachRequest,
   EventPublishApiResponse,
@@ -143,14 +145,18 @@ export class SocialPublishService {
     return response.response as FacebookTokenHealth;
   }
 
-  async publicationsForAlbum(albumName: string): Promise<SocialPublication[]> {
-    const params = new HttpParams().set("albumName", albumName);
+  async publicationsForAlbum(albumName: string, verify = false): Promise<SocialPublication[]> {
+    const params = new HttpParams().set("albumName", albumName).set("verify", String(verify));
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<SocialPublicationsApiResponse>(`${this.BASE_URL}/publications`, {params}));
     return (response.response as SocialPublication[]) || [];
   }
 
-  async publishEvents(eventIds: string[], networks: SocialNetwork[], republishChanged: boolean, captions?: Partial<Record<SocialNetwork, string>>): Promise<EventPublishResult[]> {
-    const request: EventPublishRequest = {eventIds, networks, republishChanged, captions};
+  async deletePublication(request: DeletePublicationRequest): Promise<void> {
+    await this.commonDataService.responseFrom(this.logger, this.http.post<DeletePublicationApiResponse>(`${this.BASE_URL}/publications/delete`, request));
+  }
+
+  async publishEvents(eventIds: string[], networks: SocialNetwork[], republishChanged: boolean, captions?: Partial<Record<SocialNetwork, string>>, postAgain = false): Promise<EventPublishResult[]> {
+    const request: EventPublishRequest = {eventIds, networks, republishChanged, captions, postAgain};
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<EventPublishApiResponse>(`${this.BASE_URL}/facebook/publish-events`, request));
     return (response.response as EventPublishResult[]) || [];
   }

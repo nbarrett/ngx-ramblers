@@ -17,6 +17,7 @@ import { withLink } from "./caption-builder";
 import { publishAlbumToInstagram } from "../instagram/instagram-publish";
 import { socialPublication } from "../mongo/models/social-publication";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { livePublicationOrNull } from "./publication-status";
 
 const debugLog = debug(envConfig.logNamespace("social:publish-ws"));
 debugLog.enabled = true;
@@ -124,7 +125,8 @@ export async function handleSocialPublishAlbum(ws: WebSocket, data: SocialPublis
         } else if (networkImages.length === 0) {
           results.push({network, success: false, error: `Select at least one image to publish to ${network}`});
         } else {
-          const existing = await socialPublication.findOne({albumName, network}).lean().exec() as {postId?: string; permalink?: string} | null;
+          const recorded = await socialPublication.findOne({albumName, network}).lean().exec() as {postId?: string; permalink?: string; network?: SocialNetwork} | null;
+          const existing = await livePublicationOrNull(recorded, config?.externalSystems?.facebook?.pageAccessToken);
           if (existing) {
             results.push({
               network,
