@@ -9,6 +9,7 @@ import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { LinkStyle, ListStyle } from "../../../../models/content-text.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { MarkdownComponent } from "ngx-markdown";
+import { DEFAULT_EMOJI_SYNONYMS, emojiSynonymsFromText, emojiSynonymsToText } from "../../../../models/emoji.model";
 
 @Component({
   selector: "[app-global-styles]",
@@ -55,6 +56,24 @@ import { MarkdownComponent } from "ngx-markdown";
           </div>
         }
       </div>
+    </div>
+    <div class="img-thumbnail thumbnail-admin-edit mt-3">
+      <div class="thumbnail-heading-frame">
+        <div class="thumbnail-heading">Emoji Shortcuts</div>
+        <div class="row">
+          <div class="col-12">
+            <p>Typing <code>:word</code> in a caption or description offers a matching emoji. Add a word here to
+              also offer a set of emojis for it, one word per line, followed by a colon and the emoji names
+              (comma separated, no colons needed around them). For example <code>thanks: pray, clap,
+                raised_hands</code> means typing <code>:thanks</code> also offers 🙏, 👏 and 🙌. Leave this
+              blank to use the built-in defaults.</p>
+            <textarea class="form-control" rows="10" id="emoji-shortcuts"
+                      [ngModel]="emojiShortcutsText"
+                      (ngModelChange)="onEmojiShortcutsChange($event)"
+                      placeholder="{{ defaultEmojiShortcutsText }}"></textarea>
+          </div>
+        </div>
+      </div>
     </div>`,
   imports: [ReactiveFormsModule, FormsModule, MarkdownComponent]
 })
@@ -69,11 +88,19 @@ export class GlobalStyles implements OnInit {
   @Input() config: SystemConfig;
 
   protected readonly JSON = JSON;
+  protected emojiShortcutsText = "";
+  protected readonly defaultEmojiShortcutsText = emojiSynonymsToText(DEFAULT_EMOJI_SYNONYMS);
 
   ngOnInit() {
     this.logger.info("constructed:config:", this.config);
     if (!this.config?.globalStyles) {
       this.config.globalStyles = this.systemConfigService.defaultHasStyles();
     }
+    this.emojiShortcutsText = emojiSynonymsToText(this.config?.emoji?.synonyms || []);
+  }
+
+  onEmojiShortcutsChange(text: string): void {
+    this.emojiShortcutsText = text;
+    this.config.emoji = {synonyms: emojiSynonymsFromText(text)};
   }
 }

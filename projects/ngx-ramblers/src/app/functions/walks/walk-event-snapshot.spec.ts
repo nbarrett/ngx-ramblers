@@ -35,6 +35,22 @@ describe("walk event snapshots", () => {
     });
   });
 
+  it("leaves the system-written Ramblers link out of the snapshot but keeps the writer's own links", () => {
+    const withLinks = {
+      ...walk,
+      fields: {
+        ...walk.fields,
+        links: [
+          {source: "ramblers", href: "https://www.ramblers.org.uk/go-walking/group-walks/test-walk", title: "Test walk"},
+          {source: "meetup", href: "https://www.meetup.com/test", title: "Meetup"}
+        ]
+      }
+    } as any;
+    expect((walkEventDataSnapshot(withLinks) as any).fields.links).toEqual([
+      {source: "meetup", href: "https://www.meetup.com/test", title: "Meetup"}
+    ]);
+  });
+
   it("creates a system history event from the shared snapshot", () => {
     expect(systemWalkDetailsUpdatedEvent(walk, 123, "Automatic match")).toEqual({
       data: walkEventDataSnapshot(walk),

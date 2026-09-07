@@ -73,6 +73,11 @@ export class AppShellService {
     }
   }
 
+  mobilePlatform(): boolean {
+    const platform = this.platform();
+    return platform === AppInstallPlatform.IOS || platform === AppInstallPlatform.ANDROID;
+  }
+
   platform(): AppInstallPlatform {
     const agent = (this.document.defaultView?.navigator.userAgent || "").toLowerCase();
     if (/iphone|ipad|ipod/.test(agent) || this.isIosDesktopSafari(agent)) {

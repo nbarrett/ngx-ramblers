@@ -292,6 +292,7 @@ export interface CalendarPreviewEvent {
   status: string | null;
   organiser: string | null;
   organiserEmail: string | null;
+  organiserPhone: string | null;
   uid: string | null;
   sequence: number;
   attendees: CalendarAttendee[];

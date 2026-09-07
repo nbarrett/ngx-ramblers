@@ -3,6 +3,7 @@ import { AccessLevel } from "./member-resource.model";
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { GoogleMapsConfig, WalkListView } from "./walk.model";
+import { EmojiSettings } from "./emoji.model";
 import { HasStyles } from "./content-text.model";
 import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { Tag } from "./tag.model";
@@ -441,6 +442,7 @@ export interface SystemConfig {
   }
   volunteers?: VolunteerSettingsConfig;
   videoMeetings?: VideoMeetingsConfig;
+  emoji?: EmojiSettings;
   activeChangelogCollection?: string;
 }
 

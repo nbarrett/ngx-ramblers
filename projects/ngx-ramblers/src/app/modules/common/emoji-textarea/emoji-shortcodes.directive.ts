@@ -7,7 +7,7 @@ import {
   OnDestroy,
   Renderer2
 } from "@angular/core";
-import { EmojiShortcodeMatch } from "../../../models/emoji.model";
+import { EMOJI_SUGGESTION_LIMIT, EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
 
 @Directive({
@@ -15,7 +15,7 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
 })
 export class EmojiShortcodesDirective implements OnDestroy {
 
-  @Input() emojiLimit = 36;
+  @Input() emojiLimit = EMOJI_SUGGESTION_LIMIT;
 
   private host = inject(ElementRef<HTMLInputElement | HTMLTextAreaElement>);
   private renderer = inject(Renderer2);
@@ -117,7 +117,8 @@ export class EmojiShortcodesDirective implements OnDestroy {
     this.renderer.setStyle(menu, "margin", "0");
     this.renderer.setStyle(menu, "padding", "4px 0");
     this.renderer.setStyle(menu, "list-style", "none");
-    this.renderer.setStyle(menu, "max-height", "360px");
+    const availableHeight = Math.max(160, Math.round(window.innerHeight - rect.bottom - 24));
+    this.renderer.setStyle(menu, "max-height", `${availableHeight}px`);
     this.renderer.setStyle(menu, "overflow-y", "auto");
     this.renderer.setStyle(menu, "background", "#fff");
     this.renderer.setStyle(menu, "border", "1px solid rgba(15, 23, 42, 0.15)");

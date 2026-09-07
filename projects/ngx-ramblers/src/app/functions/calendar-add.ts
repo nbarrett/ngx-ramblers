@@ -3,6 +3,7 @@ import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } fr
 import { UIDateFormat } from "../models/date-format.model";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { WalkStatus } from "../models/ramblers-walks-manager";
+import { escapeHtml } from "./text-diff";
 
 const DEFAULT_WALK_DURATION_HOURS = 3;
 
@@ -91,21 +92,12 @@ export function calendarEventFromGroupEvent(event: ExtendedGroupEvent | null): C
       status: event.groupEvent.status === WalkStatus.CANCELLED ? "CANCELLED" : "CONFIRMED",
       organiser,
       organiserEmail: null,
+      organiserPhone: null,
       uid: event.id || null,
       sequence: 0,
       attendees: []
     };
   }
-}
-
-function isSafari(userAgent: string): boolean {
-  const ua = (userAgent || "").toLowerCase();
-  return ua.includes("safari") && !ua.includes("chrome") && !ua.includes("chromium") && !ua.includes("android") && !ua.includes("crios") && !ua.includes("fxios") && !ua.includes("edg");
-}
-
-function isAppleDesktop(userAgent: string): boolean {
-  const ua = (userAgent || "").toLowerCase();
-  return (ua.includes("mac os") || ua.includes("macintosh")) && !ua.includes("mobile") && !ua.includes("iphone") && !ua.includes("ipad");
 }
 
 function absoluteFileUrl(fileUrl: string, origin: string | null): string {
@@ -119,12 +111,7 @@ function absoluteFileUrl(fileUrl: string, origin: string | null): string {
 }
 
 export function localCalendarHref(fileUrl: string, hints?: CalendarClientHints | null): string {
-  const absolute = absoluteFileUrl(fileUrl, hints?.origin || null);
-  if (isAppleDesktop(hints?.userAgent || "") && !isSafari(hints?.userAgent || "") && /^https?:\/\//i.test(absolute)) {
-    return absolute.replace(/^https:/i, "webcal:").replace(/^http:/i, "webcal:");
-  } else {
-    return absolute;
-  }
+  return absoluteFileUrl(fileUrl, hints?.origin || null);
 }
 
 export function calendarHrefFor(app: CalendarApp, event: CalendarPreviewEvent | null, fileUrl: string | null, hints?: CalendarClientHints | null): string | null {
@@ -162,6 +149,16 @@ function googleDates(event: CalendarPreviewEvent): string | null {
   }
 }
 
+function calendarBody(event: CalendarPreviewEvent): string | null {
+  const leader = [event.organiser, event.organiserPhone, event.organiserEmail].filter(Boolean).map(escapeHtml).join(" ");
+  const rows = [
+    event.description ? `<strong>Description:</strong> ${escapeHtml(event.description)}` : null,
+    leader ? `<strong>Walk leader:</strong> ${leader}` : null,
+    event.url ? `<strong>Website:</strong> <a href="${escapeHtml(event.url)}">${escapeHtml(event.url)}</a>` : null
+  ].filter(Boolean);
+  return rows.length ? rows.join("<br>") : null;
+}
+
 export function googleCalendarUrl(event: CalendarPreviewEvent): string | null {
   const dates = googleDates(event);
   if (!dates) {
@@ -171,8 +168,9 @@ export function googleCalendarUrl(event: CalendarPreviewEvent): string | null {
     params.set("action", "TEMPLATE");
     params.set("text", event.title || "Event");
     params.set("dates", dates);
-    if (event.description) {
-      params.set("details", event.description);
+    const body = calendarBody(event);
+    if (body) {
+      params.set("details", body);
     }
     if (event.location) {
       params.set("location", event.location);
@@ -195,8 +193,9 @@ export function outlookCalendarUrl(event: CalendarPreviewEvent): string | null {
     params.set("subject", event.title || "Event");
     params.set("startdt", outlookIso(event.startsAt));
     params.set("enddt", outlookIso(event.endsAt || event.startsAt));
-    if (event.description) {
-      params.set("body", event.description);
+    const body = calendarBody(event);
+    if (body) {
+      params.set("body", body);
     }
     if (event.location) {
       params.set("location", event.location);

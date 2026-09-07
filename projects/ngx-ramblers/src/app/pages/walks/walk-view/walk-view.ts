@@ -52,6 +52,8 @@ import {
   faCopy,
   faCircleCheck
 } from "@fortawesome/free-solid-svg-icons";
+import { AppShellService } from "../../../services/maps/app-shell.service";
+import { nativeShareSupported } from "../../../functions/native-share";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { AlbumEditRole } from "../../../models/content-metadata.model";
@@ -249,7 +251,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
               }
             </div>
             <app-walk-details class="walk-meta-details" [displayedWalk]="displayedWalk"/>
-            @if (displayLinks && display.showWalkRelatedLinks()) {
+            @if (display.showWalkRelatedLinks()) {
               <app-related-links-panel class="walk-meta-related" [displayedWalk]="displayedWalk"/>
             } @else {
               <div class="walk-meta-related"></div>
@@ -266,7 +268,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
               @if (displayedWalk?.hasFeatures) {
                 <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
               }
-              @if (displayLinks && display.showWalkRelatedLinks()) {
+              @if (display.showWalkRelatedLinks()) {
                 <app-related-links-panel [displayedWalk]="displayedWalk"/>
               }
             </div>
@@ -291,7 +293,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                   <fa-icon [icon]="faCloudArrowUp"/>
                   <span>Publish</span>
                 </button>
-              } @else {
+              } @else if (splitShareButton()) {
                 <button type="button" (click)="primaryAction()"
                         class="btn btn-sm walk-view-action"
                         [class.btn-primary]="showPublishToRamblers"
@@ -301,14 +303,24 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                   <fa-icon [icon]="primaryActionIsPublish() ? faCloudArrowUp : faShareNodes"/>
                   <span>{{ primaryActionIsPublish() ? "Publish" : "Share" }}</span>
                 </button>
+              } @else {
+                <button type="button" dropdownToggle
+                        class="btn btn-sm btn-quiet walk-view-action dropdown-toggle"
+                        [tooltip]="'Share and publish options for this ' + eventTypeLabel()"
+                        container="body">
+                  <fa-icon [icon]="faShareNodes"/>
+                  <span>Share</span>
+                </button>
               }
-              <button type="button" dropdownToggle
-                      class="btn btn-sm walk-view-action dropdown-toggle dropdown-toggle-split"
-                      [class.btn-primary]="showPublishToRamblers"
-                      [class.btn-quiet]="!showPublishToRamblers"
-                      aria-label="More share and publish options">
-                <span class="visually-hidden">More options</span>
-              </button>
+              @if (splitShareButton() || (showPublishToRamblers && publishBlockedUntilApproved())) {
+                <button type="button" dropdownToggle
+                        class="btn btn-sm walk-view-action dropdown-toggle dropdown-toggle-split"
+                        [class.btn-primary]="showPublishToRamblers"
+                        [class.btn-quiet]="!showPublishToRamblers"
+                        aria-label="More share and publish options">
+                  <span class="visually-hidden">More options</span>
+                </button>
+              }
               <ul *dropdownMenu class="dropdown-menu">
                 @if (showPublishToRamblers) {
                   <li>
@@ -454,7 +466,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private configuredMapProvider: WalkDetailsMapProvider = WalkDetailsMapProvider.OS_MAPS;
   public walkIdOrPath: string;
   public displayedWalk: DisplayedWalk;
-  public displayLinks: boolean;
   public fromPostcode = "";
   public fromLocation: LatLngLiteral | null = null;
   public locatingMe = false;
@@ -474,6 +485,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private memberLoginService = inject(MemberLoginService);
   public display = inject(WalkDisplayService);
+  private appShell = inject(AppShellService);
   private dateUtils = inject(DateUtilsService);
   public meetupService = inject(MeetupService);
   protected urlService = inject(UrlService);
@@ -548,11 +560,19 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     return this.showPublishToRamblers && !this.publishBlockedUntilApproved();
   }
 
+  primaryActionIsNativeShare(): boolean {
+    return this.appShell.mobilePlatform() && nativeShareSupported();
+  }
+
+  splitShareButton(): boolean {
+    return this.primaryActionIsPublish() || this.primaryActionIsNativeShare();
+  }
+
   primaryAction(): void {
     if (this.primaryActionIsPublish()) {
       this.urlService.navigateTo(this.publishExportLink, this.publishExportQueryParams);
     } else {
-      this.shareWalk();
+      void this.shareWalk();
     }
   }
 
@@ -886,7 +906,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.displayedWalk = displayedWalk;
       this.defaultMapDisplayForLinearWalk();
       this.pageService.setTitle();
-      this.displayLinks = displayedWalk?.walk?.fields?.links?.length > 0;
       this.resolveWalkAlbumPath(displayedWalk.walk);
       this.refreshPublishAction(displayedWalk.walk);
       this.queryFullWalkIfRequired(displayedWalk);

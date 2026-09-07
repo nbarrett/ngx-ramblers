@@ -1,14 +1,17 @@
-import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faCalendarDay, faCalendarPlus, faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
-import { faCalendarPlus, faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { isBrowser } from "es-toolkit";
 import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } from "../../../models/inbox.model";
 import { calendarAppLabel, calendarAppsForDevice, calendarEventFromGroupEvent, calendarHrefFor, deviceKindFromUserAgent } from "../../../functions/calendar-add";
+import { ContactAction, ContactActionDropdownComponent } from "../contact-action-dropdown/contact-action-dropdown";
+import { nativeShareSupported, shareOrOpen } from "../../../functions/native-share";
 import { RelatedLinkComponent } from "./related-link";
 import { directionsLinks } from "../../../functions/locate";
 import { AppShellService } from "../../../services/maps/app-shell.service";
 import { DirectionsLink } from "../../../models/locate.model";
+import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayedWalk, Links } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
@@ -67,13 +70,13 @@ import { FileNameData } from "../../../models/aws-object.model";
         <a content [href]="locateStartLink()" tooltip="Show the start on the OS map, with the grid reference, postcode and directions">Locate the start on the map</a>
       </div>
     }
-    @if (showLink('relatedLinkShowDirections')) {
-      @for (link of directionsToStart(); track link.app) {
-        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-          <fa-icon title [icon]="faDirections" class="fa-icon"/>
-          <a content [href]="link.url" target="_blank" rel="noopener" tooltip="Directions to the start from where you are, in {{ link.app }} (opens in a new tab)">Directions in {{ link.app }}</a>
-        </div>
-      }
+    @if (showLink('relatedLinkShowDirections') && directionsToStart().length > 0) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+        <fa-icon title [icon]="faDirections" class="fa-icon"/>
+        <a content [href]="directionsToStart()[0].url" target="_blank" rel="noopener"
+           (click)="shareDirections($event)"
+           tooltip="Directions to the start from where you are - opens your maps app">Directions to the start</a>
+      </div>
     }
     @if (gpxDownloadUrl() && showLink('relatedLinkShowGpx')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
@@ -86,22 +89,12 @@ import { FileNameData } from "../../../models/aws-object.model";
         </a>
       </div>
     }
-    @if (calendarDownloadUrl() && showLink('relatedLinkShowCalendar')) {
-      @for (app of calendarApps; track app) {
-        @if (calendarHref(app); as href) {
-          <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-               class="col-sm-12">
-            <fa-icon title [icon]="calendarIcon(app)" class="fa-icon"></fa-icon>
-            <a content
-               tooltip="Click to add this {{display.eventTypeTitle(displayedWalk.walk).toLowerCase()}} to {{calendarDestination(app)}}"
-               [href]="href"
-               [attr.target]="app === CalendarApp.LOCAL ? null : '_blank'"
-               [attr.rel]="app === CalendarApp.LOCAL ? null : 'noopener'">
-              {{ calendarLabel(app) }}
-            </a>
-          </div>
-        }
-      }
+    @if (calendarDownloadUrl() && showLink('relatedLinkShowCalendar') && choosableCalendarApps().length > 0) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+           class="col-sm-12">
+        <fa-icon title [icon]="faCalendarPlus" class="fa-icon"></fa-icon>
+        <app-contact-action-dropdown content [actions]="calendarActions()">Add to calendar</app-contact-action-dropdown>
+      </div>
     }
     @if (what3wordsHref() && showLink('relatedLinkShowWhat3words')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
@@ -125,7 +118,7 @@ import { FileNameData } from "../../../models/aws-object.model";
   `,
   styles: [`
   `],
-  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe]
+  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe, ContactActionDropdownComponent]
 })
 export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RelatedLinksComponent", NgxLoggerLevel.ERROR);
@@ -138,6 +131,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private urlService = inject(UrlService);
   @Input() displayedWalk: DisplayedWalk;
   @Input() walksConfigOverride?: WalksConfig;
+  @Output() hasAnyLinkChange = new EventEmitter<boolean>();
   public links: Links = null;
   public walksConfig: WalksConfig;
   private subscriptions: Subscription[] = [];
@@ -146,9 +140,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   protected readonly faMapLocationDot = faMapLocationDot;
   private appShell = inject(AppShellService);
   protected readonly faCalendarPlus = faCalendarPlus;
-  protected readonly faGoogle = faGoogle;
-  protected readonly faMicrosoft = faMicrosoft;
-  protected readonly CalendarApp = CalendarApp;
   protected readonly deviceKind: DeviceKind = deviceKindFromUserAgent(
     isBrowser() ? navigator.userAgent : "",
     isBrowser() ? navigator.platform : null
@@ -167,7 +158,9 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
       if (!this.walksConfigOverride) {
         this.walksConfig = config;
       }
+      this.emitHasAnyLink();
     }));
+    this.emitHasAnyLink();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -177,6 +170,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
     if (changes.walksConfigOverride && this.walksConfigOverride) {
       this.walksConfig = this.walksConfigOverride;
     }
+    this.emitHasAnyLink();
   }
 
   ngOnDestroy(): void {
@@ -186,6 +180,14 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private refreshLinks(): void {
     this.links = this.linksService.linksFrom(this.displayedWalk?.walk);
     this.calendarEvent = calendarEventFromGroupEvent(this.displayedWalk?.walk ?? null);
+    if (this.calendarEvent && this.displayedWalk?.walk) {
+      const walk = this.displayedWalk.walk;
+      const contactDetails = walk.fields?.contactDetails;
+      this.calendarEvent.url = this.display.walkPublicLink(walk);
+      this.calendarEvent.organiser = this.display.visibleLeaderDisplayName(walk) || null;
+      this.calendarEvent.organiserPhone = this.display.contactPhoneVisible(walk) ? contactDetails?.phone || null : null;
+      this.calendarEvent.organiserEmail = this.display.showMailtoEmail(walk) ? contactDetails?.email || null : null;
+    }
     this.logger.info("refreshLinks:links:", this.links, "from displayedWalk?.walk?.fields.links:", this.displayedWalk?.walk?.fields.links);
   }
 
@@ -195,6 +197,24 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   showLink(key: keyof WalksConfig): boolean {
     return (this.walksConfig?.[key] as boolean | undefined) !== false;
+  }
+
+  private computeHasAnyLink(): boolean {
+    return !!(this.displayedWalk?.walk?.groupEvent?.id && this.display.showWalkOnRamblersLink() && this.showLink("relatedLinkShowOnRamblers"))
+      || !!(this.links?.meetup && this.showLink("relatedLinkShowMeetup"))
+      || !!(this.osMapsHref() && this.showLink("relatedLinkShowOsMaps"))
+      || !!this.locateStartLink()
+      || (this.showLink("relatedLinkShowDirections") && this.directionsToStart().length > 0)
+      || !!(this.gpxDownloadUrl() && this.showLink("relatedLinkShowGpx"))
+      || (!!this.calendarDownloadUrl() && this.showLink("relatedLinkShowCalendar") && this.calendarApps.some(app => !!this.calendarHref(app)))
+      || !!(this.what3wordsHref() && this.showLink("relatedLinkShowWhat3words"))
+      || !!(this.displayedWalk?.walk?.fields?.venue?.venuePublish
+        && (this.displayedWalk?.walk?.fields?.venue?.url || this.displayedWalk?.walk?.fields?.venue?.postcode)
+        && this.showLink("relatedLinkShowVenue"));
+  }
+
+  private emitHasAnyLink(): void {
+    this.hasAnyLinkChange.emit(this.computeHasAnyLink());
   }
 
   osMapsHref(): string | null {
@@ -256,32 +276,42 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
     return eventId ? `/api/calendar/event/${eventId}` : undefined;
   }
 
-  calendarLabel(app: CalendarApp): string {
-    return calendarAppLabel(app);
-  }
-
-  calendarDestination(app: CalendarApp): string {
-    if (app === CalendarApp.GOOGLE) {
-      return "Google Calendar";
-    } else if (app === CalendarApp.OUTLOOK) {
-      return "Outlook";
-    } else {
-      return "your calendar";
-    }
-  }
-
-  calendarIcon(app: CalendarApp) {
-    if (app === CalendarApp.GOOGLE) {
-      return this.faGoogle;
-    } else if (app === CalendarApp.OUTLOOK) {
-      return this.faMicrosoft;
-    } else {
-      return this.faCalendarPlus;
-    }
-  }
-
   calendarHref(app: CalendarApp): string | null {
     return calendarHrefFor(app, this.calendarEvent, this.calendarDownloadUrl() || null, this.calendarClientHints);
+  }
+
+  choosableCalendarApps(): CalendarApp[] {
+    return this.calendarApps.filter(app => !!this.calendarHref(app));
+  }
+
+  calendarActions(): ContactAction[] {
+    const eventType = this.display.eventTypeTitle(this.displayedWalk?.walk).toLowerCase();
+    return this.choosableCalendarApps().map(app => ({
+      label: calendarAppLabel(app),
+      icon: this.calendarIcon(app),
+      tooltip: `${calendarAppLabel(app)} for this ${eventType}`,
+      href: this.calendarHref(app),
+      target: app === CalendarApp.LOCAL ? "_self" : "_blank"
+    }));
+  }
+
+  private calendarIcon(app: CalendarApp): IconDefinition {
+    if (app === CalendarApp.GOOGLE) {
+      return faGoogle;
+    } else if (app === CalendarApp.OUTLOOK) {
+      return faMicrosoft;
+    } else {
+      return faCalendarDay;
+    }
+  }
+
+  shareDirections(event: MouseEvent): void {
+    const link = this.directionsToStart()[0];
+    if (this.appShell.mobilePlatform() && nativeShareSupported() && link) {
+      event.preventDefault();
+      const title = `Directions to ${this.displayedWalk?.walk?.groupEvent?.title || "the start"}`;
+      void shareOrOpen({title, url: link.url}, link.url);
+    }
   }
 
   gpxDownloadFileName(): string {

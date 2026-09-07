@@ -43,7 +43,7 @@ import { UrlService } from "../../../services/url.service";
         <h2>{{ display.groupEventsTitle(eventsData?.filterCriteria, fromAndTo()) }}</h2>
       }
     </div>
-    @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew)) {
+    @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew) && display.eventTypesPopulatedLocally(eventsData)) {
       <div class="col-lg-2 col-md-3 col-sm-4 col-12">
         @if (display.confirm.noneOutstanding()) {
           <input type="submit" [disabled]="notifyTarget.busy"
