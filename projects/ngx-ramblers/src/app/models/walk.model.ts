@@ -337,6 +337,8 @@ export enum EventField {
   CONTACT_DETAILS_EMAIL = "fields.contactDetails.email",
   CONTACT_DETAILS_MEMBER_ID = "fields.contactDetails.memberId",
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
+  DESCRIPTION_TIDY_FINGERPRINT = "fields.descriptionTidyFingerprint",
+  TITLE_TIDY_FINGERPRINT = "fields.titleTidyFingerprint",
   GPX_FILE = "fields.gpxFile",
   GPX_FILE_AWS_FILE_NAME = "fields.gpxFile.awsFileName",
   ROUTE_COLOR = "fields.routeColor",

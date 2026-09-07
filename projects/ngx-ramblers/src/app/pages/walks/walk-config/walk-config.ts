@@ -627,6 +627,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                                  id="hide-non-approved-walks-from-public">
                           <label class="form-check-label" for="hide-non-approved-walks-from-public">Hide walks awaiting details or approval</label>
                         </div>
+                        <div class="form-check mb-3">
+                          <input [(ngModel)]="walksConfig.suggestTextTidyUps"
+                                 type="checkbox"
+                                 class="form-check-input"
+                                 id="suggest-text-tidy-ups">
+                          <label class="form-check-label" for="suggest-text-tidy-ups">Suggest tidy-ups of walk titles and descriptions while editing, correcting spelling, grammar and tense (walks entered on this site only, needs the AI service)</label>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -79,6 +79,7 @@ export interface WalksConfig {
   walkPhotoContributionAccessLevel?: AccessLevel;
   hideAwaitingLeaderFromPublic?: boolean;
   hideNonApprovedWalksFromPublic?: boolean;
+  suggestTextTidyUps?: boolean;
   walkDetailsShowPostcode?: boolean;
   walkDetailsShowGridReference?: boolean;
   walkDetailsGridReferenceDigits?: GridReferenceDigits;

@@ -13,6 +13,8 @@ import {
   integrationWorkerConfigured
 } from "../ai-worker-client";
 import { chooseCoverImageFromCandidates } from "../choose-cover-image";
+import { tidiedText } from "../description-tidy";
+import { TidyTextKind } from "../../../../projects/ngx-ramblers/src/app/models/ai.model";
 
 const debug = debugLib(envConfig.logNamespace("ai:text-generation"));
 debug.enabled = false;
@@ -53,6 +55,19 @@ export async function rewrite(req: Request, res: Response): Promise<void> {
       debug("rewrite error:", error);
       res.status(502).json({request: {}, error: error?.message || String(error)});
     }
+  }
+}
+
+export async function tidyDescription(req: Request, res: Response): Promise<void> {
+  const ai = aiConfigFromEnvironment();
+  const input: string = req.body?.input || "";
+  const kind: TidyTextKind = req.body?.kind === TidyTextKind.TITLE ? TidyTextKind.TITLE : TidyTextKind.DESCRIPTION;
+  try {
+    const output = await tidiedText(ai, input, kind, (systemPrompt, text) => generate(ai, systemPrompt, text));
+    res.json({request: {}, response: {output}});
+  } catch (error) {
+    debug("tidy-description error:", error);
+    res.status(502).json({request: {}, error: error?.message || String(error)});
   }
 }
 

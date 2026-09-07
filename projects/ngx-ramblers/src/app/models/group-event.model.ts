@@ -105,6 +105,8 @@ export interface ExtendedFields {
   bookingsEnabled?: boolean;
   bookingEmailOverrides?: BookingEmailOverrides;
   tags?: number[];
+  descriptionTidyFingerprint?: string | null;
+  titleTidyFingerprint?: string | null;
 }
 
 export enum EventSource {

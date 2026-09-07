@@ -655,8 +655,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   eventHasStarted(walk: ExtendedGroupEvent = this.displayedWalk?.walk): boolean {
-    const startDate = walk?.groupEvent?.start_date_time;
-    return !!startDate && this.dateUtils.asValue(startDate) < this.dateUtils.nowAsValue();
+    return this.display.eventHasStarted(walk);
   }
 
   albumActionTooltip(): string {

@@ -123,7 +123,9 @@ const fields = new Schema({
     restored: {type: String},
     reminder: {type: String}
   }, {_id: false}),
-  tags: [{type: Number}]
+  tags: [{type: Number}],
+  descriptionTidyFingerprint: {type: String},
+  titleTidyFingerprint: {type: String}
 }, {_id: false});
 
 const extendedGroupEventSchema = new Schema({

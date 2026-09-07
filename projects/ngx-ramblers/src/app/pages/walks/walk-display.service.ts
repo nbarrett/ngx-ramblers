@@ -281,6 +281,11 @@ export class WalkDisplayService {
     return result;
   }
 
+  public eventHasStarted(walk: ExtendedGroupEvent): boolean {
+    const startDate = walk?.groupEvent?.start_date_time;
+    return !!startDate && this.dateUtils.asValue(startDate) < this.dateUtils.nowAsValue();
+  }
+
   public walkPopulationLocal(): boolean {
     const result = this.group?.walkPopulation === EventPopulation.LOCAL;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);

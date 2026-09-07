@@ -232,6 +232,7 @@ export enum StoredValue {
   TASK_SUB_TAB = "task-sub-tab",
   TEMPLATE_OPTIONS_VISIBLE = "template-options-visible",
   THREAD = "thread",
+  TIDY_VIEW = "tidy-tab",
   VOLUNTEER_SUMMARY_COLLAPSED = "volunteer-summary-collapsed",
   VOLUNTEER_TABLE_HEIGHT = "volunteer-table-height",
   TRIGGERED_BY = "triggered-by",

@@ -1,3 +1,4 @@
+import { wordDiffHtml } from "../../functions/text-diff";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { cloneDeep, isEmpty, isEqual, isNaN, isNumber, isString, isUndefined, keys, without } from "es-toolkit/compat";
@@ -1222,36 +1223,7 @@ export class RamblersWalksAndEventsService {
   }
 
   private wordDiff(ramblersDesc: string, websiteDesc: string): string {
-    const wordsA = ramblersDesc.split(/\s+/);
-    const wordsB = websiteDesc.split(/\s+/);
-    const table = [Array(wordsB.length + 1).fill(0)];
-    wordsA.forEach((wordA, i) => {
-      const row = [0];
-      wordsB.forEach((wordB, j) => {
-        row.push(wordA === wordB ? table[i][j] + 1 : Math.max(table[i][j + 1], row[j]));
-      });
-      table.push(row);
-    });
-    const traceback = (i: number, j: number, output: string[]): string[] => {
-      if (i <= 0 && j <= 0) {
-        return output;
-      }
-      if (i > 0 && j > 0 && wordsA[i - 1] === wordsB[j - 1]) {
-        output.unshift(this.escapeHtml(wordsA[i - 1]));
-        return traceback(i - 1, j - 1, output);
-      }
-      if (j > 0 && (i === 0 || table[i][j - 1] >= table[i - 1][j])) {
-        output.unshift(`<span class="text-success">${this.escapeHtml(wordsB[j - 1])}</span>`);
-        return traceback(i, j - 1, output);
-      }
-      output.unshift(`<span class="text-danger text-decoration-line-through">${this.escapeHtml(wordsA[i - 1])}</span>`);
-      return traceback(i - 1, j, output);
-    };
-    return traceback(wordsA.length, wordsB.length, []).join(" ");
-  }
-
-  private escapeHtml(text: string): string {
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return wordDiffHtml(ramblersDesc, websiteDesc);
   }
 
   walkToUploadRow(walk: ExtendedGroupEvent): Promise<WalkUploadRow> {

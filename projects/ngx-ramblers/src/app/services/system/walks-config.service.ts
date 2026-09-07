@@ -98,6 +98,7 @@ export class WalksConfigService {
       relatedLinkShowVenue: true,
       relatedLinkShowGpx: true,
       relatedLinkShowCalendar: true,
+      suggestTextTidyUps: true,
       regularWalkDay: DEFAULT_REGULAR_WALK_DAY,
       walkCreationAccessLevel: AccessLevel.HIDDEN,
       defaultWalkStartTime: DEFAULT_WALK_START_TIME,
