@@ -7,7 +7,8 @@ export enum SocialNetwork {
 
 export enum GraphApiMethod {
   GET = "get",
-  POST = "post"
+  POST = "post",
+  DELETE = "delete"
 }
 
 export enum FacebookPostStyle {
@@ -36,26 +37,26 @@ export enum EventCaptionToken {
 }
 
 export const DEFAULT_WALK_CAPTION_TEMPLATE = [
-  "{title}",
+  "Coming up: {title}",
   "",
-  "{date} at {time}",
+  "Join us on {date} at {time}",
   "Starting from {startLocation}",
   "{distance} · {grade}",
   "",
   "{description}",
   "",
-  "Full details: {url}"
+  "Full details and how to join: {url}"
 ].join("\n");
 
 export const DEFAULT_SOCIAL_EVENT_CAPTION_TEMPLATE = [
-  "{title}",
+  "Coming up: {title}",
   "",
-  "{date} at {time}",
+  "Join us on {date} at {time}",
   "Where: {startLocation}",
   "",
   "{description}",
   "",
-  "Full details: {url}"
+  "Full details and how to join: {url}"
 ].join("\n");
 
 export const INSTAGRAM_MIN_CAROUSEL_IMAGES = 2;
@@ -123,6 +124,18 @@ export interface SocialPublishResult {
 export interface SocialPublishApiResponse extends ApiResponse {
   request: any;
   response?: SocialPublishResult;
+}
+
+export interface DeletePublicationRequest {
+  network: SocialNetwork;
+  postId: string;
+  albumName?: string;
+  eventId?: string;
+}
+
+export interface DeletePublicationApiResponse extends ApiResponse {
+  request: any;
+  response?: {deleted: boolean};
 }
 
 export interface SocialPublishCaptionInput {
@@ -207,6 +220,7 @@ export interface EventPublishRequest {
   eventIds: string[];
   networks?: SocialNetwork[];
   republishChanged?: boolean;
+  postAgain?: boolean;
   publicBaseUrl?: string;
   captions?: Partial<Record<SocialNetwork, string>>;
 }

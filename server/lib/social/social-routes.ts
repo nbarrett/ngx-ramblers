@@ -12,6 +12,8 @@ import { instagramConnectionStatus, publishAlbumToInstagram } from "../instagram
 import { recentMedia } from "../instagram/recent-media";
 import { recentPosts } from "../facebook/recent-posts";
 import { socialPublication } from "../mongo/models/social-publication";
+import { livePublicationOrNull } from "./publication-status";
+import { albumPublications, deletePublication } from "./publication-controllers";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { publicImageBaseUrl } from "./public-base-url";
 import {
@@ -30,7 +32,8 @@ async function publish(req: Request, res: Response, network: SocialNetwork, publ
   const request: SocialPublishRequest = req.body;
   try {
     const config: SystemConfig = await systemConfig();
-    const existing = await socialPublication.findOne({albumName: request.albumName, network}).lean().exec() as {postId?: string; permalink?: string} | null;
+    const recorded = await socialPublication.findOne({albumName: request.albumName, network}).lean().exec() as {postId?: string; permalink?: string; network?: SocialNetwork} | null;
+    const existing = await livePublicationOrNull(recorded, config?.externalSystems?.facebook?.pageAccessToken);
     if (existing) {
       const response: SocialPublishResult = {
         network,
@@ -128,12 +131,8 @@ router.get("/instagram/recent-media", recentMedia);
 
 router.get("/facebook/recent-posts", recentPosts);
 
-router.get("/publications", async (req: Request, res: Response) => {
-  const albumName = req.query.albumName as string;
-  const response = await socialPublication.find({albumName}, "albumName network postId permalink imageCount publishedAt")
-    .sort({publishedAt: -1}).lean().exec();
-  res.json({request: {albumName}, response});
-});
+router.get("/publications", albumPublications);
+router.post("/publications/delete", authConfig.authenticate(), deletePublication);
 
 router.post("/facebook/publish-events", authConfig.authenticate(), publishEvents);
 

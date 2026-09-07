@@ -18,10 +18,11 @@ describe("event-caption-builder", () => {
     url: "https://example.org/walks/chilham-circular"
   };
 
-  it("substitutes every placeholder in the default template", () => {
+  it("substitutes every placeholder in the default template and reads as an invitation to a future event", () => {
     const caption = buildEventCaption(fullInput);
-    expect(caption).toContain("Chilham circular");
-    expect(caption).toContain("Saturday, 15 August 2026 at 10:00 am");
+    expect(caption.startsWith("Coming up: Chilham circular")).toEqual(true);
+    expect(caption).toContain("Join us on Saturday, 15 August 2026 at 10:00 am");
+    expect(caption).toContain("Full details and how to join: https://example.org/walks/chilham-circular");
     expect(caption).toContain("Starting from Chilham Square, CT4 8BY");
     expect(caption).toContain("6.5 miles · Easy");
     expect(caption).toContain("https://example.org/walks/chilham-circular");

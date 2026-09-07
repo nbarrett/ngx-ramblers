@@ -4,6 +4,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleCheck, faCircleExclamation, faSpinner, faUpload } from "@fortawesome/free-solid-svg-icons";
 import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { HttpErrorResponse } from "@angular/common/http";
+import { NgTemplateOutlet } from "@angular/common";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -25,10 +26,11 @@ import {
   PublishableEvent,
   SocialNetwork
 } from "../../../models/social-publish.model";
+import { faTrashCan } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-event-social-publish-modal",
-  imports: [FormsModule, FontAwesomeModule, FileUploadModule, DraggableModalComponent, EmojiTextareaComponent],
+  imports: [FormsModule, FontAwesomeModule, FileUploadModule, DraggableModalComponent, EmojiTextareaComponent, NgTemplateOutlet],
   template: `
     <app-draggable-modal [open]="open" contentWidth="min(760px, 95vw)" [showCloseButton]="false" (closed)="close()">
       <h4 modalTitle class="modal-title">Share this {{ eventTypeLabel }} on social media</h4>
@@ -63,26 +65,63 @@ import {
               }
             </div>
           </div>
+          @if (publishing) {
+            <div class="alert alert-warning d-flex align-items-start">
+              <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
+              <div>
+                <strong>Posting can take a minute or two</strong>
+                <div>Instagram processes the image before it will accept the post, and this page waits for that to finish. You can close this window and carry on; the post still goes out, and the result shows here next time you open it.</div>
+              </div>
+            </div>
+          }
           @if (alreadyPublished && !event.captionChanged) {
             <div class="alert alert-warning d-flex align-items-start">
               <fa-icon class="me-2 mt-1" [icon]="faCircleCheck"/>
-              <div>
+              <div class="flex-grow-1">
                 <strong>Already posted</strong>
-                <div>Posting again will create a second post.
+                <div>Nothing has changed since, so it is left alone unless you tick Post again, which sends a fresh post as a reminder.
                   <a [href]="event.publication.permalink" target="_blank" rel="noopener noreferrer">View the existing
                     post</a>
                 </div>
+                <div class="form-check mt-2">
+                  <input type="checkbox" class="form-check-input" id="modal-post-again" [(ngModel)]="postAgain">
+                  <label class="form-check-label" for="modal-post-again">Post again as a reminder</label>
+                </div>
+                <ng-container *ngTemplateOutlet="deletePost"/>
               </div>
             </div>
           } @else if (alreadyPublished) {
             <div class="alert alert-warning d-flex align-items-start">
               <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
-              <div>
+              <div class="flex-grow-1">
                 <strong>Details have changed since this was posted</strong>
                 <div>Posting again will create a second post with the updated wording.</div>
+                <ng-container *ngTemplateOutlet="deletePost"/>
               </div>
             </div>
           }
+          <ng-template #deletePost>
+            @if (confirmingDelete) {
+              <div class="mt-2 d-flex align-items-center gap-2">
+                <span>Delete this post from Facebook?</span>
+                <button type="button" class="btn btn-danger btn-sm" [disabled]="deletingPublication"
+                        (click)="confirmDeletePublication()">
+                  @if (deletingPublication) {
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+                  }
+                  Yes, delete it
+                </button>
+                <button type="button" class="btn btn-quiet btn-sm" [disabled]="deletingPublication"
+                        (click)="confirmingDelete = false">
+                  Cancel
+                </button>
+              </div>
+            } @else {
+              <button type="button" class="btn btn-link btn-sm ps-0 mt-1" (click)="confirmingDelete = true">
+                <fa-icon [icon]="faTrashCan" class="me-1"/>Delete this post from Facebook
+              </button>
+            }
+          </ng-template>
           <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="modal-publish-facebook"
@@ -179,9 +218,17 @@ import {
       </div>
       <button modalFooter type="button" class="btn btn-quiet" (click)="close()">Close</button>
       <button modalFooter type="button" class="btn btn-primary"
-              [disabled]="!event || selectedNetworks.length === 0 || publishing"
+              [disabled]="!event || selectedNetworks.length === 0 || publishing || posted || (unchangedSincePosted && !postAgain)"
               (click)="publish()">
-        {{ publishing ? "Posting…" : "Post now" }}
+        @if (publishing) {
+          <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Posting…
+        } @else if (posted) {
+          <fa-icon [icon]="faCircleCheck" class="me-2"/>Posted
+        } @else if (postAgain) {
+          Post again
+        } @else {
+          Post now
+        }
       </button>
     </app-draggable-modal>`,
   styles: `
@@ -246,9 +293,13 @@ export class EventSocialPublishModalComponent implements OnDestroy {
   protected captionInstagram = "";
   protected loading = true;
   protected publishing = false;
+  protected posted = false;
+  protected postAgain = false;
   protected loadError = "";
   protected uploadingImage = false;
   protected uploader: FileUploader;
+  protected confirmingDelete = false;
+  protected deletingPublication = false;
   private uploadSubscription: Subscription;
 
   protected readonly faFacebook = faFacebook;
@@ -257,6 +308,7 @@ export class EventSocialPublishModalComponent implements OnDestroy {
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faUpload = faUpload;
   protected readonly faSpinner = faSpinner;
+  protected readonly faTrashCan = faTrashCan;
   protected readonly SocialNetwork = SocialNetwork;
   protected readonly FacebookPostStyle = FacebookPostStyle;
 
@@ -269,6 +321,9 @@ export class EventSocialPublishModalComponent implements OnDestroy {
     this.eventTypeLabel = eventTypeLabel || "walk";
     this.event = null;
     this.results = [];
+    this.posted = false;
+    this.postAgain = false;
+    this.confirmingDelete = false;
     this.loadError = "";
     this.loading = true;
     this.open = true;
@@ -311,11 +366,16 @@ export class EventSocialPublishModalComponent implements OnDestroy {
     return !!this.event?.publication?.permalink;
   }
 
+  get unchangedSincePosted(): boolean {
+    return this.alreadyPublished && !this.event?.captionChanged;
+  }
+
   protected isSelected(network: SocialNetwork): boolean {
     return this.selectedNetworks.includes(network);
   }
 
   protected toggle(network: SocialNetwork): void {
+    this.posted = false;
     this.selectedNetworks = this.isSelected(network)
       ? this.selectedNetworks.filter(candidate => candidate !== network)
       : this.selectedNetworks.concat(network);
@@ -392,11 +452,12 @@ export class EventSocialPublishModalComponent implements OnDestroy {
     this.results = [];
     this.notify.progress({title: "Posting", message: "Sending to social media"});
     try {
-      this.results = await this.socialPublishService.publishEvents([this.eventId], this.selectedNetworks, true, this.captionsForSelectedNetworks());
+      this.results = await this.socialPublishService.publishEvents([this.eventId], this.selectedNetworks, true, this.captionsForSelectedNetworks(), this.postAgain);
       const failures = this.results.filter(result => result.outcome === EventPublishOutcome.FAILED);
       if (failures.length > 0) {
         this.notify.warning({title: "Some posts failed", message: `${failures.length} of ${this.results.length} did not go out`});
       } else {
+        this.posted = true;
         this.notify.success({title: "Posted", message: "Sent to social media"});
       }
       this.event = await this.socialPublishService.publishableEvent(this.eventId);
@@ -404,6 +465,26 @@ export class EventSocialPublishModalComponent implements OnDestroy {
       this.notify.error({title: "Posting failed", message: error?.error?.error || error?.message || error});
     } finally {
       this.publishing = false;
+    }
+  }
+
+  async confirmDeletePublication(): Promise<void> {
+    const postId = this.event?.publication?.postId;
+    if (!postId) {
+      this.confirmingDelete = false;
+    } else {
+      this.deletingPublication = true;
+      this.notify.progress({title: "Facebook", message: "Deleting the post"});
+      try {
+        await this.socialPublishService.deletePublication({network: SocialNetwork.FACEBOOK, postId, eventId: this.eventId});
+        this.confirmingDelete = false;
+        this.event = await this.socialPublishService.publishableEvent(this.eventId);
+        this.notify.success({title: "Deleted", message: "Removed the post from Facebook. You can post it again whenever you're ready."});
+      } catch (error) {
+        this.notify.error({title: "Could not delete the post", message: error?.error?.error || error?.message || error});
+      } finally {
+        this.deletingPublication = false;
+      }
     }
   }
 

@@ -3,9 +3,11 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
 import { DatePipe, TitleCasePipe } from "@angular/common";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import {
+  faArrowsRotate,
   faCheck,
   faCheckDouble,
   faCircleCheck,
@@ -13,6 +15,7 @@ import {
   faImages,
   faShareNodes,
   faSpinner,
+  faTrashCan,
   faWandMagicSparkles,
   faXmark
 } from "@fortawesome/free-solid-svg-icons";
@@ -107,12 +110,17 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       align-items: stretch
       gap: var(--space-2, 8px)
 
-    .network-toggle.shared
-      cursor: default
+    .share-header-actions .network-toggle
       flex: 0 0 auto
       max-width: none
-      border-color: #d99c0a
-      background: rgba(249, 177, 4, 0.1)
+
+    .network-toggle.shared
+      cursor: default
+      border-color: rgba(20, 108, 67, 0.5)
+      background: rgba(20, 108, 67, 0.06)
+
+    .network-toggle.shared .network-toggle-status
+      color: #146c43
 
     .network-shared-link
       margin-left: auto
@@ -121,6 +129,65 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       white-space: nowrap
       color: var(--rsm-text, rgb(64, 65, 65))
       text-decoration: underline
+
+    .network-shared-refresh
+      flex: 0 0 auto
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      width: 28px
+      height: 28px
+      margin-left: 2px
+      padding: 0
+      border: 0
+      border-radius: 50%
+      background: transparent
+      color: var(--rsm-muted, rgb(110, 112, 115))
+      font-size: 0.85rem
+      cursor: pointer
+      transition: color 0.15s ease, background-color 0.15s ease
+
+    .network-shared-refresh:hover,
+    .network-shared-refresh:focus-visible
+      color: #1a1a1a
+      background: rgba(217, 156, 10, 0.18)
+      outline: none
+
+    .network-shared-refresh:disabled
+      cursor: default
+      color: var(--rsm-muted, rgb(110, 112, 115))
+      background: transparent
+
+    .network-shared-delete
+      flex: 0 0 auto
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      width: 28px
+      height: 28px
+      margin-left: 2px
+      padding: 0
+      border: 0
+      border-radius: 50%
+      background: transparent
+      color: var(--rsm-muted, rgb(110, 112, 115))
+      font-size: 0.85rem
+      cursor: pointer
+      transition: color 0.15s ease, background-color 0.15s ease
+
+    .network-shared-delete:hover,
+    .network-shared-delete:focus-visible
+      color: #b02a37
+      background: rgba(176, 42, 55, 0.12)
+      outline: none
+
+    .network-shared-delete-confirm
+      color: #b02a37
+
+    .network-shared-delete:disabled
+      cursor: default
+      color: var(--rsm-muted, rgb(110, 112, 115))
+      background: transparent
 
     @media (max-width: 575.98px)
       .share-header-actions
@@ -134,12 +201,6 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
 
     .share-body.collapsed
       padding: 0
-
-    .network-toggles
-      display: flex
-      flex-wrap: wrap
-      gap: var(--space-3, 12px)
-      margin-bottom: var(--space-4, 16px)
 
     .network-toggle
       display: flex
@@ -309,22 +370,52 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
       padding-top: var(--space-4, 16px)
       border-top: 1px solid var(--rsm-border, rgba(15, 23, 42, 0.1))
 
-    .publish-btn
-      min-height: 44px
-      min-width: 200px
-      font-weight: 700
+    .publish-btn,
+    .back-btn
       display: inline-flex
       align-items: center
       justify-content: center
-      gap: 8px
+      gap: 10px
+      min-height: 44px
+      padding: 0 18px
+      border: 1px solid rgba(217, 156, 10, 0.45)
+      border-radius: 999px
+      color: #1a1a1a
+      font-family: inherit
+      font-weight: 700
+      font-size: 0.95rem
+      line-height: 1.1
+      cursor: pointer
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06)
+      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease
 
     .back-btn
-      min-height: 44px
-      font-weight: 600
-      display: inline-flex
-      align-items: center
-      justify-content: center
-      gap: 8px
+      background: linear-gradient(135deg, #fff8e6 0%, #fff 100%)
+
+    .publish-btn
+      min-width: 200px
+      border-color: #d99c0a
+      background: linear-gradient(135deg, #f9b104 0%, #d99c0a 100%)
+      box-shadow: 0 2px 8px rgba(217, 156, 10, 0.28)
+
+    .back-btn:hover,
+    .publish-btn:hover
+      background: linear-gradient(135deg, #f9b104 0%, #d99c0a 100%)
+      border-color: #d99c0a
+      box-shadow: 0 2px 8px rgba(217, 156, 10, 0.28)
+
+    .publish-btn:hover
+      background: linear-gradient(135deg, #ffbf1f 0%, #e5a60f 100%)
+
+    .back-btn:focus-visible,
+    .publish-btn:focus-visible
+      outline: 2px solid #d99c0a
+      outline-offset: 2px
+
+    .publish-btn:disabled
+      cursor: default
+      opacity: 0.55
+      box-shadow: none
 
     .footer-actions
       display: flex
@@ -394,9 +485,28 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
             </p>
           </div>
         </div>
-        @if (publishedNetworksList().length > 0) {
+        @if (contentMetadata?.files?.length && networkList().length > 0) {
           <div class="share-header-actions">
-            @for (network of publishedNetworksList(); track network) {
+            @for (network of networkList(); track network) {
+              @if (!networkBlocked(network)) {
+                <div class="network-toggle"
+                     [class.active]="postTo(network)"
+                     (click)="toggleNetwork(network)"
+                     role="checkbox"
+                     [attr.aria-checked]="postTo(network)">
+                  <fa-icon class="network-toggle-icon"
+                           [class.icon-facebook]="network === SocialNetwork.FACEBOOK"
+                           [class.icon-instagram]="network === SocialNetwork.INSTAGRAM"
+                           [icon]="network === SocialNetwork.FACEBOOK ? faFacebook : faInstagram"/>
+                  <span class="network-toggle-label">
+                    <span class="network-toggle-name">{{ network | titlecase }}</span>
+                    <span class="network-toggle-status">{{ postTo(network) ? "Will publish" : "Not selected" }}</span>
+                  </span>
+                  @if (postTo(network)) {
+                    <fa-icon class="network-toggle-check" [icon]="faCheck"/>
+                  }
+                </div>
+              } @else {
               <div class="network-toggle shared">
                 <fa-icon class="network-toggle-icon"
                          [class.icon-facebook]="network === SocialNetwork.FACEBOOK"
@@ -417,7 +527,38 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                      [href]="publishedPermalinkFor(network)" target="_blank" rel="noopener">View post</a>
                 }
                 <fa-icon class="network-toggle-check" [icon]="faCheck"/>
+                <button type="button" class="network-shared-refresh"
+                        (click)="refreshPublications()" [disabled]="refreshingPublications"
+                        [attr.aria-label]="'Check this post still exists on ' + (network | titlecase)"
+                        tooltip="Check this post still exists on {{ network | titlecase }}">
+                  <fa-icon [icon]="refreshingPublications ? faSpinner : faArrowsRotate"
+                           [animation]="refreshingPublications ? 'spin' : undefined"/>
+                </button>
+                @if (network === SocialNetwork.FACEBOOK) {
+                  @if (confirmingDeleteNetwork === network) {
+                    <button type="button" class="network-shared-delete network-shared-delete-confirm"
+                            (click)="confirmDeletePublication(network)" [disabled]="deletingPublication"
+                            [attr.aria-label]="'Yes, delete this post from ' + (network | titlecase)"
+                            tooltip="Yes, delete this post from Facebook">
+                      <fa-icon [icon]="deletingPublication ? faSpinner : faTrashCan"
+                               [animation]="deletingPublication ? 'spin' : undefined"/>
+                    </button>
+                    <button type="button" class="network-shared-delete"
+                            (click)="cancelDeletePublication()" [disabled]="deletingPublication"
+                            aria-label="Cancel" tooltip="Cancel">
+                      <fa-icon [icon]="faXmark"/>
+                    </button>
+                  } @else {
+                    <button type="button" class="network-shared-delete"
+                            (click)="confirmingDeleteNetwork = network"
+                            [attr.aria-label]="'Delete this post from ' + (network | titlecase)"
+                            tooltip="Delete this post from Facebook">
+                      <fa-icon [icon]="faTrashCan"/>
+                    </button>
+                  }
+                }
               </div>
+              }
             }
           </div>
         }
@@ -434,7 +575,7 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
             </div>
             <div class="share-footer">
               <span class="section-meta">Please wait a moment</span>
-              <button type="button" class="btn btn-secondary back-btn" (click)="done.emit()">
+              <button type="button" class="back-btn" (click)="done.emit()">
                 <fa-icon [icon]="faImages"/>
                 Back to album
               </button>
@@ -451,52 +592,13 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
             </div>
             <div class="share-footer">
               <span class="section-meta">Publishing is not available yet</span>
-              <button type="button" class="btn btn-secondary back-btn" (click)="done.emit()">
+              <button type="button" class="back-btn" (click)="done.emit()">
                 <fa-icon [icon]="faImages"/>
                 Back to album
               </button>
             </div>
           } @else if (allNetworksPublished()) {
           } @else {
-            <div class="network-toggles">
-              @if (facebookEnabled && !networkBlocked(SocialNetwork.FACEBOOK)) {
-                <div class="network-toggle"
-                     [class.active]="postToFacebook"
-                     (click)="toggleNetwork(SocialNetwork.FACEBOOK)"
-                     role="checkbox"
-                     [attr.aria-checked]="postToFacebook">
-                  <fa-icon class="network-toggle-icon icon-facebook" [icon]="faFacebook"/>
-                  <span class="network-toggle-label">
-                    <span class="network-toggle-name">Facebook</span>
-                    <span class="network-toggle-status">
-                      {{ postToFacebook ? "Will publish" : "Not selected" }}
-                    </span>
-                  </span>
-                  @if (postToFacebook) {
-                    <fa-icon class="network-toggle-check" [icon]="faCheck"/>
-                  }
-                </div>
-              }
-              @if (instagramEnabled && !networkBlocked(SocialNetwork.INSTAGRAM)) {
-                <div class="network-toggle"
-                     [class.active]="postToInstagram"
-                     (click)="toggleNetwork(SocialNetwork.INSTAGRAM)"
-                     role="checkbox"
-                     [attr.aria-checked]="postToInstagram">
-                  <fa-icon class="network-toggle-icon icon-instagram" [icon]="faInstagram"/>
-                  <span class="network-toggle-label">
-                    <span class="network-toggle-name">Instagram</span>
-                    <span class="network-toggle-status">
-                      {{ postToInstagram ? "Will publish" : "Not selected" }}
-                    </span>
-                  </span>
-                  @if (postToInstagram) {
-                    <fa-icon class="network-toggle-check" [icon]="faCheck"/>
-                  }
-                </div>
-              }
-            </div>
-
             <div class="mb-3">
               <div class="section-label">
                 <span>Caption</span>
@@ -505,16 +607,18 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                                   placeholder="Write the post caption. Type :sun for emojis"/>
             </div>
 
-            <div class="form-check mb-3">
-              <input [(ngModel)]="separateCaptions" (ngModelChange)="onSeparateCaptionsChange($event)"
-                     type="checkbox" class="form-check-input" id="share-separate-captions"
-                     [disabled]="generatingCaptions">
-              <label class="form-check-label" for="share-separate-captions">
-                Use a different caption per network
-              </label>
-            </div>
+            @if (separateCaptionsAvailable()) {
+              <div class="form-check mb-3">
+                <input [(ngModel)]="separateCaptions" (ngModelChange)="onSeparateCaptionsChange($event)"
+                       type="checkbox" class="form-check-input" id="share-separate-captions"
+                       [disabled]="generatingCaptions">
+                <label class="form-check-label" for="share-separate-captions">
+                  Use a different caption per network
+                </label>
+              </div>
+            }
 
-            @if (separateCaptions) {
+            @if (separateCaptions && separateCaptionsAvailable()) {
               @if (generatingCaptions) {
                 <div class="caption-generating">
                   <fa-icon [icon]="faSpinner" animation="spin"/>
@@ -695,12 +799,12 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
                 </span>
               }
               <div class="footer-actions">
-                <button type="button" class="btn btn-secondary back-btn" (click)="done.emit()"
+                <button type="button" class="back-btn" (click)="done.emit()"
                         [disabled]="publishing">
                   <fa-icon [icon]="faImages"/>
                   Back to album
                 </button>
-                <button type="button" class="btn btn-primary publish-btn"
+                <button type="button" class="publish-btn"
                         [disabled]="publishDisabled()" (click)="publish()">
                   @if (publishing) {
                     <fa-icon [icon]="faSpinner" animation="spin"/>
@@ -715,7 +819,7 @@ import { EmojiTextareaComponent } from "../../../modules/common/emoji-textarea/e
           }
       </div>
     </div>`,
-  imports: [FormsModule, FontAwesomeModule, TitleCasePipe, DatePipe, EmojiTextareaComponent, RouterLink]
+  imports: [FormsModule, FontAwesomeModule, TitleCasePipe, DatePipe, EmojiTextareaComponent, RouterLink, TooltipDirective]
 })
 export class SocialShareAlbumComponent implements OnInit, OnDestroy {
 
@@ -742,6 +846,9 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
   protected publishing = false;
   protected publishProgress: SocialPublishProgress = null;
   protected priorPublications: SocialPublication[] = [];
+  protected refreshingPublications = false;
+  protected confirmingDeleteNetwork: SocialNetwork | null = null;
+  protected deletingPublication = false;
   private publishedNetworks = new Set<SocialNetwork>();
   private aspectRatios = new Map<string, number>();
   private config: SystemConfig;
@@ -752,6 +859,7 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
   protected readonly faInstagram = faInstagram;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faImages = faImages;
+  protected readonly faArrowsRotate = faArrowsRotate;
   protected readonly faCheck = faCheck;
   protected readonly faCheckDouble = faCheckDouble;
   protected readonly faCircleExclamation = faCircleExclamation;
@@ -759,6 +867,7 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
   protected readonly faSpinner = faSpinner;
   protected readonly faWandMagicSparkles = faWandMagicSparkles;
   protected readonly faXmark = faXmark;
+  protected readonly faTrashCan = faTrashCan;
   protected readonly INSTAGRAM_MIN_CAROUSEL_IMAGES = INSTAGRAM_MIN_CAROUSEL_IMAGES;
   protected readonly INSTAGRAM_MAX_CAROUSEL_IMAGES = INSTAGRAM_MAX_CAROUSEL_IMAGES;
 
@@ -779,6 +888,47 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
       this.config = config;
       this.applyDefaults();
     }));
+  }
+
+  protected async refreshPublications(): Promise<void> {
+    this.refreshingPublications = true;
+    try {
+      this.priorPublications = await this.socialPublishService.publicationsForAlbum(this.contentMetadata.name, true);
+      this.applyDefaults();
+    } catch (error) {
+      this.logger.error("could not refresh publications", error);
+    } finally {
+      this.refreshingPublications = false;
+    }
+  }
+
+  protected cancelDeletePublication(): void {
+    this.confirmingDeleteNetwork = null;
+  }
+
+  protected async confirmDeletePublication(network: SocialNetwork): Promise<void> {
+    const publication = this.publicationFor(network);
+    if (!publication?.postId) {
+      this.confirmingDeleteNetwork = null;
+    } else {
+      this.deletingPublication = true;
+      this.notify.progress({title: "Facebook", message: "Deleting the post"});
+      try {
+        await this.socialPublishService.deletePublication({
+          network,
+          postId: publication.postId,
+          albumName: this.contentMetadata?.name
+        });
+        this.priorPublications = this.priorPublications.filter(candidate => candidate.network !== network);
+        this.confirmingDeleteNetwork = null;
+        this.applyDefaults();
+        this.notify.success({title: "Deleted", message: "Removed the post from Facebook. Share this album again whenever you're ready."});
+      } catch (error) {
+        this.notify.error({title: "Could not delete the post", message: error?.error?.error || error?.message || error});
+      } finally {
+        this.deletingPublication = false;
+      }
+    }
   }
 
   private refreshFromMetadata(): void {
@@ -809,10 +959,18 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
   }
 
   publishedNetworksList(): SocialNetwork[] {
+    return this.networkList().filter(network => this.networkBlocked(network));
+  }
+
+  networkList(): SocialNetwork[] {
     return [
-      this.facebookEnabled && this.networkBlocked(SocialNetwork.FACEBOOK) ? SocialNetwork.FACEBOOK : null,
-      this.instagramEnabled && this.networkBlocked(SocialNetwork.INSTAGRAM) ? SocialNetwork.INSTAGRAM : null
+      this.facebookEnabled ? SocialNetwork.FACEBOOK : null,
+      this.instagramEnabled ? SocialNetwork.INSTAGRAM : null
     ].filter(Boolean);
+  }
+
+  postTo(network: SocialNetwork): boolean {
+    return network === SocialNetwork.FACEBOOK ? this.postToFacebook : this.postToInstagram;
   }
 
   private publicationFor(network: SocialNetwork): SocialPublication | null {
@@ -861,6 +1019,10 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
 
   hasCaptionTargets(): boolean {
     return this.captionTargets().length > 0;
+  }
+
+  separateCaptionsAvailable(): boolean {
+    return this.captionTargets().length > 1;
   }
 
   private captionTargets(): SocialNetwork[] {
@@ -1058,7 +1220,7 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
 
   private captionFor(network: SocialNetwork): string {
     const override = network === SocialNetwork.FACEBOOK ? this.captionFacebook : this.captionInstagram;
-    return this.separateCaptions && override?.trim() ? override : this.caption;
+    return this.separateCaptions && this.separateCaptionsAvailable() && override?.trim() ? override : this.caption;
   }
 
   instagramCountValid(): boolean {

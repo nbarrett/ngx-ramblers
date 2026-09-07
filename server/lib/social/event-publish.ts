@@ -25,6 +25,7 @@ import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromMillis, dateTimeNowAsValue } from "../shared/dates";
 import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { delay } from "./graph-api";
+import { livePublicationOrNull } from "./publication-status";
 
 const debugLog = debug(envConfig.logNamespace("social:event-publish"));
 debugLog.enabled = true;
@@ -59,6 +60,10 @@ function eventCancelled(event: ExtendedGroupEvent): boolean {
 
 async function publicationFor(eventId: string, network: SocialNetwork): Promise<SocialPublication> {
   return await socialPublication.findOne({eventId, network}).sort({publishedAt: -1}).lean().exec() as unknown as SocialPublication;
+}
+
+async function livePublicationFor(eventId: string, network: SocialNetwork, config: SystemConfig): Promise<SocialPublication> {
+  return livePublicationOrNull(await publicationFor(eventId, network), config?.externalSystems?.facebook?.pageAccessToken);
 }
 
 export async function captionFor(event: ExtendedGroupEvent, config: SystemConfig, baseUrl: string): Promise<string> {
@@ -114,7 +119,8 @@ export async function publishEventToNetwork(
   config: SystemConfig,
   baseUrl: string,
   republishChanged: boolean,
-  captionOverride?: string
+  captionOverride?: string,
+  postAgain = false
 ): Promise<EventPublishResult> {
   const event = await extendedGroupEvent.findById(eventId).lean().exec() as ExtendedGroupEvent;
   if (!event) {
@@ -125,9 +131,12 @@ export async function publishEventToNetwork(
       ? withLink(captionOverride.trim(), eventUrl, "Full details:")
       : await captionFor(event, config, baseUrl);
     const fingerprint = captionFingerprint(caption);
-    const existing = await publicationFor(eventId, network);
+    const existing = await livePublicationFor(eventId, network, config);
     const unchanged = existing?.captionFingerprint === fingerprint;
-    if (existing && unchanged) {
+    if (existing && postAgain) {
+      debugLog("posting again on request:", eventId, "to", network, "previous post:", existing.postId);
+    }
+    if (existing && unchanged && !postAgain) {
       return {
         eventId,
         eventTitle: event.groupEvent?.title,
@@ -136,7 +145,7 @@ export async function publishEventToNetwork(
         postId: existing.postId,
         permalink: existing.permalink
       };
-    } else if (existing && !republishChanged) {
+    } else if (existing && !republishChanged && !postAgain) {
       return {
         eventId,
         eventTitle: event.groupEvent?.title,
@@ -179,7 +188,8 @@ export async function publishEventsToNetworks(
   config: SystemConfig,
   baseUrl: string,
   republishChanged: boolean,
-  captionOverrides?: Partial<Record<SocialNetwork, string>>
+  captionOverrides?: Partial<Record<SocialNetwork, string>>,
+  postAgain = false
 ): Promise<EventPublishResult[]> {
   networks.forEach(network => assertEventPublishingConfigured(config, network));
   const jobs = networks.flatMap(network => eventIds.map(eventId => ({eventId, network})));
@@ -189,7 +199,7 @@ export async function publishEventsToNetworks(
       await delay(PUBLISH_DELAY_MILLIS);
     }
     try {
-      results.push(await publishEventToNetwork(job.eventId, job.network, config, baseUrl, republishChanged, captionOverrides?.[job.network]));
+      results.push(await publishEventToNetwork(job.eventId, job.network, config, baseUrl, republishChanged, captionOverrides?.[job.network], postAgain));
     } catch (error) {
       debugLog("publish failed for event:", job.eventId, "network:", job.network, "error:", error);
       results.push({

@@ -94,13 +94,6 @@ import { WalkAlbumWorkflow } from "./walk-album-workflow";
     .share-panel-shell
       margin-bottom: 1.25rem
 
-    .album-contribute-bar
-      display: flex
-      flex-wrap: wrap
-      align-items: center
-      gap: 12px
-      margin: 0 0 1rem
-
     .album-drafts-alert
       display: flex
       align-items: flex-start
@@ -137,14 +130,6 @@ import { WalkAlbumWorkflow } from "./walk-album-workflow";
               </button>
             </div>
           </div>
-        } @else if (walkAlbum() && role) {
-          <div class="col-sm-12">
-            <div class="album-contribute-bar">
-              <button type="button" class="btn btn-quiet btn-sm" (click)="openWorkflow()">
-                <fa-icon [icon]="faImages" class="me-2"/>{{ role === AlbumEditRole.CURATOR ? "Edit album" : "Add photos" }}
-              </button>
-            </div>
-          </div>
         }
         @if (row.carousel.showTitle && row.carousel.albumView !== AlbumView.BACKGROUNDS) {
           <div class="col-sm-12">
@@ -163,9 +148,17 @@ import { WalkAlbumWorkflow } from "./walk-album-workflow";
             </h3>
           </div>
         }
-        @if (shareBarVisible()) {
+        @if (shareBarVisible() || contributeButtonVisible()) {
           <div class="col-sm-12">
             <div class="share-toggle-bar">
+              @if (contributeButtonVisible()) {
+                <button type="button" class="share-toggle-btn" (click)="openWorkflow()">
+                  <span class="share-toggle-icon" aria-hidden="true">
+                    <fa-icon [icon]="faImages"/>
+                  </span>
+                  {{ role === AlbumEditRole.CURATOR ? "Edit album" : "Add photos" }}
+                </button>
+              }
               @if (canShareAlbum) {
                 <button type="button"
                         class="share-toggle-btn"
@@ -353,6 +346,11 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
 
   shareBarVisible(): boolean {
     return this.canShareAlbum || this.hasSocialPostLinks;
+  }
+
+  contributeButtonVisible(): boolean {
+    const reviewingDrafts = this.role === AlbumEditRole.CURATOR && this.pendingDraftCount > 0;
+    return this.walkAlbum() && !!this.role && !reviewingDrafts;
   }
 
   showSocialPostLinksConfigured(): boolean {
