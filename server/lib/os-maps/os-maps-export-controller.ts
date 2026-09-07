@@ -3,9 +3,10 @@ import { isArray, isString } from "es-toolkit/compat";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { isOsMapsRouteUrl, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { isOsMapsRouteUrl, OS_MAPS_EXPORT_MAX_WAIT_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { dispatchOsMapsExport, dispatchOsMapsList } from "../ramblers/os-maps-export-dispatcher";
-import { osMapsExportResultByJobId } from "./os-maps-export-result-store";
+import { failOsMapsExportResult, osMapsExportResultByJobId } from "./os-maps-export-result-store";
+import { dateTimeNowAsValue } from "../shared/dates";
 import { latestOsMapsRouteListing } from "./os-maps-route-listing-store";
 import { osMapsImportedRouteById, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
 
@@ -101,13 +102,24 @@ export async function updateOsMapsImportedRoute(req: Request, res: Response): Pr
   }
 }
 
+async function withStaleQueuedJobFailed(result: OsMapsExportJobResult): Promise<OsMapsExportJobResult> {
+  const overdue = result.status === OsMapsExportJobStatus.QUEUED && dateTimeNowAsValue() - result.createdAt > OS_MAPS_EXPORT_MAX_WAIT_MS;
+  if (overdue) {
+    const minutes = Math.round(OS_MAPS_EXPORT_MAX_WAIT_MS / 60000);
+    debugLog("marking stale queued export as failed:", result.jobId, "created", result.createdAt);
+    return await failOsMapsExportResult(result.jobId, `No result came back from the worker within ${minutes} minutes, so this conversion has been abandoned. Try it again.`) || result;
+  } else {
+    return result;
+  }
+}
+
 export async function osMapsExportJobResult(req: Request, res: Response): Promise<void> {
   try {
     const result = await osMapsExportResultByJobId(req.params.jobId);
     if (!result) {
       res.status(404).json({error: "OS Maps export job was not found"});
     } else {
-      res.json(result);
+      res.json(await withStaleQueuedJobFailed(result));
     }
   } catch (error) {
     debugLog("export result failed:", (error as Error).message);

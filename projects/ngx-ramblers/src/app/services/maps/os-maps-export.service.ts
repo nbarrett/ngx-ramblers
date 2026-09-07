@@ -3,7 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import { IntegrationWorkerJobResponse } from "../../models/integration-worker.model";
 import { FileNameData } from "../../models/aws-object.model";
-import { OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsListedRoute, OsMapsRouteListing } from "../../models/os-maps-export.model";
+import { OS_MAPS_EXPORT_MAX_WAIT_MS, OS_MAPS_EXPORT_POLL_INTERVAL_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsListedRoute, OsMapsRouteListing } from "../../models/os-maps-export.model";
 import { WebSocketClientService } from "../websockets/websocket-client.service";
 
 @Injectable({
@@ -52,9 +52,9 @@ export class OsMapsExportService {
     return firstValueFrom(this.http.get<OsMapsExportJobResult>(`${this.baseUrl}/export/${jobId}`));
   }
 
-  async waitForExport(jobId: string, stillWaiting: () => boolean = () => true): Promise<OsMapsExportJobResult> {
+  async waitForExport(jobId: string, stillWaiting: () => boolean = () => true, maxWaitMs = OS_MAPS_EXPORT_MAX_WAIT_MS): Promise<OsMapsExportJobResult> {
     const attempts = {count: 0};
-    const maxAttempts = 60;
+    const maxAttempts = Math.ceil(maxWaitMs / OS_MAPS_EXPORT_POLL_INTERVAL_MS);
     const poll = async (): Promise<OsMapsExportJobResult> => {
       const result = await this.exportResult(jobId);
       attempts.count += 1;
@@ -64,7 +64,7 @@ export class OsMapsExportService {
         || !stillWaiting()) {
         return result;
       } else {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, OS_MAPS_EXPORT_POLL_INTERVAL_MS));
         return poll();
       }
     };

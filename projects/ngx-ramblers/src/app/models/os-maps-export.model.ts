@@ -1,9 +1,4 @@
-import { isString } from "es-toolkit/compat";
 import { FileNameData, ServerFileNameData } from "./aws-object.model";
-
-export enum OsMapsExportFormat {
-  GPX = "gpx"
-}
 
 export enum OsMapsRouteSource {
   CREATED = "created",
@@ -117,7 +112,8 @@ export function osMapsRouteVisible(route: OsMapsListedRoute, search: string, fil
 }
 
 export const OS_MAPS_EXPLORE_URL = "https://explore.osmaps.com/";
-
+export const OS_MAPS_EXPORT_POLL_INTERVAL_MS = 5000;
+export const OS_MAPS_EXPORT_MAX_WAIT_MS = 45 * 60 * 1000;
 export const UK_CENTRE_GEOLOCATION = {latitude: 54.0, longitude: -2.5};
 
 export function requestedOsMapsRouteFixture(url: string): OsMapsRouteFixture {
