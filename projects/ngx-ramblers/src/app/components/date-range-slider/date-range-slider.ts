@@ -308,10 +308,7 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (!this.initialized) {
-      return;
-    }
-    if (changes["minDate"] || changes["maxDate"]) {
+    if (this.initialized && (this.boundChanged(changes["minDate"]) || this.boundChanged(changes["maxDate"]))) {
       this.configureBounds();
       if (this.rangeInputSet) {
         this.applyExternalRange();
@@ -319,6 +316,10 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
         this.clearRange(false);
       }
     }
+  }
+
+  private boundChanged(change: SimpleChanges[string]): boolean {
+    return !!change && change.previousValue?.valueOf() !== change.currentValue?.valueOf();
   }
 
   get minDateLabel(): string {
