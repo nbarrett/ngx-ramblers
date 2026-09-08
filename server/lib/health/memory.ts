@@ -115,7 +115,7 @@ export async function flyStats(req: Request, res: Response): Promise<void> {
 export async function flyMemoryHistory(req: Request, res: Response): Promise<void> {
   try {
     const requested = Number(req.query.minutes);
-    const minutes = Math.min(Math.max(Number.isFinite(requested) && requested > 0 ? Math.round(requested) : 1440, 15), 10080);
+    const minutes = Math.min(Math.max(Number.isFinite(requested) && requested > 0 ? Math.round(requested) : 1440, 15), 43200);
     const metric = isString(req.query.metric) ? req.query.metric : "memory";
     const history = await flyMetricHistory(metric, minutes, targetAppFrom(req), environmentNameFrom(req));
     res.status(200).json(history);
@@ -127,7 +127,7 @@ export async function flyMemoryHistory(req: Request, res: Response): Promise<voi
 
 export async function flyMachineState(req: Request, res: Response): Promise<void> {
   try {
-    const machineState = await currentMachineState(targetAppFrom(req));
+    const machineState = await currentMachineState(targetAppFrom(req), environmentNameFrom(req));
     res.status(200).json(machineState);
   } catch (error) {
     debugLog("Fly machine state query failed:", error);
@@ -136,7 +136,7 @@ export async function flyMachineState(req: Request, res: Response): Promise<void
 }
 
 export async function restartMachine(req: Request, res: Response): Promise<void> {
-  const result = await restartCurrentMachine(targetAppFrom(req));
+  const result = await restartCurrentMachine(targetAppFrom(req), environmentNameFrom(req));
   if (result.ok) {
     debugLog(`Restart triggered for ${envConfig.env}`);
     res.status(200).json({ message: "Restart triggered" });

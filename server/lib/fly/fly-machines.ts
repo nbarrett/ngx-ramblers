@@ -41,8 +41,8 @@ async function resolveMachineId(apiToken: string, appName: string, configured: s
   return started?.id || "";
 }
 
-export async function currentMachineState(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT): Promise<FlyMachineState> {
-  const { apiToken, appName, machineId: configuredMachineId } = await flyRuntimeConfig(target);
+export async function currentMachineState(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT, environmentName: string | null = null): Promise<FlyMachineState> {
+  const { apiToken, appName, machineId: configuredMachineId } = await flyRuntimeConfig(target, environmentName);
   const missing = missingFlyConfig({ FLY_API_TOKEN: apiToken, FLY_APP_NAME: appName });
   if (missing) {
     return { available: false, error: `Machine state is not configured for this environment (missing ${missing})` };
@@ -65,8 +65,8 @@ export async function currentMachineState(target: FlyTargetApp = FlyTargetApp.EN
   }
 }
 
-export async function restartCurrentMachine(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT): Promise<FlyRestartResult> {
-  const { apiToken, appName, machineId: configuredMachineId } = await flyRuntimeConfig(target);
+export async function restartCurrentMachine(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT, environmentName: string | null = null): Promise<FlyRestartResult> {
+  const { apiToken, appName, machineId: configuredMachineId } = await flyRuntimeConfig(target, environmentName);
   const missing = missingFlyConfig({ FLY_API_TOKEN: apiToken, FLY_APP_NAME: appName });
   if (missing) {
     return { ok: false, error: `Restart is not configured for this environment (missing ${missing})` };
