@@ -172,8 +172,8 @@ import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
           @if (row.events.dateRangeMode === DateRangeMode.SLIDER) {
             <div class="col-md-8">
               <app-date-range-slider
-                [minDate]="sliderMinDate()"
-                [maxDate]="sliderMaxDate()"
+                [minDate]="sliderMinDate"
+                [maxDate]="sliderMaxDate"
                 [range]="currentDateRange()"
                 (rangeChange)="onSliderRangeChange($event)"/>
             </div>
@@ -416,13 +416,8 @@ export class DynamicContentSiteEditEvents implements OnInit {
     this.broadcastChange();
   }
 
-  sliderMinDate(): DateTime {
-    return DateTime.now().minus({months: 6}).startOf("day");
-  }
-
-  sliderMaxDate(): DateTime {
-    return DateTime.now().plus({years: 1}).startOf("day");
-  }
+  readonly sliderMinDate: DateTime = DateTime.now().minus({months: 6}).startOf("day");
+  readonly sliderMaxDate: DateTime = DateTime.now().plus({years: 1}).startOf("day");
 
   currentDateRange(): DateRange {
     return {
