@@ -311,10 +311,10 @@ function substituteTemplateParameters(html: string, params: any): string {
   );
 }
 
-export function composeShellAndBody(bodyMarkdown: string): string {
+export function composeShellAndBody(bodyMarkdown: string, showTitle: boolean = true): string {
   const bodyPlacesContent = /\{\{\s*params\.messageMergeFields\.BODY_CONTENT\s*\}\}/.test(bodyMarkdown ?? "");
   return [
-    "<h3>{{params.messageMergeFields.subject}}</h3>",
+    showTitle ? "<h3>{{params.messageMergeFields.subject}}</h3>" : "",
     "{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}",
     bodyPlacesContent ? "" : "{{params.messageMergeFields.BODY_CONTENT_TOP}}",
     renderMarkdownPreservingTokens(bodyMarkdown),
@@ -350,7 +350,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       sendSmtpEmail.htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
     } else if (emailRequest.body) {
       debugLog("performing template substitution from editable body");
-      sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody(emailRequest.body), emailRequest.params, emailRequest.templateOverrides, campaign);
+      sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody(emailRequest.body, emailRequest.showTitle !== false), emailRequest.params, emailRequest.templateOverrides, campaign);
     } else if (localTemplateContent) {
       debugLog("performing template substitution from local template", emailRequest.templateName);
       sendSmtpEmail.htmlContent = renderBrandedTemplate(localTemplateContent, emailRequest.params, emailRequest.templateOverrides, campaign);

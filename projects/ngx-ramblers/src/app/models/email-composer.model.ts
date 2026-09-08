@@ -377,6 +377,7 @@ export interface EmailComposerState {
   notificationConfigListing: NotificationConfigListing | null;
   bannerId: string | null;
   subject: string;
+  showTitle: boolean;
   addresseeType: AddresseeType;
   introMarkdown: string;
   signoffTextMarkdown: string;
@@ -488,6 +489,7 @@ export interface BatchTransactionalSendRequest {
   notificationConfigId?: string;
   bannerId: string | null;
   subject: string;
+  showTitle?: boolean;
   addresseeType: AddresseeType;
   signoffRoles: string[];
   htmlBody: string;

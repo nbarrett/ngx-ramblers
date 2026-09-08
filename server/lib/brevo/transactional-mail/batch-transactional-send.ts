@@ -652,6 +652,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           headers: replyHeaders,
           attachments: request.attachments,
           brandingMode: request.brandingMode,
+          showTitle: request.showTitle,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
             : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
@@ -711,6 +712,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           headers: externalReplyHeaders,
           attachments: request.attachments,
           brandingMode: request.brandingMode,
+          showTitle: request.showTitle,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
             : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })

@@ -369,6 +369,20 @@ export function composerSenderIdentities(options: {
   return personal.concat(committee);
 }
 
+export function defaultBrandedSenderEmail(
+  identities: ComposerSenderIdentity[],
+  options: { chosenEmail?: string | null; preferredRoleType?: string | null } = {}
+): string {
+  const chosen = (options.chosenEmail ?? "").trim().toLowerCase();
+  const matchedChosen = chosen ? identities.find(identity => identity.email.toLowerCase() === chosen) : undefined;
+  const roleType = (options.preferredRoleType ?? "").trim().toLowerCase();
+  const byRole = roleType
+    ? identities.find(identity => (identity.roleType ?? "").toLowerCase() === roleType)
+    : undefined;
+  const committee = identities.find(identity => identity.kind === ComposerSenderKind.COMMITTEE_ROLE);
+  return matchedChosen?.email ?? byRole?.email ?? committee?.email ?? identities[0]?.email ?? "";
+}
+
 export function syncedRecipientAddressMode(options: {
   committeeRoleSendOffered: boolean;
   preselectCommitteeRole: boolean;
@@ -406,6 +420,7 @@ export function defaultEmailComposerState(): EmailComposerState {
     notificationConfigListing: null,
     bannerId: null,
     subject: "",
+    showTitle: true,
     addresseeType: AddresseeType.FIRST_NAME,
     introMarkdown: "",
     signoffTextMarkdown: "If you have any questions about the above, please don't hesitate to contact me.\n\nBest regards,",

@@ -12,7 +12,7 @@ describe("syncedRecipientAddressMode", () => {
     })).toEqual(RecipientAddressMode.PERSONAL);
   });
 
-  it("preselects committee role addresses for a committee list", () => {
+  it("preselects committee role addresses whenever everyone on the send holds a committee role", () => {
     expect(syncedRecipientAddressMode({
       committeeRoleSendOffered: true,
       preselectCommitteeRole: true,

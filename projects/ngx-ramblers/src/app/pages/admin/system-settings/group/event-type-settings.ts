@@ -1,9 +1,13 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { isString } from "es-toolkit/compat";
+import { Subscription } from "rxjs";
+import { NotificationConfig } from "../../../../models/mail.model";
+import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
+import { notificationConfigIdFieldFor } from "../../../../functions/event-type-notification-config";
 import { EventLeaderContactMethod, EventPopulation, Organisation, SystemConfig } from "../../../../models/system.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
-import { enumKeyValues, enumValues, KeyValue } from "../../../../functions/enums";
+import { enumKeyValues, enumValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../functions/enums";
 import { RamblersEventType } from "../../../../models/ramblers-walks-manager";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
@@ -19,6 +23,7 @@ import { uniqueCommitteeMembersByType } from "../../../../functions/committee-me
 
 interface EventTypeFieldMapping {
   population: keyof Organisation;
+  notificationConfigId: keyof Organisation;
   contactAccessLevels: ContactAccessLevelFieldKeys;
   promotionAccessLevel: keyof Organisation;
   showOnRamblersLink: keyof Organisation;
@@ -35,6 +40,7 @@ interface EventTypeFieldMapping {
 const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
   [RamblersEventType.GROUP_WALK]: {
     population: "walkPopulation",
+    notificationConfigId: notificationConfigIdFieldFor(RamblersEventType.GROUP_WALK),
     contactAccessLevels: WALK_CONTACT_ACCESS_LEVEL_FIELDS,
     promotionAccessLevel: "walkPromotionAccessLevel",
     showOnRamblersLink: "showWalkOnRamblersLink",
@@ -49,6 +55,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
   },
   [RamblersEventType.GROUP_EVENT]: {
     population: "socialEventPopulation",
+    notificationConfigId: notificationConfigIdFieldFor(RamblersEventType.GROUP_EVENT),
     contactAccessLevels: SOCIAL_CONTACT_ACCESS_LEVEL_FIELDS,
     promotionAccessLevel: "socialPromotionAccessLevel",
     showOnRamblersLink: "showSocialOnRamblersLink",
@@ -74,6 +81,18 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
           <option [ngValue]="method.value">{{ stringUtils.asTitle(method.value) }}</option>
         }
       </select>
+    </div>
+    <div class="form-group">
+      <label [for]="idFor('notification-config')">{{ eventTypeTitle }} Send Notification Uses Email Configuration</label>
+      <select [(ngModel)]="group[fields.notificationConfigId]"
+              class="form-control input-sm" [id]="idFor('notification-config')">
+        @for (notificationConfig of notificationConfigsPlusNone; track notificationConfig.id) {
+          <option [ngValue]="notificationConfig.id">{{ notificationConfig?.subject?.text || '(no subject)' }}</option>
+        }
+      </select>
+      <small class="form-text text-muted d-block">
+        The email type that Send Notification on a {{ eventTypeTitle.toLowerCase() }} opens with. The email is sent from that type's committee role address to its default mailing list.
+      </small>
     </div>
     <div class="form-group">
       <label [for]="idFor('name-access-level')">{{ eventTypeTitle }} leader name - who can see it</label>
@@ -184,10 +203,13 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     </div>`,
   imports: [FormsModule]
 })
-export class EventTypeSettingsComponent implements OnInit {
+export class EventTypeSettingsComponent implements OnInit, OnDestroy {
 
   private committeeConfig = inject(CommitteeConfigService);
+  private mailMessagingService = inject(MailMessagingService);
+  private subscriptions: Subscription[] = [];
   stringUtils = inject(StringUtilsService);
+  notificationConfigsPlusNone: NotificationConfig[] = [];
   populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
   eventLeaderContactMethods: KeyValue<string>[] = enumKeyValues(EventLeaderContactMethod);
   contactUsValue = EventLeaderContactMethod.CONTACT_US;
@@ -220,9 +242,19 @@ export class EventTypeSettingsComponent implements OnInit {
     this.eventTypeTitle = this.stringUtils.asTitle(this.eventType);
     this.photoAlbumBasePathPlaceholder = this.eventType === RamblersEventType.GROUP_EVENT ? "social/photos" : "walks/photos";
     this.applyDefaults();
-    this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
+    this.subscriptions.push(this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
       this.committeeRoles = uniqueCommitteeMembersByType(data.committeeMembers());
-    });
+    }));
+    this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+      this.notificationConfigsPlusNone = [{
+        id: KEY_NULL_VALUE_NONE.key,
+        subject: {text: KEY_NULL_VALUE_NONE.value}
+      } as NotificationConfig].concat(this.mailMessagingService.notificationConfigs({mailMessagingConfig, includeWorkflowRelatedConfigs: false}));
+    }));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   idFor(suffix: string): string {

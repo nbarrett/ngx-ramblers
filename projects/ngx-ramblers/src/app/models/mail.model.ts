@@ -178,6 +178,7 @@ export interface EmailRequest {
   body?: string;
   htmlContent?: string;
   brandingMode?: BrandingMode;
+  showTitle?: boolean;
 }
 
 export interface TemplateRenderRequest {
@@ -187,6 +188,7 @@ export interface TemplateRenderRequest {
   body?: string;
   htmlContent?: string;
   brandingMode?: BrandingMode;
+  showTitle?: boolean;
 }
 
 export interface TemplateRenderResponse {

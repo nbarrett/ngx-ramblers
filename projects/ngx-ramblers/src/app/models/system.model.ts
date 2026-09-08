@@ -225,6 +225,8 @@ export interface Organisation extends Group {
   groupEventContactMethod?: EventLeaderContactMethod;
   groupEventContactDirect?: boolean;
   groupEventContactRole?: string;
+  groupWalkNotificationConfigId?: string | null;
+  groupEventNotificationConfigId?: string | null;
   walkLeaderPhoneAction?: WalkLeaderPhoneAction;
   shortName?: string;
   href?: string;

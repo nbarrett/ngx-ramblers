@@ -6,7 +6,7 @@ export function EmailComposerAuthGuard(): boolean {
   const memberLoginService: MemberLoginService = inject(MemberLoginService);
   const router: Router = inject(Router);
 
-  const allowed = memberLoginService.allowCommittee() || memberLoginService.allowSocialAdminEdits();
+  const allowed = memberLoginService.allowEmailComposer();
   if (!allowed) {
     router.navigate(["/"]);
   }

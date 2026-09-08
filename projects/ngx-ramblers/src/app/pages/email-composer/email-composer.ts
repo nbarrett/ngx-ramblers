@@ -122,6 +122,7 @@ import {
 import {
   buildDefaultFragmentOrder,
   composerSenderIdentities,
+  defaultBrandedSenderEmail,
   defaultEmailComposerState,
   syncedRecipientAddressMode,
   defaultNewsletterSettings,
@@ -183,6 +184,7 @@ import { MailListUpdaterService } from "../../services/mail/mail-list-updater.se
 import { MemberService } from "../../services/member/member.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
+import { notificationConfigIdFor } from "../../functions/event-type-notification-config";
 import { SalesforceConfigService } from "../../services/salesforce/salesforce-config.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { ListSubscriberService } from "../../services/mail/list-subscriber.service";
@@ -804,7 +806,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 <div class="form-check">
                   <input id="mode-list" type="radio" class="form-check-input" name="recipient-mode"
                          [checked]="state.recipientMode === RecipientMode.ENTIRE_LIST"
-                         (change)="setRecipientMode(RecipientMode.ENTIRE_LIST)">
+                         (change)="chooseRecipientMode(RecipientMode.ENTIRE_LIST)">
                   <label class="form-check-label" for="mode-list">
                     <strong>A whole mailing list</strong> - one email sent to the entire list
                   </label>
@@ -812,7 +814,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 <div class="form-check">
                   <input id="mode-selected" type="radio" class="form-check-input" name="recipient-mode"
                          [checked]="state.recipientMode === RecipientMode.SELECTED_MEMBERS"
-                         (change)="setRecipientMode(RecipientMode.SELECTED_MEMBERS)">
+                         (change)="chooseRecipientMode(RecipientMode.SELECTED_MEMBERS)">
                   <label class="form-check-label" for="mode-selected">
                     <strong>Specific members</strong> - sent individually to each person you choose
                   </label>
@@ -1290,6 +1292,12 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <small class="text-danger">Subject line is required</small>
             }
           </div>
+          @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+            <div class="form-check mt-2">
+              <input id="email-show-title" type="checkbox" class="form-check-input" [(ngModel)]="state.showTitle"/>
+              <label class="form-check-label" for="email-show-title">Show the subject as a heading at the top of the email</label>
+            </div>
+          }
         </fieldset>
 
         <fieldset class="email-composer-fieldset">
@@ -2378,6 +2386,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private subscriptions: Subscription[] = [];
   private pollSubscription: Subscription | null = null;
   private recipientAddressModeTouched = false;
+  private userPickedEmailType = false;
+  private userPickedRecipientMode = false;
 
   protected readonly EmailComposerStepKey = EmailComposerStepKey;
   protected readonly RecipientMode = RecipientMode;
@@ -2593,6 +2603,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.state.eventInclusion = EventInclusionMode.SINGLE_EVENT;
       this.ensureGroupEventsFilter();
       await this.loadSingleEvent(eventQuery);
+      this.autoSelectNotificationConfig();
+      this.applyGroupEventCampaignRecipients();
     } else if (committeeFile || sourcePage || eventPath) {
       this.state.context = {
         source: EmailComposerContextSource.COMMITTEE,
@@ -2718,6 +2730,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.state.singleEvent = event;
     if (event && !this.state.subject) {
       this.state.subject = event.groupEvent?.title ?? this.state.subject;
+      this.state.showTitle = false;
     }
     this.state.groupEvents = event ? [this.eventToSummary(event)] : [];
   }
@@ -4112,6 +4125,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       || this.cachedRemovesRecipients !== this.workflowRemovesRecipients();
   }
 
+  protected chooseRecipientMode(mode: RecipientMode): void {
+    this.userPickedRecipientMode = true;
+    this.setRecipientMode(mode);
+  }
+
   setRecipientMode(mode: RecipientMode): void {
     if (!(mode === RecipientMode.ENTIRE_LIST && this.state.brandingMode === BrandingMode.UNBRANDED)) {
       this.state.recipientMode = mode;
@@ -4342,17 +4360,55 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private autoSelectNotificationConfig(): void {
     if (!this.state.notificationConfigListing || this.state.brandingMode === BrandingMode.UNBRANDED) {
       return;
-    }
-    const candidates = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing);
-    if (this.forcedConfigId) {
-      const forced = candidates.find(candidate => candidate.id === this.forcedConfigId);
+    } else {
+      const candidates = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing);
+      const forced = this.forcedConfigId
+        ? candidates.find(candidate => candidate.id === this.forcedConfigId)
+        : undefined;
       if (forced) {
-        this.onEmailConfigChanged(forced);
+        if (forced.id !== this.state.notificationConfig?.id) {
+          this.applyNotificationConfig(forced);
+        }
+        this.applyGroupEventCampaignRecipients();
+      } else if (!this.userPickedEmailType) {
+        const preferred = this.preferredConfigForCurrentContext(candidates);
+        const next = preferred ?? (!this.state.notificationConfig && candidates.length > 0 ? candidates[0] : undefined);
+        if (next && next.id !== this.state.notificationConfig?.id) {
+          this.applyNotificationConfig(next);
+          this.applyGroupEventCampaignRecipients();
+        }
       }
     }
-    if (!this.state.notificationConfig && candidates.length > 0) {
-      this.onEmailConfigChanged(candidates[0]);
+  }
+
+  private applyGroupEventCampaignRecipients(): void {
+    const config = this.state.notificationConfig;
+    if (this.state.context?.source === EmailComposerContextSource.GROUP_EVENT
+      && !this.userPickedRecipientMode
+      && this.state.brandingMode !== BrandingMode.UNBRANDED
+      && config?.defaultMemberSelection === MemberSelection.MAILING_LIST) {
+      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
+      this.state.sendingChannel = SendingChannel.CAMPAIGN;
+      this.state.preFilterKey = null;
+      this.state.selectedMemberIds = [];
+      if (isNumber(config.defaultListId)) {
+        this.state.selectedListId = config.defaultListId;
+      }
+      this.applyDefaultListIfNeeded();
+      this.syncRecipientAddressMode();
+      this.syncStateToUrl({
+        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.ENTIRE_LIST),
+        [StoredValue.LIST_ID]: this.state.selectedListId?.toString() ?? null,
+        [StoredValue.PRE_FILTER]: null
+      });
     }
+  }
+
+  private preferredConfigForCurrentContext(candidates: NotificationConfig[]): NotificationConfig | undefined {
+    const configId = this.state.context?.source === EmailComposerContextSource.GROUP_EVENT
+      ? notificationConfigIdFor(this.systemConfig?.group, this.state.singleEvent?.groupEvent?.item_type)
+      : null;
+    return configId ? candidates.find(candidate => candidate.id === configId) : undefined;
   }
 
   setBrandingMode(mode: BrandingMode): void {
@@ -4475,11 +4531,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private syncRecipientAddressMode(): void {
-    const listTargetedSend = this.state.recipientMode === RecipientMode.ENTIRE_LIST
-      || (this.state.brandingMode === BrandingMode.UNBRANDED && this.state.narrowListId !== null);
     this.state.recipientAddressMode = syncedRecipientAddressMode({
       committeeRoleSendOffered: this.committeeRoleSendOffered(),
-      preselectCommitteeRole: !this.recipientAddressModeTouched && listTargetedSend,
+      preselectCommitteeRole: !this.recipientAddressModeTouched,
       current: this.state.recipientAddressMode
     });
   }
@@ -4514,10 +4568,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected resolvedBrandedSenderEmail(): string {
-    const identities = this.brandedSenderIdentities();
-    const chosen = (this.state.brandedSenderEmail ?? "").trim().toLowerCase();
-    const matched = identities.find(identity => identity.email.toLowerCase() === chosen);
-    return (matched ?? identities[0])?.email ?? "";
+    return defaultBrandedSenderEmail(this.brandedSenderIdentities(), {
+      chosenEmail: this.state.brandedSenderEmail,
+      preferredRoleType: this.state.notificationConfig?.senderRole
+    });
   }
 
   protected onBrandedSenderEmailChange(email: string): void {
@@ -4586,8 +4640,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.state.sendingChannel = SendingChannel.CAMPAIGN;
       this.state.preFilterKey = null;
     } else if (emailType === kebabCase(RecipientMode.SELECTED_MEMBERS) && this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
-      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+      const keepEventOnList = this.state.context?.source === EmailComposerContextSource.GROUP_EVENT && !this.userPickedRecipientMode;
+      if (!keepEventOnList) {
+        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+      }
     }
     const listId = queryParams.get(StoredValue.LIST_ID);
     if (listId) {
@@ -5264,6 +5321,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   onEmailConfigChanged(config: NotificationConfig): void {
+    this.userPickedEmailType = true;
+    this.applyNotificationConfig(config);
+  }
+
+  private applyNotificationConfig(config: NotificationConfig): void {
     const previousConfigSubject = this.state.notificationConfig?.subject?.text ?? "";
     const userTypedCustomSubject = !!this.state.subject?.trim() && this.state.subject !== previousConfigSubject;
     this.state.notificationConfig = config ? cloneDeep(config) : null;
@@ -5501,12 +5563,17 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private resolveConfigIdFromSlug(slug: string | null): string | null {
-    if (!slug) return null;
-    const configs = this.mailMessagingConfig?.notificationConfigs ?? [];
-    const matched = configs.find(config => this.configToSlug(config) === slug || config.id === slug);
-    if (matched) return matched.id ?? null;
-    if (/^[a-f0-9]{24}$/i.test(slug)) return slug;
-    return null;
+    let resolved: string | null = null;
+    if (slug) {
+      const configs = this.mailMessagingConfig?.notificationConfigs ?? [];
+      const matched = configs.find(config => this.configToSlug(config) === slug || config.id === slug);
+      if (matched) {
+        resolved = matched.id ?? null;
+      } else if (/^[a-f0-9]{24}$/i.test(slug)) {
+        resolved = slug;
+      }
+    }
+    return resolved;
   }
 
   bannerImageSource(): string {
@@ -6212,6 +6279,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     restored.groupEvents = [];
     restored.notificationConfigListing = this.state.notificationConfigListing;
     restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
+    restored.showTitle = restored.showTitle ?? true;
     restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
     restored.unbrandedSenderEmail = restored.unbrandedSenderEmail ?? null;
     restored.brandedSenderEmail = restored.brandedSenderEmail ?? null;
@@ -6327,6 +6395,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.routeCompositionKey = null;
     this.state = defaultEmailComposerState();
     this.recipientAddressModeTouched = false;
+    this.userPickedEmailType = false;
+    this.userPickedRecipientMode = false;
     if (this.mailMessagingConfig) {
       this.state.notificationConfigListing = {
         mailMessagingConfig: this.mailMessagingConfig,
@@ -6496,11 +6566,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       : {
         templateName: this.state.notificationConfig!.templateName,
         templateOverrides: this.state.notificationConfig!.templateOverrides,
-        body: this.state.context?.source === EmailComposerContextSource.VOLUNTEER ? "" : this.state.notificationConfig!.body,
+        body: this.editableBodyForSend(),
         htmlContent: combined,
-        params
+        params,
+        showTitle: this.state.showTitle
       };
     await this.emailPreview.render(request);
+  }
+
+  private editableBodyForSend(): string {
+    return this.state.context?.source === EmailComposerContextSource.VOLUNTEER ? "" : this.state.notificationConfig!.body;
   }
 
   private addresseePlaceholder(): string {
@@ -6775,6 +6850,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.sendConfirm.clear();
     this.sendInProgress = true;
     try {
+      this.state.brandedSenderEmail = this.resolvedBrandedSenderEmail() || null;
       const useCampaign = this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.brandingMode !== BrandingMode.UNBRANDED;
       if (useCampaign) {
         await this.sendCampaign();
@@ -6813,6 +6889,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const request: CreateCampaignRequest = {
       createAsDraft: false,
       templateName: this.state.notificationConfig!.templateName,
+      templateOverrides: this.state.notificationConfig!.templateOverrides,
+      body: this.editableBodyForSend(),
+      showTitle: this.state.showTitle,
       htmlContent: campaignCombined,
       attachmentUrl: this.state.attachments?.[0]?.url,
       inlineImageActivation: false,
@@ -6961,6 +7040,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       notificationConfigId: isUnbranded ? undefined : this.state.notificationConfig!.id!,
       bannerId: isUnbranded ? null : this.state.bannerId,
       subject: this.state.subject,
+      showTitle: this.state.showTitle,
       addresseeType: AddresseeType.NONE,
       signoffRoles: isUnbranded ? [] : this.state.signoffRoles,
       htmlBody: combined,

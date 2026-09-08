@@ -399,6 +399,12 @@ export class SenderRepliesAndSignoff implements OnInit {
         const signOffRoles = [primaryRole];
         this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(signOffRoles) : signOffRoles);
       }
+      const roleIdentity = (this.senderIdentities ?? []).find(identity => identity.roleType === primaryRole);
+      const role = this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(primaryRole);
+      const roleEmail = roleIdentity?.email || role?.email;
+      if (roleEmail) {
+        this.senderEmailChange.emit(roleEmail);
+      }
       this.senderRoleChanged();
       this.rolesChanged.emit();
     }

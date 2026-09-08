@@ -807,10 +807,7 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   }
 
   sendGroupEventNotification() {
-    const segments = this.urlService.pathSegments();
-    const lastSegment = segments[segments.length - 1];
-    const viewSegments = lastSegment === PathSegment.EDIT ? segments.slice(0, -1) : segments;
-    void this.urlService.navigateTo([...viewSegments, PathSegment.EMAIL_COMPOSER], { [StoredValue.EVENT]: this.groupEvent?.id });
+    this.display.sendNotification(this.groupEvent);
   }
 
   inputDisabled() {

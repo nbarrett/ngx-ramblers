@@ -18,7 +18,7 @@ import { MarkdownComponent } from "ngx-markdown";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { faCloudArrowUp, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faEnvelope, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import {
   EventSocialPublishModalComponent
@@ -47,22 +47,33 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       </div>
       <div class="card-body">
         <div class="position-relative">
-          @if (display.allow.edits || showSocialPublishing()) {
+          @if (display.allow.edits || showSocialPublishing() || showEmailNotification()) {
             <div class="float-end d-flex gap-2">
-              @if (showSocialPublishing()) {
+              @if (showSocialPublishing() || showEmailNotification()) {
                 <div class="btn-group" dropdown container="body">
                   <button type="button" dropdownToggle class="btn btn-primary dropdown-toggle"
                           [disabled]="notifyTarget.busy" aria-label="Publish this event">
                     <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish
                   </button>
                   <ul *dropdownMenu class="dropdown-menu">
-                    <li>
-                      <a class="dropdown-item" role="button" (click)="openSocialPublish()"
-                         tooltip="Preview and post this event to Facebook or Instagram"
-                         placement="left" container="body">
-                        <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
-                      </a>
-                    </li>
+                    @if (showSocialPublishing()) {
+                      <li>
+                        <a class="dropdown-item" role="button" (click)="openSocialPublish()"
+                           tooltip="Preview and post this event to Facebook or Instagram"
+                           placement="left" container="body">
+                          <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
+                        </a>
+                      </li>
+                    }
+                    @if (showEmailNotification()) {
+                      <li>
+                        <a class="dropdown-item" role="button" (click)="display.sendNotification(groupEvent)"
+                           tooltip="Email members about this event"
+                           placement="left" container="body">
+                          <fa-icon [icon]="faEnvelope" class="me-2"/>Email members about this event
+                        </a>
+                      </li>
+                    }
                   </ul>
                 </div>
               }
@@ -210,6 +221,7 @@ export class GroupEventView implements OnInit {
   @ViewChild("socialPublish") private socialPublish: EventSocialPublishModalComponent;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faCloudArrowUp = faCloudArrowUp;
+  protected readonly faEnvelope = faEnvelope;
   private walksAndEventsService = inject(WalksAndEventsService);
   protected mediaQueryService = inject(MediaQueryService);
   @Input()
@@ -260,6 +272,10 @@ export class GroupEventView implements OnInit {
 
   imageLoad($event: Event) {
     this.logger.info("imageLoad:", $event);
+  }
+
+  showEmailNotification(): boolean {
+    return !!this.groupEvent?.id && this.memberLoginService.allowSocialAdminEdits();
   }
 
   showSocialPublishing(): boolean {
