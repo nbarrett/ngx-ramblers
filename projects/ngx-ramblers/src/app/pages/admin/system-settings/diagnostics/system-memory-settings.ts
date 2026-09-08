@@ -1,33 +1,28 @@
-import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom, Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faRefresh, faCamera, faSpinner, faStop, faCheck, faPowerOff } from "@fortawesome/free-solid-svg-icons";
+import { faRefresh, faCamera, faSpinner, faStop, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
-import { DateUtilsService } from "../../../../services/date-utils.service";
 import {
-  FlyMachineState,
-  FlyRestartResponse,
-  FlyRestartStatus,
   HeapSnapshotResponse,
   HeapSnapshotStatus,
   MemoryUsageResponse
 } from "../../../../models/health.model";
-import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { FlyMachineHistoryComponent } from "./fly-machine-history";
 
 @Component({
   selector: "app-system-memory-settings",
   imports: [FontAwesomeModule, FlyMachineHistoryComponent],
   template: `
-    <app-fly-machine-history (targetQueryChange)="flyTargetQuery = $event"/>
+    <app-fly-machine-history/>
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Memory Diagnostics</div>
       <div class="col-sm-12">
         <p>Live memory usage for this environment's server. Use this to see whether a site is heap-bound (objects and caches) or external-bound (buffers) when investigating per-site memory.</p>
         <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
-          <button type="button" class="btn btn-primary" [disabled]="busy || snapshotRunning || restarting" (click)="refreshAll()">
+          <button type="button" class="btn btn-primary" [disabled]="busy || snapshotRunning" (click)="refreshAll()">
             <fa-icon [icon]="busy ? faSpinner : faRefresh" [animation]="busy ? 'spin' : null"/>
             Refresh
           </button>
@@ -46,56 +41,7 @@ import { FlyMachineHistoryComponent } from "./fly-machine-history";
               Stop
             </button>
           }
-          @if (!restartConfirmPending && restartStatus !== FlyRestartStatus.RESTARTING) {
-            <button type="button" class="btn btn-outline-secondary" [disabled]="busy" (click)="requestRestart()">
-              <fa-icon [icon]="faPowerOff"/>
-              Restart machine
-            </button>
-          }
         </div>
-        @if (restartConfirmPending) {
-          <div class="alert alert-warning">
-            <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-            <strong class="ms-2">Restart {{ targetDescription }}?</strong>
-            <div class="mt-2">
-              This immediately restarts the running server. Anyone using the site will see a brief outage while it comes back up. Only do this if the site is genuinely slow or stuck.
-            </div>
-            <div class="d-flex gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" (click)="confirmRestart()">
-                <fa-icon [icon]="faPowerOff"/>
-                Confirm restart
-              </button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelRestart()">Cancel</button>
-            </div>
-          </div>
-        }
-        @if (restartStatus === FlyRestartStatus.RESTARTING) {
-          <div class="alert alert-warning d-flex align-items-start">
-            <fa-icon [icon]="faSpinner" animation="spin" class="me-2 mt-1"/>
-            <div>
-              <strong>Restarting machine…</strong>
-              <div class="small">The server will be briefly unreachable. This page will refresh automatically once it's back.</div>
-            </div>
-          </div>
-        }
-        @if (restartStatus === FlyRestartStatus.DONE) {
-          <div class="alert alert-success">
-            <fa-icon [icon]="faCheck" class="me-2"/>
-            <strong>Machine restarted</strong> and is back up. Figures below are up to date.
-          </div>
-        }
-        @if (restartStatus === FlyRestartStatus.SESSION_EXPIRED) {
-          <div class="alert alert-success">
-            <fa-icon [icon]="faCheck" class="me-2"/>
-            <strong>Machine restarted</strong> — but your login session did not survive it, so the figures below can't refresh. Log in again to see up-to-date figures.
-          </div>
-        }
-        @if (restartStatus === FlyRestartStatus.FAILED) {
-          <div class="alert alert-warning">
-            <fa-icon [icon]="ALERT_ERROR.icon" class="me-2"></fa-icon>
-            <strong>Restart failed</strong> {{ restartError }}
-          </div>
-        }
         @if (error) {
           <div class="alert alert-danger">{{ error }}</div>
         }
@@ -173,7 +119,6 @@ import { FlyMachineHistoryComponent } from "./fly-machine-history";
 export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("SystemMemorySettings", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
-  private dateUtils = inject(DateUtilsService);
   protected memory: MemoryUsageResponse | null = null;
   protected snapshot: HeapSnapshotResponse | null = null;
   protected busy = false;
@@ -185,28 +130,12 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   private snapshotSub: Subscription | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
 
-  @ViewChild(FlyMachineHistoryComponent) private flyHistory: FlyMachineHistoryComponent;
-  protected flyTargetQuery = "";
-  protected restartStatus: FlyRestartStatus = FlyRestartStatus.IDLE;
-  protected restartConfirmPending = false;
-  protected restartError: string | null = null;
-  private restartPollTimer: ReturnType<typeof setTimeout> | null = null;
-  private restartPollAttempts = 0;
-  private restartPollGeneration = 0;
-  private static readonly MAX_RESTART_POLL_ATTEMPTS = 40;
-  private static readonly RESTART_POLL_INTERVAL_MS = 3000;
-  private static readonly MAX_RESTART_REQUEST_ATTEMPTS = 5;
-  private static readonly RESTART_REQUEST_RETRY_MS = 5000;
-
   protected readonly faRefresh = faRefresh;
   protected readonly faCamera = faCamera;
   protected readonly faSpinner = faSpinner;
   protected readonly faStop = faStop;
   protected readonly faCheck = faCheck;
-  protected readonly faPowerOff = faPowerOff;
-  protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly HeapSnapshotStatus = HeapSnapshotStatus;
-  protected readonly FlyRestartStatus = FlyRestartStatus;
 
   ngOnInit() {
     this.refreshAll();
@@ -214,7 +143,6 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.clearSnapshotTimer();
-    this.clearRestartPollTimer();
     this.snapshotSub?.unsubscribe();
   }
 
@@ -306,107 +234,5 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
 
   async refreshAll(): Promise<void> {
     await this.refresh();
-  }
-
-  get targetDescription(): string {
-    if (this.flyTargetQuery.includes("app=jitsi")) {
-      return "the video meetings Fly machine";
-    } else if (this.flyTargetQuery.includes("app=worker")) {
-      return "the integration worker's Fly machine";
-    } else {
-      return "this environment's Fly machine";
-    }
-  }
-
-  get restarting(): boolean {
-    return this.restartStatus === FlyRestartStatus.RESTARTING;
-  }
-
-  requestRestart(): void {
-    this.restartConfirmPending = true;
-  }
-
-  cancelRestart(): void {
-    this.restartConfirmPending = false;
-  }
-
-  async confirmRestart(): Promise<void> {
-    this.restartConfirmPending = false;
-    this.restartError = null;
-    this.restartStatus = FlyRestartStatus.RESTARTING;
-    await this.requestRestartWithRetries(1);
-  }
-
-  private async requestRestartWithRetries(attempt: number): Promise<void> {
-    try {
-      await firstValueFrom(this.http.post<FlyRestartResponse>(`/api/health/memory/restart?${this.flyTargetQuery}`.replace(/[?&]$/, ""), {}));
-      this.pollUntilBackUp();
-    } catch (error) {
-      this.logger.error("restart attempt", attempt, "failed", error);
-      if (error?.status === 503 && attempt < SystemMemorySettingsComponent.MAX_RESTART_REQUEST_ATTEMPTS) {
-        setTimeout(() => this.requestRestartWithRetries(attempt + 1), SystemMemorySettingsComponent.RESTART_REQUEST_RETRY_MS);
-      } else if ([401, 403, 503].includes(error?.status)) {
-        this.restartError = error?.error?.error || `the server was too unresponsive to accept the restart request after ${attempt} attempts — restart the machine from the Fly dashboard instead`;
-        this.restartStatus = FlyRestartStatus.FAILED;
-      } else {
-        this.pollUntilBackUp();
-      }
-    }
-  }
-
-  private pollUntilBackUp(): void {
-    this.clearRestartPollTimer();
-    this.restartPollAttempts = 0;
-    this.scheduleRestartPoll(this.restartPollGeneration, this.dateUtils.nowAsValue());
-  }
-
-  private scheduleRestartPoll(generation: number, restartInitiated: number): void {
-    this.restartPollTimer = setTimeout(async () => {
-      if (generation !== this.restartPollGeneration) {
-        return;
-      }
-      this.restartPollAttempts += 1;
-      try {
-        const machineState = await firstValueFrom(this.http.get<FlyMachineState>(`/api/health/memory/machine-state?${this.flyTargetQuery}`.replace(/[?&]$/, "")));
-        if (generation !== this.restartPollGeneration) {
-          return;
-        }
-        if (machineState.available && machineState.state === "started" && machineState.updatedAt > restartInitiated) {
-          this.restartStatus = FlyRestartStatus.DONE;
-          await this.refresh();
-          await this.flyHistory?.refreshFlyStats();
-          await this.flyHistory?.loadFlyHistory();
-        } else {
-          this.scheduleNextPollOrFail(generation, restartInitiated);
-        }
-      } catch (error) {
-        if (generation !== this.restartPollGeneration) {
-          return;
-        }
-        if (error?.status === 401 && !this.flyTargetQuery) {
-          this.clearRestartPollTimer();
-          this.restartStatus = FlyRestartStatus.SESSION_EXPIRED;
-        } else {
-          this.scheduleNextPollOrFail(generation, restartInitiated);
-        }
-      }
-    }, SystemMemorySettingsComponent.RESTART_POLL_INTERVAL_MS);
-  }
-
-  private scheduleNextPollOrFail(generation: number, restartInitiated: number): void {
-    if (this.restartPollAttempts >= SystemMemorySettingsComponent.MAX_RESTART_POLL_ATTEMPTS) {
-      this.restartStatus = FlyRestartStatus.FAILED;
-      this.restartError = "Machine did not come back within the expected time - check the Fly dashboard";
-    } else {
-      this.scheduleRestartPoll(generation, restartInitiated);
-    }
-  }
-
-  private clearRestartPollTimer(): void {
-    this.restartPollGeneration += 1;
-    if (this.restartPollTimer) {
-      clearTimeout(this.restartPollTimer);
-      this.restartPollTimer = null;
-    }
   }
 }
