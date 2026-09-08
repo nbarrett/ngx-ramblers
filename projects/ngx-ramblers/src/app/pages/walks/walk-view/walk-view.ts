@@ -50,10 +50,12 @@ import {
   faShareNodes,
   faPersonWalking,
   faCopy,
-  faCircleCheck
+  faCircleCheck,
+  faEnvelope
 } from "@fortawesome/free-solid-svg-icons";
 import { AppShellService } from "../../../services/maps/app-shell.service";
 import { nativeShareSupported } from "../../../functions/native-share";
+import { GroupEventDisplayService } from "../../group-events/group-event-display.service";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { AlbumEditRole } from "../../../models/content-metadata.model";
@@ -284,7 +286,7 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
               <span>{{ albumActionCaption() }}</span>
             </button>
           }
-          @if (canShareWalk() || showPublishToRamblers || showSocialPublishing() || showAlbumShare()) {
+          @if (canShareWalk() || showPublishToRamblers || showSocialPublishing() || showAlbumShare() || showEmailActions()) {
             <div class="btn-group walk-view-split" dropdown container="body">
               @if (showPublishToRamblers && publishBlockedUntilApproved()) {
                 <button type="button" disabled
@@ -373,6 +375,24 @@ import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.mod
                       <fa-icon [icon]="faShareNodes" class="me-2"/>Share photos on social media
                     </a>
                   </li>
+                }
+                @if (showEmailActions()) {
+                  <li>
+                    <a class="dropdown-item" role="button" (click)="groupEventDisplay.sendNotification(displayedWalk?.walk)"
+                       tooltip="Open the email composer with this {{ eventTypeLabel() }} ready to send to members"
+                       placement="left" container="body">
+                      <fa-icon [icon]="faEnvelope" class="me-2"/>Email members about this {{ eventTypeLabel() }}
+                    </a>
+                  </li>
+                  @if (groupEventDisplay.leaderMemberId(displayedWalk?.walk)) {
+                    <li>
+                      <a class="dropdown-item" role="button" (click)="groupEventDisplay.emailLeader(displayedWalk?.walk)"
+                         tooltip="Send a plain email to the {{ eventTypeLabel() }} leader"
+                         placement="left" container="body">
+                        <fa-icon [icon]="faEnvelope" class="me-2"/>Email the {{ eventTypeLabel() }} leader
+                      </a>
+                    </li>
+                  }
                 }
               </ul>
             </div>
@@ -486,6 +506,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   public display = inject(WalkDisplayService);
   private appShell = inject(AppShellService);
+  protected groupEventDisplay = inject(GroupEventDisplayService);
   private dateUtils = inject(DateUtilsService);
   public meetupService = inject(MeetupService);
   protected urlService = inject(UrlService);
@@ -525,6 +546,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faPencil = faPencil;
   protected readonly faShareNodes = faShareNodes;
+  protected readonly faEnvelope = faEnvelope;
   protected readonly faCopy = faCopy;
   protected readonly faCircleCheck = faCircleCheck;
   protected linkCopied = false;
@@ -612,6 +634,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       eventAdmin: !!this.allowWalkAdminEdits,
       eventLeader: this.display.loggedInMemberIsLeadingWalk(this.displayedWalk?.walk)
     });
+  }
+
+  showEmailActions(): boolean {
+    return !!this.displayedWalk?.walk?.id && (this.memberLoginService.allowCommittee() || this.memberLoginService.allowWalkAdminEdits());
   }
 
   showSocialPublishing(): boolean {

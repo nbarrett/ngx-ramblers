@@ -328,6 +328,11 @@ describe("brevo messages", () => {
       expect(result).toContain("{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}");
       expect(result).toContain("Static template content");
     });
+
+    it("shows the subject as a heading by default and omits it when asked", () => {
+      expect(composeShellAndBody("Body")).toContain("<h3>{{params.messageMergeFields.subject}}</h3>");
+      expect(composeShellAndBody("Body", false)).not.toContain("<h3>");
+    });
   });
 
   describe("renderTemplateMarkdownToHtml", () => {

@@ -69,6 +69,10 @@ export class MemberLoginService {
     return this.loggedInMember().socialAdmin;
   }
 
+  allowEmailComposer(): boolean {
+    return this.allowCommittee() || this.allowSocialAdminEdits() || this.allowWalkAdminEdits();
+  }
+
   isAdmin(): boolean {
     return this.allowCommittee() ||
       this.allowContentEdits() ||

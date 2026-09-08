@@ -8,7 +8,7 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
 import { PathSegment, RouteParam } from "../../models/content-text.model";
 import { WALKS_ADD_WALK_SEGMENT, WALKS_LEADER_SEGMENT } from "../../models/walks-route-paths.model";
 import { hasEmailComposerPath, hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-matchers";
-import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
+import { EmailComposerAuthGuard } from "../../guards/email-composer-auth-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
 
 @NgModule({
@@ -137,7 +137,7 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       matcher: hasEmailComposerPath,
       loadComponent: () => import("../../pages/email-composer/email-composer")
         .then(m => m.EmailComposer),
-      canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
     },
     {
       path: ":path",

@@ -1,5 +1,8 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, isEmpty } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, last } from "es-toolkit/compat";
+import { BrandingMode } from "../../models/mail.model";
+import { RecipientMode } from "../../models/email-composer.model";
+import { notificationConfigIdFor } from "../../functions/event-type-notification-config";
 import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
@@ -8,7 +11,7 @@ import { CommitteeMember, RoleType } from "../../models/committee.model";
 import { Member, MemberFilterSelection } from "../../models/member.model";
 import { EventsData, GroupEventsPermissions } from "../../models/group-events.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
-import { Confirm } from "../../models/ui-actions";
+import { Confirm, StoredValue } from "../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
 import { sortBy } from "../../functions/arrays";
@@ -239,6 +242,32 @@ export class GroupEventDisplayService {
     const result = this.group?.socialEventPopulation === EventPopulation.LOCAL;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.socialEventPopulation, "result:", result);
     return result;
+  }
+
+  public sendNotification(groupEvent: ExtendedGroupEvent): void {
+    const configId = notificationConfigIdFor(this.group, groupEvent?.groupEvent?.item_type);
+    this.openEmailComposer({
+      [StoredValue.EVENT]: groupEvent?.id,
+      [StoredValue.EMAIL_TYPE]: RecipientMode.ENTIRE_LIST,
+      ...(configId ? {[StoredValue.CONFIG_ID]: configId} : {})
+    });
+  }
+
+  public emailLeader(groupEvent: ExtendedGroupEvent): void {
+    this.openEmailComposer({
+      [StoredValue.MEMBER]: this.leaderMemberId(groupEvent),
+      [StoredValue.BRANDING]: BrandingMode.UNBRANDED
+    });
+  }
+
+  public leaderMemberId(groupEvent: ExtendedGroupEvent): string | null {
+    return groupEvent?.fields?.contactDetails?.memberId || null;
+  }
+
+  private openEmailComposer(queryParams: Record<string, string>): void {
+    const segments = this.urlService.pathSegments();
+    const viewSegments = last(segments) === PathSegment.EDIT ? segments.slice(0, -1) : segments;
+    void this.urlService.navigateTo([...viewSegments, PathSegment.EMAIL_COMPOSER], queryParams);
   }
 
   public eventTypesPopulatedLocally(eventsData: EventsData): boolean {
