@@ -11,9 +11,13 @@ import {
   IntegrationWorkerEventType,
   IntegrationWorkerJobRequest,
   IntegrationWorkerProgressCallbackRequest,
+  IntegrationWorkerQueueCancelResult,
+  IntegrationWorkerQueueClearResult,
+  IntegrationWorkerQueueJob,
+  IntegrationWorkerQueueStatus,
   IntegrationWorkerResultCallbackRequest
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
-import { executeRamblersUploadJobOnWorker } from "./integration-worker-runner";
+import { cancelActiveWorkerJob, executeRamblersUploadJobOnWorker } from "./integration-worker-runner";
 import * as auditNotifier from "./ramblers-upload-audit-notifier";
 import * as auditParser from "./ramblers-audit-parser";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
@@ -23,7 +27,7 @@ import { downloadStatusManager } from "./download-status-manager";
 import { activateRamblersUploadSession, currentRamblersUploadSession } from "./ramblers-upload-session-registry";
 import { IntegrationWorkerQueuedUploadJob } from "../models/ramblers-upload-execution.model";
 import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
-import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
+import { IntegrationWorkerHeavyJob, IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
 import { isOsMapsWorkerJob } from "./serenity-job-environment";
 import { saveOsMapsRouteListing } from "../os-maps/os-maps-route-listing-store";
 import { applyOsMapsExportWorkerResult } from "../os-maps/os-maps-gpx-attach";
@@ -32,6 +36,75 @@ const debugLog = debug(envConfig.logNamespace("integration-worker-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
+
+const HOLD_HEARTBEAT_MS = 10 * 1000;
+const HOLD_MAX_MS = 60 * 60 * 1000;
+
+router.get("/hold", (req: Request, res: Response) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/plain");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Accel-Buffering", "no");
+  const flush = (res as unknown as { flush?: () => void }).flush;
+  const write = (chunk: string) => {
+    res.write(chunk);
+    if (typeof flush === "function") {
+      flush.call(res);
+    }
+  };
+  write("holding worker awake\n");
+  const heartbeat = setInterval(() => write("."), HOLD_HEARTBEAT_MS);
+  const stop = () => {
+    clearInterval(heartbeat);
+    clearTimeout(safety);
+  };
+  const safety = setTimeout(() => {
+    stop();
+    res.end();
+  }, HOLD_MAX_MS);
+  req.on("close", stop);
+});
+
+function toQueueJob(job: IntegrationWorkerHeavyJob): IntegrationWorkerQueueJob {
+  return {jobId: job.jobId, type: job.type, label: job.label};
+}
+
+function queueStatus(): IntegrationWorkerQueueStatus {
+  const activeJob = integrationWorkerHeavyJobQueue.activeJob();
+  return {
+    activeJob: activeJob ? toQueueJob(activeJob) : null,
+    queuedJobs: integrationWorkerHeavyJobQueue.queuedJobs().map(toQueueJob)
+  };
+}
+
+router.post("/queue/status", (req: Request, res: Response) => {
+  if (!requestIsSigned(req, requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET))) {
+    res.status(401).json({error: "Invalid upload worker request signature"});
+  } else {
+    res.json(queueStatus());
+  }
+});
+
+router.post("/queue/cancel-active", (req: Request, res: Response) => {
+  if (!requestIsSigned(req, requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET))) {
+    res.status(401).json({error: "Invalid upload worker request signature"});
+  } else {
+    const result: IntegrationWorkerQueueCancelResult = cancelActiveWorkerJob();
+    debugLog("POST /queue/cancel-active cancelled:", result.cancelled, "jobId:", result.jobId ?? null);
+    res.json(result);
+  }
+});
+
+router.post("/queue/clear", (req: Request, res: Response) => {
+  if (!requestIsSigned(req, requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET))) {
+    res.status(401).json({error: "Invalid upload worker request signature"});
+  } else {
+    const cleared = integrationWorkerHeavyJobQueue.clearQueued();
+    const result: IntegrationWorkerQueueClearResult = {clearedCount: cleared.length, clearedJobs: cleared.map(toQueueJob)};
+    debugLog("POST /queue/clear removed:", result.clearedCount, "queued jobs");
+    res.json(result);
+  }
+});
 
 router.post("/jobs", async (req: Request, res: Response) => {
   const incomingJobId = (req.body as IntegrationWorkerJobRequest | undefined)?.job?.jobId;
