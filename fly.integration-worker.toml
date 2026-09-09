@@ -5,9 +5,6 @@ primary_region = "lhr"
 app = "npm run worker-server --prefix server"
 
 [http_service]
-# The worker is mostly idle. Suspend (memory snapshot, resumes in seconds) rather than stay
-# pinned up 24/7: Fly wakes it on the next dispatched job or interactive AI/browser request.
-# min_machines_running = 0 lets it drop to zero running machines when there is no work.
 auto_start_machines = true
 auto_stop_machines = "suspend"
 force_https = true
@@ -23,6 +20,6 @@ method = "GET"
 path = "/api/health"
 
 [[vm]]
-memory = "1024mb"
-cpu_kind = "shared"
-cpus = 2
+memory = "2048mb"
+cpu_kind = "performance"
+cpus = 1

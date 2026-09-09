@@ -1,5 +1,6 @@
-import { Interaction, UsesAbilities } from "@serenity-js/core/lib/screenplay";
+import { AnswersQuestions, Interaction, PerformsActivities, UsesAbilities } from "@serenity-js/core";
 import { BrowseTheWeb } from "@serenity-js/web";
+import { Navigate } from "@serenity-js/web";
 import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Page as NativePage } from "playwright-core";
 import * as fs from "fs";
@@ -11,7 +12,7 @@ import { Environment } from "../../../../../../projects/ngx-ramblers/src/app/mod
 import { OsMapsRouteSource } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { listedRoutesFromSearchPayload } from "../../../../os-maps/os-maps-route-list";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
-import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
+import { ClearOsMapsObstructions } from "./clear-os-maps-obstructions";
 
 const debugLog = debug(envConfig.logNamespace("list-os-maps-routes"));
 debugLog.enabled = true;
@@ -39,18 +40,17 @@ export class ListOsMapsRoutes extends Interaction {
     super("#actor lists OS Maps routes from the signed-in account");
   }
 
-  async performAs(actor: UsesAbilities): Promise<void> {
+  async performAs(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<void> {
     const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
     const native: NativePage = await currentPage.nativePage();
     const timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds();
     const searchPromise = native.waitForResponse(response => {
       return response.url().includes("route-api/v1/routes/search") && response.ok();
     }, {timeout});
-    await native.goto("https://explore.osmaps.com/my-routes?routeType=created&sortSelect=dateCreated", {
-      waitUntil: "domcontentloaded",
-      timeout
-    });
-    await clearOsMapsInterruptions(native);
+    await actor.attemptsTo(
+      Navigate.to("https://explore.osmaps.com/my-routes?routeType=created&sortSelect=dateCreated"),
+      ClearOsMapsObstructions.now()
+    );
     const response = await searchPromise;
     const payload = await response.json();
     const firstRecord = (payload as {content?: unknown[]})?.content?.[0];

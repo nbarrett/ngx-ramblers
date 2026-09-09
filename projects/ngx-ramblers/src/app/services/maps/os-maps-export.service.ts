@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { firstValueFrom } from "rxjs";
-import { IntegrationWorkerJobResponse } from "../../models/integration-worker.model";
+import { IntegrationWorkerJobResponse, IntegrationWorkerQueueCancelResult } from "../../models/integration-worker.model";
 import { FileNameData } from "../../models/aws-object.model";
 import { OS_MAPS_EXPORT_MAX_WAIT_MS, OS_MAPS_EXPORT_POLL_INTERVAL_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsListedRoute, OsMapsRouteListing } from "../../models/os-maps-export.model";
 import { WebSocketClientService } from "../websockets/websocket-client.service";
@@ -48,8 +48,16 @@ export class OsMapsExportService {
     }));
   }
 
+  cancelActive(): Promise<IntegrationWorkerQueueCancelResult> {
+    return firstValueFrom(this.http.post<IntegrationWorkerQueueCancelResult>(`${this.baseUrl}/export/cancel`, {}));
+  }
+
   exportResult(jobId: string): Promise<OsMapsExportJobResult> {
     return firstValueFrom(this.http.get<OsMapsExportJobResult>(`${this.baseUrl}/export/${jobId}`));
+  }
+
+  latestExportResult(): Promise<OsMapsExportJobResult | null> {
+    return firstValueFrom(this.http.get<OsMapsExportJobResult | null>(`${this.baseUrl}/export/latest`));
   }
 
   async waitForExport(jobId: string, stillWaiting: () => boolean = () => true, maxWaitMs = OS_MAPS_EXPORT_MAX_WAIT_MS): Promise<OsMapsExportJobResult> {

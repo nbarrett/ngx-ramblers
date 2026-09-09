@@ -184,6 +184,7 @@ export class EmailCompositionsService {
       betweenArticlesDivider: state.betweenArticlesDivider,
       betweenEventsDivider: state.betweenEventsDivider,
       fragmentOrder: (state.fragmentOrder ?? []).map(f => this.serialiseFragment(f)),
+      inboxReplyContext: state.inboxReplyContext ?? null,
       selectedGroupEventIds: (state.groupEvents ?? [])
         .filter(event => (event as any).selected)
         .map(event => event.id)

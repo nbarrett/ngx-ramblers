@@ -16,6 +16,7 @@ import { createLocksCommand } from "./commands/locks";
 import { createMigrateCommand } from "./commands/migrate";
 import { createSubdomainCommand } from "./commands/subdomain";
 import { createNewContributorEnvCommand } from "./commands/new-contributor-env";
+import { createWorkerCommand } from "./commands/worker";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { envConfig } from "../env-config/env-config";
 
@@ -75,6 +76,7 @@ program.addCommand(configureHelp(createLocksCommand()));
 program.addCommand(configureHelp(createMigrateCommand()));
 program.addCommand(configureHelp(createSubdomainCommand()));
 program.addCommand(configureHelp(createNewContributorEnvCommand()));
+program.addCommand(configureHelp(createWorkerCommand()));
 
 if (require.main === module) {
   logEnvironmentVariables();

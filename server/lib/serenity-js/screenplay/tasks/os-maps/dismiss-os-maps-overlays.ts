@@ -1,23 +1,19 @@
-import { Interaction, UsesAbilities } from "@serenity-js/core/lib/screenplay";
-import { BrowseTheWeb } from "@serenity-js/web";
-import type { PlaywrightPage } from "@serenity-js/playwright";
-import type { Page as NativePage } from "playwright-core";
-import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
+import { Check, Task } from "@serenity-js/core";
+import { isVisible } from "@serenity-js/web";
+import { OsMapsPageElements } from "../../ui/os-maps/os-maps-page-elements";
+import { ClearOsMapsObstructions } from "./clear-os-maps-obstructions";
+import { ClickOsMapsControlResiliently } from "./click-os-maps-control-resiliently";
 
-export class DismissOsMapsOverlays extends Interaction {
+export class DismissOsMapsOverlays {
 
-  static now() {
-    return new DismissOsMapsOverlays();
-  }
-
-  constructor() {
-    super("#actor dismisses OS Maps overlays");
-  }
-
-  async performAs(actor: UsesAbilities): Promise<void> {
-    const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
-    const native: NativePage = await currentPage.nativePage();
-    await clearOsMapsInterruptions(native);
+  static afterOpeningExport(): Task {
+    return Task.where("#actor dismisses any OS Maps export interruptions",
+      ClearOsMapsObstructions.now(),
+      Check.whether(OsMapsPageElements.exportGpxButton, isVisible())
+        .andIfSo(
+          ClickOsMapsControlResiliently.on(OsMapsPageElements.exportGpxButton)
+        )
+    );
   }
 
 }

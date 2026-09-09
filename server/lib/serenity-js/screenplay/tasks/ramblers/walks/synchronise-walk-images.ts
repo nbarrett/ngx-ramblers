@@ -76,7 +76,7 @@ export class SynchroniseWalkImages extends Task {
     }
     debugLog("uploading", delta.additions.length, "new walk images:", delta.additions.map(image => image.fileName));
     await actor.attemptsTo(
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesFileInput, isPresent()),
+      Wait.until(WalksPageElements.walkImagesFileInput, isPresent()),
       SetFileInput.to(delta.additions.map(image => image.filePath)).from(WalksPageElements.walkImagesFileInput),
       AwaitWalkImageRows.toNumber(this.images.length));
   }
@@ -104,7 +104,7 @@ export class SynchroniseWalkImages extends Task {
       await actor.attemptsTo(
         Scroll.to(alternativeTextField),
         Enter.theValue(desiredImage.alternativeText).into(alternativeTextField),
-        Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesUploadProgress, not(isVisible())),
+        Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible())),
         Wait.until(Value.of(alternativeTextField), equals(desiredImage.alternativeText)));
     }, Promise.resolve());
   }

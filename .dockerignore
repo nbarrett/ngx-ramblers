@@ -5,12 +5,14 @@
 .e2e/
 non-vcs/
 .git/
+.claude/
 node_modules/
 server/node_modules/
 cli-output/
 target/
 ts-gen/
 dist/
+tmp/
 server/target/
 server/ts-gen/
 server/test-data/

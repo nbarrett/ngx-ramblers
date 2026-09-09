@@ -242,6 +242,14 @@ Every button is **filled** with a Ramblers palette colour. Never Bootstrap defau
 - **Backend**: `npm run test:server` (Mocha)
 - Pre-push hook runs tests for `main`/`pre-main` branches
 
+### Serenity/Playwright waits (mandatory)
+
+- Never pair a wait/timeout with `.catch(() => null)` (or similar) when nothing checks the result. If a wait can genuinely fail, let it throw — a silently swallowed failure just means the *next* unrelated step burns its own timeout finding out, with no indication of where things actually went wrong.
+- A wait for something to **appear** (a real DOM/network event) can use a longer bound — it resolves the instant the event fires, so the bound is only paid on genuine failure.
+- A wait for something to **not be there** (hidden, absent, "not visible") has no equivalent fast-fail signal — a genuine failure there *always* costs the full timeout. Keep these bounds short (seconds, not `DEFAULT_WAIT_TIMEOUT`'s 90s).
+- Prefer real Serenity `Wait.upTo(...).until(pageElement, condition)` / `Task`/`Question` composition over raw Playwright locators in a plain async function — only genuine Serenity activities show up as named, logged steps in the actor's activity log. A raw-Playwright helper function is invisible when something hangs inside it.
+- No literal `sleep()`/`setTimeout`-as-delay anywhere — every wait is for a specific, checkable condition.
+
 ## Commands
 
 ```bash

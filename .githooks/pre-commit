@@ -13,7 +13,7 @@ fi
 echo "Running lint on staged files..."
 cd "$ROOT_DIR"
 npm run build:eslint-config --silent
-npx eslint --config .eslint-config/eslint.config.js $STAGED_FILES
+npx eslint --config .eslint-config/eslint.config.js --no-warn-ignored --no-error-on-unmatched-pattern $STAGED_FILES
 STAGED_COMPONENTS=$(echo "$STAGED_FILES" | grep -E '^projects/ngx-ramblers/.*\.ts$' || true)
 if [ -n "$STAGED_COMPONENTS" ]; then
   npx ts-node --project tsconfig.tools.json ./tools/check-inline-sass.ts $STAGED_COMPONENTS

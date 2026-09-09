@@ -21,8 +21,8 @@ export class RemoveExistingWalkImages extends Task {
       const currentButtons = await actor.answer(WalksPageElements.walkImageRemoveButtons);
       await currentButtons[0].click();
       await actor.attemptsTo(
-        Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImageRemoveButtons.count(), equals(expectedCount)),
-        Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesUploadProgress, not(isVisible()))
+        Wait.until(WalksPageElements.walkImageRemoveButtons.count(), equals(expectedCount)),
+        Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible()))
       );
     }
   }

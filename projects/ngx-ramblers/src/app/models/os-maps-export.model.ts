@@ -73,6 +73,7 @@ export interface OsMapsRouteImport {
 
 export interface OsMapsExportJobResult {
   jobId: string;
+  fileName: string;
   status: OsMapsExportJobStatus;
   walkId?: string | null;
   routeUrls?: string[];
@@ -80,6 +81,35 @@ export interface OsMapsExportJobResult {
   error?: string | null;
   createdAt: number;
   completedAt?: number | null;
+}
+
+export enum OsMapsPageState {
+  UNRECOGNISED = "unrecognised",
+  COOKIE_PROMPT = "cookiePrompt",
+  AUTHENTICATED = "authenticated",
+  LOGIN_REQUIRED = "loginRequired",
+  IDENTITY_PROVIDER = "identityProvider",
+  ROUTE_UNAVAILABLE = "routeUnavailable"
+}
+
+export const OS_MAPS_ROUTE_UNAVAILABLE_TITLE = "Route unavailable";
+
+export const OS_MAPS_IDENTITY_URL_PATTERN = /b2clogin|microsoftonline|osinfra/i;
+
+export enum NetworkActivityEntryType {
+  REQUEST = "request",
+  RESPONSE = "response",
+  REQUEST_FAILED = "requestfailed"
+}
+
+export interface NetworkActivityEntry {
+  timestamp: string;
+  type: NetworkActivityEntryType;
+  method?: string;
+  url: string;
+  status?: number;
+  statusText?: string;
+  failureReason?: string;
 }
 
 export function isOsMapsRouteUrl(url: string): boolean {
@@ -113,7 +143,7 @@ export function osMapsRouteVisible(route: OsMapsListedRoute, search: string, fil
 
 export const OS_MAPS_EXPLORE_URL = "https://explore.osmaps.com/";
 export const OS_MAPS_EXPORT_POLL_INTERVAL_MS = 5000;
-export const OS_MAPS_EXPORT_MAX_WAIT_MS = 45 * 60 * 1000;
+export const OS_MAPS_EXPORT_MAX_WAIT_MS = 12 * 60 * 1000;
 export const UK_CENTRE_GEOLOCATION = {latitude: 54.0, longitude: -2.5};
 
 export function requestedOsMapsRouteFixture(url: string): OsMapsRouteFixture {

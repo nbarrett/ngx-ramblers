@@ -1,14 +1,15 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCircleCheck, faCircleExclamation, faDownload, faMagnifyingGlass, faMap, faPersonWalking, faSpinner, faSync } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCircleCheck, faCircleExclamation, faDownload, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faSync } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { Subscription } from "rxjs";
+import { exhaustMap, Subscription, timer } from "rxjs";
 import { OsMapsRoutePreviewMapComponent } from "./os-maps-route-preview-map";
 import {
   OsMapsExportJobStatus,
+  OS_MAPS_EXPORT_POLL_INTERVAL_MS,
   OsMapsListedRoute,
   OsMapsRouteListFilter,
   OsMapsRouteListing,
@@ -52,19 +53,25 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
         <button type="button" class="btn btn-quiet" (click)="navigateBackToAdmin()">Back to walks admin</button>
         @if (listing.routes.length === 0) {
           <button type="button" class="btn btn-primary" (click)="refreshRoutes()" [disabled]="busy() || !loginConfigured">
-            <fa-icon [icon]="loading ? faSpinner : faSync" class="me-2"/>
+            <fa-icon [icon]="loading ? faSpinner : faSync" [animation]="loading ? 'spin' : null" class="me-2"/>
             {{ loading ? "Loading routes…" : "Load routes from OS Maps" }}
           </button>
         } @else {
           <button type="button" class="btn btn-primary" (click)="convertSelected()" [disabled]="busy() || !loginConfigured || selectedIds.size === 0">
-            <fa-icon [icon]="converting ? faSpinner : faDownload" class="me-2"/>
+            <fa-icon [icon]="converting ? faSpinner : faDownload" [animation]="converting ? 'spin' : null" class="me-2"/>
             {{ converting ? "Converting…" : "Convert selected to GPX" }}
           </button>
+          @if (converting) {
+            <button type="button" class="btn btn-quiet" (click)="confirmCancel = true" [disabled]="cancelling">
+              <fa-icon [icon]="cancelling ? faSpinner : faPowerOff" [animation]="cancelling ? 'spin' : null" class="me-2"/>
+              {{ cancelling ? "Stopping…" : "Stop job" }}
+            </button>
+          }
           <div class="d-flex align-items-center gap-2 ms-sm-auto os-maps-export-actions-status">
             <span class="text-muted">Last loaded {{ lastLoadedLabel }}</span>
             <button type="button" class="btn btn-quiet btn-icon os-maps-export-actions-icon" (click)="refreshRoutes()" [disabled]="busy() || !loginConfigured"
                     tooltip="Reload routes from OS Maps" container="body">
-              <fa-icon [icon]="loading ? faSpinner : faSync"/>
+              <fa-icon [icon]="loading ? faSpinner : faSync" [animation]="loading ? 'spin' : null"/>
             </button>
           </div>
         }
@@ -96,6 +103,19 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
             <div>
               <strong>Routes converted</strong>
               <div>{{ successMessage }}</div>
+            </div>
+          </div>
+        }
+        @if (confirmCancel) {
+          <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+            <fa-icon [icon]="faCircleExclamation"/>
+            <div class="flex-grow-1">
+              <strong>Stop this job?</strong>
+              <div>The conversion will be stopped and reported as failed.</div>
+              <div class="mt-2 d-flex gap-2">
+                <button type="button" class="btn btn-primary btn-sm" (click)="cancelActive()">Stop job</button>
+                <button type="button" class="btn btn-quiet btn-sm" (click)="confirmCancel = false">Cancel</button>
+              </div>
             </div>
           </div>
         }
@@ -134,9 +154,9 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
             </div>
           </div>
         </div>
-        @if (hasActiveQuery() && visibleRoutes().length > 0) {
-          <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
-            <div class="form-check mb-0">
+        @if (visibleRoutes().length > 0) {
+          <div class="os-maps-route-summary d-flex align-items-center gap-3 mb-2">
+            <div class="form-check mb-0 text-nowrap">
               <input type="checkbox" class="form-check-input" id="select-all-os-maps-routes"
                      [checked]="allSelected()" (change)="toggleSelectAll()"/>
               <label class="form-check-label" for="select-all-os-maps-routes">
@@ -144,19 +164,18 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
               </label>
             </div>
             @if (selectedIds.size > 0) {
-              <span class="text-muted">{{ selectedIds.size }} selected</span>
+              <span class="text-muted text-nowrap">{{ selectedIds.size }} selected</span>
             }
-            <span class="text-muted ms-auto">
+            <span class="text-muted ms-auto text-end os-maps-route-summary-count">
               @if (matchedCount() > visibleRoutes().length) {
-                Showing the first {{ visibleRoutes().length }} of {{ matchedCount() }} matches - narrow your search to see the rest
+                Showing the first {{ visibleRoutes().length }} of {{ matchedCount() }}
               } @else {
                 {{ matchedCount() }} of {{ listing.routes.length }} routes
               }
             </span>
           </div>
         }
-        @if (hasActiveQuery()) {
-          <div class="d-flex flex-column gap-2">
+        <div class="d-flex flex-column gap-2">
             @for (route of visibleRoutes(); track route.id) {
               <div class="img-thumbnail d-flex gap-3 p-2">
                 <input type="checkbox" class="form-check-input mt-1 align-self-start" [checked]="isSelected(route)" (change)="toggleSelected(route)"/>
@@ -187,20 +206,21 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
             } @empty {
               <div class="text-muted p-2">{{ emptyMessage() }}</div>
             }
-          </div>
-        } @else {
-          <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
-            <fa-icon [icon]="faMagnifyingGlass"/>
-            <div>
-              <strong>Search to see routes</strong>
-              <div>{{ emptyMessage() }}</div>
-            </div>
-          </div>
-        }
+        </div>
       </div>
       @if (currentJobFileName) {
         <div class="mt-3">
-          <app-serenity-job-audit-panel [fileName]="currentJobFileName"/>
+          @if (!converting) {
+            <button type="button" class="btn btn-quiet btn-sm" (click)="showJobProgress = !showJobProgress">
+              <fa-icon [icon]="showJobProgress ? faArrowUpShortWide : faArrowDownWideShort" class="me-2"/>
+              {{ showJobProgress ? "Hide job progress" : "Show job progress" }}
+            </button>
+          }
+          @if (converting || showJobProgress) {
+            <div class="mt-2">
+              <app-serenity-job-audit-panel [fileName]="currentJobFileName"/>
+            </div>
+          }
         </div>
       }
     </app-page>
@@ -222,6 +242,16 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
       @media (max-width: 575.98px)
         > div
           flex: 1 1 100%
+
+    .os-maps-route-summary
+      @media (max-width: 575.98px)
+        flex-wrap: wrap
+        gap: 0.25rem 0.75rem
+
+        .os-maps-route-summary-count
+          margin-left: 0
+          width: 100%
+          text-align: left
   `]
 })
 export class OsMapsExportPage implements OnInit, OnDestroy {
@@ -241,10 +271,12 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   loginConfigured = false;
   currentJobFileName: string | null = null;
   private currentJobId: string | null = null;
+  private startingJob = false;
   private destroyed = false;
   faSync = faSync;
   faSpinner = faSpinner;
   faDownload = faDownload;
+  faPowerOff = faPowerOff;
   faMagnifyingGlass = faMagnifyingGlass;
   faCircleExclamation = faCircleExclamation;
   faCircleCheck = faCircleCheck;
@@ -258,6 +290,10 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   selectedIds = new Set<string>();
   loading = false;
   converting = false;
+  checkingJob = true;
+  cancelling = false;
+  confirmCancel = false;
+  showJobProgress = false;
   errorMessage = "";
   warningMessage = "";
   successMessage = "";
@@ -292,6 +328,9 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.loginConfigured = this.systemConfigService.osMapsLoginConfigured();
     }));
     void this.loadListing();
+    this.subscriptions.push(timer(0, OS_MAPS_EXPORT_POLL_INTERVAL_MS).pipe(
+      exhaustMap(() => this.loadLatestExportResult())
+    ).subscribe());
   }
 
   ngOnDestroy(): void {
@@ -343,16 +382,8 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     });
   }
 
-  hasActiveQuery(): boolean {
-    return this.search.trim().length > 0 || this.importFilter !== OsMapsRouteListFilter.ALL;
-  }
-
   private matchedRoutes(): OsMapsListedRoute[] {
-    if (!this.hasActiveQuery()) {
-      return [];
-    } else {
-      return this.sortRoutes(this.listing.routes.filter(route => osMapsRouteVisible(route, this.search, this.importFilter)));
-    }
+    return this.sortRoutes(this.listing.routes.filter(route => osMapsRouteVisible(route, this.search, this.importFilter)));
   }
 
   matchedCount(): number {
@@ -387,8 +418,6 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   emptyMessage(): string {
     if (this.listing.routes.length === 0) {
       return "No OS Maps routes loaded yet. Use Load routes from OS Maps.";
-    } else if (!this.hasActiveQuery()) {
-      return `Type a route name in the search box, or choose a filter, to see matching routes. There are ${this.listing.routes.length} routes in total.`;
     } else {
       return "No OS Maps routes match that search.";
     }
@@ -468,8 +497,40 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     }
   }
 
+  private async loadLatestExportResult(): Promise<void> {
+    try {
+      const previousJobId = this.currentJobId;
+      const latest = await this.osMapsExportService.latestExportResult();
+      if (!this.destroyed && !this.startingJob && previousJobId === this.currentJobId) {
+        const wasConverting = this.converting && this.currentJobId === latest?.jobId;
+        if (latest?.jobId !== this.currentJobId) {
+          this.clearMessages();
+          this.confirmCancel = false;
+        }
+        this.currentJobFileName = latest?.fileName || null;
+        this.currentJobId = latest?.jobId || null;
+        this.converting = latest?.status === OsMapsExportJobStatus.QUEUED;
+        this.checkingJob = false;
+        if (wasConverting && latest?.status === OsMapsExportJobStatus.COMPLETED) {
+          this.clearMessages();
+          this.successMessage = `${this.stringUtils.pluraliseWithCount(latest.gpxFiles.length, "GPX file")} saved and ready to attach to a walk`;
+          this.warningMessage = latest.error || "";
+          this.confirmCancel = false;
+          await this.loadListing();
+        } else if (wasConverting && latest?.status === OsMapsExportJobStatus.FAILED) {
+          this.clearMessages();
+          this.errorMessage = await this.lastJobError(latest.fileName) || latest.error || "Failed to convert the selected routes";
+          this.confirmCancel = false;
+        }
+      }
+    } catch (error) {
+      this.logger.error("loadLatestExportResult failed:", error);
+      this.errorMessage = this.failureMessage(error, "Could not check the current OS Maps job. Retrying…");
+    }
+  }
+
   busy(): boolean {
-    return this.loading || this.converting;
+    return this.loading || this.converting || this.checkingJob;
   }
 
   private clearMessages(): void {
@@ -479,7 +540,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   }
 
   async refreshRoutes(): Promise<void> {
-    if (this.loginConfigured) {
+    if (this.loginConfigured && !this.busy()) {
       this.loading = true;
       this.clearMessages();
       const previousListedAt = this.listing.listedAt;
@@ -496,32 +557,40 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   }
 
   async convertSelected(): Promise<void> {
-    if (this.loginConfigured) {
+    if (this.loginConfigured && !this.busy() && this.selectedIds.size > 0) {
       const routeUrls = this.listing.routes
         .filter(route => this.selectedIds.has(route.id))
         .map(route => route.url);
       this.converting = true;
+      this.startingJob = true;
       this.clearMessages();
       try {
         const started = await this.osMapsExportService.exportRoutes(routeUrls);
         this.currentJobFileName = started.fileName || this.currentJobFileName;
         this.currentJobId = started.jobId;
-        const result = await this.osMapsExportService.waitForExport(started.jobId, () => !this.destroyed && this.currentJobId === started.jobId);
-        if (result.status === OsMapsExportJobStatus.COMPLETED) {
-          this.successMessage = `${this.stringUtils.pluraliseWithCount(result.gpxFiles.length, "GPX file")} saved and ready to attach to a walk`;
-          this.warningMessage = result.error || "";
-          await this.loadListing();
-        } else if (result.status === OsMapsExportJobStatus.FAILED) {
-          this.errorMessage = await this.lastJobError(started.fileName) || result.error || "Failed to convert the selected routes";
-        } else if (!this.destroyed) {
-          this.warningMessage = "The conversion is taking longer than expected and this page has stopped waiting for it. The job progress below keeps updating; reload the routes list once it has finished.";
-        }
       } catch (error) {
         this.logger.error("convertSelected failed:", error);
         this.errorMessage = this.failureMessage(error, "Failed to convert the selected routes");
       }
-      this.converting = false;
+      this.startingJob = false;
+      await this.loadLatestExportResult();
     }
+  }
+
+  async cancelActive(): Promise<void> {
+    this.confirmCancel = false;
+    this.cancelling = true;
+    this.clearMessages();
+    try {
+      const result = await this.osMapsExportService.cancelActive();
+      if (!result.cancelled) {
+        this.warningMessage = "There was no active job to stop.";
+      }
+    } catch (error) {
+      this.logger.error("cancelActive failed:", error);
+      this.errorMessage = this.failureMessage(error, "Failed to stop the job");
+    }
+    this.cancelling = false;
   }
 
   private async lastJobError(fileName: string | undefined): Promise<string> {

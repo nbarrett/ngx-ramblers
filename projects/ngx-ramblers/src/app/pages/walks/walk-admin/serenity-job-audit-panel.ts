@@ -118,6 +118,9 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.fileName) {
+      this.audits = [];
+      this.latestAudit = null;
+      this.reportAudit = null;
       void this.refreshFromApi();
       this.startRefreshLoop();
     }
@@ -195,13 +198,14 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   private async refreshFromApi(): Promise<void> {
     if (this.fileName) {
       try {
+        const fileName = this.fileName;
         const auditItems = await this.ramblersUploadAuditService.all({
-          criteria: {fileName: this.fileName},
+          criteria: {fileName},
           sort: {auditTime: -1, record: -1},
           limit: MAX_AUDIT_ROWS
         });
         const response = auditItems.response;
-        if (isArray(response)) {
+        if (isArray(response) && fileName === this.fileName) {
           this.applyAudits(response);
         }
       } catch {

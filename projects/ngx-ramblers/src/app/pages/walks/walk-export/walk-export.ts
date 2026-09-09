@@ -596,14 +596,16 @@ export class WalkExport implements OnInit, OnDestroy {
     });
     this.subscriptions.push(this.webSocketClientService.receiveMessages<RamblersUploadAuditProgressResponse>(MessageType.PROGRESS).subscribe(async (progressResponse: RamblersUploadAuditProgressResponse) => {
       this.logger.info("Progress response received:", progressResponse);
-      if (progressResponse?.audits?.length > 0) {
+      const currentFileName = this.fileName?.fileName;
+      const matchingAudits = (progressResponse?.audits || []).filter(audit => audit.fileName === currentFileName);
+      if (matchingAudits.length > 0) {
         this.startAuditRefreshLoop();
-        this.logger.info("Progress response received:", progressResponse.audits);
-        this.audits = (this.audits.concat(progressResponse?.audits)).sort(sortBy("-auditTime", "-record"));
+        this.logger.info("Progress response received:", matchingAudits);
+        this.audits = (this.audits.filter(audit => audit.fileName === currentFileName).concat(matchingAudits)).sort(sortBy("-auditTime", "-record"));
         this.applyFilter();
         this.updateCurrentSessionDurationLabel();
         this.changeDetectorRef.detectChanges();
-        this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
+        this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(matchingAudits.length, "audit record")} just received`);
         if (!this.postActionRefreshed && this.audits.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS)) {
           this.postActionRefreshed = true;
           try {

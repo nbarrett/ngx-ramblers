@@ -1,8 +1,10 @@
-import { PerformsActivities, Task } from "@serenity-js/core";
+import { Check, PerformsActivities, Task } from "@serenity-js/core";
+import { isVisible } from "@serenity-js/web";
 import { Environment } from "../../../../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { AcceptOsMapsCookies } from "./accept-os-maps-cookies";
+import { ClearOsMapsObstructions } from "./clear-os-maps-obstructions";
 import { CompleteOsMapsLogin } from "./complete-os-maps-login";
 import { WaitUntilOnOsMaps } from "./wait-until-on-os-maps";
+import { OsMapsPageElements } from "../../ui/os-maps/os-maps-page-elements";
 
 export class LoginToOsMaps extends Task {
 
@@ -21,10 +23,10 @@ export class LoginToOsMaps extends Task {
       throw new Error("OS_EMAIL and OS_PASSWORD must be set to export an OS Maps route");
     } else {
       return actor.attemptsTo(
-        AcceptOsMapsCookies.whenVisible(),
+        ClearOsMapsObstructions.now(),
         CompleteOsMapsLogin.with(email, password),
-        WaitUntilOnOsMaps.site(),
-        AcceptOsMapsCookies.whenVisible()
+        ClearOsMapsObstructions.now(),
+        WaitUntilOnOsMaps.site()
       );
     }
   }

@@ -13,7 +13,7 @@ export class AwaitWalkImageRows {
   static toNumber(expectedCount: number): Task {
     const status = walkImageRowsStatus(expectedCount);
     return Task.where(`#actor waits for ${expectedCount} walk image rows or a Walks Manager error`,
-      Wait.upTo(TIMEOUT).until(status, not(startsWith(WALK_IMAGE_ROWS_PENDING))),
+      Wait.until(status, not(startsWith(WALK_IMAGE_ROWS_PENDING))),
       Ensure.that(status, startsWith(WALK_IMAGE_ROWS_SETTLED)));
   }
 }
