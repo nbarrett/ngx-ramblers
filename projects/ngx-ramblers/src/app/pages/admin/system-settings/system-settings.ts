@@ -63,6 +63,7 @@ import { MemberSyncPolicySettings } from "./member-sync-policy/member-sync-polic
 import { MemberSyncPolicyService } from "../../../services/member/member-sync-policy.service";
 import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
 import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-settings";
+import { IntegrationWorkerQueueComponent } from "./diagnostics/integration-worker-queue";
 import { MemberBulkLoadAuditSettingsComponent } from "./diagnostics/member-bulk-load-audit-settings";
 import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
@@ -415,6 +416,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
                      (selectTab)="selectTab(SystemSettingsTab.DIAGNOSTICS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <app-system-memory-settings/>
+                    <app-integration-worker-queue/>
                     <app-member-bulk-load-audit-settings class="d-block mt-3"/>
                   </div>
                 </tab>
@@ -441,7 +443,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings, SystemVideoMeetingsSettings, ReleaseNoteUpdateSettings]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent, IntegrationWorkerQueueComponent, MemberBulkLoadAuditSettingsComponent, FormSaveActionsComponent, SystemSocialPublishingSettings, VolunteerSettings, SystemVideoMeetingsSettings, ReleaseNoteUpdateSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

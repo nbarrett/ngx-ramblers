@@ -44,6 +44,13 @@ export class IntegrationWorkerHeavyJobQueue {
     return this.items;
   }
 
+  clearQueued(): IntegrationWorkerHeavyJob[] {
+    const cleared = this.items;
+    this.items = [];
+    debugLog("queue cleared, removed:", cleared.length, "queued jobs, activeJobId:", this.activeItem?.jobId ?? null);
+    return cleared;
+  }
+
   private async runActiveItem(): Promise<void> {
     const item = this.activeItem;
 

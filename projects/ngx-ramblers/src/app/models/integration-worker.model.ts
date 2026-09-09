@@ -171,3 +171,25 @@ export interface IntegrationWorkerResizeResultCallback {
   outputItems?: ContentMetadataItem[];
   errorMessage?: string;
 }
+
+export interface IntegrationWorkerQueueJob {
+  jobId: string;
+  type: string;
+  label: string;
+}
+
+export interface IntegrationWorkerQueueStatus {
+  activeJob: IntegrationWorkerQueueJob | null;
+  queuedJobs: IntegrationWorkerQueueJob[];
+  workerConfigured?: boolean;
+}
+
+export interface IntegrationWorkerQueueCancelResult {
+  cancelled: boolean;
+  jobId?: string;
+}
+
+export interface IntegrationWorkerQueueClearResult {
+  clearedCount: number;
+  clearedJobs: IntegrationWorkerQueueJob[];
+}

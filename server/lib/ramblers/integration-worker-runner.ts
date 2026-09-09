@@ -36,28 +36,70 @@ const decoder = new stringDecoder.StringDecoder("utf8");
 const KEEP_ALIVE_INTERVAL_MS = 60 * 1000;
 const DEFAULT_MAX_JOB_MINUTES = 45;
 
+interface ActiveJobControl {
+  jobId: string;
+  stop: (reason: string) => void;
+}
+
+let activeJobControl: ActiveJobControl | null = null;
+
+export function cancelActiveWorkerJob(reason = "cancelled by administrator"): { cancelled: boolean; jobId?: string } {
+  if (!activeJobControl) {
+    return { cancelled: false };
+  } else {
+    const jobId = activeJobControl.jobId;
+    activeJobControl.stop(reason);
+    return { cancelled: true, jobId };
+  }
+}
+
 function maxJobDurationMs(): number {
   const configured = Number(process.env[Environment.INTEGRATION_WORKER_MAX_JOB_MINUTES]);
   return (Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_JOB_MINUTES) * 60 * 1000;
 }
 
-function workerPublicHealthUrl(): string | null {
+function workerHoldUrl(): string | null {
   const appName = process.env[Environment.FLY_APP_NAME];
-  return appName ? `https://${appName}.fly.dev/api/health` : null;
+  return appName ? `https://${appName}.fly.dev/api/integration-worker/hold` : null;
 }
 
 function startKeepAlive(jobId: string): () => void {
-  const healthUrl = workerPublicHealthUrl();
-  if (!healthUrl) {
+  const holdUrl = workerHoldUrl();
+  if (!holdUrl) {
     debugLog("keep-alive not started for jobId:", jobId, "- no FLY_APP_NAME so the machine is not managed by Fly");
     return () => null;
   } else {
-    const timer = setInterval(() => {
-      fetch(healthUrl).then(response => debugLog("keep-alive ping for jobId:", jobId, "status:", response.status))
-        .catch(error => debugLog("keep-alive ping failed for jobId:", jobId, "error:", (error as Error).message));
-    }, KEEP_ALIVE_INTERVAL_MS);
-    debugLog("keep-alive started for jobId:", jobId, "pinging", healthUrl, "every", KEEP_ALIVE_INTERVAL_MS, "ms so Fly does not suspend the machine mid-job");
-    return () => clearInterval(timer);
+    const controller = new AbortController();
+    const stopped = {value: false};
+    const openHold = () => {
+      if (stopped.value) {
+        return;
+      } else {
+        fetch(holdUrl, {signal: controller.signal}).then(async response => {
+        debugLog("keep-alive hold open for jobId:", jobId, "status:", response.status);
+        const reader = response.body?.getReader();
+        if (reader) {
+          const pump = (): Promise<void> => reader.read().then(({done}) => done ? undefined : pump());
+          await pump();
+        }
+        if (!stopped.value) {
+          debugLog("keep-alive hold closed early for jobId:", jobId, "- reopening");
+          setTimeout(openHold, KEEP_ALIVE_INTERVAL_MS);
+        }
+      }).catch(error => {
+        if (!stopped.value) {
+          debugLog("keep-alive hold failed for jobId:", jobId, "error:", (error as Error).message, "- reopening");
+          setTimeout(openHold, KEEP_ALIVE_INTERVAL_MS);
+        }
+        });
+      }
+    };
+    openHold();
+    debugLog("keep-alive started for jobId:", jobId, "holding", holdUrl, "open so Fly keeps the machine running for as long as the job runs");
+    return () => {
+      stopped.value = true;
+      controller.abort();
+    };
   }
 }
 
@@ -234,6 +276,21 @@ export async function executeRamblersUploadJobOnWorker(
     void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
     subprocess.kill("SIGKILL");
   }, maxDurationMs);
+  activeJobControl = {
+    jobId: job.jobId,
+    stop: (reason: string) => {
+      const message = `Job stopped: ${reason}`;
+      debugLog("cancel for jobId:", job.jobId, message);
+      void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
+      clearTimeout(watchdog);
+      subprocess.kill("SIGKILL");
+    }
+  };
+  const clearActiveJobControl = () => {
+    if (activeJobControl?.jobId === job.jobId) {
+      activeJobControl = null;
+    }
+  };
   await new Promise<void>((resolve, reject) => {
     subprocess.stdout.on("data", data => {
       const state = remoteRamblersUploadExecutionState();
@@ -276,6 +333,7 @@ export async function executeRamblersUploadJobOnWorker(
     subprocess.on("error", error => {
       stopKeepAlive();
       clearTimeout(watchdog);
+      clearActiveJobControl();
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
@@ -287,6 +345,7 @@ export async function executeRamblersUploadJobOnWorker(
     subprocess.on("exit", (code, signal) => {
       stopKeepAlive();
       clearTimeout(watchdog);
+      clearActiveJobControl();
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);

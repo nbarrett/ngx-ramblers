@@ -70,6 +70,7 @@ import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
 import { downloadStatusRoutes } from "./ramblers/download-status-routes";
 import { integrationWorkerRoutes } from "./ramblers/integration-worker-routes";
+import { workerQueueCancelActive, workerQueueClear, workerQueueStatus } from "./ramblers/integration-worker-queue-admin";
 import { integrationWorkerMigrationCallbackRoutes } from "./ramblers/integration-worker-migration-callback-routes";
 import { integrationWorkerResizeCallbackRoutes } from "./ramblers/integration-worker-resize-callback-routes";
 import { geoJsonRoutes } from "./geojson/geojson-routes";
@@ -191,6 +192,9 @@ app.get("/api/health/memory/fly-stats", authConfig.authenticate(), authConfig.re
 app.get("/api/health/memory/fly-history", authConfig.authenticate(), authConfig.requireAdmin, flyMemoryHistory);
 app.get("/api/health/memory/machine-state", authConfig.authenticate(), authConfig.requireAdmin, flyMachineState);
 app.post("/api/health/memory/restart", authConfig.authenticate(), authConfig.requireAdmin, restartMachine);
+app.get("/api/health/worker-queue/status", authConfig.authenticate(), authConfig.requireAdmin, workerQueueStatus);
+app.post("/api/health/worker-queue/cancel-active", authConfig.authenticate(), authConfig.requireAdmin, workerQueueCancelActive);
+app.post("/api/health/worker-queue/clear", authConfig.authenticate(), authConfig.requireAdmin, workerQueueClear);
 app.get("/api/system-status", systemStatus);
 app.get("/sitemap.xml", sitemapXml);
 app.get("/robots.txt", robotsTxt);
