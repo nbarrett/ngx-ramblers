@@ -4,11 +4,30 @@ import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Page as NativePage } from "playwright-core";
 import * as fs from "fs";
 import * as path from "path";
+import debug from "debug";
+import { isArray, isObject, toPairs } from "es-toolkit/compat";
+import { envConfig } from "../../../../env-config/env-config";
 import { Environment } from "../../../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { OsMapsRouteSource } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { listedRoutesFromSearchPayload } from "../../../../os-maps/os-maps-route-list";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
+
+const debugLog = debug(envConfig.logNamespace("list-os-maps-routes"));
+debugLog.enabled = true;
+
+const REDACTED_KEYS = new Set(["name", "title"]);
+
+function withNamesRedacted(value: unknown, depth = 0): unknown {
+  if (depth >= 4 || !isObject(value)) {
+    return value;
+  } else if (isArray(value)) {
+    return value.map(entry => withNamesRedacted(entry, depth + 1));
+  } else {
+    return Object.fromEntries(toPairs(value as Record<string, unknown>).map(([key, entryValue]) =>
+      [key, REDACTED_KEYS.has(key) ? "[redacted]" : withNamesRedacted(entryValue, depth + 1)]));
+  }
+}
 
 export class ListOsMapsRoutes extends Interaction {
 
@@ -34,6 +53,8 @@ export class ListOsMapsRoutes extends Interaction {
     await clearOsMapsInterruptions(native);
     const response = await searchPromise;
     const payload = await response.json();
+    const firstRecord = (payload as {content?: unknown[]})?.content?.[0];
+    debugLog("routes/search first record, route names redacted:", JSON.stringify(withNamesRedacted(firstRecord)));
     const routes = listedRoutesFromSearchPayload(payload, OsMapsRouteSource.CREATED);
     const jobPath = process.env[Environment.OS_MAPS_JOB_PATH];
     if (!jobPath) {
