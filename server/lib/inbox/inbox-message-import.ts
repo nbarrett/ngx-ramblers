@@ -264,6 +264,12 @@ async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEma
   }
 }
 
+export function replyTargetExcludingViewer(candidate: InboxAddress, messageSender: InboxAddress, viewerEmail: string | null): InboxAddress {
+  const isViewer = (address?: InboxAddress | null) =>
+    Boolean(address?.email && viewerEmail && normaliseEmail(address.email) === normaliseEmail(viewerEmail));
+  return isViewer(candidate) ? (isViewer(messageSender) ? candidate : messageSender) : candidate;
+}
+
 export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress, internalEmails?: Set<string>): InboxAddress {
   const isInternal = (address?: InboxAddress | null) =>
     Boolean(address?.email && internalEmails?.has(normaliseEmail(address.email)));

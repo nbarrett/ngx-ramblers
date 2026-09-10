@@ -49,7 +49,7 @@ import { permanentlyDeleteThread, recordThreadDeletion, restoreDeletedThread } f
 import { sendCalendarReply } from "./inbox-calendar-reply";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, reclassifyOwnSentInboundMessages, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
+import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders, correctThreadExternalAddress, isAutoReplyMessage, reclassifyOwnSentInboundMessages, replyTargetExcludingViewer, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, canUpdateInboxRoleNotifications, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireCanUpdateInboxRoleNotifications, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, clearDerivedAliasCache, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, internalEmailsForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses, siteInternalEmails } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
@@ -1240,7 +1240,9 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
     const internalEmails = await internalEmailsForConnection(sourceConnection);
     const messageAddress = stated ?? (hydratedMessage.direction === InboxMessageDirection.OUTBOUND ? hydratedMessage.to?.[0] : hydratedMessage.from);
     const correspondent = messageAddress?.email && !internalEmails.has(normaliseEmail(messageAddress.email)) ? messageAddress : null;
-    const replyTo = correspondent ?? thread.externalAddress ?? messageAddress ?? hydratedMessage.from;
+    const candidateReplyTo = correspondent ?? thread.externalAddress ?? messageAddress ?? hydratedMessage.from;
+    const currentMemberEmail = currentMemberId ? (await assignedMembersByMemberId([currentMemberId])).get(currentMemberId)?.email ?? null : null;
+    const replyTo = replyTargetExcludingViewer(candidateReplyTo, hydratedMessage.from, currentMemberEmail);
     if (correspondent && !isAutoReplyMessage(hydratedMessage) && hydratedMessage.direction === InboxMessageDirection.INBOUND) {
       await correctThreadExternalAddress(req.params.id, correspondent, internalEmails);
     }
