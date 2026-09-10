@@ -7,7 +7,7 @@ import {
   InboxReaderProvider,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, isOwnSentCopy, outboundCopyFromInbound, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
+import { autoReplyFromHeaders, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -127,6 +127,56 @@ describe("resolveThreadExternalAddress", () => {
     }), undefined, internalEmails);
     expect(result.email).toEqual("unknown@local");
   });
+});
+
+describe("replyTargetExcludingViewer", () => {
+
+  it("falls back to the message sender when the resolved candidate is the viewer's own address", () => {
+    const result = replyTargetExcludingViewer(
+      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
+      address("chairman@canterburyramblers.org.uk", "David Reekie"),
+      "nick.barrett@canterburyramblers.org.uk"
+    );
+    expect(result.email).toEqual("chairman@canterburyramblers.org.uk");
+    expect(result.name).toEqual("David Reekie");
+  });
+
+  it("leaves a genuine external candidate untouched", () => {
+    const result = replyTargetExcludingViewer(
+      address("member@example.com", "A Member"),
+      address("chairman@canterburyramblers.org.uk", "David Reekie"),
+      "nick.barrett@canterburyramblers.org.uk"
+    );
+    expect(result.email).toEqual("member@example.com");
+  });
+
+  it("keeps the candidate when the sender is also the viewer, since there is no better option", () => {
+    const result = replyTargetExcludingViewer(
+      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
+      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
+      "nick.barrett@canterburyramblers.org.uk"
+    );
+    expect(result.email).toEqual("nick.barrett@canterburyramblers.org.uk");
+  });
+
+  it("leaves the candidate untouched when no viewer email is known", () => {
+    const result = replyTargetExcludingViewer(
+      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
+      address("chairman@canterburyramblers.org.uk", "David Reekie"),
+      null
+    );
+    expect(result.email).toEqual("nick.barrett@canterburyramblers.org.uk");
+  });
+
+  it("matches regardless of address case", () => {
+    const result = replyTargetExcludingViewer(
+      address("Nick.Barrett@CanterburyRamblers.org.uk", "Nick Barrett"),
+      address("chairman@canterburyramblers.org.uk", "David Reekie"),
+      "nick.barrett@canterburyramblers.org.uk"
+    );
+    expect(result.email).toEqual("chairman@canterburyramblers.org.uk");
+  });
+
 });
 
 describe("autoReplyFromHeaders", () => {
