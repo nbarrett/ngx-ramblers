@@ -25,6 +25,8 @@ import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upl
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
 
+const MAX_AUDIT_ROWS = 200;
+
 @Component({
   selector: "app-serenity-job-audit-panel",
   imports: [FontAwesomeModule, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, SortableTableComponent, SortableTableCellDirective],
@@ -196,7 +198,7 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
         const auditItems = await this.ramblersUploadAuditService.all({
           criteria: {fileName: this.fileName},
           sort: {auditTime: -1, record: -1},
-          limit: 200
+          limit: MAX_AUDIT_ROWS
         });
         const response = auditItems.response;
         if (isArray(response)) {
@@ -242,7 +244,8 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
           return true;
         }
       })
-      .sort(sortBy("-auditTime", "-record"));
+      .sort(sortBy("-auditTime", "-record"))
+      .slice(0, MAX_AUDIT_ROWS);
     this.audits = this.withDurations(this.audits);
     this.latestAudit = this.audits[0] || null;
     this.reportAudit = this.audits.find(audit => !!audit.reportKeyPrefix) || this.reportAudit;
