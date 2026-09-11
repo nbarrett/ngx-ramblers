@@ -76,6 +76,7 @@ import {
   ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
   ROUTE_FOLLOW_NETWORK_TIMEOUT_MS,
   RouteFollowOfflineStatus,
+  RouteWaypointKind,
   sheetStateAfterDrag,
   RouteBranch,
   ROUTE_FORK_PROMPT_METRES
@@ -929,6 +930,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   get creatingLine(): boolean {
     return this.canEditRoute && !this.hasLine;
+  }
+
+  get drawingNewLine(): boolean {
+    return this.progress?.mode === RouteFollowMode.EDITING && this.originalEditCount === 0;
+  }
+
+  get showingPlanningAnchors(): boolean {
+    return this.creatingLine || this.drawingNewLine;
   }
 
   get styleDirty(): boolean {
@@ -1847,11 +1856,26 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private addEditPointAt(latLng: L.LatLng, containerPoint: L.Point): void {
-    if (this.editVertices.length < 2) {
-      this.insertEditVertex({latitude: latLng.lat, longitude: latLng.lng}, this.editVertices.length - 1);
+    const clicked = {latitude: latLng.lat, longitude: latLng.lng};
+    const start = this.editVertices.length === 0 && this.drawingNewLine ? this.startWaypoint() : null;
+    if (start && this.isSameLatLng(start, clicked)) {
+      this.insertEditVertex(clicked, -1);
+    } else if (start) {
+      this.insertEditVertex({latitude: start.latitude, longitude: start.longitude}, -1);
+      this.insertEditVertex(clicked, 0);
+    } else if (this.editVertices.length < 2) {
+      this.insertEditVertex(clicked, this.editVertices.length - 1);
     } else {
       this.insertPointOnRoute(latLng, containerPoint);
     }
+  }
+
+  private startWaypoint(): RouteFollowWaypoint | null {
+    return this.payload?.waypoints?.find(waypoint => waypoint.kind === RouteWaypointKind.START) || null;
+  }
+
+  private isSameLatLng(a: {latitude: number; longitude: number}, b: {latitude: number; longitude: number}): boolean {
+    return a.latitude === b.latitude && a.longitude === b.longitude;
   }
 
   private onVertexDragStart(index: number, handle: L.Marker): void {
@@ -1958,7 +1982,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private insertOffRouteVertex(click: {latitude: number; longitude: number}): void {
-    this.insertEditVertex(click, editExtendAfterIndex(this.editVertices, click));
+    const afterIndex = this.drawingNewLine ? this.editVertices.length - 1 : editExtendAfterIndex(this.editVertices, click);
+    this.insertEditVertex(click, afterIndex);
   }
 
   private deleteVertexNear(containerPoint: L.Point): void {
@@ -2360,17 +2385,69 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private refreshWaypointPins(): void {
     this.waypointGroup.clearLayers();
     const editing = this.progress?.mode === RouteFollowMode.EDITING || this.progress?.mode === RouteFollowMode.RECORDING;
-    if (this.payload && this.stepPinsOnMap && !editing) {
-      this.directedWaypoints.forEach((waypoint, index) => {
+    if (this.payload && ((this.stepPinsOnMap && !editing) || this.showingPlanningAnchors)) {
+      const displayedWaypoints = this.showingPlanningAnchors
+        ? this.payload.waypoints.filter(waypoint => waypoint.kind === RouteWaypointKind.START || waypoint.kind === RouteWaypointKind.END)
+        : this.directedWaypoints;
+      displayedWaypoints.forEach((waypoint, index) => {
+        const draggableStart = this.drawingNewLine && waypoint.kind === RouteWaypointKind.START;
         const pin = L.marker([waypoint.latitude, waypoint.longitude], {
-          icon: this.markerStyle.numberedMarkerIcon(this.waypointNumber(waypoint, index), this.mapProvider, this.osStyle),
+          icon: this.showingPlanningAnchors && waypoint.kind
+            ? this.markerStyle.routeAnchorIcon(waypoint.kind)
+            : this.markerStyle.numberedMarkerIcon(this.waypointNumber(waypoint, index), this.mapProvider, this.osStyle),
           keyboard: false,
-          zIndexOffset: 500
+          zIndexOffset: 500,
+          draggable: draggableStart
         });
-        pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        if (draggableStart) {
+          pin.on("dragend", event => this.zone.run(() => this.onStartAnchorDragEnd(waypoint, event.target as L.Marker)));
+        }
+        if (this.drawingNewLine) {
+          const finish = waypoint.kind === RouteWaypointKind.END;
+          pin.bindTooltip(finish ? "Click to add the finish point" : "Click here to start the route", {direction: "top", offset: [0, -36]});
+          pin.on("click", event => this.zone.run(() => {
+            L.DomEvent.stop(event);
+            this.addPlanningAnchor(waypoint);
+          }));
+        } else if (this.showingPlanningAnchors) {
+          pin.bindTooltip(waypoint.kind === RouteWaypointKind.END ? "Defined finish for this walk" : "Defined start for this walk", {direction: "top", offset: [0, -36]});
+          pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        } else {
+          pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        }
         this.waypointGroup.addLayer(pin);
       });
     }
+  }
+
+  private addPlanningAnchor(waypoint: RouteFollowWaypoint): void {
+    if (this.mapRef) {
+      const latLng = L.latLng(waypoint.latitude, waypoint.longitude);
+      this.addEditPointAt(latLng, this.mapRef.latLngToContainerPoint(latLng));
+      if (waypoint.kind === RouteWaypointKind.END) {
+        this.persistMessage = "Finish reached. Save the route when you are happy with it.";
+      } else {
+        this.persistMessage = "Route started. Continue clicking the map towards the finish.";
+      }
+    }
+  }
+
+  private onStartAnchorDragEnd(waypoint: RouteFollowWaypoint, marker: L.Marker): void {
+    const latLng = marker.getLatLng();
+    const moved = {latitude: latLng.lat, longitude: latLng.lng};
+    const anchoredToLine = this.editVertices.length > 0 && this.isSameLatLng(this.editVertices[0], waypoint);
+    this.payload = {
+      ...this.payload,
+      waypoints: this.payload.waypoints.map(existing => existing.id === waypoint.id ? {...existing, ...moved} : existing)
+    };
+    if (anchoredToLine) {
+      this.editVertices = this.editVertices.map((vertex, index) => index === 0 ? moved : vertex);
+      this.followService.replaceTrack(this.editVertices);
+      this.syncEditLineFromVertices();
+      this.refreshEditHandles();
+    }
+    this.refreshArrows();
+    this.redraw();
   }
 
   private refreshArrows(): void {
@@ -2523,9 +2600,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.mapRef && this.payload?.points?.length >= 2) {
       const bounds = L.latLngBounds(this.payload.points.map(point => [point.latitude, point.longitude] as [number, number]));
       this.mapRef.fitBounds(bounds, {paddingTopLeft: [36, 72], paddingBottomRight: [36, 220]});
+    } else if (this.mapRef && this.payload?.waypoints?.length >= 2) {
+      const bounds = L.latLngBounds(this.payload.waypoints.map(waypoint => [waypoint.latitude, waypoint.longitude] as [number, number]));
+      this.mapRef.fitBounds(bounds, {paddingTopLeft: [36, 72], paddingBottomRight: [36, 220], maxZoom: 16});
     } else if (this.mapRef && this.payload?.waypoints?.length) {
       const start = this.payload.waypoints[0];
-      this.mapRef.setView([start.latitude, start.longitude], Math.max(this.mapRef.getZoom(), 7));
+      this.mapRef.setView([start.latitude, start.longitude], Math.max(this.mapRef.getZoom(), 16));
     }
   }
 
