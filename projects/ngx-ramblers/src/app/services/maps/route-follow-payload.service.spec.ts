@@ -4,7 +4,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { PageContent, PageContentType } from "../../models/content-text.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
-import { RouteFollowSource } from "../../models/route-follow.model";
+import { RouteFollowSource, RouteWaypointKind } from "../../models/route-follow.model";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
 import { UrlService } from "../url.service";
 
@@ -91,7 +91,8 @@ describe("RouteFollowPayloadService", () => {
       fields: {inputSource: InputSource.MANUALLY_CREATED},
       groupEvent: {
         title: "Sunday walk",
-        start_location: {latitude: 51.2, longitude: 1.16, description: "Village hall"}
+        start_location: {latitude: 51.2, longitude: 1.16, description: "Village hall"},
+        end_location: {latitude: 51.24, longitude: 1.2, description: "Station"}
       }
     } as unknown as ExtendedGroupEvent;
     const payload = await service.payloadFromWalk(walk);
@@ -99,6 +100,10 @@ describe("RouteFollowPayloadService", () => {
     expect(payload.points.length).toBe(0);
     expect(payload.waypoints[0].latitude).toBe(51.2);
     expect(payload.waypoints[0].instruction).toBe("Village hall");
+    expect(payload.waypoints[0].kind).toBe(RouteWaypointKind.START);
+    expect(payload.waypoints[1].latitude).toBe(51.24);
+    expect(payload.waypoints[1].instruction).toBe("Station");
+    expect(payload.waypoints[1].kind).toBe(RouteWaypointKind.END);
     expect(payload.color).toBe("#c21d4b");
   });
 

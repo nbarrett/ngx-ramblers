@@ -64,8 +64,8 @@
   min-height: 0
 
 .route-fullscreen-shell.is-fullscreen > .route-guide-panel
-  flex: 0 0 380px
-  max-width: 380px
+  flex: 0 0 var(--route-guide-width, 380px)
+  max-width: var(--route-guide-width, 380px)
   height: 100%
   overflow: auto
   margin: 0
@@ -110,15 +110,53 @@
   flex-direction: column
 
 @media (max-width: 767.98px)
-  .route-fullscreen-shell.is-fullscreen > .route-guide-panel
-    flex: 0 0 100%
+  .route-fullscreen-shell.is-fullscreen
+    flex-direction: column
+    flex-wrap: nowrap
+  .route-fullscreen-shell.is-fullscreen > .map-section,
+  .route-fullscreen-shell.is-fullscreen.route-side-left > .map-section
+    flex: 1 1 auto
+    width: 100%
+    height: auto
+    min-height: 45%
+    order: 0
+  .route-fullscreen-shell.is-fullscreen > .route-guide-panel,
+  .route-fullscreen-shell.is-fullscreen.route-side-left > .route-guide-panel
+    flex: 0 1 auto
+    width: 100%
     max-width: none
-    height: 40%
+    height: auto
+    max-height: 42%
+    min-height: 0
+    overflow-y: auto
+    display: flex
+    flex-direction: column
     border-left: none
+    border-right: none
     border-top: 1px solid var(--rsm-border, #d9dee3)
+    padding: 0.5rem 0.5rem 0.35rem
     order: 2
-  .route-fullscreen-shell.is-fullscreen > .map-section
-    flex: 0 0 100%
-    height: 60%
+  .route-fullscreen-shell.is-fullscreen > .route-guide-panel.thumbnail-heading-frame
+    background: #fff
+    box-shadow: none
+  .route-fullscreen-shell.is-fullscreen .route-guide-controls
+    position: static
+    padding: 0 0 0.4rem
+  .route-fullscreen-shell.is-fullscreen .thumbnail-heading + p
+    display: none
+  .route-fullscreen-shell.is-fullscreen:not(.is-editing) .thumbnail-heading
+    display: none
+  .route-fullscreen-shell.is-fullscreen .route-guide-list
+    flex: 1 1 auto
+    min-height: 0
+    max-height: none
+    overflow-y: auto
+    gap: 4px
+  .route-fullscreen-shell.is-fullscreen:not(.is-editing) .route-guide-list .route-guide-item
+    display: none
+  .route-fullscreen-shell.is-fullscreen:not(.is-editing) .route-guide-list .route-guide-item.active
+    display: flex
+  .route-fullscreen-shell.is-fullscreen:not(.is-editing) .route-guide-note
+    max-height: 4.5rem
   .route-fullscreen-shell.is-fullscreen > .route-guide-resizer
     display: none

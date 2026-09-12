@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { markersOnTrack } from "../../functions/route-directions";
+import { markersSyncedWithLocation } from "../../functions/map-location-markers";
 import { branchMarkers, composeRoute, routeBranches } from "../../functions/route-branches";
 import { firstValueFrom, timeout } from "rxjs";
 import { isNumber, isString } from "es-toolkit/compat";
@@ -226,15 +227,13 @@ export class RouteFollowPayloadService {
         ? await this.loadGpx(walk.fields.gpxFile)
         : {points: [] as RouteFollowPoint[], waypoints: [] as RouteFollowWaypoint[], totalMetres: 0};
       const authored = walk.fields?.routeWaypoints || [];
-      const start = walk.groupEvent?.start_location;
-      const startMarkers = !this.walkHasGpx(walk) && start && isNumber(start.latitude) && isNumber(start.longitude) ? [{
-        latitude: start.latitude,
-        longitude: start.longitude,
-        label: "Start",
-        instruction: start.description || start.postcode || "Start here",
-        kind: RouteWaypointKind.START
-      }] : authored;
-      const waypoints = this.mergeWaypoints(startMarkers, parsed.waypoints);
+      const planningMarkers = !this.walkHasGpx(walk)
+        ? markersSyncedWithLocation(authored, {
+          start: walk.groupEvent?.start_location,
+          end: walk.groupEvent?.end_location
+        })
+        : authored;
+      const waypoints = this.mergeWaypoints(planningMarkers, parsed.waypoints);
       return {
         source: RouteFollowSource.WALK,
         title: walk.groupEvent?.title || "Walk",

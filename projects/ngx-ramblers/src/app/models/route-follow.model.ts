@@ -7,16 +7,6 @@ export enum AppPath {
   FOLLOW = "follow"
 }
 
-export enum RouteFollowQueryParam {
-  PATH = "path",
-  ROUTE_ID = "routeId",
-  WALK_ID = "walkId",
-  RAMBLERS_SLUG = "ramblersSlug",
-  OS_MAPS_ROUTE_ID = "osMapsRouteId",
-  TRACK = "track",
-  VIA = "via"
-}
-
 export enum RouteWaypointKind {
   START = "start",
   WAYPOINT = "waypoint",
@@ -226,6 +216,18 @@ export enum RouteFollowProgressPaint {
   COLOUR_WALKED = "colour-walked",
   COLOUR_AHEAD = "colour-ahead"
 }
+
+export enum FollowPointerSize {
+  SMALL = "small",
+  MEDIUM = "medium",
+  LARGE = "large"
+}
+
+export const FOLLOW_POINTER_SIZES: {size: FollowPointerSize; label: string}[] = [
+  {size: FollowPointerSize.SMALL, label: "Small"},
+  {size: FollowPointerSize.MEDIUM, label: "Medium"},
+  {size: FollowPointerSize.LARGE, label: "Large"}
+];
 
 export enum CompassCardinal {
   N = "N",
@@ -711,6 +713,26 @@ export function routeFollowProgressPaintFrom(value: string | null): RouteFollowP
   }
 }
 
+export function followPointerSizeFrom(value: string | null): FollowPointerSize {
+  if (value === FollowPointerSize.SMALL) {
+    return FollowPointerSize.SMALL;
+  } else if (value === FollowPointerSize.LARGE) {
+    return FollowPointerSize.LARGE;
+  } else {
+    return FollowPointerSize.MEDIUM;
+  }
+}
+
+export function followPointerPixels(size: FollowPointerSize): {width: number; height: number} {
+  if (size === FollowPointerSize.LARGE) {
+    return {width: 44, height: 48};
+  } else if (size === FollowPointerSize.SMALL) {
+    return {width: 22, height: 24};
+  } else {
+    return {width: 32, height: 35};
+  }
+}
+
 function editPointSpan(from: RouteFollowPoint, to: RouteFollowPoint): number {
   const dLat = from.latitude - to.latitude;
   const dLng = (from.longitude - to.longitude) * Math.cos(((from.latitude + to.latitude) / 2) * Math.PI / 180);
@@ -740,6 +762,14 @@ export function followLineColours(paint: RouteFollowProgressPaint, routeColor: s
     return {walked: routeColor, ahead: muted};
   } else {
     return {walked: muted, ahead: routeColor};
+  }
+}
+
+export function routeAlignedMapHeading(routeHeading: number | null, fallbackHeading: number): number {
+  if (Number.isFinite(routeHeading)) {
+    return routeHeading as number;
+  } else {
+    return fallbackHeading;
   }
 }
 

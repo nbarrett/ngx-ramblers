@@ -30,7 +30,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType, MapProvider } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { AppPath, RouteFollowPoint, RouteFollowQueryParam, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
+import { AppPath, RouteFollowPoint, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
 import { MapEditComponent } from "./map-edit";
 import { RouteGuidePanel } from "../../../shared/components/route-guide-panel";
 import { RouteStepControls } from "../../../shared/components/route-step-controls";
@@ -380,7 +380,7 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                     <div class="col-lg-6 mb-3">
                       <app-maximisable-map #directionsMap="maximisableMap" [title]="'Directions'" [allowExpanded]="false" [syncToUrl]="true"
                                            (sizeChange)="onDirectionsMapSizeChange($event)">
-                        <div class="route-fullscreen-shell" [class.is-fullscreen]="directionsFullScreen">
+                        <div class="route-fullscreen-shell" [class.is-fullscreen]="directionsFullScreen" [class.is-editing]="directionsEdit.editing">
                           <div class="map-section">
                             <div app-map-edit readonly
                                  [style.height.px]="directionsFullScreen ? null : directionsHeight"
@@ -721,7 +721,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     if (slug) {
       this.display.rememberFollowReturnUrl();
       void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
-        queryParams: {[RouteFollowQueryParam.WALK_ID]: slug}
+        queryParams: {[StoredValue.WALK_ID]: slug}
       });
     }
   }

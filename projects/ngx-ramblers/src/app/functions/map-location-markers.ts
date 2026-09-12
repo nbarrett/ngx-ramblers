@@ -10,7 +10,13 @@ export function isAuthoredMarker(marker: MapMarker): boolean {
 
 function locationMarker(point: LocationRowData["start"] | undefined, fallbackLabel: string, kind: RouteWaypointKind): MapMarker[] {
   const usable = point?.latitude != null && point?.longitude != null;
-  return usable ? [{latitude: point.latitude, longitude: point.longitude, label: formatGridReference(point.description) || fallbackLabel, kind}] : [];
+  return usable ? [{
+    latitude: point.latitude,
+    longitude: point.longitude,
+    label: formatGridReference(point.description) || fallbackLabel,
+    instruction: point.description || point.postcode || null,
+    kind
+  }] : [];
 }
 
 export function rowsWithin(rows: PageContentRow[] | undefined): PageContentRow[] {

@@ -13,6 +13,10 @@ import {
   formatMapSaveProgress,
   formatOsGridReference,
   nextAppAppearance,
+  routeAlignedMapHeading,
+  FollowPointerSize,
+  followPointerPixels,
+  followPointerSizeFrom,
   RouteFollowProgressPaint,
   RouteFollowSheetState,
   routeFollowProgressPaintFrom,
@@ -162,6 +166,42 @@ describe("compassTapeMarks", () => {
     expect(southwest.offsetPx).toBeGreaterThan(0);
     expect(southeast).toBeTruthy();
     expect(west).toBeTruthy();
+  });
+
+});
+
+describe("routeAlignedMapHeading", () => {
+
+  it("keeps the map on the route heading rather than the device heading", () => {
+    expect(routeAlignedMapHeading(80, 12)).toEqual(80);
+  });
+
+  it("uses the fallback when the route heading is missing", () => {
+    expect(routeAlignedMapHeading(null, 12)).toEqual(12);
+    expect(routeAlignedMapHeading(Number.NaN, 45)).toEqual(45);
+  });
+
+});
+
+describe("followPointerSizeFrom", () => {
+
+  it("defaults to medium", () => {
+    expect(followPointerSizeFrom(null)).toEqual(FollowPointerSize.MEDIUM);
+    expect(followPointerSizeFrom("nope")).toEqual(FollowPointerSize.MEDIUM);
+  });
+
+  it("keeps a stored size", () => {
+    expect(followPointerSizeFrom(FollowPointerSize.SMALL)).toEqual(FollowPointerSize.SMALL);
+    expect(followPointerSizeFrom(FollowPointerSize.LARGE)).toEqual(FollowPointerSize.LARGE);
+  });
+
+});
+
+describe("followPointerPixels", () => {
+
+  it("makes medium larger than the original 18px pointer", () => {
+    expect(followPointerPixels(FollowPointerSize.MEDIUM).width).toBeGreaterThan(18);
+    expect(followPointerPixels(FollowPointerSize.LARGE).width).toBeGreaterThan(followPointerPixels(FollowPointerSize.MEDIUM).width);
   });
 
 });

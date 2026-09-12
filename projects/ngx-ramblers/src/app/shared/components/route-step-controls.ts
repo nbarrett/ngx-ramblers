@@ -13,11 +13,15 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
     <div class="d-flex flex-wrap align-items-center gap-2 control-pill-row">
       @if (!fullscreen) {
         <div class="control-pill" role="group" aria-label="Map view">
-          <button type="button" class="control-pill-btn" (click)="fullScreen.emit()" title="Show the map full screen with the directions beside it" aria-label="Full screen">
-            <fa-icon [icon]="faExpand"/><span class="d-none d-sm-inline">Full screen</span>
-          </button>
+          @if (fullScreenAvailable) {
+            <button type="button" class="control-pill-btn" (click)="fullScreen.emit()" title="Show the map full screen with the directions beside it" aria-label="Full screen">
+              <fa-icon [icon]="faExpand"/><span class="d-none d-sm-inline">Full screen</span>
+            </button>
+          }
           @if (count > 0 && !compact) {
-            <span class="control-pill-divider"></span>
+            @if (fullScreenAvailable) {
+              <span class="control-pill-divider"></span>
+            }
             <button type="button" class="control-pill-btn" [class.active]="guideOpen" (click)="toggleGuide.emit()" [attr.aria-pressed]="guideOpen"
                     [title]="guideOpen ? 'Hide the written directions' : 'Show the written directions'">
               <fa-icon [icon]="faListOl"/><span class="d-none d-sm-inline">{{ guideOpen ? "Hide directions" : "Directions" }}</span>
@@ -35,7 +39,9 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
             </label>
           }
           @if (canFollow) {
-            <span class="control-pill-divider"></span>
+            @if (fullScreenAvailable || (count > 0 && !compact) || (tracks.length > 1 && !compact)) {
+              <span class="control-pill-divider"></span>
+            }
             <ng-container *ngTemplateOutlet="followButton"/>
           }
         </div>
@@ -65,7 +71,7 @@ import { ROUTE_SAVE_STATE_LABELS, ROUTE_STEP_SPEED_DEFAULT, ROUTE_STEP_SPEED_MAX
           }
         </div>
         @if (!compact) {
-        <div class="control-pill" role="group" aria-label="Stepping speed">
+        <div class="control-pill d-none d-md-inline-flex" role="group" aria-label="Stepping speed">
           <label class="control-pill-text control-pill-range-label" [for]="'route-step-speed-' + id" title="How quickly the map travels between steps">
             <fa-icon [icon]="faGaugeHigh"/>
             <input type="range" class="control-pill-range" [id]="'route-step-speed-' + id"
@@ -148,6 +154,7 @@ export class RouteStepControls {
   @Input() activeIndex = -1;
   @Input() count = 0;
   @Input() fullscreen = false;
+  @Input() fullScreenAvailable = true;
   @Input("compact") set compactValue(value: boolean) {
     this.compact = coerceBooleanProperty(value);
   }
