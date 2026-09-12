@@ -1,25 +1,25 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { maskedApiRequest, maskSecretQueryParameters } from "./mask-secrets";
+import { maskedApiRequest, maskOAuthWireParameters } from "./mask-secrets";
 
-describe("maskSecretQueryParameters", () => {
+describe("maskOAuthWireParameters", () => {
 
   it("masks an access token wherever it sits in the query", () => {
-    expect(maskSecretQueryParameters("https://graph.facebook.com/v21.0/123?fields=id&access_token=EAANabc123"))
+    expect(maskOAuthWireParameters("https://graph.facebook.com/v21.0/123?fields=id&access_token=EAANabc123"))
       .toEqual("https://graph.facebook.com/v21.0/123?fields=id&access_token=***");
-    expect(maskSecretQueryParameters("/me/accounts?access_token=EAANabc123&fields=name"))
+    expect(maskOAuthWireParameters("/me/accounts?access_token=EAANabc123&fields=name"))
       .toEqual("/me/accounts?access_token=***&fields=name");
   });
 
   it("masks every secret-looking parameter and leaves the rest alone", () => {
-    expect(maskSecretQueryParameters("/oauth/access_token?client_id=1&client_secret=shh&fb_exchange_token=tok&input_token=in&redirect_uri=x"))
+    expect(maskOAuthWireParameters("/oauth/access_token?client_id=1&client_secret=shh&fb_exchange_token=tok&input_token=in&redirect_uri=x"))
       .toEqual("/oauth/access_token?client_id=1&client_secret=***&fb_exchange_token=***&input_token=***&redirect_uri=x");
   });
 
   it("returns text without secrets unchanged", () => {
-    expect(maskSecretQueryParameters("/walks?limit=10")).toEqual("/walks?limit=10");
-    expect(maskSecretQueryParameters("")).toEqual("");
-    expect(maskSecretQueryParameters(null)).toEqual(null);
+    expect(maskOAuthWireParameters("/walks?limit=10")).toEqual("/walks?limit=10");
+    expect(maskOAuthWireParameters("")).toEqual("");
+    expect(maskOAuthWireParameters(null)).toEqual(null);
   });
 });
 

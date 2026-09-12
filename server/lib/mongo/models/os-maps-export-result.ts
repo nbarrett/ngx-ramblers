@@ -6,6 +6,7 @@ import { fileNameData } from "./banner";
 
 const osMapsExportResultSchema = new mongoose.Schema({
   jobId: {type: String, unique: true},
+  fileName: {type: String},
   status: {type: String, enum: values(OsMapsExportJobStatus)},
   walkId: {type: String},
   routeUrls: [{type: String}],

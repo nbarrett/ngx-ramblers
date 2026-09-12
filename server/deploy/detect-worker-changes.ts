@@ -66,6 +66,18 @@ async function resolveWorkerFiles(repoRoot: string): Promise<string[]> {
   return Array.from(resolved).sort();
 }
 
+const WORKER_PATH_PREFIXES = [
+  "server/lib/serenity-js/"
+];
+
+function isWorkerPath(file: string, workerFileSet: Set<string>): boolean {
+  if (workerFileSet.has(file)) {
+    return true;
+  } else {
+    return WORKER_PATH_PREFIXES.some(prefix => file.startsWith(prefix));
+  }
+}
+
 function tryExec(command: string): string | null {
   try {
     return execSync(command, { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -142,7 +154,7 @@ async function detect(): Promise<DetectResult> {
   console.error(`Comparing ${baseRef} (${baseSource}) .. ${afterRef}`);
 
   const changedAll = diffChangedFiles(baseRef, afterRef);
-  const changedWorkerFiles = changedAll.filter(f => workerFileSet.has(f));
+  const changedWorkerFiles = changedAll.filter(f => isWorkerPath(f, workerFileSet));
 
   const changedFiles: string[] = [];
   const ignoredTypeOnly: string[] = [];

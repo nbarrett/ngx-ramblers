@@ -48,7 +48,6 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
@@ -57,6 +56,8 @@ import { EventType, MessageType, RamblersUploadAuditProgressResponse } from "../
 import { ApiResponse } from "../../../models/api-response.model";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
+import { UploadSessionSelectorComponent } from "../../../modules/common/upload-session-selector/upload-session-selector";
+import { uploadSessionTime, uploadSessionUrlParam } from "../../../functions/upload-session";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
@@ -288,36 +289,12 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                 <div class="col-12 mb-3">
                   <div class="d-flex flex-column gap-2">
                     <div class="row g-2 g-md-3 align-items-md-center">
-                      <div class="col-12 col-md-auto">
-                        <label for="fileName" class="form-label mb-0 text-nowrap">Upload Session:</label>
-                      </div>
-                      <div class="col-12 col-md" style="min-width: 0;">
-                        @if (showSelect) {
-                          <ng-select
-                            [disabled]="exportInProgress"
-                            [clearable]="false"
-                            name="fileName"
-                            [(ngModel)]="fileName"
-                            (ngModelChange)="onSessionChange()"
-                            class="filename-select"
-                            dropdownPosition="bottom"
-                            [virtualScroll]="false">
-                            @for (fileName of fileNames; track fileName.fileName) {
-                              <ng-option [value]="fileName">
-                                <div class="d-flex align-items-center">
-                                  <app-status-icon noLabel [status]="fileName.status"/>
-                                  <span class="ms-2 text-truncate"
-                                        [title]="fileName.fileName">{{ displayForUploadSession(fileName.fileName) }}</span>
-                                </div>
-                              </ng-option>
-                            }
-                          </ng-select>
-                        } @else {
-                          <div class="d-flex align-items-center">
-                            <app-status-icon noLabel [status]="Status.ACTIVE"/>
-                            <span class="ms-2">Finding sessions...</span>
-                          </div>
-                        }
+                      <div class="col-12">
+                        <app-upload-session-selector [sessions]="showSelect ? fileNames : []"
+                                                     [selected]="fileName"
+                                                     [disabled]="exportInProgress"
+                                                     [durations]="sessionDurations"
+                                                     (selectedChange)="onSessionSelected($event)"/>
                       </div>
                       <div class="col-12 col-md-auto d-none d-md-block">
                         <div class="form-check">
@@ -406,47 +383,12 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
       </tabset>
     </app-walk-programme-page>`,
   styles: [`
-    .filename-select
-      width: 100%
-      min-width: 200px
-      --ng-option-height: 40px
-
     .card-disabled
       opacity: 0.5
       pointer-events: none
 
     dl
       margin-bottom: 0
-
-    .flex-grow-1 .filename-select
-      width: 100%
-
-    .filename-select .ng-dropdown-panel
-      max-height: 70vh !important
-      max-width: 100% !important
-      width: 100% !important
-
-    .filename-select .ng-dropdown-panel .ng-option
-      height: var(--ng-option-height)
-      line-height: var(--ng-option-height)
-
-    ::ng-deep .filename-select .ng-dropdown-panel
-      max-height: 70vh !important
-      max-width: 100% !important
-      width: 100% !important
-
-    ::ng-deep .filename-select .ng-dropdown-panel .ng-option
-      height: var(--ng-option-height)
-      line-height: var(--ng-option-height)
-
-    ::ng-deep ng-select.filename-select .ng-dropdown-panel
-      max-height: 70vh !important
-      max-width: 100% !important
-      width: 100% !important
-
-    ::ng-deep ng-select.filename-select .ng-dropdown-panel .ng-option
-      height: var(--ng-option-height)
-      line-height: var(--ng-option-height)
 
     .walk-export-card .card-body
       padding: .5rem .75rem
@@ -487,15 +429,9 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
       z-index: 20
       box-shadow: 0 1px 0 rgba(0,0,0,0.05)
 
-    @media (max-width: 576px)
-      .filename-select .ng-dropdown-panel,
-      ::ng-deep .filename-select .ng-dropdown-panel,
-      ::ng-deep ng-select.filename-select .ng-dropdown-panel
-        width: 100% !important
-        max-width: 100% !important
   `],
   styleUrls: ["./walk-export.sass"],
-  imports: [WalkProgrammePageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
+  imports: [UploadSessionSelectorComponent, WalkProgrammePageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
 })
 
 export class WalkExport implements OnInit, OnDestroy {
@@ -556,7 +492,7 @@ export class WalkExport implements OnInit, OnDestroy {
   ];
   public confirmOverrideRequested = false;
   public confirmCancelRequested = false;
-  private sessionDurations: { [fileName: string]: string } = {};
+  sessionDurations: { [fileName: string]: string } = {};
   private deletionsCleared = false;
   private actionableMap: { [id: string]: boolean } = {};
   private auditRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -596,14 +532,16 @@ export class WalkExport implements OnInit, OnDestroy {
     });
     this.subscriptions.push(this.webSocketClientService.receiveMessages<RamblersUploadAuditProgressResponse>(MessageType.PROGRESS).subscribe(async (progressResponse: RamblersUploadAuditProgressResponse) => {
       this.logger.info("Progress response received:", progressResponse);
-      if (progressResponse?.audits?.length > 0) {
+      const currentFileName = this.fileName?.fileName;
+      const matchingAudits = (progressResponse?.audits || []).filter(audit => audit.fileName === currentFileName);
+      if (matchingAudits.length > 0) {
         this.startAuditRefreshLoop();
-        this.logger.info("Progress response received:", progressResponse.audits);
-        this.audits = (this.audits.concat(progressResponse?.audits)).sort(sortBy("-auditTime", "-record"));
+        this.logger.info("Progress response received:", matchingAudits);
+        this.audits = (this.audits.filter(audit => audit.fileName === currentFileName).concat(matchingAudits)).sort(sortBy("-auditTime", "-record"));
         this.applyFilter();
         this.updateCurrentSessionDurationLabel();
         this.changeDetectorRef.detectChanges();
-        this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
+        this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(matchingAudits.length, "audit record")} just received`);
         if (!this.postActionRefreshed && this.audits.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS)) {
           this.postActionRefreshed = true;
           try {
@@ -1049,7 +987,7 @@ export class WalkExport implements OnInit, OnDestroy {
     this.fileName = this.fileNames?.[0];
 
     if (this.pendingSessionParam) {
-      const matchingSession = this.fileNames.find(f => this.sessionToUrlParam(f.fileName) === this.pendingSessionParam);
+      const matchingSession = this.fileNames.find(f => uploadSessionUrlParam(f.fileName, this.dateUtils) === this.pendingSessionParam);
       if (matchingSession) {
         this.fileName = matchingSession;
       }
@@ -1300,6 +1238,11 @@ export class WalkExport implements OnInit, OnDestroy {
     }
   }
 
+  onSessionSelected(session: FileUploadSummary): void {
+    this.fileName = session;
+    this.onSessionChange();
+  }
+
   onSessionChange(): void {
     this.refreshAuditForCurrentSession();
     this.updateUrl();
@@ -1312,7 +1255,7 @@ export class WalkExport implements OnInit, OnDestroy {
       [StoredValue.SORT_ORDER]: this.auditSortOrder
     };
     if (this.fileName?.fileName) {
-      queryParams[StoredValue.SESSION] = this.sessionToUrlParam(this.fileName.fileName);
+      queryParams[StoredValue.SESSION] = uploadSessionUrlParam(this.fileName.fileName, this.dateUtils);
     }
     this.logger.info("updateUrl:queryParams:", queryParams);
     this.router.navigate([], {
@@ -1328,7 +1271,7 @@ export class WalkExport implements OnInit, OnDestroy {
 
     this.fileNames = this.fileNames.map(session => {
       if (session.status === Status.ACTIVE) {
-        const sessionTime = this.extractSessionTime(session.fileName);
+        const sessionTime = uploadSessionTime(session.fileName, this.dateUtils);
         if (sessionTime) {
           const timeDifferenceMinutes = (now - sessionTime) / (1000 * 60);
           if (timeDifferenceMinutes > staleThresholdMinutes) {
@@ -1341,53 +1284,4 @@ export class WalkExport implements OnInit, OnDestroy {
     });
   }
 
-  private extractSessionTime(fileName: string): number | null {
-    const match = fileName.match(/walks-export-(\d{1,2})-(\w+)-(\d{4})-(\d{2})-(\d{2})\.csv$/);
-    if (match) {
-      const [, day, month, year, hour, minute] = match;
-      const dateString = `${day} ${month} ${year} ${hour}:${minute}`;
-      return this.dateUtils.parseDisplayDateWithFormat(dateString, "d MMMM yyyy HH:mm")?.toMillis() || null;
-    }
-    return null;
-  }
-
-  public displayForUploadSession(fileName: string): string {
-    const session = this.fileNames.find(f => f.fileName === fileName);
-    const ts = this.extractSessionTime(fileName);
-    if (ts) {
-      let duration = this.sessionDurations[fileName];
-      if (!duration && session?.earliestAuditTime && session?.latestAuditTime) {
-        duration = this.dateUtils.formatDuration(session.earliestAuditTime, session.latestAuditTime);
-        this.sessionDurations[fileName] = duration;
-      }
-      const label = this.dateUtils.displayDateAndTime(ts);
-      return duration ? `${label} (${duration})` : label;
-    }
-    return this.formatUploadSessionName(fileName);
-  }
-
-  formatUploadSessionName(fileName: string): string {
-    if (!fileName) return "";
-
-    const match = fileName.match(/walks-export-(\d{1,2})-(\w+)-(\d{4})-(\d{2})-(\d{2})\.csv$/);
-    if (match) {
-      const [, day, month, year, hour, minute] = match;
-      const date = `${day} ${month} ${year}`;
-      const time = `${hour}:${minute}`;
-      return `${date} at ${time}`;
-    }
-
-    return fileName.replace(/^walks-export-/, "").replace(/\.csv$/, "").replace(/-/g, " ");
-  }
-
-  private sessionToUrlParam(fileName: string): string {
-    if (!fileName) return "";
-
-    const sessionTime = this.extractSessionTime(fileName);
-    if (sessionTime) {
-      return this.dateUtils.asString(sessionTime, undefined, UIDateFormat.YEAR_MONTH_DAY_T_HHMM);
-    }
-
-    return fileName.replace(/^walks-export-/, "").replace(/\.csv$/, "").replace(/[^a-z0-9]/gi, "-").toLowerCase();
-  }
 }

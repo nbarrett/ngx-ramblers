@@ -5,7 +5,8 @@ import { envConfig } from "../env-config/env-config";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { isOsMapsRouteUrl, OS_MAPS_EXPORT_MAX_WAIT_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { dispatchOsMapsExport, dispatchOsMapsList } from "../ramblers/os-maps-export-dispatcher";
-import { failOsMapsExportResult, osMapsExportResultByJobId } from "./os-maps-export-result-store";
+import { cancelActiveWorkerQueueJob } from "../ramblers/integration-worker-queue-client";
+import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJobId } from "./os-maps-export-result-store";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { latestOsMapsRouteListing } from "./os-maps-route-listing-store";
 import { osMapsImportedRouteById, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
@@ -45,8 +46,14 @@ export async function exportOsMapsRoute(req: Request, res: Response): Promise<vo
     res.status(400).json({error: "Choose at least one OS Maps route to convert"});
   } else {
     try {
-      const result = await dispatchOsMapsExport(routeUrls, walkId, actorNameFrom(req));
-      res.json(result);
+      const latest = await latestOsMapsExportResult();
+      const current = latest ? await withStaleQueuedJobFailed(latest) : null;
+      if (current?.status === OsMapsExportJobStatus.QUEUED) {
+        res.status(409).json({error: "An OS Maps conversion is already running. Wait for it to finish or stop the current job.", jobId: current.jobId});
+      } else {
+        const result = await dispatchOsMapsExport(routeUrls, walkId, actorNameFrom(req));
+        res.json(result);
+      }
     } catch (error) {
       debugLog("export failed:", (error as Error).message);
       res.status(500).json({error: (error as Error).message});
@@ -127,6 +134,16 @@ export async function osMapsExportJobResult(req: Request, res: Response): Promis
   }
 }
 
+export async function latestOsMapsExportJobResult(_req: Request, res: Response): Promise<void> {
+  try {
+    const latest = await latestOsMapsExportResult();
+    res.json(latest ? await withStaleQueuedJobFailed(latest) : null);
+  } catch (error) {
+    debugLog("latest export result failed:", (error as Error).message);
+    res.status(500).json({error: (error as Error).message});
+  }
+}
+
 function routeUrlsFrom(body: {routeUrl?: unknown; routeUrls?: unknown}): string[] {
   if (isArray(body?.routeUrls)) {
     return body.routeUrls.filter(url => isString(url) && isOsMapsRouteUrl(url));
@@ -134,5 +151,22 @@ function routeUrlsFrom(body: {routeUrl?: unknown; routeUrls?: unknown}): string[
     return [body.routeUrl];
   } else {
     return [];
+  }
+}
+
+export async function cancelOsMapsExport(_req: Request, res: Response): Promise<void> {
+  try {
+    const workerOutcome = await cancelActiveWorkerQueueJob().catch(error => {
+      debugLog("worker cancel unavailable:", (error as Error).message);
+      return {cancelled: false};
+    });
+    const latest = await latestOsMapsExportResult();
+    const abandoned = latest?.status === OsMapsExportJobStatus.QUEUED
+      ? await failOsMapsExportResult(latest.jobId, "This conversion was stopped before it finished. Try it again.")
+      : null;
+    res.json({cancelled: workerOutcome.cancelled || !!abandoned, jobId: abandoned?.jobId || latest?.jobId});
+  } catch (error) {
+    debugLog("cancel export failed:", (error as Error).message);
+    res.status(500).json({error: (error as Error).message});
   }
 }

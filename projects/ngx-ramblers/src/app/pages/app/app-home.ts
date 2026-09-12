@@ -13,7 +13,6 @@ import {
   AppPath,
   followCacheKey,
   RouteFollowOfflineStatus,
-  RouteFollowQueryParam,
   RouteFollowSummary
 } from "../../models/route-follow.model";
 import { SystemConfig } from "../../models/system.model";
@@ -29,6 +28,7 @@ import { WalkProgrammeService } from "../../services/walks-and-events/walk-progr
 import { WalkDisplayService } from "../walks/walk-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
+import { StoredValue } from "../../models/ui-actions";
 
 @Component({
   selector: "app-home",
@@ -257,7 +257,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     try {
       const route = await this.ramblersLibrary.lookup(this.ramblersUrl);
       await this.router.navigate(["/" + AppPath.ROOT, AppPath.FOLLOW], {
-        queryParams: {[RouteFollowQueryParam.RAMBLERS_SLUG]: route.slug}
+        queryParams: {[StoredValue.RAMBLERS_SLUG]: route.slug}
       });
     } catch (error) {
       this.logger.error("openRamblersRoute failed", error);
@@ -292,7 +292,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
 
   walkQuery(walk: ExtendedGroupEvent): Record<string, string> {
     const slug = this.display.walkSlug(walk);
-    return slug ? {[RouteFollowQueryParam.WALK_ID]: slug} : {};
+    return slug ? {[StoredValue.WALK_ID]: slug} : {};
   }
 
   walkDetailsLink(walk: ExtendedGroupEvent): string[] {
@@ -303,13 +303,13 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   routeQuery(route: RouteFollowSummary): Record<string, string> {
     const params: Record<string, string> = {};
     if (route.path) {
-      params[RouteFollowQueryParam.PATH] = route.path;
+      params[StoredValue.FOLLOW_PATH] = route.path;
     }
     if (route.routeId) {
-      params[RouteFollowQueryParam.ROUTE_ID] = route.routeId;
+      params[StoredValue.ROUTE_ID] = route.routeId;
     }
     if (route.ramblersSlug) {
-      params[RouteFollowQueryParam.RAMBLERS_SLUG] = route.ramblersSlug;
+      params[StoredValue.RAMBLERS_SLUG] = route.ramblersSlug;
     }
     return params;
   }

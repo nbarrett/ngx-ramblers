@@ -27,12 +27,12 @@ import {
           {{ loading ? "Loading…" : "Refresh" }}
         </button>
         @if (status?.activeJob) {
-          <button type="button" class="btn btn-quiet btn-icon" (click)="confirmStop = true" [disabled]="busy">
+          <button type="button" class="btn btn-quiet" (click)="confirmStop = true" [disabled]="busy">
             <fa-icon [icon]="stopping ? faSpinner : faPowerOff" class="me-2"/>Stop active job
           </button>
         }
         @if (status && status.queuedJobs.length > 0) {
-          <button type="button" class="btn btn-quiet btn-icon" (click)="confirmClear = true" [disabled]="busy">
+          <button type="button" class="btn btn-quiet" (click)="confirmClear = true" [disabled]="busy">
             <fa-icon [icon]="clearing ? faSpinner : faBan" class="me-2"/>Clear queue ({{ status.queuedJobs.length }})
           </button>
         }

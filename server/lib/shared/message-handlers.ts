@@ -5,7 +5,7 @@ import querystring from "querystring";
 import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { isArray } from "es-toolkit/compat";
-import { maskedApiRequest, maskSecretQueryParameters } from "./mask-secrets";
+import { maskedApiRequest, maskOAuthWireParameters } from "./mask-secrets";
 
 const logRawData = false;
 const DEFAULT_UPSTREAM_TIMEOUT_MILLIS = 15000;
@@ -85,7 +85,7 @@ export function httpRequest(options: MessageHandlerOptions) {
       });
     });
     request.setTimeout(options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS, () => {
-      request.destroy(new Error(`upstream request to ${options.apiRequest?.hostname}${maskSecretQueryParameters(options.apiRequest?.path)} timed out after ${options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS}ms`));
+      request.destroy(new Error(`upstream request to ${options.apiRequest?.hostname}${maskOAuthWireParameters(options.apiRequest?.path)} timed out after ${options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS}ms`));
     });
     request.on("error", error => {
       const rejectedResponse = {

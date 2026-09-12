@@ -79,7 +79,7 @@ import { PageService } from "../../../services/page.service";
 import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
 import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
 import { WalkAlbumPanelComponent } from "./walk-album-panel";
-import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.model";
+import { AppPath } from "../../../models/route-follow.model";
 
 @Component({
   selector: "app-walk-view",
@@ -1070,7 +1070,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     if (slug) {
       this.display.rememberFollowReturnUrl();
       void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
-        queryParams: {[RouteFollowQueryParam.WALK_ID]: slug}
+        queryParams: {[StoredValue.WALK_ID]: slug}
       });
     }
   }

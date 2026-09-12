@@ -46,7 +46,7 @@ async function unconvertedRoutesMessage(routeUrls: string[], imports: OsMapsRout
       const routeId = osMapsRouteIdFromUrl(url);
       return listing.routes.find(route => route.id === routeId)?.title || url;
     });
-    return `${unconverted.length} of ${routeUrls.length} routes could not be converted: ${names.join(", ")}. The job progress below shows why.`;
+    return `${unconverted.length} of ${routeUrls.length} routes could not be converted: ${names.join(", ")}. The Job progress tab shows why.`;
   }
 }
 

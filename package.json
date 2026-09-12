@@ -39,7 +39,8 @@
     "release-notes": "npm --prefix server run release-notes --",
     "release-notes:refresh-build-links": "npm --prefix server run release-notes:refresh-build-links --",
     "cli": "npx ts-node server/lib/cli/index.ts",
-    "push": "bash tools/git-push.sh"
+    "push": "bash tools/git-push.sh",
+    "deploy:worker": "flyctl deploy -c fly.integration-worker.toml --remote-only"
   },
   "cacheDirectories": [
     "node_modules",

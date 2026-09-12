@@ -3,8 +3,9 @@ import type { SerenityFixtures, SerenityWorkerFixtures } from "@serenity-js/play
 import { ConsoleReporter } from "@serenity-js/console-reporter";
 import { Environment } from "../projects/ngx-ramblers/src/app/models/environment.model";
 import { UK_CENTRE_GEOLOCATION } from "../projects/ngx-ramblers/src/app/models/os-maps-export.model";
-import { DEFAULT_WAIT_TIMEOUT } from "./lib/serenity-js/config/serenity-timeouts";
+import { DEFAULT_INTERACTION_TIMEOUT, DEFAULT_WAIT_TIMEOUT } from "./lib/serenity-js/config/serenity-timeouts";
 import { resolveHeadless } from "./lib/shared/playwright-browser";
+import { asBoolean } from "./lib/shared/string-utils";
 
 const featuresDirectory = "./lib/serenity-js/features";
 const outputDirectory = "target/site/serenity";
@@ -14,6 +15,7 @@ const selectedFeature = process.env[Environment.RAMBLERS_FEATURE] || "*.ts";
 const testMatch = selectedFeature.includes("/") ? selectedFeature : `**/${ selectedFeature }`;
 const featureRequested = !!process.env[Environment.RAMBLERS_FEATURE];
 const headless = resolveHeadless();
+const captureEveryInteraction = asBoolean(process.env[Environment.SERENITY_SCREENSHOTS] || false);
 const realtimeReportingActive = !!(process.env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL]
   && process.env[Environment.INTEGRATION_WORKER_CALLBACK_PROGRESS_PATH]
   && process.env[Environment.INTEGRATION_WORKER_CALLBACK_SECRET]
@@ -32,7 +34,9 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
       crew: [
         ...(realtimeReportingActive ? [] : [ConsoleReporter.forDarkTerminals()]),
         ["@serenity-js/serenity-bdd", { specDirectory: featuresDirectory }],
-        ["@serenity-js/web:Photographer", { strategy: "TakePhotosOfFailures" }],
+        ["@serenity-js/web:Photographer", {
+          strategy: captureEveryInteraction ? "TakePhotosOfInteractions" : "TakePhotosOfFailures"
+        }],
         ["@serenity-js/core:ArtifactArchiver", { outputDirectory }]
       ]
     }],
@@ -41,12 +45,12 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
   ],
   use: {
     acceptDownloads: true,
-    actionTimeout: DEFAULT_WAIT_TIMEOUT.inMilliseconds(),
+    actionTimeout: DEFAULT_INTERACTION_TIMEOUT.inMilliseconds(),
     baseURL: process.env[Environment.BASE_URL],
     geolocation: UK_CENTRE_GEOLOCATION,
     permissions: ["geolocation"],
     cueTimeout: DEFAULT_WAIT_TIMEOUT,
-    interactionTimeout: DEFAULT_WAIT_TIMEOUT,
+    interactionTimeout: DEFAULT_INTERACTION_TIMEOUT,
     headless,
     ignoreHTTPSErrors: true,
     navigationTimeout: TWO_MINUTES_IN_MILLIS,

@@ -7,7 +7,8 @@ import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
 import { openSerenityReport } from "../../../functions/serenity-report";
 import { isRamblersAuditNoise } from "../../../models/ramblers-audit-noise";
-import { RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
+import { AuditType, FileUploadSummary, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
+import { SerenityFeature } from "../../../models/serenity-feature.model";
 import { SortDirection } from "../../../models/sort.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -15,6 +16,7 @@ import { MessageType, RamblersUploadAuditProgressResponse } from "../../../model
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
+import { UploadSessionSelectorComponent } from "../../../modules/common/upload-session-selector/upload-session-selector";
 import { DisplayTimeWithSecondsPipe } from "../../../pipes/display-time.pipe-with-seconds";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -25,12 +27,23 @@ import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upl
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
 
+const MAX_AUDIT_ROWS = 200;
+const SESSION_HISTORY_MONTHS = 6;
+
 @Component({
   selector: "app-serenity-job-audit-panel",
-  imports: [FontAwesomeModule, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, SortableTableComponent, SortableTableCellDirective],
+  imports: [FontAwesomeModule, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, SortableTableComponent, SortableTableCellDirective, UploadSessionSelectorComponent],
   template: `
     <div class="thumbnail-heading-frame">
       <div class="thumbnail-heading">Job progress</div>
+      @if (feature) {
+        <div class="mb-3">
+          <app-upload-session-selector label="Job session:" controlName="jobSession"
+                                       emptyMessage="Finding previous jobs..."
+                                       [sessions]="sessions" [selected]="selectedSession"
+                                       (selectedChange)="onSessionChange($event)"/>
+        </div>
+      }
       @if (latestAudit) {
         <p class="mb-2">
           <app-status-icon noLabel [status]="latestAudit.status"/>
@@ -81,7 +94,7 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   private activatedRoute = inject(ActivatedRoute);
   private changeDetector = inject(ChangeDetectorRef);
   private subscriptions: Subscription[] = [];
-  private refresh = {intervalId: null as ReturnType<typeof setInterval> | null};
+  private refresh = {intervalId: null as ReturnType<typeof setInterval> | null, inFlight: false};
   faCircleCheck = faCircleCheck;
   audits: RamblersUploadAudit[] = [];
   reportAudit: RamblersUploadAudit | null = null;
@@ -95,6 +108,9 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
     {key: "message", label: "Audit Message", sortKey: "message"}
   ];
   @Input() fileName: string | null = null;
+  @Input() feature: SerenityFeature | null = null;
+  sessions: FileUploadSummary[] = [];
+  selectedSession: FileUploadSummary | null = null;
 
   ngOnInit(): void {
     void this.webSocketClientService.connect();
@@ -112,12 +128,55 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
       this.applySortFromUrl(params.get(StoredValue.AUDIT_SORT), params.get(StoredValue.AUDIT_SORT_ORDER));
     }));
     void this.refreshFromApi();
+    void this.loadSessions();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.fileName) {
+      this.clearAudits();
+      this.selectedSession = null;
       void this.refreshFromApi();
       this.startRefreshLoop();
+      void this.loadSessions();
+    }
+  }
+
+  onSessionChange(session: FileUploadSummary): void {
+    this.selectedSession = session;
+    this.clearAudits();
+    void this.refreshFromApi();
+    if (this.sessionStillRunning(session)) {
+      this.startRefreshLoop();
+    } else {
+      this.stopRefreshLoop();
+    }
+  }
+
+  private sessionStillRunning(session: FileUploadSummary): boolean {
+    return session?.fileName === this.fileName || session?.status === Status.ACTIVE;
+  }
+
+  private clearAudits(): void {
+    this.audits = [];
+    this.latestAudit = null;
+    this.reportAudit = null;
+  }
+
+  private activeFileName(): string {
+    return this.selectedSession?.fileName || this.fileName;
+  }
+
+  private async loadSessions(): Promise<void> {
+    if (this.feature) {
+      const sessions = await this.ramblersUploadAuditService.uniqueUploadSessions(SESSION_HISTORY_MONTHS, this.feature);
+      const currentSession = this.fileName && !sessions.find(session => session.fileName === this.fileName)
+        ? [{fileName: this.fileName, status: Status.ACTIVE}]
+        : [];
+      this.sessions = currentSession.concat(sessions);
+      this.selectedSession = this.sessions.find(session => session.fileName === this.activeFileName()) || this.sessions[0] || null;
+      if (!this.fileName && this.selectedSession) {
+        void this.refreshFromApi();
+      }
     }
   }
 
@@ -191,20 +250,31 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   }
 
   private async refreshFromApi(): Promise<void> {
-    if (this.fileName) {
+    if (this.activeFileName() && !this.refresh.inFlight) {
+      this.refresh.inFlight = true;
       try {
+        const fileName = this.activeFileName();
+        const latestRecord = this.audits[0]?.record;
         const auditItems = await this.ramblersUploadAuditService.all({
-          criteria: {fileName: this.fileName},
+          criteria: latestRecord ? {fileName, record: {$gt: latestRecord}} : {fileName},
           sort: {auditTime: -1, record: -1},
-          limit: 200
+          limit: MAX_AUDIT_ROWS
         });
         const response = auditItems.response;
-        if (isArray(response)) {
-          this.applyAudits(response);
+        if (isArray(response) && fileName === this.activeFileName()) {
+          this.applyAudits(latestRecord ? this.audits.concat(response) : response);
+          this.stopRefreshLoopWhenFinished();
         }
       } catch {
         this.changeDetector.detectChanges();
       }
+      this.refresh.inFlight = false;
+    }
+  }
+
+  private stopRefreshLoopWhenFinished(): void {
+    if (this.audits.some(audit => audit.type === AuditType.SUMMARY)) {
+      this.stopRefreshLoop();
     }
   }
 
@@ -242,7 +312,8 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
           return true;
         }
       })
-      .sort(sortBy("-auditTime", "-record"));
+      .sort(sortBy("-auditTime", "-record"))
+      .slice(0, MAX_AUDIT_ROWS);
     this.audits = this.withDurations(this.audits);
     this.latestAudit = this.audits[0] || null;
     this.reportAudit = this.audits.find(audit => !!audit.reportKeyPrefix) || this.reportAudit;

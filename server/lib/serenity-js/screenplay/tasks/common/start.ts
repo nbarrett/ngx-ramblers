@@ -1,10 +1,8 @@
 import { Task } from "@serenity-js/core";
 import { Navigate } from "@serenity-js/web";
 import { StartWithNavigation } from "./start-with-navigation";
-import { NavigateWithDomLoaded } from "./navigate-with-dom-loaded";
 import { Accept } from "../ramblers/common/accept-cookie-prompt";
 import { OS_MAPS_EXPLORE_URL } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
-import { PrepareOsMapsBrowser } from "../os-maps/prepare-os-maps-browser";
 
 export class Start {
 
@@ -35,15 +33,13 @@ export class Start {
 
   static onOsMaps(): Task {
     return Task.where("#actor starts on OS Maps",
-      PrepareOsMapsBrowser.withoutMapTiles(),
-      NavigateWithDomLoaded.to(OS_MAPS_EXPLORE_URL),
+      Navigate.to(OS_MAPS_EXPLORE_URL),
     );
   }
 
   static onOsMapsRoute(url: string): Task {
     return Task.where("#actor starts on an OS Maps route",
-      PrepareOsMapsBrowser.withoutMapTiles(),
-      NavigateWithDomLoaded.to(url),
+      Navigate.to(url),
     );
   }
 

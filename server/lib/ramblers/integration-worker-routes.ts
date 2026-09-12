@@ -31,6 +31,7 @@ import { IntegrationWorkerHeavyJob, IntegrationWorkerHeavyJobType } from "../mod
 import { isOsMapsWorkerJob } from "./serenity-job-environment";
 import { saveOsMapsRouteListing } from "../os-maps/os-maps-route-listing-store";
 import { applyOsMapsExportWorkerResult } from "../os-maps/os-maps-gpx-attach";
+import { notifyWorkerHoldArrived, waitForWorkerHoldArrival } from "./integration-worker-hold";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-routes"));
 debugLog.enabled = true;
@@ -52,6 +53,7 @@ router.get("/hold", (req: Request, res: Response) => {
       flush.call(res);
     }
   };
+  notifyWorkerHoldArrived();
   write("holding worker awake\n");
   const heartbeat = setInterval(() => write("."), HOLD_HEARTBEAT_MS);
   const stop = () => {
@@ -144,12 +146,15 @@ router.post("/jobs", async (req: Request, res: Response) => {
     }
 
     const enqueuedAt = dateTimeNowAsValue();
+    const holdPromise = waitForWorkerHoldArrival();
     const queueResult = integrationWorkerHeavyJobQueue.enqueue({
       jobId: request.job.jobId,
       type: isOsMapsWorkerJob(request.job) ? IntegrationWorkerHeavyJobType.OsMapsExport : IntegrationWorkerHeavyJobType.Upload,
       label: request.job.data?.fileName || request.job.jobId,
       run: () => executeWorkerJob({ request, credentials, reportUploadCredentials, enqueuedAt })
     });
+    const holdArrived = await holdPromise;
+    debugLog("POST /jobs hold arrived:", holdArrived, "jobId:", request.job.jobId);
     debugLog("POST /jobs queued response: jobId:", request.job.jobId, "queued:", queueResult.queued, "queuePosition:", queueResult.queuePosition, "activeJobId:", queueResult.activeJobId, "activeJobType:", queueResult.activeJobType);
     res.json({
       jobId: request.job.jobId,

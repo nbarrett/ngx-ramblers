@@ -12,7 +12,6 @@ import {
 } from "../../../questions/ramblers/auth-error-cookie-banner-or-create-menu-dropdown";
 import { Accept } from "./accept-cookie-prompt";
 import { Environment } from "../../../../../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { DEFAULT_WAIT_TIMEOUT } from "../../../../config/serenity-timeouts";
 import { Retry } from "../../common/retry";
 
 export class Login extends Task {
@@ -45,7 +44,7 @@ export class Login extends Task {
           Enter.theValue(username).into(WalksPageElements.userName),
           Enter.theValue(Masked.valueOf(password)).into(WalksPageElements.password),
           ClickWhenReady.on(WalksPageElements.loginSubmitButton),
-          Wait.upTo(DEFAULT_WAIT_TIMEOUT).until(AuthErrorCookieBannerOrCreateMenuDropdown.isDisplayed(), equals(true)),
+          Wait.until(AuthErrorCookieBannerOrCreateMenuDropdown.isDisplayed(), equals(true)),
           Accept.dismissCookieBanners(),
           Check.whether(WalksPageElements.createMenuDropdown, isVisible())
             .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create"))),

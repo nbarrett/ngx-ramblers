@@ -43,6 +43,6 @@ export class EditWalkDetails extends Task {
       ApplyWalkFieldChanges.to(this.fieldChanges),
       Scroll.to(WalksPageElements.saveChangesButton),
       ClickWhenReady.on(WalksPageElements.saveChangesButton),
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.alertMessage, isPresent()));
+      Wait.until(WalksPageElements.alertMessage, isPresent()));
   }
 }

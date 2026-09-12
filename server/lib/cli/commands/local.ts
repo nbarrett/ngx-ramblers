@@ -18,6 +18,9 @@ import { LocalRunConfig, ProcessState, RunningProcess } from "../cli.model";
 import { DEFAULT_CHROME_VERSION } from "../../shared/chrome-version";
 import { openLogViewer, logViewerSupported } from "../log-viewer";
 import { parseMongoUri } from "../../shared/mongodb-uri";
+import { ensureDevWorkerDeployed, devWorkerUrl } from "../../../deploy/worker-dev-app";
+import { watchAndDeployWorker } from "../../../deploy/watch-and-deploy-worker";
+import { startQuickTunnel, QuickTunnel } from "../../../deploy/quick-tunnel";
 
 const debugLog = debug(envConfig.logNamespace("cli:local"));
 
@@ -462,6 +465,9 @@ const WORKER_ENV_KEYS: string[] = [
   Environment.RAMBLERS_PASSWORD,
   Environment.RAMBLERS_FEATURE,
   Environment.RAMBLERS_METADATA_FILE,
+  Environment.SERENITY_SCREENSHOTS,
+  Environment.OS_EMAIL,
+  Environment.OS_PASSWORD,
   Environment.INTEGRATION_WORKER_SHARED_SECRET,
   Environment.INTEGRATION_WORKER_ENCRYPTION_KEY,
   Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL,
@@ -745,6 +751,20 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     : config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
   const env = buildEnvironmentVariables(completeSecrets, "dev", config.port, s3BucketOverride);
 
+  let dynamicWorkerTunnel: QuickTunnel | null = null;
+  if (config.dynamicWorker) {
+    log("Preparing personal dev worker on fly.io...");
+    const dynamicWorkerApp = await ensureDevWorkerDeployed(undefined, envConfig.organisation);
+    env[Environment.INTEGRATION_WORKER_URL] = devWorkerUrl(dynamicWorkerApp);
+    log("Dev worker ready: %s", env[Environment.INTEGRATION_WORKER_URL]);
+
+    dynamicWorkerTunnel = await startQuickTunnel(config.port);
+    env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL] = dynamicWorkerTunnel.url;
+    log("Callback tunnel ready: %s -> http://localhost:%d", dynamicWorkerTunnel.url, config.port);
+
+    await watchAndDeployWorker(dynamicWorkerApp);
+  }
+
   const configuredWorkerUrl = (
     env[Environment.INTEGRATION_WORKER_URL]
     || readWorkerUrlFromServerEnv()
@@ -756,6 +776,9 @@ async function runDev(config: LocalRunConfig): Promise<void> {
 
   if (config.headless === false) {
     env[Environment.PLAYWRIGHT_HEADLESS] = "false";
+  }
+  if (config.screenshots) {
+    env[Environment.SERENITY_SCREENSHOTS] = "true";
   }
   const forceInProcessWorker = env[Environment.PLAYWRIGHT_HEADLESS] === "false";
 
@@ -801,6 +824,10 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   const processes: RunningProcess[] = [];
   const state = createProcessState();
   const showOutput = !config.logViewer;
+
+  if (dynamicWorkerTunnel) {
+    processes.push({ child: dynamicWorkerTunnel.process, label: "Callback tunnel" });
+  }
 
   let workerContainerStarted = false;
   const teardownWorkerContainer = () => {
@@ -1100,6 +1127,8 @@ export function createLocalCommand(): Command {
     .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
     .option("--no-docker-worker", "Run the integration worker as a local Node process instead of a Docker container")
     .option("--no-headless", "Run the worker's browser headed (visible); implies --no-docker-worker")
+    .option("--screenshots", "Capture a screenshot after every Serenity interaction")
+    .option("--dynamic-worker", "Use a personal disposable fly.io worker instead of a local one, and auto-deploy edits to it as you save")
     .action(async (environment, options) => {
       try {
         const environmentName = environment || await (async () => {
@@ -1124,7 +1153,9 @@ export function createLocalCommand(): Command {
             logViewer,
             s3BucketOverride: options.s3BucketOverride === false ? false : options.s3Bucket ?? null,
             dockerWorker,
-            headless
+            headless,
+            dynamicWorker: !!options.dynamicWorker,
+            screenshots: !!options.screenshots
           },
           logViewer
         );
@@ -1138,7 +1169,9 @@ export function createLocalCommand(): Command {
           logViewer: config.logViewer,
           s3BucketOverride: config.s3BucketOverride,
           dockerWorker: config.dockerWorker,
-          headless: config.headless
+          headless: config.headless,
+          dynamicWorker: config.dynamicWorker,
+          screenshots: config.screenshots
         });
       } catch (error) {
         log("Error: %s", error.message);

@@ -13,7 +13,6 @@ import { ExportedGpxFile } from "../screenplay/questions/os-maps/exported-gpx-fi
 import { ExportedGpxValidator } from "../screenplay/questions/os-maps/exported-gpx-validator";
 import { clearExportedGpx } from "../screenplay/questions/os-maps/exported-gpx-store";
 import { resolveSerenityActorName } from "../resolve-actor-name";
-import { OS_MAPS_SCENARIO_TIMEOUT } from "../config/serenity-timeouts";
 
 const osMapsCredentialsConfigured = !!(
   process.env[Environment.OS_EMAIL] && process.env[Environment.OS_PASSWORD]
@@ -35,21 +34,24 @@ function exportRoutes(): OsMapsRouteFixture[] {
 
 describe("OS Maps GPX export", () => {
 
-  test.setTimeout(OS_MAPS_SCENARIO_TIMEOUT.inMilliseconds());
-
   afterEach(async ({ actorCalled }) => {
     clearExportedGpx();
     await actorCalled(actor).attemptsTo(SaveBrowserSource.toFile("os-maps-export-after.html"));
   });
 
-  exportRoutes().forEach(route => {
-    it(`should login, export ${route.name} (${route.id}) as GPX and validate the file`, async ({ actorCalled }) => {
-      test.skip(!osMapsCredentialsConfigured, "OS_EMAIL and OS_PASSWORD are not set");
-      const exporter = actorCalled(actor);
+  it("should login once and export each requested OS Maps route as GPX", async ({ actorCalled }) => {
+    test.skip(!osMapsCredentialsConfigured, "OS_EMAIL and OS_PASSWORD are not set");
+    const routes = exportRoutes();
+    test.skip(routes.length === 0, "No OS Maps routes were requested");
+    const exporter = actorCalled(actor);
+    await exporter.attemptsTo(
+      Start.onOsMapsRoute(routes[0].url),
+      AcceptOsMapsCookies.whenVisible(),
+      LoginToOsMaps.withConfiguredCredentials()
+    );
+    for (const route of routes) {
+      clearExportedGpx();
       await exporter.attemptsTo(
-        Start.onOsMapsRoute(route.url),
-        AcceptOsMapsCookies.whenVisible(),
-        LoginToOsMaps.withConfiguredCredentials(),
         NavigateWithDomLoaded.to(route.url),
         AcceptOsMapsCookies.whenVisible(),
         DismissOsMapsOverlays.now(),
@@ -60,7 +62,7 @@ describe("OS Maps GPX export", () => {
         Ensure.that(ExportedGpxFile.waypointCount(), isGreaterThan(route.minimumWaypoints - 1)),
         Ensure.that(ExportedGpxValidator.matches(route), equals(true))
       );
-    });
+    }
   });
 
 });

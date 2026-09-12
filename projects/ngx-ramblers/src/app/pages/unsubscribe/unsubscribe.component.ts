@@ -6,6 +6,7 @@ import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UnsubscribeService } from "./unsubscribe.service";
 import { UnsubscribeState } from "../../models/mail.model";
+import { StoredValue } from "../../models/ui-actions";
 
 @Component({
   selector: "app-unsubscribe",
@@ -174,7 +175,7 @@ export class UnsubscribeComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
-      this.token = params.get("t") || "";
+      this.token = params.get(StoredValue.UNSUBSCRIBE_TOKEN) || "";
       this.confirm();
     }));
   }
