@@ -49,9 +49,22 @@ export function hostOrUrlHostname(hostOrUrl: string | undefined | null): string 
   return hostFromUrl(raw) || raw.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
 }
 
+const MULTI_PART_PUBLIC_SUFFIXES = ["org.uk", "co.uk", "ac.uk", "gov.uk", "me.uk", "net.uk", "sch.uk"];
+
+export function registrableApex(host: string | undefined | null): string {
+  const normalised = apexHost(host).toLowerCase();
+  const labels = normalised.split(".").filter(Boolean);
+  if (labels.length < 2) {
+    return normalised;
+  } else {
+    const lastTwo = labels.slice(-2).join(".");
+    const keep = MULTI_PART_PUBLIC_SUFFIXES.includes(lastTwo) ? 3 : 2;
+    return labels.length <= keep ? normalised : labels.slice(-keep).join(".");
+  }
+}
+
 export function groupOwnedApex(hostOrUrl: string | undefined | null, platformBase: string): string | null {
-  const withoutWww = apexHost(hostOrUrlHostname(hostOrUrl)).toLowerCase();
-  const apex = withoutWww.startsWith("staging.") ? withoutWww.slice("staging.".length) : withoutWww;
+  const apex = registrableApex(hostOrUrlHostname(hostOrUrl));
   if (apex && !isHostUnderDomain(apex, platformBase)) {
     return apex;
   } else {
@@ -63,25 +76,16 @@ export function firstGroupOwnedApex(hostsOrUrls: (string | null | undefined)[], 
   return (hostsOrUrls || []).map(value => groupOwnedApex(value, platformBase)).find(apex => !!apex) || null;
 }
 
-export function relatedEnvironmentName(environmentName: string | undefined | null): string | null {
-  const name = (environmentName || "").trim();
-  if (!name) {
-    return null;
-  } else if (name.startsWith("staging.")) {
-    const live = name.slice("staging.".length);
-    return live || null;
-  } else {
-    return `staging.${name}`;
-  }
-}
-
-export function suggestedCustomDomainHostname(apex: string | null | undefined, environmentName: string | null | undefined): string | null {
+export function suggestedCustomDomainHostname(apex: string | null | undefined, siteHostname?: string | null): string | null {
   if (!apex) {
     return null;
-  } else if ((environmentName || "").startsWith("staging.")) {
-    return `staging.${apex}`;
   } else {
-    return `www.${apex}`;
+    const site = (siteHostname || "").toLowerCase();
+    if (site && registrableApex(site) === apex.toLowerCase()) {
+      return site;
+    } else {
+      return `www.${apex}`;
+    }
   }
 }
 

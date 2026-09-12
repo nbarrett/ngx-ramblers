@@ -17,16 +17,14 @@ export function publicHttpSucceeded(httpStatus: number): boolean {
   return httpStatus >= 200 && httpStatus < 400;
 }
 
-export function publicSiteFailureMessage(publicUrl: string, httpStatus: number, machineResponded: boolean): string {
-  const machineNote = machineResponded
-    ? " The Fly app itself responded, so this is the public hostname (DNS, TLS or Cloudflare), not a stopped machine."
-    : "";
+export function publicSiteFailureMessage(publicUrl: string, httpStatus: number): string {
+  const host = publicUrl.replace(/^https?:\/\//, "");
   if (httpStatus === 525) {
-    return `${publicUrl} returned HTTP 525 (Cloudflare could not complete TLS to the origin).${machineNote}`;
+    return `${host} returned HTTP 525 (origin TLS failed)`;
   } else if (httpStatus === 0) {
-    return `${publicUrl} could not be reached over HTTPS.${machineNote}`;
+    return `${host} did not respond over HTTPS`;
   } else {
-    return `${publicUrl} returned HTTP ${httpStatus}.${machineNote}`;
+    return `${host} returned HTTP ${httpStatus}`;
   }
 }
 

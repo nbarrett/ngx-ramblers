@@ -8,6 +8,7 @@ import {
   faExclamationTriangle,
   faGlobe,
   faHouse,
+  faPlus,
   faRedo,
   faSpinner,
   faTrash,
@@ -24,6 +25,7 @@ import {
   HostnameOrigin,
   HostnameSituation,
   HostnameSituationAlert,
+  HostnameSituationKind,
   HostnameStatus
 } from "../../../models/environment-setup.model";
 import { SortDirection } from "../../../models/sort.model";
@@ -37,6 +39,7 @@ import { SortableTableCellDirective } from "../sortable-table/sortable-table-cel
 import { SortableTableComponent } from "../sortable-table/sortable-table.component";
 import { SortableTableColumn, SortableTableSortState } from "../sortable-table/sortable-table.model";
 import {
+  canAttachUnmappedHostname,
   canRepairRedirect,
   canUseAsSiteUrl,
   hostnameActionStatement,
@@ -104,6 +107,19 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
             Re-check
           </button>
         </div>
+        @if (hostnameHealthReport?.emailRouting && !hostnameHealthReport.emailRouting.cloudflareMx) {
+          <div class="alert alert-warning d-flex align-items-start mb-3">
+            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"></fa-icon>
+            <div>
+              <strong>Email forwarding</strong>
+              <div class="mt-1">{{ hostnameHealthReport.emailRouting.message }}</div>
+              @if (hostnameHealthReport.emailRouting.mailSettingsUrl) {
+                <a class="btn btn-primary mt-2" [href]="hostnameHealthReport.emailRouting.mailSettingsUrl"
+                   target="_blank" rel="noopener">Open Mail Settings</a>
+              }
+            </div>
+          </div>
+        }
         @if (situation(); as outcome) {
           <div class="alert {{ outcome.alert }}">
             <div class="d-flex align-items-start">
@@ -114,6 +130,16 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
                 <div class="mt-1">{{ outcome.detail }}</div>
                 @if (outcome.action) {
                   <div class="mt-2">{{ outcome.action }}</div>
+                }
+                @if (siteUrlToAttach(); as siteUrlHost) {
+                  <button type="button" class="btn btn-primary mt-2"
+                          (click)="attachUnmappedHostname(siteUrlHost)"
+                          [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy || attachingHostname === siteUrlHost.hostname">
+                    @if (attachingHostname === siteUrlHost.hostname) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                    }
+                    Attach {{ siteUrlHost.hostname }}
+                  </button>
                 }
               </div>
             </div>
@@ -185,6 +211,20 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
                         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                       } @else {
                         <fa-icon [icon]="faEraser"></fa-icon>
+                      }
+                    </button>
+                  }
+                  @if (attachUnmapped(row)) {
+                    <button class="btn btn-primary btn-icon"
+                            (click)="attachUnmappedHostname(row)"
+                            [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy || attachingHostname === row.hostname"
+                            tooltip="Attach this hostname"
+                            container="body"
+                            aria-label="Attach this hostname">
+                      @if (attachingHostname === row.hostname) {
+                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faPlus"></fa-icon>
                       }
                     </button>
                   }
@@ -306,6 +346,7 @@ export class EnvironmentHostnames {
   hostnameHealthReport: HostnameHealthReport | null = null;
   hostnameHealthError: string | null = null;
   loadingHostnameHealth = false;
+  attachingHostname: string | null = null;
   removingNgxSubdomain = false;
   removeNgxSubdomainConfirming = false;
   hostnameSortKey = "healthy";
@@ -317,12 +358,14 @@ export class EnvironmentHostnames {
     {key: "action", label: "What to do"}
   ];
   protected readonly HostnameSituationAlert = HostnameSituationAlert;
+  protected readonly HostnameSituationKind = HostnameSituationKind;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faEraser = faEraser;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faGlobe = faGlobe;
   protected readonly faHouse = faHouse;
+  protected readonly faPlus = faPlus;
   protected readonly faRedo = faRedo;
   protected readonly faSpinner = faSpinner;
   protected readonly faTrash = faTrash;
@@ -418,6 +461,19 @@ export class EnvironmentHostnames {
     return !!this.environment;
   }
 
+  attachUnmapped(hostname: HostnameStatus): boolean {
+    return canAttachUnmappedHostname(hostname);
+  }
+
+  siteUrlToAttach(): HostnameStatus | null {
+    const kind = this.situation()?.kind;
+    if (kind === HostnameSituationKind.SITE_URL_NOT_ATTACHED || kind === HostnameSituationKind.SITE_NOT_LIVE_ATTACH_DOMAIN) {
+      return this.hostnameStatuses().find(hostname => hostname.origin === HostnameOrigin.SITE_URL) || null;
+    } else {
+      return null;
+    }
+  }
+
   canRemoveEnvironmentSubdomainHost(hostname: HostnameStatus): boolean {
     return this.canRemoveNgxSubdomain() && isEnvironmentSubdomainHost(hostname, this.environmentSubdomainHint());
   }
@@ -471,6 +527,26 @@ export class EnvironmentHostnames {
         this.notify.error({title: "Could not clear Site URL", message: environmentOperationErrorDetail(error)});
       } finally {
         this.siteUrlBusy = false;
+      }
+    }
+  }
+
+  async attachUnmappedHostname(hostname: HostnameStatus): Promise<void> {
+    if (this.environment) {
+      this.attachingHostname = hostname.hostname;
+      try {
+        const response = await this.environmentSetupService.addCustomDomain(this.environment.name, hostname.hostname);
+        if (response.success) {
+          this.notify.success({title: "Hostname attached", message: response.message});
+          this.environmentChanged.emit();
+          await this.refresh();
+        } else {
+          this.notify.error({title: "Could not attach hostname", message: response.message});
+        }
+      } catch (error) {
+        this.notify.error({title: "Could not attach hostname", message: environmentOperationErrorDetail(error)});
+      } finally {
+        this.attachingHostname = null;
       }
     }
   }

@@ -10,7 +10,7 @@ import {
   hostFromUrl,
   hostnameMayHaveWwwCompanion,
   isHostUnderDomain,
-  relatedEnvironmentName,
+  registrableApex,
   stagingHostForSiteHref,
   suggestedCustomDomainHostname
 } from "./hosts";
@@ -114,7 +114,7 @@ describe("groupOwnedApex", () => {
 
   it("returns the apex for a group's own domain", () => {
     expect(groupOwnedApex("https://www.example.org.uk/walks", platform)).toBe("example.org.uk");
-    expect(groupOwnedApex("staging.example.org.uk", platform)).toBe("example.org.uk");
+    expect(groupOwnedApex("preview.example.org.uk", platform)).toBe("example.org.uk");
   });
 
   it("returns null for a platform subdomain or missing host", () => {
@@ -156,32 +156,26 @@ describe("firstGroupOwnedApex", () => {
   });
 });
 
-describe("relatedEnvironmentName", () => {
-  it("pairs a staging sandbox with its live environment", () => {
-    expect(relatedEnvironmentName("staging.group-one")).toBe("group-one");
-  });
-
-  it("pairs a live environment with its staging sandbox", () => {
-    expect(relatedEnvironmentName("group-one")).toBe("staging.group-one");
-  });
-
-  it("returns null when there is no environment name", () => {
-    expect(relatedEnvironmentName("")).toBe(null);
-    expect(relatedEnvironmentName("staging.")).toBe(null);
+describe("registrableApex", () => {
+  it("strips extra labels from a group domain without treating any prefix as special", () => {
+    expect(registrableApex("www.example.org.uk")).toBe("example.org.uk");
+    expect(registrableApex("preview.example.org.uk")).toBe("example.org.uk");
+    expect(registrableApex("example.org.uk")).toBe("example.org.uk");
+    expect(registrableApex("www.example.com")).toBe("example.com");
   });
 });
 
 describe("suggestedCustomDomainHostname", () => {
-  it("suggests a staging host on a sandbox environment", () => {
-    expect(suggestedCustomDomainHostname("example.org.uk", "staging.group-one")).toBe("staging.example.org.uk");
+  it("suggests the environment's own site hostname when it sits on the group domain", () => {
+    expect(suggestedCustomDomainHostname("example.org.uk", "preview.example.org.uk")).toBe("preview.example.org.uk");
   });
 
-  it("suggests www on a live environment", () => {
-    expect(suggestedCustomDomainHostname("example.org.uk", "group-one")).toBe("www.example.org.uk");
+  it("suggests www when the site hostname is not on the group domain", () => {
+    expect(suggestedCustomDomainHostname("example.org.uk", "group-one.ngx-ramblers.org.uk")).toBe("www.example.org.uk");
   });
 
   it("returns null when no group domain is known", () => {
-    expect(suggestedCustomDomainHostname(null, "staging.group-one")).toBe(null);
+    expect(suggestedCustomDomainHostname(null, "preview.example.org.uk")).toBe(null);
   });
 });
 
