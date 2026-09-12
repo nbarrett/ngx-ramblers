@@ -1,5 +1,5 @@
 import { dateTimeNowAsValue } from "../shared/dates";
-import { spawn } from "child_process";
+import { ChildProcess, spawn } from "child_process";
 import debug from "debug";
 import AdmZip from "adm-zip";
 import fs from "fs";
@@ -133,6 +133,10 @@ function playwrightReportLocalPath(): string {
   return path.resolve(process.cwd(), "target/site/playwright");
 }
 
+function browserSourceReportLocalPath(): string {
+  return path.resolve(process.cwd(), "target/browser-source");
+}
+
 function serenityReportArchiveKey(keyPrefix: string): string {
   return `${keyPrefix}.zip`;
 }
@@ -148,11 +152,14 @@ function countFilesInDirectory(directoryPath: string): number {
   }, 0);
 }
 
-function archiveTestReports(serenityPath: string, playwrightPath: string): Buffer {
+function archiveTestReports(serenityPath: string, playwrightPath: string, browserSourcePath: string): Buffer {
   const archive = new AdmZip();
   archive.addLocalFolder(serenityPath);
   if (fs.existsSync(playwrightPath)) {
     archive.addLocalFolder(playwrightPath, "playwright");
+  }
+  if (fs.existsSync(browserSourcePath)) {
+    archive.addLocalFolder(browserSourcePath, "browser-source");
   }
   return archive.toBuffer();
 }
@@ -166,12 +173,16 @@ async function uploadSerenityReportToS3(
 ): Promise<boolean> {
   const serenityPath = serenityReportLocalPath();
   const playwrightPath = playwrightReportLocalPath();
+  const browserSourcePath = browserSourceReportLocalPath();
   if (!fs.existsSync(serenityPath)) {
     debugLog("serenity report directory does not exist at:", serenityPath, "skipping S3 upload for jobId:", jobId);
     return false;
   }
   const playwrightIncluded = fs.existsSync(playwrightPath);
-  const totalFiles = countFilesInDirectory(serenityPath) + (playwrightIncluded ? countFilesInDirectory(playwrightPath) : 0);
+  const browserSourceIncluded = fs.existsSync(browserSourcePath);
+  const totalFiles = countFilesInDirectory(serenityPath)
+    + (playwrightIncluded ? countFilesInDirectory(playwrightPath) : 0)
+    + (browserSourceIncluded ? countFilesInDirectory(browserSourcePath) : 0);
   const archiveKey = serenityReportArchiveKey(reportUpload.keyPrefix);
 
   const client = new S3Client({
@@ -187,10 +198,10 @@ async function uploadSerenityReportToS3(
     await safePostProgress(callback, sharedSecret, {
       jobId,
       type: IntegrationWorkerEventType.LIFECYCLE,
-      payload: `Test report archive upload to S3 starting: ${totalFiles} files to s3://${reportUpload.bucket}/${archiveKey}${playwrightIncluded ? " (including Playwright artifacts)" : ""}`
+      payload: `Test report archive upload to S3 starting: ${totalFiles} files to s3://${reportUpload.bucket}/${archiveKey}${playwrightIncluded ? " (including Playwright artifacts)" : ""}${browserSourceIncluded ? " (including browser source)" : ""}`
     });
     const zipStart = dateTimeNowAsValue();
-    const archiveBuffer = archiveTestReports(serenityPath, playwrightPath);
+    const archiveBuffer = archiveTestReports(serenityPath, playwrightPath, browserSourcePath);
     const zipElapsed = dateTimeNowAsValue() - zipStart;
     await safePostProgress(callback, sharedSecret, {
       jobId,
@@ -233,6 +244,7 @@ export async function executeRamblersUploadJobOnWorker(
   reportUpload?: IntegrationWorkerReportUploadConfig,
   awsCredentials?: IntegrationWorkerAwsCredentials
 ): Promise<void> {
+  const stopKeepAlive = startKeepAlive(job.jobId);
   const jobStartedAt = dateTimeNowAsValue();
   const preparedFiles = isOsMapsWorkerJob(job)
     ? prepareOsMapsExportJobPath(job.jobId)
@@ -266,15 +278,15 @@ export async function executeRamblersUploadJobOnWorker(
   });
   const serenityStartedAt = dateTimeNowAsValue();
   const subprocess = spawn("npm", ["run", "serenity"], {
-    stdio: ["pipe", "pipe", "pipe", "ipc"]
+    stdio: ["pipe", "pipe", "pipe", "ipc"],
+    detached: true
   });
-  const stopKeepAlive = startKeepAlive(job.jobId);
   const maxDurationMs = maxJobDurationMs();
   const watchdog = setTimeout(() => {
     const message = `Job stopped after exceeding the ${formatElapsed(maxDurationMs)} limit for a single worker job`;
     debugLog("watchdog for jobId:", job.jobId, message);
     void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
-    subprocess.kill("SIGKILL");
+    killSerenityProcessTree(subprocess, job.jobId);
   }, maxDurationMs);
   activeJobControl = {
     jobId: job.jobId,
@@ -283,7 +295,7 @@ export async function executeRamblersUploadJobOnWorker(
       debugLog("cancel for jobId:", job.jobId, message);
       void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
       clearTimeout(watchdog);
-      subprocess.kill("SIGKILL");
+      killSerenityProcessTree(subprocess, job.jobId);
     }
   };
   const clearActiveJobControl = () => {
@@ -334,7 +346,7 @@ export async function executeRamblersUploadJobOnWorker(
       stopKeepAlive();
       clearTimeout(watchdog);
       clearActiveJobControl();
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt, preparedFiles.jobPath)
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
           clearRemoteRamblersUploadExecutionState();
@@ -349,9 +361,10 @@ export async function executeRamblersUploadJobOnWorker(
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
-      const outcome = code === 0 ? "" : (signal ? ` after being stopped (${signal})` : ` with code ${code}`);
-      const payload = `Upload completed with ${status} for ${job.data.fileName}${outcome} in ${elapsed}`;
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt, preparedFiles.jobPath)
+      const payload = code === 0
+        ? `Upload completed for ${job.data.fileName} in ${elapsed}`
+        : `Upload ${signal ? "stopped" : "failed"} for ${job.data.fileName} after ${elapsed}`;
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
           clearRemoteRamblersUploadExecutionState();
@@ -365,11 +378,24 @@ export async function executeRamblersUploadJobOnWorker(
   });
 }
 
+function killSerenityProcessTree(subprocess: ChildProcess, jobId: string): void {
+  if (subprocess.pid) {
+    try {
+      process.kill(-subprocess.pid, "SIGKILL");
+    } catch (error) {
+      debugLog("killSerenityProcessTree: process group kill failed for jobId:", jobId, "error:", (error as Error).message, "- falling back to a direct kill, which may leave the browser process running");
+      subprocess.kill("SIGKILL");
+    }
+  } else {
+    subprocess.kill("SIGKILL");
+  }
+}
+
 function formatElapsed(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${minutes}m ${seconds}s (${ms}ms)`;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
 async function finishJob(
@@ -381,7 +407,6 @@ async function finishJob(
   type: IntegrationWorkerEventType.COMPLETE | IntegrationWorkerEventType.ERROR,
   status: string,
   payload: string,
-  jobStartedAt: number,
   jobPath?: string
 ): Promise<void> {
   let reportKeyPrefix: string | undefined;
@@ -405,11 +430,10 @@ async function finishJob(
       reportBucket = reportUpload.bucket;
     }
   }
-  const totalElapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
   await safePostResult(callback, sharedSecret, {
     jobId: job.jobId,
     type,
-    payload: `${payload}, total ${totalElapsed}`,
+    payload,
     status,
     reportKeyPrefix,
     reportBucket,

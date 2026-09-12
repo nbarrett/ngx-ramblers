@@ -32,7 +32,7 @@ export class SaveAndContinue extends Task {
   }
 
   async performAs(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<void> {
-    await actor.attemptsTo(Wait.upTo(PAGE_READY_TIMEOUT).until(walkEditFormSettled(), isTrue()));
+    await actor.attemptsTo(Wait.until(walkEditFormSettled(), isTrue()));
     await this.clickUntilNavigated(actor, 1);
     await actor.attemptsTo(Accept.dismissCookieBanners());
   }
@@ -44,7 +44,7 @@ export class SaveAndContinue extends Task {
       Scroll.to(WalksPageElements.saveAndContinueButton),
       ClickWhenReady.on(WalksPageElements.saveAndContinueButton));
     const progress = walkEditSaveProgress(this.pathFragment);
-    await actor.attemptsTo(Wait.upTo(NAVIGATION_TIMEOUT).until(progress, not(startsWith(WALK_EDIT_SAVE_PENDING))));
+    await actor.attemptsTo(Wait.until(progress, not(startsWith(WALK_EDIT_SAVE_PENDING))));
     const outcome: string = await actor.answer(progress);
     if (outcome.startsWith(WALK_EDIT_SAVE_NO_SUBMIT)) {
       debugLog(`attempt ${attempt}: ${outcome}`);

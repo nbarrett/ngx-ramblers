@@ -2,7 +2,6 @@ import { afterEach, describe, it, test } from "@serenity-js/playwright-test";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { Start } from "../screenplay/tasks/common/start";
-import { AcceptOsMapsCookies } from "../screenplay/tasks/os-maps/accept-os-maps-cookies";
 import { ListOsMapsRoutes } from "../screenplay/tasks/os-maps/list-os-maps-routes";
 import { LoginToOsMaps } from "../screenplay/tasks/os-maps/login-to-os-maps";
 import { resolveSerenityActorName } from "../resolve-actor-name";
@@ -26,7 +25,6 @@ describe("OS Maps route listing", () => {
     const exporter = actorCalled(actor);
     await exporter.attemptsTo(
       Start.onOsMaps(),
-      AcceptOsMapsCookies.whenVisible(),
       LoginToOsMaps.withConfiguredCredentials(),
       ListOsMapsRoutes.fromAccount()
     );

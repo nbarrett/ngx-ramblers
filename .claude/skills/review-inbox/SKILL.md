@@ -47,6 +47,43 @@ If the user asked to review or reply:
 1. Read neighbouring drafts in `non-vcs/emails/` for the same people (Head office lives in `non-vcs/emails/ramblers-hq/`). Do not treat an unsent draft as sent.
 2. If the thread is Team Emails / the Ramblers-published API, follow the `salesforce` skill for product naming and evidence rules.
 3. Write a review note and, when a reply was asked for, a sendable draft under `non-vcs/emails/`. Match the local sign-off used to that person. Apply `unslop`. UK English. Head office, never HQ.
-4. Do not send.
+4. When the user asks to save the reply in the email composer (Drafts), also create a composition via `createEmailComposition`. Do not send.
+5. Otherwise still do not send.
+
+## Save a composer draft (do not send)
+
+Inbox replies are written in the email composer and appear under **Admin → Inbox → Drafts**. A local markdown file in `non-vcs/emails/` is not that draft. Use `cms-client`: `inboxComposeReply` then `createEmailComposition`.
+
+```ts
+import {createEmailComposition, inboxComposeReply, inboxThread, login} from "./lib/shared/cms-client";
+
+const auth = await login(process.env.CMS_URL, process.env.CMS_USERNAME, process.env.CMS_PASSWORD);
+const detail = await inboxThread(auth, slug);
+const newest = detail.messages[detail.messages.length - 1];
+const reply = await inboxComposeReply(auth, newest.threadId, {threadId: newest.threadId, messageId: newest.messageId});
+const created = await createEmailComposition(auth, {
+  title: reply.subject,
+  kind: "standard",
+  status: "draft",
+  shared: false,
+  state: {/* EmailComposerState, including inboxReplyContext from the compose-reply response */}
+});
+```
+
+Inbox-reply state that the composer will load:
+
+- `brandingMode: "unbranded"`
+- `recipientMode: "selected-members"`
+- `sendingChannel: "transactional-batch"`
+- `addresseeType: "none"`
+- `externalRecipients` from `reply.to`
+- `unbrandedSenderRoleType` / `unbrandedSenderEmail` from the compose-reply response
+- `introMarkdown`: new body, then a quoted copy of the latest message
+- `inboxReplyContext`: `threadId`, `aliasId`, `senderRoleType`, `mailboxConnectionId`, `inboxMessageId`, `inReplyTo`, `references` from the compose-reply response (so sending stays in the thread)
+- `fragmentOrder`: intro, then signoff
+
+The composer URL is `${CMS_URL}/admin/email-composer?draft-id=${created.id}`. Tell the user that URL. Do not mark the composition sent.
+
+To change an existing composer draft, load it with `emailComposition(auth, id)` and `updateEmailComposition(auth, id, {title, state})`. Keep `inboxReplyContext` and the rest of `state` intact.
 
 Show the user the substance of the thread and the draft, not how the fetch worked.

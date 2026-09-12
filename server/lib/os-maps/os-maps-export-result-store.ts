@@ -10,6 +10,7 @@ function toResult(document: OsMapsExportJobResult | null): OsMapsExportJobResult
   } else {
     return {
       jobId: document.jobId,
+      fileName: document.fileName || "",
       status: document.status,
       walkId: document.walkId || null,
       routeUrls: document.routeUrls || [],
@@ -21,12 +22,13 @@ function toResult(document: OsMapsExportJobResult | null): OsMapsExportJobResult
   }
 }
 
-export async function createQueuedOsMapsExportResult(jobId: string, walkId?: string, routeUrls: string[] = []): Promise<OsMapsExportJobResult> {
+export async function createQueuedOsMapsExportResult(jobId: string, fileName: string, walkId?: string, routeUrls: string[] = []): Promise<OsMapsExportJobResult> {
   const createdAt = dateTimeNowAsValue();
   return mongooseClient.execute(() => osMapsExportResult.findOneAndUpdate(
     {jobId},
     {
       jobId,
+      fileName,
       status: OsMapsExportJobStatus.QUEUED,
       walkId: walkId || null,
       routeUrls,
@@ -48,6 +50,11 @@ export async function createQueuedOsMapsExportResult(jobId: string, walkId?: str
 
 export async function osMapsExportResultByJobId(jobId: string): Promise<OsMapsExportJobResult | null> {
   return mongooseClient.execute(() => osMapsExportResult.findOne({jobId}).lean()
+    .then(document => toResult(document)));
+}
+
+export async function latestOsMapsExportResult(): Promise<OsMapsExportJobResult | null> {
+  return mongooseClient.execute(() => osMapsExportResult.findOne().sort({createdAt: -1}).lean()
     .then(document => toResult(document)));
 }
 

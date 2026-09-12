@@ -397,6 +397,7 @@ export interface EmailComposerState {
   betweenArticlesDivider: SectionDividerStyle;
   betweenEventsDivider: SectionDividerStyle;
   fragmentOrder: ComposerFragment[];
+  inboxReplyContext: InboxReplyOutboundContextLike | null;
 }
 
 export enum EmailComposerFragmentOrderField {

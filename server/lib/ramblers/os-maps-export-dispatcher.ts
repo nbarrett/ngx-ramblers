@@ -28,7 +28,7 @@ export async function dispatchOsMapsExport(routeUrls: string[], walkId?: string,
   const credentials = await osMapsWorkerCredentials();
   const job = buildOsMapsExportJob(routeUrls, walkId, ramblersUser);
   debugLog("submitting OS Maps export job", job.jobId, "routes:", routeUrls.length, "walkId:", walkId || null);
-  await createQueuedOsMapsExportResult(job.jobId, walkId, routeUrls);
+  await createQueuedOsMapsExportResult(job.jobId, job.data.fileName, walkId, routeUrls);
   try {
     return await dispatchRemoteIntegrationWorkerJob(job, credentials, detachedAuditSocket());
   } catch (error) {

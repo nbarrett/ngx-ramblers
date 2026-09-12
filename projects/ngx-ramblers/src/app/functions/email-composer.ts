@@ -439,7 +439,8 @@ export function defaultEmailComposerState(): EmailComposerState {
     signoffDividerAfter: SectionDividerStyle.THIN_YELLOW,
     betweenArticlesDivider: SectionDividerStyle.THIN_YELLOW,
     betweenEventsDivider: SectionDividerStyle.THIN_YELLOW,
-    fragmentOrder: []
+    fragmentOrder: [],
+    inboxReplyContext: null
   };
 }
 

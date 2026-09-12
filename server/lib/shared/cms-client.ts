@@ -3,7 +3,8 @@ import { envConfig } from "../env-config/env-config";
 import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
-import type { InboxThreadListResponse, InboxThreadMessagesResponse } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import type { InboxReplyComposeRequest, InboxReplyComposeResponse, InboxThreadListResponse, InboxThreadMessagesResponse } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import type { EmailCompositionDocumentDto } from "../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { pluraliseWithCount } from "./string-utils";
 import { isArray, keys } from "es-toolkit/compat";
 import { dateTimeFromIsoWithZone } from "./dates";
@@ -398,6 +399,78 @@ export async function inboxThread(auth: CMSAuth, threadId: string): Promise<Inbo
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Failed to fetch inbox thread: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
+}
+
+export async function inboxComposeReply(auth: CMSAuth, threadId: string, request: InboxReplyComposeRequest): Promise<InboxReplyComposeResponse> {
+  const url = `${auth.baseUrl}/api/inbox/threads/${encodeURIComponent(threadId)}/compose-reply`;
+  debugLog(`Composing inbox reply for thread: ${threadId}`);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify(request)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to compose inbox reply: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
+}
+
+export async function createEmailComposition(auth: CMSAuth, body: {
+  title: string;
+  kind?: string;
+  shared?: boolean;
+  status?: string;
+  state: unknown;
+}): Promise<EmailCompositionDocumentDto> {
+  const url = `${auth.baseUrl}/api/database/email-compositions`;
+  debugLog(`Creating email composition: ${body.title}`);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to create email composition: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
+}
+
+export async function emailComposition(auth: CMSAuth, id: string): Promise<EmailCompositionDocumentDto> {
+  const url = `${auth.baseUrl}/api/database/email-compositions/${encodeURIComponent(id)}`;
+  debugLog(`Fetching email composition: ${id}`);
+  const response = await fetch(url, {headers: authHeaders(auth)});
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch email composition: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
+}
+
+export async function updateEmailComposition(auth: CMSAuth, id: string, body: {
+  title?: string;
+  kind?: string;
+  shared?: boolean;
+  status?: string;
+  state?: unknown;
+}): Promise<EmailCompositionDocumentDto> {
+  const url = `${auth.baseUrl}/api/database/email-compositions/${encodeURIComponent(id)}`;
+  debugLog(`Updating email composition: ${id}`);
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: authHeaders(auth),
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update email composition: ${response.status} ${response.statusText} - ${errorText}`);
   }
   const data = await response.json();
   return data.response || data;

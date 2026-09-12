@@ -13,10 +13,12 @@ import { runCommand } from "../lib/fly/fly-commands";
 const debugLog = debug(envConfig.logNamespace("deploy-integration-worker"));
 debugLog.enabled = true;
 
-void deployIntegrationWorker().then(() => process.exit(0)).catch(error => {
-  debugLog("Ramblers upload worker deployment failed:", error);
-  process.exit(1);
-});
+if (require.main === module) {
+  void deployIntegrationWorker().then(() => process.exit(0)).catch(error => {
+    debugLog("Ramblers upload worker deployment failed:", error);
+    process.exit(1);
+  });
+}
 
 async function deployIntegrationWorker(): Promise<void> {
   if (process.env[Environment.ADMIN_MONGODB_URI]) {
@@ -57,7 +59,7 @@ async function deployIntegrationWorker(): Promise<void> {
   debugLog(`Deployed Ramblers upload worker ${workerConfig.appName} with image ${image}`);
 }
 
-function importWorkerSecrets(
+export function importWorkerSecrets(
   appName: string,
   globalSecrets: Record<string, string> | undefined,
   sharedSecret: string | undefined,

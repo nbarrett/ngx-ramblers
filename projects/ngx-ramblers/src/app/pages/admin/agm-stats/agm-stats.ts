@@ -706,7 +706,7 @@ export class AGMStatsComponent implements OnInit {
   private loadFromQueryParams() {
     const params = this.route.snapshot.queryParamMap;
     this.chartType = this.resolveChartType(params.get(StoredValue.CHART_TYPE), this.chartType);
-    const resolvedPreset = this.resolvePreset(params.get(StoredValue.DATE_RANGE_PRESET) || params.get("preset"));
+    const resolvedPreset = this.resolvePreset(params.get(StoredValue.DATE_RANGE_PRESET) || params.get(StoredValue.PRESET));
     if (resolvedPreset) {
       this.preset = resolvedPreset;
     }

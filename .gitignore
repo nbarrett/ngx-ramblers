@@ -4,6 +4,8 @@
 /.claude-swarm/registry.json
 /.claude/worktrees/
 /pnpm-lock.yaml
+/.ngx-cli-dev-worker
+/.playwright-cli/
 
 # compiled output
 /dist

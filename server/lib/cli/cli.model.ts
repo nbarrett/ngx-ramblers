@@ -69,6 +69,8 @@ export interface LocalRunConfig {
   s3BucketOverride: string | false | null;
   dockerWorker?: boolean;
   headless?: boolean;
+  dynamicWorker?: boolean;
+  screenshots?: boolean;
 }
 
 export interface RunningProcess {

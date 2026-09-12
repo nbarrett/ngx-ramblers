@@ -2598,7 +2598,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const sourcePage = queryParams.get(StoredValue.SOURCE_PAGE);
     const committeeFile = queryParams.get(StoredValue.COMMITTEE_FILE);
     const eventQuery = queryParams.get(StoredValue.EVENT);
-    const eventPath = pathParams.get("committee-event-id");
+    const eventPath = pathParams.get(StoredValue.COMMITTEE_EVENT_ID);
     if (eventQuery && !committeeFile && !sourcePage) {
       this.state.context = { source: EmailComposerContextSource.GROUP_EVENT, groupEventId: eventQuery };
       this.state.eventInclusion = EventInclusionMode.SINGLE_EVENT;
@@ -4833,6 +4833,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       inReplyTo: reply.inReplyTo,
       references: reply.references
     };
+    this.state.inboxReplyContext = this.inboxReplyContext;
     this.logger.info("Inbox reply applied:", JSON.stringify({...this.inboxReplyContext, externalRecipients: this.state.externalRecipients}));
     if (this.introEditorRef) {
       this.introEditorRef.syncValue(this.state.introMarkdown ?? "");
@@ -6190,6 +6191,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       const restored: any = JSON.parse(JSON.stringify(sent.state));
       const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
       this.state = restored as EmailComposerState;
+      this.state.inboxReplyContext = null;
+      this.inboxReplyContext = null;
       if (this.state.subject) this.state.subject = `Copy of ${this.state.subject}`;
       this.currentDraftId = null;
       this.lastSavedAt = null;
@@ -6250,6 +6253,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       const restored: any = JSON.parse(JSON.stringify(draft.state));
       const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
       this.state = restored as EmailComposerState;
+      this.inboxReplyContext = this.state.inboxReplyContext ?? null;
       this.currentDraftId = draft.id;
       this.lastSavedAt = draft.savedAt;
       this.currentComposition = draft;
@@ -6295,6 +6299,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     restored.signoffRoles = restored.signoffRoles ?? [];
     restored.attachments = restored.attachments ?? [];
     restored.fragmentOrder = restored.fragmentOrder ?? [];
+    restored.inboxReplyContext = restored.inboxReplyContext ?? null;
     restored.articleBlocks = restored.articleBlocks ?? [];
     restored.compositionKind = restored.compositionKind ?? EmailCompositionKind.STANDARD;
     restored.newsletter = restored.compositionKind === EmailCompositionKind.NEWSLETTER

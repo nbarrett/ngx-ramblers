@@ -245,7 +245,23 @@ const nativeBrowserDialogRestrictions = [
   }
 ];
 
+const queryParamRestrictions = [
+  {
+    "selector": "TSEnumDeclaration[id.name=/QueryParam|QueryString|UrlParam/]",
+    "message": "Query string keys live in the StoredValue enum (models/ui-actions.ts) only. Do not declare a second enum for them - add the key to StoredValue, kebab-case, sorted by value."
+  },
+  {
+    "selector": "Property[key.name='queryParams'] ObjectExpression > Property[key.type='Literal']",
+    "message": "Query string keys must come from the StoredValue enum (models/ui-actions.ts), not string literals. Add the key to StoredValue, kebab-case, sorted by value, and use [StoredValue.X]."
+  },
+  {
+    "selector": "CallExpression[callee.property.name='get'][callee.object.name=/queryParam|params/i] > Literal[value=/^[a-z][a-z0-9-]*$/]",
+    "message": "Read query string keys from the StoredValue enum (models/ui-actions.ts), not string literals. Add the key to StoredValue, kebab-case, sorted by value."
+  }
+];
+
 const sharedSyntaxRestrictions = [
+  ...queryParamRestrictions,
   {
     "selector": "CallExpression[callee.object.name='console'][callee.property.name='log']",
     "message": "console.log is not allowed. Use Logger (frontend) or debugLog (backend) instead."

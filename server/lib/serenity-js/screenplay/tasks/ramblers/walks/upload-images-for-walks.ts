@@ -106,7 +106,7 @@ async function publishEditedWalk(actor: PerformsActivities & UsesAbilities & Ans
   if (shouldPublish) {
     await actor.attemptsTo(
       ClickViaScript.on("label[for='save_publish_action']", "publishes the walk"),
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.saveAndContinueButton, not(isPresent())));
+      Wait.until(WalksPageElements.saveAndContinueButton, not(isPresent())));
   } else {
     await actor.attemptsTo(SaveAndContinue.awayFromPath(`/walks-manager/walk/${step}/`));
   }

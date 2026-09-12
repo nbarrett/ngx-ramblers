@@ -3,12 +3,13 @@ import * as authConfig from "../auth/auth-config";
 import { tileProxy } from "./os-maps-proxy";
 import {
   exportOsMapsRoute,
+  latestOsMapsExportJobResult,
   listOsMapsRoutes,
   osMapsExportJobResult,
   osMapsImportedRoute,
   refreshOsMapsRoutes,
   updateOsMapsImportedRoute
-} from "./os-maps-export-controller";
+, cancelOsMapsExport} from "./os-maps-export-controller";
 
 const router = express.Router();
 
@@ -18,6 +19,8 @@ router.get("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmi
 router.put("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmin, updateOsMapsImportedRoute);
 router.post("/routes/refresh", authConfig.authenticate(), authConfig.requireAdmin, refreshOsMapsRoutes);
 router.post("/export", authConfig.authenticate(), authConfig.requireAdmin, exportOsMapsRoute);
+router.post("/export/cancel", authConfig.authenticate(), authConfig.requireAdmin, cancelOsMapsExport);
+router.get("/export/latest", authConfig.authenticate(), authConfig.requireAdmin, latestOsMapsExportJobResult);
 router.get("/export/:jobId", authConfig.authenticate(), authConfig.requireAdmin, osMapsExportJobResult);
 
 export const osMapsRoutes = router;
