@@ -274,13 +274,13 @@ import { DateUtilsService } from "../../../services/date-utils.service";
           </div>
         }
         <app-maximisable-map #routeMap="maximisableMap" [title]="row.map.title || 'Route map'" [allowExpanded]="false"
-                             [enabled]="true" [syncToUrl]="true" [offsetTop]="'64px'" (sizeChange)="onMapSizeChange($event)">
+                             [enabled]="fullScreenAvailable" [syncToUrl]="true" [offsetTop]="'64px'" (sizeChange)="onMapSizeChange($event)">
           <div slot="bar-actions">
             @if (fullscreen && !guidePanelVisible) {
               <ng-container *ngTemplateOutlet="stepControls"/>
             }
           </div>
-          <div class="route-fullscreen-shell maximisable-map-fill" [class.is-fullscreen]="fullscreen" [class.route-side-left]="guideOnLeft" [style.--route-pin-colour]="markerColour">
+          <div class="route-fullscreen-shell maximisable-map-fill" [class.is-fullscreen]="fullscreen" [class.route-side-left]="guideOnLeft" [class.is-editing]="editingNow" [style.--route-pin-colour]="markerColour" [style.--route-guide-width]="guideWidth + 'px'">
         @if (guidePanelVisible && fullscreen) {
           <ng-container *ngTemplateOutlet="guidePanel"/>
           <app-resizer class="route-guide-resizer" [variant]="ResizerVariant.BAR" [orientation]="ResizerOrientation.HORIZONTAL"
@@ -289,7 +289,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                        (sizeChange)="onGuideWidthChange($event)" (resizeEnd)="saveGuideWidth()"/>
         }
         <ng-template #stepControls>
-          <app-route-step-controls [tracks]="selectableTracks" [selectedTrack]="selectedTrack" (trackChange)="selectTrack($event)" [activeIndex]="activeIndex" [count]="guideEntries.length" [fullscreen]="fullscreen" [headingUp]="headingUp" [canFollow]="canFollowRoute"
+          <app-route-step-controls [tracks]="selectableTracks" [selectedTrack]="selectedTrack" (trackChange)="selectTrack($event)" [activeIndex]="activeIndex" [count]="guideEntries.length" [fullscreen]="fullscreen" [fullScreenAvailable]="fullScreenAvailable" [headingUp]="headingUp" [canFollow]="canFollowRoute"
                                    [speed]="stepSpeed" [id]="guideListId" (speedChange)="setStepSpeed($event)" [guideOpen]="guideOpen" (toggleGuide)="toggleGuide()"
                                    [canEdit]="canLiveEdit" [editing]="liveEditing" [saveState]="saveState" (toggleEdit)="toggleLiveEdit()" [canUndo]="canUndo" (undo)="undo()" (discard)="discardLiveEdit()"
                                    (previous)="previousStep()" (next)="nextStep()" (first)="firstStep()" (toggleHeading)="toggleMapHeading()"
@@ -297,9 +297,8 @@ import { DateUtilsService } from "../../../services/date-utils.service";
         </ng-template>
         <ng-template #guidePanel>
           <app-route-guide-panel class="thumbnail-heading-frame mb-3 route-guide-panel"
-                                 [style.flex-basis.px]="fullscreen ? guideWidth : null" [style.max-width.px]="fullscreen ? guideWidth : null"
                                  [entries]="guideEntries" [activeMarker]="activeMarker" [markerColour]="markerColour" [listId]="guideListId"
-                                 [fullscreen]="fullscreen" [editing]="editing" [editingNow]="editingNow" [branches]="branches" [via]="via"
+                                 [fullscreen]="fullscreen" [fullScreenAvailable]="fullScreenAvailable" [editing]="editing" [editingNow]="editingNow" [branches]="branches" [via]="via"
                                  [height]="guideHeight" [minHeight]="minGuideHeight" [maxHeight]="maxGuideHeight"
                                  (stepSelect)="focusWaypoint($event)" (previous)="previousStep()" (next)="nextStep()" (fullScreen)="openStepThrough()"
                                  (guideEdit)="beginGuideEdit()" (guideTextChange)="onGuideTextChange()" (addStep)="addStepAfter($event)" (removeStep)="removeStep($event)"
@@ -586,6 +585,14 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   protected activeMarker: MapMarker | null = null;
   private highlightLayer: L.Polyline | null = null;
   protected fullscreen = false;
+  private phoneLayoutQuery = window.matchMedia("(max-width: 767.98px)");
+  protected phoneLayout = this.phoneLayoutQuery.matches;
+  private phoneLayoutListener = (event: MediaQueryListEvent) => this.zone.run(() => {
+    this.phoneLayout = event.matches;
+    if (this.phoneLayout && this.fullscreen) {
+      this.routeMap?.restore();
+    }
+  });
   @ViewChild("routeMap") private routeMap?: MaximisableMapComponent;
   protected readonly faDownload = faDownload;
   protected headingUp = this.uiActions.initialBooleanValueFor(StoredValue.MAP_HEADING_UP, false);
@@ -678,6 +685,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   private suppressViewportHandler = false;
 
   async ngOnInit() {
+    this.phoneLayout = this.phoneLayoutQuery.matches;
+    this.phoneLayoutQuery.addEventListener("change", this.phoneLayoutListener);
     this.mapTiles.initializeProjections();
     this.setupAutocomplete();
     this.setupLocationSearch();
@@ -837,6 +846,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   ngOnDestroy() {
+    this.phoneLayoutQuery.removeEventListener("change", this.phoneLayoutListener);
     this.cancelTravel();
     this.detachMapListeners();
     if (this.viewportFilterTimer) {
@@ -1498,13 +1508,13 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
         onDone: () => {
           this.travelling = false;
           this.refreshMarkerIcon(entry.marker);
-          this.markerLayers.get(entry.marker)?.openPopup();
+          this.revealStepPopup(entry.marker);
           this.suppressViewportHandler = false;
         }
       });
     } else {
       this.applyHeadingUp(entry, true);
-      this.markerLayers.get(entry.marker)?.openPopup();
+      this.revealStepPopup(entry.marker);
       this.mapRef?.panTo([entry.marker.latitude, entry.marker.longitude], {animate: true});
       setTimeout(() => this.suppressViewportHandler = false, 900);
     }
@@ -1526,8 +1536,20 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     }
   }
 
+  private revealStepPopup(marker: MapMarker): void {
+    if (this.fullscreen && this.phoneLayout) {
+      this.mapRef?.closePopup();
+    } else {
+      this.markerLayers.get(marker)?.openPopup();
+    }
+  }
+
+  get fullScreenAvailable(): boolean {
+    return !this.phoneLayout;
+  }
+
   openStepThrough(): void {
-    if (!this.fullscreen) {
+    if (!this.fullscreen && this.fullScreenAvailable) {
       this.routeMap?.cycle();
     }
     if (this.activeIndex < 0 && this.guideEntries.length > 0) {
@@ -1720,31 +1742,35 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   onMapSizeChange(state: MaximisableMapState): void {
-    this.fullscreen = state.fullScreen;
-    this.syncPinDragging();
-    if (!state.fullScreen && this.mapRef) {
-      mapGesturesFor(this.mapRef)?.resetNorth();
-    }
-    setTimeout(() => {
-      this.mapRef?.invalidateSize();
-      if (this.mapRef && this.routePoints.length > 1) {
-        const padding = state.fullScreen ? ROUTE_FULLSCREEN_FIT_PADDING : ROUTE_FIT_PADDING;
-        this.mapRef.fitBounds(L.latLngBounds(this.routePoints.map(point => [point.latitude, point.longitude])), {animate: false, padding: [padding, padding]});
+    if (state.fullScreen && this.phoneLayout) {
+      this.routeMap?.restore();
+    } else {
+      this.fullscreen = state.fullScreen;
+      this.syncPinDragging();
+      if (!state.fullScreen && this.mapRef) {
+        mapGesturesFor(this.mapRef)?.resetNorth();
       }
-      if (state.fullScreen && this.pendingStep === null && this.activeIndex < 0 && this.guideEntries.length > 0) {
-        this.guideOpen = true;
-        this.highlightWaypoint(this.guideEntries[0].marker);
-      } else if (state.fullScreen && this.activeIndex >= 0) {
-        this.pendingGuideScroll = this.guideEntries[this.activeIndex]?.index ?? null;
-        setTimeout(() => this.scrollGuideList(false), 350);
-      }
-      if (state.fullScreen && this.headingUp && this.activeIndex >= 0) {
-        const active = this.guideEntries.find(entry => entry.marker === this.activeMarker);
-        if (active) {
-          this.applyHeadingUp(active, true);
+      setTimeout(() => {
+        this.mapRef?.invalidateSize();
+        if (this.mapRef && this.routePoints.length > 1) {
+          const padding = state.fullScreen ? ROUTE_FULLSCREEN_FIT_PADDING : ROUTE_FIT_PADDING;
+          this.mapRef.fitBounds(L.latLngBounds(this.routePoints.map(point => [point.latitude, point.longitude])), {animate: false, padding: [padding, padding]});
         }
-      }
-    }, state.fullScreen ? ROUTE_FULLSCREEN_SETTLE_MS : ROUTE_RESIZE_SETTLE_MS);
+        if (state.fullScreen && this.pendingStep === null && this.activeIndex < 0 && this.guideEntries.length > 0) {
+          this.guideOpen = true;
+          this.highlightWaypoint(this.guideEntries[0].marker);
+        } else if (state.fullScreen && this.activeIndex >= 0) {
+          this.pendingGuideScroll = this.guideEntries[this.activeIndex]?.index ?? null;
+          setTimeout(() => this.scrollGuideList(false), 350);
+        }
+        if (state.fullScreen && this.headingUp && this.activeIndex >= 0) {
+          const active = this.guideEntries.find(entry => entry.marker === this.activeMarker);
+          if (active) {
+            this.applyHeadingUp(active, true);
+          }
+        }
+      }, state.fullScreen ? ROUTE_FULLSCREEN_SETTLE_MS : ROUTE_RESIZE_SETTLE_MS);
+    }
   }
 
   nextStep(): void {

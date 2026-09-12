@@ -2,7 +2,7 @@ import { escape } from "es-toolkit";
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
 import { MapProvider } from "../../models/map.model";
-import { HEADING_RING_CLASS, RouteWaypointKind } from "../../models/route-follow.model";
+import { FollowPointerSize, followPointerPixels, HEADING_RING_CLASS, RouteWaypointKind } from "../../models/route-follow.model";
 import { WalkStatus } from "../../models/ramblers-walks-manager";
 
 @Injectable({ providedIn: "root" })
@@ -59,18 +59,19 @@ export class MapMarkerStyleService {
       </div>`;
   }
 
-  followLocationIcon(heading: number): L.DivIcon {
+  followLocationIcon(heading: number, size = FollowPointerSize.MEDIUM): L.DivIcon {
     const rotation = heading || 0;
+    const pixels = followPointerPixels(size);
     const html = `<div class="follow-location-chevron" style="transform:rotate(${rotation}deg)">
-      <svg width="18" height="20" viewBox="0 0 26 28" aria-hidden="true">
+      <svg width="${pixels.width}" height="${pixels.height}" viewBox="0 0 26 28" aria-hidden="true">
         <path d="M13 2.2 L23.8 24.6 L13 18.8 L2.2 24.6 Z" fill="#d81b60" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
       </svg>
     </div>`;
     return L.divIcon({
       className: "follow-leaflet-icon follow-pointer-icon",
       html,
-      iconSize: [18, 20],
-      iconAnchor: [9, 11]
+      iconSize: [pixels.width, pixels.height],
+      iconAnchor: [Math.round(pixels.width / 2), Math.round(pixels.height * 0.55)]
     });
   }
 

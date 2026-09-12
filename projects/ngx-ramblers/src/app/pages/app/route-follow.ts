@@ -64,6 +64,10 @@ import {
   FollowMapScaleBar,
   compassHeadingLabel,
   compassTapeMarks,
+  routeAlignedMapHeading,
+  FollowPointerSize,
+  FOLLOW_POINTER_SIZES,
+  followPointerSizeFrom,
   followLineColours,
   followMapScaleBar,
   formatMapSaveProgress,
@@ -338,9 +342,18 @@ import proj4 from "proj4";
                 <a [href]="osErrorHref" target="_blank" rel="noopener">Report an error</a>
               </p>
             }
-            @if (styleRoute || directedWaypoints.length) {
-              <p class="follow-style-heading">While following</p>
-            }
+            <p class="follow-style-heading">While following</p>
+            <p class="follow-option-label">Location pointer</p>
+            <div class="follow-progress-paint" role="group" aria-label="Location pointer size">
+              @for (choice of pointerSizeChoices; track choice.size) {
+                <button type="button" class="btn btn-sm follow-progress-paint-btn"
+                        [class.btn-primary]="pointerSize === choice.size"
+                        [class.btn-quiet]="pointerSize !== choice.size"
+                        (click)="setPointerSize(choice.size)">
+                  {{ choice.label }}
+                </button>
+              }
+            </div>
             @if (directedWaypoints.length) {
               <div class="form-check form-switch follow-option-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="follow-directions-on-map"
@@ -792,6 +805,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected showDirections = false;
   protected directionsOnMap = true;
   protected stepPinsOnMap = true;
+  protected pointerSize = FollowPointerSize.MEDIUM;
+  protected readonly pointerSizeChoices = FOLLOW_POINTER_SIZES;
   private stylePickerFromProvider = MapProvider.OS;
   private stylePickerFromStyle = DEFAULT_OS_STYLE;
   protected mapProvider: MapProvider = MapProvider.OS;
@@ -827,6 +842,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.progressPaint = routeFollowProgressPaintFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_PROGRESS_PAINT, RouteFollowProgressPaint.COLOUR_WALKED));
     this.directionsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_DIRECTIONS_ON_MAP, true);
     this.stepPinsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_STEP_PINS_ON_MAP, true);
+    this.pointerSize = followPointerSizeFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_POINTER_SIZE, FollowPointerSize.MEDIUM));
     this.followService.setPreviewSpeed(this.previewSpeed);
     this.showPreview = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     this.tooltipsEnabled = this.appShell.platform() === AppInstallPlatform.OTHER
@@ -1168,6 +1184,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.refreshWaypointPins();
   }
 
+  setPointerSize(size: FollowPointerSize): void {
+    if (this.pointerSize !== size) {
+      this.pointerSize = size;
+      this.uiActions.saveValueFor(StoredValue.FOLLOW_POINTER_SIZE, size);
+      this.clearPointer();
+      this.redraw();
+    }
+  }
+
   closeDirections(): void {
     this.showDirections = false;
   }
@@ -1295,7 +1320,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private applyHeadingUp(animate = false): void {
     const gestures = this.gestures || (this.mapRef ? mapGesturesFor(this.mapRef) : null);
     this.gestures = gestures;
-    const next = -this.currentHeading();
+    const next = -this.routeMapHeading();
     if (Math.abs(mapAngleDelta(this.mapBearing, next)) >= ROUTE_FOLLOW_HEADING_UP_MIN_DELTA) {
       if (gestures) {
         gestures.setBearing(next, animate);
@@ -1316,6 +1341,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else {
       return 0;
     }
+  }
+
+  private routeMapHeading(): number {
+    const fallback = this.payload && this.payload.points.length >= 2
+      ? this.followService.headingBetween(this.payload.points[0], this.payload.points[1])
+      : 0;
+    return routeAlignedMapHeading(this.progress?.routeHeading ?? null, fallback);
   }
 
   cycleAppearance(): void {
@@ -2489,11 +2521,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       if (chevron) {
         chevron.style.transform = `rotate(${heading || 0}deg)`;
       } else {
-        this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(heading));
+        this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(heading, this.pointerSize));
       }
     } else if (this.mapRef) {
       this.pointerMarker = L.marker([latitude, longitude], {
-        icon: this.markerStyle.followLocationIcon(heading),
+        icon: this.markerStyle.followLocationIcon(heading, this.pointerSize),
         zIndexOffset: 1200,
         keyboard: false
       });
@@ -2516,12 +2548,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private refreshHeadingVisuals(): void {
     this.refreshTape();
+    if (this.headingUp) {
+      this.applyHeadingUp();
+    }
     const point = this.progress?.position;
     if (point) {
       this.syncPointer(point.latitude, point.longitude, this.currentHeading());
-    }
-    if (this.headingUp) {
-      this.applyHeadingUp();
     }
   }
 
@@ -2580,15 +2612,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         : 0;
       const point = this.progress?.position || startPoint;
       const heading = this.progress?.heading ?? this.progress?.routeHeading ?? routeHeading;
+      if (this.headingUp) {
+        this.applyHeadingUp();
+      }
       if (editing) {
         this.clearPointer();
       } else if (point) {
         this.syncPointer(point.latitude, point.longitude, heading);
       } else {
         this.clearPointer();
-      }
-      if (this.headingUp) {
-        this.applyHeadingUp();
       }
       if (this.followUser && this.mapRef && this.progress?.position) {
         this.mapRef.panTo([this.progress.position.latitude, this.progress.position.longitude]);

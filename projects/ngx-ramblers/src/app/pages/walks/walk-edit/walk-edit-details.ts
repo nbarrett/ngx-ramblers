@@ -380,7 +380,7 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                     <div class="col-lg-6 mb-3">
                       <app-maximisable-map #directionsMap="maximisableMap" [title]="'Directions'" [allowExpanded]="false" [syncToUrl]="true"
                                            (sizeChange)="onDirectionsMapSizeChange($event)">
-                        <div class="route-fullscreen-shell" [class.is-fullscreen]="directionsFullScreen">
+                        <div class="route-fullscreen-shell" [class.is-fullscreen]="directionsFullScreen" [class.is-editing]="directionsEdit.editing">
                           <div class="map-section">
                             <div app-map-edit readonly
                                  [style.height.px]="directionsFullScreen ? null : directionsHeight"
