@@ -6,10 +6,10 @@ import { parseError } from "./transforms";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { dateTimeNow } from "../../shared/dates";
 import {
-  AuditType,
   FileUploadSummary,
   Status
 } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import { UPLOAD_FINISHED_MESSAGE_PATTERN } from "../../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { asNumber } from "../../../../projects/ngx-ramblers/src/app/functions/numbers";
 import { isString } from "es-toolkit/compat";
 import {
@@ -25,19 +25,16 @@ const MAX_UPLOAD_SESSIONS = 100;
 
 interface UploadSessionAggregate {
   errorCount: number;
-  summaryCount: number;
-  successSummaryCount: number;
+  finishedCount: number;
 }
 
 function uploadSessionStatus(session: UploadSessionAggregate): Status {
-  if (session.errorCount > 0) {
-    return Status.ERROR;
-  } else if (session.successSummaryCount > 0) {
-    return Status.SUCCESS;
-  } else if (session.summaryCount === 0) {
+  if (session.finishedCount === 0) {
     return Status.ACTIVE;
+  } else if (session.errorCount > 0) {
+    return Status.ERROR;
   } else {
-    return Status.INFO;
+    return Status.SUCCESS;
   }
 }
 
@@ -66,9 +63,8 @@ export async function queryUploadSessions(req: Request, res: Response): Promise<
           errorCount: {
             $sum: {$cond: [{$or: [{$ne: [{$ifNull: ["$errorResponse", null]}, null]}, {$eq: ["$status", Status.ERROR]}]}, 1, 0]}
           },
-          summaryCount: {$sum: {$cond: [{$eq: ["$type", AuditType.SUMMARY]}, 1, 0]}},
-          successSummaryCount: {
-            $sum: {$cond: [{$and: [{$eq: ["$type", AuditType.SUMMARY]}, {$eq: ["$status", Status.SUCCESS]}]}, 1, 0]}
+          finishedCount: {
+            $sum: {$cond: [{$regexMatch: {input: {$ifNull: ["$message", ""]}, regex: UPLOAD_FINISHED_MESSAGE_PATTERN}}, 1, 0]}
           }
         }
       },
