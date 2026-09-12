@@ -51,6 +51,25 @@ export enum EnvironmentHealthCheckStatus {
   UNREACHABLE = "UNREACHABLE"
 }
 
+export enum EnvironmentHealthCheckName {
+  MACHINE = "machine",
+  PUBLIC_HTTP = "public-http",
+  CERTIFICATE = "certificate",
+  MIGRATIONS = "migrations"
+}
+
+export enum EnvironmentHealthFindingSeverity {
+  OK = "ok",
+  WARNING = "warning",
+  FAIL = "fail"
+}
+
+export interface EnvironmentHealthFinding {
+  name: EnvironmentHealthCheckName;
+  severity: EnvironmentHealthFindingSeverity;
+  message: string;
+}
+
 export interface EnvironmentHealthCheck {
   environment: string;
   appName: string;
@@ -59,6 +78,7 @@ export interface EnvironmentHealthCheck {
   checkStatus: EnvironmentHealthCheckStatus;
   healthResponse?: Partial<HealthResponse>;
   error?: string;
+  findings?: EnvironmentHealthFinding[];
   responseTimeMs: number;
 }
 

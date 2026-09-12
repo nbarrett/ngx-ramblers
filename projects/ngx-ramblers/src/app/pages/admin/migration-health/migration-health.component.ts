@@ -16,7 +16,10 @@ import { CrossEnvironmentHealthService } from "../../../services/cross-environme
 import {
   CrossEnvironmentHealthResponse,
   EnvironmentHealthCheck,
+  EnvironmentHealthCheckName,
   EnvironmentHealthCheckStatus,
+  EnvironmentHealthFinding,
+  EnvironmentHealthFindingSeverity,
   HealthSortColumn
 } from "../../../models/health.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
@@ -202,7 +205,18 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                       </a>
                     </td>
                   </tr>
-                  @if (isDegraded(env) && env.healthResponse?.migrations?.files?.length) {
+                  @if (visibleFindings(env).length) {
+                    <tr class="detail-row">
+                      <td colspan="9">
+                        @for (finding of visibleFindings(env); track finding.name + finding.message) {
+                          <div class="detail-alert" [ngClass]="findingBannerClass(finding)">
+                            <strong>{{ findingLabel(finding) }}:</strong> {{ finding.message }}
+                          </div>
+                        }
+                      </td>
+                    </tr>
+                  }
+                  @if (isDegraded(env) && failedFiles(env).length) {
                     <tr class="detail-row">
                       <td colspan="9">
                         <div class="detail-alert detail-alert-danger">
@@ -211,19 +225,10 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                             <div class="detail-file">
                               {{ file.fileName }}
                               @if (file.error) {
-                                — <em>{{ file.error }}</em>
+                                <em>{{ file.error }}</em>
                               }
                             </div>
                           }
-                        </div>
-                      </td>
-                    </tr>
-                  }
-                  @if (isUnreachable(env)) {
-                    <tr class="detail-row">
-                      <td colspan="9">
-                        <div class="detail-alert detail-alert-warning">
-                          <strong>Connection error:</strong> {{ env.error }}
                         </div>
                       </td>
                     </tr>
@@ -518,7 +523,7 @@ export class MigrationHealthComponent implements OnInit {
   healthResponse: CrossEnvironmentHealthResponse | null = null;
   loading = false;
   error: string | null = null;
-  sortColumn: HealthSortColumn = HealthSortColumn.ENVIRONMENT;
+  sortColumn: HealthSortColumn = HealthSortColumn.STATUS;
   sortDirection: string = ASCENDING;
   hostnameHealth: CrossEnvironmentHostnameHealth | null = null;
   loadingHostnameHealth = false;
@@ -591,7 +596,7 @@ export class MigrationHealthComponent implements OnInit {
   statusBadgeClass(env: EnvironmentHealthCheck): string {
     switch (env.checkStatus) {
       case EnvironmentHealthCheckStatus.HEALTHY: return "bg-success";
-      case EnvironmentHealthCheckStatus.DEGRADED: return "bg-danger";
+      case EnvironmentHealthCheckStatus.DEGRADED: return "bg-warning text-dark";
       case EnvironmentHealthCheckStatus.UNREACHABLE: return "bg-dark";
       case EnvironmentHealthCheckStatus.PENDING: return "bg-warning text-dark";
       default: return "bg-secondary";
@@ -616,6 +621,32 @@ export class MigrationHealthComponent implements OnInit {
     return env.checkStatus === EnvironmentHealthCheckStatus.UNREACHABLE;
   }
 
+  visibleFindings(env: EnvironmentHealthCheck): EnvironmentHealthFinding[] {
+    return (env.findings || []).filter(finding => finding.severity !== EnvironmentHealthFindingSeverity.OK);
+  }
+
+  findingBannerClass(finding: EnvironmentHealthFinding): string {
+    if (finding.severity === EnvironmentHealthFindingSeverity.FAIL) {
+      return "detail-alert-danger";
+    } else {
+      return "detail-alert-warning";
+    }
+  }
+
+  findingLabel(finding: EnvironmentHealthFinding): string {
+    if (finding.name === EnvironmentHealthCheckName.PUBLIC_HTTP) {
+      return "Public site";
+    } else if (finding.name === EnvironmentHealthCheckName.CERTIFICATE) {
+      return "Certificate";
+    } else if (finding.name === EnvironmentHealthCheckName.MACHINE) {
+      return "Fly app";
+    } else if (finding.name === EnvironmentHealthCheckName.MIGRATIONS) {
+      return "Migrations";
+    } else {
+      return finding.name;
+    }
+  }
+
   failedFiles(env: EnvironmentHealthCheck) {
     return (env.healthResponse?.migrations?.files || []).filter(f => f.status === MigrationFileStatus.FAILED);
   }
@@ -631,8 +662,32 @@ export class MigrationHealthComponent implements OnInit {
 
   sortedEnvironments(): EnvironmentHealthCheck[] {
     const environments = this.healthResponse?.environments || [];
-    const prefix = this.sortDirection === DESCENDING ? "-" : "";
-    return [...environments].sort(sortBy(`${prefix}${this.sortColumn}`));
+    if (this.sortColumn === HealthSortColumn.STATUS) {
+      const ranked = [...environments].sort((left, right) => {
+        const rankDiff = this.statusRank(left.checkStatus) - this.statusRank(right.checkStatus);
+        if (rankDiff !== 0) {
+          return this.sortDirection === DESCENDING ? -rankDiff : rankDiff;
+        } else {
+          return left.environment.localeCompare(right.environment);
+        }
+      });
+      return ranked;
+    } else {
+      const prefix = this.sortDirection === DESCENDING ? "-" : "";
+      return [...environments].sort(sortBy(`${prefix}${this.sortColumn}`));
+    }
+  }
+
+  private statusRank(status: EnvironmentHealthCheckStatus): number {
+    if (status === EnvironmentHealthCheckStatus.UNREACHABLE) {
+      return 0;
+    } else if (status === EnvironmentHealthCheckStatus.DEGRADED) {
+      return 1;
+    } else if (status === EnvironmentHealthCheckStatus.PENDING) {
+      return 2;
+    } else {
+      return 3;
+    }
   }
 
   formatResponseTime(ms: number): string {

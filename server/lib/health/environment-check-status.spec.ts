@@ -1,52 +1,208 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { EnvironmentHealthCheckStatus, HealthStatus } from "../../../projects/ngx-ramblers/src/app/models/health.model";
-import { environmentHealthFromProbes, publicHttpSucceeded, publicSiteFailureMessage } from "./environment-check-status";
+import { dateTimeFromIso } from "../shared/dates";
+import { CertificateInfo } from "../fly/fly.model";
+import {
+  EnvironmentHealthCheckName,
+  EnvironmentHealthCheckStatus,
+  EnvironmentHealthFindingSeverity,
+  HealthStatus
+} from "../../../projects/ngx-ramblers/src/app/models/health.model";
+import {
+  CERT_EXPIRY_WARNING_DAYS,
+  certificateFinding,
+  environmentHealthFromFindings,
+  visitorHostnameFromSiteUrl,
+  publicHttpSucceeded,
+  publicSiteFailureMessage
+} from "./environment-check-status";
 
-describe("environmentHealthFromProbes", () => {
+const nowMillis = dateTimeFromIso("2026-09-12T19:00:00Z").toMillis();
+
+function cert(overrides: Partial<CertificateInfo> & { expiresAt?: string }): CertificateInfo {
+  return {
+    hostname: "berkshire-weekend-walkers.ngx-ramblers.org.uk",
+    clientStatus: "Ready",
+    acmeDnsConfigured: true,
+    configured: true,
+    issued: [{ type: "rsa", expiresAt: overrides.expiresAt || "2026-12-11T18:09:06Z" }],
+    ...overrides
+  };
+}
+
+describe("certificateFinding", () => {
+  it("does not treat a missing Fly certificate as a problem when TLS may be provided elsewhere", () => {
+    const finding = certificateFinding({
+      hostname: "canterburyramblers.org.uk",
+      nowMillis,
+      warningDays: CERT_EXPIRY_WARNING_DAYS
+    });
+    expect(finding.severity).toEqual(EnvironmentHealthFindingSeverity.OK);
+  });
+
+  it("fails when the issued certificate has already expired", () => {
+    const finding = certificateFinding({
+      hostname: "berkshire-weekend-walkers.ngx-ramblers.org.uk",
+      cert: cert({ expiresAt: "2026-09-05T12:00:00Z" }),
+      nowMillis,
+      warningDays: CERT_EXPIRY_WARNING_DAYS
+    });
+    expect(finding.severity).toEqual(EnvironmentHealthFindingSeverity.FAIL);
+    expect(finding.message).toContain("expired on");
+  });
+
+  it("warns when the certificate expires within the warning window", () => {
+    const finding = certificateFinding({
+      hostname: "berkshire-weekend-walkers.ngx-ramblers.org.uk",
+      cert: cert({ expiresAt: "2026-09-20T12:00:00Z" }),
+      nowMillis,
+      warningDays: CERT_EXPIRY_WARNING_DAYS
+    });
+    expect(finding.severity).toEqual(EnvironmentHealthFindingSeverity.WARNING);
+    expect(finding.message).toContain("expires in");
+  });
+
+  it("is ok when the site can still be visited and the certificate is not close to expiry, even if ACME DNS is unset", () => {
+    const finding = certificateFinding({
+      hostname: "bolton.ngx-ramblers.org.uk",
+      cert: cert({
+        hostname: "bolton.ngx-ramblers.org.uk",
+        acmeDnsConfigured: false,
+        acmeAlpnConfigured: true,
+        expiresAt: "2026-11-01T23:35:13Z"
+      }),
+      nowMillis,
+      warningDays: CERT_EXPIRY_WARNING_DAYS
+    });
+    expect(finding.severity).toEqual(EnvironmentHealthFindingSeverity.OK);
+  });
+
+  it("is ok when the certificate is valid, far from expiry, and ACME DNS is configured", () => {
+    const finding = certificateFinding({
+      hostname: "berkshire-weekend-walkers.ngx-ramblers.org.uk",
+      cert: cert({ expiresAt: "2026-12-11T18:09:06Z" }),
+      nowMillis,
+      warningDays: CERT_EXPIRY_WARNING_DAYS
+    });
+    expect(finding.severity).toEqual(EnvironmentHealthFindingSeverity.OK);
+  });
+});
+
+describe("environmentHealthFromFindings", () => {
   it("is unreachable when the public hostname returns a Cloudflare 525 even if the Fly app is OK", () => {
-    expect(environmentHealthFromProbes({
-      publicHttpStatus: 525,
-      machineHealthStatus: HealthStatus.OK,
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.FAIL,
+        message: "525"
+      }, {
+        name: EnvironmentHealthCheckName.MACHINE,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "up"
+      }],
       pendingMigrations: 0,
-      failedMigrations: false
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.OK
     })).toEqual(EnvironmentHealthCheckStatus.UNREACHABLE);
   });
 
-  it("is unreachable when the public hostname cannot be reached over HTTPS", () => {
-    expect(environmentHealthFromProbes({
-      publicHttpStatus: 0,
-      machineHealthStatus: HealthStatus.OK,
+  it("is unreachable when the public certificate has expired", () => {
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.CERTIFICATE,
+        severity: EnvironmentHealthFindingSeverity.FAIL,
+        message: "expired"
+      }, {
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.FAIL,
+        message: "525"
+      }],
       pendingMigrations: 0,
-      failedMigrations: false
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.OK
     })).toEqual(EnvironmentHealthCheckStatus.UNREACHABLE);
   });
 
-  it("is healthy when the public hostname and Fly app both succeed", () => {
-    expect(environmentHealthFromProbes({
-      publicHttpStatus: 200,
-      machineHealthStatus: HealthStatus.OK,
+  it("is healthy when visitors can reach the site and the certificate is not close to expiry", () => {
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "200"
+      }, {
+        name: EnvironmentHealthCheckName.CERTIFICATE,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "valid until 1 November 2026"
+      }],
       pendingMigrations: 0,
-      failedMigrations: false
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.OK
     })).toEqual(EnvironmentHealthCheckStatus.HEALTHY);
   });
 
-  it("is pending when the public hostname works and migrations are waiting", () => {
-    expect(environmentHealthFromProbes({
-      publicHttpStatus: 200,
-      machineHealthStatus: HealthStatus.DEGRADED,
-      pendingMigrations: 2,
-      failedMigrations: false
-    })).toEqual(EnvironmentHealthCheckStatus.PENDING);
+  it("is healthy when public HTTP, certificate and migrations are all fine", () => {
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "200"
+      }, {
+        name: EnvironmentHealthCheckName.CERTIFICATE,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "valid"
+      }, {
+        name: EnvironmentHealthCheckName.MACHINE,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "up"
+      }],
+      pendingMigrations: 0,
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.OK
+    })).toEqual(EnvironmentHealthCheckStatus.HEALTHY);
   });
 
-  it("is degraded when the public hostname works and a migration has failed", () => {
-    expect(environmentHealthFromProbes({
-      publicHttpStatus: 200,
-      machineHealthStatus: HealthStatus.DEGRADED,
+  it("is healthy when the configured site URL responds, even if Fly has no certificate for that hostname", () => {
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "200"
+      }, {
+        name: EnvironmentHealthCheckName.CERTIFICATE,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "No Fly-managed certificate for canterburyramblers.org.uk"
+      }],
       pendingMigrations: 0,
-      failedMigrations: true
-    })).toEqual(EnvironmentHealthCheckStatus.DEGRADED);
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.OK
+    })).toEqual(EnvironmentHealthCheckStatus.HEALTHY);
+  });
+
+  it("is pending when the public site is fine and migrations are waiting", () => {
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "200"
+      }],
+      pendingMigrations: 2,
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.DEGRADED
+    })).toEqual(EnvironmentHealthCheckStatus.PENDING);
+  });
+});
+
+describe("visitorHostnameFromSiteUrl", () => {
+  it("uses the configured site URL, not an invented NGX subdomain", () => {
+    expect(visitorHostnameFromSiteUrl("https://canterburyramblers.org.uk", "canterbury", "ngx-ramblers.org.uk"))
+      .toEqual("canterburyramblers.org.uk");
+    expect(visitorHostnameFromSiteUrl("https://www.ekwg.co.uk", "ekwg", "ngx-ramblers.org.uk"))
+      .toEqual("www.ekwg.co.uk");
+  });
+
+  it("falls back to the NGX subdomain only when no site URL is set", () => {
+    expect(visitorHostnameFromSiteUrl(undefined, "bolton", "ngx-ramblers.org.uk"))
+      .toEqual("bolton.ngx-ramblers.org.uk");
   });
 });
 
