@@ -9,6 +9,45 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, WebFetch, WebSearch
 
 You are updating or creating a CMS page on an NGX-Ramblers website. For the CMS data model, client API, image rules, and base patterns, refer to the `publish-article` skill SKILL.md at `.claude/skills/publish-article/SKILL.md`. This skill documents **additional patterns** specific to page editing.
 
+## Read the whole page before you change a word of it
+
+A CMS page is a tree, not a list of paragraphs. **`PageContentColumn` can itself carry a `rows` array**, and those nested rows have their own columns, their own `contentText`, their own `imageSource`, and can nest again. A column that looks empty because its `contentText` is `""` is very often a column whose entire content is in `column.rows`.
+
+Two rules follow, and breaking either one destroys somebody's work:
+
+1. **Inspect recursively before deciding what a page contains.** Never conclude a section is missing, empty, or "lost" from a flat read of `rows[].columns[].contentText`. Walk the tree:
+
+```typescript
+function describe(rows: any[], depth = 0): void {
+  const pad = "  ".repeat(depth);
+  rows.forEach((row, rowIndex) => {
+    console.log(`${pad}row ${rowIndex} type=${row.type} maxColumns=${row.maxColumns}`);
+    (row.columns || []).forEach((column: any, columnIndex: number) => {
+      const nested = column.rows || [];
+      console.log(`${pad}  col ${columnIndex} width=${column.columns} image=${column.imageSource || "-"} nestedRows=${nested.length}`);
+      if (column.contentText) console.log(`${pad}     ${column.contentText.split("\n")[0].slice(0, 100)}`);
+      if (nested.length) describe(nested, depth + 2);
+    });
+  });
+}
+```
+
+2. **Preserve everything you are not deliberately changing.** Spread, never rebuild: `{...column, contentText: newText}`, `{...row, columns}`, `{...existing, rows}`. Rebuilding a row or column from scratch silently drops `rows`, `styles`, `imageBorderRadius`, `showTextAfterImage`, `accessLevel`, `carousel` and anything else the site editor put there. When you map over columns to change one of them, return the others untouched rather than reconstructing them.
+
+Also note `/api/database/page-content/all` is fine for finding a page, but do the real read with `pageContent(auth, path)` and then dump the tree as above.
+
+When copying a page between sites, remember that `imageSource` values are per-environment S3 object names and they appear at every level of the tree. Rewrite them recursively, or the nested images will point at objects the target site does not have.
+
+## Never overwrite a page the user is editing
+
+Site content is edited by people in the browser, often while you are working on the same page. The CMS keeps **no version history**: there is one `pageContent` document per path, and a PUT replaces its `rows` outright. An overwrite is unrecoverable unless you happen to hold a copy.
+
+- **Ask before writing to a page the user has said they are editing**, or has edited recently. "I've made some changes" means stop and check with them before your next write.
+- **Fetch immediately before the write**, in the same script run, and make the change by transforming what came back. A page fetched minutes earlier is already stale.
+- **Save a copy first.** Write the fetched document to the scratchpad before the first update of a session, so there is something to restore from.
+- **Keep writes surgical.** Match the specific column you mean to change and leave every other row and column exactly as fetched.
+- When the user says they have restructured a page, re-read it with the recursive dump above before assuming anything about its shape.
+
 ## Arguments
 
 `$ARGUMENTS` — description of what page to update and what changes to make.

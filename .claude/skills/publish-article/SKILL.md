@@ -47,8 +47,10 @@ Article content here...
 ```
 PageContent { path, rows: PageContentRow[] }
 PageContentRow { type, showSwiper, maxColumns, columns: PageContentColumn[] }
-PageContentColumn { title, href, contentText, imageSource, imageBorderRadius, showTextAfterImage, icon, accessLevel, columns }
+PageContentColumn { title, href, contentText, imageSource, imageBorderRadius, showTextAfterImage, icon, accessLevel, columns, styles, rows }
 ```
+
+**A page is a tree.** `PageContentColumn.rows` holds nested `PageContentRow`s, which have their own columns, which can nest again. A column whose `contentText` is empty usually holds its content in `column.rows`. Always walk the tree before judging what a page contains, and always preserve fields you are not changing (`{...column, contentText}`, never a rebuilt object). See "Read the whole page before you change a word of it" in the `update-cms-page` skill.
 
 ### Row Types
 - `PageContentType.TEXT` — markdown content
