@@ -4,7 +4,6 @@ import {
   faChevronDown,
   faChevronUp,
   faExclamationTriangle,
-  faExternalLinkAlt,
   faQuestionCircle,
   faRedo,
   faSpinner,
@@ -16,7 +15,6 @@ import { CrossEnvironmentHealthService } from "../../../services/cross-environme
 import {
   CrossEnvironmentHealthResponse,
   EnvironmentHealthCheck,
-  EnvironmentHealthCheckName,
   EnvironmentHealthCheckStatus,
   EnvironmentHealthFinding,
   EnvironmentHealthFindingSeverity,
@@ -24,13 +22,26 @@ import {
 } from "../../../models/health.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { sortBy } from "../../../functions/arrays";
+import { hostFromUrl } from "../../../functions/hosts";
+import { kebabCase } from "es-toolkit/compat";
+import { AdminPlatformPath } from "../../../models/admin-route-paths.model";
+import {
+  CrossEnvironmentHostnameHealth,
+  EnvironmentSetupTab,
+  HostnameHealthReport,
+  HostnameOrigin,
+  ManageAction,
+  SetupMode
+} from "../../../models/environment-setup.model";
+import { StoredValue } from "../../../models/ui-actions";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass, DatePipe } from "@angular/common";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { MigrationFileStatus } from "../../../models/mongo-migration-model";
-import { CrossEnvironmentHostnameHealth, HostnameHealthReport } from "../../../models/environment-setup.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { FormsModule } from "@angular/forms";
 
 @Component({
   selector: "app-migration-health",
@@ -64,10 +75,22 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
               </div>
             }
           </div>
-          <button class="refresh-btn" [disabled]="loading" (click)="refresh()">
-            <fa-icon [icon]="loading ? faSpinner : faRedo" [animation]="loading ? 'spin' : undefined" class="me-1"/>
-            {{ loading ? "Checking..." : "Refresh" }}
-          </button>
+          <div class="health-header-actions">
+            @if (healthResponse) {
+              <div class="health-search">
+                <label class="visually-hidden" for="environment-search">Search environments</label>
+                <input id="environment-search" class="form-control" type="search"
+                       [ngModel]="search"
+                       (ngModelChange)="onSearchChange($event)"
+                       placeholder="Search environments">
+                <span class="text-muted text-nowrap">{{ sortedEnvironments().length }} of {{ healthResponse.summary.total }}</span>
+              </div>
+            }
+            <button class="btn btn-primary" [disabled]="loading" (click)="refresh()">
+              <fa-icon [icon]="loading ? faSpinner : faRedo" [animation]="loading ? 'spin' : undefined" class="me-1"/>
+              {{ loading ? "Checking..." : "Refresh" }}
+            </button>
+          </div>
         </div>
 
         @if (error) {
@@ -109,46 +132,56 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                       <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                     }
                   </th>
-                  <th class="sortable text-center" (click)="toggleSort(HealthSortColumn.APPLIED)">
+                  <th class="sortable text-center col-metric" (click)="toggleSort(HealthSortColumn.APPLIED)">
                     Applied
                     @if (sortColumn === HealthSortColumn.APPLIED) {
                       <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                     }
                   </th>
-                  <th class="sortable text-center" (click)="toggleSort(HealthSortColumn.PENDING)">
+                  <th class="sortable text-center col-metric" (click)="toggleSort(HealthSortColumn.PENDING)">
                     Pending
                     @if (sortColumn === HealthSortColumn.PENDING) {
                       <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                     }
                   </th>
-                  <th class="sortable text-center" (click)="toggleSort(HealthSortColumn.FAILED)">
+                  <th class="sortable text-center col-metric" (click)="toggleSort(HealthSortColumn.FAILED)">
                     Failed
                     @if (sortColumn === HealthSortColumn.FAILED) {
                       <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                     }
                   </th>
-                  <th class="sortable text-center" (click)="toggleSort(HealthSortColumn.RESPONSE)">
+                  <th class="sortable text-center col-metric" (click)="toggleSort(HealthSortColumn.RESPONSE)">
                     Response
                     @if (sortColumn === HealthSortColumn.RESPONSE) {
                       <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                     }
                   </th>
-                  <th class="text-center">Hostnames</th>
-                  <th class="text-center">Actions</th>
+                  <th class="col-admin"></th>
                 </tr>
               </thead>
               <tbody>
-                @for (env of sortedEnvironments(); track env.environment) {
+                @for (env of sortedEnvironments(); track env.environment; let last = $last) {
                   <tr [ngClass]="rowClass(env)">
                     <td>
-                      <span class="status-badge" [ngClass]="statusBadgeClass(env)">
+                      <span class="status-badge" [ngClass]="statusBadgeClass(env)"
+                            [tooltip]="findingsTooltip(env)" [isDisabled]="!visibleFindings(env).length" container="body">
                         <fa-icon [icon]="statusIcon(env)" class="me-1"/>
                         {{ statusLabel(env) }}
                       </span>
                     </td>
-                    <td>
+                    <td class="col-environment">
                       <div class="env-name">{{ env.environment }}</div>
                       <div class="env-app">{{ env.appName }}</div>
+                      @let hosts = displayedHostnames(env);
+                      <div class="hostname-list">
+                        @for (host of hosts; track host) {
+                          <a class="hostname-link" [href]="'https://' + host" target="_blank" rel="noopener"
+                             [tooltip]="hostnameTooltipFor(env, host)" container="body">{{ host }}</a>
+                        }
+                      </div>
+                      @if (primaryFinding(env); as finding) {
+                        <div class="env-finding" [ngClass]="findingTextClass(env)">{{ finding.message }}</div>
+                      }
                     </td>
                     <td>
                       @if (env.healthResponse?.group?.shortName) {
@@ -157,14 +190,14 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         <span class="placeholder-dash">—</span>
                       }
                     </td>
-                    <td class="text-center">
+                    <td class="text-center col-metric">
                       @if (env.healthResponse?.migrations) {
                         <span class="metric-value">{{ env.healthResponse.migrations.applied }}</span>
                       } @else {
                         <span class="placeholder-dash">—</span>
                       }
                     </td>
-                    <td class="text-center">
+                    <td class="text-center col-metric">
                       @if (env.healthResponse?.migrations) {
                         <span class="metric-value" [ngClass]="{'metric-warning': env.healthResponse.migrations.pending > 0}">
                           {{ env.healthResponse.migrations.pending }}
@@ -173,7 +206,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         <span class="placeholder-dash">—</span>
                       }
                     </td>
-                    <td class="text-center">
+                    <td class="text-center col-metric">
                       @if (env.healthResponse?.migrations) {
                         @if (env.healthResponse.migrations.failed) {
                           <span class="metric-value metric-danger">Yes</span>
@@ -184,55 +217,34 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         <span class="placeholder-dash">—</span>
                       }
                     </td>
-                    <td class="text-center">
+                    <td class="text-center col-metric">
                       <span class="response-time">{{ formatResponseTime(env.responseTimeMs) }}</span>
                     </td>
-                    <td class="text-center">
-                      @if (loadingHostnameHealth) {
-                        <span class="text-muted">…</span>
-                      } @else if (hostnameReportFor(env.environment); as report) {
-                        <span class="status-badge" [ngClass]="hostnameBadgeClass(report)"
-                              [tooltip]="hostnameTooltip(report)" container="body">
-                          {{ report.problemCount === 0 ? report.hostnames.length + " ok" : report.problemCount + " of " + report.hostnames.length }}
-                        </span>
-                      } @else {
-                        <span class="text-muted">—</span>
-                      }
-                    </td>
-                    <td class="text-center">
-                      <a [href]="env.adminUrl" target="_blank" rel="noopener" class="admin-link">
-                        <fa-icon [icon]="faExternalLinkAlt" class="me-1"/>Admin
-                      </a>
+                    <td class="col-admin">
+                      <div class="btn-group" dropdown [dropup]="last">
+                        <button type="button" class="admin-link dropdown-toggle" dropdownToggle>
+                          Admin
+                        </button>
+                        <ul *dropdownMenu class="dropdown-menu dropdown-menu-end" role="menu">
+                          <li role="menuitem">
+                            <a class="dropdown-item" [href]="env.adminUrl" target="_blank" rel="noopener">
+                              Open {{ env.environment }}
+                            </a>
+                          </li>
+                          <li role="menuitem">
+                            <a class="dropdown-item" [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP"
+                               [queryParams]="setupQueryParams(env)">
+                              Environment setup
+                            </a>
+                          </li>
+                        </ul>
+                      </div>
                     </td>
                   </tr>
-                  @if (visibleFindings(env).length) {
-                    <tr class="detail-row">
-                      <td colspan="9">
-                        @for (finding of visibleFindings(env); track finding.name + finding.message) {
-                          <div class="detail-alert" [ngClass]="findingBannerClass(finding)">
-                            <strong>{{ findingLabel(finding) }}:</strong> {{ finding.message }}
-                          </div>
-                        }
-                      </td>
-                    </tr>
-                  }
-                  @if (isDegraded(env) && failedFiles(env).length) {
-                    <tr class="detail-row">
-                      <td colspan="9">
-                        <div class="detail-alert detail-alert-danger">
-                          <strong>Failed migrations:</strong>
-                          @for (file of failedFiles(env); track file.fileName) {
-                            <div class="detail-file">
-                              {{ file.fileName }}
-                              @if (file.error) {
-                                <em>{{ file.error }}</em>
-                              }
-                            </div>
-                          }
-                        </div>
-                      </td>
-                    </tr>
-                  }
+                } @empty {
+                  <tr>
+                    <td colspan="8" class="text-center text-muted py-4">No environments match that search.</td>
+                  </tr>
                 }
               </tbody>
             </table>
@@ -248,12 +260,42 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
   styles: [`
     .health-container
       padding-top: 16px
+      max-width: 100%
 
     .health-header
       display: flex
       justify-content: space-between
       align-items: flex-start
+      gap: 16px
       margin-bottom: 24px
+      flex-wrap: wrap
+
+    .health-header-actions
+      display: flex
+      align-items: center
+      gap: 12px
+      flex: 1 1 auto
+      justify-content: flex-end
+      flex-wrap: wrap
+
+    .health-search
+      display: flex
+      align-items: center
+      gap: 12px
+      flex: 1 1 22rem
+      max-width: 44rem
+
+    .health-search .form-control
+      min-height: 40px
+      flex: 1 1 auto
+      min-width: 0
+
+    .health-search .form-control[type=search]
+      padding-left: 2.25rem
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%236c757d'%3E%3Cpath d='M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z'/%3E%3C/svg%3E")
+      background-repeat: no-repeat
+      background-position: 0.75rem center
+      background-size: 0.9rem 0.9rem
 
     .health-title-group
       display: flex
@@ -288,38 +330,16 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       color: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
 
     .badge-degraded
-      background-color: rgba(220, 53, 69, 0.12)
-      color: #dc3545
+      background-color: rgba(255, 193, 7, 0.2)
+      color: #856404
 
     .badge-pending
       background-color: rgba(255, 193, 7, 0.2)
       color: #856404
 
     .badge-unreachable
-      background-color: rgba(108, 117, 125, 0.15)
-      color: #495057
-
-    .refresh-btn
-      display: inline-flex
-      align-items: center
-      padding: 8px 20px
-      border: none
-      border-radius: 6px
-      background: var(--ramblers-colour-mintcake, rgb(155, 200, 171))
-      color: #fff
-      font-weight: 600
-      font-size: 0.875rem
-      cursor: pointer
-      transition: background-color 0.15s ease
-      white-space: nowrap
-      min-height: 40px
-
-    .refresh-btn:hover:not(:disabled)
-      background: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
-
-    .refresh-btn:disabled
-      opacity: 0.7
-      cursor: not-allowed
+      background-color: rgba(220, 53, 69, 0.12)
+      color: #dc3545
 
     .loading-state
       text-align: center
@@ -335,24 +355,59 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     .health-table-card
       border: 1px solid rgba(155, 200, 171, 0.4)
       border-radius: 8px
-      overflow: hidden
+      overflow: visible
+      max-width: 100%
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
       background: white
 
     .health-table
       width: 100%
+      table-layout: fixed
       border-collapse: separate
       border-spacing: 0
       margin-bottom: 0
+
+    .health-table th,
+    .health-table td
+      overflow: hidden
 
     .health-table th
       background: var(--rsm-table-header-bg)
       color: #495057
       font-weight: 600
       text-align: left
-      padding: 12px 16px
+      padding: 12px 10px
       border-bottom: 2px solid rgba(155, 200, 171, 0.4)
       font-size: 0.85rem
+      white-space: nowrap
+
+    .health-table th.col-metric,
+    .health-table td.col-metric
+      width: 4.75rem
+      padding-left: 6px
+      padding-right: 6px
+
+    .health-table th:first-child,
+    .health-table td:first-child
+      width: 8.25rem
+
+    .health-table td.col-environment
+      width: auto
+
+    .health-table th:nth-child(3),
+    .health-table td:nth-child(3)
+      width: 6.5rem
+
+    .health-table th.col-admin,
+    .health-table td.col-admin
+      width: 8.5rem
+      padding-left: 8px
+      padding-right: 24px
+      text-align: right
+      overflow: visible
+
+    .health-table tbody tr td.col-admin
+      padding-right: 24px
 
     .health-table th.sortable
       cursor: pointer
@@ -362,7 +417,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       background: rgba(155, 200, 171, 0.4)
 
     .health-table tbody tr td
-      padding: 12px 16px
+      padding: 12px
       vertical-align: middle
       border-bottom: 1px solid #e9ecef
       font-size: 0.9rem
@@ -387,13 +442,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       border-left-color: var(--ramblers-colour-mintcake, rgb(155, 200, 171))
 
     .row-degraded td:first-child
-      border-left-color: #dc3545
+      border-left-color: #ffc107
 
     .row-pending td:first-child
       border-left-color: #ffc107
 
     .row-unreachable td:first-child
-      border-left-color: #6c757d
+      border-left-color: #dc3545
 
     .status-badge
       display: inline-flex
@@ -420,6 +475,26 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       background-color: rgba(108, 117, 125, 0.15) !important
       color: #495057 !important
 
+    .admin-link
+      display: inline-flex
+      align-items: center
+      gap: 6px
+      padding: 6px 12px
+      border: 1px solid rgba(155, 200, 171, 0.5)
+      border-radius: 6px
+      background: white
+      color: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
+      font-size: 0.8rem
+      font-weight: 600
+      text-decoration: none
+      white-space: nowrap
+      min-height: 32px
+
+    .admin-link:hover
+      background-color: rgba(155, 200, 171, 0.15)
+      border-color: var(--ramblers-colour-mintcake, rgb(155, 200, 171))
+      color: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
+
     .env-name
       font-weight: 600
       color: #212529
@@ -428,6 +503,37 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       font-size: 0.8rem
       color: #6c757d
       margin-top: 2px
+
+    .env-finding
+      margin-top: 4px
+      font-size: 0.8rem
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+
+    .env-finding-warning
+      color: #856404
+
+    .env-finding-error
+      color: #dc3545
+
+    .hostname-list
+      display: flex
+      flex-direction: column
+      gap: 2px
+      min-width: 0
+
+    .hostname-link
+      font-size: 0.8rem
+      font-weight: 600
+      color: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
+      text-decoration: none
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+
+    .hostname-link:hover
+      text-decoration: underline
 
     .placeholder-dash
       color: #adb5bd
@@ -453,58 +559,18 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       font-size: 0.85rem
       font-variant-numeric: tabular-nums
 
-    .admin-link
-      display: inline-flex
-      align-items: center
-      padding: 6px 14px
-      border: 1px solid rgba(155, 200, 171, 0.5)
-      border-radius: 6px
-      color: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
-      font-size: 0.8rem
-      font-weight: 600
-      text-decoration: none
-      transition: all 0.15s ease
-      white-space: nowrap
-
-    .admin-link:hover
-      background-color: rgba(155, 200, 171, 0.15)
-      border-color: var(--ramblers-colour-mintcake, rgb(155, 200, 171))
-      color: var(--ramblers-colour-mintcake-hover-dark, rgb(99, 134, 110))
-
-    .detail-row td
-      padding-top: 0 !important
-      border-top: none !important
-
-    .detail-alert
-      padding: 10px 16px
-      border-radius: 6px
-      font-size: 0.85rem
-      margin: 8px 8px 8px
-
-    .detail-alert-danger
-      background-color: rgba(220, 53, 69, 0.08)
-      border: 1px solid rgba(220, 53, 69, 0.2)
-      color: #842029
-
-    .detail-alert-warning
-      background-color: rgba(255, 193, 7, 0.1)
-      border: 1px solid rgba(255, 193, 7, 0.3)
-      color: #664d03
-
-    .detail-file
-      margin-left: 12px
-      margin-top: 4px
-
     .last-checked
       margin-top: 16px
       font-size: 0.85rem
       color: #6c757d
   `],
-  imports: [PageComponent, FontAwesomeModule, NgClass, DatePipe, TooltipDirective]
+  imports: [PageComponent, FontAwesomeModule, NgClass, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, RouterLink, FormsModule]
 })
 export class MigrationHealthComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger(MigrationHealthComponent, NgxLoggerLevel.ERROR);
   private crossEnvironmentHealthService = inject(CrossEnvironmentHealthService);
+  private router = inject(Router);
+  private activatedRoute = inject(ActivatedRoute);
   protected dateUtils = inject(DateUtilsService);
 
   faCheckCircle = faCheckCircle;
@@ -515,10 +581,10 @@ export class MigrationHealthComponent implements OnInit {
   faQuestionCircle = faQuestionCircle;
   faSpinner = faSpinner;
   faRedo = faRedo;
-  faExternalLinkAlt = faExternalLinkAlt;
 
   HealthSortColumn = HealthSortColumn;
   ASCENDING = ASCENDING;
+  AdminPlatformPath = AdminPlatformPath;
 
   healthResponse: CrossEnvironmentHealthResponse | null = null;
   loading = false;
@@ -527,9 +593,19 @@ export class MigrationHealthComponent implements OnInit {
   sortDirection: string = ASCENDING;
   hostnameHealth: CrossEnvironmentHostnameHealth | null = null;
   loadingHostnameHealth = false;
+  search = "";
 
   ngOnInit() {
+    this.search = this.activatedRoute.snapshot.queryParams[StoredValue.SEARCH] || "";
     this.refresh();
+  }
+
+  onSearchChange(value: string): void {
+    this.search = value;
+    this.router.navigate([], {
+      queryParams: { [StoredValue.SEARCH]: value.trim() || null },
+      queryParamsHandling: "merge"
+    });
   }
 
   async refresh() {
@@ -563,14 +639,37 @@ export class MigrationHealthComponent implements OnInit {
     return this.hostnameHealth?.environments?.find(report => report.environmentName === environmentName) || null;
   }
 
-  hostnameBadgeClass(report: HostnameHealthReport): string {
-    return report.problemCount === 0 ? "badge-healthy" : "badge-unreachable";
+  setupQueryParams(env: EnvironmentHealthCheck): Record<string, string> {
+    return {
+      [StoredValue.TAB]: kebabCase(EnvironmentSetupTab.CREATE),
+      [StoredValue.SETUP_MODE]: SetupMode.MANAGE,
+      [StoredValue.MANAGE_ACTION]: ManageAction.MODIFY,
+      [StoredValue.ENVIRONMENT]: env.environment
+    };
   }
 
-  hostnameTooltip(report: HostnameHealthReport): string {
-    return report.hostnames
-      .map(hostname => `${hostname.hostname}: ${hostname.message}`)
-      .join("\n");
+  siteHostname(env: EnvironmentHealthCheck): string {
+    return hostFromUrl(env.adminUrl);
+  }
+
+  displayedHostnames(env: EnvironmentHealthCheck): string[] {
+    const report = this.hostnameReportFor(env.environment);
+    const mapped = (report?.hostnames || []).filter(item =>
+      item.origin === HostnameOrigin.SITE_URL
+      || item.origin === HostnameOrigin.CUSTOM_DOMAIN
+      || item.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
+    if (mapped.length) {
+      return mapped.map(item => item.hostname);
+    } else {
+      const site = this.siteHostname(env);
+      return site ? [site] : [];
+    }
+  }
+
+  hostnameTooltipFor(env: EnvironmentHealthCheck, host: string): string {
+    const report = this.hostnameReportFor(env.environment);
+    const match = report?.hostnames?.find(item => item.hostname === host);
+    return match?.message || "Open site";
   }
 
   statusIcon(env: EnvironmentHealthCheck) {
@@ -597,7 +696,7 @@ export class MigrationHealthComponent implements OnInit {
     switch (env.checkStatus) {
       case EnvironmentHealthCheckStatus.HEALTHY: return "bg-success";
       case EnvironmentHealthCheckStatus.DEGRADED: return "bg-warning text-dark";
-      case EnvironmentHealthCheckStatus.UNREACHABLE: return "bg-dark";
+      case EnvironmentHealthCheckStatus.UNREACHABLE: return "bg-danger";
       case EnvironmentHealthCheckStatus.PENDING: return "bg-warning text-dark";
       default: return "bg-secondary";
     }
@@ -613,42 +712,24 @@ export class MigrationHealthComponent implements OnInit {
     }
   }
 
-  isDegraded(env: EnvironmentHealthCheck): boolean {
-    return env.checkStatus === EnvironmentHealthCheckStatus.DEGRADED;
-  }
-
-  isUnreachable(env: EnvironmentHealthCheck): boolean {
-    return env.checkStatus === EnvironmentHealthCheckStatus.UNREACHABLE;
-  }
-
   visibleFindings(env: EnvironmentHealthCheck): EnvironmentHealthFinding[] {
     return (env.findings || []).filter(finding => finding.severity !== EnvironmentHealthFindingSeverity.OK);
   }
 
-  findingBannerClass(finding: EnvironmentHealthFinding): string {
-    if (finding.severity === EnvironmentHealthFindingSeverity.FAIL) {
-      return "detail-alert-danger";
-    } else {
-      return "detail-alert-warning";
-    }
+  primaryFinding(env: EnvironmentHealthCheck): EnvironmentHealthFinding | null {
+    return this.visibleFindings(env)[0] || null;
   }
 
-  findingLabel(finding: EnvironmentHealthFinding): string {
-    if (finding.name === EnvironmentHealthCheckName.PUBLIC_HTTP) {
-      return "Public site";
-    } else if (finding.name === EnvironmentHealthCheckName.CERTIFICATE) {
-      return "Certificate";
-    } else if (finding.name === EnvironmentHealthCheckName.MACHINE) {
-      return "Fly app";
-    } else if (finding.name === EnvironmentHealthCheckName.MIGRATIONS) {
-      return "Migrations";
-    } else {
-      return finding.name;
-    }
+  findingsTooltip(env: EnvironmentHealthCheck): string {
+    return this.visibleFindings(env).map(finding => finding.message).join("\n");
   }
 
-  failedFiles(env: EnvironmentHealthCheck) {
-    return (env.healthResponse?.migrations?.files || []).filter(f => f.status === MigrationFileStatus.FAILED);
+  findingTextClass(env: EnvironmentHealthCheck): string {
+    if (env.checkStatus === EnvironmentHealthCheckStatus.UNREACHABLE) {
+      return "env-finding-error";
+    } else {
+      return "env-finding-warning";
+    }
   }
 
   toggleSort(column: HealthSortColumn) {
@@ -661,7 +742,7 @@ export class MigrationHealthComponent implements OnInit {
   }
 
   sortedEnvironments(): EnvironmentHealthCheck[] {
-    const environments = this.healthResponse?.environments || [];
+    const environments = (this.healthResponse?.environments || []).filter(env => this.matchesSearch(env));
     if (this.sortColumn === HealthSortColumn.STATUS) {
       const ranked = [...environments].sort((left, right) => {
         const rankDiff = this.statusRank(left.checkStatus) - this.statusRank(right.checkStatus);
@@ -675,6 +756,23 @@ export class MigrationHealthComponent implements OnInit {
     } else {
       const prefix = this.sortDirection === DESCENDING ? "-" : "";
       return [...environments].sort(sortBy(`${prefix}${this.sortColumn}`));
+    }
+  }
+
+  matchesSearch(env: EnvironmentHealthCheck): boolean {
+    const needle = this.search.trim().toLowerCase();
+    if (!needle) {
+      return true;
+    } else {
+      const haystack = [
+        env.environment,
+        env.appName,
+        env.adminUrl,
+        this.statusLabel(env),
+        env.healthResponse?.group?.shortName || "",
+        ...this.displayedHostnames(env)
+      ].join(" ").toLowerCase();
+      return haystack.includes(needle);
     }
   }
 

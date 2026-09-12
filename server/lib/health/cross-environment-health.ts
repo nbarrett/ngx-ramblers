@@ -89,19 +89,29 @@ async function checkSingleEnvironment(env: EnvironmentConfig, baseDomain: string
 
     const siteHref = healthResponse.group?.href;
     const visitorHost = visitorHostnameFromSiteUrl(siteHref, environmentName, baseDomain);
+    const ngxHost = `${environmentName}.${baseDomain}`;
     const publicUrl = `https://${visitorHost}`;
     const publicProbe = await probeHttp(visitorHost);
+    const ngxProbe = visitorHost === ngxHost || publicHttpSucceeded(publicProbe.httpStatus)
+      ? publicProbe
+      : await probeHttp(ngxHost);
     if (publicHttpSucceeded(publicProbe.httpStatus)) {
       findings.push({
         name: EnvironmentHealthCheckName.PUBLIC_HTTP,
         severity: EnvironmentHealthFindingSeverity.OK,
         message: `${publicUrl} returned HTTP ${publicProbe.httpStatus}`
       });
+    } else if (publicHttpSucceeded(ngxProbe.httpStatus)) {
+      findings.push({
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.WARNING,
+        message: `${visitorHost} did not respond; ${ngxHost} is up`
+      });
     } else {
       findings.push({
         name: EnvironmentHealthCheckName.PUBLIC_HTTP,
         severity: EnvironmentHealthFindingSeverity.FAIL,
-        message: publicSiteFailureMessage(publicUrl, publicProbe.httpStatus, true)
+        message: publicSiteFailureMessage(publicUrl, publicProbe.httpStatus)
       });
     }
     findings.push(...await certificateFindingsFor(env, [visitorHost]));
@@ -132,7 +142,9 @@ async function checkSingleEnvironment(env: EnvironmentConfig, baseDomain: string
       environment: environmentName,
       appName,
       url,
-      adminUrl: siteHref || `https://${visitorHost}`,
+      adminUrl: publicHttpSucceeded(publicProbe.httpStatus)
+        ? (siteHref || `https://${visitorHost}`)
+        : (publicHttpSucceeded(ngxProbe.httpStatus) ? `https://${ngxHost}` : (siteHref || `https://${visitorHost}`)),
       checkStatus,
       healthResponse,
       error: firstFailMessage(findings),
@@ -159,7 +171,7 @@ async function checkSingleEnvironment(env: EnvironmentConfig, baseDomain: string
       findings.push({
         name: EnvironmentHealthCheckName.PUBLIC_HTTP,
         severity: EnvironmentHealthFindingSeverity.FAIL,
-        message: publicSiteFailureMessage(publicUrl, publicProbe.httpStatus, false)
+        message: publicSiteFailureMessage(publicUrl, publicProbe.httpStatus)
       });
     }
     findings.push(...await certificateFindingsFor(env, [`${environmentName}.${baseDomain}`]));

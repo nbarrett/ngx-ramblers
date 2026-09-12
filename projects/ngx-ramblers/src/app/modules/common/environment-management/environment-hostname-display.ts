@@ -91,6 +91,10 @@ export function shouldOfferClearSiteUrl(hostname: HostnameStatus, environmentSub
     && !isEnvironmentSubdomainHost(hostname, environmentSubdomainHint);
 }
 
+export function canAttachUnmappedHostname(hostname: HostnameStatus): boolean {
+  return hostname.origin === HostnameOrigin.UNMAPPED;
+}
+
 export function canUseAsSiteUrl(hostname: HostnameStatus, statuses: HostnameStatus[]): boolean {
   const alreadySite = statuses.some(status =>
     status.origin === HostnameOrigin.SITE_URL && status.hostname === hostname.hostname);
@@ -128,6 +132,8 @@ export function hostnameActionStatement(hostname: HostnameStatus, environmentSub
     return hostname.message;
   } else if (hostname.origin === HostnameOrigin.SIBLING) {
     return "Optional. Use Apex / www redirect below only if visitors will type this address.";
+  } else if (hostname.origin === HostnameOrigin.UNMAPPED) {
+    return "In Cloudflare DNS but not attached to this environment. Attach it below if this site should serve it.";
   } else {
     return hostname.message;
   }
@@ -142,6 +148,7 @@ export function hostnameHasActions(
   return canRepairRedirect(hostname)
     || shouldOfferClearSiteUrl(hostname, environmentSubdomainHint)
     || canUseAsSiteUrl(hostname, statuses)
+    || canAttachUnmappedHostname(hostname)
     || (canRemoveSubdomain && isEnvironmentSubdomainHost(hostname, environmentSubdomainHint))
     || (!!hostname.redirectRuleTarget && !canRepairRedirect(hostname));
 }

@@ -320,6 +320,25 @@ describe("hostname-situation", () => {
     expect(situation.action).toContain("Apex / www redirect");
   });
 
+  it("should tell you to attach the Site URL when only the NGX host is serving", () => {
+    const situation = analyseHostnameSituation([
+      status({
+        hostname: "staging.group.org.uk",
+        origin: HostnameOrigin.SITE_URL,
+        health: HostnameHealth.UNREACHABLE,
+        healthy: false,
+        httpStatus: 0
+      }),
+      status({
+        hostname: "staging.group.ngx-ramblers.org.uk",
+        origin: HostnameOrigin.ENVIRONMENT_SUBDOMAIN
+      })
+    ]);
+    expect(situation.kind).toBe(HostnameSituationKind.SITE_URL_NOT_ATTACHED);
+    expect(situation.action).toContain("staging.group.org.uk");
+    expect(situation.action).toContain("Attach");
+  });
+
   it("should prefer Repair over every other live-site issue", () => {
     const situation = analyseHostnameSituation([
       status({hostname: "group.org.uk", origin: HostnameOrigin.CUSTOM_DOMAIN}),

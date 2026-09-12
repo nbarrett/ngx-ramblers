@@ -27,7 +27,6 @@ import { StoredValue } from "../../../models/ui-actions";
 import {
   firstGroupOwnedApex,
   hostnameMayHaveWwwCompanion,
-  relatedEnvironmentName,
   suggestedCustomDomainHostname
 } from "../../../functions/hosts";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
@@ -319,20 +318,18 @@ export class EnvironmentCustomDomains implements OnChanges {
   }
 
   groupOwnedApexHost(): string | null {
-    const relatedName = relatedEnvironmentName(this.environment?.name);
-    const sibling = this.environments.find(env => env.name === relatedName);
     const candidates = [
       this.hostnameHealthReport?.siteUrl,
       this.hostnameHealthReport?.relatedGroupSiteUrl,
       ...this.hostnameStatuses().map(hostname => hostname.hostname),
       ...this.customDomains().map(domain => domain.hostname),
-      ...(sibling?.customDomains || []).map(domain => domain.hostname)
+      ...this.environments.flatMap(env => (env.customDomains || []).map(domain => domain.hostname))
     ].filter((hostname): hostname is string => !!hostname);
     return firstGroupOwnedApex(candidates, ENVIRONMENT_SUBDOMAIN_BASE);
   }
 
   suggestedCustomDomain(): string | null {
-    return suggestedCustomDomainHostname(this.groupOwnedApexHost(), this.environment?.name);
+    return suggestedCustomDomainHostname(this.groupOwnedApexHost(), this.hostnameHealthReport?.siteUrl);
   }
 
   suggestedCustomDomainAlreadyAttached(): boolean {
@@ -526,8 +523,7 @@ export class EnvironmentCustomDomains implements OnChanges {
   applySuggestedValues(): void {
     this.apexRedirectHostname = this.suggestedApexRedirectHostname();
     const suggested = this.suggestedCustomDomain();
-    const alreadyKnown = !!suggested && this.hostnameStatuses().some(hostname => hostname.hostname === suggested);
-    if (!this.customDomainHostname && suggested && !this.suggestedCustomDomainAlreadyAttached() && !alreadyKnown) {
+    if (!this.customDomainHostname && suggested && !this.suggestedCustomDomainAlreadyAttached()) {
       this.customDomainHostname = suggested;
     }
   }

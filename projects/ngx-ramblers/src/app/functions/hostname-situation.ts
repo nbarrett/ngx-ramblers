@@ -138,6 +138,8 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
       && !isPlatformHost(site)
       && (ngx.health === HostnameHealth.SERVING || hostnameNeedsAction(ngx));
 
+    const siteUrlHost = hostnames.find(hostname => hostname.origin === HostnameOrigin.SITE_URL);
+
     if (national) {
       return situation(
         HostnameSituationKind.WRONG_SITE_URL,
@@ -150,6 +152,14 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
       );
     } else if (!site) {
       return siteNotLive(hostnames);
+    } else if (siteUrlHost && isPlatformHost(site) && !isPlatformHost(siteUrlHost) && hostnameNeedsAction(siteUrlHost)) {
+      return situation(
+        HostnameSituationKind.SITE_URL_NOT_ATTACHED,
+        HostnameSituationAlert.WARNING,
+        "The NGX host is up. The Site URL is not serving this environment",
+        `${named(site)} is working. ${named(siteUrlHost)} is stored as the public address but is not attached here.`,
+        `Attach ${named(siteUrlHost)} under Attach a custom domain.`
+      );
     } else if (notProxied.length > 0) {
       return situation(
         HostnameSituationKind.LIVE_REDIRECT_BROKEN,

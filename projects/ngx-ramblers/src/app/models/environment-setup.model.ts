@@ -907,6 +907,7 @@ export enum HostnameSituationKind {
   SITE_NOT_LIVE_ATTACH_DOMAIN = "site-not-live-attach-domain",
   SITE_NOT_LIVE_CHECK_DOMAIN = "site-not-live-check-domain",
   SITE_NOT_LIVE_EXTERNAL_DNS = "site-not-live-external-dns",
+  SITE_URL_NOT_ATTACHED = "site-url-not-attached",
   LIVE = "live",
   LIVE_SET_SITE_URL = "live-set-site-url",
   LIVE_REDIRECT_WAITING = "live-redirect-waiting",
@@ -937,7 +938,8 @@ export enum HostnameOrigin {
   CUSTOM_DOMAIN = "custom-domain",
   SIBLING = "sibling",
   ENVIRONMENT_SUBDOMAIN = "environment-subdomain",
-  REDIRECT_TARGET = "redirect-target"
+  REDIRECT_TARGET = "redirect-target",
+  UNMAPPED = "unmapped"
 }
 
 export enum DnsProvider {
@@ -978,6 +980,14 @@ export interface HostnameHealthReport {
   hostnames: HostnameStatus[];
   problemCount: number;
   checkedAt: number;
+  emailRouting?: HostnameEmailRoutingStatus;
+}
+
+export interface HostnameEmailRoutingStatus {
+  zone: string;
+  cloudflareMx: boolean;
+  message: string;
+  mailSettingsUrl?: string;
 }
 
 export interface CrossEnvironmentHostnameHealth {
@@ -1005,7 +1015,8 @@ export const hostnameOriginLabels: Record<HostnameOrigin, string> = {
   [HostnameOrigin.CUSTOM_DOMAIN]: "Custom domain",
   [HostnameOrigin.SIBLING]: "apex/www variant",
   [HostnameOrigin.ENVIRONMENT_SUBDOMAIN]: "Environment subdomain",
-  [HostnameOrigin.REDIRECT_TARGET]: "Redirect target"
+  [HostnameOrigin.REDIRECT_TARGET]: "Redirect target",
+  [HostnameOrigin.UNMAPPED]: "In Cloudflare, not attached"
 };
 
 export enum EnvironmentSetupTab {

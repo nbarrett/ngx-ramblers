@@ -123,6 +123,19 @@ describe("environmentHealthFromFindings", () => {
     })).toEqual(EnvironmentHealthCheckStatus.UNREACHABLE);
   });
 
+  it("is degraded when the site URL is down but another finding is only a warning", () => {
+    expect(environmentHealthFromFindings({
+      findings: [{
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.WARNING,
+        message: "staging.stagwalkers.org.uk did not respond; staging.stag-walkers.ngx-ramblers.org.uk is up"
+      }],
+      pendingMigrations: 0,
+      failedMigrations: false,
+      machineHealthStatus: HealthStatus.OK
+    })).toEqual(EnvironmentHealthCheckStatus.DEGRADED);
+  });
+
   it("is healthy when visitors can reach the site and the certificate is not close to expiry", () => {
     expect(environmentHealthFromFindings({
       findings: [{
@@ -216,8 +229,8 @@ describe("publicHttpSucceeded", () => {
 });
 
 describe("publicSiteFailureMessage", () => {
-  it("explains a 525 as origin TLS and notes that the Fly app responded", () => {
-    expect(publicSiteFailureMessage("https://berkshire-weekend-walkers.ngx-ramblers.org.uk", 525, true))
-      .toEqual("https://berkshire-weekend-walkers.ngx-ramblers.org.uk returned HTTP 525 (Cloudflare could not complete TLS to the origin). The Fly app itself responded, so this is the public hostname (DNS, TLS or Cloudflare), not a stopped machine.");
+  it("explains a 525 as origin TLS", () => {
+    expect(publicSiteFailureMessage("https://berkshire-weekend-walkers.ngx-ramblers.org.uk", 525))
+      .toEqual("berkshire-weekend-walkers.ngx-ramblers.org.uk returned HTTP 525 (origin TLS failed)");
   });
 });

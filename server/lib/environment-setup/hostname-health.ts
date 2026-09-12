@@ -4,7 +4,7 @@ import { configuredEnvironments } from "../environments/environments-config";
 import { listDnsRecords, zoneForHostname } from "../cloudflare/cloudflare-dns";
 import { getDynamicRedirectRules } from "../cloudflare/cloudflare-redirect-rules";
 import { apexWwwSibling } from "../cloudflare/hostname-siblings";
-import { CloudflareDnsConfig, CloudflareZone, DynamicRedirectRule, REDIRECT_PLACEHOLDER_IPV4 } from "../cloudflare/cloudflare.model";
+import { CloudflareDnsConfig, CloudflareZone, DnsRecordType, DynamicRedirectRule, REDIRECT_PLACEHOLDER_IPV4 } from "../cloudflare/cloudflare.model";
 import { connectToEnvironmentMongo, EnvironmentNotFoundError } from "./environment-context";
 import { dateTimeNowAsValue } from "../shared/dates";
 import {
@@ -12,13 +12,15 @@ import {
   CustomDomainEligibility,
   DnsProvider,
   HostnameHealth,
+  HostnameEmailRoutingStatus,
   HostnameHealthReport,
   HostnameOrigin,
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { hostnameNeedsAction } from "../../../projects/ngx-ramblers/src/app/functions/hostname-situation";
 import { CustomDomainEntry, EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { dnsProviderFromNameservers, hostFromUrl, ramblersNationalUrl, relatedEnvironmentName } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { apexHost, dnsProviderFromNameservers, hostFromUrl, ramblersNationalUrl, registrableApex } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { webFacingHostnamesFromDns } from "./zone-web-hosts";
 import { nameserversForHostname, publicAddressRecord } from "../shared/dns-nameservers";
 import { probeHttp } from "../health/public-http-probe";
 
@@ -65,17 +67,21 @@ async function siteHrefFor(environmentEntry: EnvironmentConfig): Promise<string>
 }
 
 async function relatedGroupSiteHostname(environmentName: string, environments: EnvironmentConfig[]): Promise<string> {
-  const relatedName = relatedEnvironmentName(environmentName);
-  const sibling = (environments || []).find(entry => entry.environment === relatedName);
-  if (!sibling) {
-    return "";
-  } else {
-    try {
-      return hostnameFromUrl(await siteHrefFor(sibling));
-    } catch (error) {
-      debugLog("Could not read related group site URL for %s: %s", relatedName, error instanceof Error ? error.message : String(error));
+  try {
+    const thisEntry = (environments || []).find(entry => entry.environment === environmentName);
+    const thisHref = thisEntry ? await siteHrefFor(thisEntry) : "";
+    const thisApex = registrableApex(hostnameFromUrl(thisHref));
+    if (!thisApex) {
       return "";
+    } else {
+      const siblings = await Promise.all((environments || [])
+        .filter(entry => entry.environment !== environmentName)
+        .map(async entry => hostnameFromUrl(await siteHrefFor(entry))));
+      return siblings.find(host => host && registrableApex(host) === thisApex) || "";
     }
+  } catch (error) {
+    debugLog("Could not read related group site URL for %s: %s", environmentName, error instanceof Error ? error.message : String(error));
+    return "";
   }
 }
 
@@ -339,9 +345,25 @@ export async function environmentHostnameHealth(environmentName: string): Promis
         return collected;
       }
     }, Promise.resolve([]));
-    const candidates: HostnameCandidate[] = siblings.reduce(
+    const withSiblings: HostnameCandidate[] = siblings.reduce(
       (accumulator: HostnameCandidate[], sibling: HostnameCandidate) => addCandidate(accumulator, sibling.hostname, sibling.origin),
       primaries);
+    const mappedHosts = new Set(withSiblings.map(candidate => candidate.hostname));
+    const relatedHost = relatedGroupSiteUrl;
+    if (relatedHost) {
+      mappedHosts.add(relatedHost);
+      mappedHosts.add(apexHost(relatedHost));
+    }
+    const zoneForUnmapped = siteHostname
+      ? await zoneForHostname(apiToken, siteHostname)
+      : null;
+    const unmappedHosts = zoneForUnmapped
+      ? webFacingHostnamesFromDns(await listDnsRecords({ apiToken, zoneId: zoneForUnmapped.id }), zoneForUnmapped.name)
+        .filter(hostname => !mappedHosts.has(hostname))
+      : [];
+    const candidates = unmappedHosts.reduce(
+      (accumulator, hostname) => addCandidate(accumulator, hostname, HostnameOrigin.UNMAPPED),
+      withSiblings);
     debugLog("Checking %s hostnames for environment %s", candidates.length, environmentName);
     const settled = await Promise.allSettled(candidates.map(candidate => statusFor(candidate, apiToken, zoneCache, rulesCache, nameserverCache)));
     const checked = settled
@@ -357,7 +379,8 @@ export async function environmentHostnameHealth(environmentName: string): Promis
     const targetStatuses = targetSettled
       .filter((result): result is PromiseFulfilledResult<HostnameStatus> => result.status === "fulfilled")
       .map(result => result.value);
-    const hostnames = annotateOptionalPairHost(annotateOptionalEnvironmentSubdomain(annotateNationalSiteUrl(validateRedirectTargets([...checked, ...targetStatuses]))));
+    const hostnames = annotateUnmapped(annotateOptionalPairHost(annotateOptionalEnvironmentSubdomain(annotateNationalSiteUrl(validateRedirectTargets([...checked, ...targetStatuses])))));
+    const emailRouting = await emailRoutingStatusFor(apiToken, siteHostname, relatedGroupSiteUrl);
 
     return {
       environmentName,
@@ -365,7 +388,8 @@ export async function environmentHostnameHealth(environmentName: string): Promis
       relatedGroupSiteUrl,
       hostnames,
       problemCount: hostnames.filter(hostnameNeedsAction).length,
-      checkedAt: dateTimeNowAsValue()
+      checkedAt: dateTimeNowAsValue(),
+      emailRouting
     };
   }
 }
@@ -418,6 +442,63 @@ export function annotateOptionalEnvironmentSubdomain(hostnames: HostnameStatus[]
       };
     }
   });
+}
+
+function annotateUnmapped(hostnames: HostnameStatus[]): HostnameStatus[] {
+  return hostnames.map(status => {
+    if (status.origin !== HostnameOrigin.UNMAPPED) {
+      return status;
+    } else {
+      return {
+        ...status,
+        healthy: false,
+        message: "DNS exists in Cloudflare but this hostname is not attached to this environment."
+      };
+    }
+  });
+}
+
+function mailSettingsHost(siteHostname: string, relatedGroupSiteUrl: string, zoneName: string): string {
+  const related = relatedGroupSiteUrl || "";
+  if (siteHostname === zoneName || siteHostname === `www.${zoneName}`) {
+    return siteHostname;
+  } else if (related === zoneName || related === `www.${zoneName}`) {
+    return related;
+  } else {
+    return siteHostname;
+  }
+}
+
+async function emailRoutingStatusFor(apiToken: string, siteHostname: string, relatedGroupSiteUrl: string): Promise<HostnameEmailRoutingStatus | undefined> {
+  if (!siteHostname) {
+    return undefined;
+  } else {
+    const zone = await zoneForHostname(apiToken, siteHostname);
+    const underZone = !!zone && (apexHost(siteHostname) === zone.name || siteHostname.endsWith(`.${zone.name}`));
+    if (!zone || !underZone) {
+      return undefined;
+    } else {
+      const mx = await listDnsRecords({ apiToken, zoneId: zone.id }, zone.name, DnsRecordType.MX);
+      const cloudflareMx = mx.length > 0 && mx.every(record => (record.content || "").includes("mx.cloudflare.net"));
+      const mailHost = mailSettingsHost(siteHostname, relatedGroupSiteUrl, zone.name);
+      const mailSettingsUrl = mailHost ? `https://${mailHost}/admin/mail-settings` : "";
+      if (cloudflareMx) {
+        return {
+          zone: zone.name,
+          cloudflareMx: true,
+          message: `Incoming mail for ${zone.name} uses Cloudflare Email Routing.`,
+          mailSettingsUrl: mailSettingsUrl || undefined
+        };
+      } else {
+        return {
+          zone: zone.name,
+          cloudflareMx: false,
+          message: `Incoming mail for ${zone.name} still uses the previous MX, not Cloudflare Email Routing. On the live site, open Mail Settings and create the Cloudflare MX records when you are ready to move forwarding.`,
+          mailSettingsUrl: mailSettingsUrl || undefined
+        };
+      }
+    }
+  }
 }
 
 function annotateNationalSiteUrl(hostnames: HostnameStatus[]): HostnameStatus[] {
