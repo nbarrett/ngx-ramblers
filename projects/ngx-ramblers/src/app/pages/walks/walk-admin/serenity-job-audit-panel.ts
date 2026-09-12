@@ -9,6 +9,7 @@ import { openSerenityReport } from "../../../functions/serenity-report";
 import { isRamblersAuditNoise } from "../../../models/ramblers-audit-noise";
 import { AuditType, FileUploadSummary, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
 import { SerenityFeature } from "../../../models/serenity-feature.model";
+import { isUploadFinishedMessage } from "../../../models/integration-worker.model";
 import { SortDirection } from "../../../models/sort.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -173,7 +174,9 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
         ? [{fileName: this.fileName, status: Status.ACTIVE}]
         : [];
       this.sessions = currentSession.concat(sessions);
-      this.selectedSession = this.sessions.find(session => session.fileName === this.activeFileName()) || this.sessions[0] || null;
+      this.selectedSession = this.sessions.find(session => session.fileName === this.activeFileName())
+        || (this.fileName ? this.selectedSession : this.sessions[0])
+        || null;
       if (!this.fileName && this.selectedSession) {
         void this.refreshFromApi();
       }
@@ -280,7 +283,7 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   }
 
   private jobFinished(): boolean {
-    return this.audits.some(audit => audit.type === AuditType.SUMMARY);
+    return this.audits.some(audit => isUploadFinishedMessage(audit.message));
   }
 
   private refreshSelectedSessionFromAudits(): void {

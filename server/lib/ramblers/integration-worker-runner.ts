@@ -14,6 +14,8 @@ import {
   IntegrationWorkerAwsCredentials,
   IntegrationWorkerCallbackConfig,
   IntegrationWorkerEventType,
+  uploadFinishedMessage,
+  UploadOutcome,
   IntegrationWorkerProgressCallbackRequest,
   IntegrationWorkerReportUploadConfig,
   IntegrationWorkerResultCallbackRequest
@@ -361,9 +363,7 @@ export async function executeRamblersUploadJobOnWorker(
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
-      const payload = code === 0
-        ? `Upload completed for ${job.data.fileName} in ${elapsed}`
-        : `Upload ${signal ? "stopped" : "failed"} for ${job.data.fileName} after ${elapsed}`;
+      const payload = uploadFinishedMessage(job.data.fileName, elapsed, code === 0 ? UploadOutcome.COMPLETED : signal ? UploadOutcome.STOPPED : UploadOutcome.FAILED);
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, preparedFiles.jobPath)
         .finally(() => {
           removeRamblersUploadJobFiles(preparedFiles.jobPath);
