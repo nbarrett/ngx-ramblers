@@ -442,3 +442,44 @@ export function defaultEmailComposerState(): EmailComposerState {
     fragmentOrder: []
   };
 }
+
+function collectFragments(list: ComposerFragment[]): ComposerFragment[] {
+  return list.flatMap(fragment => {
+    if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) {
+      return [fragment, ...(fragment.columns ?? []).flatMap(column => collectFragments(column))];
+    } else {
+      return [fragment];
+    }
+  });
+}
+
+export function fragmentHasContent(fragment: ComposerFragment, state: EmailComposerState): boolean {
+  if (fragment.kind === ComposerFragmentKind.INTRO) {
+    return !!(state.introMarkdown ?? "").trim();
+  } else if (fragment.kind === ComposerFragmentKind.SIGNOFF) {
+    return !!(state.signoffTextMarkdown ?? "").trim();
+  } else if (fragment.kind === ComposerFragmentKind.ARTICLE) {
+    const block = (state.articleBlocks ?? []).find(article => article.id === fragment.id) ?? null;
+    return !!block && (!!(block.title ?? "").trim() || !!(block.markdown ?? "").trim() || !!block.image);
+  } else if (fragment.kind === ComposerFragmentKind.EVENTS) {
+    if (state.eventInclusion === EventInclusionMode.SINGLE_EVENT) {
+      return !!(state.singleEvent?.groupEvent?.title);
+    } else if (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
+      return (state.groupEvents ?? []).some(event => event.selected);
+    } else {
+      return false;
+    }
+  } else if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) {
+    return (fragment.committeeFileIds ?? []).length > 0;
+  } else if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) {
+    return (fragment.columns ?? []).some(column => column.some(child => fragmentHasContent(child, state)));
+  } else {
+    return false;
+  }
+}
+
+export function fragmentIdsWithContent(state: EmailComposerState): string[] {
+  return collectFragments(state.fragmentOrder ?? [])
+    .filter(fragment => fragmentHasContent(fragment, state))
+    .map(fragment => fragment.id);
+}

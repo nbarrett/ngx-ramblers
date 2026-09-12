@@ -124,6 +124,7 @@ import {
   composerSenderIdentities,
   defaultBrandedSenderEmail,
   defaultEmailComposerState,
+  fragmentIdsWithContent,
   syncedRecipientAddressMode,
   defaultNewsletterSettings,
   defaultReleaseNoteUpdateDefaults,
@@ -6373,6 +6374,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
     this.applyDefaultListIfNeeded();
     this.syncRecipientAddressMode();
+    this.expandFragmentsWithContent();
+  }
+
+  private expandFragmentsWithContent(): void {
+    this.ensureFragmentOrder();
+    this.expandedFragmentIds = new Set(fragmentIdsWithContent(this.state));
   }
 
   protected async deleteDraft(id: string): Promise<void> {
