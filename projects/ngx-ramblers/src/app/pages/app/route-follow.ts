@@ -52,7 +52,6 @@ import {
   RouteFollowSheetState,
   RouteFollowPayload,
   RouteFollowProgress,
-  RouteFollowQueryParam,
   RouteFollowReturnDirection,
   RouteFollowSession,
   RouteFollowSource,
@@ -64,6 +63,11 @@ import {
   FollowMapScaleBar,
   compassHeadingLabel,
   compassTapeMarks,
+  routeAlignedMapHeading,
+  FollowPointerSize,
+  FOLLOW_POINTER_SIZES,
+  followPointerPixels,
+  followPointerSizeFrom,
   followLineColours,
   followMapScaleBar,
   formatMapSaveProgress,
@@ -76,6 +80,7 @@ import {
   ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
   ROUTE_FOLLOW_NETWORK_TIMEOUT_MS,
   RouteFollowOfflineStatus,
+  RouteWaypointKind,
   sheetStateAfterDrag,
   RouteBranch,
   ROUTE_FORK_PROMPT_METRES
@@ -337,9 +342,21 @@ import proj4 from "proj4";
                 <a [href]="osErrorHref" target="_blank" rel="noopener">Report an error</a>
               </p>
             }
-            @if (styleRoute || directedWaypoints.length) {
-              <p class="follow-style-heading">While following</p>
-            }
+            <p class="follow-style-heading">While following</p>
+            <p class="follow-option-label">Location pointer</p>
+            <div class="follow-progress-paint follow-pointer-sizes" role="group" aria-label="Location pointer size">
+              @for (choice of pointerSizeChoices; track choice.size) {
+                <button type="button" class="btn btn-sm follow-progress-paint-btn"
+                        [class.btn-primary]="pointerSize === choice.size"
+                        [class.btn-quiet]="pointerSize !== choice.size"
+                        (click)="setPointerSize(choice.size)">
+                  <span class="follow-pointer-dot"
+                        [style.width.px]="pointerPixels(choice.size).width / 2"
+                        [style.height.px]="pointerPixels(choice.size).width / 2"></span>
+                  {{ choice.label }}
+                </button>
+              }
+            </div>
             @if (directedWaypoints.length) {
               <div class="form-check form-switch follow-option-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="follow-directions-on-map"
@@ -791,6 +808,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected showDirections = false;
   protected directionsOnMap = true;
   protected stepPinsOnMap = true;
+  protected pointerSize = FollowPointerSize.MEDIUM;
+  protected readonly pointerSizeChoices = FOLLOW_POINTER_SIZES;
+
+  pointerPixels(size: FollowPointerSize): {width: number; height: number} {
+    return followPointerPixels(size);
+  }
   private stylePickerFromProvider = MapProvider.OS;
   private stylePickerFromStyle = DEFAULT_OS_STYLE;
   protected mapProvider: MapProvider = MapProvider.OS;
@@ -826,6 +849,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.progressPaint = routeFollowProgressPaintFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_PROGRESS_PAINT, RouteFollowProgressPaint.COLOUR_WALKED));
     this.directionsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_DIRECTIONS_ON_MAP, true);
     this.stepPinsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_STEP_PINS_ON_MAP, true);
+    this.pointerSize = followPointerSizeFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_POINTER_SIZE, FollowPointerSize.MEDIUM));
     this.followService.setPreviewSpeed(this.previewSpeed);
     this.showPreview = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     this.tooltipsEnabled = this.appShell.platform() === AppInstallPlatform.OTHER
@@ -850,13 +874,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.rememberHowWeArrived();
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
       void this.load(
-        params.get(RouteFollowQueryParam.PATH),
-        params.get(RouteFollowQueryParam.ROUTE_ID),
-        params.get(RouteFollowQueryParam.WALK_ID),
-        params.get(RouteFollowQueryParam.RAMBLERS_SLUG),
-        params.get(RouteFollowQueryParam.OS_MAPS_ROUTE_ID),
-        Number(params.get(RouteFollowQueryParam.TRACK)) || 0,
-        viaFromQuery(params.get(RouteFollowQueryParam.VIA))
+        params.get(StoredValue.FOLLOW_PATH),
+        params.get(StoredValue.ROUTE_ID),
+        params.get(StoredValue.WALK_ID),
+        params.get(StoredValue.RAMBLERS_SLUG),
+        params.get(StoredValue.OS_MAPS_ROUTE_ID),
+        Number(params.get(StoredValue.TRACK)) || 0,
+        viaFromQuery(params.get(StoredValue.VIA))
       );
     }));
   }
@@ -929,6 +953,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   get creatingLine(): boolean {
     return this.canEditRoute && !this.hasLine;
+  }
+
+  get drawingNewLine(): boolean {
+    return this.progress?.mode === RouteFollowMode.EDITING && this.originalEditCount === 0;
+  }
+
+  get showingPlanningAnchors(): boolean {
+    return this.creatingLine || this.drawingNewLine;
   }
 
   get styleDirty(): boolean {
@@ -1159,6 +1191,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.refreshWaypointPins();
   }
 
+  setPointerSize(size: FollowPointerSize): void {
+    if (this.pointerSize !== size) {
+      this.pointerSize = size;
+      this.uiActions.saveValueFor(StoredValue.FOLLOW_POINTER_SIZE, size);
+      this.clearPointer();
+      this.redraw();
+    }
+  }
+
   closeDirections(): void {
     this.showDirections = false;
   }
@@ -1286,7 +1327,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private applyHeadingUp(animate = false): void {
     const gestures = this.gestures || (this.mapRef ? mapGesturesFor(this.mapRef) : null);
     this.gestures = gestures;
-    const next = -this.currentHeading();
+    const next = -this.routeMapHeading();
     if (Math.abs(mapAngleDelta(this.mapBearing, next)) >= ROUTE_FOLLOW_HEADING_UP_MIN_DELTA) {
       if (gestures) {
         gestures.setBearing(next, animate);
@@ -1307,6 +1348,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else {
       return 0;
     }
+  }
+
+  private routeMapHeading(): number {
+    const fallback = this.payload && this.payload.points.length >= 2
+      ? this.followService.headingBetween(this.payload.points[0], this.payload.points[1])
+      : 0;
+    return routeAlignedMapHeading(this.progress?.routeHeading ?? null, fallback);
   }
 
   cycleAppearance(): void {
@@ -1847,11 +1895,26 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private addEditPointAt(latLng: L.LatLng, containerPoint: L.Point): void {
-    if (this.editVertices.length < 2) {
-      this.insertEditVertex({latitude: latLng.lat, longitude: latLng.lng}, this.editVertices.length - 1);
+    const clicked = {latitude: latLng.lat, longitude: latLng.lng};
+    const start = this.editVertices.length === 0 && this.drawingNewLine ? this.startWaypoint() : null;
+    if (start && this.isSameLatLng(start, clicked)) {
+      this.insertEditVertex(clicked, -1);
+    } else if (start) {
+      this.insertEditVertex({latitude: start.latitude, longitude: start.longitude}, -1);
+      this.insertEditVertex(clicked, 0);
+    } else if (this.editVertices.length < 2) {
+      this.insertEditVertex(clicked, this.editVertices.length - 1);
     } else {
       this.insertPointOnRoute(latLng, containerPoint);
     }
+  }
+
+  private startWaypoint(): RouteFollowWaypoint | null {
+    return this.payload?.waypoints?.find(waypoint => waypoint.kind === RouteWaypointKind.START) || null;
+  }
+
+  private isSameLatLng(a: {latitude: number; longitude: number}, b: {latitude: number; longitude: number}): boolean {
+    return a.latitude === b.latitude && a.longitude === b.longitude;
   }
 
   private onVertexDragStart(index: number, handle: L.Marker): void {
@@ -1958,7 +2021,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private insertOffRouteVertex(click: {latitude: number; longitude: number}): void {
-    this.insertEditVertex(click, editExtendAfterIndex(this.editVertices, click));
+    const afterIndex = this.drawingNewLine ? this.editVertices.length - 1 : editExtendAfterIndex(this.editVertices, click);
+    this.insertEditVertex(click, afterIndex);
   }
 
   private deleteVertexNear(containerPoint: L.Point): void {
@@ -2360,17 +2424,69 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private refreshWaypointPins(): void {
     this.waypointGroup.clearLayers();
     const editing = this.progress?.mode === RouteFollowMode.EDITING || this.progress?.mode === RouteFollowMode.RECORDING;
-    if (this.payload && this.stepPinsOnMap && !editing) {
-      this.directedWaypoints.forEach((waypoint, index) => {
+    if (this.payload && ((this.stepPinsOnMap && !editing) || this.showingPlanningAnchors)) {
+      const displayedWaypoints = this.showingPlanningAnchors
+        ? this.payload.waypoints.filter(waypoint => waypoint.kind === RouteWaypointKind.START || waypoint.kind === RouteWaypointKind.END)
+        : this.directedWaypoints;
+      displayedWaypoints.forEach((waypoint, index) => {
+        const draggableStart = this.drawingNewLine && waypoint.kind === RouteWaypointKind.START;
         const pin = L.marker([waypoint.latitude, waypoint.longitude], {
-          icon: this.markerStyle.numberedMarkerIcon(this.waypointNumber(waypoint, index), this.mapProvider, this.osStyle),
+          icon: this.showingPlanningAnchors && waypoint.kind
+            ? this.markerStyle.routeAnchorIcon(waypoint.kind)
+            : this.markerStyle.numberedMarkerIcon(this.waypointNumber(waypoint, index), this.mapProvider, this.osStyle),
           keyboard: false,
-          zIndexOffset: 500
+          zIndexOffset: 500,
+          draggable: draggableStart
         });
-        pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        if (draggableStart) {
+          pin.on("dragend", event => this.zone.run(() => this.onStartAnchorDragEnd(waypoint, event.target as L.Marker)));
+        }
+        if (this.drawingNewLine) {
+          const finish = waypoint.kind === RouteWaypointKind.END;
+          pin.bindTooltip(finish ? "Click to add the finish point" : "Click here to start the route", {direction: "top", offset: [0, -36]});
+          pin.on("click", event => this.zone.run(() => {
+            L.DomEvent.stop(event);
+            this.addPlanningAnchor(waypoint);
+          }));
+        } else if (this.showingPlanningAnchors) {
+          pin.bindTooltip(waypoint.kind === RouteWaypointKind.END ? "Defined finish for this walk" : "Defined start for this walk", {direction: "top", offset: [0, -36]});
+          pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        } else {
+          pin.on("click", () => this.zone.run(() => this.browseWaypoint(waypoint)));
+        }
         this.waypointGroup.addLayer(pin);
       });
     }
+  }
+
+  private addPlanningAnchor(waypoint: RouteFollowWaypoint): void {
+    if (this.mapRef) {
+      const latLng = L.latLng(waypoint.latitude, waypoint.longitude);
+      this.addEditPointAt(latLng, this.mapRef.latLngToContainerPoint(latLng));
+      if (waypoint.kind === RouteWaypointKind.END) {
+        this.persistMessage = "Finish reached. Save the route when you are happy with it.";
+      } else {
+        this.persistMessage = "Route started. Continue clicking the map towards the finish.";
+      }
+    }
+  }
+
+  private onStartAnchorDragEnd(waypoint: RouteFollowWaypoint, marker: L.Marker): void {
+    const latLng = marker.getLatLng();
+    const moved = {latitude: latLng.lat, longitude: latLng.lng};
+    const anchoredToLine = this.editVertices.length > 0 && this.isSameLatLng(this.editVertices[0], waypoint);
+    this.payload = {
+      ...this.payload,
+      waypoints: this.payload.waypoints.map(existing => existing.id === waypoint.id ? {...existing, ...moved} : existing)
+    };
+    if (anchoredToLine) {
+      this.editVertices = this.editVertices.map((vertex, index) => index === 0 ? moved : vertex);
+      this.followService.replaceTrack(this.editVertices);
+      this.syncEditLineFromVertices();
+      this.refreshEditHandles();
+    }
+    this.refreshArrows();
+    this.redraw();
   }
 
   private refreshArrows(): void {
@@ -2412,11 +2528,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       if (chevron) {
         chevron.style.transform = `rotate(${heading || 0}deg)`;
       } else {
-        this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(heading));
+        this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(heading, this.pointerSize));
       }
     } else if (this.mapRef) {
       this.pointerMarker = L.marker([latitude, longitude], {
-        icon: this.markerStyle.followLocationIcon(heading),
+        icon: this.markerStyle.followLocationIcon(heading, this.pointerSize),
         zIndexOffset: 1200,
         keyboard: false
       });
@@ -2439,12 +2555,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private refreshHeadingVisuals(): void {
     this.refreshTape();
+    if (this.headingUp) {
+      this.applyHeadingUp();
+    }
     const point = this.progress?.position;
     if (point) {
       this.syncPointer(point.latitude, point.longitude, this.currentHeading());
-    }
-    if (this.headingUp) {
-      this.applyHeadingUp();
     }
   }
 
@@ -2503,15 +2619,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         : 0;
       const point = this.progress?.position || startPoint;
       const heading = this.progress?.heading ?? this.progress?.routeHeading ?? routeHeading;
+      if (this.headingUp) {
+        this.applyHeadingUp();
+      }
       if (editing) {
         this.clearPointer();
       } else if (point) {
         this.syncPointer(point.latitude, point.longitude, heading);
       } else {
         this.clearPointer();
-      }
-      if (this.headingUp) {
-        this.applyHeadingUp();
       }
       if (this.followUser && this.mapRef && this.progress?.position) {
         this.mapRef.panTo([this.progress.position.latitude, this.progress.position.longitude]);
@@ -2523,9 +2639,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.mapRef && this.payload?.points?.length >= 2) {
       const bounds = L.latLngBounds(this.payload.points.map(point => [point.latitude, point.longitude] as [number, number]));
       this.mapRef.fitBounds(bounds, {paddingTopLeft: [36, 72], paddingBottomRight: [36, 220]});
+    } else if (this.mapRef && this.payload?.waypoints?.length >= 2) {
+      const bounds = L.latLngBounds(this.payload.waypoints.map(waypoint => [waypoint.latitude, waypoint.longitude] as [number, number]));
+      this.mapRef.fitBounds(bounds, {paddingTopLeft: [36, 72], paddingBottomRight: [36, 220], maxZoom: 16});
     } else if (this.mapRef && this.payload?.waypoints?.length) {
       const start = this.payload.waypoints[0];
-      this.mapRef.setView([start.latitude, start.longitude], Math.max(this.mapRef.getZoom(), 7));
+      this.mapRef.setView([start.latitude, start.longitude], Math.max(this.mapRef.getZoom(), 16));
     }
   }
 

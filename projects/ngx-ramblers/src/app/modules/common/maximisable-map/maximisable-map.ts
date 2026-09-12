@@ -30,9 +30,10 @@ export interface MaximisableMapState {
           </div>
           <button type="button" class="btn btn-primary btn-sm map-full-screen-exit"
                   (click)="exitFullScreen()"
+                  title="Exit full screen"
                   aria-label="Exit full screen map">
-            <fa-icon [icon]="faCompress" class="me-1"/>
-            Exit full screen
+            <fa-icon [icon]="faCompress" class="map-full-screen-exit-icon"/>
+            <span class="map-full-screen-exit-label">Exit full screen</span>
           </button>
         </div>
       } @else if (enabled) {
@@ -73,6 +74,10 @@ export interface MaximisableMapState {
       display: flex
       flex-direction: column
       gap: 10px
+      height: 100%
+      max-height: 100dvh
+      overflow: hidden
+      overscroll-behavior: none
     .map-full-screen-container .map-full-screen-bar
       display: flex
       flex-wrap: wrap
@@ -114,6 +119,30 @@ export interface MaximisableMapState {
       flex-shrink: 0
       min-height: 40px
       white-space: nowrap
+      display: inline-flex
+      align-items: center
+    .map-full-screen-container .map-full-screen-exit-icon
+      margin-right: 0.25rem
+    @media (max-width: 767.98px)
+      .map-full-screen-container
+        padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))
+        gap: 6px
+      .map-full-screen-container .map-full-screen-bar
+        flex-wrap: nowrap
+        min-height: 40px
+        padding: 0.25rem 0.4rem 0.25rem 0.65rem
+        gap: 0.5rem
+      .map-full-screen-container .map-full-screen-bar-hint
+        display: none
+      .map-full-screen-container .map-full-screen-exit-label
+        display: none
+      .map-full-screen-container .map-full-screen-exit
+        width: 40px
+        padding-left: 0
+        padding-right: 0
+        justify-content: center
+      .map-full-screen-container .map-full-screen-exit-icon
+        margin-right: 0
     .map-full-screen-container .maximisable-map-fill
       flex: 1 1 auto
       height: auto !important
@@ -166,6 +195,7 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
     this.restoreFromBody();
+    this.lockBodyScroll(false);
   }
 
   private teleportToBody(): void {
@@ -184,6 +214,10 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
       placeholder.remove();
     }
     this.fullScreenPlaceholder = null;
+  }
+
+  private lockBodyScroll(locked: boolean): void {
+    document.body.style.overflow = locked ? "hidden" : "";
   }
 
   private get cycle3(): MaximisableMapState[] {
@@ -225,8 +259,10 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
       this.fullScreen = fullScreen;
       if (this.fullScreen) {
         this.teleportToBody();
+        this.lockBodyScroll(true);
       } else {
         this.restoreFromBody();
+        this.lockBodyScroll(false);
       }
       if (this.syncToUrl) {
         this.uiActions.updateQueryParameters({

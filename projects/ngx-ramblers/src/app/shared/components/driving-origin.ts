@@ -17,7 +17,7 @@ import { CurrentLocationService } from "../../services/maps/current-location.ser
   template: `
     <div class="form-check form-check-inline d-flex align-items-center">
       <input [id]="name + '-driving-from-postcode'" type="radio" class="form-check-input" [name]="name" [disabled]="disabled"
-             [checked]="mode === DrivingOriginMode.POSTCODE" (change)="modeChange.emit(DrivingOriginMode.POSTCODE)"/>
+             [ngModel]="mode" [ngModelOptions]="{standalone: true}" (ngModelChange)="modeChange.emit($event)" [value]="DrivingOriginMode.POSTCODE"/>
       <label class="form-check-label text-nowrap" [for]="name + '-driving-from-postcode'">Driving from</label>
       <input #postcodeInput class="form-control form-control-sm text-uppercase ms-2 postcode-input" type="text" [disabled]="disabled"
              [ngModel]="postcode" [ngModelOptions]="{standalone: true}" (ngModelChange)="postcodeChange.emit($event)"
@@ -26,7 +26,7 @@ import { CurrentLocationService } from "../../services/maps/current-location.ser
     @if (currentLocation.available()) {
       <div class="form-check form-check-inline">
         <input [id]="name + '-driving-from-here'" type="radio" class="form-check-input" [name]="name" [disabled]="disabled"
-               [checked]="mode === DrivingOriginMode.MY_LOCATION" (change)="modeChange.emit(DrivingOriginMode.MY_LOCATION)"/>
+               [ngModel]="mode" [ngModelOptions]="{standalone: true}" (ngModelChange)="modeChange.emit($event)" [value]="DrivingOriginMode.MY_LOCATION"/>
         <label class="form-check-label text-nowrap" [for]="name + '-driving-from-here'"
                tooltip="Driving directions from where you are now" placement="top">
           Driving from my location

@@ -17,7 +17,11 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
     <div class="thumbnail-heading">{{ editingNow ? "Steps" : heading }}</div>
     @if (editing && !fullscreen) {
       <p class="text-muted small mb-2">
-        <a href="#" class="route-guide-link" (click)="fullScreen.emit(); $event.preventDefault()">Full screen</a> is the best place to edit these steps: a bigger map with each step beside it, where you can reword them, drag the pins along the route, and add or remove steps. You can reword, add and remove steps here too, but it is cramped and the pins cannot be moved.
+        @if (fullScreenAvailable) {
+          <a href="#" class="route-guide-link" (click)="fullScreen.emit(); $event.preventDefault()">Full screen</a> is the best place to edit these steps: a bigger map with each step beside it, where you can reword them, drag the pins along the route, and add or remove steps. You can reword, add and remove steps here too, but it is cramped and the pins cannot be moved.
+        } @else {
+          You can reword, add and remove steps here. Moving the pins needs a larger screen.
+        }
       </p>
     } @else {
       <p class="text-muted small mb-2">
