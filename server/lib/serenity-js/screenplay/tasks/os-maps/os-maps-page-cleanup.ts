@@ -16,53 +16,51 @@ async function timed<T>(name: string, action: () => Promise<T>): Promise<T> {
   return outcome;
 }
 
-const MARKETING_DISMISS_BUTTON_NAMES = [
-  /not right now/i,
-  /no thanks/i,
-  /maybe later/i,
-  /close popup/i
-];
+const MARKETING_DISMISS_BUTTON_PATTERN = "not right now|no thanks|maybe later|close popup";
+const COOKIE_ACCEPT_SELECTOR = "#ccc-notify-accept";
 
 export async function allowOsMapsGeolocation(native: NativePage): Promise<void> {
   await native.context().grantPermissions(["geolocation"]);
   await native.context().setGeolocation(UK_CENTRE_GEOLOCATION);
 }
 
-async function clickIfVisible(native: NativePage, locator: ReturnType<NativePage["getByRole"]>): Promise<boolean> {
-  if (await locator.first().isVisible().catch(() => false)) {
-    await locator.first().click({force: true}).catch(() => null);
+export async function acceptOsMapsCookieBanner(native: NativePage): Promise<boolean> {
+  const accept = native.locator(COOKIE_ACCEPT_SELECTOR);
+  if (await accept.first().isVisible().catch(() => false)) {
+    await accept.first().click({force: true}).catch(() => null);
+    await native.locator("#ccc-notify, #ccc-overlay, #ccc").first()
+      .waitFor({state: "hidden", timeout: 2000})
+      .catch(() => null);
     return true;
   } else {
-    return false;
+    return await acceptAnyCookieBannerButton(native);
   }
 }
 
-export async function acceptOsMapsCookieBanner(native: NativePage): Promise<boolean> {
-  const accept = native.locator("#ccc-notify-accept").or(native.getByRole("button", {name: /^accept$/i}));
-  if (await timed("cookie banner visibility check", () => accept.first().isVisible({timeout: 8000}).catch(() => false))) {
-    await timed("cookie banner click", () => accept.first().click({force: true}).catch(() => null));
-    await timed("cookie banner hidden wait", () => native.locator("#ccc-notify, #ccc-overlay, #ccc").first()
-      .waitFor({state: "hidden", timeout: 8000})
-      .catch(() => null));
-    return true;
-  } else {
-    return false;
-  }
+async function acceptAnyCookieBannerButton(native: NativePage): Promise<boolean> {
+  return await native.evaluate(() => {
+    const accept = (Array.from(document.querySelectorAll("button, [role='button']")) as HTMLElement[])
+      .find(element => (element.textContent || "").trim().toLowerCase() === "accept" && !!element.offsetParent);
+    if (accept) {
+      accept.click();
+      return true;
+    } else {
+      return false;
+    }
+  }).catch(() => false);
 }
 
 export async function dismissOsMapsMarketingPopups(native: NativePage): Promise<boolean> {
-  const dismissed = await MARKETING_DISMISS_BUTTON_NAMES.reduce(async (previous, name) => {
-    const previouslyDismissed = await previous;
-    const justDismissed = await clickIfVisible(native, native.getByRole("button", {name}));
-    return previouslyDismissed || justDismissed;
-  }, Promise.resolve(false));
-  const newMapTypeDialog = native.getByRole("dialog", {name: /new map type/i});
-  if (await newMapTypeDialog.isVisible().catch(() => false)) {
-    const dialogDismissed = await clickIfVisible(native, newMapTypeDialog.getByRole("button", {name: /not right now|close/i}));
-    return dismissed || dialogDismissed;
-  } else {
-    return dismissed;
-  }
+  return await native.evaluate((pattern: string) => {
+    const matcher = new RegExp(pattern, "i");
+    const clickable = Array.from(document.querySelectorAll("button, [role='button'], a")) as HTMLElement[];
+    const dismissals = clickable.filter(element => {
+      const label = `${element.textContent || ""} ${element.getAttribute("aria-label") || ""}`.trim();
+      return matcher.test(label) && !!element.offsetParent;
+    });
+    dismissals.forEach(element => element.click());
+    return dismissals.length > 0;
+  }, MARKETING_DISMISS_BUTTON_PATTERN).catch(() => false);
 }
 
 export async function removeOsMapsBlockingOverlays(native: NativePage): Promise<void> {
