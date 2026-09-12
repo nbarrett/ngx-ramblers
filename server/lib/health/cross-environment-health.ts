@@ -2,58 +2,182 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { environmentsConfigFromDatabase } from "../environments/environments-config";
 import { baseDomainFrom } from "../environment-setup/environment-context";
-import { dateTimeNow } from "../shared/dates";
+import { probeHttp } from "./public-http-probe";
+import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
+import { queryCertificates } from "../fly/fly-certificates";
+import { EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import {
   CrossEnvironmentHealthResponse,
   CrossEnvironmentHealthSummary,
   EnvironmentHealthCheck,
+  EnvironmentHealthCheckName,
   EnvironmentHealthCheckStatus,
-  HealthResponse,
-  HealthStatus
+  EnvironmentHealthFinding,
+  EnvironmentHealthFindingSeverity,
+  HealthResponse
 } from "../../../projects/ngx-ramblers/src/app/models/health.model";
+import {
+  CERT_EXPIRY_WARNING_DAYS,
+  certificateFinding,
+  environmentHealthFromFindings,
+  visitorHostnameFromSiteUrl,
+  publicHttpSucceeded,
+  publicSiteFailureMessage
+} from "./environment-check-status";
 
 const debugLog = debug(envConfig.logNamespace("cross-environment-health"));
 debugLog.enabled = true;
 
 const TIMEOUT_MS = 10000;
 
-async function checkSingleEnvironment(environmentName: string, appName: string, baseDomain: string): Promise<EnvironmentHealthCheck> {
+function firstFailMessage(findings: EnvironmentHealthFinding[]): string | undefined {
+  const fail = findings.find(finding => finding.severity === EnvironmentHealthFindingSeverity.FAIL);
+  const warning = findings.find(finding => finding.severity === EnvironmentHealthFindingSeverity.WARNING);
+  return fail?.message || warning?.message;
+}
+
+async function certificateFindingsFor(env: EnvironmentConfig, hostnames: string[]): Promise<EnvironmentHealthFinding[]> {
+  const apiToken = env.flyio?.apiKey;
+  const appName = env.flyio?.appName || `ngx-ramblers-${env.environment}`;
+  if (!apiToken) {
+    return hostnames.map(hostname => ({
+      name: EnvironmentHealthCheckName.CERTIFICATE,
+      severity: EnvironmentHealthFindingSeverity.WARNING,
+      message: `No Fly API token, so the certificate for ${hostname} could not be checked`
+    }));
+  } else {
+    try {
+      const certs = await queryCertificates({ apiToken, appName });
+      const nowMillis = dateTimeNowAsValue();
+      return hostnames.map(hostname => certificateFinding({
+        hostname,
+        cert: certs.find(item => item.hostname === hostname),
+        nowMillis,
+        warningDays: CERT_EXPIRY_WARNING_DAYS
+      }));
+    } catch (caught) {
+      const detail = caught instanceof Error ? caught.message : String(caught);
+      return [{
+        name: EnvironmentHealthCheckName.CERTIFICATE,
+        severity: EnvironmentHealthFindingSeverity.WARNING,
+        message: `Could not query Fly certificates: ${detail}`
+      }];
+    }
+  }
+}
+
+async function checkSingleEnvironment(env: EnvironmentConfig, baseDomain: string): Promise<EnvironmentHealthCheck> {
+  const environmentName = env.environment;
+  const appName = env.flyio?.appName || `ngx-ramblers-${environmentName}`;
   const url = `https://${appName}.fly.dev`;
   const fallbackAdminUrl = `https://${environmentName}.${baseDomain}`;
   const statusUrl = `${url}/api/system-status`;
   const startTime = dateTimeNow().toMillis();
+  const findings: EnvironmentHealthFinding[] = [];
 
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
     const response = await fetch(statusUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
-
-    const responseTimeMs = dateTimeNow().toMillis() - startTime;
     const healthResponse: Partial<HealthResponse> = await response.json();
-    const adminUrl = healthResponse.group?.href || fallbackAdminUrl;
+    findings.push({
+      name: EnvironmentHealthCheckName.MACHINE,
+      severity: EnvironmentHealthFindingSeverity.OK,
+      message: `Fly app responded at ${url}`
+    });
 
-    const checkStatus = healthResponse.status === HealthStatus.OK
-      ? EnvironmentHealthCheckStatus.HEALTHY
-      : healthResponse.migrations?.pending > 0 && !healthResponse.migrations?.failed
-        ? EnvironmentHealthCheckStatus.PENDING
-        : EnvironmentHealthCheckStatus.DEGRADED;
+    const siteHref = healthResponse.group?.href;
+    const visitorHost = visitorHostnameFromSiteUrl(siteHref, environmentName, baseDomain);
+    const publicUrl = `https://${visitorHost}`;
+    const publicProbe = await probeHttp(visitorHost);
+    if (publicHttpSucceeded(publicProbe.httpStatus)) {
+      findings.push({
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: `${publicUrl} returned HTTP ${publicProbe.httpStatus}`
+      });
+    } else {
+      findings.push({
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.FAIL,
+        message: publicSiteFailureMessage(publicUrl, publicProbe.httpStatus, true)
+      });
+    }
+    findings.push(...await certificateFindingsFor(env, [visitorHost]));
 
-    debugLog("Checked %s: %s (%dms)", environmentName, checkStatus, responseTimeMs);
+    if (healthResponse.migrations?.failed) {
+      findings.push({
+        name: EnvironmentHealthCheckName.MIGRATIONS,
+        severity: EnvironmentHealthFindingSeverity.FAIL,
+        message: "One or more database migrations have failed"
+      });
+    } else if ((healthResponse.migrations?.pending || 0) === 0) {
+      findings.push({
+        name: EnvironmentHealthCheckName.MIGRATIONS,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: "Database migrations are up to date"
+      });
+    }
 
-    return { environment: environmentName, appName, url, adminUrl, checkStatus, healthResponse, responseTimeMs };
-  } catch (error) {
+    const checkStatus = environmentHealthFromFindings({
+      findings,
+      pendingMigrations: healthResponse.migrations?.pending || 0,
+      failedMigrations: healthResponse.migrations?.failed === true,
+      machineHealthStatus: healthResponse.status
+    });
     const responseTimeMs = dateTimeNow().toMillis() - startTime;
-    debugLog("Failed to reach %s: %s (%dms)", environmentName, error.message, responseTimeMs);
-
+    debugLog("Checked %s: %s (%dms)", environmentName, checkStatus, responseTimeMs);
+    return {
+      environment: environmentName,
+      appName,
+      url,
+      adminUrl: siteHref || `https://${visitorHost}`,
+      checkStatus,
+      healthResponse,
+      error: firstFailMessage(findings),
+      findings,
+      responseTimeMs
+    };
+  } catch (caught) {
+    const flyError = caught instanceof Error ? caught.message : String(caught);
+    findings.push({
+      name: EnvironmentHealthCheckName.MACHINE,
+      severity: EnvironmentHealthFindingSeverity.FAIL,
+      message: `Fly app did not respond at ${url}: ${flyError}`
+    });
+    const publicHostname = visitorHostnameFromSiteUrl(undefined, environmentName, baseDomain);
+    const publicUrl = `https://${publicHostname}`;
+    const publicProbe = await probeHttp(publicHostname);
+    if (publicHttpSucceeded(publicProbe.httpStatus)) {
+      findings.push({
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.OK,
+        message: `${publicUrl} returned HTTP ${publicProbe.httpStatus}`
+      });
+    } else {
+      findings.push({
+        name: EnvironmentHealthCheckName.PUBLIC_HTTP,
+        severity: EnvironmentHealthFindingSeverity.FAIL,
+        message: publicSiteFailureMessage(publicUrl, publicProbe.httpStatus, false)
+      });
+    }
+    findings.push(...await certificateFindingsFor(env, [`${environmentName}.${baseDomain}`]));
+    const checkStatus = environmentHealthFromFindings({
+      findings,
+      pendingMigrations: 0,
+      failedMigrations: false
+    });
+    const responseTimeMs = dateTimeNow().toMillis() - startTime;
+    debugLog("Failed to reach %s via Fly: %s public=%s (%dms)", environmentName, flyError, publicProbe.httpStatus, responseTimeMs);
     return {
       environment: environmentName,
       appName,
       url,
       adminUrl: fallbackAdminUrl,
-      checkStatus: EnvironmentHealthCheckStatus.UNREACHABLE,
-      error: error.message,
+      checkStatus,
+      error: firstFailMessage(findings),
+      findings,
       responseTimeMs
     };
   }
@@ -68,47 +192,41 @@ export async function crossEnvironmentHealth(): Promise<CrossEnvironmentHealthRe
       environments: [],
       summary: { total: 0, healthy: 0, degraded: 0, unreachable: 0, pending: 0 }
     };
-  }
-
-  const baseDomain = baseDomainFrom(environmentsConfig);
-
-  const results = await Promise.allSettled(
-    environmentsConfig.environments.map(env => {
-      const appName = env.flyio?.appName || `ngx-ramblers-${env.environment}`;
-      return checkSingleEnvironment(env.environment, appName, baseDomain);
-    })
-  );
-
-  const environments: EnvironmentHealthCheck[] = results.map((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value;
-    }
-    const env = environmentsConfig.environments[index];
-    const appName = env.flyio?.appName || `ngx-ramblers-${env.environment}`;
-    return {
-      environment: env.environment,
-      appName,
-      url: `https://${appName}.fly.dev`,
-      adminUrl: `https://${env.environment}.${baseDomain}`,
-      checkStatus: EnvironmentHealthCheckStatus.UNREACHABLE,
-      error: result.reason?.message || "Unknown error",
-      responseTimeMs: 0
+  } else {
+    const baseDomain = baseDomainFrom(environmentsConfig);
+    const results = await Promise.allSettled(
+      environmentsConfig.environments.map(env => checkSingleEnvironment(env, baseDomain))
+    );
+    const environments: EnvironmentHealthCheck[] = results.map((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      } else {
+        const env = environmentsConfig.environments[index];
+        const appName = env.flyio?.appName || `ngx-ramblers-${env.environment}`;
+        return {
+          environment: env.environment,
+          appName,
+          url: `https://${appName}.fly.dev`,
+          adminUrl: `https://${env.environment}.${baseDomain}`,
+          checkStatus: EnvironmentHealthCheckStatus.UNREACHABLE,
+          error: result.reason?.message || "Unknown error",
+          findings: [],
+          responseTimeMs: 0
+        };
+      }
+    });
+    const summary: CrossEnvironmentHealthSummary = {
+      total: environments.length,
+      healthy: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.HEALTHY).length,
+      degraded: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.DEGRADED).length,
+      unreachable: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.UNREACHABLE).length,
+      pending: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.PENDING).length
     };
-  });
-
-  const summary: CrossEnvironmentHealthSummary = {
-    total: environments.length,
-    healthy: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.HEALTHY).length,
-    degraded: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.DEGRADED).length,
-    unreachable: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.UNREACHABLE).length,
-    pending: environments.filter(e => e.checkStatus === EnvironmentHealthCheckStatus.PENDING).length
-  };
-
-  debugLog("Cross-environment health check complete: %o", summary);
-
-  return {
-    timestamp: dateTimeNow().toISO(),
-    environments,
-    summary
-  };
+    debugLog("Cross-environment health check complete: %o", summary);
+    return {
+      timestamp: dateTimeNow().toISO(),
+      environments,
+      summary
+    };
+  }
 }
