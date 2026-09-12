@@ -263,6 +263,7 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
         const response = auditItems.response;
         if (isArray(response) && fileName === this.activeFileName()) {
           this.applyAudits(latestRecord ? this.audits.concat(response) : response);
+          this.refreshSelectedSessionFromAudits();
           this.stopRefreshLoopWhenFinished();
         }
       } catch {
@@ -273,8 +274,36 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   }
 
   private stopRefreshLoopWhenFinished(): void {
-    if (this.audits.some(audit => audit.type === AuditType.SUMMARY)) {
+    if (this.jobFinished()) {
       this.stopRefreshLoop();
+    }
+  }
+
+  private jobFinished(): boolean {
+    return this.audits.some(audit => audit.type === AuditType.SUMMARY);
+  }
+
+  private refreshSelectedSessionFromAudits(): void {
+    if (this.selectedSession && this.audits.length > 0) {
+      const auditTimes = this.audits.map(audit => audit.auditTime).filter(auditTime => !!auditTime);
+      const updated: FileUploadSummary = {
+        ...this.selectedSession,
+        status: this.sessionStatusFromAudits(),
+        earliestAuditTime: this.selectedSession.earliestAuditTime || Math.min(...auditTimes),
+        latestAuditTime: Math.max(...auditTimes)
+      };
+      this.selectedSession = updated;
+      this.sessions = this.sessions.map(session => session.fileName === updated.fileName ? updated : session);
+    }
+  }
+
+  private sessionStatusFromAudits(): Status {
+    if (this.audits.some(audit => audit.status === Status.ERROR || audit.errorResponse)) {
+      return Status.ERROR;
+    } else if (this.jobFinished()) {
+      return Status.SUCCESS;
+    } else {
+      return Status.ACTIVE;
     }
   }
 
