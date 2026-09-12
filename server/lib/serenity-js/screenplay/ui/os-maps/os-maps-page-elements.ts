@@ -1,5 +1,9 @@
 import { By, PageElement } from "@serenity-js/web";
 
+export const OS_MAPS_COOKIE_ACCEPT_SELECTOR = "#ccc-notify-accept";
+
+export const OS_MAPS_COOKIE_OVERLAY_SELECTOR = "#ccc-overlay";
+
 export const OS_MAPS_LOGIN_BUTTON_SELECTOR = ".header__right button[aria-label='Log in']";
 
 export class OsMapsPageElements {
@@ -39,6 +43,9 @@ export class OsMapsPageElements {
 
   public static confirmExportGpxButton = PageElement.located(By.css("button.export-button"))
     .describedAs("Export GPX file confirm button");
+
+  public static feedbackSurveyDismissButton = PageElement.located(By.role("button", {name: "No Thanks", exact: true}))
+    .describedAs("OS Maps feedback survey dismissal button");
 
   public static newMapTypeDismissButton = PageElement.located(By.role("button", {name: "NOT RIGHT NOW", exact: true}))
     .describedAs("OS Maps new map type dismissal button");

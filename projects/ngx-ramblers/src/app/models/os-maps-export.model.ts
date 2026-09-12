@@ -85,7 +85,6 @@ export interface OsMapsExportJobResult {
 
 export enum OsMapsPageState {
   UNRECOGNISED = "unrecognised",
-  COOKIE_PROMPT = "cookiePrompt",
   AUTHENTICATED = "authenticated",
   LOGIN_REQUIRED = "loginRequired",
   IDENTITY_PROVIDER = "identityProvider",

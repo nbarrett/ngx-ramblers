@@ -7,16 +7,6 @@ export enum AppPath {
   FOLLOW = "follow"
 }
 
-export enum RouteFollowQueryParam {
-  PATH = "path",
-  ROUTE_ID = "routeId",
-  WALK_ID = "walkId",
-  RAMBLERS_SLUG = "ramblersSlug",
-  OS_MAPS_ROUTE_ID = "osMapsRouteId",
-  TRACK = "track",
-  VIA = "via"
-}
-
 export enum RouteWaypointKind {
   START = "start",
   WAYPOINT = "waypoint",

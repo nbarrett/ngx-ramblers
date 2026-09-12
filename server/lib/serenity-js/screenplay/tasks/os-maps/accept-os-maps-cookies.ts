@@ -4,14 +4,14 @@ import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Page as NativePage } from "playwright-core";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
 
-export class DismissOsMapsOverlays extends Interaction {
+export class AcceptOsMapsCookies extends Interaction {
 
-  static now() {
-    return new DismissOsMapsOverlays();
+  static whenVisible() {
+    return new AcceptOsMapsCookies();
   }
 
   constructor() {
-    super("#actor dismisses OS Maps overlays");
+    super("#actor accepts the OS Maps cookie banner when it is visible");
   }
 
   async performAs(actor: UsesAbilities): Promise<void> {

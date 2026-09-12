@@ -32,7 +32,7 @@ import { UrlService } from "../../../services/url.service";
 import { PageComponent } from "../../../page/page.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { AppPath, RouteFollowQueryParam } from "../../../models/route-follow.model";
+import { AppPath } from "../../../models/route-follow.model";
 import { Router } from "@angular/router";
 import { OsMapsLoginRequiredAlertComponent } from "../walk-edit/os-maps-login-required-alert";
 import { SerenityJobAuditPanelComponent } from "./serenity-job-audit-panel";
@@ -166,7 +166,7 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
             @if (selectedIds.size > 0) {
               <span class="text-muted text-nowrap">{{ selectedIds.size }} selected</span>
             }
-            <span class="text-muted ms-auto text-end os-maps-route-summary-count">
+            <span class="text-muted ms-auto text-end text-nowrap os-maps-route-summary-count">
               @if (matchedCount() > visibleRoutes().length) {
                 Showing the first {{ visibleRoutes().length }} of {{ matchedCount() }}
               } @else {
@@ -378,7 +378,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   editRoute(route: OsMapsListedRoute): void {
     this.walkDisplay.rememberFollowReturnUrl();
     void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
-      queryParams: {[RouteFollowQueryParam.OS_MAPS_ROUTE_ID]: route.id}
+      queryParams: {[StoredValue.OS_MAPS_ROUTE_ID]: route.id}
     });
   }
 

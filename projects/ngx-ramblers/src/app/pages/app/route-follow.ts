@@ -52,7 +52,6 @@ import {
   RouteFollowSheetState,
   RouteFollowPayload,
   RouteFollowProgress,
-  RouteFollowQueryParam,
   RouteFollowReturnDirection,
   RouteFollowSession,
   RouteFollowSource,
@@ -67,6 +66,7 @@ import {
   routeAlignedMapHeading,
   FollowPointerSize,
   FOLLOW_POINTER_SIZES,
+  followPointerPixels,
   followPointerSizeFrom,
   followLineColours,
   followMapScaleBar,
@@ -344,12 +344,15 @@ import proj4 from "proj4";
             }
             <p class="follow-style-heading">While following</p>
             <p class="follow-option-label">Location pointer</p>
-            <div class="follow-progress-paint" role="group" aria-label="Location pointer size">
+            <div class="follow-progress-paint follow-pointer-sizes" role="group" aria-label="Location pointer size">
               @for (choice of pointerSizeChoices; track choice.size) {
                 <button type="button" class="btn btn-sm follow-progress-paint-btn"
                         [class.btn-primary]="pointerSize === choice.size"
                         [class.btn-quiet]="pointerSize !== choice.size"
                         (click)="setPointerSize(choice.size)">
+                  <span class="follow-pointer-dot"
+                        [style.width.px]="pointerPixels(choice.size).width / 2"
+                        [style.height.px]="pointerPixels(choice.size).width / 2"></span>
                   {{ choice.label }}
                 </button>
               }
@@ -807,6 +810,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected stepPinsOnMap = true;
   protected pointerSize = FollowPointerSize.MEDIUM;
   protected readonly pointerSizeChoices = FOLLOW_POINTER_SIZES;
+
+  pointerPixels(size: FollowPointerSize): {width: number; height: number} {
+    return followPointerPixels(size);
+  }
   private stylePickerFromProvider = MapProvider.OS;
   private stylePickerFromStyle = DEFAULT_OS_STYLE;
   protected mapProvider: MapProvider = MapProvider.OS;
@@ -867,13 +874,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.rememberHowWeArrived();
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
       void this.load(
-        params.get(RouteFollowQueryParam.PATH),
-        params.get(RouteFollowQueryParam.ROUTE_ID),
-        params.get(RouteFollowQueryParam.WALK_ID),
-        params.get(RouteFollowQueryParam.RAMBLERS_SLUG),
-        params.get(RouteFollowQueryParam.OS_MAPS_ROUTE_ID),
-        Number(params.get(RouteFollowQueryParam.TRACK)) || 0,
-        viaFromQuery(params.get(RouteFollowQueryParam.VIA))
+        params.get(StoredValue.FOLLOW_PATH),
+        params.get(StoredValue.ROUTE_ID),
+        params.get(StoredValue.WALK_ID),
+        params.get(StoredValue.RAMBLERS_SLUG),
+        params.get(StoredValue.OS_MAPS_ROUTE_ID),
+        Number(params.get(StoredValue.TRACK)) || 0,
+        viaFromQuery(params.get(StoredValue.VIA))
       );
     }));
   }

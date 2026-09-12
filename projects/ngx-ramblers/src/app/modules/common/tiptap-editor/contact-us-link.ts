@@ -1,5 +1,6 @@
 import { CommitteeMember } from "../../../models/committee.model";
 import { BuiltInPath } from "../../../models/content-text.model";
+import { StoredValue } from "../../../models/ui-actions";
 
 export interface ContactUsLinkParts {
   role: string;
@@ -26,11 +27,11 @@ export function parseContactUsHref(href: string): ContactUsLinkParts | null {
   if (raw && raw.includes("contact-us")) {
     const query = raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : raw;
     const params = new URLSearchParams(query);
-    const role = (params.get("role") || "").trim();
+    const role = (params.get(StoredValue.ROLE) || "").trim();
     if (role) {
       result = {
         role,
-        redirect: (params.get("redirect") || "").trim()
+        redirect: (params.get(StoredValue.REDIRECT) || "").trim()
       };
     }
   }

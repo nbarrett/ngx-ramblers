@@ -58,7 +58,7 @@ import { escape } from "es-toolkit";
 import { travelAlongRoute } from "../../../services/maps/route-travel";
 import { distanceAlongRouteMetres } from "../../../functions/route-directions";
 import { cumulativeDistances, nearestPointIndex, snapToRoute } from "../../../functions/route-geometry";
-import { RouteBranch, ROUTE_ALTERNATIVE_TRACK_COLOURS, ROUTE_ALTERNATIVE_TRACK_DASH, ROUTE_ALTERNATIVE_TRACK_OPACITY, RouteTrackOption, RouteFollowQueryParam, ROUTE_FULLSCREEN_FIT_PADDING, ROUTE_FULLSCREEN_SETTLE_MS, ROUTE_FIT_PADDING, ROUTE_RESIZE_SETTLE_MS, ROUTE_AUTOSAVE_DELAY_MS, RouteWaypointKind, ROUTE_GUIDE_DEFAULT_HEIGHT, ROUTE_GUIDE_MAX_HEIGHT, ROUTE_GUIDE_MIN_HEIGHT, ROUTE_GUIDE_DEFAULT_WIDTH, ROUTE_GUIDE_MAP_MIN_WIDTH, ROUTE_GUIDE_MIN_WIDTH, RouteSaveState, RouteDownload, ROUTE_STEP_SPEED_DEFAULT, RouteFollowPoint, RouteGuidePanelPosition } from "../../../models/route-follow.model";
+import { RouteBranch, ROUTE_ALTERNATIVE_TRACK_COLOURS, ROUTE_ALTERNATIVE_TRACK_DASH, ROUTE_ALTERNATIVE_TRACK_OPACITY, RouteTrackOption, ROUTE_FULLSCREEN_FIT_PADDING, ROUTE_FULLSCREEN_SETTLE_MS, ROUTE_FIT_PADDING, ROUTE_RESIZE_SETTLE_MS, ROUTE_AUTOSAVE_DELAY_MS, RouteWaypointKind, ROUTE_GUIDE_DEFAULT_HEIGHT, ROUTE_GUIDE_MAX_HEIGHT, ROUTE_GUIDE_MIN_HEIGHT, ROUTE_GUIDE_DEFAULT_WIDTH, ROUTE_GUIDE_MAP_MIN_WIDTH, ROUTE_GUIDE_MIN_WIDTH, RouteSaveState, RouteDownload, ROUTE_STEP_SPEED_DEFAULT, RouteFollowPoint, RouteGuidePanelPosition } from "../../../models/route-follow.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AlertModule } from "ngx-bootstrap/alert";
 import { FormsModule } from "@angular/forms";
@@ -1902,7 +1902,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const route = (this.row.map?.routes || []).find(item => item.visible !== false && item.gpxFile?.awsFileName);
     const queryParams: Record<string, string> = {};
     if (this.selectedTrack > 0) {
-      queryParams[RouteFollowQueryParam.TRACK] = String(this.selectedTrack);
+      queryParams[StoredValue.TRACK] = String(this.selectedTrack);
     }
     if (this.pageContent?.path) {
       queryParams.path = this.pageContent.path;

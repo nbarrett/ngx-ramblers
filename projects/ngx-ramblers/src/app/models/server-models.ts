@@ -136,7 +136,7 @@ export interface MailchimpCreateSegmentRequest {
   options?: object;
 }
 
-export enum SecretQueryParameter {
+export enum OAuthWireParameter {
   ACCESS_TOKEN = "access_token",
   CLIENT_SECRET = "client_secret",
   FB_EXCHANGE_TOKEN = "fb_exchange_token",

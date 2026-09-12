@@ -2,18 +2,17 @@ import { Ensure, equals, includes, isGreaterThan } from "@serenity-js/assertions
 import { afterEach, describe, it, test } from "@serenity-js/playwright-test";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { OsMapsRouteFixture, requestedOsMapsRouteFixture } from "../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { NavigateWithDomLoaded } from "../screenplay/tasks/common/navigate-with-dom-loaded";
+import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { Start } from "../screenplay/tasks/common/start";
+import { AcceptOsMapsCookies } from "../screenplay/tasks/os-maps/accept-os-maps-cookies";
+import { DismissOsMapsOverlays } from "../screenplay/tasks/os-maps/dismiss-os-maps-overlays";
 import { ExportOsRouteToGpx } from "../screenplay/tasks/os-maps/export-os-route-to-gpx";
 import { LoginToOsMaps } from "../screenplay/tasks/os-maps/login-to-os-maps";
-import { ClearOsMapsObstructions } from "../screenplay/tasks/os-maps/clear-os-maps-obstructions";
 import { ExportedGpxFile } from "../screenplay/questions/os-maps/exported-gpx-file";
 import { ExportedGpxValidator } from "../screenplay/questions/os-maps/exported-gpx-validator";
 import { clearExportedGpx } from "../screenplay/questions/os-maps/exported-gpx-store";
 import { resolveSerenityActorName } from "../resolve-actor-name";
-import { OS_MAPS_SCENARIO_TIMEOUT } from "../config/serenity-timeouts";
-import { Navigate } from "@serenity-js/web";
-import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
-import { SaveOsMapsNetworkActivity, StartCapturingOsMapsNetworkActivity } from "../screenplay/tasks/os-maps/capture-os-maps-network-activity";
 
 const osMapsCredentialsConfigured = !!(
   process.env[Environment.OS_EMAIL] && process.env[Environment.OS_PASSWORD]
@@ -36,30 +35,26 @@ function exportRoutes(): OsMapsRouteFixture[] {
 describe("OS Maps GPX export", () => {
 
   afterEach(async ({ actorCalled }) => {
-    await actorCalled(actor).attemptsTo(
-      SaveBrowserSource.toFile("after-all.html"),
-      SaveOsMapsNetworkActivity.toFile("network-activity.json")
-    );
+    clearExportedGpx();
+    await actorCalled(actor).attemptsTo(SaveBrowserSource.toFile("os-maps-export-after.html"));
   });
 
-  test.setTimeout(OS_MAPS_SCENARIO_TIMEOUT.inMilliseconds());
-
-  it("should log into OS Maps once and export each requested route as GPX", async ({ actorCalled }) => {
+  it("should login once and export each requested OS Maps route as GPX", async ({ actorCalled }) => {
     test.skip(!osMapsCredentialsConfigured, "OS_EMAIL and OS_PASSWORD are not set");
     const routes = exportRoutes();
     test.skip(routes.length === 0, "No OS Maps routes were requested");
     const exporter = actorCalled(actor);
     await exporter.attemptsTo(
       Start.onOsMapsRoute(routes[0].url),
-      StartCapturingOsMapsNetworkActivity.now(),
+      AcceptOsMapsCookies.whenVisible(),
       LoginToOsMaps.withConfiguredCredentials()
     );
     for (const route of routes) {
       clearExportedGpx();
       await exporter.attemptsTo(
-        Navigate.to(route.url),
-        ClearOsMapsObstructions.now(),
-        LoginToOsMaps.withConfiguredCredentials(),
+        NavigateWithDomLoaded.to(route.url),
+        AcceptOsMapsCookies.whenVisible(),
+        DismissOsMapsOverlays.now(),
         ExportOsRouteToGpx.asGpx(),
         Ensure.that(ExportedGpxFile.fileName(), includes(".gpx")),
         Ensure.that(ExportedGpxFile.creator(), includes("OS Maps")),

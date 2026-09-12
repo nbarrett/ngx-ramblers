@@ -2,22 +2,24 @@ import { Interaction, UsesAbilities } from "@serenity-js/core/lib/screenplay";
 import { BrowseTheWeb } from "@serenity-js/web";
 import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Page as NativePage } from "playwright-core";
-import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
+import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
+import { removeOsMapsBlockingOverlays } from "./os-maps-page-cleanup";
 
-export class DismissOsMapsOverlays extends Interaction {
+export class SubmitOsMapsLogin extends Interaction {
 
   static now() {
-    return new DismissOsMapsOverlays();
+    return new SubmitOsMapsLogin();
   }
 
   constructor() {
-    super("#actor dismisses OS Maps overlays");
+    super("#actor submits the OS Maps login form");
   }
 
   async performAs(actor: UsesAbilities): Promise<void> {
     const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
     const native: NativePage = await currentPage.nativePage();
-    await clearOsMapsInterruptions(native);
+    await removeOsMapsBlockingOverlays(native);
+    await native.locator("#next").click({force: true, timeout: DEFAULT_WAIT_TIMEOUT.inMilliseconds()});
   }
 
 }

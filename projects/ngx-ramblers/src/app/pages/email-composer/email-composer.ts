@@ -2598,7 +2598,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const sourcePage = queryParams.get(StoredValue.SOURCE_PAGE);
     const committeeFile = queryParams.get(StoredValue.COMMITTEE_FILE);
     const eventQuery = queryParams.get(StoredValue.EVENT);
-    const eventPath = pathParams.get("committee-event-id");
+    const eventPath = pathParams.get(StoredValue.COMMITTEE_EVENT_ID);
     if (eventQuery && !committeeFile && !sourcePage) {
       this.state.context = { source: EmailComposerContextSource.GROUP_EVENT, groupEventId: eventQuery };
       this.state.eventInclusion = EventInclusionMode.SINGLE_EVENT;

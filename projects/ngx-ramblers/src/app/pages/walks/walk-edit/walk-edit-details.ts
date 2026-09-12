@@ -30,7 +30,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType, MapProvider } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { AppPath, RouteFollowPoint, RouteFollowQueryParam, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
+import { AppPath, RouteFollowPoint, RouteFollowWaypoint, RouteTurnStepKind, RouteWaypointKind } from "../../../models/route-follow.model";
 import { MapEditComponent } from "./map-edit";
 import { RouteGuidePanel } from "../../../shared/components/route-guide-panel";
 import { RouteStepControls } from "../../../shared/components/route-step-controls";
@@ -721,7 +721,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     if (slug) {
       this.display.rememberFollowReturnUrl();
       void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
-        queryParams: {[RouteFollowQueryParam.WALK_ID]: slug}
+        queryParams: {[StoredValue.WALK_ID]: slug}
       });
     }
   }
