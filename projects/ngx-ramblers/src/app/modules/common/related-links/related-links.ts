@@ -3,7 +3,6 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { isBrowser } from "es-toolkit";
 import { AddToCalendarLinkComponent } from "./add-to-calendar-link";
-import { ContactAction, ContactActionDropdownComponent } from "../contact-action-dropdown/contact-action-dropdown";
 import { nativeShareSupported, shareOrOpen } from "../../../functions/native-share";
 import { RelatedLinkComponent } from "./related-link";
 import { directionsLinks } from "../../../functions/locate";
@@ -117,7 +116,7 @@ import { FileNameData } from "../../../models/aws-object.model";
   `,
   styles: [`
   `],
-  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe, ContactActionDropdownComponent, AddToCalendarLinkComponent]
+  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe, AddToCalendarLinkComponent]
 })
 export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RelatedLinksComponent", NgxLoggerLevel.ERROR);
