@@ -19,6 +19,7 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { configuredEnvironments } from "../environments/environments-config";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
+import { connect as connectMongoose } from "../mongo/mongoose-client";
 import { seedAdminMenuStructure } from "../mongo/migrations/shared/seed-admin-menu";
 import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-banner";
 import { values } from "es-toolkit/compat";
@@ -161,6 +162,8 @@ export async function initialiseDatabase(
       ramblersApiConfig: request.serviceConfigs.ramblers,
       googleMapsApiKey: request.serviceConfigs.googleMaps?.apiKey,
       osMapsApiKey: request.serviceConfigs.osMaps?.apiKey,
+      osMapsEmail: request.serviceConfigs.osMaps?.email,
+      osMapsPassword: request.serviceConfigs.osMaps?.password,
       recaptchaSiteKey: request.serviceConfigs.recaptcha?.siteKey,
       recaptchaSecretKey: request.serviceConfigs.recaptcha?.secretKey,
       copiedAssets
@@ -284,6 +287,7 @@ export async function runMigrations(mongoUri: string, reportProgress: (step: str
     } else {
       delete process.env.MONGODB_URI;
     }
+    await connectMongoose(debugLog);
   }
 }
 

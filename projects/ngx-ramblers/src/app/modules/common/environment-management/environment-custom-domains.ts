@@ -319,11 +319,10 @@ export class EnvironmentCustomDomains implements OnChanges {
 
   groupOwnedApexHost(): string | null {
     const candidates = [
-      this.hostnameHealthReport?.siteUrl,
       this.hostnameHealthReport?.relatedGroupSiteUrl,
+      this.hostnameHealthReport?.siteUrl,
       ...this.hostnameStatuses().map(hostname => hostname.hostname),
-      ...this.customDomains().map(domain => domain.hostname),
-      ...this.environments.flatMap(env => (env.customDomains || []).map(domain => domain.hostname))
+      ...this.customDomains().map(domain => domain.hostname)
     ].filter((hostname): hostname is string => !!hostname);
     return firstGroupOwnedApex(candidates, ENVIRONMENT_SUBDOMAIN_BASE);
   }

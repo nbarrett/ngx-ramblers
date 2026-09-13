@@ -52,6 +52,7 @@ enum ConfigAccess {
 }
 
 const configAccessPolicy: Record<ConfigKey, ConfigAccess> = {
+  [ConfigKey.SITE_REGISTRATION]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.ADMIN_ALERTS]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.BOOKING]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.BREVO]: ConfigAccess.PUBLIC_WITH_REDACTION,

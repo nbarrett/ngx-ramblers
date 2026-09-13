@@ -107,7 +107,41 @@ export interface AdminUserConfig {
   email: string;
 }
 
+export interface EnvironmentDetailsRamblersInfo {
+  areaCode: string;
+  areaName: string;
+  groupCode: string;
+  groupName: string;
+}
+
+export interface EnvironmentStoredRamblersInfo {
+  areaCode?: string;
+  areaName?: string;
+  groupCode?: string;
+  groupName?: string;
+  siteHref?: string;
+}
+
+export interface EnvironmentDetailsServiceConfigs {
+  mongodb: Omit<MongoDbConfig, "database">;
+  aws: Pick<AwsConfig, "region">;
+  brevo: BrevoConfig;
+  googleMaps: GoogleMapsConfig;
+  osMaps: OsMapsConfig;
+  recaptcha: RecaptchaConfig;
+  ramblers: RamblersApiConfig;
+  flyio: FlyioConfig;
+}
+
+export interface EnvironmentDetails {
+  environmentBasics: Pick<EnvironmentBasics, "memory" | "scaleCount" | "organisation">;
+  serviceConfigs: EnvironmentDetailsServiceConfigs;
+  ramblersInfo: EnvironmentDetailsRamblersInfo;
+  siteHref: string;
+}
+
 export interface SetupOptions {
+  ngxLite?: boolean;
   includeSamplePages: boolean;
   includeNotificationConfigs: boolean;
   authenticateBrevoDomain: boolean;
@@ -1086,4 +1120,15 @@ export function environmentSubdomainHostname(environmentName: string, baseDomain
 
 export function flySafeResourceName(environmentName: string): string {
   return (environmentName || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function environmentNameForGroup(groupName: string): string {
+  return groupName.toLowerCase().replace(/ramblers?/gi, "").replace(/group/gi, "")
+    .replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 45);
+}
+
+export function prefixedEnvironmentResourceName(environmentName: string, maxLength: number): string {
+  const safe = flySafeResourceName(environmentName);
+  const prefixed = `ngx-ramblers-${safe}`;
+  return prefixed.length <= maxLength ? prefixed : safe.substring(0, maxLength);
 }

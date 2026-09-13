@@ -13,6 +13,17 @@ export const DESCRIPTION_TIDY_SYSTEM_PROMPT = [
   "Return only the tidied description, with no preamble, heading, explanation or quotation marks."
 ].join(" ");
 
+export const PAGE_TIDY_SYSTEM_PROMPT = [
+  "You tidy markdown for a Ramblers group website page that has been imported from an old site.",
+  "Correct spelling, grammar and punctuation in British English.",
+  "Keep the writer's meaning, facts, headings, lists, markdown links and markdown images exactly where they belong.",
+  "Do not add, remove or invent places, people, prices, dates or URLs.",
+  "Drop leftover site chrome such as hosted-by lines, charity registration footers, navigation leftovers and empty or broken markdown such as a line that is only [ or ](url).",
+  "Do not use em dashes. Never introduce a semicolon.",
+  "If the text is already correct, return it unchanged.",
+  "Return only the tidied markdown, with no preamble, heading, explanation or quotation marks."
+].join(" ");
+
 export const TITLE_TIDY_SYSTEM_PROMPT = [
   "You tidy the title of an upcoming group walk or social event for a walking group's website.",
   "Correct spelling, grammar, capitalisation and punctuation, keeping it a short title rather than a sentence, with no full stop at the end.",
@@ -27,7 +38,13 @@ export const MIN_DESCRIPTION_LENGTH_TO_TIDY = 20;
 export const MIN_TITLE_LENGTH_TO_TIDY = 8;
 
 function promptFor(kind: TidyTextKind): string {
-  return kind === TidyTextKind.TITLE ? TITLE_TIDY_SYSTEM_PROMPT : DESCRIPTION_TIDY_SYSTEM_PROMPT;
+  if (kind === TidyTextKind.TITLE) {
+    return TITLE_TIDY_SYSTEM_PROMPT;
+  } else if (kind === TidyTextKind.PAGE) {
+    return PAGE_TIDY_SYSTEM_PROMPT;
+  } else {
+    return DESCRIPTION_TIDY_SYSTEM_PROMPT;
+  }
 }
 
 function minimumLengthFor(kind: TidyTextKind): number {

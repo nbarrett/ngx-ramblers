@@ -28,6 +28,8 @@ export interface SystemConfigTemplateParams {
   ramblersApiConfig: RamblersApiConfig;
   googleMapsApiKey?: string;
   osMapsApiKey?: string;
+  osMapsEmail?: string;
+  osMapsPassword?: string;
   recaptchaSiteKey?: string;
   recaptchaSecretKey?: string;
   copiedAssets?: CopiedAssets;
@@ -73,7 +75,7 @@ function ownSiteUrl(siteUrl: string | undefined | null): string {
 }
 
 export function createSystemConfig(params: SystemConfigTemplateParams): SystemConfig {
-  const { groupData, siteUrl, areaCode, areaName, ramblersApiConfig, googleMapsApiKey, osMapsApiKey, recaptchaSiteKey, recaptchaSecretKey, copiedAssets } = params;
+  const { groupData, siteUrl, areaCode, areaName, ramblersApiConfig, googleMapsApiKey, osMapsApiKey, osMapsEmail, osMapsPassword, recaptchaSiteKey, recaptchaSecretKey, copiedAssets } = params;
 
   const groupShortName = toGroupShortName(groupData.name);
   const logoImages = createImageEntries(copiedAssets?.logos, 300);
@@ -193,7 +195,7 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
         apiUrl: "https://api.meetup.com",
         showFooterLink: false
       },
-      osMaps: osMapsApiKey ? { apiKey: osMapsApiKey } : {}
+      osMaps: { apiKey: osMapsApiKey || "", email: osMapsEmail || "", password: osMapsPassword || "" }
     },
     recaptcha: {
       siteKey: recaptchaSiteKey || "",

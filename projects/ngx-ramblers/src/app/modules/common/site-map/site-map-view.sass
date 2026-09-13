@@ -1,4 +1,4 @@
-@import "../../assets/styles/colours"
+@import "../../../assets/styles/colours"
 
 $site-map-line: rgba($ramblers-colour-granite, .22)
 
@@ -141,6 +141,21 @@ $site-map-line: rgba($ramblers-colour-granite, .22)
   gap: .4rem
   padding: .2rem 0
 
+.site-map-omitted
+  opacity: .45
+
+.site-map-select
+  display: inline-flex
+  align-items: center
+  flex: 0 0 auto
+
+.site-map-move
+  display: inline-flex
+  flex-direction: row
+  flex-wrap: nowrap
+  flex: 0 0 auto
+  margin-left: auto
+
 .site-map-toggle
   display: inline-flex
   align-items: center
@@ -154,6 +169,10 @@ $site-map-line: rgba($ramblers-colour-granite, .22)
   cursor: pointer
   font-size: .8rem
   flex: 0 0 auto
+
+.site-map-toggle:disabled
+  opacity: .35
+  cursor: default
 
 .site-map-leaf
   display: inline-flex
@@ -177,6 +196,32 @@ $site-map-line: rgba($ramblers-colour-granite, .22)
 .site-map-link:hover
   color: $ramblers-colour-sunset
   text-decoration: underline
+
+.site-map-link-button
+  border: none
+  background: transparent
+  padding: 0
+  text-align: left
+  cursor: pointer
+  font: inherit
+
+.site-map-focused
+  font-weight: 700
+  color: $ramblers-colour-sunset
+
+.site-map-with-preview
+  display: grid
+  grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1.15fr)
+  gap: 1rem
+  align-items: start
+
+@media (max-width: 767px)
+  .site-map-with-preview
+    grid-template-columns: 1fr
+
+.site-map-preview
+  position: sticky
+  top: 1rem
 
 .site-map-label
   color: rgba($ramblers-colour-granite, .8)

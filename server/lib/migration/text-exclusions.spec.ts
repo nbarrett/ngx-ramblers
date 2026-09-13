@@ -34,6 +34,32 @@ describe("text-exclusions.pattern removal", () => {
     expect(collapseExcessBlankLines(out)).toEqual("Heading\n\nBody");
   });
 
+  it("strips Ramblers-Webs chrome, charity footer and leftover markdown", () => {
+    const input = [
+      "BOOKS - Walks Around the New Forest National Park",
+      "",
+      "](http://)",
+      "",
+      "The Ramblers’ | Contact us | Hosted by Ramblers-Webs",
+      "",
+      "The Ramblers' Association is a democratic, voluntary organisation, registered as a charity in England & Wales No: 1093577 © New Forest Group of the Ramblers' Association 2025 All Rights Reserved",
+      "",
+      "The book will cost:",
+      "",
+      "Migrated from https://www.newforestramblers.org.uk/books.htm on 2026-09-14 14:46"
+    ].join("\n");
+    const out = collapseExcessBlankLines(applyTextExclusions(input, {})).trim();
+    expect(out).toContain("BOOKS - Walks Around the New Forest National Park");
+    expect(out).toContain("The book will cost:");
+    expect(applyTextExclusions("[The Ramblers’](https://www.ramblers.org.uk/) | [Contact us](contact.htm) | Hosted by [Ramblers-Webs](https://www.ramblers-webs.org.uk)", {})).not.toContain("Ramblers-Webs");
+    expect(applyTextExclusions("[The Ramblers’](https://www.ramblers.org.uk/) | [Contact us](contact.htm) | Hosted by [Ramblers-Webs](https://www.ramblers-webs.org.uk)", {})).not.toContain("Ramblers-Webs");
+    expect(out).not.toContain("Hosted by Ramblers-Webs");
+    expect(out).not.toContain("1093577");
+    expect(out).not.toContain("](http://)");
+    expect(out).not.toContain("Migrated from");
+    expect(collapseExcessBlankLines(applyTextExclusions("What's new?\n\n[\n\n[", {})).trim()).toBe("What's new?");
+  });
+
   it("removeMarkdownBlocks handles exact, tolerant and sequences", () => {
     const block = "Line A\nLine B\nLine C";
     const input = "x\nLine A\n\nLine B\n  \nLine C\ny";

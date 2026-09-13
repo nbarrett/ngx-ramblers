@@ -1,3 +1,5 @@
+import { registrationRoutes } from "./site-registration/registration-routes";
+import { scheduleRegistrationJobs } from "./site-registration/registration-jobs";
 import debug from "debug";
 import { install } from "source-map-support";
 import { pluraliseWithCount } from "./shared/string-utils";
@@ -227,6 +229,7 @@ app.use("/api/calendar", calendarRoutes);
 app.use("/api/mailchimp", mailchimpRoutes);
 app.use("/api/mail", brevoRoutes);
 app.use("/api/scheduled-tasks", scheduledTaskRoutes);
+app.use("/api/site-registration", registrationRoutes);
 app.use("/api/admin-alerts", adminAlertsRoutes);
 app.use("/api/addresses", addresses);
 app.use("/api/os-maps", osMapsRoutes);
@@ -405,6 +408,8 @@ async function startServer() {
       scheduleInboxBackgroundWork().catch(error => {
         debugLog("❌ Failed to schedule inbox background work:", error);
       });
+
+      scheduleRegistrationJobs().catch(error => debugLog("Failed to schedule registrations:", error));
 
       scheduleBackups().catch(error => {
         debugLog("❌ Failed to schedule all-environments backup:", error);

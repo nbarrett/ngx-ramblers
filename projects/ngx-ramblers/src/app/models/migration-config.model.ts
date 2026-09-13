@@ -3,7 +3,8 @@ import { PageTransformationConfig } from "./page-transformation.model";
 
 export enum ParentPageMode {
   AS_IS = "as-is",
-  ACTION_BUTTONS = "action-buttons"
+  ACTION_BUTTONS = "action-buttons",
+  INDEX = "index"
 }
 
 export interface PageLink {
@@ -13,6 +14,8 @@ export interface PageLink {
 }
 
 export interface ParentPageConfig {
+  selectedChildren?: PageLink[];
+  migrateChildren?: boolean;
   url: string;
   pathPrefix: string;
   linkSelector?: string;
@@ -24,6 +27,8 @@ export interface ParentPageConfig {
 }
 
 export interface SiteMigrationConfig extends Identifiable {
+  publicHtmlOnly?: boolean;
+  requireSourceFidelity?: boolean;
   expanded: boolean;
   name: string;
   baseUrl: string;
@@ -39,6 +44,7 @@ export interface SiteMigrationConfig extends Identifiable {
   useNestedRows?: boolean;
   persistData?: boolean;
   uploadTos3?: boolean;
+  uploadBucket?: string;
   enabled?: boolean;
   excludeSelectors?: string[] | string;
   excludeTextPatterns?: string[] | string;

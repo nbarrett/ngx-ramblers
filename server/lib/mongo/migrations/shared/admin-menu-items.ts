@@ -237,7 +237,14 @@ export const ESTATE_REBUILD_CAPTURE_MENU_ITEM: ActionButtonColumn = {
   contentText: "View and inventory platform and site configuration values, system logins, and offline export packs"
 };
 
+export const REGISTRATIONS_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "committee", title: "Group registrations", icon: "faListCheck",
+  href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_REGISTRATIONS,
+  contentText: "Review self-service site requests and manage approved committee emails"
+};
+
 export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
+  REGISTRATIONS_MENU_ITEM,
   {
     accessLevel: "committee",
     title: "Environment Setup",

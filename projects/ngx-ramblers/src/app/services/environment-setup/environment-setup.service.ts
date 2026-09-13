@@ -11,6 +11,7 @@ import {
   CustomDomainEligibilityResponse,
   CustomDomainResponse,
   EnvironmentDefaults,
+  EnvironmentDetails,
   EnvironmentSetupRequest,
   EnvironmentStatus,
   ConsoleAccessDocument,
@@ -224,27 +225,13 @@ export class EnvironmentSetupService {
     return response as unknown as EnvironmentDefaults;
   }
 
-  async environmentDetails(environmentName: string): Promise<{
-    environmentBasics: { memory: string; scaleCount: number; organisation: string };
-    serviceConfigs: {
-      mongodb: { cluster: string; username: string; password: string };
-      aws: { region: string };
-      brevo: { apiKey: string };
-      googleMaps: { apiKey: string };
-      osMaps: { apiKey: string };
-      recaptcha: { siteKey: string; secretKey: string };
-      ramblers: { apiKey: string };
-      flyio: { personalAccessToken: string };
-    };
-    ramblersInfo: { areaCode: string; areaName: string; groupCode: string; groupName: string };
-    siteHref: string;
-  }> {
+  async environmentDetails(environmentName: string): Promise<EnvironmentDetails> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
       this.http.get<ApiResponse>(`${this.BASE_URL}/environment-details/${environmentName}`, this.opts),
       this.notifications
     );
-    return response as any;
+    return response as unknown as EnvironmentDetails;
   }
 
   async mongoClusters(): Promise<{ clusters: MongoClusterInfo[] }> {
