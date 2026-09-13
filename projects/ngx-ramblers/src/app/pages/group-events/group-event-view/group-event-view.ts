@@ -16,6 +16,7 @@ import { memberLeadsWalk } from "../../../functions/walks/walk-leader-fields";
 import { PageService } from "../../../services/page.service";
 import { MarkdownComponent } from "ngx-markdown";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
+import { AddToCalendarLinkComponent } from "../../../modules/common/related-links/add-to-calendar-link";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faCloudArrowUp, faEnvelope, faShareNodes } from "@fortawesome/free-solid-svg-icons";
@@ -148,6 +149,9 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
                     </div>
                   </div>
                 }
+                <app-add-to-calendar-link [event]="groupEvent"
+                                          [eventUrl]="display.groupEventLink(groupEvent, true)"
+                                          [mediaWidth]="display.relatedLinksMediaWidth"/>
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                   <app-copy-icon title [value]="display.groupEventLink(groupEvent, false)"
                                  [elementName]="'This event'"/>
@@ -204,7 +208,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, AddToCalendarLinkComponent]
 })
 export class GroupEventView implements OnInit {
 

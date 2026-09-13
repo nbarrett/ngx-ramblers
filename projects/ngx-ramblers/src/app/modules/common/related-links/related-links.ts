@@ -1,10 +1,8 @@
 import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCalendarDay, faCalendarPlus, faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
-import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
+import { faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { isBrowser } from "es-toolkit";
-import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } from "../../../models/inbox.model";
-import { calendarAppLabel, calendarAppsForDevice, calendarEventFromGroupEvent, calendarHrefFor, deviceKindFromUserAgent } from "../../../functions/calendar-add";
+import { AddToCalendarLinkComponent } from "./add-to-calendar-link";
 import { ContactAction, ContactActionDropdownComponent } from "../contact-action-dropdown/contact-action-dropdown";
 import { nativeShareSupported, shareOrOpen } from "../../../functions/native-share";
 import { RelatedLinkComponent } from "./related-link";
@@ -89,12 +87,13 @@ import { FileNameData } from "../../../models/aws-object.model";
         </a>
       </div>
     }
-    @if (calendarDownloadUrl() && showLink('relatedLinkShowCalendar') && choosableCalendarApps().length > 0) {
-      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-           class="col-sm-12">
-        <fa-icon title [icon]="faCalendarPlus" class="fa-icon"></fa-icon>
-        <app-contact-action-dropdown content [actions]="calendarActions()">Add to calendar</app-contact-action-dropdown>
-      </div>
+    @if (showLink('relatedLinkShowCalendar')) {
+      <app-add-to-calendar-link [event]="displayedWalk?.walk"
+                               [eventUrl]="display.walkPublicLink(displayedWalk?.walk)"
+                               [organiser]="calendarOrganiser()"
+                               [organiserPhone]="calendarOrganiserPhone()"
+                               [organiserEmail]="calendarOrganiserEmail()"
+                               [mediaWidth]="display.relatedLinksMediaWidth"/>
     }
     @if (what3wordsHref() && showLink('relatedLinkShowWhat3words')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
@@ -118,7 +117,7 @@ import { FileNameData } from "../../../models/aws-object.model";
   `,
   styles: [`
   `],
-  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe, ContactActionDropdownComponent]
+  imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, VenueIconPipe, ContactActionDropdownComponent, AddToCalendarLinkComponent]
 })
 export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RelatedLinksComponent", NgxLoggerLevel.ERROR);
@@ -139,17 +138,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   protected readonly faDirections = faDiamondTurnRight;
   protected readonly faMapLocationDot = faMapLocationDot;
   private appShell = inject(AppShellService);
-  protected readonly faCalendarPlus = faCalendarPlus;
-  protected readonly deviceKind: DeviceKind = deviceKindFromUserAgent(
-    isBrowser() ? navigator.userAgent : "",
-    isBrowser() ? navigator.platform : null
-  );
-  protected readonly calendarApps: CalendarApp[] = calendarAppsForDevice(this.deviceKind);
-  private readonly calendarClientHints: CalendarClientHints = {
-    userAgent: isBrowser() ? navigator.userAgent : "",
-    origin: isBrowser() ? window.location.origin : null
-  };
-  protected calendarEvent: CalendarPreviewEvent | null = null;
 
   ngOnInit(): void {
     this.refreshLinks();
@@ -179,15 +167,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   private refreshLinks(): void {
     this.links = this.linksService.linksFrom(this.displayedWalk?.walk);
-    this.calendarEvent = calendarEventFromGroupEvent(this.displayedWalk?.walk ?? null);
-    if (this.calendarEvent && this.displayedWalk?.walk) {
-      const walk = this.displayedWalk.walk;
-      const contactDetails = walk.fields?.contactDetails;
-      this.calendarEvent.url = this.display.walkPublicLink(walk);
-      this.calendarEvent.organiser = this.display.visibleLeaderDisplayName(walk) || null;
-      this.calendarEvent.organiserPhone = this.display.contactPhoneVisible(walk) ? contactDetails?.phone || null : null;
-      this.calendarEvent.organiserEmail = this.display.showMailtoEmail(walk) ? contactDetails?.email || null : null;
-    }
     this.logger.info("refreshLinks:links:", this.links, "from displayedWalk?.walk?.fields.links:", this.displayedWalk?.walk?.fields.links);
   }
 
@@ -206,7 +185,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
       || !!this.locateStartLink()
       || (this.showLink("relatedLinkShowDirections") && this.directionsToStart().length > 0)
       || !!(this.gpxDownloadUrl() && this.showLink("relatedLinkShowGpx"))
-      || (!!this.calendarDownloadUrl() && this.showLink("relatedLinkShowCalendar") && this.calendarApps.some(app => !!this.calendarHref(app)))
+      || (!!this.displayedWalk?.walk?.id && this.showLink("relatedLinkShowCalendar"))
       || !!(this.what3wordsHref() && this.showLink("relatedLinkShowWhat3words"))
       || !!(this.displayedWalk?.walk?.fields?.venue?.venuePublish
         && (this.displayedWalk?.walk?.fields?.venue?.url || this.displayedWalk?.walk?.fields?.venue?.postcode)
@@ -271,38 +250,16 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
     return this.urlService.resourceRelativePathForAWSFileName(filePath) || undefined;
   }
 
-  calendarDownloadUrl(): string | undefined {
-    const eventId = this.displayedWalk?.walk?.id;
-    return eventId ? `/api/calendar/event/${eventId}` : undefined;
+  calendarOrganiser(): string {
+    return this.display.visibleLeaderDisplayName(this.displayedWalk?.walk) || null;
   }
 
-  calendarHref(app: CalendarApp): string | null {
-    return calendarHrefFor(app, this.calendarEvent, this.calendarDownloadUrl() || null, this.calendarClientHints);
+  calendarOrganiserPhone(): string {
+    return this.display.contactPhoneVisible(this.displayedWalk?.walk) ? this.displayedWalk?.walk?.fields?.contactDetails?.phone || null : null;
   }
 
-  choosableCalendarApps(): CalendarApp[] {
-    return this.calendarApps.filter(app => !!this.calendarHref(app));
-  }
-
-  calendarActions(): ContactAction[] {
-    const eventType = this.display.eventTypeTitle(this.displayedWalk?.walk).toLowerCase();
-    return this.choosableCalendarApps().map(app => ({
-      label: calendarAppLabel(app),
-      icon: this.calendarIcon(app),
-      tooltip: `${calendarAppLabel(app)} for this ${eventType}`,
-      href: this.calendarHref(app),
-      target: app === CalendarApp.LOCAL ? "_self" : "_blank"
-    }));
-  }
-
-  private calendarIcon(app: CalendarApp): IconDefinition {
-    if (app === CalendarApp.GOOGLE) {
-      return faGoogle;
-    } else if (app === CalendarApp.OUTLOOK) {
-      return faMicrosoft;
-    } else {
-      return faCalendarDay;
-    }
+  calendarOrganiserEmail(): string {
+    return this.display.showMailtoEmail(this.displayedWalk?.walk) ? this.displayedWalk?.walk?.fields?.contactDetails?.email || null : null;
   }
 
   shareDirections(event: MouseEvent): void {
