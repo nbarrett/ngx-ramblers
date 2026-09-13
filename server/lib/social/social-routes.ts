@@ -9,8 +9,8 @@ import { resolveAlbumImages } from "./album-images";
 import { discoverFacebookPages, facebookConnectionStatus, publishAlbumToFacebook } from "../facebook/facebook-publish";
 import { exchangeCodeForPages, facebookOAuthUrl, facebookTokenHealth } from "../facebook/facebook-oauth";
 import { instagramConnectionStatus, publishAlbumToInstagram } from "../instagram/instagram-publish";
-import { recentMedia } from "../instagram/recent-media";
-import { recentPosts } from "../facebook/recent-posts";
+import { clearRecentMediaCache, recentMedia } from "../instagram/recent-media";
+import { clearRecentPostsCache, recentPosts } from "../facebook/recent-posts";
 import { socialPublication } from "../mongo/models/social-publication";
 import { livePublicationOrNull } from "./publication-status";
 import { albumPublications, deletePublication } from "./publication-controllers";
@@ -27,6 +27,14 @@ const debugLog = debug(envConfig.logNamespace("social:publish"));
 debugLog.enabled = true;
 
 const router = express.Router();
+
+function clearSocialFeedCache(network: SocialNetwork): void {
+  if (network === SocialNetwork.INSTAGRAM) {
+    clearRecentMediaCache();
+  } else {
+    clearRecentPostsCache();
+  }
+}
 
 async function publish(req: Request, res: Response, network: SocialNetwork, publisher: (config: SystemConfig, images: ResolvedAlbumImage[], caption: string) => Promise<SocialPublishResult>) {
   const request: SocialPublishRequest = req.body;
@@ -47,6 +55,7 @@ async function publish(req: Request, res: Response, network: SocialNetwork, publ
       const images = await resolveAlbumImages(baseUrl, request.albumName, request.imageNames);
       const response = await publisher(config, images, request.caption);
       if (response.success) {
+        clearSocialFeedCache(network);
         await socialPublication.create({
           albumName: request.albumName,
           network: response.network,

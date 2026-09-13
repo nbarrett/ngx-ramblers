@@ -22,9 +22,10 @@ import { booleanOf } from "../functions/strings";
 import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
+import { ALBUM_INDEX_LOCATION_SELECT } from "../models/walk.model";
 import { LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
-import { ContentMetadata } from "../models/content-metadata.model";
+import { ALBUM_INDEX_METADATA_SELECT, ContentMetadata } from "../models/content-metadata.model";
 import { PageContentService } from "./page-content.service";
 import { ContentCacheService } from "./content-cache.service";
 import { ContentMetadataService } from "./content-metadata.service";
@@ -146,7 +147,10 @@ export class IndexService {
     const albumNames: string[] = pageContentToRows.map(pageContentToRow =>
       pageContentToRow.rows.map(item => item.carousel.name)
     ).flat(2);
-    const dataQueryOptions: DataQueryOptions = {criteria: {name: {$in: albumNames}}};
+    const dataQueryOptions: DataQueryOptions = {
+      criteria: {name: {$in: albumNames}},
+      select: ALBUM_INDEX_METADATA_SELECT
+    };
     const albumMetadata: ContentMetadata[] = await this.contentMetadataService.all(dataQueryOptions);
 
     const eventIds: string[] = pageContentToRows
@@ -162,10 +166,13 @@ export class IndexService {
           ids: eventIds,
           inputSource: null,
           suppressEventLinking: true,
-          dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
-            selectType: FilterCriteria.ALL_EVENTS,
-            ascending: false
-          })
+          dataQueryOptions: {
+            ...this.extendedGroupEventQueryService.dataQueryOptions({
+              selectType: FilterCriteria.ALL_EVENTS,
+              ascending: false
+            }),
+            select: ALBUM_INDEX_LOCATION_SELECT
+          }
         };
         this.logger.info("Query parameters:", queryParams);
         const walks = await this.walksAndEventsService.all(queryParams);
@@ -290,7 +297,10 @@ export class IndexService {
       const uniqueNames = [...new Set(allCarouselNames)];
       let childMetadata: ContentMetadata[] = [];
       if (uniqueNames.length > 0) {
-        childMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+        childMetadata = await this.contentMetadataService.all({
+          criteria: {name: {$in: uniqueNames}},
+          select: ALBUM_INDEX_METADATA_SELECT
+        });
       }
       this.logger.info("Batch fallback: fetched", allChildPages.length, "child pages and", childMetadata.length, "metadata for", pendingImageResolution.length, "items");
       pendingImageResolution.forEach(item => {
@@ -410,7 +420,10 @@ export class IndexService {
     const uniqueNames = [...new Set(allCarouselNames)];
     let allMetadata: ContentMetadata[] = [];
     if (uniqueNames.length > 0) {
-      allMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+      allMetadata = await this.contentMetadataService.all({
+        criteria: {name: {$in: uniqueNames}},
+        select: ALBUM_INDEX_METADATA_SELECT
+      });
       this.logger.info("Batch enrichment: fetched", allMetadata.length, "metadata records for", uniqueNames.length, "album names");
     }
 

@@ -88,6 +88,12 @@ export interface OsMapsExportJobResult {
   completedAt?: number | null;
 }
 
+export enum OsMapsExportClickOutcome {
+  DOWNLOAD_STARTED = "download-started",
+  CONFIRMATION_SHOWN = "confirmation-shown",
+  INTERRUPTED = "interrupted"
+}
+
 export enum OsMapsPageState {
   UNRECOGNISED = "unrecognised",
   AUTHENTICATED = "authenticated",

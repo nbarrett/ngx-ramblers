@@ -46,7 +46,7 @@ export async function osMapsIdentityErrorText(page: NativePage): Promise<string>
 export async function pageShowingOsMapsIdentity(native: NativePage): Promise<NativePage | null> {
   const matches = await Promise.all(native.context().pages().map(async page => {
     const onIdentityHost = osMapsIdentityHost(page.url());
-    const formVisible = await osMapsEmailField(page).first().isVisible().catch(() => false);
+    const formVisible = await osMapsEmailField(page).first().isVisible();
     if (onIdentityHost || formVisible) {
       return page;
     } else {
@@ -56,12 +56,6 @@ export async function pageShowingOsMapsIdentity(native: NativePage): Promise<Nat
   return matches.find(page => !!page) || null;
 }
 
-export async function waitForOsMapsApplicationReady(native: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
-  await native.locator(".header__right button").first().waitFor({state: "attached", timeout}).catch(() => null);
-  await native.locator(".header__right .loading-indicator").waitFor({state: "hidden", timeout}).catch(() => null);
-  await native.locator(".side-panel .loading-indicator").waitFor({state: "hidden", timeout}).catch(() => null);
-}
-
 export function osMapsSignedInHeader(page: NativePage): Locator {
   return page.locator(".header__right button[aria-label='Go to my account']")
     .or(page.locator(".header__right button[aria-label='Log Out']"))
@@ -69,21 +63,20 @@ export function osMapsSignedInHeader(page: NativePage): Locator {
 }
 
 export async function osMapsSessionIsSignedIn(native: NativePage): Promise<boolean> {
-  if (await native.locator(".header__right .loading-indicator").isVisible().catch(() => false)) {
+  if (await native.locator(".header__right .loading-indicator").isVisible()) {
     return false;
-  } else if (await osMapsSignedInHeader(native).first().isVisible().catch(() => false)) {
+  } else if (await osMapsSignedInHeader(native).first().isVisible()) {
     return true;
   } else {
     const signedOut = native.locator(".header__right button[aria-label='Log in']");
-    return !(await signedOut.isVisible().catch(() => false));
+    return !(await signedOut.isVisible());
   }
 }
 
 export async function waitForOsMapsIdentityForm(page: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
   await clearOsMapsInterruptions(page);
-  await page.locator("#ccc-notify, #ccc-overlay").first().waitFor({state: "hidden", timeout: Math.min(15000, timeout)}).catch(() => null);
   await osMapsEmailField(page).first().waitFor({state: "visible", timeout});
-  const passwordReady = await osMapsPasswordField(page).first().isVisible().catch(() => false);
+  const passwordReady = await osMapsPasswordField(page).first().isVisible();
   if (!passwordReady) {
     await osMapsLoginSubmit(page).first().waitFor({state: "visible", timeout});
   } else {
@@ -125,12 +118,11 @@ export async function fillOsMapsIdentityField(page: NativePage, field: Locator, 
 }
 
 export async function waitForOsMapsSignedIn(native: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
-  await waitForOsMapsApplicationReady(native, timeout);
   await osMapsSignedInHeader(native).first().waitFor({state: "visible", timeout});
 }
 
 async function blankOsMapsPassword(page: NativePage): Promise<void> {
-  await osMapsPasswordField(page).first().fill("").catch(() => null);
+  await osMapsPasswordField(page).first().fill("");
 }
 
 function leftOsMapsIdentity(page: NativePage, timeout: number): Promise<boolean> {
@@ -198,7 +190,7 @@ export async function completeOsMapsIdentityLogin(page: NativePage, email: strin
   } else {
     await waitForOsMapsIdentityForm(page, timeout);
     await fillOsMapsIdentityField(page, osMapsEmailField(page), login.email, timeout);
-    const passwordVisible = await osMapsPasswordField(page).first().isVisible().catch(() => false);
+    const passwordVisible = await osMapsPasswordField(page).first().isVisible();
     if (!passwordVisible) {
       await osMapsLoginSubmit(page).first().click({force: true});
       await osMapsPasswordField(page).first().waitFor({state: "visible", timeout});
@@ -217,7 +209,7 @@ export async function completeOsMapsIdentityLogin(page: NativePage, email: strin
 export async function clickOsMapsExploreLogin(native: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
   await clearOsMapsInterruptions(native);
   const headerLogin = native.locator(".header__right button[aria-label='Log in']");
-  if (await headerLogin.isVisible({timeout: 5000}).catch(() => false)) {
+  if (await headerLogin.isVisible()) {
     await headerLogin.click({force: true});
   } else {
     const roleLogin = native.getByRole("button", {name: /^log in$/i});

@@ -631,3 +631,11 @@ export const PUBLIC_GROUP_EVENT_SELECT: Record<string, number> = {
   [EventEventField.EVENT_TYPE]: 1,
   [EventEventField.DATE]: 1,
 };
+
+export const ALBUM_INDEX_LOCATION_SELECT: Record<string, number> = {
+  [GroupEventField.ID]: 1,
+  [GroupEventField.START_LOCATION]: 1,
+  [GroupEventField.MEETING_LOCATION]: 1,
+  [GroupEventField.END_LOCATION]: 1,
+  [EventField.MIGRATED_FROM_ID]: 1
+};

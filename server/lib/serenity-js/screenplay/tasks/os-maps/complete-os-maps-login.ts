@@ -14,7 +14,6 @@ import {
   osMapsIdentityHost,
   osMapsSessionIsSignedIn,
   pageShowingOsMapsIdentity,
-  waitForOsMapsApplicationReady,
   waitForOsMapsSignedIn
 } from "./os-maps-identity";
 
@@ -36,7 +35,6 @@ export class CompleteOsMapsLogin extends Interaction {
     const native: NativePage = await currentPage.nativePage();
     const timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds();
     await clearOsMapsInterruptions(native);
-    await waitForOsMapsApplicationReady(native, timeout);
     if (await osMapsSessionIsSignedIn(native)) {
       debugLog("already signed in at", native.url());
     } else {
@@ -46,10 +44,7 @@ export class CompleteOsMapsLogin extends Interaction {
       const rejected = await osMapsIdentityErrorText(loginPage);
       if (rejected) {
         throw new Error(`OS Maps login was rejected: ${rejected}`);
-      } else if (loginPage !== native) {
-        await loginPage.waitForEvent("close", {timeout}).catch(() => null);
       }
-      await native.waitForURL(url => url.hostname === "explore.osmaps.com", {timeout}).catch(() => null);
       await waitForOsMapsSignedIn(native, timeout);
     }
   }
@@ -75,7 +70,7 @@ export class CompleteOsMapsLogin extends Interaction {
         debugLog("identity opened in a new page", opened.page.url());
         await opened.page.waitForLoadState("domcontentloaded");
         return opened.page;
-      } else if (osMapsIdentityHost(native.url()) || await osMapsEmailField(native).first().isVisible().catch(() => false)) {
+      } else if (osMapsIdentityHost(native.url()) || await osMapsEmailField(native).first().isVisible()) {
         return native;
       } else {
         const later = await pageShowingOsMapsIdentity(native);

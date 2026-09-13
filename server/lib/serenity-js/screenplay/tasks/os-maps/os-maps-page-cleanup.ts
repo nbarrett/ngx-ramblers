@@ -25,21 +25,9 @@ export async function allowOsMapsGeolocation(native: NativePage): Promise<void> 
 }
 
 export async function acceptOsMapsCookieBanner(native: NativePage): Promise<boolean> {
-  const accept = native.locator(COOKIE_ACCEPT_SELECTOR);
-  if (await accept.first().isVisible().catch(() => false)) {
-    await accept.first().click({force: true}).catch(() => null);
-    await native.locator("#ccc-notify, #ccc-overlay, #ccc").first()
-      .waitFor({state: "hidden", timeout: 2000})
-      .catch(() => null);
-    return true;
-  } else {
-    return await acceptAnyCookieBannerButton(native);
-  }
-}
-
-async function acceptAnyCookieBannerButton(native: NativePage): Promise<boolean> {
-  return await native.evaluate(() => {
-    const accept = (Array.from(document.querySelectorAll("button, [role='button']")) as HTMLElement[])
+  return await native.evaluate((selector: string) => {
+    const byId = document.querySelector(selector) as HTMLElement;
+    const accept = byId || (Array.from(document.querySelectorAll("button, [role='button']")) as HTMLElement[])
       .find(element => (element.textContent || "").trim().toLowerCase() === "accept" && !!element.offsetParent);
     if (accept) {
       accept.click();
@@ -47,7 +35,7 @@ async function acceptAnyCookieBannerButton(native: NativePage): Promise<boolean>
     } else {
       return false;
     }
-  }).catch(() => false);
+  }, COOKIE_ACCEPT_SELECTOR).catch(() => false);
 }
 
 export async function dismissOsMapsMarketingPopups(native: NativePage): Promise<boolean> {
@@ -85,12 +73,12 @@ export async function removeOsMapsBlockingOverlays(native: NativePage): Promise<
 export async function clearOsMapsInterruptions(native: NativePage): Promise<void> {
   const startedAt = dateTimeNowAsValue();
   await timed("geolocation permission", () => allowOsMapsGeolocation(native));
-  const cookieBannerFound = await acceptOsMapsCookieBanner(native);
+  const cookieBannerFound = await timed("cookie banner", () => acceptOsMapsCookieBanner(native));
   const popupsFound = await timed("marketing popups", () => dismissOsMapsMarketingPopups(native));
   await timed("overlay removal", () => removeOsMapsBlockingOverlays(native));
   if (cookieBannerFound || popupsFound) {
     debugLog("something was dismissed on the first pass, sweeping again");
-    await acceptOsMapsCookieBanner(native);
+    await timed("cookie banner (second pass)", () => acceptOsMapsCookieBanner(native));
     await timed("marketing popups (second pass)", () => dismissOsMapsMarketingPopups(native));
     await timed("overlay removal (second pass)", () => removeOsMapsBlockingOverlays(native));
   }

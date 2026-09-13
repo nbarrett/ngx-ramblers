@@ -2,6 +2,7 @@ import { Task } from "@serenity-js/core";
 import { Navigate } from "@serenity-js/web";
 import { StartWithNavigation } from "./start-with-navigation";
 import { Accept } from "../ramblers/common/accept-cookie-prompt";
+import { BlockOsMapsNoise } from "../os-maps/block-os-maps-noise";
 import { OS_MAPS_EXPLORE_URL } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 
 export class Start {
@@ -33,12 +34,14 @@ export class Start {
 
   static onOsMaps(): Task {
     return Task.where("#actor starts on OS Maps",
+      BlockOsMapsNoise.now(),
       Navigate.to(OS_MAPS_EXPLORE_URL),
     );
   }
 
   static onOsMapsRoute(url: string): Task {
     return Task.where("#actor starts on an OS Maps route",
+      BlockOsMapsNoise.now(),
       Navigate.to(url),
     );
   }
