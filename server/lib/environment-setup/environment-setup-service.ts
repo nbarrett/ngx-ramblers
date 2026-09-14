@@ -88,6 +88,8 @@ async function updateEnvironmentsConfig(
 ): Promise<void> {
   const newEnvConfig: EnvironmentConfig = {
     environment: request.environmentBasics.environmentName,
+    ngxLite: request.options.ngxLite === true,
+    estateDeploy: request.options.estateDeploy !== false,
     aws: {
       bucket: awsCredentials.bucket,
       region: awsCredentials.region,

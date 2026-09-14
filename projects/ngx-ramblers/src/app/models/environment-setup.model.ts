@@ -86,6 +86,8 @@ export interface GoogleMapsConfig {
 
 export interface OsMapsConfig {
   apiKey: string;
+  email?: string;
+  password?: string;
 }
 
 export interface RecaptchaConfig {
@@ -114,6 +116,7 @@ export interface SetupOptions {
   setupSubdomain: boolean;
   copySourceBucket: boolean;
   customDomainHostname: string | null;
+  estateDeploy?: boolean;
 }
 
 export enum SetupStepStatus {

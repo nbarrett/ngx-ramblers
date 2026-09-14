@@ -39,7 +39,7 @@ deployToEnvironments(config.targetEnvironments).then(() => process.exit(0)).catc
 });
 
 function buildDeploymentConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
-  const environments = (dbConfig?.environments || []).map(env => ({
+  const environments = (dbConfig?.environments || []).filter(env => env.estateDeploy !== false).map(env => ({
     name: env.environment,
     apiKey: env.flyio?.apiKey || "",
     appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,

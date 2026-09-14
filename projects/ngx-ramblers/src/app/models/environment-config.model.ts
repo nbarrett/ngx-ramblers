@@ -93,6 +93,7 @@ export interface EnvironmentConfig {
   secrets?: Record<string, string>;
   ai?: Ai;
   ngxLite?: boolean;
+  estateDeploy?: boolean;
   consoleAccess?: EnvironmentConsoleAccess;
 }
 
