@@ -91,7 +91,8 @@ export interface OsMapsExportJobResult {
 export enum OsMapsExportClickOutcome {
   DOWNLOAD_STARTED = "download-started",
   CONFIRMATION_SHOWN = "confirmation-shown",
-  INTERRUPTED = "interrupted"
+  INTERRUPTED = "interrupted",
+  NO_DIALOG_APPEARED = "no-dialog-appeared"
 }
 
 export enum OsMapsPageState {

@@ -11,6 +11,7 @@ const OS_MAPS_EXPORT_BUTTON_SELECTOR = "#export_gpx_button_id";
 const OS_MAPS_CONFIRM_EXPORT_SELECTOR = "button.export-button";
 const OS_MAPS_INTERRUPTION_SELECTOR = "button[aria-label='Close popup']";
 const EXPORT_CLICK_ATTEMPTS = 3;
+const DIALOG_APPEARANCE_WINDOW_MS = 2000;
 
 export class StartOsMapsGpxDownload extends Interaction {
 
@@ -33,6 +34,12 @@ export class StartOsMapsGpxDownload extends Interaction {
     await this.clickUntilDownloadStarts(native, downloadPromise, timeout, EXPORT_CLICK_ATTEMPTS);
   }
 
+  private appears(locator: ReturnType<NativePage["locator"]>, outcome: OsMapsExportClickOutcome): Promise<OsMapsExportClickOutcome> {
+    return locator.first().waitFor({state: "visible", timeout: DIALOG_APPEARANCE_WINDOW_MS})
+      .then(() => outcome)
+      .catch(() => OsMapsExportClickOutcome.NO_DIALOG_APPEARED);
+  }
+
   private async clickUntilDownloadStarts(native: NativePage, downloadPromise: Promise<unknown>, timeout: number, attemptsRemaining: number): Promise<void> {
     const exportButton = native.locator(OS_MAPS_EXPORT_BUTTON_SELECTOR);
     const confirmButton = native.locator(OS_MAPS_CONFIRM_EXPORT_SELECTOR);
@@ -40,8 +47,8 @@ export class StartOsMapsGpxDownload extends Interaction {
     await exportButton.first().click({force: true});
     const outcome = await Promise.race([
       downloadPromise.then(() => OsMapsExportClickOutcome.DOWNLOAD_STARTED),
-      confirmButton.first().waitFor({state: "visible", timeout}).then(() => OsMapsExportClickOutcome.CONFIRMATION_SHOWN),
-      interruption.first().waitFor({state: "visible", timeout}).then(() => OsMapsExportClickOutcome.INTERRUPTED)
+      this.appears(confirmButton, OsMapsExportClickOutcome.CONFIRMATION_SHOWN),
+      this.appears(interruption, OsMapsExportClickOutcome.INTERRUPTED)
     ]);
     if (outcome === OsMapsExportClickOutcome.CONFIRMATION_SHOWN) {
       await confirmButton.first().click({force: true});
