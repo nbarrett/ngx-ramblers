@@ -6,7 +6,6 @@ import { NavigateWithDomLoaded } from "../screenplay/tasks/common/navigate-with-
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { Start } from "../screenplay/tasks/common/start";
 import { AcceptOsMapsCookies } from "../screenplay/tasks/os-maps/accept-os-maps-cookies";
-import { DismissOsMapsOverlays } from "../screenplay/tasks/os-maps/dismiss-os-maps-overlays";
 import { ExportOsRouteToGpx } from "../screenplay/tasks/os-maps/export-os-route-to-gpx";
 import { LoginToOsMaps } from "../screenplay/tasks/os-maps/login-to-os-maps";
 import { ExportedGpxFile } from "../screenplay/questions/os-maps/exported-gpx-file";
@@ -53,8 +52,6 @@ describe("OS Maps GPX export", () => {
       clearExportedGpx();
       await exporter.attemptsTo(
         NavigateWithDomLoaded.to(route.url),
-        AcceptOsMapsCookies.whenVisible(),
-        DismissOsMapsOverlays.now(),
         ExportOsRouteToGpx.asGpx(),
         Ensure.that(ExportedGpxFile.fileName(), includes(".gpx")),
         Ensure.that(ExportedGpxFile.creator(), includes("OS Maps")),
