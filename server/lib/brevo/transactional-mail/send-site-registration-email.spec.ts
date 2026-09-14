@@ -9,7 +9,7 @@ import * as transactionalMail from "./send-transactional-mail";
 import { sendRegistrationEmail } from "./send-site-registration-email";
 
 const settings: RegistrationSettings = {
-  enabled: true, committeeEmailValidationEnabled: true, publicUrl: "https://platform.example.com",
+  enabled: true, committeeEmailValidationEnabled: true, sourceFidelityValidationEnabled: true, publicUrl: "https://platform.example.com",
   senderEmail: "sender@example.com", reviewer: {firstName: "Site", lastName: "Reviewer", email: "reviewer@example.com"},
   sourceEnvironmentName: "staging", approvedEmails: []
 };

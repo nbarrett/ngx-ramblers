@@ -92,6 +92,8 @@ import { UIDateFormat } from "../../../models/date-format.model";
                   <button class="btn btn-primary" [disabled]="busy" (click)="saveSettings()"><fa-icon [icon]="icons.save"/> Save</button>
                 </div>
                 <label class="d-block"><input type="checkbox" [(ngModel)]="settings.committeeEmailValidationEnabled"/> Require the email address to be on the group's approved committee list</label>
+                <label class="d-block"><input type="checkbox" [(ngModel)]="settings.sourceFidelityValidationEnabled"/> Stop a Full migration when source content is missing from the result</label>
+                <p class="guidance">This check allows formatting cleanup and grammar corrections. Turn it off only when diagnosing a source site that cannot pass the completeness check.</p>
                 @if (!settings.committeeEmailValidationEnabled) {
                   <div class="alert alert-warning d-flex align-items-start mt-2"><fa-icon [icon]="icons.warning" class="me-2"/><div>
                     <strong>Committee email validation is off</strong>

@@ -2,7 +2,7 @@ import { Command } from "commander";
 import debug from "debug";
 import fs from "fs";
 import { MongoClient } from "mongodb";
-import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectVersionsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import {
   DeleteAccessKeyCommand,
   DeletePolicyCommand,
@@ -50,6 +50,18 @@ async function deleteS3BucketContents(s3Client: S3Client, bucketName: string, co
 
   if (listResponse.NextContinuationToken) {
     await deleteS3BucketContents(s3Client, bucketName, listResponse.NextContinuationToken);
+  }
+}
+
+async function deleteS3BucketVersions(s3Client: S3Client, bucketName: string, keyMarker?: string, versionIdMarker?: string): Promise<void> {
+  const response = await s3Client.send(new ListObjectVersionsCommand({Bucket: bucketName, KeyMarker: keyMarker, VersionIdMarker: versionIdMarker}));
+  const objects = [...(response.Versions || []), ...(response.DeleteMarkers || [])].map(item => ({Key: item.Key, VersionId: item.VersionId}));
+  if (objects.length > 0) {
+    await s3Client.send(new DeleteObjectsCommand({Bucket: bucketName, Delete: {Objects: objects}}));
+    debugLog(`Deleted ${objects.length} object versions and delete markers from bucket ${bucketName}`);
+  }
+  if (response.IsTruncated) {
+    await deleteS3BucketVersions(s3Client, bucketName, response.NextKeyMarker, response.NextVersionIdMarker);
   }
 }
 
@@ -148,6 +160,7 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
       const bucketName = `ngx-ramblers-${config.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
       try {
         await deleteS3BucketContents(s3Client, bucketName);
+        await deleteS3BucketVersions(s3Client, bucketName);
         await s3Client.send(new DeleteBucketCommand({Bucket: bucketName}));
         report("S3 bucket", true, `Deleted ${bucketName}`);
       } catch (error) {
@@ -204,31 +217,28 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
         serverSelectionTimeoutMS: 30000,
         connectTimeoutMS: 30000
       });
-      const db = client.db(config.database);
-      const collections = await db.listCollections().toArray();
-
-      await collections.reduce(async (promise, collection) => {
-        await promise;
-        await db.dropCollection(collection.name);
-        debugLog(`Dropped collection: ${collection.name}`);
-      }, Promise.resolve());
-
+      await client.db(config.database).dropDatabase();
       await client.close();
-      report("Database", true, `Cleared ${collections.length} collections from ${config.database}`);
+      report("Database", true, `Deleted ${config.database}`);
     } catch (error) {
       report("Database", false, `Failed to clear: ${error.message}`);
     }
   }
 
-  try {
-    const removed = await removeEnvironmentFromDatabase(config.name);
-    if (removed) {
-      report("Environment config", true, "Removed environment entry from database");
-    } else {
-      report("Environment config", true, "No environment entry found in database (already removed)");
+  const resourceCleanupSucceeded = steps.every(step => step.success);
+  if (resourceCleanupSucceeded) {
+    try {
+      const removed = await removeEnvironmentFromDatabase(config.name);
+      if (removed) {
+        report("Environment config", true, "Removed environment entry from database");
+      } else {
+        report("Environment config", true, "No environment entry found in database (already removed)");
+      }
+    } catch (error) {
+      report("Environment config", false, `Failed to remove from database: ${error.message}`);
     }
-  } catch (error) {
-    report("Environment config", false, `Failed to remove from database: ${error.message}`);
+  } else {
+    report("Environment config", false, "Retained because resource cleanup was incomplete; resolve the failed steps before reusing this environment name");
   }
 
   try {

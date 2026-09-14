@@ -37,6 +37,7 @@ export async function preparedRegistrationSettings(req: Request): Promise<{setti
   const settings: RegistrationSettings = {
     enabled: req.body?.enabled === true,
     committeeEmailValidationEnabled: req.body?.committeeEmailValidationEnabled !== false,
+    sourceFidelityValidationEnabled: req.body?.sourceFidelityValidationEnabled !== false,
     publicUrl,
     senderEmail: (sender?.email || "").trim().toLowerCase(),
     sourceEnvironmentName: currentRegistrationEnvironmentName(),

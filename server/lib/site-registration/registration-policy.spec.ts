@@ -8,6 +8,7 @@ import { publicSiteUrl } from "./public-site-fetch";
 const settings: RegistrationSettings = {
   enabled: true,
   committeeEmailValidationEnabled: true,
+  sourceFidelityValidationEnabled: true,
   publicUrl: "https://www.ngx-ramblers.org.uk",
   senderEmail: "sender@example.com",
   reviewer: {firstName: "Site", lastName: "Reviewer", email: "reviewer@example.com"},
@@ -31,6 +32,7 @@ describe("site registration policy", () => {
     expect(validRegistrationSettings({
       enabled: false,
       committeeEmailValidationEnabled: false,
+      sourceFidelityValidationEnabled: false,
       publicUrl: "",
       senderEmail: "",
       reviewer: {firstName: "", lastName: "", email: ""},
@@ -64,6 +66,7 @@ describe("registration settings problems", () => {
   const complete: RegistrationSettings = {
     enabled: true,
     committeeEmailValidationEnabled: true,
+    sourceFidelityValidationEnabled: true,
     publicUrl: "https://www.ngx-ramblers.org.uk",
     senderEmail: "registrations@ngx-ramblers.org.uk",
     sourceEnvironmentName: "staging",

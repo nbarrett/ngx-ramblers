@@ -10,6 +10,7 @@ describe("site registration schemas", () => {
       value: {
         enabled: true,
         committeeEmailValidationEnabled: false,
+        sourceFidelityValidationEnabled: false,
         publicUrl: "https://platform.example.org",
         senderEmail: "sender@example.org",
         reviewer: {firstName: "Review", lastName: "Admin", email: "reviewer@example.org"},
@@ -20,6 +21,7 @@ describe("site registration schemas", () => {
     expect(settings.value).toEqual({
       enabled: true,
       committeeEmailValidationEnabled: false,
+      sourceFidelityValidationEnabled: false,
       publicUrl: "https://platform.example.org",
       senderEmail: "sender@example.org",
       reviewer: {firstName: "Review", lastName: "Admin", email: "reviewer@example.org"},

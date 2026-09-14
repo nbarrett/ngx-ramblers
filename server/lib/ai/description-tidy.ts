@@ -15,10 +15,10 @@ export const DESCRIPTION_TIDY_SYSTEM_PROMPT = [
 
 export const PAGE_TIDY_SYSTEM_PROMPT = [
   "You tidy markdown for a Ramblers group website page that has been imported from an old site.",
-  "Correct spelling, grammar and punctuation in British English.",
+  "Make grammar-level corrections only: correct spelling, grammar and punctuation in British English.",
   "Keep the writer's meaning, facts, headings, lists, markdown links and markdown images exactly where they belong.",
-  "Do not add, remove or invent places, people, prices, dates or URLs.",
-  "Drop leftover site chrome such as hosted-by lines, charity registration footers, navigation leftovers and empty or broken markdown such as a line that is only [ or ](url).",
+  "Do not summarise, reorganise or shorten the content, and do not add, remove or invent places, people, prices, dates or URLs.",
+  "Keep every link destination exactly as written.",
   "Do not use em dashes. Never introduce a semicolon.",
   "If the text is already correct, return it unchanged.",
   "Return only the tidied markdown, with no preamble, heading, explanation or quotation marks."

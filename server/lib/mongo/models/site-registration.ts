@@ -26,6 +26,7 @@ const registrationEmailApprovalSchema = new mongoose.Schema({
 const registrationSettingsValueSchema = new mongoose.Schema({
   enabled: {type: Boolean, required: true, default: false},
   committeeEmailValidationEnabled: {type: Boolean, required: true, default: true},
+  sourceFidelityValidationEnabled: {type: Boolean, required: true, default: true},
   publicUrl: {type: String, required: true},
   senderEmail: {type: String, required: true},
   reviewer: {type: reviewerSchema, required: true},

@@ -17,7 +17,7 @@ export async function ensureRegistrationIndexes(): Promise<void> {
 export async function registrationSettings(): Promise<RegistrationSettings> {
   const saved = await siteRegistrationConfig.findOne({key: ConfigKey.SITE_REGISTRATION}).lean();
   const defaults: RegistrationSettings = {
-    enabled: false, committeeEmailValidationEnabled: true, publicUrl: "", senderEmail: "", reviewer: {firstName: "", lastName: "", email: ""},
+    enabled: false, committeeEmailValidationEnabled: true, sourceFidelityValidationEnabled: true, publicUrl: "", senderEmail: "", reviewer: {firstName: "", lastName: "", email: ""},
     sourceEnvironmentName: "", approvedEmails: []
   };
   return saved?.value ? {...defaults, ...saved.value, reviewer: {...defaults.reviewer, ...saved.value.reviewer}, approvedEmails: saved.value.approvedEmails || []} : defaults;

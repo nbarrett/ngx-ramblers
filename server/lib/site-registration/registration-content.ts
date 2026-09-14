@@ -18,11 +18,13 @@ import { DateFormat, RamblersEventType, RamblersEventsApiResponse } from "../../
 import { dateTimeNow } from "../shared/dates";
 import { isEmpty } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
-import { assembleRegistrationPages, isRegistrationFeaturePath, isRegistrationNavLabel, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
+import { assembleRegistrationPages, isRegistrationFeaturePath, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 
 export { proposedRegistrationNavigation };
 
 const MAX_DISCOVERED_PAGES = 250;
+const MAX_CRAWLED_PAGES = 250;
+const CRAWL_BATCH_SIZE = 5;
 const menuSelectors: Record<RegistrationSiteFlavour, string> = {
   [RegistrationSiteFlavour.GENERIC]: "nav a, header a, a[href]",
   [RegistrationSiteFlavour.RAMBLERSWEBS]: ".BMenu a",
@@ -69,7 +71,7 @@ export function discoverRegistrationPages(html: string, website: string): {pages
       const title = link.textContent?.replace(/\s+/g, " ").trim();
       const parentLink = link.closest("li")?.parentElement?.closest("li")?.querySelector<HTMLAnchorElement>(":scope > a[href]");
       const parentTitle = parentLink?.textContent?.replace(/\s+/g, " ").trim() || "";
-      if (url.origin === base.origin && !url.search && isRegistrationNavLabel(title) && !/\.(jpe?g|png|gif|webp|svg|pdf|zip|docx?|xlsx?)$/i.test(url.pathname) &&
+      if (url.origin === base.origin && !url.search && title && !/\.(jpe?g|png|gif|webp|svg|pdf|zip|docx?|xlsx?)$/i.test(url.pathname) &&
         !/^(admin|login|wp-admin|wp-json)(\/|$)/i.test(sourcePath) && !items.some(item => item.url === url.href.split("#")[0])) {
         items.push({url: url.href.split("#")[0], title, parentTitle, sourcePath});
       }
@@ -95,7 +97,7 @@ export function discoverRegistrationPages(html: string, website: string): {pages
       parentPath: path.includes("/") ? path.substring(0, path.lastIndexOf("/")) : null, proposed: false
     }]);
   }, [] as RegistrationPage[]);
-  return {flavour, pages: assembleRegistrationPages(pages.filter(page => page.type !== RegistrationPageType.WALKS))};
+  return {flavour, pages: pages.filter(page => page.type !== RegistrationPageType.WALKS).sort((left, right) => left.path.localeCompare(right.path))};
 }
 
 export function isNgxRamblersSite(html: string, website: string): boolean {
@@ -120,11 +122,40 @@ export async function discoverRegistrationWebsite(website: string, groupCode = "
     const sourceTitle = document.querySelector("h1")?.textContent?.replace(/\s+/g, " ").trim() || document.title.replace(/\s+/g, " ").trim() || publicSiteUrl(initialUrl).hostname;
     const homePage: RegistrationPage = {url: initialUrl, path: "home", title: RegistrationNavbarTitle.HOME, type: RegistrationPageType.TEXT, selected: true, parentPath: null, proposed: false};
     const initialPages = initial.pages.some(page => page.path === RegistrationNavbarPath.HOME) ? initial.pages : [homePage, ...initial.pages.filter(page => page.path !== "home")];
+    const discovered = await crawlRegistrationPages(initialPages, initial.flavour, new Set([initialUrl]), initialPages.filter(page => !page.proposed).map(page => page.url));
     const hasWalks = await groupHasRamblersEvents(groupCode, RamblersEventType.GROUP_WALK, true);
     const hasSocialEvents = await groupHasRamblersEvents(groupCode, RamblersEventType.GROUP_EVENT, false);
-    const pages = assembleRegistrationPages(initialPages, hasWalks, hasSocialEvents);
-    return {flavour: initial.flavour, pages, proposedNavigation: proposedRegistrationNavigation(pages)};
+    const navigationPages = assembleRegistrationPages(discovered.pages, hasWalks, hasSocialEvents);
+    return {...discovered, proposedNavigation: proposedRegistrationNavigation(navigationPages)};
   }
+}
+
+async function crawlRegistrationPages(pages: RegistrationPage[], flavour: RegistrationSiteFlavour, visited: Set<string>, queue: string[]): Promise<{pages: RegistrationPage[]; flavour: RegistrationSiteFlavour}> {
+  const candidates = [...new Set(queue)].filter(url => !visited.has(url));
+  if (!candidates.length) {
+    return {pages: finaliseRegistrationPages(pages), flavour};
+  } else if (visited.size >= MAX_CRAWLED_PAGES || pages.length >= MAX_DISCOVERED_PAGES) {
+    throw new Error(`The source site exceeds the ${MAX_CRAWLED_PAGES}-page migration safety limit. No partial migration has been created.`);
+  } else {
+    const batch = candidates.slice(0, Math.min(CRAWL_BATCH_SIZE, MAX_CRAWLED_PAGES - visited.size));
+    const remaining = candidates.slice(batch.length);
+    const discoveries = await Promise.all(batch.map(async url => discoverRegistrationPages(await fetchPublicSiteHtml(url), url)));
+    const merged = [...pages, ...discoveries.flatMap(discovery => discovery.pages)].reduce((found, page) => {
+      const existing = found.get(page.path);
+      if (!existing || (existing.proposed && !page.proposed)) {
+        found.set(page.path, page);
+      }
+      return found;
+    }, new Map<string, RegistrationPage>());
+    const nextPages = [...merged.values()];
+    const nextQueue = [...remaining, ...discoveries.flatMap(discovery => discovery.pages).filter(page => !page.proposed && !visited.has(page.url)).map(page => page.url)];
+    const nextFlavour = flavour === RegistrationSiteFlavour.GENERIC ? discoveries.find(discovery => discovery.flavour !== RegistrationSiteFlavour.GENERIC)?.flavour || flavour : flavour;
+    return crawlRegistrationPages(nextPages, nextFlavour, new Set([...visited, ...batch]), nextQueue);
+  }
+}
+
+function finaliseRegistrationPages(pages: RegistrationPage[]): RegistrationPage[] {
+  return pages.map(page => pages.some(child => child.parentPath === page.path) ? {...page, type: RegistrationPageType.INDEX} : page).sort((left, right) => left.path.localeCompare(right.path));
 }
 
 async function groupHasRamblersEvents(groupCode: string, type: RamblersEventType, fallback: boolean): Promise<boolean> {
@@ -179,8 +210,8 @@ function textRegistrationTransformation(pageType: RegistrationPageType): PageTra
   } : step)};
 }
 
-export function registrationMigrationConfig(registration: StoredSiteRegistration): SiteMigrationConfig {
-  const selected = registration.pages.filter(page => page.selected);
+export function registrationMigrationConfig(registration: StoredSiteRegistration, requireSourceFidelity = true): SiteMigrationConfig {
+  const selected = registration.pages.map(page => ({...page, selected: true}));
   if (!selected.length || selected.some(page => page.parentPath && !selected.some(parent => parent.path === page.parentPath))) {
     throw new Error("Select content and retain its parent indexes so every imported page can be reached.");
   }
@@ -189,7 +220,7 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
     menuSelector: menuSelectors[registration.flavour],
     contentSelector: contentSelectors[registration.flavour],
     excludeSelectors: ["script", "style", "nav", "header", "footer", ".cookie-notice", ".wp-block-navigation", ".site-header", ".site-footer"],
-    enabled: true, uploadTos3: true, persistData: false, publicHtmlOnly: true, requireSourceFidelity: false,
+    enabled: true, uploadTos3: true, persistData: false, publicHtmlOnly: true, requireSourceFidelity,
     defaultPageTransformation: registrationTransformation(),
     parentPages: selected.filter(page => page.url && !isRegistrationFeaturePath(page.path)).map(page => ({
       url: page.url, pathPrefix: page.path, parentPageMode: page.proposed ? ParentPageMode.INDEX : ParentPageMode.AS_IS,

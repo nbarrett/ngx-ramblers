@@ -1,6 +1,6 @@
 import debug from "debug";
 import { randomUUID } from "crypto";
-import { RegistrationEmailType, RegistrationNavbarPath, RegistrationPlan, RegistrationState, RegistrationStep, StoredSiteRegistration } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
+import { RegistrationEmailType, RegistrationNavbarPath, RegistrationPage, RegistrationPlan, RegistrationState, RegistrationStep, StoredSiteRegistration } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { createEmptySetupRequest, environmentNameForGroup, prefixedEnvironmentResourceName, SetupStepStatus } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { ADMIN_SET_PASSWORD_PATH, EventPopulation } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -56,7 +56,7 @@ export async function submitRegistration(token: string): Promise<void> {
   } else if (await findEnvironmentFromDatabase(environmentName)) {
     throw new Error("An environment already exists for this group. Please contact the platform administrator.");
   } else {
-    const migrationConfig = registration.plan === RegistrationPlan.FULL ? registrationMigrationConfig(registration) : null;
+    const migrationConfig = registration.plan === RegistrationPlan.FULL ? registrationMigrationConfig(registration, settings.sourceFidelityValidationEnabled) : null;
     await registrations().updateOne({id: registration.id, state: RegistrationState.DRAFT}, {$set: {
       state: RegistrationState.QUEUED, currentStep: RegistrationStep.PROGRESS, migrationConfig,
       environmentName, updatedAt: dateTimeNowAsValue()
@@ -213,7 +213,7 @@ async function importRegistration(registration: StoredSiteRegistration): Promise
     result = await migrateStaticSite({
       ...migration,
       persistData: true,
-      requireSourceFidelity: false,
+      requireSourceFidelity: migration.requireSourceFidelity,
       uploadTos3: true,
       uploadBucket: context.envConfigData.aws?.bucket
     });
@@ -224,7 +224,7 @@ async function importRegistration(registration: StoredSiteRegistration): Promise
   if (!imported.length) {
     throw new Error("No pages could be imported from the current website.");
   }
-  const assembled = assembleRegistrationPages(registration.pages || [], true, true);
+  const assembled = registrationNavigationPages(registration);
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {
     for (const page of result.pageContents) {
@@ -297,12 +297,18 @@ async function tidyPageRows(rows: PageContentRow[]): Promise<PageContentRow[]> {
 }
 
 function navigationPages(registration: StoredSiteRegistration) {
-  const roots = assembleRegistrationPages(registration.pages || [], true, true).filter(page => !page.parentPath && page.selected);
+  const roots = registrationNavigationPages(registration).filter(page => !page.parentPath && page.selected);
   return roots.slice(0, 8).map(page => ({
     title: page.title,
     href: page.path === "home" ? "" : page.path,
     accessLevel: page.path === RegistrationNavbarPath.ADMIN ? AccessLevel.COMMITTEE : AccessLevel.PUBLIC
   }));
+}
+
+function registrationNavigationPages(registration: StoredSiteRegistration): RegistrationPage[] {
+  const hasWalks = registration.proposedNavigation.some(item => item.path === RegistrationNavbarPath.WALKS);
+  const hasSocialEvents = registration.proposedNavigation.some(item => item.path === RegistrationNavbarPath.EVENTS);
+  return assembleRegistrationPages(registration.pages || [], hasWalks, hasSocialEvents);
 }
 
 function withChildNavigation(page: PageContent): PageContent {

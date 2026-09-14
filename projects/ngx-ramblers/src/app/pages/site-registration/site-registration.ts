@@ -11,9 +11,9 @@ import { PageComponent } from "../../page/page.component";
 import { GroupSelector } from "../walks/walk-edit/group-selector";
 import { SiteRegistrationService } from "../../services/site-registration.service";
 import { UrlService } from "../../services/url.service";
-import { REGISTRATION_STEPS, RamblersDirectoryLogo, RegistrationNavbarPath, RegistrationPage, RegistrationPageAnchor, RegistrationPlan, RegistrationState, RegistrationStep, SiteRegistration } from "../../models/site-registration.model";
-import { assembleRegistrationPages, proposedRegistrationNavigation, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../functions/registration-page-tree";
-import { SiteMapViewMode, SitemapMoveDirection, SitemapNode } from "../../models/sitemap.model";
+import { REGISTRATION_STEPS, RamblersDirectoryLogo, RegistrationPageAnchor, RegistrationPlan, RegistrationState, RegistrationStep, SiteRegistration } from "../../models/site-registration.model";
+import { registrationPageTree } from "../../functions/registration-page-tree";
+import { SiteMapViewMode, SitemapNode } from "../../models/sitemap.model";
 import { SiteMapViewComponent } from "../../modules/common/site-map/site-map-view";
 import { AdminPlatformPath } from "../../models/admin-route-paths.model";
 import { RamblersGroupsApiResponse } from "../../models/ramblers-walks-manager";
@@ -58,7 +58,7 @@ import { values } from "es-toolkit/compat";
               @switch (step.key) {
                 @case (Step.PLAN) {
                   <p class="guidance"><strong>Lite</strong> provides email and membership tools with a reduced public site. It does not import your existing website.</p>
-                  <p class="guidance"><strong>Full</strong> includes the group website. You choose which pages to bring across. Walks come from Walks Manager, not from the old site.</p>
+                  <p class="guidance"><strong>Full</strong> includes every discovered page and photo from the group's current website. Walks come from Walks Manager, not from the old site.</p>
                   <div class="form-check form-check-inline">
                     <input id="registration-plan-lite" class="form-check-input" type="radio" name="plan" [value]="Plan.LITE" [(ngModel)]="plan" (ngModelChange)="planChanged($event)" [disabled]="!!registration"/>
                     <label class="form-check-label" for="registration-plan-lite">Lite</label>
@@ -92,14 +92,14 @@ import { values } from "es-toolkit/compat";
                     <label for="registration-website">Current website</label>
                     <input id="registration-website" type="url" class="form-control" [(ngModel)]="registration.website"/>
                     <button class="btn btn-primary my-2" [disabled]="busy" (click)="discover()"><fa-icon [icon]="icons.search" class="me-2"/>Find pages</button>
-                    <app-site-map-view [roots]="pageTree()" [viewMode]="SiteMapViewMode.TREE" [treeDepth]="99" showFilter selectable showPreview (selectionChange)="pageSelectionChanged($event)" (moveChange)="pageMoved($event)" emptyMessage="Find pages to see how they will be organised on the new site."/>
+                    <app-site-map-view [roots]="pageTree()" [viewMode]="SiteMapViewMode.TREE" [treeDepth]="99" showFilter showPreview emptyMessage="Find pages to see the content that will be copied to the new site."/>
                     <p><a routerLink="/how-to/group-registration/full" target="_blank" rel="noopener noreferrer">Choosing pages for a Full site</a></p>
                   }
                 }
                 @case (Step.REVIEW) {
                   <p class="guidance">Confirm your choices to queue provisioning. The platform administrator will review the site before sending your group an invitation.</p>
                   <p><strong>{{registration?.group?.name}}</strong> — {{registration?.plan}}</p>
-                  <app-site-map-view [roots]="pageTree()" [viewMode]="SiteMapViewMode.TREE" [treeDepth]="99" showFilter selectable showPreview (selectionChange)="pageSelectionChanged($event)" (moveChange)="pageMoved($event)" emptyMessage="No pages have been chosen yet."/>
+                  <app-site-map-view [roots]="pageTree()" [viewMode]="SiteMapViewMode.TREE" [treeDepth]="99" showFilter showPreview emptyMessage="No source pages have been discovered yet."/>
                   <button class="btn btn-primary" [disabled]="busy" (click)="submit()"><fa-icon [icon]="icons.build" class="me-2"/>Confirm and build site</button>
                 }
                 @case (Step.PROGRESS) {
@@ -254,23 +254,7 @@ export class SiteRegistrationComponent implements OnInit, OnDestroy {
   }
 
   private shapeRegistration(registration: SiteRegistration): SiteRegistration {
-    const pages = assembleRegistrationPages(registration.pages || [], registration.plan === RegistrationPlan.FULL, (registration.pages || []).some(page => page.path === RegistrationNavbarPath.EVENTS));
-    return {...registration, pages, proposedNavigation: proposedRegistrationNavigation(pages)};
-  }
-
-  pageSelectionChanged(change: {key: string; selected: boolean}): void {
-    this.replacePages(this.registration ? registrationPagesWithSelection(this.registration.pages, change.key, change.selected) : []);
-  }
-
-  pageMoved(change: {key: string; direction: SitemapMoveDirection}): void {
-    this.replacePages(this.registration ? registrationPagesMoved(this.registration.pages, change.key, change.direction) : []);
-  }
-
-  private replacePages(pages: RegistrationPage[]): void {
-    if (this.registration) {
-      const nextPages = assembleRegistrationPages(pages, this.plan === RegistrationPlan.FULL, pages.some(page => page.path === RegistrationNavbarPath.EVENTS));
-      this.registration = {...this.registration, pages: nextPages, proposedNavigation: proposedRegistrationNavigation(nextPages)};
-    }
+    return {...registration, pages: registration.pages || []};
   }
 
   planChanged(plan: RegistrationPlan): void {

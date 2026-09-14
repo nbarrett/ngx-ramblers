@@ -1,4 +1,4 @@
-import { isArray, isString } from "es-toolkit/compat";
+import { isArray, isBoolean, isString } from "es-toolkit/compat";
 import { RegistrationSettings } from "../models/site-registration.model";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -32,7 +32,8 @@ export function registrationEnableProblems(settings: RegistrationSettings): stri
 }
 
 export function registrationSettingsProblem(settings: RegistrationSettings): string {
-  const validFieldTypes = isString(settings?.publicUrl) && isString(settings?.senderEmail) && isString(settings?.reviewer?.firstName) &&
+  const validFieldTypes = isBoolean(settings?.enabled) && isBoolean(settings?.committeeEmailValidationEnabled) && isBoolean(settings?.sourceFidelityValidationEnabled) &&
+    isString(settings?.publicUrl) && isString(settings?.senderEmail) && isString(settings?.reviewer?.firstName) &&
     isString(settings?.reviewer?.lastName) && isString(settings?.reviewer?.email) && isString(settings?.sourceEnvironmentName);
   if (!validFieldTypes) {
     return "Registration settings arrived in an unexpected shape. Reload the page and try again.";

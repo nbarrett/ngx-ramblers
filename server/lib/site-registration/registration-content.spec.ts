@@ -68,9 +68,9 @@ describe("site registration content discovery", () => {
 
   it("discovers internal pages and proposes the missing index hierarchy", () => {
     const result = registration().pages;
-    expect(result.map(page => page.path).filter(path => path !== "admin").sort()).toEqual(["about-us", "contact-us", "information", "information/alps-holiday"]);
-    expect(result.find(page => page.path === "about-us")?.title).toBe("About Us");
-    expect(result.find(page => page.path === "information/alps-holiday")?.url).toContain("/scrapbook/holidays/alps.html");
+    expect(result.map(page => page.path).sort()).toEqual(["about-us", "alps-holiday", "contact"]);
+    expect(result.find(page => page.path === "about-us")?.title).toBe("About us");
+    expect(result.find(page => page.path === "alps-holiday")?.url).toContain("/scrapbook/holidays/alps.html");
     expect(result.find(page => page.path === "walks-programme")).toBeFalsy();
   });
 
@@ -80,7 +80,7 @@ describe("site registration content discovery", () => {
         <a href="/walk%20guides">Walk guides</a>
         <a href="/Social Events">Social events</a>
       </nav></body></html>`, "https://group.example").pages;
-    expect(pages.filter(page => page.path !== "admin").map(page => page.path).sort()).toEqual(["about-us", "contact-us", "information", "information/social-events", "information/walk-guides"]);
+    expect(pages.map(page => page.path).sort()).toEqual(["social-events", "walk-guides"]);
   });
 
   it("omits Walks Manager programme pages and keeps walk-related content pages", () => {
@@ -91,7 +91,7 @@ describe("site registration content discovery", () => {
         <a href="/leaders">Walk Leaders</a>
         <a href="/guides">Walk guides</a>
       </nav></body></html>`, "https://group.example").pages;
-    expect(pages.filter(page => page.path !== "admin").map(page => page.path).sort()).toEqual(["about-us", "contact-us", "information", "information/leading-a-walk", "information/walk-guides"]);
+    expect(pages.map(page => page.path).sort()).toEqual(["walk-guides", "walk-leaders"]);
   });
 
   it("adds Walks and Social Events navbar items when the group has those events", () => {
@@ -146,7 +146,7 @@ describe("site registration content discovery", () => {
   it("keeps at most eight navbar items and hangs extra pages under More", () => {
     const links = ["Home", "About Us", "Contact", "News", "Social", "Links", "Committee", "History", "Lift Sharing", "Books"]
       .map(title => `<a href="/${title.toLowerCase().replace(/ /g, "-")}">${title}</a>`).join("");
-    const pages = discoverRegistrationPages(`<html><body><nav>${links}</nav></body></html>`, "https://group.example").pages;
+    const pages = assembleRegistrationPages(discoverRegistrationPages(`<html><body><nav>${links}</nav></body></html>`, "https://group.example").pages);
     const roots = pages.filter(page => !page.parentPath);
     expect(roots.length).toBeLessThanOrEqual(8);
     expect(roots.map(page => page.path).sort()).toEqual(["about-us", "admin", "contact-us", "home", "information"]);
@@ -154,21 +154,23 @@ describe("site registration content discovery", () => {
     expect(pages.filter(page => page.parentPath).every(page => pages.some(parent => parent.path === page.parentPath))).toBe(true);
   });
 
-  it("skips leftover sentences that are not navbar labels", () => {
-    const pages = discoverRegistrationPages(`
+  it("keeps sentence-titled source pages but excludes them from the navbar", () => {
+    const discovered = discoverRegistrationPages(`
       <html><body><nav>
         <a href="/about">About Us</a>
         <a href="/n1">details at bottom of calendar page</a>
         <a href="/n2">Our 2026 AGM is on November 21st</a>
         <a href="/n3">Could this be you?</a>
       </nav></body></html>`, "https://group.example").pages;
-    expect(pages.filter(page => page.path !== "admin").map(page => page.path).sort()).toEqual(["about-us", "contact-us"]);
+    const pages = assembleRegistrationPages(discovered);
+    expect(discovered.map(page => page.path)).toEqual(expect.arrayContaining(["details-at-bottom-of-calendar-page", "our-2026-agm-is-on-november-21-st", "could-this-be-you"]));
+    expect(pages.some(page => /calendar|AGM|Could this/i.test(page.title))).toBe(false);
   });
 
   it("nests discovered pages under their parent path", () => {
     const tree = registrationPageTree(discoverRegistrationPages(`<nav><ul><li><a href="/about">About us</a><ul><li><a href="/scrapbook">Scrapbook</a></li></ul></li></ul></nav>`, "https://group.example").pages);
     const about = tree.find(node => node.key === "about-us");
-    const scrapbook = tree.find(node => node.key === "photos") || tree.find(node => node.key === "about-us/scrapbook");
+    const scrapbook = about?.children.find(node => node.key === "about-us/scrapbook");
     expect(about).toBeTruthy();
     expect(scrapbook).toBeTruthy();
   });
@@ -201,12 +203,12 @@ describe("site registration content discovery", () => {
 
   it("uses nested source navigation to propose a hierarchy when source URLs are flat", () => {
     const result = discoverRegistrationPages(`<nav><ul><li><a href="/walks">Walks</a><ul><li><a href="/scrapbook">Scrapbook</a></li></ul></li></ul></nav>`, "https://group.example");
-    expect(result.pages.filter(page => page.path !== "admin").map(page => page.path).sort()).toEqual(["about-us", "contact-us", "photos"]);
-    expect(result.pages.find(page => page.path === "photos")?.parentPath).toBe(null);
+    expect(result.pages.map(page => page.path)).toEqual(["scrapbook"]);
+    expect(result.pages[0].parentPath).toBe(null);
   });
 
   it("builds and persists navigation candidates from selected root pages", () => {
-    expect(proposedRegistrationNavigation(registration().pages).map(item => item.path).filter(path => path !== "admin").sort()).toEqual(["about-us", "contact-us", "information"]);
+    expect(proposedRegistrationNavigation(assembleRegistrationPages(registration().pages)).map(item => item.path).filter(path => path !== "admin").sort()).toEqual(["about-us", "contact-us", "information"]);
   });
 });
 
@@ -215,11 +217,11 @@ describe("site registration migration config", () => {
     const config = registrationMigrationConfig(registration());
     expect(config.uploadTos3).toBe(true);
     expect(config.persistData).toBe(false);
-    expect(config.requireSourceFidelity).toBe(false);
+    expect(config.requireSourceFidelity).toBe(true);
     expect(config.parentPages.some(page => page.pathPrefix === "walks-programme")).toBe(false);
     expect(config.parentPages.some(page => page.pathPrefix === "about-us")).toBe(true);
-    expect(config.parentPages.find(page => page.pathPrefix === "contact-us")?.pageTransformation?.name).toBe("Registration contact");
-    expect(config.parentPages.find(page => page.pathPrefix === "contact-us")?.templateFragmentId).toBe(RegistrationMigrationTemplate.CONTACT);
+    expect(config.parentPages.find(page => page.pathPrefix === "contact")?.pageTransformation?.name).toBe("Registration contact");
+    expect(config.parentPages.find(page => page.pathPrefix === "contact")?.templateFragmentId).toBe(RegistrationMigrationTemplate.CONTACT);
     const nested = registrationMigrationConfig({...registration(), pages: discoverRegistrationPages(`<nav><ul><li><a href="/about">About us</a><ul><li><a href="/scrapbook">Scrapbook</a></li></ul></li></ul></nav>`, "https://group.example").pages});
     expect(nested.parentPages.some(page => page.pathPrefix === "photos" || page.pathPrefix === "about-us/scrapbook")).toBe(true);
   });
@@ -254,13 +256,18 @@ describe("site registration migration config", () => {
     expect(config.contentSelector).toContain(".entry-content");
   });
 
-  it("rejects orphan leaves when their proposed parent is removed", () => {
+  it("includes an entire source branch even when stale selection flags say otherwise", () => {
     const saved = {...registration(), pages: discoverRegistrationPages(`<nav><ul><li><a href="/about">About us</a><ul><li><a href="/scrapbook">Scrapbook</a></li></ul></li></ul></nav>`, "https://group.example").pages};
     saved.pages = [
       {url: "https://group.example/information", path: "information", title: "Information", type: RegistrationPageType.INDEX, selected: false, parentPath: null, proposed: true},
       {url: "https://group.example/scrapbook", path: "information/scrapbook", title: "Scrapbook", type: RegistrationPageType.TEXT, selected: true, parentPath: "information", proposed: false}
     ];
-    expect(() => registrationMigrationConfig(saved)).toThrow("retain its parent indexes");
+    const config = registrationMigrationConfig(saved);
+    expect(config.parentPages.map(page => page.pathPrefix)).toEqual(["information", "information/scrapbook"]);
+  });
+
+  it("allows source-fidelity validation to be disabled for diagnosis", () => {
+    expect(registrationMigrationConfig(registration(), false).requireSourceFidelity).toBe(false);
   });
 
   it("builds proposed folders as browseable child indexes through the migration engine", async () => {
@@ -270,7 +277,11 @@ describe("site registration migration config", () => {
     ]});
     config.parentPages = config.parentPages.filter(page => page.pathPrefix === "information");
     delete config.parentPages[0].templateFragmentId;
-    const result = await migrateStaticSite(config);
+    const browser = {
+      newPage: async () => ({route: async () => null, on: () => null, goto: async () => null, evaluate: async () => [], close: async () => null}),
+      close: async () => null
+    } as any;
+    const result = await migrateStaticSite(config, browser);
     expect(result.pageContents[0].path).toBe("information");
     expect(result.pageContents[0].rows[0].type).toBe(PageContentType.ALBUM_INDEX);
     expect(result.pageContents[0].rows[0].albumIndex.contentPaths[0].contentPath).toBe("information/");

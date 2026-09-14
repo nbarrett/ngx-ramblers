@@ -184,6 +184,7 @@ export interface RegistrationEmailApproval {
 export interface RegistrationSettings {
   enabled: boolean;
   committeeEmailValidationEnabled: boolean;
+  sourceFidelityValidationEnabled: boolean;
   publicUrl: string;
   senderEmail: string;
   reviewer: AdminUserConfig;

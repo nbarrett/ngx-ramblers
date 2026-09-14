@@ -26,6 +26,7 @@ import mongoose from "mongoose";
 const settings: RegistrationSettings = {
   enabled: true,
   committeeEmailValidationEnabled: true,
+  sourceFidelityValidationEnabled: true,
   publicUrl: "https://platform.example.com",
   senderEmail: "sender@example.com",
   reviewer: {firstName: "Site", lastName: "Reviewer", email: "reviewer@example.com"},

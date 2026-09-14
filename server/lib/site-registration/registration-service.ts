@@ -9,7 +9,6 @@ import { fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
 import { registrations, registrationSettings, ensureRegistrationIndexes } from "./registration-store";
 import { assertRegistrationDraft, assertRegistrationEditable, normalisedRegistrationEmail, registrationEmailAllowed, registrationToken, registrationTokenHash, validRegistrationEmail } from "./registration-policy";
 import { sendRegistrationEmail } from "../brevo/transactional-mail/send-site-registration-email";
-import { proposedRegistrationNavigation } from "./registration-content";
 import { HttpError } from "../shared/http-error";
 
 export function registrationLink(settings: RegistrationSettings, token: string): string {
@@ -115,7 +114,7 @@ export async function saveRegistrationDraft(token: string, draft: RegistrationDr
     throw new Error("Invalid content selection.");
   }
   const pages = saved.pages.map(page => ({...page, selected: true}));
-  const proposedNavigation = proposedRegistrationNavigation(pages);
+  const proposedNavigation = saved.proposedNavigation;
   await registrations().updateOne({id: saved.id, state: RegistrationState.DRAFT}, {$set: {
     plan: draft.plan, currentStep: draft.currentStep, website: draft.website.trim(),
     pages: saved.website === draft.website.trim() ? pages : [],

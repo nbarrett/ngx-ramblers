@@ -1140,9 +1140,9 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
   return pageContents;
 }
 
-export async function migrateStaticSite(configInput: SiteMigrationConfig): Promise<MigrationResult> {
+export async function migrateStaticSite(configInput: SiteMigrationConfig, browser: Browser | null = null): Promise<MigrationResult> {
   const config: SiteMigrationConfig = withDefaults(configInput);
-  const ctx: Ctx = {config, browser: null, imageMappings: new Map(), templateCache: new Map()};
+  const ctx: Ctx = {config, browser, imageMappings: new Map(), templateCache: new Map()};
   try {
     debugLog(`✅ Starting migration for ${config.siteIdentifier}`);
     const pageContents: PageContent[] = [];
