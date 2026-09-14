@@ -9,7 +9,7 @@ import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
 import { rememberExportedGpx } from "../../questions/os-maps/exported-gpx-store";
 import { persistExportedGpxToJobPath } from "../../../../os-maps/os-maps-exported-gpx-files";
 import { waitForOsMapsSignedIn } from "./os-maps-identity";
-import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
+import { clearOsMapsInterruptions, timedPhase } from "./os-maps-page-cleanup";
 
 const OS_MAPS_EXPORT_BUTTON_SELECTOR = "#export_gpx_button_id";
 const OS_MAPS_CONFIRM_EXPORT_SELECTOR = "button.export-button";
@@ -30,17 +30,17 @@ export class ExportOsRouteToGpx extends Interaction {
     const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
     const native: NativePage = await currentPage.nativePage();
     const timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds();
-    await clearOsMapsInterruptions(native);
+    await timedPhase("export: clear interruptions", () => clearOsMapsInterruptions(native));
     try {
-      await waitForOsMapsSignedIn(native, timeout);
+      await timedPhase("export: wait for signed-in header", () => waitForOsMapsSignedIn(native, timeout));
     } catch {
       throw new Error("OS Maps export needs a signed-in session before Export GPX, and the signed-in header never appeared");
     }
     const exportButton = native.locator(OS_MAPS_EXPORT_BUTTON_SELECTOR);
-    await exportButton.first().waitFor({state: "visible", timeout});
+    await timedPhase("export: wait for the Export GPX button", () => exportButton.first().waitFor({state: "visible", timeout}));
     const downloadPromise = native.waitForEvent("download", {timeout});
-    await this.clickExportUntilDownloadStarts(native, downloadPromise, timeout, EXPORT_CLICK_ATTEMPTS);
-    const download = await downloadPromise.catch(() => {
+    await timedPhase("export: click Export GPX", () => this.clickExportUntilDownloadStarts(native, downloadPromise, timeout, EXPORT_CLICK_ATTEMPTS));
+    const download = await timedPhase("export: wait for the download to start", () => downloadPromise).catch(() => {
       throw new Error(`OS Maps did not start a GPX download after Export GPX was clicked on ${native.url()}`);
     });
     const fileName = download.suggestedFilename();

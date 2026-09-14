@@ -21,6 +21,19 @@ const realtimeReportingActive = !!(process.env[Environment.INTEGRATION_WORKER_CA
   && process.env[Environment.INTEGRATION_WORKER_CALLBACK_SECRET]
   && process.env[Environment.INTEGRATION_WORKER_JOB_ID]);
 
+const BLOCKED_HOSTS = [
+  "*.amplitude.com",
+  "*.qualtrics.com",
+  "weather.oscpdata.com",
+  "*.google-analytics.com",
+  "*.googletagmanager.com",
+  "*.doubleclick.net",
+  "*.hotjar.com",
+  "*.facebook.net"
+];
+
+const BLOCKED_HOST_RESOLVER_RULES = BLOCKED_HOSTS.map(host => `MAP ${host} ~NOTFOUND`).join(",");
+
 export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
   testDir: featuresDirectory,
   testMatch,
@@ -65,7 +78,8 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
         "--disable-gpu",
         "--disable-infobars",
         "--log-level=ALL",
-        "--no-sandbox"
+        "--no-sandbox",
+        `--host-resolver-rules=${BLOCKED_HOST_RESOLVER_RULES}`
       ]
     }
   }
