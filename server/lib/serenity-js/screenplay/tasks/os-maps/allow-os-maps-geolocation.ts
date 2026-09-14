@@ -2,22 +2,22 @@ import { Interaction, UsesAbilities } from "@serenity-js/core/lib/screenplay";
 import { BrowseTheWeb } from "@serenity-js/web";
 import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Page as NativePage } from "playwright-core";
-import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
+import { allowOsMapsGeolocation } from "./os-maps-page-cleanup";
 
-export class AcceptOsMapsCookies extends Interaction {
+export class AllowOsMapsGeolocation extends Interaction {
 
-  static whenVisible() {
-    return new AcceptOsMapsCookies();
+  static forThisSession() {
+    return new AllowOsMapsGeolocation();
   }
 
   constructor() {
-    super("#actor accepts the OS Maps cookie banner when it is visible");
+    super("#actor allows OS Maps to see a location");
   }
 
   async performAs(actor: UsesAbilities): Promise<void> {
     const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
     const native: NativePage = await currentPage.nativePage();
-    await clearOsMapsInterruptions(native);
+    await allowOsMapsGeolocation(native);
   }
 
 }

@@ -5,7 +5,6 @@ import { OsMapsRouteFixture, requestedOsMapsRouteFixture } from "../../../../pro
 import { NavigateWithDomLoaded } from "../screenplay/tasks/common/navigate-with-dom-loaded";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { Start } from "../screenplay/tasks/common/start";
-import { AcceptOsMapsCookies } from "../screenplay/tasks/os-maps/accept-os-maps-cookies";
 import { ExportOsRouteToGpx } from "../screenplay/tasks/os-maps/export-os-route-to-gpx";
 import { LoginToOsMaps } from "../screenplay/tasks/os-maps/login-to-os-maps";
 import { ExportedGpxFile } from "../screenplay/questions/os-maps/exported-gpx-file";
@@ -45,7 +44,6 @@ describe("OS Maps GPX export", () => {
     const exporter = actorCalled(actor);
     await exporter.attemptsTo(
       Start.onOsMapsRoute(routes[0].url),
-      AcceptOsMapsCookies.whenVisible(),
       LoginToOsMaps.withConfiguredCredentials()
     );
     for (const route of routes) {

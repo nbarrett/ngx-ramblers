@@ -3,3 +3,12 @@ export enum OsMapsLoginSubmitOutcome {
   SUBMITTED = "submitted",
   IGNORED = "ignored"
 }
+
+export interface OsMapsSweepSelectors {
+  cookieAccept: string;
+  marketingDismissPattern: string;
+  overlayIds: string[];
+  overlaySelectors: string;
+  suppressionStyleId: string;
+  suppressionStyle: string;
+}

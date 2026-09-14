@@ -8,8 +8,8 @@ export class ExportOsRouteToGpx {
 
   static asGpx(): Task {
     return Task.where("#actor exports the current OS Maps route as GPX",
-      DismissOsMapsOverlays.now(),
       WaitForOsMapsSignedInHeader.now(),
+      DismissOsMapsOverlays.now(),
       StartOsMapsGpxDownload.now(),
       CaptureOsMapsGpxDownload.now()
     );
