@@ -1,6 +1,5 @@
 import debug from "debug";
 import type { Page as NativePage } from "playwright-core";
-import { UK_CENTRE_GEOLOCATION } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { OsMapsSweepSelectors } from "../../../../models/os-maps-identity.model";
 import { envConfig } from "../../../../env-config/env-config";
 import { pluraliseWithCount } from "../../../../shared/string-utils";
@@ -16,11 +15,6 @@ const SWEEP: OsMapsSweepSelectors = {
   suppressionStyleId: "ngx-os-maps-overlay-suppress",
   suppressionStyle: "#ccc,#ccc-overlay,#global-spinner-container,.QSIWebResponsive,[class*='QSIWebResponsive']{display:none!important;visibility:hidden!important;pointer-events:none!important;}"
 };
-
-export async function allowOsMapsGeolocation(native: NativePage): Promise<void> {
-  await native.context().grantPermissions(["geolocation"]);
-  await native.context().setGeolocation(UK_CENTRE_GEOLOCATION);
-}
 
 export async function removeOsMapsBlockingOverlays(native: NativePage): Promise<void> {
   await native.evaluate((selectors: OsMapsSweepSelectors) => {

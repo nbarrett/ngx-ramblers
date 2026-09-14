@@ -339,7 +339,8 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
       const previousAudit = chronological[currentIndex + 1];
       const thisTime = audit.auditTime;
       const prevTime = previousAudit?.auditTime;
-      const durationMs = (prevTime && thisTime) ? Math.max(0, thisTime - prevTime) : 0;
+      const gapSincePreviousStep = (prevTime && thisTime) ? Math.max(0, thisTime - prevTime) : 0;
+      const durationMs = audit.durationMs ?? gapSincePreviousStep;
       return {...audit, durationMs};
     });
   }

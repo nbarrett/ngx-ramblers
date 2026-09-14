@@ -5,6 +5,7 @@ import type { Download, Page as NativePage } from "playwright-core";
 import { OsMapsExportClickOutcome } from "../../../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
 import { rememberPendingOsMapsDownload } from "./os-maps-download-store";
+import { clickWithoutWaitingForNavigation } from "./os-maps-clicks";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
 
 const OS_MAPS_EXPORT_BUTTON_SELECTOR = "#export_gpx_button_id";
@@ -44,14 +45,14 @@ export class StartOsMapsGpxDownload extends Interaction {
     const exportButton = native.locator(OS_MAPS_EXPORT_BUTTON_SELECTOR);
     const confirmButton = native.locator(OS_MAPS_CONFIRM_EXPORT_SELECTOR);
     const interruption = native.locator(OS_MAPS_INTERRUPTION_SELECTOR);
-    await exportButton.first().click({force: true});
+    await clickWithoutWaitingForNavigation(exportButton.first());
     const outcome = await Promise.race([
       downloadPromise.then(() => OsMapsExportClickOutcome.DOWNLOAD_STARTED),
       this.appears(confirmButton, OsMapsExportClickOutcome.CONFIRMATION_SHOWN),
       this.appears(interruption, OsMapsExportClickOutcome.INTERRUPTED)
     ]);
     if (outcome === OsMapsExportClickOutcome.CONFIRMATION_SHOWN) {
-      await confirmButton.first().click({force: true});
+      await clickWithoutWaitingForNavigation(confirmButton.first());
     } else if (outcome === OsMapsExportClickOutcome.INTERRUPTED && attemptsRemaining > 1) {
       await clearOsMapsInterruptions(native);
       await this.clickUntilDownloadStarts(native, downloadPromise, timeout, attemptsRemaining - 1);

@@ -3,6 +3,7 @@ import type { Locator, Page as NativePage } from "playwright-core";
 import { envConfig } from "../../../../env-config/env-config";
 import { OsMapsLoginSubmitOutcome } from "../../../../models/os-maps-identity.model";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
+import { clickWithoutWaitingForNavigation } from "./os-maps-clicks";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
 import { trimmedOsMapsLogin, uniqueOsMapsIdentityErrors } from "./os-maps-login-values";
 
@@ -137,7 +138,7 @@ async function triggerOsMapsLoginSubmit(page: NativePage, attempt: number): Prom
   if (attempt % 2 === 0) {
     await osMapsPasswordField(page).first().press("Enter");
   } else {
-    await osMapsLoginSubmit(page).first().click({force: true});
+    await clickWithoutWaitingForNavigation(osMapsLoginSubmit(page).first());
   }
 }
 
@@ -192,7 +193,7 @@ export async function completeOsMapsIdentityLogin(page: NativePage, email: strin
     await fillOsMapsIdentityField(page, osMapsEmailField(page), login.email, timeout);
     const passwordVisible = await osMapsPasswordField(page).first().isVisible();
     if (!passwordVisible) {
-      await osMapsLoginSubmit(page).first().click({force: true});
+      await clickWithoutWaitingForNavigation(osMapsLoginSubmit(page).first());
       await osMapsPasswordField(page).first().waitFor({state: "visible", timeout});
     }
     await fillOsMapsIdentityField(page, osMapsPasswordField(page), login.password, timeout);
@@ -210,10 +211,10 @@ export async function clickOsMapsExploreLogin(native: NativePage, timeout = DEFA
   await clearOsMapsInterruptions(native);
   const headerLogin = native.locator(".header__right button[aria-label='Log in']");
   if (await headerLogin.isVisible()) {
-    await headerLogin.click({force: true});
+    await clickWithoutWaitingForNavigation(headerLogin);
   } else {
     const roleLogin = native.getByRole("button", {name: /^log in$/i});
     await roleLogin.waitFor({state: "visible", timeout});
-    await roleLogin.click({force: true});
+    await clickWithoutWaitingForNavigation(roleLogin.first());
   }
 }
