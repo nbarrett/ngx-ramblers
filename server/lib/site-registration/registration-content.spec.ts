@@ -11,7 +11,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { ParentPageMode } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import { PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { discoverRegistrationPages, isNgxRamblersSite, proposedRegistrationNavigation, registrationMigrationConfig, registrationPageType } from "./registration-content";
+import { discoverRegistrationPages, isNgxRamblersSite, mergeRegistrationPages, proposedRegistrationNavigation, registrationMigrationConfig, registrationPageType, registrationSourceUrl } from "./registration-content";
 import { assembleRegistrationPages, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { SitemapMoveDirection } from "../../../projects/ngx-ramblers/src/app/models/sitemap.model";
 import { migrateStaticSite, sourceFidelityGaps } from "../migration/migrate-static-site-engine";
@@ -192,6 +192,22 @@ describe("site registration content discovery", () => {
     expect(discoverRegistrationPages('<div class="BMenu"><a href="/about">About</a></div>', "https://group.example").flavour).toBe(RegistrationSiteFlavour.RAMBLERSWEBS);
     expect(discoverRegistrationPages('<meta name="generator" content="WordPress 6"><a href="/about">About</a>', "https://group.example").flavour).toBe(RegistrationSiteFlavour.WORDPRESS);
     expect(discoverRegistrationPages('<nav><a href="/about">About</a></nav>', "https://group.example").flavour).toBe(RegistrationSiteFlavour.GENERIC);
+  });
+
+  it("keeps query-string pages and gives different source URLs unique destination paths", () => {
+    const first = discoverRegistrationPages(`<nav><a href="/page?id=1">News</a><a href="/page?id=2">News</a></nav>`, "https://group.example").pages;
+    const second = discoverRegistrationPages(`<nav><a href="/other">News</a></nav>`, "https://group.example/page?id=1").pages;
+    const merged = mergeRegistrationPages([...first, ...second]);
+    expect(merged.filter(page => !page.proposed).map(page => page.url)).toEqual([
+      "https://group.example/page?id=1",
+      "https://group.example/page?id=2",
+      "https://group.example/other"
+    ]);
+    expect(merged.filter(page => !page.proposed).map(page => page.path)).toEqual(["news", "news-2", "news-3"]);
+  });
+
+  it("normalises tracking parameters without removing page-defining query values", () => {
+    expect(registrationSourceUrl("https://group.example/page?utm_source=email&id=2&fbclid=abc#top")).toBe("https://group.example/page?id=2");
   });
 
   it("recognises existing NGX Ramblers sites on standard and custom hostnames", () => {

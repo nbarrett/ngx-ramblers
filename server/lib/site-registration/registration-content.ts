@@ -71,9 +71,10 @@ export function discoverRegistrationPages(html: string, website: string): {pages
       const title = link.textContent?.replace(/\s+/g, " ").trim();
       const parentLink = link.closest("li")?.parentElement?.closest("li")?.querySelector<HTMLAnchorElement>(":scope > a[href]");
       const parentTitle = parentLink?.textContent?.replace(/\s+/g, " ").trim() || "";
-      if (url.origin === base.origin && !url.search && title && !/\.(jpe?g|png|gif|webp|svg|pdf|zip|docx?|xlsx?)$/i.test(url.pathname) &&
-        !/^(admin|login|wp-admin|wp-json)(\/|$)/i.test(sourcePath) && !items.some(item => item.url === url.href.split("#")[0])) {
-        items.push({url: url.href.split("#")[0], title, parentTitle, sourcePath});
+      const sourceUrl = registrationSourceUrl(url.href);
+      if (url.origin === base.origin && title && !/\.(jpe?g|png|gif|webp|svg|pdf|zip|docx?|xlsx?)$/i.test(url.pathname) &&
+        !/^(admin|login|wp-admin|wp-json)(\/|$)/i.test(sourcePath) && !items.some(item => item.url === sourceUrl)) {
+        items.push({url: sourceUrl, title, parentTitle, sourcePath});
       }
     } catch (error) {
       if (!(error instanceof TypeError)) {
@@ -98,6 +99,14 @@ export function discoverRegistrationPages(html: string, website: string): {pages
     }]);
   }, [] as RegistrationPage[]);
   return {flavour, pages: pages.filter(page => page.type !== RegistrationPageType.WALKS).sort((left, right) => left.path.localeCompare(right.path))};
+}
+
+export function registrationSourceUrl(value: string): string {
+  const url = publicSiteUrl(value);
+  url.hash = "";
+  [...url.searchParams.keys()].filter(key => /^utm_/i.test(key) || ["fbclid", "gclid"].includes(key.toLowerCase())).forEach(key => url.searchParams.delete(key));
+  url.searchParams.sort();
+  return url.href;
 }
 
 export function isNgxRamblersSite(html: string, website: string): boolean {
@@ -140,18 +149,39 @@ async function crawlRegistrationPages(pages: RegistrationPage[], flavour: Regist
     const batch = candidates.slice(0, Math.min(CRAWL_BATCH_SIZE, MAX_CRAWLED_PAGES - visited.size));
     const remaining = candidates.slice(batch.length);
     const discoveries = await Promise.all(batch.map(async url => discoverRegistrationPages(await fetchPublicSiteHtml(url), url)));
-    const merged = [...pages, ...discoveries.flatMap(discovery => discovery.pages)].reduce((found, page) => {
-      const existing = found.get(page.path);
-      if (!existing || (existing.proposed && !page.proposed)) {
-        found.set(page.path, page);
-      }
-      return found;
-    }, new Map<string, RegistrationPage>());
-    const nextPages = [...merged.values()];
+    const nextPages = mergeRegistrationPages([...pages, ...discoveries.flatMap(discovery => discovery.pages)]);
     const nextQueue = [...remaining, ...discoveries.flatMap(discovery => discovery.pages).filter(page => !page.proposed && !visited.has(page.url)).map(page => page.url)];
     const nextFlavour = flavour === RegistrationSiteFlavour.GENERIC ? discoveries.find(discovery => discovery.flavour !== RegistrationSiteFlavour.GENERIC)?.flavour || flavour : flavour;
     return crawlRegistrationPages(nextPages, nextFlavour, new Set([...visited, ...batch]), nextQueue);
   }
+}
+
+export function mergeRegistrationPages(pages: RegistrationPage[]): RegistrationPage[] {
+  const sourcePages = pages.filter(page => !page.proposed).reduce((found, page) => {
+    if (!found.some(existing => existing.url === page.url)) {
+      return [...found, page];
+    } else {
+      return found;
+    }
+  }, [] as RegistrationPage[]);
+  const used = new Set<string>();
+  const resolvedParents = new Map<string, string>();
+  const resolvedSources = sourcePages.map(page => {
+    const path = unusedRegistrationPath(used, page.path);
+    used.add(path);
+    if (!resolvedParents.has(page.path)) {
+      resolvedParents.set(page.path, path);
+    }
+    return {...page, path, parentPath: page.parentPath ? resolvedParents.get(page.parentPath) || page.parentPath : null};
+  });
+  const proposedPages = pages.filter(page => page.proposed).reduce((found, page) => {
+    if (!used.has(page.path) && !found.some(existing => existing.path === page.path)) {
+      return [...found, page];
+    } else {
+      return found;
+    }
+  }, [] as RegistrationPage[]);
+  return [...resolvedSources, ...proposedPages].sort((left, right) => left.path.localeCompare(right.path));
 }
 
 function finaliseRegistrationPages(pages: RegistrationPage[]): RegistrationPage[] {

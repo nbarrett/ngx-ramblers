@@ -127,6 +127,19 @@ export interface RegistrationNavigationItem {
   title: string;
 }
 
+export interface RegistrationContentLink {
+  href: string;
+  label: string;
+  parentPath: string;
+  sourcePageUrl: string;
+}
+
+export interface RegistrationCommitteeCandidate {
+  role: string;
+  name: string;
+  email: string;
+}
+
 export interface RegistrationDraft {
   plan: RegistrationPlan;
   currentStep: RegistrationStep;

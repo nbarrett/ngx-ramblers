@@ -67,3 +67,7 @@ export async function fetchPublicSiteHtml(value: string, redirects = 0): Promise
 export async function fetchPublicSiteImage(value: string): Promise<Buffer> {
   return fetchPublicSiteBody(value, 0, "image/*", "image/", 20000000);
 }
+
+export async function fetchPublicSiteDocument(value: string): Promise<Buffer> {
+  return fetchPublicSiteBody(value, 0, "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,*/*", "", 30000000);
+}

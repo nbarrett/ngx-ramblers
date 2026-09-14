@@ -37,10 +37,12 @@ import { generate } from "../ai/ai-generation";
 import { tidiedText } from "../ai/description-tidy";
 import { TidyTextKind } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
-import { assembleRegistrationPages } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
+import { assembleRegistrationPages, isRegistrationFeaturePath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import {
   IndexContentType, IndexRenderMode, PageContent, PageContentColumn, PageContentRow, PageContentType, StringMatch
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import {migrateRegistrationAssets} from "./registration-assets";
+import {importRegistrationCommittee} from "./registration-committee";
 
 const debugLog = debug(envConfig.logNamespace("site-registration:jobs"));
 const workerId = randomUUID();
@@ -225,14 +227,22 @@ async function importRegistration(registration: StoredSiteRegistration): Promise
     throw new Error("No pages could be imported from the current website.");
   }
   const assembled = registrationNavigationPages(registration);
+  const preparedPages = await Promise.all(result.pageContents.map(async page => {
+    const assembledPage = assembled.find(item => item.path === page.path || (item.path.split("/").pop() || item.path) === page.path);
+    const targetPath = assembledPage?.path || page.path;
+    const pageWithNavigation = assembled.some(sourcePage => sourcePage.parentPath === targetPath) ? withChildNavigation({...page, path: targetPath}) : {...page, path: targetPath};
+    const landingPage = assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(pageWithNavigation) : pageWithNavigation;
+    return {...landingPage, rows: await tidyPageRows(cleanPageRows(landingPage.rows))};
+  }));
+  const uploadBucket = context.envConfigData.aws?.bucket;
+  if (!uploadBucket) {
+    throw new Error("The review site's file storage is not configured, so linked documents cannot be imported safely.");
+  }
+  const migratedPages = await migrateRegistrationAssets(registration, preparedPages, uploadBucket);
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {
-    for (const page of result.pageContents) {
-      const assembledPage = assembled.find(item => item.path === page.path || (item.path.split("/").pop() || item.path) === page.path);
-      const targetPath = assembledPage?.path || page.path;
-      const pageWithNavigation = assembled.some(sourcePage => sourcePage.parentPath === targetPath) ? withChildNavigation({...page, path: targetPath}) : {...page, path: targetPath};
-      const landingPage = assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(pageWithNavigation) : pageWithNavigation;
-      await connection.db.collection("pageContent").updateOne({path: landingPage.path}, {$set: {path: landingPage.path, rows: await tidyPageRows(cleanPageRows(landingPage.rows))}}, {upsert: true});
+    for (const page of migratedPages) {
+      await connection.db.collection("pageContent").updateOne({path: page.path}, {$set: page}, {upsert: true});
     }
     if (assembled.some(page => page.parentPath === RegistrationNavbarPath.INFORMATION)) {
       const information = withChildNavigation({
@@ -247,16 +257,18 @@ async function importRegistration(registration: StoredSiteRegistration): Promise
         await connection.db.collection("pageContent").updateOne({path: album.pageContent.path}, {$set: album.pageContent}, {upsert: true});
       }
     }
+    await importRegistrationCommittee(connection.db, migratedPages, registration, aiConfigFromEnvironment());
+    const availablePaths = new Set((await connection.db.collection<PageContent>("pageContent").find({"rows.0": {$exists: true}}, {projection: {path: 1}}).toArray()).map(page => page.path));
     await connection.db.collection("config").updateOne({key: ConfigKey.SYSTEM}, {$set: {
       "value.header.navigationButtons": [{title: "National Ramblers", href: "https://ramblers.org.uk"}],
-      "value.group.pages": navigationPages(registration)
+      "value.group.pages": navigationPages(registration, availablePaths)
     }});
-    const importedHome = result.pageContents.find(page => page.path === "home" || page.path === "index");
+    const importedHome = migratedPages.find(page => page.path === "home" || page.path === "index");
     const albumRows = result.albums.map(album => album.pageContent?.rows?.[0]).filter(Boolean);
     if (importedHome?.rows?.length || albumRows.length) {
       await connection.db.collection("pageContent").updateOne({path: "#home-content"}, {$set: {rows: [...albumRows, ...await tidyPageRows(cleanPageRows(importedHome?.rows || []))]}}, {upsert: true});
     } else {
-      const homeVisualColumns = visualColumnsFromPages(result.pageContents);
+      const homeVisualColumns = visualColumnsFromPages(migratedPages);
       if (homeVisualColumns.length > 0) {
         await connection.db.collection<any>("pageContent").updateOne({path: "#home-content", "rows.migrationPlaceholder": {$ne: true}}, {
           $push: {rows: {$each: [landingVisualRow(homeVisualColumns)], $position: 0}}
@@ -296,9 +308,10 @@ async function tidyPageRows(rows: PageContentRow[]): Promise<PageContentRow[]> {
   })));
 }
 
-function navigationPages(registration: StoredSiteRegistration) {
+function navigationPages(registration: StoredSiteRegistration, availablePaths: Set<string>) {
   const roots = registrationNavigationPages(registration).filter(page => !page.parentPath && page.selected);
-  return roots.slice(0, 8).map(page => ({
+  return roots.filter(page => isRegistrationFeaturePath(page.path) || page.path === RegistrationNavbarPath.HOME || availablePaths.has(page.path))
+    .slice(0, 8).map(page => ({
     title: page.title,
     href: page.path === "home" ? "" : page.path,
     accessLevel: page.path === RegistrationNavbarPath.ADMIN ? AccessLevel.COMMITTEE : AccessLevel.PUBLIC

@@ -1,7 +1,6 @@
 import { fetchPublicSiteHtml, fetchPublicSiteImage } from "../site-registration/public-site-fetch";
 import { Browser, Page } from "playwright";
 import { launchBrowser as sharedLaunchBrowser } from "./browser-utils";
-import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
   ContentText,
@@ -23,7 +22,6 @@ import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } f
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { queryAWSConfig } from "../aws/aws-controllers";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { contentTypeFrom, extensionFrom } from "../aws/aws-utils";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { progress } from "./migration-progress";
 import * as exclusions from "./text-exclusions";
@@ -45,10 +43,10 @@ import {
 import { PageTransformationEngine } from "./page-transformation-engine";
 import { htmlToMarkdown } from "./turndown-service-factory";
 import mongoose from "mongoose";
+import {uploadMigrationBufferToS3} from "./migration-file-upload";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-const s3 = new S3({});
 let cachedAwsConfig: AWSConfig | undefined;
 const awsConfig = (): AWSConfig => cachedAwsConfig ?? (cachedAwsConfig = queryAWSConfig());
 
@@ -364,15 +362,7 @@ async function uploadImageToS3(ctx: Ctx, img: ScrapedImage): Promise<string | nu
   } else {
     try {
       const buffer = await fetchPublicSiteImage(img.src);
-      const fileName = generateUid() + extensionFrom(img.src);
-      const awsFileName = `${RootFolder.siteContent}/${fileName}`;
-      debugLog(`✅ Uploading image ${img.src} to S3 as ${awsFileName}`);
-      await s3.send(new PutObjectCommand({
-        Bucket: ctx.config.uploadBucket || awsConfig().bucket,
-        Key: awsFileName,
-        Body: buffer,
-        ContentType: contentTypeFrom(img.src)
-      }));
+      const awsFileName = await uploadMigrationBufferToS3(ctx.config.uploadBucket || awsConfig().bucket, img.src, buffer);
       ctx.imageMappings.set(img.src, awsFileName);
       return awsFileName;
     } catch (error) {

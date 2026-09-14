@@ -166,6 +166,8 @@ describe("site registration lifecycle", () => {
     const registrations = inMemoryRegistrations(state);
     const target = {migrationConfig: null as any, navigation: null as any, pagePaths: [] as string[], landingVisual: false, landingVisualImages: [] as string[], homeVisual: false};
     const targetDb = {collection: (name: string) => ({
+      find: sinon.stub().returns({toArray: sinon.stub().resolves(target.pagePaths.map(path => ({path, rows: [{}]})))}),
+      findOne: sinon.stub().resolves(null),
       updateOne: sinon.stub().callsFake(async (query: any, update: any) => {
         if (name === "config" && query.key === "migration") {
           target.migrationConfig = update.$set.value;
@@ -183,7 +185,7 @@ describe("site registration lifecycle", () => {
     })};
     sandboxState.sandbox.stub(registrationStore, "registrations").returns(registrations);
     sandboxState.sandbox.stub(registrationStore, "registrationSettings").resolves(settings);
-    sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {}} as any);
+    sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {aws: {bucket: "review-site"}}} as any);
     sandboxState.sandbox.stub(environmentContext, "connectToEnvironmentMongo").resolves({db: targetDb, client: {close: sinon.stub().resolves()}} as any);
     sandboxState.sandbox.stub(osMapsProvision, "ensureOsMapsApiKey").resolves({apiKey: "os-key", email: "", password: ""});
     sandboxState.sandbox.stub(environmentsConfig, "setEnvironmentEstateDeploy").resolves();

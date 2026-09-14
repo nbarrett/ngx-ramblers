@@ -133,6 +133,8 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
         report("fly.io app", false, `Failed to delete: ${error.message}`);
       }
     }
+  } else {
+    report("fly.io app", false, "Cleanup was skipped; the environment record has been retained");
   }
 
   if (!config.skipS3) {
@@ -209,20 +211,42 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
         }
       }
     }
+  } else {
+    report("S3 bucket and IAM", false, "Cleanup was skipped; the environment record has been retained");
   }
 
   if (!config.skipDatabase && config.mongoUri && config.database) {
     try {
+      const database = validatedDatabaseForDestroy(config.mongoUri, config.database);
       const client = await MongoClient.connect(config.mongoUri, {
         serverSelectionTimeoutMS: 30000,
         connectTimeoutMS: 30000
       });
-      await client.db(config.database).dropDatabase();
-      await client.close();
-      report("Database", true, `Deleted ${config.database}`);
+      try {
+        await client.db(database).dropDatabase();
+        report("Database", true, `Deleted ${database}`);
+      } finally {
+        await client.close();
+      }
     } catch (error) {
       report("Database", false, `Failed to clear: ${error.message}`);
     }
+  } else if (config.skipDatabase) {
+    report("Database", false, "Cleanup was skipped; the environment record has been retained");
+  } else {
+    report("Database", false, "Database connection details are incomplete; the environment record has been retained");
+  }
+
+  try {
+    const secretsFilePath = secretsPath(config.appName);
+    if (fs.existsSync(secretsFilePath)) {
+      fs.unlinkSync(secretsFilePath);
+      report("Secrets file", true, "Deleted");
+    } else {
+      report("Secrets file", true, "Not found (already deleted)");
+    }
+  } catch (error) {
+    report("Secrets file", false, `Failed to delete: ${error.message}`);
   }
 
   const resourceCleanupSucceeded = steps.every(step => step.success);
@@ -241,20 +265,19 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
     report("Environment config", false, "Retained because resource cleanup was incomplete; resolve the failed steps before reusing this environment name");
   }
 
-  try {
-    const secretsFilePath = secretsPath(config.appName);
-    if (fs.existsSync(secretsFilePath)) {
-      fs.unlinkSync(secretsFilePath);
-      report("Secrets file", true, "Deleted");
-    } else {
-      report("Secrets file", true, "Not found (already deleted)");
-    }
-  } catch (error) {
-    report("Secrets file", false, `Failed to delete: ${error.message}`);
-  }
-
   const allSucceeded = steps.every(s => s.success);
   return {success: allSucceeded, steps};
+}
+
+export function validatedDatabaseForDestroy(mongoUri: string, expectedDatabase: string): string {
+  const database = decodeURIComponent(new URL(mongoUri).pathname.replace(/^\//, ""));
+  if (!database || database !== expectedDatabase) {
+    throw new Error(`Refusing database cleanup because the connection targets ${database || "no database"}, not ${expectedDatabase}`);
+  } else if (["admin", "config", "local"].includes(database.toLowerCase())) {
+    throw new Error(`Refusing to delete MongoDB system database ${database}`);
+  } else {
+    return database;
+  }
 }
 
 export function createDestroyCommand(): Command {
