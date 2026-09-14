@@ -9,10 +9,6 @@ debugLog.enabled = true;
 
 const SLOW_SWEEP_MILLIS = 3000;
 
-export async function timedPhase<T>(name: string, action: () => Promise<T>): Promise<T> {
-  return timed(name, action);
-}
-
 async function timed<T>(name: string, action: () => Promise<T>): Promise<T> {
   const startedAt = dateTimeNowAsValue();
   const outcome = await action();
