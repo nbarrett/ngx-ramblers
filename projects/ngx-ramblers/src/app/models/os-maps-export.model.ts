@@ -88,6 +88,17 @@ export interface OsMapsExportJobResult {
   completedAt?: number | null;
 }
 
+export const OS_MAPS_EXPORT_BUTTON_SELECTOR = "#export_gpx_button_id";
+export const OS_MAPS_CONFIRM_EXPORT_SELECTOR = "button.export-button";
+export const OS_MAPS_INTERRUPTION_SELECTOR = "button[aria-label='Close popup']";
+
+export enum OsMapsExportClickOutcome {
+  DOWNLOAD_STARTED = "download-started",
+  CONFIRMATION_SHOWN = "confirmation-shown",
+  INTERRUPTED = "interrupted",
+  NO_DIALOG_APPEARED = "no-dialog-appeared"
+}
+
 export enum OsMapsPageState {
   UNRECOGNISED = "unrecognised",
   AUTHENTICATED = "authenticated",

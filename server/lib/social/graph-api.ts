@@ -39,7 +39,3 @@ export async function graphApiRequest({method, path, params, debug}: GraphApiCal
   }
   return body;
 }
-
-export function delay(millis: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, millis));
-}

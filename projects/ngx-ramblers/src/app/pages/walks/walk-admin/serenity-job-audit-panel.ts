@@ -37,13 +37,17 @@ const SESSION_HISTORY_MONTHS = 6;
   template: `
     <div class="thumbnail-heading-frame">
       <div class="thumbnail-heading">Job progress</div>
-      @if (feature) {
+      @if (feature && !starting) {
         <div class="mb-3">
           <app-upload-session-selector label="Job session:" controlName="jobSession"
                                        emptyMessage="Finding previous jobs..."
+                                       [disabled]="jobRunning"
                                        [sessions]="sessions" [selected]="selectedSession"
                                        (selectedChange)="onSessionChange($event)"/>
         </div>
+      }
+      @if (starting) {
+        <p class="mb-2"><app-status-icon noLabel [status]="Status.ACTIVE"/><span class="ms-2">Starting the job…</span></p>
       }
       @if (latestAudit) {
         <p class="mb-2">
@@ -110,6 +114,9 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   ];
   @Input() fileName: string | null = null;
   @Input() feature: SerenityFeature | null = null;
+  @Input() starting = false;
+  @Input() jobRunning = false;
+  protected readonly Status = Status;
   sessions: FileUploadSummary[] = [];
   selectedSession: FileUploadSummary | null = null;
 
@@ -133,7 +140,13 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes.fileName) {
+    if (changes.starting && this.starting) {
+      this.clearAudits();
+      this.selectedSession = null;
+      this.stopRefreshLoop();
+    }
+    const startingFinished = changes.starting && !this.starting;
+    if ((changes.fileName || startingFinished) && !this.starting) {
       this.clearAudits();
       this.selectedSession = null;
       void this.refreshFromApi();
@@ -326,7 +339,8 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
       const previousAudit = chronological[currentIndex + 1];
       const thisTime = audit.auditTime;
       const prevTime = previousAudit?.auditTime;
-      const durationMs = (prevTime && thisTime) ? Math.max(0, thisTime - prevTime) : 0;
+      const gapSincePreviousStep = (prevTime && thisTime) ? Math.max(0, thisTime - prevTime) : 0;
+      const durationMs = audit.durationMs ?? gapSincePreviousStep;
       return {...audit, durationMs};
     });
   }

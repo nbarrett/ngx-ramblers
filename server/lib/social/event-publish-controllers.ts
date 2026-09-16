@@ -5,6 +5,7 @@ import { systemConfig } from "../config/system-config";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import {
   EventImageAttachRequest,
+  EventPublishOutcome,
   EventPublishRequest,
   SocialNetwork
 } from "../../../projects/ngx-ramblers/src/app/models/social-publish.model";
@@ -16,6 +17,8 @@ import {
   publishEventsToNetworks
 } from "./event-publish";
 import { publicImageBaseUrl, requestBaseUrl } from "./public-base-url";
+import { clearRecentPostsCache } from "../facebook/recent-posts";
+import { clearRecentMediaCache } from "../instagram/recent-media";
 import { dateTimeNow } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("social:event-publish-controllers"));
@@ -30,6 +33,11 @@ export async function publishEvents(req: Request, res: Response): Promise<void> 
     debugLog("publish events request: count:", eventIds.length, "networks:", request.networks, "republishChanged:", request.republishChanged, "postAgain:", request.postAgain);
     const networks = request.networks?.length ? request.networks : [SocialNetwork.FACEBOOK];
     const response = await publishEventsToNetworks(eventIds, networks, config, baseUrl, !!request.republishChanged, request.captions, !!request.postAgain);
+    const published = [EventPublishOutcome.PUBLISHED, EventPublishOutcome.REPUBLISHED];
+    if (response.some(result => published.includes(result.outcome))) {
+      clearRecentPostsCache();
+      clearRecentMediaCache();
+    }
     res.json({request, response});
   } catch (error) {
     debugLog("publish events error:", error);

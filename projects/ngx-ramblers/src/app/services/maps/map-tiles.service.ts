@@ -94,7 +94,7 @@ export class MapTilesService {
   crsForStyle(provider: MapProvider, style: string): any {
     this.initializeProjections();
     const styleInfo = osStyleForKey(style);
-    if (provider === MapProvider.OS && styleInfo?.is27700) {
+    if (this.servesOsTiles(provider) && styleInfo?.is27700) {
       const crsCtor = this.leafletProj?.CRS;
       if (crsCtor) {
         return new crsCtor(MapProjectionCode.BRITISH_NATIONAL_GRID, EPSG_27700_PROJ4, MapTilesService.EPSG_27700_CRS_OPTIONS);
@@ -110,7 +110,7 @@ export class MapTilesService {
     } else {
       const crs = this.crsForStyle(provider, style);
       const maxZoom = this.nativeMaxZoomForStyle(provider, style);
-      const minZoom = provider === MapProvider.OS ? maxZoom : Math.max(maxZoom - 5, 11);
+      const minZoom = this.servesOsTiles(provider) ? maxZoom : Math.max(maxZoom - 5, 11);
       const lats = points.map(point => point.latitude);
       const lngs = points.map(point => point.longitude);
       const south = Math.min(...lats);
@@ -120,7 +120,7 @@ export class MapTilesService {
       const padLat = Math.max((north - south) * 0.2, 0.01);
       const padLng = Math.max((east - west) * 0.2, 0.01);
       const zooms = Array.from({length: maxZoom - minZoom + 1}, (_, index) => minZoom + index);
-      const template = provider === MapProvider.OS && this.osApiKeyConfigured()
+      const template = this.servesOsTiles(provider)
         ? this.osProxyUrl(style)
         : this.osmUrl();
       return zooms.reduce((acc: string[], zoom) => {
@@ -142,7 +142,7 @@ export class MapTilesService {
 
   maxZoomForStyle(provider: MapProvider, style: string): number {
     const styleInfo = osStyleForKey(style);
-    if (provider === MapProvider.OS && styleInfo?.is27700) {
+    if (this.servesOsTiles(provider) && styleInfo?.is27700) {
       if (styleInfo.key === OSMapStyle.LEISURE_27700.key) {
         return EPSG_27700_LEISURE_MAX_ZOOM;
       } else {
@@ -173,7 +173,7 @@ export class MapTilesService {
 
   metresPerPixel(provider: MapProvider, style: string, zoom: number, latitude: number): number {
     const styleInfo = osStyleForKey(style);
-    if (provider === MapProvider.OS && styleInfo?.is27700) {
+    if (this.servesOsTiles(provider) && styleInfo?.is27700) {
       return EPSG_27700_RESOLUTIONS[0] / Math.pow(2, zoom);
     } else {
       return WEB_MERCATOR_METRES_PER_PIXEL_AT_ZOOM_0 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
@@ -182,7 +182,7 @@ export class MapTilesService {
 
   nativeMaxZoomForStyle(provider: MapProvider, style: string): number {
     const styleInfo = osStyleForKey(style);
-    if (provider === MapProvider.OS && styleInfo?.is27700) {
+    if (this.servesOsTiles(provider) && styleInfo?.is27700) {
       if (styleInfo.key === OSMapStyle.LEISURE_27700.key) {
         return EPSG_27700_LEISURE_NATIVE_ZOOM;
       } else {
@@ -252,9 +252,13 @@ export class MapTilesService {
     return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   }
 
+  private servesOsTiles(provider: MapProvider): boolean {
+    return provider === MapProvider.OS && this.osApiKeyConfigured();
+  }
+
   private osApiKeyConfigured(): boolean {
     const cfg: any = this.systemConfig.systemConfig();
-    return !!(cfg?.externalSystems?.osMaps);
+    return !!cfg?.externalSystems?.osMaps?.apiKey;
   }
 
   syncMarkersFromLocation(pageContent: PageContent, row: PageContentRow) {

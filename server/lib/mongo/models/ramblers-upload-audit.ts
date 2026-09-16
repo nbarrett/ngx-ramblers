@@ -4,6 +4,7 @@ import { RamblersUploadAudit } from "../../../../projects/ngx-ramblers/src/app/m
 
 export const ramblersUploadAudit: mongoose.Model<RamblersUploadAudit> = ensureModel<RamblersUploadAudit>("ramblers-upload-audit", new mongoose.Schema({
     auditTime: {type: Number},
+    durationMs: {type: Number},
     record: {type: Number},
     errorResponse: {type: Object},
     fileName: {type: String},

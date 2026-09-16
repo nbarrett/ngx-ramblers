@@ -1,8 +1,9 @@
 import debug from "debug";
 import type { Locator, Page as NativePage } from "playwright-core";
 import { envConfig } from "../../../../env-config/env-config";
-import { OsMapsLoginSubmitOutcome } from "../../../../models/os-maps-identity.model";
+import { OsMapsLoginSubmitOutcome, OsServiceHost } from "../../../../models/os-maps-identity.model";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../config/serenity-timeouts";
+import { clickWithoutWaitingForNavigation } from "./os-maps-clicks";
 import { clearOsMapsInterruptions } from "./os-maps-page-cleanup";
 import { trimmedOsMapsLogin, uniqueOsMapsIdentityErrors } from "./os-maps-login-values";
 
@@ -10,7 +11,6 @@ const debugLog = debug(envConfig.logNamespace("os-maps-identity"));
 debugLog.enabled = true;
 const LOGIN_SUBMIT_ATTEMPTS = 3;
 const LOGIN_SUBMIT_RESPONSE_WAIT_MS = 8000;
-const OS_MAPS_EXPLORE_HOST = "explore.osmaps.com";
 
 export { trimmedOsMapsLogin, uniqueOsMapsIdentityErrors } from "./os-maps-login-values";
 
@@ -56,12 +56,6 @@ export async function pageShowingOsMapsIdentity(native: NativePage): Promise<Nat
   return matches.find(page => !!page) || null;
 }
 
-export async function waitForOsMapsApplicationReady(native: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
-  await native.locator(".header__right button").first().waitFor({state: "attached", timeout}).catch(() => null);
-  await native.locator(".header__right .loading-indicator").waitFor({state: "hidden", timeout}).catch(() => null);
-  await native.locator(".side-panel .loading-indicator").waitFor({state: "hidden", timeout}).catch(() => null);
-}
-
 export function osMapsSignedInHeader(page: NativePage): Locator {
   return page.locator(".header__right button[aria-label='Go to my account']")
     .or(page.locator(".header__right button[aria-label='Log Out']"))
@@ -69,19 +63,18 @@ export function osMapsSignedInHeader(page: NativePage): Locator {
 }
 
 export async function osMapsSessionIsSignedIn(native: NativePage): Promise<boolean> {
-  if (await native.locator(".header__right .loading-indicator").isVisible().catch(() => false)) {
+  if (await native.locator(".header__right .loading-indicator").isVisible()) {
     return false;
-  } else if (await osMapsSignedInHeader(native).first().isVisible().catch(() => false)) {
+  } else if (await osMapsSignedInHeader(native).first().isVisible()) {
     return true;
   } else {
     const signedOut = native.locator(".header__right button[aria-label='Log in']");
-    return !(await signedOut.isVisible().catch(() => false));
+    return !(await signedOut.isVisible());
   }
 }
 
 export async function waitForOsMapsIdentityForm(page: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
   await clearOsMapsInterruptions(page);
-  await page.locator("#ccc-notify, #ccc-overlay").first().waitFor({state: "hidden", timeout: Math.min(15000, timeout)}).catch(() => null);
   await osMapsEmailField(page).first().waitFor({state: "visible", timeout});
   const passwordReady = await osMapsPasswordField(page).first().isVisible().catch(() => false);
   if (!passwordReady) {
@@ -125,7 +118,6 @@ export async function fillOsMapsIdentityField(page: NativePage, field: Locator, 
 }
 
 export async function waitForOsMapsSignedIn(native: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
-  await waitForOsMapsApplicationReady(native, timeout);
   await osMapsSignedInHeader(native).first().waitFor({state: "visible", timeout});
 }
 
@@ -133,8 +125,8 @@ async function blankOsMapsPassword(page: NativePage): Promise<void> {
   await osMapsPasswordField(page).first().fill("").catch(() => null);
 }
 
-function leftOsMapsIdentity(page: NativePage, timeout: number): Promise<boolean> {
-  return page.waitForURL(url => url.hostname === OS_MAPS_EXPLORE_HOST, {timeout}).then(() => true).catch(() => false);
+function leftOsMapsIdentity(page: NativePage, timeout: number, returnHost: OsServiceHost): Promise<boolean> {
+  return page.waitForURL(url => url.hostname === returnHost, {timeout}).then(() => true).catch(() => false);
 }
 
 function osMapsIdentitySubmitResponse(page: NativePage, timeout: number): Promise<boolean> {
@@ -145,12 +137,12 @@ async function triggerOsMapsLoginSubmit(page: NativePage, attempt: number): Prom
   if (attempt % 2 === 0) {
     await osMapsPasswordField(page).first().press("Enter");
   } else {
-    await osMapsLoginSubmit(page).first().click({force: true});
+    await clickWithoutWaitingForNavigation(osMapsLoginSubmit(page).first());
   }
 }
 
-async function submitOsMapsIdentityOnce(page: NativePage, attempt: number): Promise<OsMapsLoginSubmitOutcome> {
-  const leaveWait = leftOsMapsIdentity(page, LOGIN_SUBMIT_RESPONSE_WAIT_MS);
+async function submitOsMapsIdentityOnce(page: NativePage, attempt: number, returnHost: OsServiceHost): Promise<OsMapsLoginSubmitOutcome> {
+  const leaveWait = leftOsMapsIdentity(page, LOGIN_SUBMIT_RESPONSE_WAIT_MS, returnHost);
   const responseWait = osMapsIdentitySubmitResponse(page, LOGIN_SUBMIT_RESPONSE_WAIT_MS);
   await triggerOsMapsLoginSubmit(page, attempt);
   return new Promise<OsMapsLoginSubmitOutcome>(resolve => {
@@ -160,26 +152,26 @@ async function submitOsMapsIdentityOnce(page: NativePage, attempt: number): Prom
   });
 }
 
-async function submitOsMapsIdentityWithRetries(page: NativePage, attempt: number): Promise<OsMapsLoginSubmitOutcome> {
-  const outcome = await submitOsMapsIdentityOnce(page, attempt);
+async function submitOsMapsIdentityWithRetries(page: NativePage, attempt: number, returnHost: OsServiceHost): Promise<OsMapsLoginSubmitOutcome> {
+  const outcome = await submitOsMapsIdentityOnce(page, attempt, returnHost);
   const rejected = await osMapsIdentityErrorText(page);
   debugLog("login submit attempt", attempt, "outcome:", outcome, "rejected:", rejected || "no");
   if (rejected) {
     await blankOsMapsPassword(page);
     throw new Error(`OS Maps login was rejected: ${rejected}`);
   } else if (outcome === OsMapsLoginSubmitOutcome.IGNORED && attempt < LOGIN_SUBMIT_ATTEMPTS) {
-    return submitOsMapsIdentityWithRetries(page, attempt + 1);
+    return submitOsMapsIdentityWithRetries(page, attempt + 1, returnHost);
   } else {
     return outcome;
   }
 }
 
-export async function submitOsMapsIdentityForm(page: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
+export async function submitOsMapsIdentityForm(page: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds(), returnHost = OsServiceHost.OS_MAPS): Promise<void> {
   const emailValue = await osMapsEmailField(page).first().inputValue().catch(() => "");
   const passwordLength = await osMapsPasswordField(page).first().inputValue().then(value => value.length).catch(() => 0);
   const exploreWait = Math.min(30000, timeout);
-  const outcome = await submitOsMapsIdentityWithRetries(page, 1);
-  const leftIdentity = outcome === OsMapsLoginSubmitOutcome.LEFT_IDENTITY || await leftOsMapsIdentity(page, exploreWait);
+  const outcome = await submitOsMapsIdentityWithRetries(page, 1, returnHost);
+  const leftIdentity = outcome === OsMapsLoginSubmitOutcome.LEFT_IDENTITY || await leftOsMapsIdentity(page, exploreWait, returnHost);
   if (!leftIdentity) {
     const rejected = await osMapsIdentityErrorText(page);
     await blankOsMapsPassword(page);
@@ -191,7 +183,7 @@ export async function submitOsMapsIdentityForm(page: NativePage, timeout = DEFAU
   }
 }
 
-export async function completeOsMapsIdentityLogin(page: NativePage, email: string, password: string, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
+export async function completeOsMapsIdentityLogin(page: NativePage, email: string, password: string, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds(), returnHost = OsServiceHost.OS_MAPS): Promise<void> {
   const login = trimmedOsMapsLogin(email, password);
   if (!login.email || !login.password) {
     throw new Error("OS Maps email and password must both be set");
@@ -200,7 +192,7 @@ export async function completeOsMapsIdentityLogin(page: NativePage, email: strin
     await fillOsMapsIdentityField(page, osMapsEmailField(page), login.email, timeout);
     const passwordVisible = await osMapsPasswordField(page).first().isVisible().catch(() => false);
     if (!passwordVisible) {
-      await osMapsLoginSubmit(page).first().click({force: true});
+      await clickWithoutWaitingForNavigation(osMapsLoginSubmit(page).first());
       await osMapsPasswordField(page).first().waitFor({state: "visible", timeout});
     }
     await fillOsMapsIdentityField(page, osMapsPasswordField(page), login.password, timeout);
@@ -210,18 +202,18 @@ export async function completeOsMapsIdentityLogin(page: NativePage, email: strin
       await fillOsMapsIdentityField(page, osMapsEmailField(page), login.email, timeout);
       await fillOsMapsIdentityField(page, osMapsPasswordField(page), login.password, timeout);
     }
-    await submitOsMapsIdentityForm(page, timeout);
+    await submitOsMapsIdentityForm(page, timeout, returnHost);
   }
 }
 
 export async function clickOsMapsExploreLogin(native: NativePage, timeout = DEFAULT_WAIT_TIMEOUT.inMilliseconds()): Promise<void> {
   await clearOsMapsInterruptions(native);
   const headerLogin = native.locator(".header__right button[aria-label='Log in']");
-  if (await headerLogin.isVisible({timeout: 5000}).catch(() => false)) {
-    await headerLogin.click({force: true});
+  if (await headerLogin.isVisible()) {
+    await clickWithoutWaitingForNavigation(headerLogin);
   } else {
     const roleLogin = native.getByRole("button", {name: /^log in$/i});
     await roleLogin.waitFor({state: "visible", timeout});
-    await roleLogin.click({force: true});
+    await clickWithoutWaitingForNavigation(roleLogin.first());
   }
 }

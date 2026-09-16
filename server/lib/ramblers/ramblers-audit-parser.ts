@@ -161,6 +161,7 @@ export function parseTestStepEvent(testStepEvent: DomainEventData): ParsedRamble
     audit: true,
     data: {
       auditTime: dateTimeInTimezone(testStepEvent.timestamp).toMillis(),
+      durationMs: testStepEvent.durationMs,
       type: AuditType.STEP,
       status,
       message: testStepEvent.details.name,

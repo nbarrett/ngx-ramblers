@@ -295,3 +295,10 @@ export interface LazyLoadingMetadata {
   selectedSlides: ContentMetadataItem[];
   activeSlideIndex: number;
 }
+
+export const ALBUM_INDEX_METADATA_SELECT = {
+  name: 1,
+  rootFolder: 1,
+  coverImage: 1,
+  files: {$slice: 1}
+};

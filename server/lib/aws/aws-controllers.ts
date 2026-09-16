@@ -60,20 +60,28 @@ export function queryAWSConfig(): AWSConfig {
   return s3Config();
 }
 
-export function listObjects(req: Request, res: Response) {
-  const bucketParams = {
+function listBucketParams(prefix: string) {
+  return {
     Bucket: s3Config().bucket,
-    Prefix: req.query.prefix.toString(),
+    Prefix: prefix,
     MaxKeys: 20000
   };
+}
+
+export async function objectsWithPrefix(prefix: string): Promise<S3Metadata[]> {
+  const data: ListObjectsCommandOutput = await s3().listObjects(listBucketParams(prefix));
+  return data.Contents?.map(item => ({
+    key: item.Key,
+    lastModified: dateTimeFromJsDate(item.LastModified).toMillis(),
+    size: item.Size
+  })) || [];
+}
+
+export function listObjects(req: Request, res: Response) {
+  const bucketParams = listBucketParams(req.query.prefix.toString());
   debugLog("listObjects:request:bucketParams:", bucketParams);
-  s3().listObjects(bucketParams)
-    .then((data: ListObjectsCommandOutput) => {
-      const response: S3Metadata[] = data.Contents?.map(item => ({
-        key: item.Key,
-        lastModified: dateTimeFromJsDate(item.LastModified).toMillis(),
-        size: item.Size
-      })) || [];
+  objectsWithPrefix(bucketParams.Prefix)
+    .then((response: S3Metadata[]) => {
       debugLog("listObjects:response data for:bucketParams:", bucketParams, "returned:", response.length, "items");
       const apiResponse: S3MetadataApiResponse = {request: bucketParams, response, action: ApiAction.QUERY};
       res.status(200).send(apiResponse);

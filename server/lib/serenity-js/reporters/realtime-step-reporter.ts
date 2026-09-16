@@ -40,6 +40,7 @@ export default class RealtimeStepReporter implements Reporter {
     const payload = {
       eventData: {
         timestamp,
+        durationMs: step.duration,
         details: { name: step.title },
         outcome: step.error
           ? { code: FAILED_OUTCOME_CODE, error: { message: step.error.message || String(step.error), stack: step.error.stack } }

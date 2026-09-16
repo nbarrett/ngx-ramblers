@@ -218,6 +218,8 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
         <tab [active]="activeTabId === OsMapsExportTab.JOB_PROGRESS"
              (selectTab)="selectTab(OsMapsExportTab.JOB_PROGRESS)" heading="Job progress">
           <app-serenity-job-audit-panel [fileName]="currentJobFileName"
+                                        [starting]="startingJob"
+                                        [jobRunning]="converting"
                                         [feature]="SerenityFeature.OS_MAPS_EXPORT"/>
         </tab>
       </tabset>
@@ -269,7 +271,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   loginConfigured = false;
   currentJobFileName: string | null = null;
   private currentJobId: string | null = null;
-  private startingJob = false;
+  startingJob = false;
   private destroyed = false;
   faSync = faSync;
   faSpinner = faSpinner;

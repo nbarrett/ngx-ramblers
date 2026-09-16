@@ -16,6 +16,7 @@ import { livePublicationOrNull } from "./publication-status";
 import { albumPublications, deletePublication } from "./publication-controllers";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { publicImageBaseUrl } from "./public-base-url";
+import { clearSocialFeedCache } from "./social-feed-cache";
 import {
   attachEventImage,
   publishableEvent,
@@ -47,6 +48,7 @@ async function publish(req: Request, res: Response, network: SocialNetwork, publ
       const images = await resolveAlbumImages(baseUrl, request.albumName, request.imageNames);
       const response = await publisher(config, images, request.caption);
       if (response.success) {
+        clearSocialFeedCache(network);
         await socialPublication.create({
           albumName: request.albumName,
           network: response.network,

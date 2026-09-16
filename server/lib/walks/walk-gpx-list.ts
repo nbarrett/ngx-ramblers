@@ -1,207 +1,129 @@
 import { Request, Response } from "express";
-import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { ServerFileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
-import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
-import { envConfig } from "../env-config/env-config";
-import { extendedGroupEvent } from "../mongo/models/extended-group-event";
-import { osMapsImportedRoute } from "../mongo/models/os-maps-imported-route";
 import debug from "debug";
-import { DOMParser } from "@xmldom/xmldom";
-import { titleCase, humaniseFileStemFromUrl, hasFileExtension } from "../shared/string-utils";
-import { kebabCase } from "es-toolkit/compat";
-import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { isNumber, kebabCase, uniq } from "es-toolkit/compat";
+import { FileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
+import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { objectBufferForKey, objectsWithPrefix } from "../aws/aws-controllers";
+import { envConfig } from "../env-config/env-config";
+import { GpxCoordinates, GpxFileListItem, StoredGpxObject } from "../models/walk-gpx-list.model";
+import { parseExportedGpx } from "../os-maps/exported-gpx-parser";
 import { dateTimeFromIso } from "../shared/dates";
+import { hasFileExtension, humaniseFileStemFromUrl, titleCase } from "../shared/string-utils";
+import { importedRoutesWithGpxFiles, storeWalkGpxCoordinates, walksWithGpxFiles } from "./walk-gpx-records";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-list"));
-debugLog.enabled = true;
 
-const IMPORTED_ROUTE_AWS_FILE_NAME = "gpxFile.awsFileName";
-const s3Cache: { client?: S3Client } = {};
+const GPX_PREFIX = `${RootFolder.gpxRoutes}/`;
+const NO_COORDINATES: GpxCoordinates = {startLat: 0, startLng: 0};
 
-function s3(): S3Client {
-  if (!s3Cache.client) {
-    const awsConfig = envConfig.aws();
-    s3Cache.client = new S3Client({
-      credentials: {
-        accessKeyId: awsConfig.accessKeyId,
-        secretAccessKey: awsConfig.secretAccessKey
-      },
-      region: awsConfig.region
-    });
-  }
-  return s3Cache.client;
-}
-
-interface GpxFileListItem {
-  fileData: ServerFileNameData;
-  startLat: number;
-  startLng: number;
-  name: string;
-  walkTitle?: string;
-  walkDate?: number;
-  uploadDate?: number;
-}
-
-export async function listWalkGpxFiles(req: Request, res: Response) {
+export async function listWalkGpxFiles(_req: Request, res: Response) {
   try {
-    const prefix = `${RootFolder.gpxRoutes}/`;
-    const bucket = envConfig.aws().bucket;
-
-    debugLog("Listing GPX files from", bucket, prefix);
-
-    const listCommand = new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix,
-      MaxKeys: 1000
-    });
-
-    const listResponse = await s3().send(listCommand);
-    const contents = listResponse.Contents || [];
-
-    debugLog("Found", contents.length, "objects in S3");
-
-    const gpxFiles = contents.filter(obj => obj.Key && hasFileExtension(obj.Key, ".gpx"));
-
-    // Process files sequentially to avoid memory pressure from concurrent S3 requests
-    const fileList = await processFilesSequentially(gpxFiles, bucket, prefix);
-
+    const fileList = await walkGpxFileList();
     debugLog("Returning", fileList.length, "GPX files");
     res.json(fileList);
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     debugLog("Error listing GPX files:", error);
-    res.status(500).json({ error: "Failed to list GPX files", message: error.message });
+    res.status(500).json({error: "Failed to list GPX files", message});
   }
 }
 
-async function processFilesSequentially(
-  gpxFiles: { Key?: string; LastModified?: Date }[],
-  bucket: string,
-  prefix: string
-): Promise<GpxFileListItem[]> {
-  const results: GpxFileListItem[] = [];
-  for (const obj of gpxFiles) {
-    const item = await processGpxFile(obj, bucket, prefix);
-    results.push(item);
-  }
-  return results;
+export async function walkGpxFileList(): Promise<GpxFileListItem[]> {
+  const [walks, importedRoutes, storedObjects] = await Promise.all([walksWithGpxFiles(), importedRoutesWithGpxFiles(), gpxObjectsInS3()]);
+  const lastModifiedByName = new Map(storedObjects.map(object => [object.awsFileName, object.lastModified]));
+  const repairedCoordinates = await repairedWalkCoordinates(walks);
+  const byName = new Map<string, GpxFileListItem>();
+  importedRoutes.forEach(route => {
+    const gpx = route.gpxFile;
+    if (gpx?.awsFileName) {
+      byName.set(gpx.awsFileName, listItem(gpx, storedCoordinates(gpx) || NO_COORDINATES, route.importedAt || lastModifiedByName.get(gpx.awsFileName)));
+    }
+  });
+  walks.forEach(walk => {
+    const gpx = walk.fields?.gpxFile;
+    if (gpx?.awsFileName) {
+      byName.set(gpx.awsFileName, {
+        ...listItem(gpx, walkCoordinates(walk, repairedCoordinates), lastModifiedByName.get(gpx.awsFileName)),
+        walkTitle: walk.groupEvent?.title,
+        walkDate: walk.groupEvent?.start_date_time ? dateTimeFromIso(walk.groupEvent.start_date_time).toMillis() : undefined
+      });
+    }
+  });
+  storedObjects
+    .filter(object => !byName.has(object.awsFileName))
+    .forEach(object => byName.set(object.awsFileName, listItem({awsFileName: object.awsFileName}, NO_COORDINATES, object.lastModified)));
+  debugLog("Listed", walks.length, "walk files,", importedRoutes.length, "imported routes and", storedObjects.length, "stored objects as", byName.size, "GPX files");
+  return [...byName.values()];
 }
 
-async function processGpxFile(
-  obj: { Key?: string; LastModified?: Date },
-  bucket: string,
-  prefix: string
-): Promise<GpxFileListItem> {
-  const key = obj.Key!;
-  const awsFileName = key.substring(prefix.length);
-  const uploadDate = obj.LastModified ? obj.LastModified.getTime() : undefined;
+async function gpxObjectsInS3(): Promise<StoredGpxObject[]> {
+  const objects = await objectsWithPrefix(GPX_PREFIX);
+  return objects
+    .filter(object => hasFileExtension(object.key, ".gpx"))
+    .map(object => ({awsFileName: object.key.substring(GPX_PREFIX.length), lastModified: object.lastModified}));
+}
 
-  const walk = await extendedGroupEvent.findOne({
-    [EventField.GPX_FILE_AWS_FILE_NAME]: awsFileName
-  }).exec();
-
-  const importedRoute = walk ? null : await osMapsImportedRoute.findOne({[IMPORTED_ROUTE_AWS_FILE_NAME]: awsFileName}).lean();
-  const importedGpxFile = importedRoute?.gpxFile;
-  const coordinates = importedGpxFile?.startLat && importedGpxFile?.startLng
-    ? {startLat: importedGpxFile.startLat, startLng: importedGpxFile.startLng}
-    : await getOrFetchCoordinates(walk, bucket, key, awsFileName);
-
-  const originalFileName = walk?.fields?.gpxFile?.originalFileName || importedGpxFile?.originalFileName || awsFileName;
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.gpx$/i.test(originalFileName);
-  const title = walk?.fields?.gpxFile?.title || importedGpxFile?.title || (isUuid ? "" : titleCase(kebabCase(humaniseFileStemFromUrl(originalFileName))));
-
+function listItem(gpx: FileNameData, coordinates: GpxCoordinates, uploadDate: number | undefined): GpxFileListItem {
+  const originalFileName = gpx.originalFileName || gpx.awsFileName;
   return {
     fileData: {
       rootFolder: RootFolder.gpxRoutes,
       originalFileName,
-      awsFileName,
-      title
+      awsFileName: gpx.awsFileName,
+      title: gpx.title || titleFromFileName(originalFileName)
     },
     startLat: coordinates.startLat,
     startLng: coordinates.startLng,
     name: originalFileName,
-    uploadDate,
-    walkTitle: walk?.groupEvent?.title,
-    walkDate: walk?.groupEvent?.start_date_time
-      ? dateTimeFromIso(walk.groupEvent.start_date_time).toMillis()
-      : undefined
+    uploadDate
   };
 }
 
-async function getOrFetchCoordinates(
-  walk: any,
-  bucket: string,
-  key: string,
-  awsFileName: string
-): Promise<{ startLat: number; startLng: number }> {
-  if (walk?.fields?.gpxFile?.startLat !== undefined && walk?.fields?.gpxFile?.startLng !== undefined) {
-    debugLog("Using cached coordinates for:", awsFileName);
-    return {
-      startLat: walk.fields.gpxFile.startLat,
-      startLng: walk.fields.gpxFile.startLng
-    };
-  }
-
-  debugLog("Parsing GPX file from S3:", awsFileName);
-  const parsed = await parseGpxForFirstPoint(bucket, key);
-
-  if (walk && (parsed.startLat !== 0 || parsed.startLng !== 0)) {
-    await extendedGroupEvent.updateOne(
-      { _id: walk._id },
-      { $set: { "fields.gpxFile.startLat": parsed.startLat, "fields.gpxFile.startLng": parsed.startLng } }
-    ).exec();
-    debugLog("Cached coordinates for:", awsFileName);
-  }
-
-  return parsed;
+function storedCoordinates(gpx: FileNameData): GpxCoordinates | null {
+  const stored = isNumber(gpx?.startLat) && isNumber(gpx?.startLng) && !(gpx.startLat === 0 && gpx.startLng === 0);
+  return stored ? {startLat: gpx.startLat, startLng: gpx.startLng} : null;
 }
 
-async function parseGpxForFirstPoint(bucket: string, key: string): Promise<{ startLat: number; startLng: number }> {
+function walkCoordinates(walk: ExtendedGroupEvent, repairedCoordinates: Map<string, GpxCoordinates>): GpxCoordinates {
+  const gpx = walk.fields?.gpxFile;
+  const startLocation = walk.groupEvent?.start_location;
+  const locationCoordinates = isNumber(startLocation?.latitude) && isNumber(startLocation?.longitude)
+    ? {startLat: startLocation.latitude, startLng: startLocation.longitude}
+    : NO_COORDINATES;
+  return storedCoordinates(gpx) || repairedCoordinates.get(gpx.awsFileName) || locationCoordinates;
+}
+
+async function repairedWalkCoordinates(walks: ExtendedGroupEvent[]): Promise<Map<string, GpxCoordinates>> {
+  const lacking = uniq(walks.filter(walk => !storedCoordinates(walk.fields?.gpxFile)).map(walk => walk.fields.gpxFile.awsFileName));
+  return lacking.reduce((chain, awsFileName) => chain.then(async repaired => {
+    const coordinates = await parsedCoordinates(awsFileName);
+    if (coordinates) {
+      await storeWalkGpxCoordinates(awsFileName, coordinates);
+      repaired.set(awsFileName, coordinates);
+    }
+    return repaired;
+  }), Promise.resolve(new Map<string, GpxCoordinates>()));
+}
+
+async function parsedCoordinates(awsFileName: string): Promise<GpxCoordinates | null> {
   try {
-    const getCommand = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const getResponse = await s3().send(getCommand);
-
-    const bodyContents = await streamToString(getResponse.Body as any);
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(bodyContents, "text/xml");
-
-    const trkpts = doc.getElementsByTagName("trkpt");
-    if (trkpts.length > 0) {
-      const firstPoint = trkpts[0];
-      const lat = parseFloat(firstPoint.getAttribute("lat") || "0");
-      const lon = parseFloat(firstPoint.getAttribute("lon") || "0");
-      return { startLat: lat, startLng: lon };
+    const content = await objectBufferForKey(`${GPX_PREFIX}${awsFileName}`);
+    const summary = parseExportedGpx(content.toString("utf8"), awsFileName);
+    if (summary.startLat === 0 && summary.startLng === 0) {
+      debugLog("No start point found in GPX file:", awsFileName);
+      return null;
+    } else {
+      debugLog("Repaired coordinates from GPX file:", awsFileName, summary.startLat, summary.startLng);
+      return {startLat: summary.startLat, startLng: summary.startLng};
     }
-
-    const wpts = doc.getElementsByTagName("wpt");
-    if (wpts.length > 0) {
-      const firstPoint = wpts[0];
-      const lat = parseFloat(firstPoint.getAttribute("lat") || "0");
-      const lon = parseFloat(firstPoint.getAttribute("lon") || "0");
-      return { startLat: lat, startLng: lon };
-    }
-
-    const rtepts = doc.getElementsByTagName("rtept");
-    if (rtepts.length > 0) {
-      const firstPoint = rtepts[0];
-      const lat = parseFloat(firstPoint.getAttribute("lat") || "0");
-      const lon = parseFloat(firstPoint.getAttribute("lon") || "0");
-      return { startLat: lat, startLng: lon };
-    }
-
-    debugLog("No track/waypoint/route points found in GPX file:", key);
-    return { startLat: 0, startLng: 0 };
   } catch (error) {
-    debugLog("Error parsing GPX file:", key, error);
-    return { startLat: 0, startLng: 0 };
+    debugLog("Could not read GPX file to repair coordinates:", awsFileName, error);
+    return null;
   }
 }
 
-async function streamToString(stream: any): Promise<string> {
-  const chunks: Uint8Array[] = [];
-  return new Promise((resolve, reject) => {
-    stream.on("data", (chunk: Uint8Array) => chunks.push(chunk));
-    stream.on("error", reject);
-    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-  });
+function titleFromFileName(originalFileName: string): string {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.gpx$/i.test(originalFileName);
+  return isUuid ? "" : titleCase(kebabCase(humaniseFileStemFromUrl(originalFileName)));
 }

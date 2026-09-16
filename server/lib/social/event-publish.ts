@@ -24,7 +24,7 @@ import { withLink } from "./caption-builder";
 import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromMillis, dateTimeNowAsValue } from "../shared/dates";
 import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { delay } from "./graph-api";
+import { delay } from "../shared/delay";
 import { livePublicationOrNull } from "./publication-status";
 
 const debugLog = debug(envConfig.logNamespace("social:event-publish"));

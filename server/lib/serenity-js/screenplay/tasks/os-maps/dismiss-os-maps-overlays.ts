@@ -11,7 +11,7 @@ export class DismissOsMapsOverlays extends Interaction {
   }
 
   constructor() {
-    super("#actor dismisses OS Maps overlays");
+    super("#actor dismisses any OS Maps cookie banner or popup");
   }
 
   async performAs(actor: UsesAbilities): Promise<void> {
