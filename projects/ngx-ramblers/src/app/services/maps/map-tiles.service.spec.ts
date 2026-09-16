@@ -104,3 +104,28 @@ describe("MapTilesService", () => {
     expect(layers[0].options.maxZoom).toBe(19);
   });
 });
+
+describe("MapTilesService without an OS Maps key", () => {
+  beforeEach(() => TestBed.configureTestingModule({
+    imports: [LoggerTestingModule],
+    providers: [
+      MapTilesService,
+      {
+        provide: SystemConfigService,
+        useValue: {
+          systemConfig: () => ({ externalSystems: { osMaps: { apiKey: null } } })
+        }
+      }
+    ]
+  }));
+
+  it("shows OpenStreetMap tiles on a web mercator projection instead of requesting OS tiles", () => {
+    const service = TestBed.inject(MapTilesService);
+    const layer = service.createBaseLayer(MapProvider.OS, DEFAULT_OS_STYLE) as L.TileLayer;
+
+    expect(service.hasOsApiKey()).toBe(false);
+    expect(layer.getAttribution()).toContain("OpenStreetMap");
+    expect(service.crsForStyle(MapProvider.OS, OSMapStyle.LEISURE_27700.key)).toBe(L.CRS.EPSG3857);
+    expect(service.tileUrlsForPoints(MapProvider.OS, OSMapStyle.LEISURE_27700.key, [{latitude: 50.85, longitude: -1.65}]).every(url => url.includes("openstreetmap"))).toBe(true);
+  });
+});

@@ -140,6 +140,22 @@ describe("IndexService", () => {
         });
     });
 
+    describe("withPlaceholderImages", () => {
+
+        it("gives every index card without an image the placeholder image, and leaves cards with images alone", () => {
+            const columns = [
+                {title: "Committee", href: "information/committee"},
+                {title: "Documents", href: "information/documents", imageSource: "null"},
+                {title: "Photos", href: "photos", imageSource: "site-content/photo.jpg"},
+                {title: "Video", href: "video", youtubeId: "abc123"}
+            ] as PageContentColumn[];
+            const result = (service as any).withPlaceholderImages(columns) as PageContentColumn[];
+            expect(result.map(column => !!column.showPlaceholderImage)).toEqual([true, true, false, false]);
+            expect(result[1].imageSource).toBeNull();
+            expect(result[2].imageSource).toBe("site-content/photo.jpg");
+        });
+    });
+
     describe("findFirstImageInPage", () => {
 
         it("should return image from a text row column", () => {

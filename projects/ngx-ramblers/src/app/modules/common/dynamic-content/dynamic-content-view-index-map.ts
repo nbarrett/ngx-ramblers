@@ -348,30 +348,30 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   private updateMarkers() {
     if (!this.pageContent?.rows?.[0]?.columns) {
       this.logger.info("No columns to display on map");
-      return;
-    }
-
-    this.allMarkers = [];
-    const columns = this.pageContent.rows[0].columns;
-    const validColumns = columns.filter(col => this.hasValidLocation(col));
-
-    this.logger.info("Creating markers for", validColumns.length, "locations");
-
-    validColumns.forEach(column => {
-      const marker = this.createMarker(column);
-      if (marker) {
-        this.allMarkers.push(marker);
-      }
-    });
-
-    if (this.allMarkers.length > 0) {
-      this.applyMarkersToMap();
-      this.fitMapToBounds();
+      this.loading = !this.pageContent;
     } else {
-      this.logger.info("No valid markers to display");
-      this.leafletLayers = [];
+      this.allMarkers = [];
+      const columns = this.pageContent.rows[0].columns;
+      const validColumns = columns.filter(col => this.hasValidLocation(col));
+
+      this.logger.info("Creating markers for", validColumns.length, "locations");
+
+      validColumns.forEach(column => {
+        const marker = this.createMarker(column);
+        if (marker) {
+          this.allMarkers.push(marker);
+        }
+      });
+
+      if (this.allMarkers.length > 0) {
+        this.applyMarkersToMap();
+        this.fitMapToBounds();
+      } else {
+        this.logger.info("No valid markers to display");
+        this.leafletLayers = [];
+      }
+      this.loading = false;
     }
-    this.loading = false;
   }
 
   private hasValidLocation(column: PageContentColumn): boolean {
