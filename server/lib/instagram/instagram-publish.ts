@@ -13,7 +13,8 @@ import {
   SocialPublishProgress,
   SocialPublishResult
 } from "../../../projects/ngx-ramblers/src/app/models/social-publish.model";
-import { delay, graphApiRequest } from "../social/graph-api";
+import { graphApiRequest } from "../social/graph-api";
+import { delay } from "../shared/delay";
 import { prepareInstagramAlbumImages } from "./instagram-image";
 
 const debugLog = debug(envConfig.logNamespace("instagram:publish"));

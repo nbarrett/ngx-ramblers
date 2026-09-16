@@ -68,6 +68,7 @@ export interface DomainEventDataWithFinished {
 export interface DomainEventData {
   finished: boolean;
   activityId: string;
+  durationMs?: number;
   details: {
     name: string;
     location: {

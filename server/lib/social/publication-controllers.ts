@@ -6,6 +6,7 @@ import { socialPublication } from "../mongo/models/social-publication";
 import { DeletePublicationRequest, SocialNetwork, SocialPublication } from "../../../projects/ngx-ramblers/src/app/models/social-publish.model";
 import { isPostGoneError, postStillExists } from "./publication-status";
 import { deleteFacebookPost } from "../facebook/facebook-publish";
+import { clearSocialFeedCache } from "./social-feed-cache";
 
 const debugLog = debug(envConfig.logNamespace("social:publication-controllers"));
 debugLog.enabled = true;
@@ -60,6 +61,7 @@ export async function deletePublication(req: Request, res: Response): Promise<vo
       }
     }
     await socialPublication.deleteMany({network: request.network, postId: request.postId});
+    clearSocialFeedCache(request.network);
     res.json({request, response: {deleted: true}});
   } catch (error) {
     debugLog("delete publication error:", error);
