@@ -23,6 +23,7 @@ import {
   FileServeDisposition
 } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { contentTypeFrom } from "./aws-utils";
 import { dateTimeFromJsDate, dateTimeNow } from "../shared/dates";
 
@@ -421,7 +422,7 @@ function s3Policy(req: Request, res: Response) {
     "conditions": [
       ["starts-with", "$key", `${req.query.objectKey ? req.query.objectKey : ""}/`],
       {"bucket": config.bucket},
-      {"acl": "public-read"},
+      {"acl": AWS_DEFAULTS.OBJECT_ACL},
       ["starts-with", "$Content-Type", req.query.mimeType ? req.query.mimeType : ""],
       {"success_action_status": "201"},
     ],

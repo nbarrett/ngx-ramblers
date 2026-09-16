@@ -41,7 +41,7 @@ export interface AwsSetupResult {
   policyArn: string;
 }
 
-function createS3Client(adminConfig: AwsAdminConfig): S3Client {
+export function createS3Client(adminConfig: AwsAdminConfig): S3Client {
   return new S3Client({
     region: adminConfig.region,
     credentials: {
@@ -95,7 +95,7 @@ function createBucketPolicy(bucketName: string): string {
   });
 }
 
-async function bucketExists(s3Client: S3Client, bucketName: string): Promise<boolean> {
+export async function bucketExists(s3Client: S3Client, bucketName: string): Promise<boolean> {
   try {
     await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
     return true;

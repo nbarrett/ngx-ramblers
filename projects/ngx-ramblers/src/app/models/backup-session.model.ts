@@ -185,6 +185,14 @@ export interface S3BackupSummary {
   durationMs: number;
   status: BackupSessionStatus;
   error?: string;
+  lastCopiedKey?: string;
+}
+
+export interface S3LiveCopyCheckpoint {
+  lastKey: string;
+  copiedObjects: number;
+  skippedObjects: number;
+  copiedBytes: number;
 }
 
 export interface S3ManifestBreakdown {

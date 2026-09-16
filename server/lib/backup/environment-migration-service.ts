@@ -16,6 +16,8 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import { BackupLocation, S3BackupSummary } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import {
   EnvironmentMigrationAudit,
+  EnvironmentMigrationAwsSummary,
+  EnvironmentMigrationAwsTarget,
   EnvironmentMigrationCollectionCount,
   EnvironmentMigrationMode,
   EnvironmentMigrationMongoSummary,
@@ -27,12 +29,14 @@ import {
   EnvironmentMigrationStatus,
   EnvironmentMigrationVerification
 } from "../../../projects/ngx-ramblers/src/app/models/environment-migration.model";
-import { AWS_DEFAULTS, EnvironmentsConfig, MongoConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { AWS_DEFAULTS, AwsConfig, EnvironmentConfig, EnvironmentsConfig, MongoConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { decryptEnvironmentsSecrets, encryptEnvironmentsSecrets } from "../environments/environments-secrets-cipher";
 import { RamblersWalksManagerDateFormat as DateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { extractSourceEnvironmentFromBackupName, extractTimestampFromBackupName } from "./backup-paths";
-import { manifestByTimestamp, siteConfigFor, startS3Backup, startS3Restore } from "./s3-backup-service";
-import { adminConfigFromEnvironment, setupAwsForBucket } from "../environment-setup/aws-setup";
+import { manifestByTimestamp, migrateLiveBucket, siteConfigFor, startS3Backup, startS3Restore } from "./s3-backup-service";
+import { adminConfigFromEnvironment, bucketExists, createS3Client, setupAwsForBucket } from "../environment-setup/aws-setup";
+import { restartCurrentMachine } from "../fly/fly-machines";
+import { FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
 
 const debugLog = debug(envConfig.logNamespace("environment-migration-service"));
 debugLog.enabled = true;
@@ -82,7 +86,7 @@ export class EnvironmentMigrationService {
       throw new Error(`Type the environment name "${request.environment}" to execute the migration`);
     }
 
-    const migrationRecord = await this.createMigrationRecord(request, sourceMongo, targetMongo, mode);
+    const migrationRecord = await this.createMigrationRecord(request, sourceMongo, targetMongo, mode, backupConfig);
     this.runMongoOnlyMigration(migrationRecord.migrationId, request, backupConfig, sourceMongo, targetMongo).catch(error => {
       debugLog("startMongoOnlyMigration background execution failed:", error);
     });
@@ -99,11 +103,19 @@ export class EnvironmentMigrationService {
       throw new Error(`Type the environment name "${request.environment}" to execute the migration`);
     }
 
-    const migrationRecord = await this.createMigrationRecord(request, sourceMongo, targetMongo, mode);
+    const migrationRecord = await this.createMigrationRecord(request, sourceMongo, targetMongo, mode, backupConfig);
     return this.runMongoOnlyMigration(migrationRecord.migrationId, request, backupConfig, sourceMongo, targetMongo);
   }
 
-  private async createMigrationRecord(request: EnvironmentMigrationRequest, sourceMongo: EnvironmentMigrationMongoTarget, targetMongo: EnvironmentMigrationMongoTarget, mode: EnvironmentMigrationMode) {
+  private async createMigrationRecord(
+    request: EnvironmentMigrationRequest,
+    sourceMongo: EnvironmentMigrationMongoTarget,
+    targetMongo: EnvironmentMigrationMongoTarget,
+    mode: EnvironmentMigrationMode,
+    backupConfig: EnvironmentsConfig
+  ) {
+    const sourceAws = this.sourceAwsSummary(backupConfig, request.environment);
+    const targetAws = this.awsSummary(request.targetAws);
     return environmentMigration.create({
       migrationId: `environment-migration-${dateTimeNow().toFormat(DateFormat.FILE_TIMESTAMP)}-${request.environment}`,
       environment: request.environment,
@@ -117,6 +129,8 @@ export class EnvironmentMigrationService {
       backupLocation: request.backupLocation,
       sourceMongo: this.mongoSummary(sourceMongo),
       targetMongo: this.mongoSummary(targetMongo),
+      ...(sourceAws ? { sourceAws } : {}),
+      ...(targetAws ? { targetAws } : {}),
       requestedBy: request.user
     });
   }
@@ -136,8 +150,11 @@ export class EnvironmentMigrationService {
       await this.updateMigration(migrationId, EnvironmentMigrationStatus.VALIDATING, EnvironmentMigrationPhase.VALIDATE_TARGET);
       await this.validateMongoCredentials(targetMongo, true, migrationId);
       await this.validateS3ScopeIfRequested(request, backupConfig, sourceMongo.db);
+      const sourceAws = this.sourceAwsSummary(backupConfig, request.environment);
+      const targetAws = this.awsSummary(request.targetAws);
 
       if (request.dryRun) {
+        const liveS3Copies = await this.copyLiveS3IfRequested(migrationId, request, backupConfig, true);
         const verification = await this.verifyDatabase(sourceMongo, request.environment, backupConfig);
         await environmentMigration.updateOne(
           { migrationId },
@@ -148,24 +165,25 @@ export class EnvironmentMigrationService {
               endTime: dateTimeNow().toJSDate(),
               heartbeatAt: dateTimeNow().toJSDate(),
               verification,
-              rollbackInfo: this.rollbackInfo(sourceMongo, targetMongo, request.backupPath)
+              ...(liveS3Copies.length > 0 ? { s3Backups: liveS3Copies } : {}),
+              rollbackInfo: this.rollbackInfo(sourceMongo, targetMongo, request.backupPath, sourceAws, targetAws)
             }
           }
         );
         return this.requiredMigration(migrationId);
-      }
-
+      } else {
       const backupPath = request.backupPath || await this.dumpSource(sourceMongo, request.environment, migrationId);
       await environmentMigration.updateOne({ migrationId }, { $set: { backupPath } });
-      const s3Backups = await this.backupS3IfRequested(migrationId, request, backupPath);
+      const liveS3 = await this.copyLiveS3IfRequested(migrationId, request, backupConfig, false);
+      const s3Backups = liveS3.length > 0 ? liveS3 : await this.backupS3IfRequested(migrationId, request, backupPath);
 
       await this.restoreTarget(targetMongo, backupPath, migrationId);
-      const s3Restores = await this.restoreS3IfRequested(migrationId, request, backupPath, sourceMongo.db);
+      const s3Restores = liveS3.length > 0 ? [] : await this.restoreS3IfRequested(migrationId, request, backupPath, sourceMongo.db);
 
       await this.updateMigration(migrationId, EnvironmentMigrationStatus.VERIFYING, EnvironmentMigrationPhase.VERIFY_TARGET);
       await this.patchRestoredStagingEnvironmentConfig(targetMongo, request.environment);
       const verification = await this.verifyDatabase(targetMongo, request.environment, backupConfig);
-      const rollbackInfo = this.rollbackInfo(sourceMongo, targetMongo, backupPath);
+      const rollbackInfo = this.rollbackInfo(sourceMongo, targetMongo, backupPath, sourceAws, targetAws);
 
       await environmentMigration.updateOne(
         { migrationId },
@@ -189,11 +207,13 @@ export class EnvironmentMigrationService {
           confirmEnvironment: request.environment,
           targetMongo,
           rotateS3Credentials: request.rotateS3Credentials,
+          targetAws: request.targetAws,
           user: request.user
         });
+      } else {
+        return this.requiredMigration(migrationId);
       }
-
-      return this.requiredMigration(migrationId);
+      }
     } catch (error: any) {
       debugLog("executeMongoOnlyMigration failed:", error);
       await environmentMigration.updateOne(
@@ -231,6 +251,7 @@ export class EnvironmentMigrationService {
       throw new Error("Target Mongo credentials do not match the verified migration target");
     }
     await this.validateMongoCredentials(targetMongo, false, migration.migrationId);
+    await this.validateAwsCredentialsIfRotating(request, migration);
 
     await this.updateMigration(migration.migrationId, EnvironmentMigrationStatus.READY_FOR_CUTOVER, EnvironmentMigrationPhase.ROTATE_CREDENTIALS);
 
@@ -241,9 +262,8 @@ export class EnvironmentMigrationService {
     if (!matchingEnvironment) {
       throw new Error(`Environment "${migration.environment}" not found in ConfigKey.ENVIRONMENTS`);
     }
-    const scopedAws = migration.mode === EnvironmentMigrationMode.MONGO_AND_S3 && request.rotateS3Credentials !== false
-      ? await this.scopedAwsCredentials(currentConfig, matchingEnvironment, migration.environment)
-      : null;
+    const destinationAws = await this.destinationAwsForRotation(request, migration, currentConfig, matchingEnvironment);
+    const rollbackInfo = this.rotatedRollbackInfo(migration, matchingEnvironment, destinationAws);
     const updatedEnvironments = environments.map(environmentConfig => environmentConfig.environment === migration.environment
       ? {
         ...environmentConfig,
@@ -253,7 +273,7 @@ export class EnvironmentMigrationService {
           username: migration.targetMongo.username,
           password: targetMongo.password
         },
-        ...(scopedAws ? { aws: scopedAws } : {})
+        ...(destinationAws ? { aws: destinationAws } : {})
       }
       : environmentConfig);
 
@@ -271,10 +291,15 @@ export class EnvironmentMigrationService {
           rotatedAt: dateTimeNow().toJSDate(),
           endTime: dateTimeNow().toJSDate(),
           heartbeatAt: dateTimeNow().toJSDate(),
+          rollbackInfo,
           requestedBy: request.user || migration.requestedBy
         }
       }
     );
+
+    await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, migration.environment).catch(error => {
+      debugLog("restart after rotate:", error?.message || error);
+    });
 
     return this.requiredMigration(request.migrationId);
   }
@@ -319,17 +344,169 @@ export class EnvironmentMigrationService {
     };
   }
 
-  private rollbackInfo(sourceMongo: EnvironmentMigrationMongoTarget, targetMongo: EnvironmentMigrationMongoTarget, backupPath?: string): EnvironmentMigrationRollbackInfo {
+  private rollbackInfo(
+    sourceMongo: EnvironmentMigrationMongoTarget | MongoConfig,
+    targetMongo: EnvironmentMigrationMongoTarget | MongoConfig,
+    backupPath?: string,
+    oldAws?: EnvironmentMigrationAwsSummary | null,
+    targetAws?: EnvironmentMigrationAwsSummary | null
+  ): EnvironmentMigrationRollbackInfo {
     return {
       oldMongo: this.mongoSummary(sourceMongo),
       targetMongo: this.mongoSummary(targetMongo),
+      ...(oldAws ? { oldAws } : {}),
+      ...(targetAws ? { targetAws } : {}),
       timestamp: dateTimeNow().toJSDate(),
       backupUsed: backupPath
     };
   }
 
+  private rotatedRollbackInfo(migration: EnvironmentMigrationAudit, previousEnvironment: EnvironmentConfig, destinationAws: AwsConfig | null): EnvironmentMigrationRollbackInfo {
+    const existing = migration.rollbackInfo || this.rollbackInfo(migration.sourceMongo, migration.targetMongo, migration.backupPath);
+    const oldAws = destinationAws ? this.awsSummary(previousEnvironment.aws) : null;
+    return {
+      ...existing,
+      oldMongo: this.mongoSummary(previousEnvironment.mongo || {}),
+      ...(oldAws ? { oldAws } : {}),
+      ...(destinationAws ? { targetAws: this.awsSummary(destinationAws) } : {})
+    };
+  }
+
   private s3Requested(request: EnvironmentMigrationRequest): boolean {
     return (request.mode || EnvironmentMigrationMode.MONGO_ONLY) === EnvironmentMigrationMode.MONGO_AND_S3;
+  }
+
+  private liveAwsRequested(request: EnvironmentMigrationRequest): boolean {
+    return this.s3Requested(request) && !!request.targetAws?.bucket && !!request.targetAws?.accessKeyId && !!request.targetAws?.secretAccessKey;
+  }
+
+  private awsSummary(target: EnvironmentMigrationAwsTarget | AwsConfig | undefined): EnvironmentMigrationAwsSummary | null {
+    if (!target?.bucket || !target.accessKeyId) {
+      return null;
+    } else {
+      return {
+        bucket: target.bucket,
+        region: target.region || AWS_DEFAULTS.REGION,
+        accessKeyId: target.accessKeyId
+      };
+    }
+  }
+
+  private sourceAwsSummary(backupConfig: EnvironmentsConfig, environmentName: string): EnvironmentMigrationAwsSummary | null {
+    const source = siteConfigFor(backupConfig, environmentName);
+    if (!source) {
+      return null;
+    } else {
+      return {
+        bucket: source.sourceBucket,
+        region: source.sourceRegion,
+        accessKeyId: source.credentials.accessKeyId
+      };
+    }
+  }
+
+  private async copyLiveS3IfRequested(
+    migrationId: string,
+    request: EnvironmentMigrationRequest,
+    backupConfig: EnvironmentsConfig,
+    dryRun: boolean
+  ): Promise<S3BackupSummary[]> {
+    if (!this.liveAwsRequested(request) || !request.targetAws) {
+      return [];
+    } else {
+      const source = siteConfigFor(backupConfig, request.environment);
+      if (!source) {
+        throw new Error(`Environment "${request.environment}" has no S3 bucket credentials configured`);
+      } else {
+        await this.updateMigration(migrationId, dryRun ? EnvironmentMigrationStatus.VALIDATING : EnvironmentMigrationStatus.RESTORING, EnvironmentMigrationPhase.COPY_S3);
+        const resumeAfterKey = dryRun ? null : await this.interruptedCopyCheckpoint(migrationId, request);
+        const summary = await migrateLiveBucket({
+          site: request.environment,
+          source: {
+            bucket: source.sourceBucket,
+            region: source.sourceRegion,
+            accessKeyId: source.credentials.accessKeyId,
+            secretAccessKey: source.credentials.secretAccessKey
+          },
+          target: {
+            bucket: request.targetAws.bucket,
+            region: request.targetAws.region || source.sourceRegion || AWS_DEFAULTS.REGION,
+            accessKeyId: request.targetAws.accessKeyId,
+            secretAccessKey: request.targetAws.secretAccessKey
+          },
+          dryRun,
+          ...(resumeAfterKey ? { resumeAfterKey } : {}),
+          onProgress: async progress => {
+            await environmentMigration.updateOne({ migrationId }, { $set: { s3CopyCheckpoint: progress, heartbeatAt: dateTimeNow().toJSDate() } });
+          }
+        });
+        await environmentMigration.updateOne({ migrationId }, { $set: { s3Backups: [summary] } });
+        return [summary];
+      }
+    }
+  }
+
+  private async interruptedCopyCheckpoint(migrationId: string, request: EnvironmentMigrationRequest): Promise<string | null> {
+    const latest = await environmentMigration.findOne({
+      migrationId: { $ne: migrationId },
+      environment: request.environment,
+      dryRun: false,
+      "targetAws.bucket": request.targetAws?.bucket
+    }).sort({ startTime: -1 }).lean() as EnvironmentMigrationAudit | null;
+    const interrupted = !!latest && [EnvironmentMigrationStatus.FAILED, EnvironmentMigrationStatus.ORPHANED].includes(latest.status);
+    if (interrupted && latest.s3CopyCheckpoint?.lastKey) {
+      debugLog(`Resuming S3 copy for ${request.environment} after ${latest.s3CopyCheckpoint.lastKey} from ${latest.migrationId}`);
+      return latest.s3CopyCheckpoint.lastKey;
+    } else {
+      return null;
+    }
+  }
+
+  private async destinationAwsForRotation(
+    request: EnvironmentMigrationRotationRequest,
+    migration: EnvironmentMigrationAudit,
+    currentConfig: EnvironmentsConfig,
+    matchingEnvironment: any
+  ) {
+    if (!this.awsRotationRequested(request, migration)) {
+      return null;
+    } else if (migration.targetAws) {
+      return this.requiredMatchingTargetAws(request.targetAws, migration.targetAws);
+    } else {
+      return await this.scopedAwsCredentials(currentConfig, matchingEnvironment, migration.environment);
+    }
+  }
+
+  private awsRotationRequested(request: EnvironmentMigrationRotationRequest, migration: EnvironmentMigrationAudit): boolean {
+    return migration.mode === EnvironmentMigrationMode.MONGO_AND_S3 && request.rotateS3Credentials !== false;
+  }
+
+  private requiredMatchingTargetAws(requested: EnvironmentMigrationAwsTarget | undefined, audited: EnvironmentMigrationAwsSummary): EnvironmentMigrationAwsTarget {
+    if (!requested?.bucket || !requested?.accessKeyId || !requested?.secretAccessKey) {
+      throw new Error(`Destination AWS bucket, access key id and secret access key for ${audited.bucket} are required to rotate credentials`);
+    } else {
+      const requestedSummary = this.awsSummary(requested);
+      if (requestedSummary.bucket !== audited.bucket || requestedSummary.region !== audited.region || requestedSummary.accessKeyId !== audited.accessKeyId) {
+        throw new Error("Destination AWS credentials do not match the verified migration target");
+      } else {
+        return {
+          bucket: requestedSummary.bucket,
+          region: requestedSummary.region,
+          accessKeyId: requestedSummary.accessKeyId,
+          secretAccessKey: requested.secretAccessKey
+        };
+      }
+    }
+  }
+
+  private async validateAwsCredentialsIfRotating(request: EnvironmentMigrationRotationRequest, migration: EnvironmentMigrationAudit): Promise<void> {
+    if (this.awsRotationRequested(request, migration) && migration.targetAws) {
+      const target = this.requiredMatchingTargetAws(request.targetAws, migration.targetAws);
+      const reachable = await bucketExists(createS3Client(target), target.bucket);
+      if (!reachable) {
+        throw new Error(`Destination bucket ${target.bucket} was not found with the supplied AWS credentials`);
+      }
+    }
   }
 
   private async backupS3IfRequested(migrationId: string, request: EnvironmentMigrationRequest, backupPath: string): Promise<S3BackupSummary[]> {
@@ -379,16 +556,22 @@ export class EnvironmentMigrationService {
   private async validateS3ScopeIfRequested(request: EnvironmentMigrationRequest, backupConfig: EnvironmentsConfig, dbName: string): Promise<void> {
     if (!this.s3Requested(request)) {
       return;
-    }
-    const targetConfig = siteConfigFor(backupConfig, request.environment);
-    if (!targetConfig) {
-      throw new Error(`Target environment "${request.environment}" has no S3 bucket credentials configured`);
-    }
-    if (request.backupPath) {
-      const backupReference = this.backupReference(request.backupPath, dbName);
-      const matchingManifest = await manifestByTimestamp(backupReference.sourceEnvironment, backupReference.timestamp).catch(() => null);
-      if (!matchingManifest) {
-        throw new Error(`No completed S3 manifest found for ${backupReference.sourceEnvironment} at ${backupReference.timestamp}`);
+    } else if (this.liveAwsRequested(request)) {
+      const source = siteConfigFor(backupConfig, request.environment);
+      if (!source) {
+        throw new Error(`Environment "${request.environment}" has no S3 bucket credentials configured`);
+      }
+    } else {
+      const targetConfig = siteConfigFor(backupConfig, request.environment);
+      if (!targetConfig) {
+        throw new Error(`Target environment "${request.environment}" has no S3 bucket credentials configured`);
+      }
+      if (request.backupPath) {
+        const backupReference = this.backupReference(request.backupPath, dbName);
+        const matchingManifest = await manifestByTimestamp(backupReference.sourceEnvironment, backupReference.timestamp).catch(() => null);
+        if (!matchingManifest) {
+          throw new Error(`No completed S3 manifest found for ${backupReference.sourceEnvironment} at ${backupReference.timestamp}`);
+        }
       }
     }
   }
