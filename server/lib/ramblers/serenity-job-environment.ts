@@ -11,8 +11,12 @@ export function isOsMapsListJob(job: RamblersUploadJob): boolean {
   return job.data.feature === SerenityFeature.OS_MAPS_LIST;
 }
 
+export function isOsDataHubApiKeyJob(job: RamblersUploadJob): boolean {
+  return job.data.feature === SerenityFeature.OS_DATA_HUB_API_KEY;
+}
+
 export function isOsMapsWorkerJob(job: RamblersUploadJob): boolean {
-  return isOsMapsExportJob(job) || isOsMapsListJob(job);
+  return isOsMapsExportJob(job) || isOsMapsListJob(job) || isOsDataHubApiKeyJob(job);
 }
 
 export function applyOsMapsExportEnvironment(job: RamblersUploadJob, credentials: RamblersUploadCredentials, jobPath: string): void {
@@ -20,6 +24,11 @@ export function applyOsMapsExportEnvironment(job: RamblersUploadJob, credentials
   process.env[Environment.OS_EMAIL] = (credentials.userName || "").trim();
   process.env[Environment.OS_PASSWORD] = (credentials.password || "").trim();
   process.env[Environment.OS_MAPS_JOB_PATH] = jobPath;
+  if (job.data.osDataHubProjectName) {
+    process.env[Environment.OS_DATA_HUB_PROJECT_NAME] = job.data.osDataHubProjectName;
+  } else {
+    delete process.env[Environment.OS_DATA_HUB_PROJECT_NAME];
+  }
   if (job.data.osMapsRouteUrls && job.data.osMapsRouteUrls.length > 0) {
     process.env[Environment.OS_MAPS_ROUTE_URLS] = JSON.stringify(job.data.osMapsRouteUrls);
     delete process.env[Environment.OS_MAPS_ROUTE_URL];

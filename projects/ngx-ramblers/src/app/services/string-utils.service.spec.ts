@@ -7,7 +7,7 @@ import { FullNamePipe } from "../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../pipes/member-id-to-full-name.pipe";
 
 import { StringUtilsService } from "./string-utils.service";
-import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+import { HttpErrorResponse, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 const memberService = {
   allLimitedFields: () => Promise.resolve({email: "test@example.com"}),
@@ -151,6 +151,14 @@ describe("StringUtilsService", () => {
     });
     it("should return stringified version of message field if object", () => {
       expect(service.stringify({message: {some: {complex: {object: "wohoo"}}}})).toBe("Message -> Some -> Complex -> Object: wohoo");
+    });
+    it("should extract a nested message from an HTTP error response", () => {
+      const response = new HttpErrorResponse({status: 400, statusText: "Bad Request", error: {error: {message: "This email address is not approved."}}});
+      expect(service.stringify(response)).toBe("Bad Request - This email address is not approved.");
+    });
+    it("should provide a user-facing error without HTTP status text", () => {
+      const response = new HttpErrorResponse({status: 500, statusText: "Internal Server Error", error: {error: {message: "This email address is not approved."}}});
+      expect(service.userErrorMessage(response, "The request failed.")).toBe("This email address is not approved.");
     });
   });
 

@@ -276,7 +276,7 @@ import {
 import { DateTime } from "luxon";
 import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
 import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/brevo-campaign-queue.model";
-import { BREVO_CAMPAIGN_RELEASE_TASK_ID } from "../../models/scheduled-task.model";
+import { ScheduledTaskId } from "../../models/scheduled-task.model";
 import { ScheduledTaskService } from "../../services/scheduled-task.service";
 
 const HIDDEN_STYLE_PATTERN = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|max-height\s*:\s*0/i;
@@ -5640,7 +5640,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   private async loadCampaignReleaseTaskState(): Promise<void> {
     try {
-      const task = (await this.scheduledTaskService.tasks()).find(item => item.id === BREVO_CAMPAIGN_RELEASE_TASK_ID);
+      const task = (await this.scheduledTaskService.tasks()).find(item => item.id === ScheduledTaskId.BREVO_CAMPAIGN_RELEASE);
       this.automaticCampaignReleaseTaskEnabled = task?.enabled ?? null;
     } catch (error) {
       this.logger.error("loadCampaignReleaseTaskState failed:", error);

@@ -21,6 +21,7 @@ import { DynamicContentViewRoute } from "./dynamic-content-view-route";
 import { DynamicContentViewLocation } from "./dynamic-content-view-location";
 import { FragmentService } from "../../../services/fragment.service";
 import { DynamicContentViewIndex } from "./dynamic-content-view-index";
+import { DynamicContentViewMigrationNote } from "./dynamic-content-view-migration-note";
 
 @Component({
     selector: "app-dynamic-content-view",
@@ -76,6 +77,9 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
           @if (actions.isLocation(row)) {
             <app-dynamic-content-view-location [row]="row"/>
           }
+          @if (actions.isMigrationNote(row)) {
+            <app-dynamic-content-view-migration-note [row]="row"/>
+          }
           @if (actions.isSharedFragment(row) && row?.fragment?.pageContentId) {
             <div [class]="actions.rowClasses(row)">
               <div class="col-12">
@@ -99,7 +103,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, DynamicContentViewLocation]
+  imports: [DynamicContentViewMigrationNote, ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, DynamicContentViewLocation]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

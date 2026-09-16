@@ -15,6 +15,7 @@ import {
   sendBookingWaitlistedEmail
 } from "../brevo/transactional-mail/send-booking-email";
 import { registerScheduledTask, setScheduledTaskEnabled } from "./scheduled-task-registry";
+import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:booking-reminder"));
 debugLog.enabled = true;
@@ -22,7 +23,7 @@ debugLog.enabled = true;
 export async function scheduleBookingReminders() {
   const cronExpression = "0 8 * * *";
   await registerScheduledTask({
-    id: "booking-reminders",
+    id: ScheduledTaskId.BOOKING_REMINDERS,
     name: "Booking reminders",
     description: "Sends due booking reminder messages for upcoming events.",
     cronExpression,
@@ -174,6 +175,6 @@ export async function sendEmailsByTypeForEvent(eventId: string, emailType: Booki
 }
 
 export function stopBookingReminders() {
-  void setScheduledTaskEnabled("booking-reminders", false);
+  void setScheduledTaskEnabled(ScheduledTaskId.BOOKING_REMINDERS, false);
   debugLog("Booking reminder cron job stopped");
 }

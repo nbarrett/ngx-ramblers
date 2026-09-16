@@ -3,6 +3,7 @@ import { pluraliseWithCount } from "../shared/string-utils";
 import { envConfig } from "../env-config/env-config";
 import { inboxPollingEnabled } from "../inbox/inbox-runtime";
 import { registerScheduledTask } from "./scheduled-task-registry";
+import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:inbox-message-digest"));
 debugLog.enabled = true;
@@ -11,7 +12,7 @@ export async function scheduleInboxMessageDigest(): Promise<void> {
   try {
     const cronExpression = "*/5 * * * *";
     await registerScheduledTask({
-      id: "inbox-message-digest",
+      id: ScheduledTaskId.INBOX_MESSAGE_DIGEST,
       name: "Inbox message digest email",
       description: "Every 5 minutes, emails a digest of new inbound inbox messages to opted-in committee members assigned to the role mailbox.",
       cronExpression,

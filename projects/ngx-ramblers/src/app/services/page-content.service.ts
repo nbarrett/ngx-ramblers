@@ -11,6 +11,7 @@ import { MemberLoginService } from "./member/member-login.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { sortBy } from "../functions/arrays";
 import { fieldContainsValue } from "../functions/mongo";
+import { firstValueFrom } from "rxjs";
 
 @Injectable({
   providedIn: "root"
@@ -23,6 +24,16 @@ export class PageContentService {
   private pageContentActionsService = inject(PageContentActionsService);
   memberLoginService = inject(MemberLoginService);
   private BASE_URL = "/api/database/page-content";
+
+  async migrationNotePageCount(): Promise<number> {
+    const apiResponse = await firstValueFrom(this.http.get<{ response: { pages: number } }>(`${this.BASE_URL}/migration-notes`));
+    return apiResponse?.response?.pages || 0;
+  }
+
+  async removeMigrationNotes(): Promise<number> {
+    const apiResponse = await firstValueFrom(this.http.delete<{ response: { pages: number } }>(`${this.BASE_URL}/migration-notes`));
+    return apiResponse?.response?.pages || 0;
+  }
   public siteLinks: string[] = [];
 
   constructor() {

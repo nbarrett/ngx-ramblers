@@ -1,5 +1,3 @@
-export const BREVO_CAMPAIGN_RELEASE_TASK_ID = "brevo-campaign-release";
-
 export enum ScheduledTaskRunStatus {
   RUNNING = "running",
   SUCCEEDED = "succeeded",
@@ -16,20 +14,27 @@ export enum ScheduledTaskScheduleFrequency {
   CUSTOM = "custom"
 }
 
-export enum ScheduledTaskSubTab {
+export enum ScheduledTaskId {
   BOOKING_REMINDERS = "booking-reminders",
-  BREVO_UNSUBSCRIBES_SYNC = "brevo-unsubscribes-sync",
   WALKS_MANAGER_SYNC = "walks-manager-sync",
-  BREVO_CAMPAIGN_RELEASE = "brevo-campaign-release",
   INBOX_MESSAGE_DIGEST = "inbox-message-digest",
   INBOX_TOKEN_HEALTH_CHECK = "inbox-token-health-check",
-  GMAIL = "gmail",
+  INBOX_DELETED_PURGE = "inbox-deleted-purge",
+  BREVO_UNSUBSCRIBES_SYNC = "brevo-unsubscribes-sync",
+  BREVO_CAMPAIGN_RELEASE = "brevo-campaign-release",
+  BREVO_SMTP_KEEPALIVE = "brevo-smtp-keepalive",
+  SITE_REGISTRATION = "site-registration",
+  BACKUPS = "backups"
+}
+
+export enum ScheduledTaskSubTab {
+  WALKS_AND_EVENTS = "walks-and-events",
+  INBOX = "inbox",
   BREVO = "brevo",
-  BACKUPS = "backups",
+  PLATFORM = "platform",
   ALL = "all"
 }
 
-export const BACKUPS_TASK_ID = ScheduledTaskSubTab.BACKUPS;
 export const BACKUPS_TASK_NAME = "All-environments backup";
 
 export interface BackupsTaskSettings {
@@ -52,14 +57,24 @@ export const DEFAULT_BACKUPS_TASK_SETTINGS: BackupsTaskSettings = {
   retryDelaySeconds: 60
 };
 
-export const SCHEDULED_TASK_SUB_TAB_GROUPS: Partial<Record<ScheduledTaskSubTab, ScheduledTaskSubTab[]>> = {
-  [ScheduledTaskSubTab.GMAIL]: [
-    ScheduledTaskSubTab.INBOX_MESSAGE_DIGEST,
-    ScheduledTaskSubTab.INBOX_TOKEN_HEALTH_CHECK
+export const SCHEDULED_TASK_SUB_TAB_GROUPS: Record<Exclude<ScheduledTaskSubTab, ScheduledTaskSubTab.ALL>, ScheduledTaskId[]> = {
+  [ScheduledTaskSubTab.WALKS_AND_EVENTS]: [
+    ScheduledTaskId.WALKS_MANAGER_SYNC,
+    ScheduledTaskId.BOOKING_REMINDERS
+  ],
+  [ScheduledTaskSubTab.INBOX]: [
+    ScheduledTaskId.INBOX_MESSAGE_DIGEST,
+    ScheduledTaskId.INBOX_TOKEN_HEALTH_CHECK,
+    ScheduledTaskId.INBOX_DELETED_PURGE
   ],
   [ScheduledTaskSubTab.BREVO]: [
-    ScheduledTaskSubTab.BREVO_UNSUBSCRIBES_SYNC,
-    ScheduledTaskSubTab.BREVO_CAMPAIGN_RELEASE
+    ScheduledTaskId.BREVO_UNSUBSCRIBES_SYNC,
+    ScheduledTaskId.BREVO_CAMPAIGN_RELEASE,
+    ScheduledTaskId.BREVO_SMTP_KEEPALIVE
+  ],
+  [ScheduledTaskSubTab.PLATFORM]: [
+    ScheduledTaskId.SITE_REGISTRATION,
+    ScheduledTaskId.BACKUPS
   ]
 };
 
@@ -101,5 +116,4 @@ export interface ScheduledTasksConfiguration {
   enabled: Record<string, boolean>;
   cronExpressions: Record<string, string>;
   settings?: Record<string, unknown>;
-  alertEmails?: string[];
 }

@@ -46,6 +46,25 @@ function ifWithoutElseForReturn(returnNode: any): any | null {
 
 const ngxConventions = {
   rules: {
+    "restricted-literals": {
+      meta: {
+        type: "problem" as const,
+        docs: {description: "Keep a string such as an API path in the one module that owns it, so every caller goes through that module."},
+        messages: {banned: "{{message}}"},
+        schema: [{type: "array", items: {type: "object", properties: {text: {type: "string"}, allowedIn: {type: "array", items: {type: "string"}}, message: {type: "string"}}, required: ["text", "allowedIn", "message"]}}],
+      },
+      create(context: any) {
+        const filename = relative(process.cwd(), context.filename ?? context.getFilename());
+        const restrictions: {text: string; allowedIn: string[]; message: string}[] = (context.options[0] || []).filter((restriction: {allowedIn: string[]}) => !restriction.allowedIn.includes(filename));
+        const check = (node: any, value: string) => restrictions
+          .filter(restriction => value.includes(restriction.text))
+          .forEach(restriction => context.report({node, messageId: "banned", data: {message: restriction.message}}));
+        return {
+          Literal: (node: any) => typeof node.value === "string" && check(node, node.value),
+          TemplateElement: (node: any) => check(node, node.value.raw)
+        };
+      },
+    },
     "no-native-date-input": {
       meta: {
         type: "problem" as const,
@@ -438,6 +457,9 @@ export default defineConfig([
       ...sharedTypescriptRulesOff,
       "no-inline-comments": "error",
       "ngx/no-early-return": ["error", {baselinePath: ".eslint-baselines/no-early-return.json"}],
+      "ngx/restricted-literals": ["error", [
+        {text: "api/areas/available-areas", allowedIn: ["projects/ngx-ramblers/src/app/services/available-areas.service.ts"], message: "Load Ramblers areas through AvailableAreasService, or let people pick one with app-area-selector, instead of calling the API directly."}
+      ]],
       "no-restricted-syntax": [
         "error",
         ...sharedSyntaxRestrictions,

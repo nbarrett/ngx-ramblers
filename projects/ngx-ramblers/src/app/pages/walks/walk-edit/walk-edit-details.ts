@@ -14,10 +14,10 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep, isString, values } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { enumValueForKey } from "../../../functions/enums";
-import { DatePipe, DecimalPipe, JsonPipe } from "@angular/common";
+import { JsonPipe } from "@angular/common";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { WalkGpxService } from "../../../services/walks/walk-gpx.service";
-import { EM_DASH_WITH_SPACES, MapMarker, RouteGuideEntry } from "../../../models/content-text.model";
+import { MapMarker, RouteGuideEntry } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -58,11 +58,9 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
     WalkLocationEditComponent,
     EventAscentEdit,
     JsonPipe,
-    DatePipe,
     NgSelectComponent,
     NgOptionTemplateDirective,
     NgLabelTemplateDirective,
-    DecimalPipe,
     Venue,
     SectionToggle,
     MapEditComponent,
@@ -184,13 +182,18 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                     <ng-template ng-option-tmp let-item="item">
                       <div>
                         <strong>{{ getDropdownTitle(item) }}</strong>
-                        <div class="text-muted small">
-                          {{ item.walkTitle || '' }}{{ item.walkTitle && (item.walkDate || item.distance !== undefined) ? EM_DASH_WITH_SPACES : '' }}{{ item.walkDate ? (item.walkDate | date:"mediumDate") : '' }}{{ item.walkDate && item.distance !== undefined ? EM_DASH_WITH_SPACES : '' }}{{ item.distance !== undefined ? (item.distance | number:"1.1-1") + ' miles from walk start' : '' }}
-                        </div>
+                        @if (gpxOptionDetail(item)) {
+                          <div class="text-muted small">{{gpxOptionDetail(item)}}</div>
+                        }
                       </div>
                     </ng-template>
                     <ng-template ng-label-tmp let-item="item">
-                      <span>{{ item.displayLabel }}</span>
+                      <div>
+                        <strong>{{ getDropdownTitle(item) }}</strong>
+                        @if (gpxOptionDetail(item)) {
+                          <span class="text-muted small"> {{gpxOptionDetail(item)}}</span>
+                        }
+                      </div>
                     </ng-template>
                   </ng-select>
                   <input
@@ -502,7 +505,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   tabs: DetailsTab[] = [DetailsTab.VENUE, DetailsTab.ROUTE, DetailsTab.DIRECTIONS, DetailsTab.VENUE_ROUTE_AND_DIRECTIONS];
   selectedTab: DetailsTab = DetailsTab.VENUE;
   protected readonly enumValueForKey = enumValueForKey;
-  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+
 
   private walkGpxService = inject(WalkGpxService);
   private router = inject(Router);
@@ -515,10 +518,10 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   private subscriptions: Subscription[] = [];
 
   ngOnInit() {
-    this.initializeDisplayLabel();
+    this.initialiseSelectedGpxFile();
     this.initializeMeetingPoint();
     this.subscriptions.push(this.broadcastService.on(NamedEventType.WALK_CHANGED, () => {
-      this.initializeDisplayLabel();
+      this.initialiseSelectedGpxFile();
     }));
   }
 
@@ -636,15 +639,14 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     });
   }
 
-  private initializeDisplayLabel() {
+  private initialiseSelectedGpxFile() {
     const currentGpx = this.displayedWalk?.walk?.fields?.gpxFile;
     if (currentGpx?.awsFileName) {
       const displayItem: GpxFileListItem = {
         fileData: currentGpx,
         startLat: currentGpx.startLat || 0,
         startLng: currentGpx.startLng || 0,
-        name: currentGpx.originalFileName || currentGpx.awsFileName,
-        displayLabel: this.transformFilename(currentGpx.title || currentGpx.originalFileName || currentGpx.awsFileName)
+        name: currentGpx.originalFileName || currentGpx.awsFileName
       };
       this.gpxFiles = [displayItem];
       this.selectedGpxFile = displayItem;
@@ -1012,6 +1014,15 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
 
   shapeComparer(item1: string, item2: string): boolean {
     return item1?.toLowerCase() === item2?.toLowerCase();
+  }
+
+  gpxOptionDetail(item: GpxFileListItem): string {
+    const parts = [
+      item.walkTitle,
+      item.walkDate ? this.dateUtils.displayDate(item.walkDate) : "",
+      item.distance !== undefined && item.distance !== null ? `${item.distance.toFixed(1)} miles from walk start` : ""
+    ].filter(Boolean);
+    return parts.join(" - ");
   }
 
   getDropdownTitle(item: GpxFileListItem): string {

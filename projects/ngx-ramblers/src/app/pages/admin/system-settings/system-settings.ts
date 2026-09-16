@@ -78,7 +78,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
         <div class="row">
           <div class="col-sm-12">
             @if (config) {
-              <tabset class="custom-tabset">
+              <tabset class="custom-tabset tabset-even-rows">
                 <tab app-area-and-group-settings
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.AREA_AND_GROUP)}}"
                      [config]="config"
@@ -348,7 +348,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
                      (selectTab)="selectTab(SystemSettingsTab.VOLUNTEERS)">
                   <app-volunteer-settings [config]="config"/>
                 </tab>
-                <tab heading="External"
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"
                      (selectTab)="selectTab(SystemSettingsTab.EXTERNAL_SYSTEMS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
@@ -388,14 +388,14 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
                     }
                   </div>
                 </tab>
-                <tab heading="Tasks"
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.SCHEDULED_TASKS)}}"
                      [active]="tabActive(SystemSettingsTab.SCHEDULED_TASKS)"
                      (selectTab)="selectTab(SystemSettingsTab.SCHEDULED_TASKS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <app-scheduled-tasks/>
                   </div>
                 </tab>
-                <tab heading="Video"
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.VIDEO_MEETINGS)}}"
                      [active]="tabActive(SystemSettingsTab.VIDEO_MEETINGS)"
                      (selectTab)="selectTab(SystemSettingsTab.VIDEO_MEETINGS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
@@ -403,7 +403,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
                   </div>
                 </tab>
                 @if (platformAdminEnabled) {
-                  <tab heading="Updates"
+                  <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.RELEASE_NOTE_UPDATES)}}"
                        [active]="tabActive(SystemSettingsTab.RELEASE_NOTE_UPDATES)"
                        (selectTab)="selectTab(SystemSettingsTab.RELEASE_NOTE_UPDATES)">
                     <div class="img-thumbnail thumbnail-admin-edit">

@@ -109,6 +109,11 @@
   margin-top: 12px
   justify-content: flex-end
 
+  &.stepper-nav-split
+    justify-content: space-between
+    align-items: center
+    width: 100%
+
   .btn
     padding: 12px 20px
     border-radius: 6px
@@ -129,3 +134,41 @@
       background: color.adjust($ramblers-colour-sunrise, $lightness: -10%)
       border-color: color.adjust($ramblers-colour-sunrise, $lightness: -10%)
 
+
+.p-stepper.stepper-mini
+  padding: 0
+  pointer-events: none
+
+  .p-steplist
+    gap: 4px
+
+  .p-step
+    padding: 0
+    flex: 0 0 auto
+
+  .p-stepper-separator
+    min-width: 8px
+    flex: 1 1 8px
+
+  .stepper-step-number
+    width: 22px
+    height: 22px
+    font-size: 11px
+    pointer-events: auto
+    cursor: default
+
+  .stepper-step-number.stage-done
+    background: var(--stepper-done)
+    border-color: var(--stepper-done)
+    color: #fff
+
+  .stepper-step-number.stage-running,
+  .stepper-step-number.stage-waiting
+    background: $ramblers-colour-sunset
+    border-color: $ramblers-colour-sunset
+    color: $ramblers-colour-cloudy
+
+  .stepper-step-number.stage-failed
+    background: #dc3545
+    border-color: #dc3545
+    color: #fff

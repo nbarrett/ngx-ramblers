@@ -1,7 +1,8 @@
-export interface AdminAlertsConfiguration {
-  alertEmails: string[];
+export interface AdminAlertRecipient {
+  email: string;
+  name: string;
 }
 
-export interface AdminAlertEmailsConfig {
-  alertEmails: string[];
+export interface AdminAlertsConfiguration {
+  recipients: AdminAlertRecipient[];
 }

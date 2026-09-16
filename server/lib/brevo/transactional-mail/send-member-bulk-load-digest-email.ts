@@ -3,7 +3,7 @@ import { envConfig } from "../../env-config/env-config";
 import * as config from "../../mongo/controllers/config";
 import * as transforms from "../../mongo/controllers/transforms";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
-import { EmailAddress, NotificationConfig, SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { EmailAddress, EmailTemplateName, NotificationConfig, SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -25,7 +25,7 @@ const messageType = "brevo:send-member-bulk-load-digest-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
-const TEMPLATE_NAME = "member-sync-notification";
+const TEMPLATE_NAME = EmailTemplateName.MEMBER_SYNC_NOTIFICATION;
 
 export function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref: string): string {
   const selectedBanner = banners?.find(item => item.id === bannerId);

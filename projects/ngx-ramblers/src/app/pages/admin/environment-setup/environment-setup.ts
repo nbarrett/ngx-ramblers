@@ -1,5 +1,5 @@
+import { environmentNameForGroup, prefixedEnvironmentResourceName } from "../../../models/environment-setup.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
 import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Subscription } from "rxjs";
@@ -34,7 +34,7 @@ import { FLYIO_DEFAULTS, FlyioMemory } from "../../../models/environment-config.
 import { enumKeyValues } from "../../../functions/enums";
 import { StoredValue } from "../../../models/ui-actions";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { AvailableArea, AvailableAreaWithLabel, SystemConfig } from "../../../models/system.model";
+import { AvailableArea, SystemConfig } from "../../../models/system.model";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -75,6 +75,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
 import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
 import { EnvironmentManagement } from "../../../modules/common/environment-management/environment-management";
 import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/common/mongo-uri-input/mongo-uri-input";
+import { AreaSelector } from "../../walks/walk-edit/area-selector";
 
 @Component({
   selector: "app-environment-setup",
@@ -233,24 +234,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                         <div class="row mb-3">
                                           <div class="col-md-6">
                                             <div class="form-group">
-                                              <label for="clone-area-select">Ramblers Area
-                                                ({{ loadingAreas ? 'retrieving areas...' : availableAreas.length + ' areas available' }})
-                                              </label>
-                                              <div class="position-relative">
-                                                <ng-select id="clone-area-select"
-                                                           [items]="availableAreas"
-                                                           bindLabel="ngSelectLabel"
-                                                           bindValue="areaCode"
-                                                           [searchable]="true"
-                                                           [clearable]="false"
-                                                           [loading]="loadingAreas"
-                                                           dropdownPosition="bottom"
-                                                           placeholder="Select an area..."
-                                                           [(ngModel)]="selectedAreaCode"
-                                                           (ngModelChange)="onAreaCodeChange($event)">
-                                                </ng-select>
-                                                <app-status-icon noLabel [status]="areaQueryStatus" class="area-status-icon"/>
-                                              </div>
+                                              <app-area-selector id="clone-area-select" label="Ramblers Area" showCount showStatus [clearable]="false" [areaCode]="selectedAreaCode" (areaChanged)="onAreaChange($event)"/>
                                             </div>
                                           </div>
                                           <div class="col-md-6">
@@ -440,24 +424,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                 <div class="row mb-3">
                                   <div class="col-md-6">
                                     <div class="form-group">
-                                      <label for="area-select">Ramblers Area
-                                        ({{ loadingAreas ? 'retrieving areas...' : availableAreas.length + ' areas available' }})
-                                      </label>
-                                      <div class="position-relative">
-                                        <ng-select id="area-select"
-                                                   [items]="availableAreas"
-                                                   bindLabel="ngSelectLabel"
-                                                   bindValue="areaCode"
-                                                   [searchable]="true"
-                                                   [clearable]="false"
-                                                   [loading]="loadingAreas"
-                                                   dropdownPosition="bottom"
-                                                   placeholder="Select an area..."
-                                                   [(ngModel)]="selectedAreaCode"
-                                                   (ngModelChange)="onAreaCodeChange($event)">
-                                        </ng-select>
-                                        <app-status-icon noLabel [status]="areaQueryStatus" class="area-status-icon"/>
-                                      </div>
+                                      <app-area-selector id="area-select" label="Ramblers Area" showCount showStatus [clearable]="false" [areaCode]="selectedAreaCode" (areaChanged)="onAreaChange($event)"/>
                                     </div>
                                   </div>
                                   <div class="col-md-6">
@@ -1035,7 +1002,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
       </app-page>
     `,
   styleUrls: ["./environment-setup.sass"],
-  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent]
+  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, AreaSelector, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent]
 })
 export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
@@ -1049,7 +1016,6 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private environmentSetupService = inject(EnvironmentSetupService);
   private systemConfigService = inject(SystemConfigService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private http = inject(HttpClient);
   private memberLoginService = inject(MemberLoginService);
   private memberService = inject(MemberService);
   private urlService = inject(UrlService);
@@ -1087,10 +1053,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   destroyProgressMessages: string[] = [];
   destroyComplete = false;
 
-  availableAreas: AvailableAreaWithLabel[] = [];
-  loadingAreas = false;
   selectedAreaCode: string | null = null;
-  areaQueryStatus: Status = Status.INFO;
 
   availableGroups: RamblersGroupWithLabel[] = [];
   loadingGroups = false;
@@ -1405,7 +1368,6 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.request.ramblersInfo = { areaCode: "", areaName: "", groupCode: "", groupName: "" };
       this.selectedGroup = null;
       this.selectedAreaCode = null;
-      this.loadAvailableAreas();
     } else if (this.cloneSourceEnv) {
       this.onCloneSourceSelected(this.cloneSourceEnv);
     }
@@ -1515,7 +1477,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.request.serviceConfigs.mongodb.username = details.serviceConfigs.mongodb.username;
       this.request.serviceConfigs.mongodb.password = details.serviceConfigs.mongodb.password;
       this.request.serviceConfigs.aws.region = details.serviceConfigs.aws.region;
-      this.request.serviceConfigs.brevo.apiKey = details.serviceConfigs.brevo.apiKey;
+      this.request.serviceConfigs.brevo.apiKey = "";
       this.request.serviceConfigs.googleMaps.apiKey = details.serviceConfigs.googleMaps.apiKey;
       this.request.serviceConfigs.ramblers.apiKey = details.serviceConfigs.ramblers.apiKey
         || this.systemConfig?.national?.walksManager?.apiKey
@@ -1538,9 +1500,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
           secretKey: details.serviceConfigs.recaptcha.secretKey
         };
       }
-      if (details.serviceConfigs.brevo?.apiKey && this.cloneType !== CloneType.FULL_DUPLICATE) {
-        this.request.options.authenticateBrevoDomain = true;
-      }
+      this.request.options.authenticateBrevoDomain = false;
       this.sourceSiteHref = details.siteHref || null;
       if (this.cloneType === CloneType.FULL_DUPLICATE) {
         this.sandboxHostnameMode = this.groupDomainHostname
@@ -1792,9 +1752,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
         this.request.serviceConfigs.ramblers.apiKey
       );
       this.apiKeyValid = result.valid;
-      if (result.valid) {
-        await this.loadAvailableAreas();
-      } else {
+      if (!result.valid) {
         this.notify.warning({title: "Invalid API Key", message: result.message});
       }
     } catch (error) {
@@ -1805,34 +1763,12 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async loadAvailableAreas(): Promise<void> {
-    this.loadingAreas = true;
-    this.areaQueryStatus = Status.ACTIVE;
-    try {
-      const response = await this.http.get<{ areas: AvailableArea[] }>("api/areas/available-areas").toPromise();
-      this.availableAreas = (response?.areas || []).map(area => ({
-        ...area,
-        ngSelectLabel: `${area.areaName} (${area.areaCode})`
-      }));
-      this.areaQueryStatus = this.availableAreas.length > 0 ? Status.COMPLETE : Status.ERROR;
-      this.logger.info("Loaded available areas:", this.availableAreas.length);
-    } catch (error) {
-      this.logger.error("Failed to load available areas:", error);
-      this.areaQueryStatus = Status.ERROR;
-      this.notify.error({title: "Failed to load areas", message: error});
-    } finally {
-      this.loadingAreas = false;
-    }
-  }
-
-  async onAreaCodeChange(areaCode: string): Promise<void> {
-    if (areaCode) {
-      const selectedArea = this.availableAreas.find(a => a.areaCode === areaCode);
-      if (selectedArea) {
-        this.request.ramblersInfo.areaCode = selectedArea.areaCode;
-        this.request.ramblersInfo.areaName = selectedArea.areaName;
-      }
-      await this.loadGroupsForArea(areaCode);
+  async onAreaChange(area: AvailableArea | null): Promise<void> {
+    this.selectedAreaCode = area?.areaCode || null;
+    if (area) {
+      this.request.ramblersInfo.areaCode = area.areaCode;
+      this.request.ramblersInfo.areaName = area.areaName;
+      await this.loadGroupsForArea(area.areaCode);
     }
   }
 
@@ -1880,14 +1816,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   updateEnvironmentDefaults() {
-    const envName = this.request.ramblersInfo.groupName
-      .toLowerCase()
-      .replace(/ramblers?/gi, "")
-      .replace(/group/gi, "")
-      .replace(/[^a-z0-9]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
-      .substring(0, 45);
+    const envName = environmentNameForGroup(this.request.ramblersInfo.groupName);
 
     this.request.environmentBasics.environmentName = envName;
     this.updateAppName();
@@ -1920,15 +1849,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   private prefixedName(envName: string, maxLength: number): string {
-    const safe = flySafeResourceName(envName);
-    const prefixed = `ngx-ramblers-${safe}`;
-    if (prefixed.length <= maxLength) {
-      return prefixed;
-    } else if (safe.length <= maxLength) {
-      return safe;
-    } else {
-      return safe.substring(0, maxLength);
-    }
+    return prefixedEnvironmentResourceName(envName, maxLength);
   }
 
   async validateMongodb() {

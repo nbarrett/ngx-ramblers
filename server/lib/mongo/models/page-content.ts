@@ -46,6 +46,7 @@ const PageContentRow = new mongoose.Schema({
   fragment: {type: Object},
   location: {type: Object},
   migrationPlaceholder: {type: Boolean},
+  migrationNote: {type: Object},
   hidden: {type: Boolean},
 }, { _id : false });
 

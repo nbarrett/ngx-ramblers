@@ -1,6 +1,6 @@
 import debug from "debug";
 import {
-  BACKUPS_TASK_ID,
+  ScheduledTaskId,
   BACKUPS_TASK_NAME,
   BackupsTaskSettings,
   DEFAULT_BACKUPS_TASK_SETTINGS
@@ -52,7 +52,7 @@ function boundedNonNegativeInteger(value: unknown, fallback: number, maximum: nu
 }
 
 async function settings(): Promise<BackupsTaskSettings> {
-  const configured = await scheduledTaskSettings(BACKUPS_TASK_ID, DEFAULT_BACKUPS_TASK_SETTINGS);
+  const configured = await scheduledTaskSettings(ScheduledTaskId.BACKUPS, DEFAULT_BACKUPS_TASK_SETTINGS);
   return {
     ...DEFAULT_BACKUPS_TASK_SETTINGS,
     ...configured,
@@ -148,7 +148,7 @@ async function backupAllEnvironments(): Promise<void> {
 export async function scheduleBackups(): Promise<void> {
   const cronExpression = "0 3 * * *";
   await registerScheduledTask({
-    id: BACKUPS_TASK_ID,
+    id: ScheduledTaskId.BACKUPS,
     name: BACKUPS_TASK_NAME,
     description: "Backs up every configured environment's MongoDB database and S3 objects to the shared backup bucket. Only runs on platform-admin environments.",
     cronExpression,

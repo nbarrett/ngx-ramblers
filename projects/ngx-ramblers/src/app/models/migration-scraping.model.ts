@@ -6,6 +6,11 @@ export interface ScrapedImage {
   alt: string;
 }
 
+export interface FlickrGroupPool {
+  title: string;
+  photos: ScrapedImage[];
+}
+
 export interface ScrapedSegment {
   text: string;
   image?: ScrapedImage;
@@ -21,6 +26,19 @@ export interface ScrapedPage {
 export interface MigratedAlbum {
   album: ContentMetadata;
   pageContent: PageContent;
+  sourcePagePath?: string;
+  sourceImageUrls?: string[];
+}
+
+export interface GalleryDate {
+  year: number;
+  month: number | null;
+  day: number | null;
+}
+
+export interface FlickrGroupLink {
+  groupName: string;
+  pagePath: string;
 }
 
 export interface MigrationResult {

@@ -2,6 +2,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { registerScheduledTask } from "./scheduled-task-registry";
 import { googleInboxConfigured } from "../inbox/inbox-runtime";
+import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:inbox-token-health-check"));
 debugLog.enabled = true;
@@ -10,7 +11,7 @@ export async function scheduleInboxTokenHealthCheck(): Promise<void> {
   try {
     const cronExpression = "30 6 * * *";
     await registerScheduledTask({
-      id: "inbox-token-health-check",
+      id: ScheduledTaskId.INBOX_TOKEN_HEALTH_CHECK,
       name: "Inbox Gmail token health check",
       description: "Pings each connected Gmail inbox daily and flags revoked OAuth refresh tokens before inbound mail silently stacks up.",
       cronExpression,

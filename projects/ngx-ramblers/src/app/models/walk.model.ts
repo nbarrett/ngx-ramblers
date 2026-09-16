@@ -540,7 +540,6 @@ export interface GpxFileListItem {
   walkDate?: number;
   uploadDate?: number;
   distance?: number;
-  displayLabel?: string;
 }
 
 export interface ImportData {

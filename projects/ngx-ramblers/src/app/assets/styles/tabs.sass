@@ -14,6 +14,16 @@
     margin: 0 0 24px 0
     padding: 0
 
+  &.tabset-even-rows .nav-tabs > li
+    flex: 1 1 auto
+    @media (min-width: 1200px)
+      min-width: calc(100% / 7 + 1px)
+
+  &.tabset-even-rows .nav-tabs > li > a
+    display: block
+    text-align: center
+    white-space: nowrap
+
   .nav-tabs > li > a,
   .nav-tabs > li > a:link,
   .nav-tabs > li > a:visited,

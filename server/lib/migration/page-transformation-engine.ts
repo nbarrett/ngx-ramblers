@@ -16,6 +16,7 @@ import {
 import {
   ColumnContentType,
   ColumnMappingConfig,
+  DEFAULT_MIGRATION_NOTE_LABEL,
   ImagePattern,
   IndexContentType,
   IndexMapConfig,
@@ -23,6 +24,7 @@ import {
   LocationRenderingMode,
   LocationRowData,
   MapData,
+  MIGRATION_NOTE_SOURCE_IDENTIFIER,
   MigrationTemplateMapping,
   NestedRowContentSource,
   NestedRowMappingConfig,
@@ -45,7 +47,7 @@ import { LocationDetails } from "../../../projects/ngx-ramblers/src/app/models/r
 import * as exclusions from "./text-exclusions";
 import { humaniseFileStemFromUrl, pluraliseWithCount } from "../shared/string-utils";
 import { DateTime } from "luxon";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
 import { DEFAULT_OS_STYLE, ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
 import { GeocodeMatchType } from "../../../projects/ngx-ramblers/src/app/models/address-model";
@@ -60,6 +62,16 @@ type ExtractedContent = { kind: ExtractedContentKind; column: Partial<PageConten
 
 const debugLog = debug(envConfig.logNamespace("page-transformation-engine"));
 debugLog.enabled = true;
+
+export function migrationNoteRow(label: string | undefined, sourceUrl: string): PageContentRow {
+  return {
+    type: PageContentType.MIGRATION_NOTE,
+    maxColumns: 1,
+    showSwiper: false,
+    columns: [],
+    migrationNote: {label: (label || "").trim() || DEFAULT_MIGRATION_NOTE_LABEL, sourceUrl, migratedAt: dateTimeNowAsValue()}
+  };
+}
 
 export class PageTransformationEngine {
   private debugLogs: string[] = [];
@@ -237,18 +249,7 @@ export class PageTransformationEngine {
         break;
 
       case TransformationActionType.ADD_MIGRATION_NOTE: {
-        const prefix = step.notePrefix || "Migrated from";
-        const fmt = step.dateFormat || UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
-        const when = dateTimeNow().toFormat(fmt);
-        const url = (ctx as any).originalUrl || "";
-        const safeUrlText = url;
-        const note = `${prefix} [${safeUrlText}](${url}) on ${when}`;
-        ctx.rows.push({
-          type: PageContentType.TEXT,
-          maxColumns: 1,
-          showSwiper: false,
-          columns: [{ columns: 12, contentText: note }]
-        });
+        ctx.rows.push(migrationNoteRow(step.notePrefix, (ctx as any).originalUrl || ""));
         break;
       }
 
@@ -2093,6 +2094,10 @@ export class PageTransformationEngine {
       }
 
       const metadataMapping = mappings.find(m => m.sourceType === "metadata");
+      if (metadataMapping?.sourceIdentifier === MIGRATION_NOTE_SOURCE_IDENTIFIER) {
+        result.rows.push(migrationNoteRow(metadataMapping.metadataPrefix, scrapedPage.path || ""));
+        continue;
+      }
       if (metadataMapping) {
         const metadataRow = this.cloneRow(templateRow);
         if (metadataRow.columns?.length) {
@@ -2258,17 +2263,6 @@ export class PageTransformationEngine {
     }
     if (identifier === "path") {
       return scrapedPage.path || "";
-    }
-    if (identifier === "migration-note") {
-      const prefix = mapping.metadataPrefix || "Migrated from";
-      const format = mapping.metadataDateFormat || UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
-      const url = scrapedPage.path || "";
-      const link = url ? `[${url}](${url})` : "";
-      const timestamp = dateTimeNow().toFormat(format);
-      if (link) {
-        return `${prefix} ${link} on ${timestamp}`;
-      }
-      return `${prefix} on ${timestamp}`;
     }
     return "";
   }
@@ -2638,10 +2632,17 @@ export class PageTransformationEngine {
   }
 
   private async applyExtractedContentToRow(row: PageContentRow, item: ExtractedContent, mapping?: ColumnMappingConfig): Promise<boolean> {
-    if (!row.columns || row.columns.length === 0) {
-      return false;
+    if (row.columns?.length) {
+      return this.applyExtractedContent(row.columns, item, mapping);
+    } else {
+      const column: PageContentColumn = {columns: 12};
+      const applied = this.applyExtractedContentToColumn(column, item, mapping?.contentType || ColumnContentType.MIXED);
+      const updated = applied.imageApplied || applied.textApplied;
+      if (updated) {
+        row.columns = [column];
+      }
+      return updated;
     }
-    return this.applyExtractedContent(row.columns, item, mapping);
   }
 
   private applyExtractedContent(columns: PageContentColumn[], item: ExtractedContent, mapping?: ColumnMappingConfig): boolean {

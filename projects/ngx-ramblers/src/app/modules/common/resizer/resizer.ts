@@ -86,6 +86,22 @@ export enum ResizerMode {
     :host(.resizer--bar.resizing) .resizer-surface
       background: rgba(155, 200, 171, 0.6)
       color: #2f5e43
+    :host(.resizer--bar.resizer--subtle) .resizer-surface
+      background: transparent
+      border-radius: 0
+    :host(.resizer--bar.resizer--subtle) .resizer-glyph
+      display: none
+    :host(.resizer--bar.resizer--subtle) .resizer-surface::before
+      content: ""
+      width: 1px
+      height: 100%
+      background: rgba(31, 31, 31, 0.12)
+      transition: background 0.15s ease, width 0.15s ease
+    :host(.resizer--bar.resizer--subtle):hover .resizer-surface::before,
+    :host(.resizer--bar.resizer--subtle.resizing) .resizer-surface::before
+      width: 3px
+      border-radius: 2px
+      background: rgba(155, 200, 171, 0.9)
     .resizer-grip
       display: flex
       align-items: center
@@ -192,6 +208,9 @@ export class ResizerComponent implements OnDestroy {
   @Output() resizeEnd = new EventEmitter<number>();
   @Output() sizeClear = new EventEmitter<void>();
   @Input() resizeHint: string = null;
+  @Input() set subtle(value: boolean) {
+    this.subtleAppearance = coerceBooleanProperty(value);
+  }
   @Input() growsTowardsStart = false;
 
   @Input("canClear") set canClearValue(value: boolean) {
@@ -209,6 +228,12 @@ export class ResizerComponent implements OnDestroy {
   private combinedCols = 0;
   private gridUnitPx = 0;
   private overlay: HTMLDivElement | null = null;
+
+  subtleAppearance = false;
+
+  @HostBinding("class.resizer--subtle") get isSubtle(): boolean {
+    return this.subtleAppearance;
+  }
 
   @HostBinding("class.resizer--bar") get isBar(): boolean {
     return this.variant === ResizerVariant.BAR;

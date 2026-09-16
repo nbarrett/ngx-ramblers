@@ -111,19 +111,8 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   if (existingMx.length > 0) log(`   ⚠ ${existingMx.length} MX record(s) exist`);
 
   log("\n4. Creating DNS records...");
-  if (ips.ipv4 && !existingA) {
-    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.A, name: subdomain, content: ips.ipv4 });
-    log(`   ✓ A record created: ${subdomain} -> ${ips.ipv4}`);
-  } else if (existingA) {
-    log(`   - Skipping A record (already exists)`);
-  }
-
-  if (ips.ipv6 && !existingAAAA) {
-    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.AAAA, name: subdomain, content: ips.ipv6 });
-    log(`   ✓ AAAA record created: ${subdomain} -> ${ips.ipv6}`);
-  } else if (existingAAAA) {
-    log(`   - Skipping AAAA record (already exists)`);
-  }
+  await reconcileAddressRecord(message => log(`   ${message.trim()}`), cloudflareConfig, subdomain, fullHostname, DnsRecordType.A, ips.ipv4, existingRecords);
+  await reconcileAddressRecord(message => log(`   ${message.trim()}`), cloudflareConfig, subdomain, fullHostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
 
   const requiredMxRecords = [
     {content: "route1.mx.cloudflare.net", priority: 16},
@@ -635,7 +624,7 @@ async function clearGroupHrefIfHostname(
   }
 }
 
-async function reconcileAddressRecord(
+export async function reconcileAddressRecord(
   step: (msg: string) => void,
   cloudflareConfig: CloudflareDnsConfig,
   recordName: string,

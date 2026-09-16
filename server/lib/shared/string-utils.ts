@@ -54,15 +54,18 @@ export function titleCase(str: string): string {
     return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }
 
+const MACHINE_GENERATED_WORD = /^(\d+|[0-9a-f]{6,}|[a-z]\d*)$/i;
+
 export function humaniseFileStemFromUrl(input: string): string {
-  try {
-    const url = new URL(input || "");
-    const name = decodeURIComponent((url.pathname.split("/").pop() || "").replace(/\.[^.]+$/, ""));
-    return name.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
-  } catch (_) {
-    const raw = decodeURIComponent((input || "").split("/").pop() || "").replace(/\.[^.]+$/, "");
-    return raw.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
-  }
+  const stem = (() => {
+    try {
+      return decodeURIComponent((new URL(input || "").pathname.split("/").pop() || "").replace(/\.[^.]+$/, ""));
+    } catch (_) {
+      return decodeURIComponent((input || "").split("/").pop() || "").replace(/\.[^.]+$/, "");
+    }
+  })();
+  const humanised = stem.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
+  return humanised.split(" ").every(word => MACHINE_GENERATED_WORD.test(word)) ? "" : humanised;
 }
 
 export function booleanOf(value: any, fallback: boolean = false): boolean {

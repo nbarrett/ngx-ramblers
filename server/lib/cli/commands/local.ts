@@ -645,7 +645,9 @@ function startWorkerContainer(
     "run", "--rm",
     "--name", WORKER_CONTAINER_NAME,
     "-p", `${workerPort}:5001`,
-    "--add-host=host.docker.internal:host-gateway"
+    "--add-host=host.docker.internal:host-gateway",
+    "-v", `${path.join(PROJECT_ROOT, "server/lib")}:/usr/src/app/server/lib`,
+    "-v", `${path.join(PROJECT_ROOT, "projects/ngx-ramblers/src/app/models")}:/usr/src/app/projects/ngx-ramblers/src/app/models`
   ];
   const containerEnv: Record<string, string> = {
     [Environment.NODE_ENV]: workerEnv[Environment.NODE_ENV] || "development",
@@ -663,7 +665,7 @@ function startWorkerContainer(
   for (const [k, v] of Object.entries(containerEnv)) {
     args.push("-e", `${k}=${v}`);
   }
-  args.push(WORKER_IMAGE_TAG);
+  args.push(WORKER_IMAGE_TAG, "npm", "run", "worker-server-live", "--prefix", "server");
 
   log("Starting worker container %s on port %d...", WORKER_CONTAINER_NAME, workerPort);
   debugLog("docker %s", args.join(" "));

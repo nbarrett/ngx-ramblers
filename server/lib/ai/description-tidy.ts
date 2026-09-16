@@ -13,6 +13,17 @@ export const DESCRIPTION_TIDY_SYSTEM_PROMPT = [
   "Return only the tidied description, with no preamble, heading, explanation or quotation marks."
 ].join(" ");
 
+export const PAGE_TIDY_SYSTEM_PROMPT = [
+  "You tidy markdown for a Ramblers group website page that has been imported from an old site.",
+  "Make grammar-level corrections only: correct spelling, grammar and punctuation in British English.",
+  "Keep the writer's meaning, facts, headings, lists, markdown links and markdown images exactly where they belong.",
+  "Do not summarise, reorganise or shorten the content, and do not add, remove or invent places, people, prices, dates or URLs.",
+  "Keep every link destination exactly as written.",
+  "Do not use em dashes. Never introduce a semicolon.",
+  "If the text is already correct, return it unchanged.",
+  "Return only the tidied markdown, with no preamble, heading, explanation or quotation marks."
+].join(" ");
+
 export const TITLE_TIDY_SYSTEM_PROMPT = [
   "You tidy the title of an upcoming group walk or social event for a walking group's website.",
   "Correct spelling, grammar, capitalisation and punctuation, keeping it a short title rather than a sentence, with no full stop at the end.",
@@ -27,7 +38,13 @@ export const MIN_DESCRIPTION_LENGTH_TO_TIDY = 20;
 export const MIN_TITLE_LENGTH_TO_TIDY = 8;
 
 function promptFor(kind: TidyTextKind): string {
-  return kind === TidyTextKind.TITLE ? TITLE_TIDY_SYSTEM_PROMPT : DESCRIPTION_TIDY_SYSTEM_PROMPT;
+  if (kind === TidyTextKind.TITLE) {
+    return TITLE_TIDY_SYSTEM_PROMPT;
+  } else if (kind === TidyTextKind.PAGE) {
+    return PAGE_TIDY_SYSTEM_PROMPT;
+  } else {
+    return DESCRIPTION_TIDY_SYSTEM_PROMPT;
+  }
 }
 
 function minimumLengthFor(kind: TidyTextKind): number {
@@ -53,6 +70,12 @@ export function withoutTrailingFullStop(kind: TidyTextKind, output: string): str
   return kind === TidyTextKind.TITLE ? output.replace(/\.+$/, "").trim() : output;
 }
 
+export const MIN_TIDIED_PAGE_LENGTH_SHARE = 0.9;
+
+function cutShort(kind: TidyTextKind, original: string, output: string): boolean {
+  return kind === TidyTextKind.PAGE && normalisedForComparison(output).length < normalisedForComparison(original).length * MIN_TIDIED_PAGE_LENGTH_SHARE;
+}
+
 export async function tidiedText(ai: Ai, input: string, kind: TidyTextKind, generateText: DescriptionTextGenerator): Promise<string> {
   const original = (input || "").trim();
   if (!ai?.enabled || original.length < minimumLengthFor(kind)) {
@@ -60,7 +83,7 @@ export async function tidiedText(ai: Ai, input: string, kind: TidyTextKind, gene
   } else {
     try {
       const output = withoutTrailingFullStop(kind, withoutIntroducedSemicolons(original, withOriginalApostrophes(original, (await generateText(promptFor(kind), original)).trim())));
-      return output.length > 0 && normalisedForComparison(output) !== normalisedForComparison(original) ? output : original;
+      return output.length > 0 && !cutShort(kind, original, output) && normalisedForComparison(output) !== normalisedForComparison(original) ? output : original;
     } catch {
       return original;
     }

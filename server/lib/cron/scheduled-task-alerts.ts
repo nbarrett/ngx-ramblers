@@ -34,11 +34,8 @@ export interface ScheduledTaskAlert {
 
 function scheduledTaskSubTab(taskId: string): string {
   const parent = toPairs(SCHEDULED_TASK_SUB_TAB_GROUPS)
-    .find(([, children]) => children.includes(taskId as ScheduledTaskSubTab));
-  if (parent) {
-    return parent[0];
-  }
-  return taskId || ScheduledTaskSubTab.ALL;
+    .find(([, children]) => (children as string[]).includes(taskId));
+  return parent ? parent[0] : ScheduledTaskSubTab.ALL;
 }
 
 export function scheduledTasksAdminPath(taskId: string): string {

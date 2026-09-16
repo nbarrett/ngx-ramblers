@@ -14,6 +14,10 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faCircleExclamation, faSpinner } from "@fortawesome/free-solid-svg-icons";
+
+const FRAGMENT_ROW_FIELDS = ["rows.fragment", "rows.columns.rows.fragment", "rows.columns.rows.columns.rows.fragment"];
 
 @Component({
   selector: "app-content-templates",
@@ -36,7 +40,17 @@ import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
                [ngModel]="searchTerm()" (ngModelChange)="onSearchChange($event)">
       </div>
 
-      @if (filteredFragments().length > 0) {
+      @if (loading()) {
+        <div class="alert alert-warning d-flex align-items-center">
+          <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>
+          <strong>Loading templates and fragments</strong>
+        </div>
+      } @else if (loadError()) {
+        <div class="alert alert-warning d-flex align-items-start">
+          <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+          <div><strong>Templates and fragments could not be loaded</strong><p class="mb-0">{{ loadError() }}</p></div>
+        </div>
+      } @else if (filteredFragments().length > 0) {
         <section>
           @for (frag of filteredFragments(); track frag.path; let idx = $index) {
             <h3>{{ entryLabel(frag) }} {{ idx + 1 }} of {{ filteredFragments().length }}: <a class="rams-text-decoration-pink"
@@ -88,11 +102,14 @@ import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
           }
         </section>
       } @else {
-        <div class="alert alert-success">No templates or fragments found</div>
+        <div class="alert alert-warning d-flex align-items-center">
+          <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+          <strong>No templates or fragments match this view</strong>
+        </div>
       }
     </app-page>
   `,
-  imports: [ContentTextEditor, PageComponent, DynamicContentViewComponent, FormsModule]
+  imports: [ContentTextEditor, PageComponent, DynamicContentViewComponent, FormsModule, FontAwesomeModule]
 })
 export class ContentTemplatesComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("ContentTemplatesComponent", NgxLoggerLevel.ERROR);
@@ -110,9 +127,13 @@ export class ContentTemplatesComponent implements OnInit {
   private router = inject(Router);
   private uiActionsService = inject(UiActionsService);
   stringUtils = inject(StringUtilsService);
+  protected readonly faSpinner = faSpinner;
+  protected readonly faCircleExclamation = faCircleExclamation;
 
-  all = signal<PageContent[]>([]);
-  fragments = computed<PageContent[]>(() => this.all().filter(p => (p.path || "").replace(/^\/+/, "").startsWith("fragments/")));
+  fragments = signal<PageContent[]>([]);
+  fragmentUsers = signal<PageContent[]>([]);
+  loading = signal<boolean>(true);
+  loadError = signal<string | null>(null);
   fragmentIdsByPath = computed<Record<string, string[]>>(() => {
     const map: Record<string, string[]> = {};
     for (const f of this.fragments()) {
@@ -129,11 +150,11 @@ export class ContentTemplatesComponent implements OnInit {
   });
   searchTerm = signal<string>("");
   categories = [
-    {id: "fragments", label: "Shared fragments"},
-    {id: "userTemplates", label: "User templates"},
-    {id: "migrationTemplates", label: "Migration templates"}
+    {id: ContentTemplateType.SHARED_FRAGMENT, label: "Shared fragments"},
+    {id: ContentTemplateType.USER_TEMPLATE, label: "User templates"},
+    {id: ContentTemplateType.MIGRATION_TEMPLATE, label: "Migration templates"}
   ];
-  categorySelection = signal<string>("fragments");
+  categorySelection = signal<ContentTemplateType>(ContentTemplateType.SHARED_FRAGMENT);
   filteredFragments = computed<PageContent[]>(() => {
     const selection = this.categorySelection();
     const term = (this.searchTerm() || "").toLowerCase();
@@ -160,13 +181,14 @@ export class ContentTemplatesComponent implements OnInit {
 
   ngOnInit() {
     this.route.queryParamMap.subscribe(params => {
-      const viewParam = params.get(this.stringUtils.kebabCase(StoredValue.VIEW_MODE)) ||
-        params.get(this.stringUtils.kebabCase(StoredValue.CONTENT_TEMPLATE_VIEW));
-      if (viewParam && this.categories.some(cat => cat.id === viewParam)) {
-        this.categorySelection.set(viewParam);
-        this.uiActionsService.saveValueFor(StoredValue.CONTENT_TEMPLATE_VIEW, viewParam);
+      const viewParam = params.get(StoredValue.VIEW_MODE) ||
+        params.get(StoredValue.CONTENT_TEMPLATE_VIEW);
+      const category = this.categories.find(cat => cat.id === viewParam)?.id;
+      if (category) {
+        this.categorySelection.set(category);
+        this.uiActionsService.saveValueFor(StoredValue.CONTENT_TEMPLATE_VIEW, category);
       }
-      const search = params.get(this.stringUtils.kebabCase(StoredValue.SEARCH));
+      const search = params.get(StoredValue.SEARCH);
       if (!isNull(search)) {
         this.searchTerm.set(search);
       }
@@ -179,8 +201,24 @@ export class ContentTemplatesComponent implements OnInit {
   }
 
   async load(): Promise<void> {
-    const content = await this.pageContentService.all();
-    this.all.set(content || []);
+    this.loading.set(true);
+    this.loadError.set(null);
+    try {
+      const [fragments, fragmentUsers] = await Promise.all([
+        this.pageContentService.all({criteria: {path: {$regex: "^/?fragments/"}}}),
+        this.pageContentService.all({
+          criteria: {$or: FRAGMENT_ROW_FIELDS.map(field => ({[field]: {$exists: true}}))},
+          select: {path: 1, rows: 1}
+        })
+      ]);
+      this.fragments.set(fragments || []);
+      this.fragmentUsers.set(fragmentUsers || []);
+    } catch (error) {
+      this.logger.error("load failed", error);
+      this.loadError.set(this.stringUtils.stringifyObject(error));
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   onSearchChange(value: string) {
@@ -188,23 +226,23 @@ export class ContentTemplatesComponent implements OnInit {
     if (this.searchDebounce) { clearTimeout(this.searchDebounce); }
     this.searchDebounce = setTimeout(() => {
       this.searchTerm.set(v);
-      this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.SEARCH)]: v || undefined });
+      this.replaceQueryParams({ [StoredValue.SEARCH]: v || null });
     }, 300);
   }
 
-  selectCategory(category: string) {
+  selectCategory(category: ContentTemplateType) {
     if (!this.categories.some(cat => cat.id === category)) {
       return;
     }
     this.categorySelection.set(category);
     this.uiActionsService.saveValueFor(StoredValue.CONTENT_TEMPLATE_VIEW, category);
-    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.VIEW_MODE)]: category });
+    this.replaceQueryParams({ [StoredValue.VIEW_MODE]: category });
   }
 
   usagesFor(fragmentPath: string): string[] {
     const normalised = this.normaliseFragmentPath(fragmentPath);
     const ids = new Set((this.fragmentIdsByPath()[normalised] || []).filter(v => !!v));
-    const refers = this.all().filter(p => {
+    const refers = this.fragmentUsers().filter(p => {
       const isFragment = (p.path || "").startsWith("fragments/");
       if (isFragment) return false;
       return this.hasFragmentUsage(p.rows || [], normalised, ids);
@@ -230,13 +268,13 @@ export class ContentTemplatesComponent implements OnInit {
     return false;
   }
 
-  private matchesCategory(fragment: PageContent, category: string): boolean {
+  private matchesCategory(fragment: PageContent, category: ContentTemplateType): boolean {
     switch (category) {
-      case "userTemplates":
+      case ContentTemplateType.USER_TEMPLATE:
         return this.isUserTemplate(fragment);
-      case "migrationTemplates":
+      case ContentTemplateType.MIGRATION_TEMPLATE:
         return this.isMigrationTemplate(fragment);
-      case "fragments":
+      case ContentTemplateType.SHARED_FRAGMENT:
       default:
         return this.isSharedTemplate(fragment);
     }

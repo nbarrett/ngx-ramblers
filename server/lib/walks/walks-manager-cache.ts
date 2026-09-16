@@ -21,14 +21,12 @@ import { contactDetailsWithLeaderMatch, leaderMatchResult, priorMatchesFromWalks
 import { memberFullName, trimmedNamePart } from "../../../projects/ngx-ramblers/src/app/functions/member-names";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { PriorContactMemberMatch } from "../../../projects/ngx-ramblers/src/app/models/walk-leader-match.model";
-import { extendedGroupEvent } from "../mongo/models/extended-group-event";
-import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow, dateTimeFromJsDate } from "../shared/dates";
-import { CacheActionType, CacheStats, CleanupStats } from "./walks-manager.model";
+import { CacheActionType, CacheStats, CleanupStats, WalksManagerSyncModels } from "./walks-manager.model";
+import { defaultWalksManagerSyncModels } from "./walks-manager-sync-models";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { WalksConfig } from "../../../projects/ngx-ramblers/src/app/models/walks-config.model";
-import { queryKey } from "../mongo/controllers/config";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-cache"));
 debugLog.enabled = false;
@@ -83,34 +81,35 @@ export function toExtendedGroupEvent(config: SystemConfig, event: GroupEvent, in
   });
 }
 
-async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource): Promise<CacheAction> {
-  const matchingEnabled = await walkLeaderMatchingEnabled(inputSource);
-  const members = matchingEnabled ? await membersForLeaderMatching() : [];
-  const priorMatches = matchingEnabled ? await priorMatchesForLeaderMatching() : [];
-  return upsertEventWithMembers(config, event, inputSource, members, priorMatches);
+async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource, models: WalksManagerSyncModels): Promise<CacheAction> {
+  const matchingEnabled = await walkLeaderMatchingEnabled(inputSource, models);
+  const members = matchingEnabled ? await membersForLeaderMatching(models) : [];
+  const priorMatches = matchingEnabled ? await priorMatchesForLeaderMatching(models) : [];
+  return upsertEventWithMembers(config, event, inputSource, members, priorMatches, models);
 }
 
-async function walkLeaderMatchingEnabled(inputSource: InputSource): Promise<boolean> {
+async function walkLeaderMatchingEnabled(inputSource: InputSource, models: WalksManagerSyncModels): Promise<boolean> {
   if (inputSource !== InputSource.WALKS_MANAGER_CACHE) {
     return true;
+  } else {
+    const walksConfig: WalksConfig = (await models.config.findOne({key: ConfigKey.WALKS}).lean())?.value;
+    return walksConfig?.matchWalkLeadersOnWalksManagerSync !== false;
   }
-  const walksConfig: WalksConfig = (await queryKey(ConfigKey.WALKS))?.value;
-  return walksConfig?.matchWalkLeadersOnWalksManagerSync !== false;
 }
 
-export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): Promise<mongoose.Document | null> {
-  const result = await upsertEvent(config, event, inputSource);
+export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE, models: WalksManagerSyncModels = defaultWalksManagerSyncModels()): Promise<mongoose.Document | null> {
+  const result = await upsertEvent(config, event, inputSource, models);
   return result.document;
 }
 
-export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
+export async function cleanupDuplicatesByRamblersId(models: WalksManagerSyncModels = defaultWalksManagerSyncModels()): Promise<CleanupStats> {
   const stats: CleanupStats = {
     duplicatesRemoved: 0,
     ramblersIdsProcessed: 0,
     details: []
   };
 
-  const duplicates = await extendedGroupEvent.aggregate([
+  const duplicates = await models.extendedGroupEvent.aggregate([
     {
       $match: {
         [GroupEventField.ID]: { $ne: null, $exists: true }
@@ -159,7 +158,7 @@ export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
         keptDocId: sortedDocs[0].docId.toString(),
         deletedDocIds: idsToDelete
       });
-      const deleteResult = await extendedGroupEvent.deleteMany({
+      const deleteResult = await models.extendedGroupEvent.deleteMany({
         _id: { $in: idsToDelete }
       }).exec();
       stats.duplicatesRemoved += deleteResult.deletedCount || 0;
@@ -172,28 +171,28 @@ export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
   return stats;
 }
 
-export async function cacheEventsWithStats(config: SystemConfig, events: GroupEvent[], inputSource: InputSource): Promise<CacheStats> {
-  const matchingEnabled = await walkLeaderMatchingEnabled(inputSource);
-  const members = matchingEnabled ? await membersForLeaderMatching() : [];
-  const priorMatches = matchingEnabled ? await priorMatchesForLeaderMatching() : [];
-  const results = await Promise.all(events.map(event => upsertEventWithMembers(config, event, inputSource, members, priorMatches)));
+export async function cacheEventsWithStats(config: SystemConfig, events: GroupEvent[], inputSource: InputSource, models: WalksManagerSyncModels = defaultWalksManagerSyncModels()): Promise<CacheStats> {
+  const matchingEnabled = await walkLeaderMatchingEnabled(inputSource, models);
+  const members = matchingEnabled ? await membersForLeaderMatching(models) : [];
+  const priorMatches = matchingEnabled ? await priorMatchesForLeaderMatching(models) : [];
+  const results = await Promise.all(events.map(event => upsertEventWithMembers(config, event, inputSource, members, priorMatches, models)));
   return {
     added: results.filter(result => result.action === "added").length,
     updated: results.filter(result => result.action === "updated").length
   };
 }
 
-async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, inputSource: InputSource, members: Member[], priorMatches: PriorContactMemberMatch[]): Promise<CacheAction> {
+async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, inputSource: InputSource, members: Member[], priorMatches: PriorContactMemberMatch[], models: WalksManagerSyncModels): Promise<CacheAction> {
   try {
     let existingEvent = null;
     if (event.id) {
-      existingEvent = await extendedGroupEvent.findOne({
+      existingEvent = await models.extendedGroupEvent.findOne({
         [GroupEventField.ID]: event.id
       }).exec();
       debugLog("Searching by groupEvent.id:", event.id, "found:", !!existingEvent);
     }
     if (!existingEvent) {
-      existingEvent = await extendedGroupEvent.findOne({
+      existingEvent = await models.extendedGroupEvent.findOne({
         [GroupEventField.START_DATE]: event.start_date_time,
         [GroupEventField.TITLE]: event.title,
         [GroupEventField.ITEM_TYPE]: event.item_type || RamblersEventType.GROUP_WALK,
@@ -250,7 +249,7 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
         !!existingMemberId && (sameWalksManagerContact(existingWalksManagerContact, incomingWalksManagerContact) || incomingMatchesExistingMember);
       const fields = mergeFieldsOnSync(existingFields, freshFields, preserveExistingContactDetails);
       const groupEventForPersistence = preserveUndisclosedWalksManagerContact(existingExtendedEvent.groupEvent, groupEvent);
-      await extendedGroupEvent.updateOne(
+      await models.extendedGroupEvent.updateOne(
         {_id: existingEvent._id},
         {
           $set: {groupEvent: groupEventForPersistence, fields, ...syncMetadata},
@@ -266,7 +265,7 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
         fields: freshFields,
         ...syncMetadata
       };
-      const created = await extendedGroupEvent.create(document);
+      const created = await models.extendedGroupEvent.create(document);
       debugLog("Cached new event:", event.url, "event id:", event.id, "group code:", document.groupEvent.group_code);
       return {document: created, action: CacheActionType.Added};
     }
@@ -276,8 +275,8 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
   }
 }
 
-export async function membersForLeaderMatching(): Promise<Member[]> {
-  const members = await member.find({}, {
+export async function membersForLeaderMatching(models: WalksManagerSyncModels = defaultWalksManagerSyncModels()): Promise<Member[]> {
+  const members = await models.member.find({}, {
     displayName: 1,
     email: 1,
     mobileNumber: 1,
@@ -296,8 +295,8 @@ export async function membersForLeaderMatching(): Promise<Member[]> {
   }));
 }
 
-export async function priorMatchesForLeaderMatching(): Promise<PriorContactMemberMatch[]> {
-  const matchedWalks = await extendedGroupEvent.find({
+export async function priorMatchesForLeaderMatching(models: WalksManagerSyncModels = defaultWalksManagerSyncModels()): Promise<PriorContactMemberMatch[]> {
+  const matchedWalks = await models.extendedGroupEvent.find({
     [EventField.INPUT_SOURCE]: InputSource.WALKS_MANAGER_CACHE,
     [EventField.CONTACT_DETAILS_CONTACT_ID]: {$ne: null},
     [EventField.CONTACT_DETAILS_MEMBER_ID]: {$ne: null}

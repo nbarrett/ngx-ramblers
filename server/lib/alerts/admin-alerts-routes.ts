@@ -1,23 +1,23 @@
 import express, { Request, Response } from "express";
 import * as authConfig from "../auth/auth-config";
-import { adminAlertEmails, setAdminAlertEmails } from "./admin-alerts";
+import { configuredAdminAlertRecipients, setAdminAlertRecipients } from "./admin-alerts";
 
 const router = express.Router();
 
-router.get("/emails", authConfig.authenticate(), async (req: Request, res: Response) => {
+router.get("/recipients", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    res.status(200).json({response: {alertEmails: await adminAlertEmails()}});
+    res.status(200).json({response: {recipients: await configuredAdminAlertRecipients()}});
   } catch (error: any) {
-    res.status(500).json({error: {message: error?.message || "Failed to load admin alert emails"}});
+    res.status(500).json({error: {message: error?.message || "Failed to load admin alert recipients"}});
   }
 });
 
-router.put("/emails", authConfig.authenticate(), async (req: Request, res: Response) => {
+router.put("/recipients", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    const alertEmails = await setAdminAlertEmails(req.body?.alertEmails);
-    res.status(200).json({response: {alertEmails}});
+    const recipients = await setAdminAlertRecipients(req.body?.recipients);
+    res.status(200).json({response: {recipients}});
   } catch (error: any) {
-    res.status(400).json({error: {message: error?.message || "Failed to save admin alert emails"}});
+    res.status(400).json({error: {message: error?.message || "Failed to save admin alert recipients"}});
   }
 });
 

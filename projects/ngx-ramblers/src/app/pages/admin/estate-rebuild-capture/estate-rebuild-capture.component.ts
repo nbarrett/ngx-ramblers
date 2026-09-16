@@ -519,6 +519,15 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                              name="consoleFilledOnly">
                       <label class="form-check-label" for="console-filled-only">Filled only</label>
                     </div>
+                    <div class="form-check mb-1">
+                      <input class="form-check-input"
+                             type="checkbox"
+                             id="console-show-secrets"
+                             [(ngModel)]="inventoryIncludeSecrets"
+                             (ngModelChange)="onInventoryIncludeSecretsChange()"
+                             name="consoleShowSecrets">
+                      <label class="form-check-label text-nowrap" for="console-show-secrets">Show secret values</label>
+                    </div>
                     <button type="button"
                             class="btn btn-primary"
                             [disabled]="consoleBusy || !consoleScope"
@@ -610,7 +619,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                   [id]="'password-shared-' + group.serviceId"
                                   [ngModel]="loginFieldValue(platformScope, group.serviceId, passwordField)"
                                   (ngModelChange)="setLoginField(platformScope, group.serviceId, passwordField, $event)"
-                                  [name]="'password-shared-' + group.serviceId">
+                                  [name]="'password-shared-' + group.serviceId"
+                                  [showValue]="inventoryIncludeSecrets">
                                 </app-secret-input>
                               </label>
                               <label class="console-field console-shared-panel-notes">
@@ -731,7 +741,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                             [id]="'password-wide-' + row.rowId"
                             [ngModel]="loginFieldValue(row.scope, row.serviceId, passwordField)"
                             (ngModelChange)="setLoginField(row.scope, row.serviceId, passwordField, $event)"
-                            [name]="'password-wide-' + row.rowId">
+                            [name]="'password-wide-' + row.rowId"
+                            [showValue]="inventoryIncludeSecrets">
                           </app-secret-input>
                         }
                       </ng-template>
@@ -856,7 +867,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                                   [id]="'password-card-' + row.rowId"
                                   [ngModel]="loginFieldValue(row.scope, row.serviceId, passwordField)"
                                   (ngModelChange)="setLoginField(row.scope, row.serviceId, passwordField, $event)"
-                                  [name]="'password-card-' + row.rowId">
+                                  [name]="'password-card-' + row.rowId"
+                                  [showValue]="inventoryIncludeSecrets">
                                 </app-secret-input>
                               </label>
                             </div>
