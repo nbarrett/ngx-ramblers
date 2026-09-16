@@ -193,7 +193,7 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
         apiUrl: "https://api.meetup.com",
         showFooterLink: false
       },
-      osMaps: osMapsApiKey ? { apiKey: osMapsApiKey } : {}
+      osMaps: { apiKey: osMapsApiKey || "" }
     },
     recaptcha: {
       siteKey: recaptchaSiteKey || "",

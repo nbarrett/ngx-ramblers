@@ -243,6 +243,11 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
+      path: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_REGISTRATIONS),
+      loadComponent: () => import("../../pages/admin/site-registrations/site-registrations").then(m => m.SiteRegistrationsComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
       path: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP),
       loadComponent: () => import("../../pages/admin/environment-setup/environment-setup")
         .then(m => m.EnvironmentSetupComponent),

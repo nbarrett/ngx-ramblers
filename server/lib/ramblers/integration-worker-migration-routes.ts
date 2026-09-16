@@ -14,17 +14,23 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { MigrationResult } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { migrateStaticSite } from "../migration/migrate-static-site-engine";
-import { setErrorSender, setProgressSender } from "../migration/migration-progress";
+import { cancelMigration, resetMigrationCancellation, setErrorSender, setProgressSender } from "../migration/migration-progress";
+import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
+import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-migration-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
-let activeMigrationJobId: string | null = null;
+
+function activeMigrationJobId(): string | null {
+  const activeJob = integrationWorkerHeavyJobQueue.activeJob();
+  return activeJob?.type === IntegrationWorkerHeavyJobType.Migration ? activeJob.jobId : null;
+}
 
 router.post("/jobs", async (req: Request, res: Response) => {
   const incomingJobId = (req.body as IntegrationWorkerMigrationJobRequest | undefined)?.jobId;
-  debugLog("POST /migration/jobs received: jobId:", incomingJobId, "activeJobId:", activeMigrationJobId);
+  debugLog("POST /migration/jobs received: jobId:", incomingJobId, "activeJobId:", integrationWorkerHeavyJobQueue.activeJob()?.jobId);
   if (!requestIsSigned(req)) {
     res.status(401).json({ error: "Invalid integration worker request signature" });
     return;
@@ -34,15 +40,24 @@ router.post("/jobs", async (req: Request, res: Response) => {
     res.status(400).json({ error: "jobId, siteConfig and callback are required" });
     return;
   }
-  if (activeMigrationJobId) {
-    res.status(409).json({ error: `Migration job already active: ${activeMigrationJobId}` });
-    return;
-  }
-  activeMigrationJobId = request.jobId;
-  res.json({ accepted: true, jobId: request.jobId });
-  void runMigration(request).finally(() => {
-    activeMigrationJobId = null;
+  const queueResult = integrationWorkerHeavyJobQueue.enqueue({
+    jobId: request.jobId,
+    type: IntegrationWorkerHeavyJobType.Migration,
+    label: `${request.siteConfig.name || request.siteConfig.baseUrl} migration`,
+    run: () => {
+      resetMigrationCancellation();
+      return runMigration(request);
+    }
   });
+  debugLog("POST /migration/jobs jobId:", request.jobId, "queued:", queueResult.queued, "queuePosition:", queueResult.queuePosition, "activeJobId:", queueResult.activeJobId, "activeJobType:", queueResult.activeJobType);
+  if (queueResult.queued) {
+    void postProgress(request.callback, envConfig.value(Environment.INTEGRATION_WORKER_SHARED_SECRET) || "", {
+      jobId: request.jobId,
+      level: IntegrationWorkerLogLevel.Info,
+      message: `Queued at position ${queueResult.queuePosition}; the import will start once the current ${queueResult.activeJobType} job finishes.`
+    });
+  }
+  res.json({ accepted: true, jobId: request.jobId, queued: queueResult.queued, queuePosition: queueResult.queuePosition });
 });
 
 async function runMigration(request: IntegrationWorkerMigrationJobRequest): Promise<void> {
@@ -143,5 +158,20 @@ function requestIsSigned(req: Request): boolean {
   const body = JSON.stringify(req.body ?? {});
   return verifyRamblersUploadSignature(body, secret, signature);
 }
+
+router.post("/jobs/:jobId/cancel", async (req: Request, res: Response) => {
+  if (!requestIsSigned(req)) {
+    res.status(401).json({ error: "Invalid integration worker request signature" });
+  } else if (integrationWorkerHeavyJobQueue.removeQueued(req.params.jobId)) {
+    debugLog("queued migration job removed jobId:", req.params.jobId);
+    res.json({ cancelled: true });
+  } else if (activeMigrationJobId() !== req.params.jobId) {
+    res.json({ cancelled: false, activeJobId: activeMigrationJobId() });
+  } else {
+    cancelMigration(isString(req.body?.reason) ? req.body.reason : "The migration was stopped");
+    debugLog("migration job cancel requested jobId:", req.params.jobId);
+    res.json({ cancelled: true });
+  }
+});
 
 export const integrationWorkerMigrationRoutes = router;

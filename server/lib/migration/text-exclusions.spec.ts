@@ -34,6 +34,32 @@ describe("text-exclusions.pattern removal", () => {
     expect(collapseExcessBlankLines(out)).toEqual("Heading\n\nBody");
   });
 
+  it("strips Ramblers-Webs chrome, charity footer and leftover markdown", () => {
+    const input = [
+      "BOOKS - Walks Around the New Forest National Park",
+      "",
+      "](http://)",
+      "",
+      "The Ramblers’ | Contact us | Hosted by Ramblers-Webs",
+      "",
+      "The Ramblers' Association is a democratic, voluntary organisation, registered as a charity in England & Wales No: 1093577 © New Forest Group of the Ramblers' Association 2025 All Rights Reserved",
+      "",
+      "The book will cost:",
+      "",
+      "Migrated from https://www.newforestramblers.org.uk/books.htm on 2026-09-14 14:46"
+    ].join("\n");
+    const out = collapseExcessBlankLines(applyTextExclusions(input, {})).trim();
+    expect(out).toContain("BOOKS - Walks Around the New Forest National Park");
+    expect(out).toContain("The book will cost:");
+    expect(applyTextExclusions("[The Ramblers’](https://www.ramblers.org.uk/) | [Contact us](contact.htm) | Hosted by [Ramblers-Webs](https://www.ramblers-webs.org.uk)", {})).not.toContain("Ramblers-Webs");
+    expect(applyTextExclusions("[The Ramblers’](https://www.ramblers.org.uk/) | [Contact us](contact.htm) | Hosted by [Ramblers-Webs](https://www.ramblers-webs.org.uk)", {})).not.toContain("Ramblers-Webs");
+    expect(out).not.toContain("Hosted by Ramblers-Webs");
+    expect(out).not.toContain("1093577");
+    expect(out).not.toContain("](http://)");
+    expect(out).not.toContain("Migrated from");
+    expect(collapseExcessBlankLines(applyTextExclusions("What's new?\n\n[\n\n[", {})).trim()).toBe("What's new?");
+  });
+
   it("removeMarkdownBlocks handles exact, tolerant and sequences", () => {
     const block = "Line A\nLine B\nLine C";
     const input = "x\nLine A\n\nLine B\n  \nLine C\ny";
@@ -230,5 +256,41 @@ describe("text-exclusions.firstSentenceFrom", () => {
     ].join("\n");
     const sentence = firstSentenceFrom(input);
     expect(sentence).toEqual("Step out and explore the Kent countryside by following one of the most popular of the county's recreation routes.");
+  });
+});
+
+describe("text-exclusions.wordpress-shortcodes", () => {
+  it("removes unrendered WordPress shortcodes, escaped or not, and keeps ordinary links", () => {
+    const text = [
+      "In the meantime, here is a small selection to start with:",
+      "[gb_gallery group=\"1\" size=\"900X500\" auto_resize=\"on\" duration=\"2000\" special_effect=\"no\"]",
+      "\\[gb\\_gallery group=\"1\" size=\"900X500\"\\]",
+      "[/caption]",
+      "[Our Flickr group](http://www.flickr.com/groups/hikeessex)"
+    ].join("\n\n");
+    const out = applyTextExclusions(text, {});
+    expect(out).not.toContain("gb_gallery");
+    expect(out).not.toContain("gb\\_gallery");
+    expect(out).not.toContain("[/caption]");
+    expect(out).toContain("[Our Flickr group](http://www.flickr.com/groups/hikeessex)");
+    expect(out).toContain("here is a small selection to start with:");
+  });
+});
+
+describe("text-exclusions.stylesheet-paths", () => {
+  it("removes a line that is only a stylesheet path left behind by the old site's page header", () => {
+    const out = applyTextExclusions("css/blue.css\n\n# The Example Group\n\nSee styles.css in the notes", {});
+    expect(out).not.toContain("css/blue.css\n");
+    expect(out).toContain("# The Example Group");
+    expect(out).toContain("See styles.css in the notes");
+  });
+});
+
+
+describe("text-exclusions.site-search-label", () => {
+  it("removes the old site's search box label, keeping sentences that mention searching", () => {
+    const out = applyTextExclusions("Search this site\n\n## Introduction\n\nSearch this site for walks near you.", {});
+    expect(out).not.toMatch(/^Search this site$/m);
+    expect(out).toContain("Search this site for walks near you.");
   });
 });

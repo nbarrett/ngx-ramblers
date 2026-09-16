@@ -30,6 +30,11 @@ export interface FlyioConfig {
   previous?: FlyioPreviousCredentials;
 }
 
+export interface AtlasConfig {
+  publicKey?: string;
+  privateKey?: string;
+}
+
 export interface CloudflareConfig {
   accountId?: string;
   apiToken?: string;
@@ -77,6 +82,7 @@ export enum EnvironmentsSecretFieldName {
   SECRET_ACCESS_KEY = "secretAccessKey",
   API_KEY = "apiKey",
   API_TOKEN = "apiToken",
+  PRIVATE_KEY = "privateKey",
   SHARED_SECRET = "sharedSecret",
   ENCRYPTION_KEY = "encryptionKey",
   JWT_APP_SECRET = "jwtAppSecret",
@@ -104,6 +110,7 @@ export interface EnvironmentConfig {
   secrets?: Record<string, string>;
   ai?: Ai;
   ngxLite?: boolean;
+  estateDeploy?: boolean;
   consoleAccess?: EnvironmentConsoleAccess;
 }
 
@@ -140,6 +147,7 @@ export interface EnvironmentsConfig {
   environments?: EnvironmentConfig[];
   aws?: AwsConfig;
   cloudflare?: CloudflareConfig;
+  atlas?: AtlasConfig;
   ai?: Ai;
   secrets?: Record<string, string>;
   uploadWorker?: UploadWorkerConfig;

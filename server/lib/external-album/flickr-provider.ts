@@ -23,6 +23,8 @@ import {
 import { scrapeFlickrUserAlbumsViaIntegrationWorker } from "../ramblers/integration-worker-browser-client";
 import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { decodeHtmlEntities } from "../migration/turndown-service-factory";
+import { FlickrGroupPool, ScrapedImage } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 
 const debugLog = debug(envConfig.logNamespace("flickr-provider"));
@@ -668,3 +670,71 @@ export const flickrProvider: ExternalAlbumProvider = {
     };
   }
 };
+
+const FLICKR_GROUP_LINK = /flickr\.com\/groups\/([a-z0-9_@-]+)/gi;
+const FLICKR_POOL_PHOTO_IMAGE = /(?:data-defer-src|src)="https:\/\/live\.staticflickr\.com\/(\d+)\/(\d+)_([0-9a-f]+)(?:_[a-z])?\.jpg"/;
+const FLICKR_SIZE_SUFFIXES: [string, string][] = [["b", "_b"], ["c", "_c"], ["z", "_z"], ["l", ""], ["n", "_n"], ["m", "_m"]];
+const FLICKR_POOL_PAGE_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml"
+};
+
+export function flickrGroupNamesIn(text: string): string[] {
+  return [...new Set([...(text || "").matchAll(FLICKR_GROUP_LINK)].map(match => match[1].toLowerCase()))];
+}
+
+export function flickrGroupPoolFromHtml(html: string): FlickrGroupPool {
+  const photos = html.split('data-photo-id="').slice(1)
+    .map(block => flickrPoolPhotoFromBlock(block))
+    .filter(Boolean)
+    .filter((photo, index, list) => list.findIndex(item => item.src === photo.src) === index);
+  const pageTitle = decodeHtmlEntities((html.match(/<title>([^<]*)<\/title>/i) || [])[1] || "")
+    .replace(/^flickr:\s*/i, "").replace(/^the\s+/i, "").replace(/\s+pool$/i, "").trim();
+  return {title: pageTitle, photos};
+}
+
+function flickrPoolPhotoFromBlock(block: string): ScrapedImage | null {
+  const photoId = (block.match(/^(\d+)"/) || [])[1];
+  const image = block.match(FLICKR_POOL_PHOTO_IMAGE);
+  if (!photoId || !image || image[2] !== photoId) {
+    return null;
+  } else {
+    const alt = decodeHtmlEntities((block.match(/<img[^>]*?alt="([^"]*)"/) || [])[1] || "").trim();
+    return {src: `https://live.staticflickr.com/${image[1]}/${photoId}_${image[3]}${largestFlickrSizeSuffix(block)}.jpg`, alt};
+  }
+}
+
+function largestFlickrSizeSuffix(block: string): string {
+  const encoded = (block.match(/data-thumbdata="([^"]*)"/) || [])[1];
+  const sizes = (() => {
+    try {
+      return encoded ? JSON.parse(decodeURIComponent(encoded)).sizes || {} : {};
+    } catch (error) {
+      return {};
+    }
+  })();
+  const available = FLICKR_SIZE_SUFFIXES.find(([key]) => isArray(sizes[key]) && sizes[key][0] > 0);
+  return available ? available[1] : "";
+}
+
+export async function fetchFlickrGroupPool(groupName: string, maxPhotos: number, page = 1, collected: ScrapedImage[] = [], title = ""): Promise<FlickrGroupPool> {
+  const pageUrl = `https://www.flickr.com/groups/${encodeURIComponent(groupName)}/pool/${page === 1 ? "" : `page${page}`}`;
+  const response = await fetch(pageUrl, {headers: FLICKR_POOL_PAGE_HEADERS});
+  if (!response.ok) {
+    if (page === 1) {
+      throw new Error(`Flickr group ${groupName} returned HTTP ${response.status}`);
+    } else {
+      return {title, photos: collected};
+    }
+  } else {
+    const pool = flickrGroupPoolFromHtml(await response.text());
+    const fresh = pool.photos.filter(photo => !collected.some(existing => existing.src === photo.src));
+    const photos = [...collected, ...fresh].slice(0, maxPhotos);
+    const poolTitle = title || pool.title;
+    if (fresh.length === 0 || photos.length >= maxPhotos) {
+      return {title: poolTitle, photos};
+    } else {
+      return fetchFlickrGroupPool(groupName, maxPhotos, page + 1, photos, poolTitle);
+    }
+  }
+}

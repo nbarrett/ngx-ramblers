@@ -117,6 +117,8 @@ const PLATFORM_CORE_FIELDS: EstateRebuildPlatformFieldDefinition[] = [
   {fieldId: "globalCloudflareApiToken", category: "Shared Cloudflare", label: "Global Cloudflare API token", whereHeld: "config.environments.cloudflare.apiToken"},
   {fieldId: "globalCloudflareZoneId", category: "Shared Cloudflare", label: "Global Cloudflare zone ID", whereHeld: "config.environments.cloudflare.zoneId"},
   {fieldId: "globalCloudflareBaseDomain", category: "Shared Cloudflare", label: "Global Cloudflare base domain", whereHeld: "config.environments.cloudflare.baseDomain"},
+  {fieldId: "globalAtlasPublicKey", category: "Shared MongoDB Atlas", label: "Global Atlas API public key", whereHeld: "config.environments.atlas.publicKey"},
+  {fieldId: "globalAtlasPrivateKey", category: "Shared MongoDB Atlas", label: "Global Atlas API private key", whereHeld: "config.environments.atlas.privateKey"},
   {fieldId: "globalSecretsKeys", category: "Platform secrets", label: "Global secret key names", whereHeld: "config.environments.secrets"},
   {fieldId: "aiEnabled", category: "AI", label: "AI enabled", whereHeld: "config.environments.ai.enabled"},
   {fieldId: "aiProvider", category: "AI", label: "AI provider", whereHeld: "config.environments.ai.provider"},

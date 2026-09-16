@@ -62,7 +62,7 @@ import {
                   (click)="selectRow(row)"
                   (keydown.enter)="selectRow(row)">
                 @for (column of columns; track column.key) {
-                  <td [class]="cellClassFor(column)">
+                  <td [class]="cellClassFor(column)" [attr.data-label]="column.label || null">
                     @if (templateFor(column.key); as cellTemplate) {
                       <ng-container *ngTemplateOutlet="cellTemplate; context: { $implicit: row, row: row }"></ng-container>
                     } @else {
@@ -181,6 +181,48 @@ import {
 
     .sortable-table tbody td.text-right
       text-align: right
+
+    @media (max-width: 767.98px)
+      .sortable-table thead
+        display: none
+
+      .sortable-table,
+      .sortable-table tbody,
+      .sortable-table tbody tr,
+      .sortable-table tbody tr td
+        display: block
+        width: 100%
+
+      .sortable-table tbody tr
+        border-bottom: 1px solid #e9ecef
+
+      .sortable-table tbody tr:last-child
+        border-bottom: none
+
+      .sortable-table tbody tr td
+        padding: 6px 16px
+        border-bottom: none
+        text-align: left
+
+      .sortable-table tbody tr td:first-child
+        padding-top: 12px
+
+      .sortable-table tbody tr td:last-child
+        padding-bottom: 12px
+
+      .sortable-table tbody td.text-center,
+      .sortable-table tbody td.text-right
+        text-align: left
+
+      .sortable-table tbody td[data-label]::before
+        content: attr(data-label)
+        display: block
+        font-size: 0.75rem
+        font-weight: 600
+        color: #6c757d
+        text-transform: uppercase
+        letter-spacing: 0.02em
+        margin-bottom: 2px
   `]
 })
 export class SortableTableComponent implements OnChanges, AfterContentInit {

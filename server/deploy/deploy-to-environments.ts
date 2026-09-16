@@ -39,7 +39,7 @@ deployToEnvironments(config.targetEnvironments).then(() => process.exit(0)).catc
 });
 
 function buildDeploymentConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
-  const environments = (dbConfig?.environments || []).map(env => ({
+  const environments = (dbConfig?.environments || []).filter(env => env.estateDeploy !== false).map(env => ({
     name: env.environment,
     apiKey: env.flyio?.apiKey || "",
     appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
@@ -200,7 +200,7 @@ async function deployToEnvironments(environmentsFilter: string[]): Promise<void>
     deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     await importSecrets(environmentConfig.name, environmentConfig.appName);
-    const pruneResult = pruneDisallowedFlySecrets(environmentConfig.appName, true, {stage: true});
+    const pruneResult = await pruneDisallowedFlySecrets(environmentConfig.appName, true, {stage: true});
     if (pruneResult.removed.length > 0) {
       debugLog("Pruned disallowed Fly secrets from %s: %s", environmentConfig.appName, pruneResult.removed.join(", "));
     }

@@ -17,6 +17,22 @@ export async function scrapeFlickrUserAlbumsViaIntegrationWorker(userId: string)
   return requestBrowserOperation<FlickrScrapedUserAlbumsData>("flickr-user-albums", { userId });
 }
 
+export async function cancelMigrationJobOnIntegrationWorker(jobId: string, reason: string): Promise<void> {
+  const workerUrl = required(Environment.INTEGRATION_WORKER_URL);
+  const sharedSecret = required(Environment.INTEGRATION_WORKER_SHARED_SECRET);
+  const body = JSON.stringify({ reason });
+  const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/migration/jobs/${encodeURIComponent(jobId)}/cancel`;
+  debugLog("-> cancel migration jobId:", jobId);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-ramblers-upload-signature": signRamblersUploadBody(body, sharedSecret) },
+    body
+  });
+  if (!response.ok) {
+    throw new Error(`Integration worker migration cancel failed with status ${response.status}`);
+  }
+}
+
 export async function submitMigrationJobToIntegrationWorker(jobId: string, siteConfig: SiteMigrationConfig, persistData: boolean, uploadTos3: boolean): Promise<void> {
   const workerUrl = required(Environment.INTEGRATION_WORKER_URL);
   const sharedSecret = required(Environment.INTEGRATION_WORKER_SHARED_SECRET);

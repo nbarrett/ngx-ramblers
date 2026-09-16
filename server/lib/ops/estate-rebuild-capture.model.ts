@@ -147,6 +147,8 @@ export interface EstateRebuildPlatformSnapshot {
   globalCloudflareApiToken: string;
   globalCloudflareZoneId: string;
   globalCloudflareBaseDomain: string;
+  globalAtlasPublicKey: string;
+  globalAtlasPrivateKey: string;
   globalSecretEntries: Record<string, string>;
   aiEnabled: boolean;
   aiProvider: string;

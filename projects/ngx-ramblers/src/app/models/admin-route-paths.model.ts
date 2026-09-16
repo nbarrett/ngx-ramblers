@@ -75,6 +75,7 @@ export enum AdminSettingsPath {
 export enum AdminPlatformPath {
   ROOT = "admin/platform",
   ENVIRONMENT_MANAGEMENT = "admin/platform/environment-management",
+  ENVIRONMENT_MANAGEMENT_REGISTRATIONS = "admin/platform/environment-management/registrations",
   ENVIRONMENT_MANAGEMENT_SETUP = "admin/platform/environment-management/setup",
   ENVIRONMENT_MANAGEMENT_BACKUP = "admin/platform/environment-management/backup",
   ENVIRONMENT_MANAGEMENT_MIGRATION = "admin/platform/environment-management/migration",

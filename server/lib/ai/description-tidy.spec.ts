@@ -45,6 +45,12 @@ describe("tidiedDescription", () => {
     expect(await tidiedDescription(enabled, original, async () => "   ")).toEqual(original);
   });
 
+  it("keeps a page's original text when the tidied version comes back cut short", async () => {
+    const page = Array.from({length: 40}, (_, index) => `* [Newsletter Issue ${index + 1}](/information/newsletter-${index + 1})`).join("\n");
+    expect(await tidiedText(enabled, page, TidyTextKind.PAGE, async () => page.slice(0, page.length / 2))).toEqual(page);
+    expect(await tidiedText(enabled, page, TidyTextKind.PAGE, async () => page.replace("Issue 1]", "Issue One]"))).toContain("Issue One]");
+  });
+
   it("keeps the writer's curly apostrophes when the model straightens them", async () => {
     const curly = "We head up to St Paul’s Cathedral then on to Leadenhall Market for lunch.";
     const result = await tidiedDescription(enabled, curly, async () => "We head up to St Paul's Cathedral, then on to Leadenhall Market for lunch.");

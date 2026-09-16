@@ -19,9 +19,12 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { configuredEnvironments } from "../environments/environments-config";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
+import { connect as connectMongoose } from "../mongo/mongoose-client";
 import { seedAdminMenuStructure } from "../mongo/migrations/shared/seed-admin-menu";
 import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-banner";
+import { BannerPictureStore } from "./banner-picture.model";
 import { values } from "es-toolkit/compat";
+import { NEW_ENVIRONMENT_MEMBER_SYNC_POLICY } from "../../../projects/ngx-ramblers/src/app/models/member-sync-policy.model";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
@@ -33,9 +36,14 @@ export async function environmentSiteUrl(environmentName: string, appName: strin
 }
 
 export function toGroupShortName(groupName: string): string {
-  return groupName
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const name = (groupName || "").replace(/\s+/g, " ").trim();
+  const shortened = name
+    .replace(/^the\s+/i, "")
+    .replace(/^ramblers['’]?\s+/i, "")
+    .replace(/\s+ramblers['’]?(\s+(walking\s+)?group)?$/i, "")
+    .replace(/\s+(walking\s+)?group$/i, "")
+    .trim();
+  return shortened || name;
 }
 
 const COLLECTIONS = {
@@ -130,7 +138,8 @@ async function upsertConfigDocument(db: Db, key: ConfigKey, value: unknown): Pro
 export async function initialiseDatabase(
   request: EnvironmentSetupRequest,
   progressCallback?: ProgressCallback,
-  copiedAssets?: CopiedAssets
+  copiedAssets?: CopiedAssets,
+  bannerPictureStore: BannerPictureStore | null = null
 ): Promise<InitialiseDatabaseResult> {
   const uri = buildMongoUri(request);
   const database = request.serviceConfigs.mongodb.database;
@@ -169,8 +178,12 @@ export async function initialiseDatabase(
     await upsertConfigDocument(db, ConfigKey.SYSTEM, systemConfig);
     reportProgress("Creating SystemConfig", SetupStepStatus.Completed);
 
+    reportProgress("Creating member sync policy", SetupStepStatus.Running);
+    await upsertConfigDocument(db, ConfigKey.MEMBER_SYNC_POLICY, NEW_ENVIRONMENT_MEMBER_SYNC_POLICY);
+    reportProgress("Creating member sync policy", SetupStepStatus.Completed, "Head office member records always apply");
+
     reportProgress("Creating default banner", SetupStepStatus.Running);
-    const bannerSeed = await seedDefaultLogoBanner(db, message => debugLog(message));
+    const bannerSeed = await seedDefaultLogoBanner(db, message => debugLog(message), bannerPictureStore);
     reportProgress("Creating default banner", SetupStepStatus.Completed, bannerSeed.reason);
 
     reportProgress("Creating Brevo config", SetupStepStatus.Running);
@@ -284,6 +297,7 @@ export async function runMigrations(mongoUri: string, reportProgress: (step: str
     } else {
       delete process.env.MONGODB_URI;
     }
+    await connectMongoose(debugLog);
   }
 }
 
@@ -334,10 +348,12 @@ export async function seedNotificationConfigs(db: Db): Promise<{ seededCount: nu
   const notificationConfigsCollection = db.collection(COLLECTIONS.NOTIFICATION_CONFIGS);
   let seededCount = 0;
   let skippedCount = 0;
+  const banner = await db.collection(COLLECTIONS.BANNERS).findOne({}, {sort: {createdAt: 1}});
+  const bannerId = banner?._id ? banner._id.toString() : null;
   for (const config of NOTIFICATION_CONFIG_DEFAULTS) {
     const result = await notificationConfigsCollection.updateOne(
       {"subject.text": config.subject.text},
-      {$setOnInsert: config},
+      {$setOnInsert: bannerId ? {...config, bannerId} : config},
       {upsert: true}
     );
     if (result.upsertedCount > 0) {

@@ -3,7 +3,7 @@ import debug from "debug";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { flyTomlAbsolutePath, runCommand, runCommandStreaming } from "../../fly/fly-commands";
+import { flyTomlAbsolutePath, runCommand, runCommandAsync, runCommandStreaming } from "../../fly/fly-commands";
 import { loadSecretsWithFallback, REQUIRED_SECRETS, writeSecretsFile } from "../../shared/secrets";
 import { cleanDisallowedSecretsFromEnvironmentsConfig, pruneDisallowedFlySecrets } from "../../fly/fly-secrets-prune";
 import { filterSecretsForSiteFlyDeploy, SITE_FLY_SECRET_ALLOWLIST } from "../../fly/fly-secrets-policy";
@@ -45,11 +45,11 @@ function setFlyApiToken(apiKey?: string): void {
   }
 }
 
-function checkFlyctlAuthentication(apiKey?: string): void {
+async function checkFlyctlAuthentication(apiKey?: string): Promise<void> {
   setFlyApiToken(apiKey);
 
   try {
-    const output = runCommand("flyctl auth whoami", true);
+    const output = await runCommandAsync("flyctl auth whoami");
     debugLog("Flyctl authenticated as:", output.trim());
   } catch (error) {
     const message = error?.message || String(error);
@@ -69,7 +69,7 @@ function checkFlyctlAuthentication(apiKey?: string): void {
 
 async function generateFlyToken(appName: string): Promise<string> {
   try {
-    const tokenOutput = runCommand(`flyctl tokens create deploy --app ${appName} --expiry 0`, true);
+    const tokenOutput = await runCommandAsync(`flyctl tokens create deploy --app ${appName} --expiry 0`);
     const token = tokenOutput.trim();
     if (token && token.startsWith("FlyV1")) {
       return token;
@@ -84,7 +84,7 @@ async function generateFlyToken(appName: string): Promise<string> {
 
 async function queryAppConfig(appName: string): Promise<{ memory: string; count: number; hasMachines: boolean } | null> {
   try {
-    const output = runCommand(`flyctl scale show --app ${appName} --json`, true);
+    const output = await runCommandAsync(`flyctl scale show --app ${appName} --json`);
     const config = JSON.parse(output);
     const hasMachines = config.count > 0 || (config.processes && keys(config.processes).length > 0);
     return {
@@ -100,7 +100,7 @@ async function queryAppConfig(appName: string): Promise<{ memory: string; count:
 
 async function appExists(appName: string): Promise<boolean> {
   try {
-    runCommand(`flyctl scale show --app ${appName} --json`, true);
+    await runCommandAsync(`flyctl scale show --app ${appName} --json`);
     return true;
   } catch {
     return false;
@@ -127,13 +127,13 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
       await runCommandStreaming(command, onDeployOutput);
     } else {
       report(description);
-      runCommand(command);
+      await runCommandAsync(command);
     }
   };
 
   try {
     report("Checking fly.io authentication");
-    checkFlyctlAuthentication(config.apiKey);
+    await checkFlyctlAuthentication(config.apiKey);
     report("fly.io authentication verified");
 
     report("Checking fly.io configuration");
@@ -146,7 +146,7 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
 
     if (!exists) {
       report(`Creating app ${config.appName}`);
-      runCommand(`flyctl apps create ${config.appName} --org ${config.organisation}`, true);
+      await runCommandAsync(`flyctl apps create ${config.appName} --org ${config.organisation}`);
       isNewlyCreated = true;
       report(`Created app ${config.appName}`);
     } else {
@@ -171,15 +171,15 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
     const needsInitialDeploy = !currentConfig || !currentConfig.hasMachines;
 
     report("Validating fly.toml configuration");
-    runCommand(`flyctl config validate --config ${flyTomlPath} --app ${config.appName}`);
+    await runCommandAsync(`flyctl config validate --config ${flyTomlPath} --app ${config.appName}`);
 
     const tempSecretsPath = path.join(os.tmpdir(), `secrets-${config.appName}-${Date.now()}.env`);
     try {
       const filteredSecrets = filterSecretsForSiteFlyDeploy(config.secrets || {});
       writeSecretsFile(tempSecretsPath, filteredSecrets);
       report("Importing secrets");
-      runCommand(`flyctl secrets import --app ${config.appName} < ${tempSecretsPath}`);
-      const pruneResult = pruneDisallowedFlySecrets(config.appName, true, {stage: true});
+      await runCommandAsync(`flyctl secrets import --app ${config.appName} < ${tempSecretsPath}`);
+      const pruneResult = await pruneDisallowedFlySecrets(config.appName, true, {stage: true});
       if (pruneResult.removed.length > 0) {
         report(`Pruned ${pruneResult.removed.length} disallowed Fly secrets`);
       }
@@ -197,8 +197,8 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
     }
 
     report("Scaling application");
-    runCommand(`flyctl scale count ${config.scaleCount} --app ${config.appName} --yes`);
-    runCommand(`flyctl scale memory ${normaliseMemory(config.memory)} --app ${config.appName}`);
+    await runCommandAsync(`flyctl scale count ${config.scaleCount} --app ${config.appName} --yes`);
+    await runCommandAsync(`flyctl scale memory ${normaliseMemory(config.memory)} --app ${config.appName}`);
 
     if (!needsInitialDeploy) {
       await runDeployCommand(
@@ -234,9 +234,9 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
 }
 
 export async function scaleFlyApp(appName: string, count: number, memory?: string): Promise<void> {
-  runCommand(`flyctl scale count ${count} --app ${appName} --yes`);
+  await runCommandAsync(`flyctl scale count ${count} --app ${appName} --yes`);
   if (memory) {
-    runCommand(`flyctl scale memory ${normaliseMemory(memory)} --app ${appName}`);
+    await runCommandAsync(`flyctl scale memory ${normaliseMemory(memory)} --app ${appName}`);
   }
 }
 
@@ -244,7 +244,7 @@ export async function setFlySecrets(appName: string, secrets: Record<string, str
   const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${Date.now()}.env`);
   try {
     writeSecretsFile(tempFile, filterSecretsForSiteFlyDeploy(secrets));
-    runCommand(`flyctl secrets import --app ${appName} < ${tempFile}`);
+    await runCommandAsync(`flyctl secrets import --app ${appName} < ${tempFile}`);
   } finally {
     if (fs.existsSync(tempFile)) {
       fs.unlinkSync(tempFile);
@@ -361,7 +361,7 @@ export function createFlyCommand(): Command {
                 log("  %s (%s): skipped — no Fly API token in config", env.environment, appName);
               } else {
                 setFlyApiToken(apiKey);
-                const result = pruneDisallowedFlySecrets(appName, execute, {stage});
+                const result = await pruneDisallowedFlySecrets(appName, execute, {stage});
                 if (result.removed.length === 0) {
                   log("  %s (%s): clean (%d allowed secrets)", env.environment, appName, result.kept.length);
                 } else if (execute) {

@@ -21,7 +21,8 @@ import {
   IntegrationWorkerResultCallbackRequest
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { prepareRamblersUploadJobFiles, removeRamblersUploadJobFiles } from "./ramblers-upload-job-files";
-import { applyOsMapsExportEnvironment, isOsMapsExportJob, isOsMapsListJob, isOsMapsWorkerJob } from "./serenity-job-environment";
+import { applyOsMapsExportEnvironment, isOsDataHubApiKeyJob, isOsMapsExportJob, isOsMapsListJob, isOsMapsWorkerJob } from "./serenity-job-environment";
+import { osDataHubApiKeyFromJobPath } from "../os-maps/os-data-hub-api-key-store";
 import { OsMapsListedRoute } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { exportedGpxFromJobPath } from "../os-maps/os-maps-exported-gpx-files";
 import {
@@ -438,7 +439,8 @@ async function finishJob(
     reportKeyPrefix,
     reportBucket,
     listedRoutes: isOsMapsListJob(job) ? listedRoutesFromJobPath(jobPath) : undefined,
-    exportedGpx: isOsMapsExportJob(job) ? exportedGpxFromJobPath(jobPath) : undefined
+    exportedGpx: isOsMapsExportJob(job) ? exportedGpxFromJobPath(jobPath) : undefined,
+    osDataHubApiKey: isOsDataHubApiKeyJob(job) ? osDataHubApiKeyFromJobPath(jobPath) : undefined
   });
 }
 

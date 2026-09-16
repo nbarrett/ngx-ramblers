@@ -83,6 +83,11 @@ StringUtilsService {
     return returnValue;
   }
 
+  userErrorMessage(error: any, defaultMessage: string): string {
+    const message = error?.error?.error?.message || error?.error?.message || error?.error?.error || error?.error || error?.message || error;
+    return this.stringify(message) || defaultMessage;
+  }
+
   censor(censor) {
     const maxSerializationDepth = 30;
     let i = 0;

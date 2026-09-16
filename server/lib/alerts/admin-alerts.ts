@@ -1,10 +1,10 @@
 import debug from "debug";
 import { Brevo } from "@getbrevo/brevo";
-import { isArray, isString } from "es-toolkit/compat";
-import { AdminAlertsConfiguration } from "../../../projects/ngx-ramblers/src/app/models/admin-alerts.model";
+import { isArray, isString, uniqBy } from "es-toolkit/compat";
+import { validEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { AdminAlertRecipient, AdminAlertsConfiguration } from "../../../projects/ngx-ramblers/src/app/models/admin-alerts.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { ScheduledTasksConfiguration } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 import { envConfig } from "../env-config/env-config";
 import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
@@ -12,15 +12,10 @@ import { brevoClient } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
 import { assertSendAllowed } from "../brevo/send-permission";
 import { SendPurpose } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { booleanOf, pluraliseWithCount } from "../shared/string-utils";
+import { booleanOf } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("admin-alerts"));
 debugLog.enabled = true;
-
-export interface AdminAlertRecipient {
-  email: string;
-  name?: string;
-}
 
 export interface AdminAlertEmailRequest {
   subject: string;
@@ -32,84 +27,33 @@ export function platformAdminEnvironment(): boolean {
   return booleanOf(process.env[Environment.PLATFORM_ADMIN_ENABLED]);
 }
 
-export function normalisedAlertEmails(value: unknown): string[] {
-  if (!isArray(value)) {
-    return [];
-  }
-  const seen = new Set<string>();
-  return value.reduce<string[]>((emails, entry) => {
-    if (!isString(entry)) {
-      return emails;
-    }
-    const email = entry.trim();
-    const key = email.toLowerCase();
-    if (!email || !email.includes("@") || seen.has(key)) {
-      return emails;
-    }
-    seen.add(key);
-    return [...emails, email];
-  }, []);
+export function normalisedAlertRecipients(value: unknown): AdminAlertRecipient[] {
+  const entries: Partial<AdminAlertRecipient>[] = isArray(value) ? value : [];
+  return uniqBy(entries
+    .map(entry => ({email: isString(entry?.email) ? entry.email.trim() : "", name: isString(entry?.name) ? entry.name.trim() : ""}))
+    .filter(recipient => validEmail(recipient.email)), recipient => recipient.email.toLowerCase());
 }
 
-async function legacyScheduledTaskAlertEmails(): Promise<string[]> {
-  try {
-    const document = await config.queryKey(ConfigKey.SCHEDULED_TASKS);
-    const value = document?.value as ScheduledTasksConfiguration | null;
-    return normalisedAlertEmails(value?.alertEmails);
-  } catch {
-    return [];
-  }
-}
-
-async function clearLegacyScheduledTaskAlertEmails(): Promise<void> {
-  try {
-    const document = await config.queryKey(ConfigKey.SCHEDULED_TASKS);
-    const value = document?.value as ScheduledTasksConfiguration | null;
-    if (!value || !value.alertEmails) {
-      return;
-    }
-    const {alertEmails: _removed, ...rest} = value;
-    await config.createOrUpdateKey(ConfigKey.SCHEDULED_TASKS, rest);
-  } catch (error: any) {
-    debugLog("Failed to clear legacy scheduled-tasks alertEmails:", error?.message || error);
-  }
-}
-
-export async function adminAlertEmails(): Promise<string[]> {
+export async function configuredAdminAlertRecipients(): Promise<AdminAlertRecipient[]> {
   try {
     const document = await config.queryKey(ConfigKey.ADMIN_ALERTS);
     const value = document?.value as AdminAlertsConfiguration | null;
-    const configured = normalisedAlertEmails(value?.alertEmails);
-    if (configured.length > 0) {
-      return configured;
-    }
-    const legacy = await legacyScheduledTaskAlertEmails();
-    if (legacy.length > 0) {
-      await setAdminAlertEmails(legacy);
-      await clearLegacyScheduledTaskAlertEmails();
-      debugLog(`Migrated ${pluraliseWithCount(legacy.length, "alert email")} from scheduled-tasks config to admin-alerts`);
-      return legacy;
-    }
-    return [];
+    return normalisedAlertRecipients(value?.recipients);
   } catch (error: any) {
-    debugLog("Failed to load admin alert emails:", error?.message || error);
+    debugLog("Failed to load admin alert recipients:", error?.message || error);
     return [];
   }
 }
 
-export async function setAdminAlertEmails(alertEmails: unknown): Promise<string[]> {
-  const emails = normalisedAlertEmails(alertEmails);
-  await config.createOrUpdateKey(ConfigKey.ADMIN_ALERTS, {alertEmails: emails} satisfies AdminAlertsConfiguration);
-  await clearLegacyScheduledTaskAlertEmails();
-  return emails;
+export async function setAdminAlertRecipients(value: unknown): Promise<AdminAlertRecipient[]> {
+  const recipients = normalisedAlertRecipients(value);
+  await config.createOrUpdateKey(ConfigKey.ADMIN_ALERTS, {recipients} satisfies AdminAlertsConfiguration);
+  return recipients;
 }
 
-export async function adminAlertRecipients(): Promise<AdminAlertRecipient[]> {
-  if (!platformAdminEnvironment()) {
-    return [];
-  }
-  const emails = await adminAlertEmails();
-  return emails.map(email => ({email}));
+async function adminAlertRecipients(): Promise<Brevo.SendTransacEmailRequest["to"]> {
+  const recipients = platformAdminEnvironment() ? await configuredAdminAlertRecipients() : [];
+  return recipients.map(recipient => recipient.name ? recipient : {email: recipient.email});
 }
 
 export function stripTrailingSlash(url: string): string {

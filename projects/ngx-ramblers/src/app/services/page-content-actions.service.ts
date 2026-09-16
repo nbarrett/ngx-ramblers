@@ -547,6 +547,10 @@ export class PageContentActionsService {
     return row?.type === PageContentType.LOCATION;
   }
 
+  public isMigrationNote(row: PageContentRow): boolean {
+    return row?.type === PageContentType.MIGRATION_NOTE;
+  }
+
   public pageContentFound(pageContent: PageContent, queryCompleted: boolean) {
     const hasRows = pageContent?.rows?.length > 0;
     this.logger.debug("pageContentFound:hasRows:", hasRows, "queryCompleted:", queryCompleted);

@@ -128,7 +128,7 @@ const fields = new Schema({
   titleTidyFingerprint: {type: String}
 }, {_id: false});
 
-const extendedGroupEventSchema = new Schema({
+export const extendedGroupEventSchema = new Schema({
   groupEvent,
   fields,
   events: [walkEvent],

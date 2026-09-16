@@ -2,7 +2,7 @@ import { Command } from "commander";
 import debug from "debug";
 import fs from "fs";
 import { MongoClient } from "mongodb";
-import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectVersionsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import {
   DeleteAccessKeyCommand,
   DeletePolicyCommand,
@@ -14,12 +14,15 @@ import {
 } from "@aws-sdk/client-iam";
 import { envConfig } from "../../env-config/env-config";
 import { findEnvironmentFromDatabase, removeEnvironmentFromDatabase } from "../../environments/environments-config";
+import { deleteRegistrationsForEnvironment } from "../../site-registration/registration-store";
+import { deleteEnvironmentMongoUser, environmentDatabaseUserName, platformAtlasAccess } from "../../environment-setup/mongo-database-user";
+import { extractUsernameFromUri } from "../../shared/mongodb-uri";
 import { loadSecretsForEnvironment, secretsPath } from "../../shared/secrets";
 import { runCommand } from "../../fly/fly-commands";
 import { adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
 import { ProgressCallback } from "../types";
 import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
-import { DestroyConfig, DestroyResult } from "../cli.model";
+import { DestroyConfig, DestroyResult, DestroyStep } from "../cli.model";
 import { log } from "../cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("cli:destroy"));
@@ -50,6 +53,18 @@ async function deleteS3BucketContents(s3Client: S3Client, bucketName: string, co
 
   if (listResponse.NextContinuationToken) {
     await deleteS3BucketContents(s3Client, bucketName, listResponse.NextContinuationToken);
+  }
+}
+
+async function deleteS3BucketVersions(s3Client: S3Client, bucketName: string, keyMarker?: string, versionIdMarker?: string): Promise<void> {
+  const response = await s3Client.send(new ListObjectVersionsCommand({Bucket: bucketName, KeyMarker: keyMarker, VersionIdMarker: versionIdMarker}));
+  const objects = [...(response.Versions || []), ...(response.DeleteMarkers || [])].map(item => ({Key: item.Key, VersionId: item.VersionId}));
+  if (objects.length > 0) {
+    await s3Client.send(new DeleteObjectsCommand({Bucket: bucketName, Delete: {Objects: objects}}));
+    debugLog(`Deleted ${objects.length} object versions and delete markers from bucket ${bucketName}`);
+  }
+  if (response.IsTruncated) {
+    await deleteS3BucketVersions(s3Client, bucketName, response.NextKeyMarker, response.NextVersionIdMarker);
   }
 }
 
@@ -96,11 +111,11 @@ async function deleteIamUserWithPolicies(iamClient: IAMClient, userName: string)
 }
 
 export async function destroyEnvironment(config: DestroyConfig, onProgress?: ProgressCallback): Promise<DestroyResult> {
-  const steps: { step: string; success: boolean; message: string }[] = [];
+  const steps: DestroyStep[] = [];
 
-  const report = (step: string, success: boolean, message: string) => {
-    debugLog(`[${success ? "SUCCESS" : "FAILED"}] ${step}: ${message}`);
-    steps.push({step, success, message});
+  const report = (step: string, success: boolean, message: string, skipped = false) => {
+    debugLog(`[${skipped ? "SKIPPED" : success ? "SUCCESS" : "FAILED"}] ${step}: ${message}`);
+    steps.push({step, success, skipped, message});
     if (onProgress) {
       onProgress({step: "destroy", status: success ? SetupStepStatus.Completed : SetupStepStatus.Failed, message: `${step}: ${message}`});
     }
@@ -121,6 +136,8 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
         report("fly.io app", false, `Failed to delete: ${error.message}`);
       }
     }
+  } else {
+    report("fly.io app", true, "Skipped by request", true);
   }
 
   if (!config.skipS3) {
@@ -148,6 +165,7 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
       const bucketName = `ngx-ramblers-${config.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
       try {
         await deleteS3BucketContents(s3Client, bucketName);
+        await deleteS3BucketVersions(s3Client, bucketName);
         await s3Client.send(new DeleteBucketCommand({Bucket: bucketName}));
         report("S3 bucket", true, `Deleted ${bucketName}`);
       } catch (error) {
@@ -196,39 +214,41 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
         }
       }
     }
+  } else {
+    report("S3 bucket and IAM", true, "Skipped by request", true);
   }
 
   if (!config.skipDatabase && config.mongoUri && config.database) {
     try {
+      const database = validatedDatabaseForDestroy(config.mongoUri, config.database);
       const client = await MongoClient.connect(config.mongoUri, {
         serverSelectionTimeoutMS: 30000,
         connectTimeoutMS: 30000
       });
-      const db = client.db(config.database);
-      const collections = await db.listCollections().toArray();
-
-      await collections.reduce(async (promise, collection) => {
-        await promise;
-        await db.dropCollection(collection.name);
-        debugLog(`Dropped collection: ${collection.name}`);
-      }, Promise.resolve());
-
-      await client.close();
-      report("Database", true, `Cleared ${collections.length} collections from ${config.database}`);
+      try {
+        await client.db(database).dropDatabase();
+        report("Database", true, `Deleted ${database}`);
+      } finally {
+        await client.close();
+      }
     } catch (error) {
       report("Database", false, `Failed to clear: ${error.message}`);
     }
+  } else if (config.skipDatabase) {
+    report("Database", true, "Skipped by request", true);
+  } else {
+    report("Database", false, "Database connection details are incomplete; the environment record has been retained");
   }
 
-  try {
-    const removed = await removeEnvironmentFromDatabase(config.name);
-    if (removed) {
-      report("Environment config", true, "Removed environment entry from database");
-    } else {
-      report("Environment config", true, "No environment entry found in database (already removed)");
+  const databaseUser = config.mongoUri ? extractUsernameFromUri(config.mongoUri) : null;
+  if (!config.skipDatabase && databaseUser && databaseUser === environmentDatabaseUserName(config.name)) {
+    try {
+      report("Database user", true, await deleteEnvironmentMongoUser(await platformAtlasAccess(), databaseUser));
+    } catch (error) {
+      report("Database user", false, `Failed to delete ${databaseUser}: ${error.message}`);
     }
-  } catch (error) {
-    report("Environment config", false, `Failed to remove from database: ${error.message}`);
+  } else if (databaseUser && !config.skipDatabase) {
+    report("Database user", true, `${databaseUser} is not one this platform created for ${config.name}, so it was kept`, true);
   }
 
   try {
@@ -243,8 +263,39 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
     report("Secrets file", false, `Failed to delete: ${error.message}`);
   }
 
+  const resourceCleanupSucceeded = steps.every(step => step.success);
+  if (resourceCleanupSucceeded) {
+    try {
+      const removed = await removeEnvironmentFromDatabase(config.name);
+      if (removed) {
+        report("Environment config", true, "Removed environment entry from database");
+      } else {
+        report("Environment config", true, "No environment entry found in database (already removed)");
+      }
+      const deletedRegistrations = await deleteRegistrationsForEnvironment(config.name);
+      report("Site registration", true, deletedRegistrations > 0
+        ? "Removed leftover registration request so the group can start again"
+        : "No leftover registration request");
+    } catch (error) {
+      report("Environment config", false, `Failed to remove from database: ${error.message}`);
+    }
+  } else {
+    report("Environment config", false, "Retained because resource cleanup was incomplete; resolve the failed steps before reusing this environment name");
+  }
+
   const allSucceeded = steps.every(s => s.success);
   return {success: allSucceeded, steps};
+}
+
+export function validatedDatabaseForDestroy(mongoUri: string, expectedDatabase: string): string {
+  const database = decodeURIComponent(new URL(mongoUri).pathname.replace(/^\//, ""));
+  if (!database || database !== expectedDatabase) {
+    throw new Error(`Refusing database cleanup because the connection targets ${database || "no database"}, not ${expectedDatabase}`);
+  } else if (["admin", "config", "local"].includes(database.toLowerCase())) {
+    throw new Error(`Refusing to delete MongoDB system database ${database}`);
+  } else {
+    return database;
+  }
 }
 
 export function createDestroyCommand(): Command {
@@ -315,7 +366,7 @@ export function createDestroyCommand(): Command {
 
         log("\nResults:");
         result.steps.forEach(step => {
-          log(`  ${step.success ? "✓" : "✗"} ${step.step}: ${step.message}`);
+          log(`  ${step.skipped ? "-" : step.success ? "✓" : "✗"} ${step.step}: ${step.message}`);
         });
 
         if (result.success) {

@@ -20,3 +20,19 @@ export function webFacingHostnamesFromDns(records: DnsRecordResult[], zoneName: 
     });
   return names.filter((name, index) => names.indexOf(name) === index);
 }
+
+export function unmappedHostsToOffer(
+  zoneName: string,
+  baseDomain: string,
+  discovered: string[],
+  claimedByOtherEnvironments: string[]
+): string[] {
+  const zone = (zoneName || "").toLowerCase();
+  const platform = (baseDomain || "").toLowerCase();
+  if (zone && platform && zone === platform) {
+    return [];
+  } else {
+    const claimed = claimedByOtherEnvironments.map(hostname => hostname.toLowerCase());
+    return discovered.filter(hostname => !claimed.includes(hostname.toLowerCase()));
+  }
+}

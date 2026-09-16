@@ -16,9 +16,16 @@ export interface DestroyConfig {
   skipDatabase?: boolean;
 }
 
+export interface DestroyStep {
+  step: string;
+  success: boolean;
+  skipped: boolean;
+  message: string;
+}
+
 export interface DestroyResult {
   success: boolean;
-  steps: { step: string; success: boolean; message: string }[];
+  steps: DestroyStep[];
 }
 
 export interface ResumeEnvironmentOptions extends ResumeOptions {

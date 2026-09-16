@@ -1,7 +1,12 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { SerenityFeature } from "../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
-import { buildOsMapsExportJob, buildOsMapsListJob } from "./os-maps-export-job-builder";
+import { buildOsDataHubApiKeyJob, buildOsMapsExportJob, buildOsMapsListJob } from "./os-maps-export-job-builder";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { isOsDataHubApiKeyJob, isOsMapsWorkerJob } from "./serenity-job-environment";
+import { OS_DATA_HUB_API_KEY_FILE, osDataHubApiKeyFromJobPath } from "../os-maps/os-data-hub-api-key-store";
 
 describe("os-maps-export-job-builder", () => {
 
@@ -28,6 +33,19 @@ describe("os-maps-export-job-builder", () => {
     const job = buildOsMapsListJob();
     expect(job.data.feature).toEqual(SerenityFeature.OS_MAPS_LIST);
     expect(job.data.osMapsRouteUrls).toBeUndefined();
+  });
+
+  it("builds an OS Data Hub key job for a project that runs like the other OS worker jobs, and reads the key it saves", () => {
+    const job = buildOsDataHubApiKeyJob("milton-keynes-district");
+    expect(job.data.feature).toEqual(SerenityFeature.OS_DATA_HUB_API_KEY);
+    expect(job.data.osDataHubProjectName).toEqual("milton-keynes-district");
+    expect(job.data.fileName).toMatch(/^os-data-hub-api-key-.+\.json$/);
+    expect(isOsDataHubApiKeyJob(job) && isOsMapsWorkerJob(job)).toBe(true);
+    const jobPath = fs.mkdtempSync(path.join(os.tmpdir(), "os-data-hub-"));
+    expect(osDataHubApiKeyFromJobPath(jobPath)).toBeUndefined();
+    fs.writeFileSync(path.join(jobPath, OS_DATA_HUB_API_KEY_FILE), JSON.stringify({projectName: "milton-keynes-district", apiKey: "key-value", created: false}));
+    expect(osDataHubApiKeyFromJobPath(jobPath)).toEqual({projectName: "milton-keynes-district", apiKey: "key-value", created: false});
+    fs.rmSync(jobPath, {recursive: true, force: true});
   });
 
 });

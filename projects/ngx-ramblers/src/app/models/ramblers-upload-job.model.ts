@@ -23,6 +23,7 @@ export interface RamblersUploadJobData {
   osMapsRouteUrl?: string;
   osMapsRouteUrls?: string[];
   osMapsWalkId?: string;
+  osDataHubProjectName?: string;
 }
 
 export interface RamblersUploadJob {

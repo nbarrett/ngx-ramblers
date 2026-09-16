@@ -195,6 +195,23 @@ import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
       <small class="form-text text-muted">Used for automatic subdomain DNS setup when creating new environments.</small>
     </div>
     <div class="row thumbnail-heading-frame mb-5">
+      <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+        <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="26"/>
+        <span>Global MongoDB Atlas Configuration</span>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="atlasPublicKey">API public key</label>
+          <input id="atlasPublicKey" type="text" class="form-control" [(ngModel)]="config.atlas.publicKey" name="atlasPublicKey">
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">API private key</label>
+          <app-secret-input [(ngModel)]="config.atlas.privateKey" name="atlasPrivateKey" [size]="InputSize.SM"/>
+        </div>
+      </div>
+      <small class="form-text text-muted">Used to give each new site its own database user, with read and write access to that site's database only. The project is the one recorded for the platform site under System logins → MongoDB Atlas, where the API keys button opens the page to create this key. The key needs the Project Database Access Admin role on that project.</small>
+    </div>
+    <div class="row thumbnail-heading-frame mb-5">
       <div class="thumbnail-heading">Global Application Secrets</div>
       <small class="form-text text-muted mb-3">
         Default environment variables for all environments. Can be overridden per-environment.
@@ -445,6 +462,9 @@ export class EnvironmentGlobalSettings implements OnInit {
     }
     if (!this.config.jitsi) {
       this.config.jitsi = createDefaultJitsiConfig();
+    }
+    if (!this.config.atlas) {
+      this.config.atlas = {};
     }
   }
 

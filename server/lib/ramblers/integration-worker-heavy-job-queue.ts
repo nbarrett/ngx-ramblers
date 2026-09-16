@@ -44,6 +44,14 @@ export class IntegrationWorkerHeavyJobQueue {
     return this.items;
   }
 
+  removeQueued(jobId: string): boolean {
+    const remaining = this.items.filter(item => item.jobId !== jobId);
+    const removed = remaining.length !== this.items.length;
+    this.items = remaining;
+    debugLog("removeQueued jobId:", jobId, "removed:", removed);
+    return removed;
+  }
+
   clearQueued(): IntegrationWorkerHeavyJob[] {
     const cleared = this.items;
     this.items = [];

@@ -35,6 +35,8 @@ import {
   InsertionPosition,
   InsertionRow,
   LocationRenderingMode,
+  DEFAULT_MIGRATION_NOTE_LABEL,
+  MIGRATION_NOTE_SOURCE_IDENTIFIER,
   MigrationTemplateLocationMapping,
   MigrationTemplateMapMapping,
   MigrationTemplateMapping,
@@ -103,6 +105,8 @@ import { IndexService } from "../../../services/index.service";
 import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
 import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
+import { DynamicContentViewMigrationNote } from "./dynamic-content-view-migration-note";
+import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Component({
   selector: "app-dynamic-content-site-edit",
@@ -671,6 +675,9 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                 @if (actions.isLocation(row)) {
                   <app-dynamic-content-site-edit-location [row]="row" [rowIndex]="rowIndex"/>
                 }
+                @if (actions.isMigrationNote(row)) {
+                  <app-dynamic-content-view-migration-note [row]="row"/>
+                }
               </div>
               }
             }
@@ -860,7 +867,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, RoutePageEditor, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
+  imports: [DynamicContentViewMigrationNote, FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditRoute, RoutePageEditor, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, ContentTextEditor, TemplateSelectorComponent, StickyControlsDirective]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -887,6 +894,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
   private activatedRoute = inject(ActivatedRoute);
+  private dateUtils = inject(DateUtilsService);
   private router = inject(Router);
   private location = inject(Location);
   private systemConfigService = inject(SystemConfigService);
@@ -986,7 +994,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     {value: "path", label: "Source path"},
     {value: "menuTitle", label: "Menu title"},
     {value: "publishDate", label: "Publish date"},
-    {value: "migration-note", label: "Migration note"}
+    {value: MIGRATION_NOTE_SOURCE_IDENTIFIER, label: "Migration note"}
   ];
   readonly nestedRowContentSourceOptions = [
     {value: "remaining-images", label: "Remaining images"},
@@ -2052,6 +2060,10 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
           renderingMode: LocationRenderingMode.VISIBLE
         };
         this.logger.debug("initialising location to:", row.location);
+      }
+    } else if (this.actions.isMigrationNote(row)) {
+      if (!row?.migrationNote) {
+        row.migrationNote = {label: DEFAULT_MIGRATION_NOTE_LABEL, sourceUrl: "", migratedAt: this.dateUtils.nowAsValue()};
       }
     } else if (this.actions.isMap(row)) {
       this.actions.ensureMapData(row);

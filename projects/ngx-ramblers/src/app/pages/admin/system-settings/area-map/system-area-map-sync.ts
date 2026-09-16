@@ -25,7 +25,7 @@ import { FormsModule } from "@angular/forms";
 import {
   AreaGroup,
   AreaGroupGeometrySource,
-  AvailableArea,
+  AvailableAreaWithLabel,
   ColourPalette,
   GroupPreset,
   MapsSubTab,
@@ -59,6 +59,7 @@ import { VolunteerManagementService } from "../../../../services/volunteer-manag
 import { AreaGroupSortField } from "../../../../models/group-area.model";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { NgClass } from "@angular/common";
+import { AvailableAreasService } from "../../../../services/available-areas.service";
 
 interface GroupBoundaryUploadResult {
   totalFeatures: number;
@@ -733,6 +734,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   private uiActionsService = inject(UiActionsService);
   private mapDefaults = inject(MapDefaultsService);
   private http = inject(HttpClient);
+  private availableAreasService = inject(AvailableAreasService);
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -788,7 +790,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   missingGeographicData = false;
   geographicDataMessage = "";
   neighboringAreaCodes: string[] = [];
-  availableNeighboringAreas: (AvailableArea & { ngSelectLabel: string })[] = [];
+  availableNeighboringAreas: AvailableAreaWithLabel[] = [];
   loadingNeighboringAreas = false;
   filterText = "";
   populatedDistrictsOnly = false;
@@ -1161,25 +1163,17 @@ export class SystemAreaMapSyncComponent implements OnInit {
     });
   }
 
-  private loadAvailableNeighboringAreas() {
+  private async loadAvailableNeighboringAreas(): Promise<void> {
     this.loadingNeighboringAreas = true;
-    this.http.get<{ areas: AvailableArea[] }>("api/areas/available-areas").subscribe({
-      next: (response) => {
-        const currentAreaCode = this.config?.area?.groupCode;
-        this.availableNeighboringAreas = response.areas
-          .filter(area => area.areaCode !== currentAreaCode)
-          .map(area => ({
-            ...area,
-            ngSelectLabel: `${area.areaName} (${area.areaCode})`
-          }));
-        this.neighboringAreaCodes = this.config?.area?.neighboringAreaCodes || [];
-        this.loadingNeighboringAreas = false;
-      },
-      error: (error) => {
-        this.logger.error("Failed to load available areas:", error);
-        this.loadingNeighboringAreas = false;
-      }
-    });
+    try {
+      const currentAreaCode = this.config?.area?.groupCode;
+      this.availableNeighboringAreas = (await this.availableAreasService.areas()).filter(area => area.areaCode !== currentAreaCode);
+      this.neighboringAreaCodes = this.config?.area?.neighboringAreaCodes || [];
+    } catch (error) {
+      this.logger.error("Failed to load available areas:", error);
+    } finally {
+      this.loadingNeighboringAreas = false;
+    }
   }
 
   onNeighboringAreasChange(selectedCodes: string[]) {

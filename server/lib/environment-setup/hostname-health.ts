@@ -20,7 +20,7 @@ import {
 import { hostnameNeedsAction } from "../../../projects/ngx-ramblers/src/app/functions/hostname-situation";
 import { CustomDomainEntry, EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { apexHost, dnsProviderFromNameservers, hostFromUrl, ramblersNationalUrl, registrableApex } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
-import { webFacingHostnamesFromDns } from "./zone-web-hosts";
+import { unmappedHostsToOffer, webFacingHostnamesFromDns } from "./zone-web-hosts";
 import { nameserversForHostname, publicAddressRecord } from "../shared/dns-nameservers";
 import { probeHttp } from "../health/public-http-probe";
 
@@ -357,9 +357,20 @@ export async function environmentHostnameHealth(environmentName: string): Promis
     const zoneForUnmapped = siteHostname
       ? await zoneForHostname(apiToken, siteHostname)
       : null;
+    const claimedByOthers = (environmentsConfig?.environments || [])
+      .filter(entry => entry.environment !== environmentName)
+      .flatMap(entry => [
+        baseDomain ? `${entry.environment}.${baseDomain}` : "",
+        ...(entry.customDomains || []).map(domain => domain.hostname)
+      ])
+      .filter(Boolean);
     const unmappedHosts = zoneForUnmapped
-      ? webFacingHostnamesFromDns(await listDnsRecords({ apiToken, zoneId: zoneForUnmapped.id }), zoneForUnmapped.name)
-        .filter(hostname => !mappedHosts.has(hostname))
+      ? unmappedHostsToOffer(
+        zoneForUnmapped.name,
+        baseDomain || "",
+        webFacingHostnamesFromDns(await listDnsRecords({ apiToken, zoneId: zoneForUnmapped.id }), zoneForUnmapped.name)
+          .filter(hostname => !mappedHosts.has(hostname)),
+        claimedByOthers)
       : [];
     const candidates = unmappedHosts.reduce(
       (accumulator, hostname) => addCandidate(accumulator, hostname, HostnameOrigin.UNMAPPED),

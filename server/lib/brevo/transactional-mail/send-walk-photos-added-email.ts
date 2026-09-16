@@ -8,6 +8,7 @@ import {
   EmailAddress,
   NotificationConfig,
   SendSmtpEmailRequest,
+  EmailTemplateName,
   WalkPhotosAddedNotificationRequest,
   WalkPhotosAddedNotificationResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -35,7 +36,7 @@ const messageType = "brevo:send-walk-photos-added-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 
-const TEMPLATE_NAME = "fully-automated-text-body";
+const TEMPLATE_NAME = EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY;
 
 function walkQuery(walkId: string) {
   return isValidObjectId(walkId) ? {$or: [{_id: walkId}, {"groupEvent.id": walkId}]} : {"groupEvent.id": walkId};

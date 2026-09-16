@@ -3,6 +3,7 @@ import { envConfig } from "../env-config/env-config";
 import { registerScheduledTask } from "./scheduled-task-registry";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { sendSmtpKeepalive } from "../brevo/smtp-relay";
+import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:brevo-smtp-keepalive"));
 debugLog.enabled = true;
@@ -21,7 +22,7 @@ export async function scheduleBrevoSmtpKeepalive(): Promise<void> {
   try {
     const cronExpression = "0 5 1 * *";
     await registerScheduledTask({
-      id: "brevo-smtp-keepalive",
+      id: ScheduledTaskId.BREVO_SMTP_KEEPALIVE,
       name: "Brevo SMTP key keepalive",
       description: "Sends a monthly probe through the Brevo SMTP relay so the SMTP key is not marked inactive after three months of disuse, and confirms inbound committee email can still be relayed.",
       cronExpression,

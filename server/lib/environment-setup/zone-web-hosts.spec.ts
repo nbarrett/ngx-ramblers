@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { webFacingHostnamesFromDns } from "./zone-web-hosts";
+import { unmappedHostsToOffer, webFacingHostnamesFromDns } from "./zone-web-hosts";
 import { DnsRecordResult } from "../cloudflare/cloudflare.model";
 
 function rec(type: string, name: string): DnsRecordResult {
@@ -28,5 +28,25 @@ describe("webFacingHostnamesFromDns", () => {
       rec("MX", "stagwalkers.org.uk")
     ], "stagwalkers.org.uk");
     expect(names).toEqual(["staging.stagwalkers.org.uk", "www.stagwalkers.org.uk"]);
+  });
+});
+
+describe("unmappedHostsToOffer", () => {
+  it("does not list other groups from the shared NGX zone", () => {
+    expect(unmappedHostsToOffer(
+      "ngx-ramblers.org.uk",
+      "ngx-ramblers.org.uk",
+      ["bolton.ngx-ramblers.org.uk", "kent.ngx-ramblers.org.uk", "new-forest.ngx-ramblers.org.uk"],
+      ["bolton.ngx-ramblers.org.uk", "kent.ngx-ramblers.org.uk"]
+    )).toEqual([]);
+  });
+
+  it("keeps leftover records on a group's own domain and drops other environments' hosts", () => {
+    expect(unmappedHostsToOffer(
+      "newforestramblers.org.uk",
+      "ngx-ramblers.org.uk",
+      ["www.newforestramblers.org.uk", "legacy.newforestramblers.org.uk", "kent.ngx-ramblers.org.uk"],
+      ["kent.ngx-ramblers.org.uk"]
+    )).toEqual(["www.newforestramblers.org.uk", "legacy.newforestramblers.org.uk"]);
   });
 });

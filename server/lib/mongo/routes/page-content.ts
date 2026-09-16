@@ -2,7 +2,7 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { pageContent } from "../models/page-content";
 import * as crudController from "../controllers/crud-controller";
-import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { PageContent, PageContentType } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { Request, Response } from "express";
 import { ApiAction, ApiErrorCode } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
@@ -37,9 +37,21 @@ async function createWithValidation(req: Request, res: Response): Promise<void> 
   }
 }
 
+async function migrationNoteCount(req: Request, res: Response): Promise<void> {
+  const pages = await pageContent.countDocuments({"rows.type": PageContentType.MIGRATION_NOTE});
+  res.json({action: ApiAction.QUERY, response: {pages}});
+}
+
+async function removeMigrationNotes(req: Request, res: Response): Promise<void> {
+  const result = await pageContent.updateMany({"rows.type": PageContentType.MIGRATION_NOTE}, {$pull: {rows: {type: PageContentType.MIGRATION_NOTE}}});
+  res.json({action: ApiAction.DELETE, response: {pages: result.modifiedCount}});
+}
+
 router.post("", authConfig.authenticate(), createWithValidation);
 router.get("", controller.findByConditions);
 router.get("/all", controller.all);
+router.get("/migration-notes", authConfig.authenticate(), migrationNoteCount);
+router.delete("/migration-notes", authConfig.authenticate(), removeMigrationNotes);
 router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);

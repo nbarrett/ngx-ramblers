@@ -7,6 +7,7 @@ import { Subscription } from "rxjs";
 import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
+import { EnvironmentSetupService } from "../../../../services/environment-setup/environment-setup.service";
 
 @Component({
     selector: "app-notification-config-to-process-mapping",
@@ -143,6 +144,20 @@ import { FormsModule } from "@angular/forms";
             </select>
           </div>
         </div>
+        @if (platformAdminEnabled) {
+          @for (process of registrationProcesses; track process.key) {
+            <div class="col-sm-12">
+              <div class="form-group">
+                <label [for]="'process-mapping-' + process.key">{{process.label}} Uses Email Configuration</label>
+                <select [(ngModel)]="mailMessagingConfig.mailConfig[process.key]" [id]="'process-mapping-' + process.key" class="form-control input-sm">
+                  @for (mapping of notificationConfigsPlusNone; track mapping.id) {
+                    <option [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          }
+        }
       </div>
     }
     `,
@@ -157,8 +172,15 @@ export class NotificationConfigToProcessMappingComponent implements OnInit, OnDe
   private logger: Logger = this.loggerFactory.createLogger("NotificationConfigToProcessMappingComponent", NgxLoggerLevel.ERROR);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
   public mailMessagingConfig: MailMessagingConfig;
+  public platformAdminEnabled = false;
+  private environmentSetupService = inject(EnvironmentSetupService);
+  public readonly registrationProcesses = [
+    {key: "registrationConfirmationConfigId", label: "Site Registration Confirmation"},
+    {key: "registrationReviewConfigId", label: "Site Registration Review"},
+    {key: "registrationInvitationConfigId", label: "Site Registration Invitation"}
+  ] as const;
 
-  ngOnInit() {
+  async ngOnInit() {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       this.notificationConfigsPlusNone = [{
@@ -167,6 +189,11 @@ export class NotificationConfigToProcessMappingComponent implements OnInit, OnDe
       } as NotificationConfig].concat(mailMessagingConfig.notificationConfigs);
       this.logger.info("mailMessagingConfig:", mailMessagingConfig, "notificationConfigsPlusNone:", this.notificationConfigsPlusNone);
     }));
+    try {
+      this.platformAdminEnabled = (await this.environmentSetupService.status()).platformAdminEnabled;
+    } catch (_error) {
+      this.platformAdminEnabled = false;
+    }
   }
 
   ngOnDestroy(): void {

@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnInit, ViewChild, inject } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, ViewChild, inject } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faRotateLeft, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { keys, startCase } from "es-toolkit/compat";
@@ -6,6 +6,12 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import {
   ComposerDrafting,
   defaultComposerDrafting,
+  EMAIL_COMPOSER_BODY_PLACEHOLDER,
+  EMAIL_TEMPLATES,
+  EmailContentAnchor,
+  EmailContentSource,
+  EmailTemplateKind,
+  EmailTemplateName,
   NotificationConfig,
   overrideKeyToLabel,
   TemplateOverrides,
@@ -25,7 +31,6 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { NgxLoggerLevel } from "ngx-logger";
 
 const APP_URL_TOKEN = "{{params.systemMergeFields.APP_URL}}";
-const BODY_CONTENT_PLACEHOLDER = "{{params.messageMergeFields.BODY_CONTENT}}";
 
 function pageLabel(path: string): string {
   const clean = path.replace(/^\//, "").replace(/[-/]/g, " ").trim();
@@ -36,7 +41,7 @@ function pageLabel(path: string): string {
   selector: "app-email-body-editor",
   imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
   template: `
-    <div class="col-sm-12 mt-2">
+    <div class="col-sm-12 mt-2" [id]="emailContentAnchor.SECTION">
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Email content</div>
         @if (isAutomaticallyGenerated) {
@@ -46,7 +51,7 @@ function pageLabel(path: string): string {
         } @else {
           <div class="col-sm-12">
             <app-section-toggle [tabs]="contentSourceTabs"
-                                [selectedTab]="isComposerDriven() ? 'composer' : 'written'"
+                                [selectedTab]="isComposerDriven() ? emailContentSource.COMPOSER : emailContentSource.WRITTEN"
                                 (selectedTabChange)="setContentSource($event)"/>
           </div>
           @if (isComposerDriven()) {
@@ -79,20 +84,17 @@ function pageLabel(path: string): string {
           } @else {
             <div class="col-sm-12 mb-2 d-flex justify-content-between align-items-start gap-2">
               <small class="text-muted">Edit the whole email as one document. Insert or change merge fields and
-                links from the toolbar, drop in images, and delete anything you don't want.@if (notificationConfig?.templateName) {
-                  Reset to default to start again from the centrally maintained wording.}</small>
-              @if (notificationConfig?.templateName) {
-                <div class="btn-group" dropdown [isDisabled]="busy">
-                  <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
-                    <fa-icon [icon]="faRotateLeft"/> Reset to default
-                  </button>
-                  <ul *dropdownMenu class="dropdown-menu dropdown-menu-end">
-                    @for (name of templateNames; track name) {
-                      <li><a class="dropdown-item pointer" (click)="resetToTemplate(name)">{{ humanise(name) }}</a></li>
-                    }
-                  </ul>
-                </div>
-              }
+                links from the toolbar, drop in images, and delete anything you don't want. {{ notificationConfig?.templateName ? "Reset to default to start again from the centrally maintained wording." : "Choose a template to load the centrally maintained wording, then edit it." }}</small>
+              <div class="btn-group" dropdown [isDisabled]="busy" [id]="emailContentAnchor.CHOOSE_TEMPLATE">
+                <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
+                  <fa-icon [icon]="faRotateLeft"/> {{ notificationConfig?.templateName ? "Reset to default" : "Choose a template" }}
+                </button>
+                <ul *dropdownMenu class="dropdown-menu dropdown-menu-end">
+                  @for (name of templateNames; track name) {
+                    <li><a class="dropdown-item pointer" (click)="resetToTemplate(name)">{{ humanise(name) }}</a></li>
+                  }
+                </ul>
+              </div>
             </div>
             @if (unusedImageOverrides.length > 0) {
               <div class="col-sm-12 mb-2">
@@ -148,8 +150,12 @@ function pageLabel(path: string): string {
 })
 export class EmailBodyEditorComponent implements OnInit, OnChanges {
   @Input() notificationConfig: NotificationConfig;
+  @Input() templateName: string = null;
   @Input() isBuiltInProcess = false;
+  @Output() templateNameChange = new EventEmitter<string>();
+  @Output() contentChange = new EventEmitter<void>();
   @ViewChild("bodyEditor") private bodyEditor: TiptapMarkdownEditor;
+  @ViewChild(BsDropdownDirective) private templateDropdown: BsDropdownDirective;
   private mailService = inject(MailService);
   private mailMessagingService = inject(MailMessagingService);
   private legacyUrlMappingService = inject(LegacyUrlMappingService);
@@ -161,9 +167,11 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   private templateOverrideKeys: string[] = [];
   protected readonly faRotateLeft = faRotateLeft;
   protected readonly faTriangleExclamation = faTriangleExclamation;
+  protected readonly emailContentAnchor = EmailContentAnchor;
+  protected readonly emailContentSource = EmailContentSource;
   protected readonly contentSourceTabs: SectionToggleTab[] = [
-    {value: "written", label: "Written here"},
-    {value: "composer", label: "Composed in Email Composer"}
+    {value: EmailContentSource.WRITTEN, label: "Written here"},
+    {value: EmailContentSource.COMPOSER, label: "Written in the Email Composer"}
   ];
   private loadedForTemplate: string | null = null;
   private stashedWrittenBody: string | null = null;
@@ -178,14 +186,15 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
 
   private async loadTemplateNames(): Promise<void> {
     try {
-      this.templateNames = await this.mailService.queryLocalTemplateNames();
+      this.templateNames = (await this.mailService.queryLocalTemplateNames())
+        .filter(name => EMAIL_TEMPLATES[name as EmailTemplateName]?.kind !== EmailTemplateKind.PROCESS);
     } catch (error) {
       this.logger.error("failed to load template names", error);
     }
   }
 
   protected humanise(templateName: string): string {
-    return startCase(templateName);
+    return EMAIL_TEMPLATES[templateName as EmailTemplateName]?.label || startCase(templateName);
   }
 
   private imageOverridesWithinBody(body: string): TemplateOverrides {
@@ -214,9 +223,12 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
     this.busy = true;
     this.ready = false;
     try {
+      this.notificationConfig.templateName = templateName;
+      this.loadedForTemplate = templateName;
       const response = await this.mailService.editableBody({templateName, templateOverrides: this.overridesPreservingImages()});
       this.notificationConfig.body = response.body;
       await this.refreshUnusedImageOverrides(templateName);
+      this.templateNameChange.emit(templateName);
     } catch (error) {
       this.logger.error("failed to reset to template", templateName, error);
     } finally {
@@ -267,7 +279,7 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   }
 
   isComposerDriven(): boolean {
-    return (this.notificationConfig?.body || "").trim() === BODY_CONTENT_PLACEHOLDER;
+    return (this.notificationConfig?.body || "").trim() === EMAIL_COMPOSER_BODY_PLACEHOLDER;
   }
 
   protected drafting(): ComposerDrafting {
@@ -283,7 +295,22 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   }
 
   setContentSource(value: string): void {
-    this.setComposerDriven(value === "composer");
+    this.setComposerDriven(value === EmailContentSource.COMPOSER);
+  }
+
+  reveal(source: EmailContentSource): void {
+    if (source === EmailContentSource.COMPOSER) {
+      this.setComposerDriven(true);
+    } else {
+      this.setComposerDriven(false);
+    }
+    const targetId = source === EmailContentSource.TEMPLATE ? EmailContentAnchor.CHOOSE_TEMPLATE : EmailContentAnchor.SECTION;
+    setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({behavior: "smooth", block: "center"});
+      if (source === EmailContentSource.TEMPLATE) {
+        this.templateDropdown?.show();
+      }
+    }, 0);
   }
 
   private setComposerDriven(composer: boolean): void {
@@ -292,12 +319,13 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
     }
     if (composer) {
       this.stashedWrittenBody = this.notificationConfig.body || "";
-      this.notificationConfig.body = BODY_CONTENT_PLACEHOLDER;
+      this.notificationConfig.body = EMAIL_COMPOSER_BODY_PLACEHOLDER;
     } else {
       this.notificationConfig.body = this.stashedWrittenBody ?? "";
       this.stashedWrittenBody = null;
       this.ready = true;
     }
+    this.contentChange.emit();
   }
 
   private async loadInternalPages(): Promise<void> {
@@ -341,7 +369,7 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   }
 
   private isPlaceholderOrEmpty(body: string): boolean {
-    return (body || "").split(BODY_CONTENT_PLACEHOLDER).join("").trim() === "";
+    return (body || "").split(EMAIL_COMPOSER_BODY_PLACEHOLDER).join("").trim() === "";
   }
 
   private async loadBody(overrides?: NotificationConfig["templateOverrides"]): Promise<void> {
@@ -363,5 +391,6 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   onBodyChange(value: string): void {
     this.notificationConfig.body = value;
     this.recalculateUnusedImageOverrides();
+    this.contentChange.emit();
   }
 }

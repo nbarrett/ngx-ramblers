@@ -249,10 +249,8 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   },
   {
     name: "migration-settings-help",
-    text: "* This page allows you to configure settings for migrating content from legacy static websites.\n" +
-      "* Add multiple site configurations with specific selectors and options.\n" +
-      "* Test migrations with dry-run mode before persisting data.\n" +
-      "* Each site can be enabled/disabled individually.",
+    text: "Use this page to review or adjust how an old website is brought into editable NGX pages. Each source website is divided into content sections, usually following its main navigation. A section identifies its starting page, the linked pages beneath it and their destination on the new site.\n\n" +
+      "Most registrations create a complete configuration automatically. Open the site-wide rules only when the source website needs different selectors, exclusions or gallery handling. Open a content section to change its landing-page treatment, child-page limit, page layout or clean-up steps. Save before running a migration.",
     category: "admin"
   },
   {

@@ -13,6 +13,7 @@ import { handleError, renderLocalBrandedTemplate } from "../common/messages";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import {
   EmailAddress,
+  EmailTemplateName,
   ForgotPasswordEmailRequest,
   ForgotPasswordEmailResponse,
   ForgotPasswordIdentificationMethod,
@@ -256,7 +257,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
     to: emailRequest.to,
     replyTo: emailRequest.replyTo,
     params: emailRequest.params,
-    htmlContent: renderLocalBrandedTemplate("forgot-password", params)
+    htmlContent: renderLocalBrandedTemplate(EmailTemplateName.FORGOT_PASSWORD, params)
   };
 
   debugLog("About to send forgot password email:", sendSmtpEmail);

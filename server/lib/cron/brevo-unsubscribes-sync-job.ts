@@ -3,6 +3,7 @@ import { envConfig } from "../env-config/env-config";
 import { runUnsubscribesSync } from "../brevo/contacts/unsubscribes";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { registerScheduledTask } from "./scheduled-task-registry";
+import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:brevo-unsubscribes-sync"));
 debugLog.enabled = true;
@@ -12,7 +13,7 @@ export async function scheduleBrevoUnsubscribesSync(): Promise<void> {
     const brevoConfig = await configuredBrevo();
     const cronExpression = "15 */2 * * *";
     await registerScheduledTask({
-      id: "brevo-unsubscribes-sync",
+      id: ScheduledTaskId.BREVO_UNSUBSCRIBES_SYNC,
       name: "Brevo unsubscribes sync",
       description: "Synchronises blocked and unsubscribed Brevo contacts into member records.",
       cronExpression,

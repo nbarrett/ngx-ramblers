@@ -14,7 +14,7 @@ import {
 import { ExternalRecipient } from "../../../models/external-recipient.model";
 import { Member } from "../../../models/member.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
+import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { memberDisambiguatedLabel } from "../../../functions/member-names";
 
 @Component({
@@ -366,11 +366,10 @@ export class RecipientFieldComponent {
   }
 
   protected renameEditing(name: string): void {
-    const capitalised = capitalisePersonName(name);
     if (this.pending) {
-      this.pending = {...this.pending, name: capitalised};
+      this.pending = {...this.pending, name};
     } else {
-      this.updateEditing({ name: capitalised || undefined });
+      this.updateEditing({ name: name || undefined });
     }
   }
 

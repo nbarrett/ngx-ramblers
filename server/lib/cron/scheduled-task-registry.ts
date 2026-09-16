@@ -58,29 +58,31 @@ function timeDescription(hour: string, minute: string): string {
 
 export function cronScheduleDescription(cronExpression: string): string {
   const fields = cronExpression.trim().split(/\s+/);
-  if (fields.length !== 5) {
-    return `Custom cron schedule (${cronExpression})`;
-  }
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields;
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields.length === 5 ? fields : ["", "", "", "", ""];
   const numericMinute = /^\d+$/.test(minute);
   const numericHour = /^\d+$/.test(hour);
   const everyMinutes = minute.match(/^\*\/(\d+)$/)?.[1];
   const everyHours = hour.match(/^\*\/(\d+)$/)?.[1];
   const dayName = dayNames[dayOfWeek.toUpperCase()];
-  if (everyMinutes && hour === "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
+  const everyDay = dayOfMonth === "*" && month === "*" && dayOfWeek === "*";
+  if (fields.length !== 5) {
+    return `Custom schedule (${cronExpression})`;
+  } else if ((minute === "*" || everyMinutes === "1") && hour === "*" && everyDay) {
+    return "Every minute";
+  } else if (everyMinutes && hour === "*" && everyDay) {
     return `Every ${everyMinutes} minutes`;
-  } else if (numericMinute && hour === "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
+  } else if (numericMinute && hour === "*" && everyDay) {
     return `Hourly at ${minute.padStart(2, "0")} minutes past`;
-  } else if (numericMinute && everyHours && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
+  } else if (numericMinute && everyHours && everyDay) {
     return `Every ${everyHours} hours at ${minute.padStart(2, "0")} minutes past`;
-  } else if (numericMinute && numericHour && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
+  } else if (numericMinute && numericHour && everyDay) {
     return `Daily at ${timeDescription(hour, minute)}`;
   } else if (numericMinute && numericHour && dayOfMonth === "*" && month === "*" && dayName) {
     return `Weekly on ${dayName} at ${timeDescription(hour, minute)}`;
   } else if (numericMinute && numericHour && /^\d+$/.test(dayOfMonth) && month === "*" && dayOfWeek === "*") {
     return `Monthly on day ${dayOfMonth} at ${timeDescription(hour, minute)}`;
   } else {
-    return `Custom cron schedule (${cronExpression})`;
+    return `Custom schedule (${cronExpression})`;
   }
 }
 

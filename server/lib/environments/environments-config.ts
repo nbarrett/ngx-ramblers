@@ -172,6 +172,13 @@ export async function decryptStoredEnvironmentsSecrets(): Promise<void> {
   }
 }
 
+export async function setEnvironmentEstateDeploy(environmentName: string, estateDeploy: boolean): Promise<void> {
+  await connectToDatabase(debugLog);
+  const configDocument: ConfigDocument = await config.queryKey(ConfigKey.ENVIRONMENTS);
+  const environments = (configDocument?.value?.environments || []).map(env => env.environment === environmentName ? {...env, estateDeploy} : env);
+  await config.createOrUpdateKey(ConfigKey.ENVIRONMENTS, {...configDocument?.value, environments});
+}
+
 export async function findEnvironmentFromDatabase(environmentName: string): Promise<DeployEnvironmentConfig | null> {
   const environmentsConfig = await configuredEnvironments();
   const dbEnv = environmentsConfig.environments?.find(e => e.environment === environmentName);

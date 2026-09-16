@@ -47,7 +47,8 @@ export interface TextRewriteRequest {
 
 export enum TidyTextKind {
   TITLE = "title",
-  DESCRIPTION = "description"
+  DESCRIPTION = "description",
+  PAGE = "page"
 }
 
 export interface DescriptionTidyRequest {

@@ -1,7 +1,8 @@
 import { dateTimeNowAsValue } from "../shared/dates";
 import path from "path";
 import debug from "debug";
-import { execSync, spawn, ChildProcess } from "child_process";
+import { exec, execSync, spawn, ChildProcess } from "child_process";
+import { promisify } from "util";
 import { isArray } from "es-toolkit/compat";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "../../deploy/types";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
@@ -24,6 +25,22 @@ export function runCommand(command: string, returnOutput: boolean = false): stri
     debugLog(`Running command: ${command}`);
     const output = execSync(command, { stdio: returnOutput ? "pipe" : "inherit", encoding: "utf-8" });
     return output || "";
+  } catch (error) {
+    debugLog(`Error running command: ${command}`, error);
+    throw error;
+  }
+}
+
+const execAsync = promisify(exec);
+
+export async function runCommandAsync(command: string): Promise<string> {
+  debugLog(`Running command: ${command}`);
+  try {
+    const {stdout, stderr} = await execAsync(command, {encoding: "utf-8", maxBuffer: 50 * 1024 * 1024});
+    if (stderr?.trim()) {
+      debugLog(`stderr from ${command}:`, stderr.trim());
+    }
+    return stdout || "";
   } catch (error) {
     debugLog(`Error running command: ${command}`, error);
     throw error;

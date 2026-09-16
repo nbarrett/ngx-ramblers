@@ -11,6 +11,8 @@ import { YouTubeService } from "./youtube.service";
 import { last } from "es-toolkit/compat";
 import { pageLocation } from "../functions/map-location-markers";
 
+const MIGRATION_NOTE = /^Migrated from /;
+
 @Injectable({
   providedIn: "root"
 })
@@ -80,7 +82,7 @@ export class LocationExtractionService {
         continue;
       }
       for (const column of row.columns || []) {
-        if (column.contentText) {
+        if (column.contentText && !MIGRATION_NOTE.test(column.contentText.trim())) {
           const text = column.contentText.trim();
           const headingMatch = text.match(/^#\s+(.+?)(?:\n|$)/);
 
@@ -99,7 +101,7 @@ export class LocationExtractionService {
             const strippedText = this.stringUtils.stripMarkdown(text);
             if (strippedText.length > 0) {
               const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
-              result = { title: null, description: truncated };
+              result = { title: result.title, description: truncated };
               break;
             }
           }

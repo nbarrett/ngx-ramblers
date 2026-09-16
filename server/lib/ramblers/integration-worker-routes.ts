@@ -31,6 +31,7 @@ import { IntegrationWorkerHeavyJob, IntegrationWorkerHeavyJobType } from "../mod
 import { isOsMapsWorkerJob } from "./serenity-job-environment";
 import { saveOsMapsRouteListing } from "../os-maps/os-maps-route-listing-store";
 import { applyOsMapsExportWorkerResult } from "../os-maps/os-maps-gpx-attach";
+import { applyOsDataHubApiKeyWorkerResult } from "../os-maps/os-data-hub-api-key-store";
 import { notifyWorkerHoldArrived, waitForWorkerHoldArrival } from "./integration-worker-hold";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-routes"));
@@ -237,7 +238,8 @@ router.post("/result", async (req: Request, res: Response) => {
     if (request.listedRoutes && request.listedRoutes.length > 0) {
       await saveOsMapsRouteListing(request.listedRoutes);
     }
-    const handledExport = await applyOsMapsExportWorkerResult(request.jobId, request.exportedGpx, request.payload);
+    const handledExport = await applyOsMapsExportWorkerResult(request.jobId, request.exportedGpx, request.payload)
+      || await applyOsDataHubApiKeyWorkerResult(request.jobId, request.osDataHubApiKey, request.payload);
     const session = currentRamblersUploadSession(request.jobId);
 
     if (!session) {

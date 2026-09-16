@@ -73,7 +73,7 @@ import { SwipeableDirective } from "../swipe/swipeable.directive";
                  [style.transform]="stripTransform"
                  [style.transition]="dragTransition">
               @for (column of pageContentColumns(); track column; let columnIndex = $index) {
-                <div [style.flex]="slideFlexBasis"
+                <div class="action-button-slide" [style.flex]="slideFlexBasis"
                      [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
                   <app-card-editor [presentationMode]="presentationMode"
                                    [smallIconContainer]="smallIconContainer()"
@@ -118,6 +118,10 @@ import { SwipeableDirective } from "../swipe/swipeable.directive";
   img
     pointer-events: none
     -webkit-user-drag: none
+
+.action-button-slide
+  min-width: 0
+  overflow-wrap: anywhere
 
 .swiper-strip
   display: flex

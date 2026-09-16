@@ -1,5 +1,6 @@
 import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
 import { faCheckCircle, faExclamationCircle, faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ExistingEnvironment, OperationInProgress } from "../../../models/environment-setup.model";
@@ -12,7 +13,7 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
 
 @Component({
   selector: "app-environment-destroy",
-  imports: [FontAwesomeModule, SessionLogsComponent],
+  imports: [FontAwesomeModule, FormsModule, SessionLogsComponent],
   template: `
     <div class="row mt-3">
       <div class="col-md-12">
@@ -24,6 +25,7 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
             <li>Delete the S3 bucket: <strong>ngx-ramblers-{{ environment.name.toLowerCase() }}</strong></li>
             <li>Delete the IAM user: <strong>ngx-ramblers-{{ environment.name.toLowerCase() }}-user</strong></li>
             <li>Clear all collections in database: <strong>ngx-ramblers-{{ environment.name.toLowerCase() }}</strong></li>
+            <li>Delete the site's own MongoDB Atlas database user, if the platform created one for it; a shared user is kept</li>
             <li>Remove environment configuration from database</li>
             <li>Delete the local secrets file</li>
           </ul>
@@ -44,8 +46,15 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
             {{ destroyError }}
           </div>
         }
+        @if (!destroyComplete) {
+          <div class="mt-3">
+            <label class="form-label" for="destroy-confirm-name">Type <strong>{{ environment.name }}</strong> to confirm</label>
+            <input id="destroy-confirm-name" type="text" class="form-control" autocomplete="off" spellcheck="false"
+                   [(ngModel)]="confirmName" [disabled]="operationBusy">
+          </div>
+        }
         <button class="btn btn-danger mt-3" (click)="destroyEnvironment()"
-                [disabled]="operationBusy || destroyComplete">
+                [disabled]="operationBusy || destroyComplete || !confirmed">
           @if (destroying) {
             <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
           }
@@ -62,8 +71,14 @@ export class EnvironmentDestroy {
   notifyTarget: AlertTarget = {};
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
 
-  @Input({required: true}) environment: ExistingEnvironment;
+  @Input({required: true, alias: "environment"}) set environmentValue(environment: ExistingEnvironment) {
+    this.environment = environment;
+    this.confirmName = "";
+  }
   @Output() destroyed = new EventEmitter<void>();
+
+  environment: ExistingEnvironment;
+  confirmName = "";
 
   operationInProgress = OperationInProgress.NONE;
   destroyProgressMessages: string[] = [];
@@ -77,6 +92,10 @@ export class EnvironmentDestroy {
 
   get destroying(): boolean {
     return this.operationInProgress === OperationInProgress.DESTROYING;
+  }
+
+  get confirmed(): boolean {
+    return !!this.environment?.name && this.confirmName.trim() === this.environment.name;
   }
 
   get operationBusy(): boolean {

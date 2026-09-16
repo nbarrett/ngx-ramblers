@@ -296,6 +296,7 @@ export interface PageContentRow extends HasColumnRange {
   fragment?: Fragment;
   location?: LocationRowData;
   migrationPlaceholder?: boolean;
+  migrationNote?: MigrationNoteData;
   hidden?: boolean;
 }
 
@@ -571,7 +572,10 @@ export interface Index {
 export enum BuiltInAnchor {
   ACTION_BUTTONS = "action-buttons",
   HOME_CONTENT = "home-content",
+  REGISTRATION_INTRO = "registration-intro",
 }
+
+export const REGISTRATION_INTRO_PATH = `register#${BuiltInAnchor.REGISTRATION_INTRO}`;
 
 export enum PathSegment {
   EDIT = "edit",
@@ -670,6 +674,17 @@ export enum PageContentType {
   TEXT = "text",
   SHARED_FRAGMENT = "shared-fragment",
   LOCATION = "location",
+  MIGRATION_NOTE = "migration-note",
+}
+
+export const MIGRATION_NOTE_SOURCE_IDENTIFIER = "migration-note";
+
+export const DEFAULT_MIGRATION_NOTE_LABEL = "Migrated from";
+
+export interface MigrationNoteData {
+  label: string;
+  sourceUrl: string;
+  migratedAt: number;
 }
 
 export enum ImageType {

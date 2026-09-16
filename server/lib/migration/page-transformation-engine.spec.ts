@@ -1105,3 +1105,41 @@ describe("page-transformation-engine.location extraction", () => {
     expect(locationRow.location?.start?.grid_reference_6).toBe("TR132450");
   });
 });
+
+describe("page-transformation-engine.one-per-item rows without columns", () => {
+
+  it("creates an image column for each image when the repeating template row has no columns", async () => {
+    const engine = new PageTransformationEngine();
+    const page: ScrapedPage = {
+      path: "https://group.example/index.html",
+      title: "Home",
+      segments: [
+        {text: "", image: {src: "https://group.example/images/first.png", alt: ""}},
+        {text: "Welcome to the group"},
+        {text: "", image: {src: "https://group.example/images/second.png", alt: ""}},
+        {text: "Join us on a walk"}
+      ]
+    };
+    const template: PageContent = {
+      path: "fragments/templates/example-text-with-images",
+      rows: [
+        {type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, columns: [{columns: 12, rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: []}]}]},
+        {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12}]}
+      ],
+      migrationTemplate: {
+        templateType: ContentTemplateType.MIGRATION_TEMPLATE,
+        mappings: [
+          {targetRowIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT, columnMappings: [{columnIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT, groupShortTextWithImage: true, nestedRowMapping: {contentSource: NestedRowContentSource.REMAINING_IMAGES, packingBehavior: NestedRowPackingBehavior.ONE_PER_ITEM, groupTextWithImage: true}}]},
+          {targetRowIndex: 1, targetColumnIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT, columnMappings: [{columnIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT}]}
+        ]
+      }
+    };
+    const result = await engine.transformWithTemplate(page, template, async (image: ScrapedImage) => image.src);
+    const imageRows = result.rows[0].columns[0].rows || [];
+    expect(imageRows.map(row => row.columns[0].imageSource)).toEqual([
+      "https://group.example/images/first.png",
+      "https://group.example/images/second.png"
+    ]);
+  });
+});
+

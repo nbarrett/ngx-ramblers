@@ -6,7 +6,7 @@ import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { connect as connectToDatabase } from "../mongo/mongoose-client";
 import { filterSecretsForSiteFlyDeploy, isAllowedSiteFlySecret, disallowedSiteFlySecrets } from "./fly-secrets-policy";
-import { runCommand } from "./fly-commands";
+import { runCommandAsync } from "./fly-commands";
 
 const debugLog = debug(envConfig.logNamespace("fly:secrets-prune"));
 debugLog.enabled = true;
@@ -19,8 +19,8 @@ export interface FlySecretsPruneResult {
   dryRun: boolean;
 }
 
-export function listFlySecretNames(appName: string): string[] {
-  const output = runCommand(`flyctl secrets list --app ${appName} --json`, true);
+export async function listFlySecretNames(appName: string): Promise<string[]> {
+  const output = await runCommandAsync(`flyctl secrets list --app ${appName} --json`);
   if (!output?.trim()) {
     return [];
   } else {
@@ -41,12 +41,12 @@ export function listFlySecretNames(appName: string): string[] {
   }
 }
 
-export function pruneDisallowedFlySecrets(
+export async function pruneDisallowedFlySecrets(
   appName: string,
   execute: boolean,
   options?: {stage?: boolean}
-): FlySecretsPruneResult {
-  const listed = listFlySecretNames(appName);
+): Promise<FlySecretsPruneResult> {
+  const listed = await listFlySecretNames(appName);
   const removed = disallowedSiteFlySecrets(listed);
   const kept = listed.filter(name => isAllowedSiteFlySecret(name));
   const stage = options?.stage === true;
@@ -59,10 +59,8 @@ export function pruneDisallowedFlySecrets(
       accumulator[batchIndex] = batch;
       return accumulator;
     }, []);
-    batches.forEach(batch => {
-      const stageFlag = stage ? " --stage" : "";
-      runCommand(`flyctl secrets unset ${batch.join(" ")} --app ${appName}${stageFlag}`);
-    });
+    const stageFlag = stage ? " --stage" : "";
+    await batches.reduce<Promise<unknown>>((previous, batch) => previous.then(() => runCommandAsync(`flyctl secrets unset ${batch.join(" ")} --app ${appName}${stageFlag}`)), Promise.resolve());
     if (stage) {
       debugLog("Staged unset of %d secrets on %s (applied on next deploy/restart): %s", removed.length, appName, removed.join(", "));
     } else {

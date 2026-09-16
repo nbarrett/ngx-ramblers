@@ -4,6 +4,7 @@ import { systemConfig } from "../config/system-config";
 import { syncWalksManagerData } from "../walks/walks-manager-sync";
 import { registerScheduledTask, setScheduledTaskEnabled } from "./scheduled-task-registry";
 import { walksManagerSyncEnabled } from "../../../projects/ngx-ramblers/src/app/functions/walks/walks-manager-sync-config";
+import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:walks-manager-sync"));
 debugLog.enabled = true;
@@ -13,7 +14,7 @@ export async function scheduleWalksManagerSync() {
     const config = await systemConfig();
     const cronExpression = "0 */6 * * *";
     await registerScheduledTask({
-      id: "walks-manager-sync",
+      id: ScheduledTaskId.WALKS_MANAGER_SYNC,
       name: "Walks Manager sync",
       description: "Imports walk changes from Ramblers Walks Manager.",
       cronExpression,
@@ -42,6 +43,6 @@ export async function scheduleWalksManagerSync() {
 }
 
 export function stopWalksManagerSync() {
-  void setScheduledTaskEnabled("walks-manager-sync", false);
+  void setScheduledTaskEnabled(ScheduledTaskId.WALKS_MANAGER_SYNC, false);
   debugLog("WALKS_MANAGER sync cron job stopped");
 }

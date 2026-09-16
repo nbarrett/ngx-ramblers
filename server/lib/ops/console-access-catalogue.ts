@@ -73,6 +73,11 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
         label: "Database users",
         urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/database/users",
         iconKey: ConsoleAccessUrlIconKey.USERS
+      },
+      {
+        label: "API keys",
+        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/access/apiKeys",
+        iconKey: ConsoleAccessUrlIconKey.CREDENTIALS
       }
     ]
   },
@@ -163,8 +168,8 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
   {
     serviceId: ConsoleAccessService.OS_DATA_HUB,
     name: "OS Data Hub console",
-    function: "Human login for Ordnance Survey Data Hub for this site. Per environment.",
-    scope: EstateRebuildSystemScope.PER_SITE,
+    function: "Login for the Ordnance Survey Data Hub. Per environment, and at platform level for the account that generates OS Maps API keys for new sites.",
+    scope: EstateRebuildSystemScope.PER_SITE_AND_PLATFORM,
     identifiers: [],
     urls: [
       {label: "OS Data Hub", urlTemplate: "https://osdatahub.os.uk/", iconKey: ConsoleAccessUrlIconKey.HOME}

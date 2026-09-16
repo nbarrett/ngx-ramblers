@@ -19,7 +19,7 @@ const MailSubscription = new mongoose.Schema({
   unsubscribedAt: {type: Number}
 }, {_id: false});
 
-const memberSchema = new mongoose.Schema({
+export const memberSchema = new mongoose.Schema({
   userName: {type: String, required: true, unique: true},
   expiredPassword: {type: Boolean},
   groupMember: {type: Boolean},

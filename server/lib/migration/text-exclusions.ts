@@ -122,12 +122,28 @@ export function collapseExcessBlankLines(input: string): string {
 }
 
 export function applyTextExclusions(text: string, cfg: ExclusionsConfig): string {
-  const builtIns = [String.raw`^\s*\[Path\s+Problems\]\([^)]*\)\s*$`]
+  const builtIns = [
+    String.raw`^\s*\[Path\s+Problems\]\([^)]*\)\s*$`,
+    String.raw`Hosted by\s*(?:\[)?Ramblers[- ]Webs`,
+    String.raw`^.*Hosted by.*Ramblers[- ]Webs.*$`,
+    String.raw`^.*\[The Ramblers['’]?\]\([^)]*\).*$`,
+    String.raw`The Ramblers['’]?\s*\|[^\n]*`,
+    String.raw`The Ramblers['’] Association is a democratic[\s\S]{0,500}1093577`,
+    String.raw`©[^\n]*All Rights Reserved`,
+    String.raw`^\s*\]\([^)]*\)\s*$`,
+    String.raw`^\s*\[\s*$`,
+    String.raw`!\[[^\]]*\]\(\s*\)`,
+    String.raw`Migrated from https?:\/\/\S+[^\n]*`,
+    String.raw`^\s*\\?\[\\?\/?[a-z][a-z0-9\\_-]*(\s+[a-z0-9\\_-]+=("[^"\n]*"|'[^'\n]*'|[^\s\]]+))+\s*\\?\]\s*$`,
+    String.raw`^\s*\\?\[\\?\/[a-z][a-z0-9\\_-]*\\?\]\s*$`,
+    String.raw`^\s*[\w./-]+\.css\s*$`,
+    String.raw`^\s*Search this site\s*$`
+  ]
   const patterns = [...coerceList(cfg.excludeTextPatterns), ...builtIns]
   let out = removeTextPatterns(text, patterns)
   out = removeHtmlComments(out)
   out = removeHtmlTagBlocks(out, ["script", "style", "noscript"])
-  out = unwrapPresentationalTags(out, ["font", "center", "big", "small", "u", "s", "strike", "tt", "acronym"])
+  out = unwrapPresentationalTags(out, ["font", "center", "big", "small", "u", "s", "strike", "tt", "acronym", "span", "color"])
   out = removeMarkdownBlocks(out, coerceBlocks(cfg.excludeMarkdownBlocks))
   out = removeExcludedImages(out, coerceList(cfg.excludeImageUrls))
   out = removeHtmlAttributes(out, ["class", "id", "style", "align", "border", "valign", "bgcolor", "cellpadding", "cellspacing", "hspace", "vspace", "frame", "rules", "width", "height"])

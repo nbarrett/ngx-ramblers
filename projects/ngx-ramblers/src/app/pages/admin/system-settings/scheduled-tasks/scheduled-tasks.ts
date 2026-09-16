@@ -7,11 +7,10 @@ import { faPencil, faPlay, faRefresh, faSpinner } from "@fortawesome/free-solid-
 import { TimePicker } from "../../../../date-and-time/time-picker";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import {
-  BACKUPS_TASK_ID,
-  BREVO_CAMPAIGN_RELEASE_TASK_ID,
   SCHEDULED_TASK_SUB_TAB_GROUPS,
   ScheduledTaskScheduleEdit,
   ScheduledTaskScheduleFrequency,
+  ScheduledTaskId,
   ScheduledTaskRun,
   ScheduledTaskSubTab,
   ScheduledTaskSummary
@@ -223,11 +222,10 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
   protected readonly ScheduledTaskScheduleFrequency = ScheduledTaskScheduleFrequency;
   protected scheduledTaskSubTab = ScheduledTaskSubTab.ALL;
   protected readonly scheduledTaskSubTabs: SectionToggleTab[] = [
-    {value: ScheduledTaskSubTab.BOOKING_REMINDERS, label: "Booking reminders"},
-    {value: ScheduledTaskSubTab.WALKS_MANAGER_SYNC, label: "Walks Manager sync"},
-    {value: ScheduledTaskSubTab.GMAIL, label: "Gmail"},
+    {value: ScheduledTaskSubTab.WALKS_AND_EVENTS, label: "Walks and events"},
+    {value: ScheduledTaskSubTab.INBOX, label: "Inbox"},
     {value: ScheduledTaskSubTab.BREVO, label: "Brevo"},
-    {value: ScheduledTaskSubTab.BACKUPS, label: "Backups"},
+    {value: ScheduledTaskSubTab.PLATFORM, label: "Platform"},
     {value: ScheduledTaskSubTab.ALL, label: "All"}
   ];
   protected readonly scheduleFrequencyOptions = [
@@ -327,8 +325,8 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
     if (this.scheduledTaskSubTab === ScheduledTaskSubTab.ALL) {
       return true;
     }
-    const group = SCHEDULED_TASK_SUB_TAB_GROUPS[this.scheduledTaskSubTab];
-    return group ? (group as string[]).includes(task.id) : task.id === this.scheduledTaskSubTab;
+    const group: string[] = SCHEDULED_TASK_SUB_TAB_GROUPS[this.scheduledTaskSubTab] || [];
+    return group.includes(task.id);
   }
 
   protected editSchedule(task: ScheduledTaskSummary): void {
@@ -487,9 +485,9 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
   }
 
   protected taskChildComponent(task: ScheduledTaskSummary): Type<unknown> | null {
-    if (task.id === BREVO_CAMPAIGN_RELEASE_TASK_ID) {
+    if (task.id === ScheduledTaskId.BREVO_CAMPAIGN_RELEASE) {
       return MailCampaignQueueComponent;
-    } else if (task.id === BACKUPS_TASK_ID) {
+    } else if (task.id === ScheduledTaskId.BACKUPS) {
       return BackupsTaskSettingsComponent;
     } else {
       return null;
@@ -497,9 +495,9 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
   }
 
   protected taskChildInputs(task: ScheduledTaskSummary): Record<string, unknown> {
-    if (task.id === BREVO_CAMPAIGN_RELEASE_TASK_ID) {
+    if (task.id === ScheduledTaskId.BREVO_CAMPAIGN_RELEASE) {
       return {embedded: true};
-    } else if (task.id === BACKUPS_TASK_ID) {
+    } else if (task.id === ScheduledTaskId.BACKUPS) {
       return {taskValue: task};
     } else {
       return {};

@@ -6,6 +6,7 @@ import { MigrationResult } from "./migration-scraping.model";
 import { ContentMetadata, ContentMetadataItem, ContentMetadataResizeRequest } from "./content-metadata.model";
 import { ApiAction } from "./api-response.model";
 import { ExportedGpxSummary, OsMapsListedRoute } from "./os-maps-export.model";
+import { OsDataHubApiKey } from "./os-data-hub-api-key.model";
 
 export enum IntegrationWorkerEventType {
   STANDARD_OUT = "standard-out",
@@ -88,6 +89,7 @@ export interface IntegrationWorkerResultCallbackRequest {
   reportBucket?: string;
   listedRoutes?: OsMapsListedRoute[];
   exportedGpx?: ExportedGpxSummary[];
+  osDataHubApiKey?: OsDataHubApiKey;
 }
 
 export interface IntegrationWorkerAuditEnvelope {

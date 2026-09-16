@@ -20,7 +20,9 @@ import {
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "./ramblers-api-client";
 import {
   adminConfigFromEnvironment,
+  bannerPictureStoreFor,
   copyAllS3Objects,
+  copyRamblersDirectoryLogo,
   copyStandardAssets,
   generateAwsCredentialsResult,
   setupAwsForCustomer,
@@ -88,6 +90,8 @@ async function updateEnvironmentsConfig(
 ): Promise<void> {
   const newEnvConfig: EnvironmentConfig = {
     environment: request.environmentBasics.environmentName,
+    ngxLite: request.options.ngxLite === true,
+    estateDeploy: request.options.estateDeploy !== false,
     aws: {
       bucket: awsCredentials.bucket,
       region: awsCredentials.region,
@@ -399,6 +403,13 @@ export async function createEnvironment(
           }
           return `Copied ${totalCopied} assets (${copyResult.icons.length} icons, ${copyResult.logos.length} logos, ${copyResult.backgrounds.length} backgrounds)`;
         });
+        await runOptionalStep(SetupStep.COPY_STANDARD_ASSETS, "Finding the group's Ramblers logo", async () => {
+          const groupLogo = await copyRamblersDirectoryLogo(awsAdminConfig, awsCredentials.bucket, request.ramblersInfo.groupName, request.ramblersInfo.areaName);
+          if (groupLogo) {
+            copiedAssets = {...copiedAssets, logos: [groupLogo, ...(copiedAssets?.logos || []).filter(logo => logo.awsFileName !== groupLogo.awsFileName)]};
+          }
+          return groupLogo ? `Using the Ramblers logo ${groupLogo.originalFileName}` : "No matching Ramblers directory logo";
+        });
       } else {
         reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped copying standard assets");
       }
@@ -469,7 +480,7 @@ export async function createEnvironment(
       const dbResult = await Promise.race([
         initialiseDatabase(request, dbProgress => {
           reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, dbProgress.message || dbProgress.step);
-        }, copiedAssets),
+        }, copiedAssets, awsAdminConfig && awsCredentials.bucket ? bannerPictureStoreFor(awsAdminConfig, awsCredentials.bucket) : null),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error(`Database initialisation timed out after ${dbInitTimeout / 1000} seconds`)), dbInitTimeout)
         )

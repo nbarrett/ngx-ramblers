@@ -16,13 +16,19 @@ import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.m
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { cacheEventsWithStats, cleanupDuplicatesByRamblersId } from "./walks-manager-cache";
+import { WalksManagerSyncModels } from "./walks-manager.model";
+import { defaultWalksManagerSyncModels } from "./walks-manager-sync-models";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "../ramblers/request-defaults";
 import { isEmpty, isNumber, isString } from "es-toolkit/compat";
 import { walksManagerSyncEventTypes } from "../../../projects/ngx-ramblers/src/app/functions/walks/walks-manager-sync-config";
+import { runWithRetries } from "../shared/run-with-retries";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-sync"));
+const CHUNK_ATTEMPTS = 3;
+const CHUNK_RETRY_BACKOFF_MS = 2000;
+
 debugLog.enabled = false;
 
 function sendProgress(ws: WebSocket | null, percent: number, message: string): void {
@@ -85,7 +91,8 @@ export interface SyncResult {
 export async function syncWalksManagerData(
   config: SystemConfig,
   options: SyncOptions = {},
-  ws: WebSocket | null = null
+  ws: WebSocket | null = null,
+  models: WalksManagerSyncModels = defaultWalksManagerSyncModels()
 ): Promise<SyncResult> {
   const result: SyncResult = {
     added: 0,
@@ -133,7 +140,7 @@ export async function syncWalksManagerData(
     debugLog("Syncing for group code:", groupCode);
 
     sendProgress(ws, 2, "Cleaning up duplicates...");
-    const cleanupStats = await cleanupDuplicatesByRamblersId();
+    const cleanupStats = await cleanupDuplicatesByRamblersId(models);
     if (cleanupStats.duplicatesRemoved > 0) {
       debugLog(`Cleanup removed ${cleanupStats.duplicatesRemoved} duplicate walks across ${cleanupStats.ramblersIdsProcessed} groupEvent.id values`);
       cleanupStats.details.forEach(detail => {
@@ -213,33 +220,35 @@ export async function syncWalksManagerData(
       sendProgress(ws, progressPercent, progressMessage);
 
       try {
-        const allEventsInChunk = await fetchChunkPage(currentDate, chunkEnd, progressPercent, progressMessage, 0, []);
+        await runWithRetries(async () => {
+          const allEventsInChunk = await fetchChunkPage(currentDate, chunkEnd, progressPercent, progressMessage, 0, []);
 
-        const uniqueEventsMap = new Map<string, GroupEvent>();
-        allEventsInChunk.forEach(event => {
-          if (event.id) {
-            uniqueEventsMap.set(event.id, event);
+          const uniqueEventsMap = new Map<string, GroupEvent>();
+          allEventsInChunk.forEach(event => {
+            if (event.id) {
+              uniqueEventsMap.set(event.id, event);
+            }
+          });
+          const uniqueEvents = Array.from(uniqueEventsMap.values());
+
+          const duplicatesFiltered = allEventsInChunk.length - uniqueEvents.length;
+          if (duplicatesFiltered > 0) {
+            debugLog(`Filtered ${duplicatesFiltered} duplicate events from API responses`);
           }
-        });
-        const uniqueEvents = Array.from(uniqueEventsMap.values());
 
-        const duplicatesFiltered = allEventsInChunk.length - uniqueEvents.length;
-        if (duplicatesFiltered > 0) {
-          debugLog(`Filtered ${duplicatesFiltered} duplicate events from API responses`);
-        }
+          if (uniqueEvents.length > 0) {
+            sendProgress(ws, progressPercent, `${progressMessage} - caching ${uniqueEvents.length} unique events...`);
 
-        if (uniqueEvents.length > 0) {
-          sendProgress(ws, progressPercent, `${progressMessage} - caching ${uniqueEvents.length} unique events...`);
+            const {added, updated} = await cacheEventsWithStats(config, uniqueEvents, InputSource.WALKS_MANAGER_CACHE, models);
+            result.added += added;
+            result.updated += updated;
+            result.totalProcessed += uniqueEvents.length;
 
-          const {added, updated} = await cacheEventsWithStats(config, uniqueEvents, InputSource.WALKS_MANAGER_CACHE);
-          result.added += added;
-          result.updated += updated;
-          result.totalProcessed += uniqueEvents.length;
+            debugLog(`Chunk processed: ${added} added, ${updated} updated from ${uniqueEvents.length} unique events (${duplicatesFiltered} duplicates filtered)`);
+          }
 
-          debugLog(`Chunk processed: ${added} added, ${updated} updated from ${uniqueEvents.length} unique events (${duplicatesFiltered} duplicates filtered)`);
-        }
-
-        debugLog(`Chunk complete: ${uniqueEvents.length} unique events processed`);
+          debugLog(`Chunk complete: ${uniqueEvents.length} unique events processed`);
+        }, CHUNK_ATTEMPTS, CHUNK_RETRY_BACKOFF_MS, (attempt, error) => debugLog(`Retrying chunk ${currentDate.toISO()} after attempt ${attempt} failed: ${error.message}`));
       } catch (error) {
         const errorMsg = `Failed to sync chunk ${currentDate.toISO()}: ${error.message}`;
         debugLog(errorMsg);

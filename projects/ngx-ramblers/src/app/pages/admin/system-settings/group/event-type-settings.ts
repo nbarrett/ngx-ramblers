@@ -198,7 +198,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
         Albums created from a {{ eventTypeTitle.toLowerCase() }} use
         <code>&lt;base&gt;/&lt;year&gt;/&lt;slug&gt;</code>.
         Leave blank for <code>{{ photoAlbumBasePathPlaceholder }}</code> (from the site nav).
-        Ashford-style sites that use <code>/photos/2026/…</code> should set <code>photos</code>.
+        A site whose photo pages sit under <code>/photos/2026/…</code> rather than the nav's own name should set <code>photos</code>.
       </small>
     </div>`,
   imports: [FormsModule]

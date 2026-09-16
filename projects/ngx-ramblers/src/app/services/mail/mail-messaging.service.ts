@@ -268,7 +268,10 @@ export class MailMessagingService {
       mailConfig.memberSyncNotificationConfigId,
       mailConfig.volunteerNotificationConfigId,
       mailConfig.memberBulkLoadDigestConfigId,
-      mailConfig.photoUploadNotificationConfigId
+      mailConfig.photoUploadNotificationConfigId,
+      mailConfig.registrationConfirmationConfigId,
+      mailConfig.registrationInvitationConfigId,
+      mailConfig.registrationReviewConfigId
     ];
   }
 

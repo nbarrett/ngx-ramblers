@@ -16,52 +16,66 @@ const debugLog = debug(envConfig.logNamespace("migration-notifier"));
 debugLog.enabled = true;
 
 export async function emitMigrationProgress(session: MigrationSession, event: IntegrationWorkerMigrationProgressCallback): Promise<void> {
-  const payload = { message: event.message };
-  try {
-    session.ws.send(JSON.stringify({
-      type: event.level === "error" ? MessageType.ERROR : MessageType.PROGRESS,
-      data: payload
-    }));
-  } catch (wsError) {
-    debugLog("emitMigrationProgress: ws.send failed:", (wsError as Error).message);
+  if (session.onProgress) {
+    session.onProgress(event);
   }
-  await appendMigrationAudit(session.historyId, { status: event.level, message: event.message });
+  if (session.ws) {
+    try {
+      session.ws.send(JSON.stringify({
+        type: event.level === "error" ? MessageType.ERROR : MessageType.PROGRESS,
+        data: { message: event.message }
+      }));
+    } catch (wsError) {
+      debugLog("emitMigrationProgress: ws.send failed:", (wsError as Error).message);
+    }
+  }
+  if (session.historyId) {
+    await appendMigrationAudit(session.historyId, { status: event.level, message: event.message });
+  }
 }
 
 export async function emitMigrationResult(session: MigrationSession, result: IntegrationWorkerMigrationResultCallback): Promise<void> {
+  if (session.onResult) {
+    session.onResult(result);
+  }
   if (result.status === "error") {
     const message = result.errorMessage || "Migration failed";
-    try {
-      session.ws.send(JSON.stringify({ type: MessageType.ERROR, data: { message } }));
-    } catch (wsError) {
-      debugLog("emitMigrationResult error: ws.send failed:", (wsError as Error).message);
-    }
-    await finaliseHistory(session.historyId, { status: "error", summary: message });
-    return;
-  }
-
-  const migrationResult = result.result;
-  const pageCount = migrationResult?.pageContents?.length ?? 0;
-  const contentTextCount = migrationResult?.contentTextItems?.length ?? 0;
-  const albumCount = migrationResult?.albums?.length ?? 0;
-  const summary = `✅ ${session.siteIdentifier} migration complete: ${pluraliseWithCount(pageCount, "page")} and ${pluraliseWithCount(contentTextCount, "content text item")} were migrated, plus ${pluraliseWithCount(albumCount, "album")}`;
-
-  try {
-    session.ws.send(JSON.stringify({
-      type: MessageType.COMPLETE,
-      data: {
-        action: ApiAction.UPDATE,
-        response: summary,
-        pageContents: migrationResult?.pageContents || [],
-        contentTextItems: migrationResult?.contentTextItems || [],
-        albums: migrationResult?.albums || []
+    if (session.ws) {
+      try {
+        session.ws.send(JSON.stringify({ type: MessageType.ERROR, data: { message } }));
+      } catch (wsError) {
+        debugLog("emitMigrationResult error: ws.send failed:", (wsError as Error).message);
       }
-    }));
-  } catch (wsError) {
-    debugLog("emitMigrationResult success: ws.send failed:", (wsError as Error).message);
+    }
+    if (session.historyId) {
+      await finaliseHistory(session.historyId, { status: "error", summary: message });
+    }
+  } else {
+    const migrationResult = result.result;
+    const pageCount = migrationResult?.pageContents?.length ?? 0;
+    const contentTextCount = migrationResult?.contentTextItems?.length ?? 0;
+    const albumCount = migrationResult?.albums?.length ?? 0;
+    const summary = `✅ ${session.siteIdentifier} migration complete: ${pluraliseWithCount(pageCount, "page")} and ${pluraliseWithCount(contentTextCount, "content text item")} were migrated, plus ${pluraliseWithCount(albumCount, "album")}`;
+    if (session.ws) {
+      try {
+        session.ws.send(JSON.stringify({
+          type: MessageType.COMPLETE,
+          data: {
+            action: ApiAction.UPDATE,
+            response: summary,
+            pageContents: migrationResult?.pageContents || [],
+            contentTextItems: migrationResult?.contentTextItems || [],
+            albums: migrationResult?.albums || []
+          }
+        }));
+      } catch (wsError) {
+        debugLog("emitMigrationResult success: ws.send failed:", (wsError as Error).message);
+      }
+    }
+    if (session.historyId) {
+      await finaliseHistory(session.historyId, { status: "success", summary });
+    }
   }
-
-  await finaliseHistory(session.historyId, { status: "success", summary });
 }
 
 async function appendMigrationAudit(historyId: string, entry: { status: string; message: string }): Promise<void> {

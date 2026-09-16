@@ -11,6 +11,7 @@ import { MarginSelectComponent } from "../../../../modules/common/dynamic-conten
 import { FragmentService } from "../../../../services/fragment.service";
 import { EM_DASH_WITH_SPACES, FragmentWithLabel, IndexContentType, IndexRenderMode, PageContentType } from "../../../../models/content-text.model";
 import { UIDateFormat } from "../../../../models/date-format.model";
+import { DateUtilsService } from "../../../../services/date-utils.service";
 import { StoredValue } from "../../../../models/ui-actions";
 import { PageContentService } from "../../../../services/page-content.service";
 import {
@@ -142,9 +143,12 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
                     </div>
                     <div>
                       <label class="form-label-sm">Date Format</label>
-                      <input type="text" class="form-control"
-                             [attr.placeholder]="migrationNoteDateFormat"
-                             [(ngModel)]="step.dateFormat">
+                      <select class="form-select" [(ngModel)]="step.dateFormat">
+                        <option [ngValue]="undefined">Default: {{ dateFormatExample(migrationNoteDateFormat) }}</option>
+                        @for (format of dateFormats; track format) {
+                          <option [ngValue]="format">{{ dateFormatExample(format) }}</option>
+                        }
+                      </select>
                     </div>
                   </div>
                 }
@@ -486,7 +490,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
                                                       [cssClass]="'form-control-sm'"/>
                                                   </div>
                                                 }
-                                                @if (nestedRow.type === PageContentType.TEXT) {
+                                                @if (nestedRow.type === PageContentType.TEXT && nestedRow.columns?.[0]?.content) {
                                                   <div class="mt-1">
                                                     <label class="form-label-sm">Content Matcher</label>
                                                     <div class="d-flex gap-2 flex-wrap align-items-center">
@@ -923,7 +927,18 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
 })
 export class PageTransformationEditor implements OnInit {
   protected readonly isUndefined = isUndefined;
-  @Input() config: PageTransformationConfig;
+  @Input() set config(value: PageTransformationConfig) {
+    this.configValue = value;
+    if (value?.steps) {
+      this.ensureDefaultsForAllSteps();
+    }
+  }
+
+  get config(): PageTransformationConfig {
+    return this.configValue;
+  }
+
+  private configValue: PageTransformationConfig;
   @Output() configChange = new EventEmitter<PageTransformationConfig>();
 
   stringUtils = inject(StringUtilsService);
@@ -949,8 +964,23 @@ export class PageTransformationEditor implements OnInit {
   protected readonly PageTransformationMode = PageTransformationMode;
   protected readonly IndexRenderMode = IndexRenderMode;
   protected readonly migrationNoteDateFormat = UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
+  protected readonly dateFormats: string[] = [
+    UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES,
+    UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES,
+    UIDateFormat.DISPLAY_DATE_NO_DAY,
+    UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED,
+    UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES,
+    UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME,
+    UIDateFormat.MONTH_YEAR_ABBREVIATED,
+    UIDateFormat.DISPLAY_DATE
+  ];
+  private dateUtils = inject(DateUtilsService);
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
+
+  dateFormatExample(format: string): string {
+    return this.dateUtils.asString(this.dateUtils.dateTimeNowAsValue(), undefined, format);
+  }
 
   async ngOnInit() {
     this.initialExtractFromContentValue = this.uiActionsService.initialBooleanValueFor(StoredValue.MIGRATION_MAP_EXTRACT_FROM_CONTENT, false);
@@ -991,6 +1021,11 @@ export class PageTransformationEditor implements OnInit {
               col.nestedRows.imageRowTemplate = col.nestedRows.rowTemplate || { type: PageContentType.TEXT, maxColumns: 1, showSwiper: false } as any;
             }
           }
+          (col.rows || []).forEach(nestedRow => {
+            if (nestedRow.type !== PageContentType.SHARED_FRAGMENT && !nestedRow.columns?.[0]?.content) {
+              nestedRow.columns = [{columns: 12, content: {type: ContentMatchType.TEXT, textPattern: TextMatchPattern.PARAGRAPH, limit: 1}}];
+            }
+          });
         });
       }
     });

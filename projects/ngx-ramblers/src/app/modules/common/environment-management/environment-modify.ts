@@ -475,6 +475,7 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
         const subdomainResponse = await this.environmentSetupService.setupSubdomain(this.environment.name);
         if (subdomainResponse.success) {
           this.progressMessages.push(`Subdomain configured: ${subdomainResponse.hostname}`);
+          this.environmentChanged.emit();
           return subdomainResponse.hostname;
         } else {
           this.setupError = subdomainResponse.message || "Subdomain setup failed";

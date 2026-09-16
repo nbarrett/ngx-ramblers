@@ -61,7 +61,7 @@ export async function rewrite(req: Request, res: Response): Promise<void> {
 export async function tidyDescription(req: Request, res: Response): Promise<void> {
   const ai = aiConfigFromEnvironment();
   const input: string = req.body?.input || "";
-  const kind: TidyTextKind = req.body?.kind === TidyTextKind.TITLE ? TidyTextKind.TITLE : TidyTextKind.DESCRIPTION;
+  const kind: TidyTextKind = req.body?.kind === TidyTextKind.TITLE ? TidyTextKind.TITLE : req.body?.kind === TidyTextKind.PAGE ? TidyTextKind.PAGE : TidyTextKind.DESCRIPTION;
   try {
     const output = await tidiedText(ai, input, kind, (systemPrompt, text) => generate(ai, systemPrompt, text));
     res.json({request: {}, response: {output}});
