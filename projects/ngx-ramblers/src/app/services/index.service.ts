@@ -22,9 +22,10 @@ import { booleanOf } from "../functions/strings";
 import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
+import { ALBUM_INDEX_LOCATION_SELECT } from "../models/walk.model";
 import { LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
-import { ContentMetadata } from "../models/content-metadata.model";
+import { ALBUM_INDEX_METADATA_SELECT, ContentMetadata } from "../models/content-metadata.model";
 import { PageContentService } from "./page-content.service";
 import { ContentCacheService } from "./content-cache.service";
 import { ContentMetadataService } from "./content-metadata.service";
@@ -127,7 +128,7 @@ export class IndexService {
       const deduplicatedColumns = this.deduplicateByHref(allColumns);
       const columnsWithAlbumNames = this.ensureAlbumNames(deduplicatedColumns, pages);
       const orderedColumns = this.sortColumns(columnsWithAlbumNames, albumIndex.sortConfig);
-      const finalColumns = this.applyColumnOverrides(orderedColumns, albumIndex.columnOverrides);
+      const finalColumns = this.withPlaceholderImages(this.applyColumnOverrides(orderedColumns, albumIndex.columnOverrides));
 
       const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, finalColumns, rowIndex);
       this.logger.info("Generated index with", finalColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
@@ -146,7 +147,10 @@ export class IndexService {
     const albumNames: string[] = pageContentToRows.map(pageContentToRow =>
       pageContentToRow.rows.map(item => item.carousel.name)
     ).flat(2);
-    const dataQueryOptions: DataQueryOptions = {criteria: {name: {$in: albumNames}}};
+    const dataQueryOptions: DataQueryOptions = {
+      criteria: {name: {$in: albumNames}},
+      select: ALBUM_INDEX_METADATA_SELECT
+    };
     const albumMetadata: ContentMetadata[] = await this.contentMetadataService.all(dataQueryOptions);
 
     const eventIds: string[] = pageContentToRows
@@ -162,10 +166,13 @@ export class IndexService {
           ids: eventIds,
           inputSource: null,
           suppressEventLinking: true,
-          dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
-            selectType: FilterCriteria.ALL_EVENTS,
-            ascending: false
-          })
+          dataQueryOptions: {
+            ...this.extendedGroupEventQueryService.dataQueryOptions({
+              selectType: FilterCriteria.ALL_EVENTS,
+              ascending: false
+            }),
+            select: ALBUM_INDEX_LOCATION_SELECT
+          }
         };
         this.logger.info("Query parameters:", queryParams);
         const walks = await this.walksAndEventsService.all(queryParams);
@@ -290,7 +297,10 @@ export class IndexService {
       const uniqueNames = [...new Set(allCarouselNames)];
       let childMetadata: ContentMetadata[] = [];
       if (uniqueNames.length > 0) {
-        childMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+        childMetadata = await this.contentMetadataService.all({
+          criteria: {name: {$in: uniqueNames}},
+          select: ALBUM_INDEX_METADATA_SELECT
+        });
       }
       this.logger.info("Batch fallback: fetched", allChildPages.length, "child pages and", childMetadata.length, "metadata for", pendingImageResolution.length, "items");
       pendingImageResolution.forEach(item => {
@@ -328,6 +338,13 @@ export class IndexService {
     }
 
     return columns;
+  }
+
+  private withPlaceholderImages(columns: PageContentColumn[]): PageContentColumn[] {
+    return columns.map(column => {
+      const hasImage = (!!column.imageSource && column.imageSource !== "null") || !!column.youtubeId;
+      return hasImage ? column : {...column, imageSource: null, showPlaceholderImage: true};
+    });
   }
 
   private findFirstImageInPage(pageContent: PageContent): string | undefined {
@@ -410,7 +427,10 @@ export class IndexService {
     const uniqueNames = [...new Set(allCarouselNames)];
     let allMetadata: ContentMetadata[] = [];
     if (uniqueNames.length > 0) {
-      allMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+      allMetadata = await this.contentMetadataService.all({
+        criteria: {name: {$in: uniqueNames}},
+        select: ALBUM_INDEX_METADATA_SELECT
+      });
       this.logger.info("Batch enrichment: fetched", allMetadata.length, "metadata records for", uniqueNames.length, "album names");
     }
 

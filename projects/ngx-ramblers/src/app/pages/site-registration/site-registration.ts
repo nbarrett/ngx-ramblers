@@ -312,6 +312,13 @@ export class SiteRegistrationComponent implements OnInit, OnDestroy {
     });
   }
 
+  async retryBuild(): Promise<void> {
+    await this.perform(async () => {
+      this.restore(await this.service.retryOwn(this.token));
+      this.activeStep = 6;
+    });
+  }
+
   async refresh(): Promise<void> {
     await this.perform(async () => this.restore(await this.service.current(this.token)));
   }

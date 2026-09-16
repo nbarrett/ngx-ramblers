@@ -11,14 +11,23 @@ import {
   FacebookGraphPost,
   FacebookGraphProfile,
   FacebookPageProfile,
-  FacebookPagePost
+  FacebookPagePost,
+  FacebookRecentPostsData
 } from "../../../projects/ngx-ramblers/src/app/models/facebook.model";
+import { ttlCached } from "../shared/ttl-cache";
+import { TtlCached } from "../shared/ttl-cache.model";
 
 const debugLog = debug(envConfig.logNamespace("facebook:recent-posts"));
 debugLog.enabled = false;
 const POST_FIELDS = "id,message,story,created_time,permalink_url,full_picture,from{id,name},attachments{media_type,media,subattachments}";
 const PROFILE_FIELDS = "name,username,followers_count,fan_count,link,picture.type(large)";
 const FEED_LIMIT = 12;
+const RECENT_POSTS_TTL_MS = 5 * 60 * 1000;
+const recentPostsCache: TtlCached<FacebookRecentPostsData> = ttlCached(RECENT_POSTS_TTL_MS);
+
+export function clearRecentPostsCache(): void {
+  recentPostsCache.clear();
+}
 
 function attachmentFor(post: FacebookGraphPost): FacebookGraphAttachment {
   return isArray(post?.attachments?.data) ? post.attachments.data[0] : null;
@@ -89,24 +98,27 @@ export async function recentPosts(req: Request, res: Response): Promise<void> {
         error: "The Facebook feed needs a connected Page (System Settings → External Systems → Social Media)"
       });
     } else {
-      const [rawPosts, profileResponse] = await Promise.all([
-        postsFor(facebook.pageId, facebook.pageAccessToken),
-        graphApiRequest({
-          method: GraphApiMethod.GET,
-          path: `/${facebook.pageId}`,
-          params: {fields: PROFILE_FIELDS, access_token: facebook.pageAccessToken},
-          debug: debugLog
-        }).catch(error => {
-          debugLog("page profile lookup failed - continuing without it:", error?.message || error);
-          return null;
-        })
-      ]);
-      const data: FacebookPagePost[] = rawPosts
-        .map(post => normalisePost(post, facebook.pageId))
-        .filter(post => post.imageUrl || post.message);
-      const profile: FacebookPageProfile = profileResponse ? normaliseProfile(profileResponse) : null;
-      debugLog("recent posts:", data.length, "of", rawPosts.length, "from Graph API, profile:", profile);
-      res.json({request: {}, response: {data, profile}});
+      const response: FacebookRecentPostsData = await recentPostsCache.get(facebook.pageId, async () => {
+        const [rawPosts, profileResponse] = await Promise.all([
+          postsFor(facebook.pageId, facebook.pageAccessToken),
+          graphApiRequest({
+            method: GraphApiMethod.GET,
+            path: `/${facebook.pageId}`,
+            params: {fields: PROFILE_FIELDS, access_token: facebook.pageAccessToken},
+            debug: debugLog
+          }).catch(error => {
+            debugLog("page profile lookup failed - continuing without it:", error?.message || error);
+            return null;
+          })
+        ]);
+        const data: FacebookPagePost[] = rawPosts
+          .map(post => normalisePost(post, facebook.pageId))
+          .filter(post => post.imageUrl || post.message);
+        const profile: FacebookPageProfile = profileResponse ? normaliseProfile(profileResponse) : null;
+        debugLog("recent posts:", data.length, "of", rawPosts.length, "from Graph API, profile:", profile);
+        return {data, profile};
+      });
+      res.json({request: {}, response});
     }
   } catch (error) {
     debugLog("error in recentPosts:", error);
