@@ -1,6 +1,5 @@
 import debug from "debug";
 import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import { ConfigDocument, ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
   EnvironmentConfig,
@@ -8,6 +7,8 @@ import {
   FlyioPreviousCredentials
 } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { envConfig } from "../../env-config/env-config";
+import { hasAdminPrivilege, memberDescription, memberFromRequest, verifiedMember } from "../../auth/request-member";
+import { decryptEnvironmentsSecrets, encryptEnvironmentsSecrets } from "../../environments/environments-secrets-cipher";
 import { config } from "../models/config";
 import * as crudController from "./crud-controller";
 import * as transforms from "./transforms";
@@ -21,6 +22,8 @@ import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
+const secretsAccessLog = debug(envConfig.logNamespace("config:secrets-access"));
+secretsAccessLog.enabled = true;
 const controller = crudController.create<ConfigDocument>(config);
 
 const sensitiveKeys = new Set([
@@ -122,13 +125,17 @@ async function updateConfigDocument(req: Request, res: Response) {
 
   try {
     const existingConfig = await config.findOne(criteria);
+    const existingValue = decryptedValue(req.body?.key, existingConfig?.value);
     const incomingValue = req.body?.value;
 
-    if (existingConfig?.value && incomingValue) {
-      req.body.value = restoreSensitiveFields(existingConfig.value, incomingValue);
+    if (existingValue && incomingValue) {
+      req.body.value = restoreSensitiveFields(existingValue, incomingValue);
       if (req.body?.key === ConfigKey.SYSTEM) {
-        req.body.value = preserveCustomGeometry(existingConfig.value, req.body.value);
+        req.body.value = preserveCustomGeometry(existingValue, req.body.value);
       }
+    }
+    if (req.body?.key === ConfigKey.ENVIRONMENTS && req.body?.value) {
+      req.body.value = encryptEnvironmentsSecrets(req.body.value);
     }
 
     const documentRequest = createDocumentRequest(req);
@@ -136,7 +143,7 @@ async function updateConfigDocument(req: Request, res: Response) {
     debugLog("post-update:document:", documentRequest, "result:", result);
     res.status(200).json({
       action: ApiAction.UPDATE,
-      response: toObjectWithId(result)
+      response: decryptedDocument(req.body?.key, toObjectWithId(result))
     });
     setTimeout(() => broadcast(MessageType.CONFIG_UPDATED, {key: req.body?.key}), 0);
   } catch (error) {
@@ -148,16 +155,26 @@ async function updateConfigDocument(req: Request, res: Response) {
   }
 }
 
+function decryptedValue(configKey: ConfigKey, value: any): any {
+  return configKey === ConfigKey.ENVIRONMENTS ? decryptEnvironmentsSecrets(value) : value;
+}
+
+function decryptedDocument(configKey: ConfigKey, configDocument: ConfigDocument): ConfigDocument {
+  return configDocument && configKey === ConfigKey.ENVIRONMENTS
+    ? {...configDocument, value: decryptEnvironmentsSecrets(configDocument.value)}
+    : configDocument;
+}
+
 export function queryKey(configKey: ConfigKey): Promise<ConfigDocument> {
   return config.findOne(criteriaForKey(configKey))
-    .then(response => toObjectWithId(response));
+    .then(response => decryptedDocument(configKey, toObjectWithId(response)));
 }
 
 export const SYSTEM_GEOMETRY_EXCLUSION: Record<string, 0 | 1> = { "value.area.groups.customGeometry": 0 };
 
 export function queryKeyProjected(configKey: ConfigKey, projection: Record<string, 0 | 1>): Promise<ConfigDocument> {
   return config.findOne(criteriaForKey(configKey), projection)
-    .then(response => toObjectWithId(response));
+    .then(response => decryptedDocument(configKey, toObjectWithId(response)));
 }
 
 function withPreservedFlyPreviousCredentials(
@@ -219,18 +236,19 @@ function withPreservedFlyPreviousCredentials(
 
 export async function createOrUpdateKey(configKey: ConfigKey, value: any): Promise<ConfigDocument> {
   const criteria = criteriaForKey(configKey);
-  let valueToStore = value;
-  if (configKey === ConfigKey.ENVIRONMENTS) {
-    const existing = await config.findOne(criteria).lean().exec();
-    valueToStore = withPreservedFlyPreviousCredentials(existing?.value, value);
-  }
+  const existingValue = configKey === ConfigKey.ENVIRONMENTS
+    ? decryptEnvironmentsSecrets((await config.findOne(criteria).lean().exec())?.value)
+    : null;
+  const valueToStore = configKey === ConfigKey.ENVIRONMENTS
+    ? encryptEnvironmentsSecrets(withPreservedFlyPreviousCredentials(existingValue, value))
+    : value;
   const result = await config.findOneAndUpdate(
     criteria,
     { key: configKey, value: valueToStore },
     { upsert: true, new: true, useFindAndModify: false }
   );
   debugLog(`createOrUpdateKey: ${configKey} updated`);
-  return toObjectWithId(result);
+  return decryptedDocument(configKey, toObjectWithId(result));
 }
 
 export function handleQuery(req: Request, res: Response): Promise<any> {
@@ -258,8 +276,11 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
     const projection = configKey === ConfigKey.SYSTEM ? SYSTEM_GEOMETRY_EXCLUSION : {};
     return config.findOne(criteria, projection)
       .then(response => {
-        const configDocument: ConfigDocument = toObjectWithId(response);
+        const configDocument: ConfigDocument = decryptedDocument(configKey, toObjectWithId(response));
         const redactedValue = isAdmin ? configDocument?.value : redactSensitive(configDocument?.value);
+        if (isAdmin && configKey === ConfigKey.ENVIRONMENTS) {
+          secretsAccessLog("Environments document with secret values returned to %s", memberDescription(memberFromRequest(req)));
+        }
         debugLog(req.query, "findByConditions:criteria", criteria, "isAdmin:", isAdmin);
         return res.status(200).json({
           action: ApiAction.QUERY,
@@ -285,17 +306,6 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
   }
 }
 
-function verifiedTokenPayload(req: Request): any {
-  const authHeader = req.headers?.authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
-  if (!token) return null;
-  return jwt.verify(token, envConfig.auth().secret);
-}
-
-function hasAdminRole(payload: any): boolean {
-  return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin || payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
-}
-
 function hasAuthToken(req: Request): boolean {
   const authHeader = req.headers?.authorization || "";
   return authHeader.startsWith("Bearer ");
@@ -306,8 +316,7 @@ function resolveTokenStatus(req: Request): { isAdmin: boolean; tokenValid: boole
     return { isAdmin: false, tokenValid: true };
   }
   try {
-    const payload = verifiedTokenPayload(req);
-    return { isAdmin: payload ? hasAdminRole(payload) : false, tokenValid: true };
+    return { isAdmin: hasAdminPrivilege(verifiedMember(req)), tokenValid: true };
   } catch (error) {
     debugLog("Token verification failed:", error);
     return { isAdmin: false, tokenValid: false };
@@ -316,8 +325,7 @@ function resolveTokenStatus(req: Request): { isAdmin: boolean; tokenValid: boole
 
 function isAdminFromRequest(req: Request): boolean {
   try {
-    const payload = verifiedTokenPayload(req);
-    return hasAdminRole(payload);
+    return hasAdminPrivilege(verifiedMember(req));
   } catch {
     return false;
   }
