@@ -1,4 +1,5 @@
 import fs from "fs";
+import { isEqual } from "es-toolkit/compat";
 import debug from "debug";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
@@ -14,6 +15,14 @@ import { connect as connectToDatabase } from "../mongo/mongoose-client";
 import type { EnvironmentConfig as DeployEnvironmentConfig } from "../../deploy/types";
 import { resolveClientPath } from "../shared/path-utils";
 import { parseMongoUri } from "../shared/mongodb-uri";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
+import { config as configModel } from "../mongo/models/config";
+import {
+  containsUnencryptedSecrets,
+  decryptEnvironmentsSecrets,
+  environmentsEncryptionConfigured,
+  EnvironmentsSecretsError
+} from "./environments-secrets-cipher";
 
 const debugLog = debug(envConfig.logNamespace("environments-config"));
 debugLog.enabled = true;
@@ -32,8 +41,12 @@ async function loadFromDatabase(): Promise<EnvironmentsConfig | null> {
 
     return null;
   } catch (error) {
-    debugLog("Database query failed:", error.message);
-    return null;
+    if (error instanceof EnvironmentsSecretsError) {
+      throw error;
+    } else {
+      debugLog("Database query failed:", error.message);
+      return null;
+    }
   }
 }
 
@@ -89,7 +102,7 @@ async function loadFromStagingEnvFile(): Promise<EnvironmentsConfig | null> {
   }
   try {
     const doc = await client.db(parseMongoUri(stagingUri)?.database).collection("config").findOne({ key: ConfigKey.ENVIRONMENTS });
-    const value = doc?.value as EnvironmentsConfig | undefined;
+    const value = decryptEnvironmentsSecrets(doc?.value as EnvironmentsConfig | undefined);
     if (value?.environments?.length) {
       debugLog("Loaded environments config from server/.env staging connection: %d environments", value.environments.length);
       return value;
@@ -125,6 +138,38 @@ export async function configuredEnvironments(): Promise<EnvironmentsConfig> {
     return sortEnvironments(localConfig);
   }
   throw new Error("No environments configuration found in database or local manifest. Configure environments via /admin/environment-management, or add non-vcs/secrets/environments.local.json for offline development.");
+}
+
+export async function encryptStoredEnvironmentsSecrets(): Promise<void> {
+  if (!environmentsEncryptionConfigured()) {
+    debugLog(`${Environment.ENVIRONMENTS_ENCRYPTION_KEY} is not set: config.environments secrets stay as stored`);
+  } else {
+    await connectToDatabase(debugLog);
+    const stored = await configModel.findOne({key: ConfigKey.ENVIRONMENTS}).lean().exec();
+    if (stored?.value && containsUnencryptedSecrets(stored.value as EnvironmentsConfig)) {
+      await config.createOrUpdateKey(ConfigKey.ENVIRONMENTS, decryptEnvironmentsSecrets(stored.value as EnvironmentsConfig));
+      debugLog("Encrypted the unencrypted secrets found in config.environments");
+    } else {
+      debugLog("config.environments secrets are already encrypted");
+    }
+  }
+}
+
+export async function decryptStoredEnvironmentsSecrets(): Promise<void> {
+  await connectToDatabase(debugLog);
+  const stored = await configModel.findOne({key: ConfigKey.ENVIRONMENTS}).lean().exec();
+  if (!stored?.value) {
+    throw new Error("No config.environments document found");
+  } else {
+    const decrypted = decryptEnvironmentsSecrets(stored.value as EnvironmentsConfig);
+    await configModel.updateOne({key: ConfigKey.ENVIRONMENTS}, {$set: {value: decrypted}}).exec();
+    const written = await configModel.findOne({key: ConfigKey.ENVIRONMENTS}).lean().exec();
+    if (!isEqual(written?.value, decrypted)) {
+      throw new Error("config.environments was written but does not match the decrypted document");
+    } else {
+      debugLog("Stored config.environments secrets unencrypted");
+    }
+  }
 }
 
 export async function findEnvironmentFromDatabase(environmentName: string): Promise<DeployEnvironmentConfig | null> {

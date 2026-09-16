@@ -1002,7 +1002,7 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   filterSearch = "";
   busy = false;
   busyFormat: string = null;
-  includeSecrets = true;
+  includeSecrets = false;
   consoleBusy = false;
   consoleScope = CONSOLE_SCOPE_ALL;
   consoleVisibility = "all";

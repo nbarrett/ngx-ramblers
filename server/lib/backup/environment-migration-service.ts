@@ -28,6 +28,7 @@ import {
   EnvironmentMigrationVerification
 } from "../../../projects/ngx-ramblers/src/app/models/environment-migration.model";
 import { AWS_DEFAULTS, EnvironmentsConfig, MongoConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { decryptEnvironmentsSecrets, encryptEnvironmentsSecrets } from "../environments/environments-secrets-cipher";
 import { RamblersWalksManagerDateFormat as DateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { extractSourceEnvironmentFromBackupName, extractTimestampFromBackupName } from "./backup-paths";
 import { manifestByTimestamp, siteConfigFor, startS3Backup, startS3Restore } from "./s3-backup-service";
@@ -543,10 +544,11 @@ export class EnvironmentMigrationService {
       const db = client.db(targetMongo.db);
       const configCollection = db.collection("config");
       const environmentsConfig = await configCollection.findOne({ key: "environments" });
-      if (!isArray(environmentsConfig?.value?.environments)) {
+      const storedValue = decryptEnvironmentsSecrets(environmentsConfig?.value as EnvironmentsConfig);
+      if (!isArray(storedValue?.environments)) {
         throw new Error("Target staging config.environments is missing environments array");
       }
-      const updatedEnvironments = environmentsConfig.value.environments.map((environmentConfig: any) => environmentConfig.environment === "staging"
+      const updatedEnvironments = storedValue.environments.map((environmentConfig: any) => environmentConfig.environment === "staging"
         ? {
           ...environmentConfig,
           mongo: {
@@ -560,7 +562,7 @@ export class EnvironmentMigrationService {
         : environmentConfig);
       await configCollection.updateOne(
         { key: "environments" },
-        { $set: { "value.environments": updatedEnvironments } }
+        { $set: { "value.environments": encryptEnvironmentsSecrets({...storedValue, environments: updatedEnvironments}).environments } }
       );
     } finally {
       await client.close();

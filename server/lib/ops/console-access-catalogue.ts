@@ -82,7 +82,7 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     function: "Human login to the fly.io dashboard for this site’s app — not the deploy API token. Per environment.",
     scope: EstateRebuildSystemScope.PER_SITE,
     identifiers: [
-      {key: "appName", label: "App name", placeholder: "e.g. ngx-ramblers-ashford"},
+      {key: "appName", label: "App name", placeholder: "e.g. ngx-ramblers-your-group"},
       {key: "organisation", label: "Organisation", placeholder: "e.g. personal"}
     ],
     urls: [

@@ -19,6 +19,8 @@ Never put a cluster host, database name or password in this skill. Read them at 
 
 **Maintainer checkout.** `server/.env` may hold a URI that can see the platform `config` document `key: "environments"`. That document lists every environment's `mongo.cluster`, `mongo.db`, `mongo.username` and `mongo.password`. Each environment lives on its own cluster. Do not reuse the URI's host as the target environment.
 
+**Secret fields in that document are encrypted at rest** (passwords, secret keys, tokens, every value under `secrets`), keyed by `ENVIRONMENTS_ENCRYPTION_KEY` in `server/.env`. Reading them with `mongosh` prints `enc:v1:...` ciphertext. Read secrets with `./bin/ngx-cli environments-value`, which goes through the app's decrypting read. Identifiers (hosts, database names, usernames, app names, buckets) are stored readable and can still be read either way.
+
 Tell the two apart:
 
 ```bash
@@ -56,15 +58,11 @@ Stop if the group name is not the environment you think you are on.
 
 ## Maintainer: resolve another environment
 
-1. Read the platform URI from `server/.env` (`grep MONGODB_URI server/.env`). Do not paste the value into notes or skills.
-2. Look up the target:
+1. Make sure `server/.env` holds the platform `MONGODB_URI` and `ENVIRONMENTS_ENCRYPTION_KEY`. Do not paste either value into notes or skills.
+2. Look up the target (decrypted, from the repository root):
 
 ```bash
-mongosh "<PLATFORM_URI>" --quiet --eval '
-var envs = db.config.findOne({key:"environments"});
-var target = (envs.value.environments || []).find(function(e){ return e.environment === "<ENV_NAME>"; });
-print(JSON.stringify(target && target.mongo, null, 2));
-'
+./bin/ngx-cli environments-value --environment <ENV_NAME> mongo
 ```
 
 Returns:
@@ -81,10 +79,10 @@ Returns:
 3. Build `mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<db>?retryWrites=true&w=majority`. The `cluster` field already omits `.mongodb.net`.
 4. Run the group-name check on that URI before writing.
 
-List environment names if the lookup misses:
+List environment names if the lookup misses (the error from a wrong `--environment` also lists them):
 
 ```bash
-mongosh "<PLATFORM_URI>" --quiet --eval '
+mongosh "$MONGODB_URI" --quiet --eval '
 db.config.findOne({key:"environments"}).value.environments.map(function(e){ return e.environment; }).forEach(print);
 '
 ```
@@ -119,25 +117,19 @@ Present only when the lookup above returns a list. Top-level keys of `value`:
 
 Do not copy tokens into `.env`, a shell profile, or this skill. Pipe them into the one command that needs them.
 
-Dotted-path lookup (platform database only):
+Dotted-path lookup (platform database only, decrypted, from the repository root):
 
 ```bash
-mongosh "$MONGODB_URI" --quiet --eval '
-var root = db.config.findOne({key:"environments"}).value;
-var path = "<DOTTED_PATH>".split(".");
-var cur = root;
-for (var i = 0; i < path.length; i++) { if (cur == null) break; cur = cur[path[i]]; }
-if (cur == null) { print(""); } else if (typeof cur === "object") { print(JSON.stringify(cur)); } else { print(cur); }
-' 2>/dev/null | tail -1
+./bin/ngx-cli environments-value <DOTTED_PATH> | tail -1
 ```
 
-`<DOTTED_PATH>` examples: `uploadWorker.apiKey`, `cloudflare.apiToken`, `aws.bucket`, `uploadWorker.appName`, `cms.username`.
+`<DOTTED_PATH>` examples: `uploadWorker.apiKey`, `cloudflare.apiToken`, `aws.bucket`, `uploadWorker.appName`, `cms.username`. Add `--environment <ENV_NAME>` to resolve a path inside one environment's entry, for example `--environment ekwg flyio.apiKey`. Objects print as JSON on one line.
 
 Fly logs (maintainer; needs `uploadWorker.apiKey` on the platform document):
 
 ```bash
-flyctl logs --app "$(mongosh "$MONGODB_URI" --quiet --eval 'print(db.config.findOne({key:"environments"}).value.uploadWorker.appName)' 2>/dev/null | tail -1)" \
-  --access-token "$(mongosh "$MONGODB_URI" --quiet --eval 'print(db.config.findOne({key:"environments"}).value.uploadWorker.apiKey)' 2>/dev/null | tail -1)" \
+flyctl logs --app "$(./bin/ngx-cli environments-value uploadWorker.appName | tail -1)" \
+  --access-token "$(./bin/ngx-cli environments-value uploadWorker.apiKey | tail -1)" \
   --no-tail
 ```
 
@@ -153,7 +145,7 @@ CMS_URL="${CMS_URL:-http://localhost:5001}" ../.claude/skills/connect-env-db/scr
 The helper:
 
 1. Uses `CMS_USERNAME` / `CMS_PASSWORD` if already set (the contributor path).
-2. Otherwise looks up `cms.username` / `cms.password` on the database behind `MONGODB_URI` or `server/.env` (the maintainer path).
+2. Otherwise looks up `cms.username` / `cms.password` with `./bin/ngx-cli environments-value` on the database behind `MONGODB_URI` or `server/.env` (the maintainer path), which decrypts the stored password.
 3. Exports them for that one process and execs the command.
 
 Do not echo the values. Do not write them to disk. Do not put them in `SKILL.md`. Default `CMS_URL` is the local API (`http://localhost:5001`). Set `CMS_URL` only when the user names a different site.

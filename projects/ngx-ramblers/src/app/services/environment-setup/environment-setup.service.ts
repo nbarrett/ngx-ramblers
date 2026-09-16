@@ -96,7 +96,7 @@ export class EnvironmentSetupService {
 
   async downloadEstateRebuildCapture(
     format: EstateRebuildCaptureFormat = EstateRebuildCaptureFormat.XLSX,
-    includeSecrets = true
+    includeSecrets = false
   ): Promise<Blob> {
     const options = {
       ...this.opts,

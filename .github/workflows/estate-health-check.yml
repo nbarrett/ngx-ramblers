@@ -49,4 +49,5 @@ jobs:
         if: steps.deployments.outputs.active == '0'
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
         run: ./server/node_modules/.bin/tsx server/deploy/check-estate-health.ts

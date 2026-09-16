@@ -83,6 +83,7 @@ jobs:
         id: set-matrix
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
         run: |
           if [ "${{ github.event.inputs.environments }}" = "all" ]; then
             MATRIX=$(./server/node_modules/.bin/tsx server/deploy/list-environment-names.ts 2>/dev/null | tail -n 1)
@@ -141,6 +142,7 @@ jobs:
       - name: Deploy to ${{ matrix.environment }}
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
         run: |
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ matrix.environment }}" --image-tag "${{ github.event.inputs.image_tag }}"
 

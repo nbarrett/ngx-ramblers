@@ -8,17 +8,13 @@ fi
 
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 ENV_FILE="$ROOT/server/.env"
-URI="${MONGODB_URI:-}"
-if [[ -z "$URI" && -f "$ENV_FILE" ]]; then
-  URI="$(grep '^MONGODB_URI=' "$ENV_FILE" | head -1 | sed -E 's/^MONGODB_URI=//; s/^["'\'']//; s/["'\'']$//')"
-fi
-if [[ -z "$URI" ]]; then
+if [[ -z "${MONGODB_URI:-}" && ! -f "$ENV_FILE" ]]; then
   echo "with-cms-login: set CMS_USERNAME and CMS_PASSWORD to a contentAdmin member on this environment, or set MONGODB_URI / server/.env so cms.username can be looked up" >&2
   exit 1
 fi
 
 lookup() {
-  mongosh "$URI" --quiet --eval "var doc = db.config.findOne({key:\"environments\"}); var c = doc && doc.value && doc.value.cms; print((c && c.$1) || \"\");" 2>/dev/null || true
+  (cd "$ROOT" && ./bin/ngx-cli environments-value "cms.$1" | tail -1) || true
 }
 
 CMS_USERNAME="$(lookup username)"

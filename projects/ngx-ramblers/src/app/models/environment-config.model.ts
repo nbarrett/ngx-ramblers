@@ -72,6 +72,17 @@ export enum ConsoleAccessService {
   GEMINI_AI_STUDIO = "geminiAiStudio"
 }
 
+export enum EnvironmentsSecretFieldName {
+  PASSWORD = "password",
+  SECRET_ACCESS_KEY = "secretAccessKey",
+  API_KEY = "apiKey",
+  API_TOKEN = "apiToken",
+  SHARED_SECRET = "sharedSecret",
+  ENCRYPTION_KEY = "encryptionKey",
+  JWT_APP_SECRET = "jwtAppSecret",
+  NOTES = "notes"
+}
+
 export interface ConsoleAccessLogin {
   login?: string;
   password?: string;

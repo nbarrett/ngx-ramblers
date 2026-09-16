@@ -2,6 +2,7 @@ import debug from "debug";
 import { Request, Response } from "express";
 import { isString } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
+import { memberDescription, memberFromRequest } from "../auth/request-member";
 import { configuredEnvironments } from "../environments/environments-config";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeNow, formatDateTime } from "../shared/dates";
@@ -25,20 +26,23 @@ function formatFromRequest(req: Request): EstateRebuildCaptureFormat {
   }
 }
 
-function includeSecretsFromRequest(req: Request): boolean {
+function includeSecretsRequested(req: Request): boolean {
   const raw = req.query?.includeSecrets;
-  if (isString(raw)) {
-    return raw !== "false" && raw !== "0" && raw !== "no";
-  } else {
-    return true;
-  }
+  return isString(raw) && ["true", "1", "yes"].includes(raw.toLowerCase());
+}
+
+function logSecretsRevealed(req: Request, facility: string): void {
+  debugLog("Secret values revealed via %s by %s", facility, memberDescription(memberFromRequest(req)));
 }
 
 export async function downloadEstateRebuildCapture(req: Request, res: Response): Promise<void> {
   try {
     const format = formatFromRequest(req);
-    const includeSecrets = includeSecretsFromRequest(req);
+    const includeSecrets = includeSecretsRequested(req);
     debugLog("Generating platform configuration values format=%s includeSecrets=%s", format, includeSecrets);
+    if (includeSecrets) {
+      logSecretsRevealed(req, `offline export (${format})`);
+    }
     const artifacts = await generateEstateRebuildArtifacts({includeSecrets});
     const stamp = formatDateTime(dateTimeNow(), UIDateFormat.FILE_TIMESTAMP_COMPACT);
     const secretSuffix = includeSecrets ? "-with-secrets" : "";
@@ -85,11 +89,11 @@ export async function estateRebuildCaptureSummary(_req: Request, res: Response):
 
 export async function estateRebuildCaptureInventory(req: Request, res: Response): Promise<void> {
   try {
-    const raw = req.query?.includeSecrets;
-    const includeSecrets = isString(raw)
-      ? (raw === "true" || raw === "1" || raw === "yes")
-      : false;
+    const includeSecrets = includeSecretsRequested(req);
     debugLog("Generating platform configuration inventory includeSecrets=%s", includeSecrets);
+    if (includeSecrets) {
+      logSecretsRevealed(req, "configuration inventory");
+    }
     const inventory = await generateEstateRebuildInventory({includeSecrets});
     res.json(inventory);
   } catch (error) {

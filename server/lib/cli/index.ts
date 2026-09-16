@@ -17,6 +17,8 @@ import { createMigrateCommand } from "./commands/migrate";
 import { createSubdomainCommand } from "./commands/subdomain";
 import { createNewContributorEnvCommand } from "./commands/new-contributor-env";
 import { createWorkerCommand } from "./commands/worker";
+import { createEnvironmentsValueCommand } from "./commands/environments-value";
+import { createEnvironmentsDecryptCommand } from "./commands/environments-decrypt";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { envConfig } from "../env-config/env-config";
 
@@ -77,6 +79,8 @@ program.addCommand(configureHelp(createMigrateCommand()));
 program.addCommand(configureHelp(createSubdomainCommand()));
 program.addCommand(configureHelp(createNewContributorEnvCommand()));
 program.addCommand(configureHelp(createWorkerCommand()));
+program.addCommand(configureHelp(createEnvironmentsValueCommand()));
+program.addCommand(configureHelp(createEnvironmentsDecryptCommand()));
 
 if (require.main === module) {
   logEnvironmentVariables();

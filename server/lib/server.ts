@@ -7,6 +7,7 @@ import { mongoBackupRoutes } from "./backup/mongo-backup-routes";
 import { s3BackupRoutes } from "./backup/s3-backup-routes";
 import { environmentMigrationRoutes } from "./backup/environment-migration-routes";
 import { createEnvironmentMigrationService } from "./backup/environment-migration-service";
+import { encryptStoredEnvironmentsSecrets } from "./environments/environments-config";
 import { envConfig } from "./env-config/env-config";
 import { mailchimpRoutes } from "./mailchimp/mailchimp-routes";
 import { osMapsRoutes } from "./os-maps/os-maps-routes";
@@ -374,13 +375,15 @@ async function startServer() {
         debugLog("❌ Failed to reconcile orphaned environment migrations:", error);
       });
 
-      if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
-        debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);
-      } else {
-        runMigrationsInBackground().catch(error => {
+      const migrationsSettled = envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)
+        ? Promise.resolve(debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`))
+        : runMigrationsInBackground().catch(error => {
           debugLog("❌ Unhandled error in background migrations:", error);
         });
-      }
+
+      migrationsSettled.then(() => encryptStoredEnvironmentsSecrets()).catch(error => {
+        debugLog("❌ Failed to encrypt stored environment secrets:", error);
+      });
 
       scheduleWalksManagerSync().catch(error => {
         debugLog("❌ Failed to schedule WALKS_MANAGER sync:", error);
