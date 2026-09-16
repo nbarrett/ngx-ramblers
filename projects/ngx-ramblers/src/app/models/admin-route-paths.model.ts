@@ -78,6 +78,7 @@ export enum AdminPlatformPath {
   ENVIRONMENT_MANAGEMENT_SETUP = "admin/platform/environment-management/setup",
   ENVIRONMENT_MANAGEMENT_BACKUP = "admin/platform/environment-management/backup",
   ENVIRONMENT_MANAGEMENT_MIGRATION = "admin/platform/environment-management/migration",
+  ENVIRONMENT_MANAGEMENT_MOVE_BREVO = "admin/platform/environment-management/move-brevo",
   ENVIRONMENT_MANAGEMENT_HEALTH = "admin/platform/environment-management/health",
   ENVIRONMENT_MANAGEMENT_MAINTENANCE = "admin/platform/environment-management/maintenance",
   ENVIRONMENT_MANAGEMENT_ESTATE_REBUILD = "admin/platform/environment-management/estate-rebuild-capture",

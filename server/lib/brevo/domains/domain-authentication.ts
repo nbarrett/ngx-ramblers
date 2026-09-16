@@ -1,4 +1,5 @@
 import debug from "debug";
+import { BrevoClient } from "@getbrevo/brevo";
 import { pluraliseWithCount } from "../../shared/string-utils";
 import { envConfig } from "../../env-config/env-config";
 import { configuredCloudflare } from "../../cloudflare/cloudflare-config";
@@ -28,6 +29,8 @@ type DomainAuthenticationOptions = {
   cleanupIncorrectParentDomain?: boolean;
   cloudflareDnsConfig?: CloudflareDnsConfig;
   baseDomainOverride?: string;
+  client?: BrevoClient;
+  stopWhenCloudflareUnavailable?: boolean;
 };
 
 function delay(ms: number): Promise<void> {
@@ -38,19 +41,19 @@ function dkimAvailable(config: BrevoDomainConfiguration): boolean {
   return !!(config.dnsRecords.dkimRecord.hostName && config.dnsRecords.dkimRecord.value);
 }
 
-async function ensureDkimAvailable(domainName: string): Promise<BrevoDomainConfiguration> {
-  const config = await domainConfiguration(domainName);
+async function ensureDkimAvailable(domainName: string, client?: BrevoClient): Promise<BrevoDomainConfiguration> {
+  const config = await domainConfiguration(domainName, client);
   if (config.authenticated || dkimAvailable(config)) {
     return config;
   }
   debugLog("DKIM missing for", domainName, "— deleting and re-registering to force Brevo to generate fresh DKIM");
   try {
-    await deleteDomain(domainName);
+    await deleteDomain(domainName, client);
   } catch (error) {
     logBrevoError("brevo:domain-authentication", error, {domainName});
     debugLog("Delete during DKIM recovery failed (continuing):", error.message);
   }
-  const fresh = await registerDomain(domainName);
+  const fresh = await registerDomain(domainName, client);
   debugLog("Fresh registration dnsRecords:", JSON.stringify(fresh.dnsRecords));
   const dkimFromRegister = fresh.dnsRecords?.dkimRecord;
   if (dkimFromRegister?.hostName && dkimFromRegister?.value) {
@@ -62,7 +65,7 @@ async function ensureDkimAvailable(domainName: string): Promise<BrevoDomainConfi
     };
   }
   debugLog("Register response also lacked DKIM — falling back to getDomainConfiguration");
-  return await domainConfiguration(domainName);
+  return await domainConfiguration(domainName, client);
 }
 
 type DnsOutcome =
@@ -90,9 +93,9 @@ async function configureDnsRecords(cfDnsConfig: CloudflareDnsConfig, config: Bre
   }
 }
 
-async function requestAuthentication(domainName: string): Promise<{ authenticationRequested: boolean; authError: string | null }> {
+async function requestAuthentication(domainName: string, client?: BrevoClient): Promise<{ authenticationRequested: boolean; authError: string | null }> {
   try {
-    const authResult = await authenticateDomain(domainName);
+    const authResult = await authenticateDomain(domainName, client);
     debugLog("Authentication requested:", authResult.message);
     return { authenticationRequested: true, authError: null };
   } catch (error) {
@@ -119,6 +122,19 @@ async function resolveCfAndBaseDomain(options: DomainAuthenticationOptions, doma
     cfDnsConfig: { apiToken: cfConfig.apiToken, zoneId: zone.id },
     baseDomain: options.baseDomainOverride || zone.name
   };
+}
+
+async function cloudflareOrUnavailable(options: DomainAuthenticationOptions, domainName: string): Promise<{ cfDnsConfig: CloudflareDnsConfig; baseDomain: string } | null> {
+  if (options.stopWhenCloudflareUnavailable) {
+    try {
+      return await resolveCfAndBaseDomain(options, domainName);
+    } catch (error) {
+      debugLog("Cloudflare unavailable for", domainName, ":", error.message);
+      return null;
+    }
+  } else {
+    return resolveCfAndBaseDomain(options, domainName);
+  }
 }
 
 async function cleanupStaleTxtRecords(cfDnsConfig: CloudflareDnsConfig, fqdn: string, currentValue: string | null): Promise<number> {
@@ -193,16 +209,16 @@ export async function authenticateSendingDomain(domainName: string, options: Dom
     await cleanupIncorrectParentDomain(domainName);
   }
 
-  const existingDomain = await findDomainByName(domainName);
+  const existingDomain = await findDomainByName(domainName, options.client);
   if (!existingDomain) {
     debugLog("Domain not registered, registering:", domainName);
-    await registerDomain(domainName);
+    await registerDomain(domainName, options.client);
   } else {
     debugLog("Domain already registered:", domainName);
   }
   const registered = true;
 
-  const config = await ensureDkimAvailable(domainName);
+  const config = await ensureDkimAvailable(domainName, options.client);
   debugLog("Domain config, authenticated:", config.authenticated, "verified:", config.verified, "DKIM available:", dkimAvailable(config));
 
   if (config.authenticated && config.verified) {
@@ -218,9 +234,26 @@ export async function authenticateSendingDomain(domainName: string, options: Dom
     };
   }
 
-  const { cfDnsConfig, baseDomain } = await resolveCfAndBaseDomain(options, domainName);
+  const cloudflare = await cloudflareOrUnavailable(options, domainName);
+  if (cloudflare) {
+    return authenticateThroughDns(domainName, options, config, cloudflare, registered);
+  } else {
+    return {
+      domainName,
+      registered,
+      dnsRecordsConfigured: false,
+      authenticationRequested: false,
+      authenticated: false,
+      verified: false,
+      dnsRecords: config.dnsRecords,
+      message: `Cloudflare is not configured for ${domainName}, so the DNS records could not be added automatically. Add the Brevo code and DKIM records shown at your DNS provider, then run again.`,
+      brevoDomainsUrl: BREVO_DOMAINS_URL
+    };
+  }
+}
 
-  const dnsOutcome = await configureDnsRecords(cfDnsConfig, config, baseDomain);
+async function authenticateThroughDns(domainName: string, options: DomainAuthenticationOptions, config: BrevoDomainConfiguration, cloudflare: { cfDnsConfig: CloudflareDnsConfig; baseDomain: string }, registered: boolean): Promise<DomainAuthenticationResult> {
+  const dnsOutcome = await configureDnsRecords(cloudflare.cfDnsConfig, config, cloudflare.baseDomain);
   if (dnsOutcome.type === "failed") {
     return {
       domainName,
@@ -233,30 +266,28 @@ export async function authenticateSendingDomain(domainName: string, options: Dom
       message: `DNS configuration failed: ${dnsOutcome.errorMessage}`,
       brevoDomainsUrl: BREVO_DOMAINS_URL
     };
+  } else {
+    const dnsRecordsConfigured = dnsOutcome.dnsRecordsConfigured;
+    const { authenticationRequested, authError } = await requestAuthentication(domainName, options.client);
+    const finalConfig = await domainConfiguration(domainName, options.client);
+    const missingDkim = !dkimAvailable(config);
+    const message = finalConfig.authenticated
+      ? "Domain successfully authenticated"
+      : authError && missingDkim
+        ? `Brevo code is configured in DNS, but Brevo did not return a DKIM record for ${domainName} via API. Complete authentication in the Brevo UI: open ${domainName}, click Authenticate, choose Authenticate the domain yourself, then retry here if needed.`
+        : authError
+          ? `Brevo could not finish domain authentication via API (${authError}). DNS records may already be in Cloudflare; complete authentication in the Brevo UI at ${BREVO_DOMAINS_URL} (open ${domainName}, click Authenticate), then re-check here later.`
+          : "Authentication requested, DNS verification may still be propagating";
+    return {
+      domainName,
+      registered,
+      dnsRecordsConfigured,
+      authenticationRequested,
+      authenticated: finalConfig.authenticated,
+      verified: finalConfig.verified,
+      dnsRecords: finalConfig.dnsRecords,
+      message,
+      brevoDomainsUrl: finalConfig.authenticated ? null : BREVO_DOMAINS_URL
+    };
   }
-  const dnsRecordsConfigured = dnsOutcome.dnsRecordsConfigured;
-
-  const { authenticationRequested, authError } = await requestAuthentication(domainName);
-
-  const finalConfig = await domainConfiguration(domainName);
-  const missingDkim = !dkimAvailable(config);
-  const message = finalConfig.authenticated
-    ? "Domain successfully authenticated"
-    : authError && missingDkim
-      ? `Brevo code is configured in DNS, but Brevo did not return a DKIM record for ${domainName} via API. Complete authentication in the Brevo UI: open ${domainName}, click Authenticate, choose Authenticate the domain yourself, then retry here if needed.`
-      : authError
-        ? `Brevo could not finish domain authentication via API (${authError}). DNS records may already be in Cloudflare; complete authentication in the Brevo UI at ${BREVO_DOMAINS_URL} (open ${domainName}, click Authenticate), then re-check here later.`
-        : "Authentication requested, DNS verification may still be propagating";
-
-  return {
-    domainName,
-    registered,
-    dnsRecordsConfigured,
-    authenticationRequested,
-    authenticated: finalConfig.authenticated,
-    verified: finalConfig.verified,
-    dnsRecords: finalConfig.dnsRecords,
-    message,
-    brevoDomainsUrl: finalConfig.authenticated ? null : BREVO_DOMAINS_URL
-  };
 }
