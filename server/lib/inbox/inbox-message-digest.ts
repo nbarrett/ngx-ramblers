@@ -56,23 +56,42 @@ function digestRecipientFor(recipient: InboxRoleRecipient, subscriberById: Map<s
 
 export async function runInboxMessageDigest(): Promise<number> {
   const now = dateTimeNow().toMillis();
-  const messages = await inboxMessageModel.find({
+  const candidates = await inboxMessageModel.find({
     direction: InboxMessageDirection.INBOUND,
     notifiedAt: null,
     receivedAt: {$ne: null, $gte: now - ONE_DAY_MS}
   }).sort({receivedAt: 1}).lean() as InboxMessage[];
-  if (messages.length === 0) {
+  if (candidates.length === 0) {
     debugLog("no unnotified inbox messages, nothing to send");
     return 0;
-  }
-  const decision = await sendAllowed(SendPurpose.INBOX_DIGEST);
-  if (!decision.allowed) {
-    debugLog("inbox digest not sent:", decision.message);
-    await recordRefusal(SendPurpose.INBOX_DIGEST, decision, {recipientCount: messages.length});
-    return 0;
   } else {
-    return digestMessages(messages, now);
+    const decision = await sendAllowed(SendPurpose.INBOX_DIGEST);
+    if (!decision.allowed) {
+      debugLog("inbox digest not sent:", decision.message);
+      await recordRefusal(SendPurpose.INBOX_DIGEST, decision, {recipientCount: candidates.length});
+      return 0;
+    } else {
+      const messages = await claimMessages(candidates, now);
+      if (messages.length === 0) {
+        debugLog(`${pluraliseWithCount(candidates.length, "message")} already claimed by another process`);
+        return 0;
+      } else {
+        return digestMessages(messages, now);
+      }
+    }
   }
+}
+
+export async function claimMessages(messages: InboxMessage[], now: number): Promise<InboxMessage[]> {
+  const claims = await Promise.all(messages.map(async message => {
+    const result = await inboxMessageModel.updateOne({_id: messageIdOf(message), notifiedAt: null}, {$set: {notifiedAt: now}});
+    return result.modifiedCount === 1 ? message : null;
+  }));
+  return claims.filter(Boolean);
+}
+
+function messageIdOf(message: InboxMessage): string {
+  return (message as unknown as {_id?: {toString(): string}})._id?.toString() ?? "";
 }
 
 async function digestMessages(messages: InboxMessage[], now: number): Promise<number> {
@@ -164,8 +183,10 @@ async function sendDigestEmails(itemsByRecipient: Map<string, { recipient: Diges
   }, Promise.resolve());
 
   const validIds = Array.from(new Set(sentMessageIds.filter(Boolean)));
-  if (validIds.length > 0) {
-    await inboxMessageModel.updateMany({_id: {$in: validIds}}, {$set: {notifiedAt: now}});
+  const claimedIds = Array.from(new Set(Array.from(itemsByRecipient.values()).flatMap(({items}) => items.map(item => messageIdOf(item.message))).filter(Boolean)));
+  const unsentIds = claimedIds.filter(id => !validIds.includes(id));
+  if (unsentIds.length > 0) {
+    await inboxMessageModel.updateMany({_id: {$in: unsentIds}, notifiedAt: now}, {$set: {notifiedAt: null}});
   }
   debugLog(`sent ${pluraliseWithCount(itemsByRecipient.size, "digest email")} covering ${pluraliseWithCount(validIds.length, "message")}`);
   return validIds.length;

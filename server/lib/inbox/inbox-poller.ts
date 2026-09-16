@@ -29,6 +29,7 @@ import {
   registerGmailWatch,
   removeSpamLabel
 } from "./gmail-inbox-reader";
+import { compositionSenderEmail } from "./inbox-composition-sender";
 import { backfillStatedReplyAddress, recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
@@ -195,7 +196,8 @@ async function reconcileRecentSentCompositions(connection: InboxMailboxConnectio
         && !repairedCompositionIds.has(candidate.compositionId)
         && !matchingTimes.some(storedAt => Math.abs(storedAt - sentAt) <= 60_000);
     });
-  const selectedMemberIds = candidates.flatMap(candidate => candidate.composition.state?.selectedMemberIds ?? []);
+  const selectedMemberIds = candidates.flatMap(candidate => candidate.composition.state?.selectedMemberIds ?? [])
+    .concat(candidates.map(candidate => candidate.composition.ownerMemberId).filter(Boolean));
   const selectedMembers = selectedMemberIds.length > 0
     ? await memberModel.find({_id: {$in: selectedMemberIds}}).select("firstName lastName email").lean()
     : [];
@@ -228,7 +230,14 @@ async function reconcileRecentSentCompositions(connection: InboxMailboxConnectio
         messageId,
         inReplyTo: null,
         references: [],
-        from: {name: "", email: alias.roleEmail},
+        from: {name: "", email: compositionSenderEmail({
+          brandingMode: state?.brandingMode,
+          brandedSenderEmail: state?.brandedSenderEmail,
+          unbrandedSenderEmail: state?.unbrandedSenderEmail,
+          ownerEmail: memberById.get(composition.ownerMemberId)?.email,
+          aliasEmail: alias.roleEmail,
+          mailboxAccountEmail: connection.gmailAccountEmail
+        })},
         to,
         cc: state.ccRecipients ?? [],
         subject: state.subject ?? "",
