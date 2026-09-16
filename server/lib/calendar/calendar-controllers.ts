@@ -6,7 +6,8 @@ import { systemConfig } from "../config/system-config";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventType, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { ContentDisposition } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { icalDocument, meetingIcalDocument } from "./ical";
 import { publicImageBaseUrl } from "../social/public-base-url";
@@ -24,6 +25,7 @@ const errorDebugLog = createErrorDebugLog("calendar");
 const FEED_MONTHS_AHEAD = 12;
 const MAXIMUM_FEED_EVENTS = 500;
 const CACHE_CONTROL = "public, max-age=1800";
+const FEED_EXCLUDED_STATUSES = [EventType.DELETED, WalkStatus.DRAFT];
 const CALENDAR_EVENT_SELECT = [
   GroupEventField.TITLE,
   GroupEventField.DESCRIPTION,
@@ -133,7 +135,8 @@ export async function eventsCalendarFeed(req: Request, res: Response): Promise<v
         [GroupEventField.START_DATE]: {
           $gte: dateTimeNow().startOf("day").toISO(),
           $lte: dateTimeNow().plus({months: FEED_MONTHS_AHEAD}).toISO()
-        }
+        },
+        [GroupEventField.STATUS]: {$nin: FEED_EXCLUDED_STATUSES}
       })
       .select(CALENDAR_EVENT_SELECT)
       .sort({[GroupEventField.START_DATE]: 1})
