@@ -12,6 +12,7 @@ export const SITE_FLY_SECRET_ALLOWLIST: readonly string[] = [
   Environment.NGX_LITE,
   Environment.PLATFORM_ADMIN_ENABLED,
   Environment.ENVIRONMENT_SETUP_API_KEY,
+  Environment.ENVIRONMENTS_ENCRYPTION_KEY,
   Environment.CLOUDFLARE_CONFIG,
   Environment.FLY_CONFIG,
   Environment.NGX_INBOUND_SECRET,

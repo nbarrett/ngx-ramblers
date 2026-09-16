@@ -461,43 +461,49 @@ async function probeSite(env: EnvironmentConfig): Promise<EstateRebuildSiteProbe
   }
 }
 
-function safeValueFor(
+export function safeValueFor(
   fieldId: string,
   infra: EstateRebuildInfraSnapshot,
   site: EstateRebuildSiteProbe,
   includeSecrets: boolean
 ): string {
-  if (site.error && !fieldId.startsWith("consoleAccess.")) {
+  const consoleValue = consoleFieldValue(fieldId, infra.consoleAccess, includeSecrets);
+  const storedValues: Record<string, string> = {
+    environment: infra.environment,
+    flyAppName: infra.flyAppName,
+    customDomains: infra.customDomains.join(", "),
+    ngxLite: yn(infra.ngxLite),
+    mongoCluster: infra.mongoCluster,
+    mongoDb: infra.mongoDb,
+    mongoUsername: infra.mongoUsername,
+    mongoPassword: secretOrPresence(infra.mongoPassword, includeSecrets),
+    awsBucket: infra.awsBucket,
+    awsRegion: infra.awsRegion,
+    awsAccessKeyId: secretOrPresence(infra.awsAccessKeyId, includeSecrets),
+    awsSecretAccessKey: secretOrPresence(infra.awsSecretAccessKey, includeSecrets),
+    flyOrganisation: infra.flyOrganisation,
+    flyApiToken: secretOrPresence(infra.flyApiKey, includeSecrets),
+    flyMemory: infra.flyMemory,
+    flyScaleCount: infra.flyScaleCount,
+    cloudflareZoneId: infra.cloudflareZoneId,
+    cloudflareAccountId: infra.cloudflareAccountId,
+    cloudflareApiToken: secretOrPresence(infra.cloudflareApiToken, includeSecrets),
+    authSecret: secretOrPresence(infra.authSecret, includeSecrets),
+    secretKeys: secretMapOrKeys(infra.secretEntries, includeSecrets)
+  };
+  if (consoleValue !== null) {
+    return consoleValue;
+  } else if (fieldId in storedValues) {
+    return storedValues[fieldId] ?? "";
+  } else if (site.error) {
     return `ERROR: ${site.error}`;
   } else {
-    const consoleValue = consoleFieldValue(fieldId, infra.consoleAccess, includeSecrets);
     const values: Record<string, string> = {
-      environment: infra.environment,
       groupLongName: site.groupLongName,
       groupCode: site.groupCode,
       areaCode: site.areaCode,
       siteHref: site.siteHref,
-      flyAppName: infra.flyAppName,
-      customDomains: infra.customDomains.join(", "),
       mailProvider: site.mailProvider,
-      ngxLite: yn(infra.ngxLite),
-      mongoCluster: infra.mongoCluster,
-      mongoDb: infra.mongoDb,
-      mongoUsername: infra.mongoUsername,
-      mongoPassword: secretOrPresence(infra.mongoPassword, includeSecrets),
-      awsBucket: infra.awsBucket,
-      awsRegion: infra.awsRegion,
-      awsAccessKeyId: secretOrPresence(infra.awsAccessKeyId, includeSecrets),
-      awsSecretAccessKey: secretOrPresence(infra.awsSecretAccessKey, includeSecrets),
-      flyOrganisation: infra.flyOrganisation,
-      flyApiToken: secretOrPresence(infra.flyApiKey, includeSecrets),
-      flyMemory: infra.flyMemory,
-      flyScaleCount: infra.flyScaleCount,
-      cloudflareZoneId: infra.cloudflareZoneId,
-      cloudflareAccountId: infra.cloudflareAccountId,
-      cloudflareApiToken: secretOrPresence(infra.cloudflareApiToken, includeSecrets),
-      authSecret: secretOrPresence(infra.authSecret, includeSecrets),
-      secretKeys: secretMapOrKeys(infra.secretEntries, includeSecrets),
       googleMapsApiKey: secretOrPresence(site.googleMapsApiKey, includeSecrets),
       osMapsApiKey: secretOrPresence(site.osMapsApiKey, includeSecrets),
       recaptchaSiteKey: site.recaptchaSiteKey,
@@ -546,11 +552,7 @@ function safeValueFor(
       webmasterEmail: site.webmasterEmail,
       siteContactsSummary: site.siteContactsSummary
     };
-    if (consoleValue !== null) {
-      return consoleValue;
-    } else {
-      return values[fieldId] ?? "";
-    }
+    return values[fieldId] ?? "";
   }
 }
 
@@ -588,10 +590,8 @@ function platformSafeValue(fieldId: string, platform: EstateRebuildPlatformSnaps
   }
 }
 
-function configuredFromValue(value: string, probeError?: string): EstateRebuildConfigured {
-  if (probeError) {
-    return EstateRebuildConfigured.ERROR;
-  } else if (!value) {
+function configuredFromValue(value: string): EstateRebuildConfigured {
+  if (!value) {
     return EstateRebuildConfigured.EMPTY;
   } else if (value.startsWith("ERROR")) {
     return EstateRebuildConfigured.ERROR;
@@ -600,13 +600,13 @@ function configuredFromValue(value: string, probeError?: string): EstateRebuildC
   }
 }
 
-function configuredFor(
+export function configuredFor(
   fieldId: string,
   infra: EstateRebuildInfraSnapshot,
   site: EstateRebuildSiteProbe,
   includeSecrets: boolean
 ): EstateRebuildConfigured {
-  return configuredFromValue(safeValueFor(fieldId, infra, site, includeSecrets), site.error);
+  return configuredFromValue(safeValueFor(fieldId, infra, site, includeSecrets));
 }
 
 function buildPlatformRows(

@@ -1,8 +1,8 @@
 import debug from "debug";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 import express, { NextFunction, Request, Response } from "express";
-import * as jwt from "jsonwebtoken";
 import { envConfig } from "../../env-config/env-config";
+import { hasAdminPrivilege, memberFromRequest } from "../../auth/request-member";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
 import {
@@ -84,37 +84,21 @@ const isSetupEnabled = (): boolean => {
   return enabled;
 };
 
-const isAdminRequest = (req: Request): boolean => {
-  try {
-    const authHeader = req.headers?.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
-    if (!token) return false;
-    const payload = jwt.verify(token, envConfig.auth().secret) as any;
-    return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin ||
-      payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
-  } catch {
-    return false;
-  }
-};
-
 const validateSetupAccess = (req: Request, res: Response): boolean => {
+  const setupApiKey = process.env[Environment.ENVIRONMENT_SETUP_API_KEY];
+  const providedKey = req.headers["x-setup-api-key"] as string;
   if (!isSetupEnabled()) {
     res.status(403).json({ error: "Environment setup is not enabled on this environment" });
     return false;
-  }
-
-  const setupApiKey = process.env[Environment.ENVIRONMENT_SETUP_API_KEY];
-  if (!setupApiKey) {
+  } else if (!setupApiKey) {
+    res.status(403).json({ error: `${Environment.ENVIRONMENT_SETUP_API_KEY} is not configured on this environment` });
+    return false;
+  } else if (providedKey === setupApiKey || hasAdminPrivilege(memberFromRequest(req))) {
     return true;
+  } else {
+    res.status(401).json({ error: "Invalid or missing setup API key" });
+    return false;
   }
-
-  const providedKey = req.headers["x-setup-api-key"] as string;
-  if (providedKey === setupApiKey || isAdminRequest(req)) {
-    return true;
-  }
-
-  res.status(401).json({ error: "Invalid or missing setup API key" });
-  return false;
 };
 
 const requireSetupAccess = (req: Request, res: Response, next: NextFunction): void => {

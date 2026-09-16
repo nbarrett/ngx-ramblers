@@ -77,6 +77,7 @@ per-environment under GitHub Environments):
 | Secret | Used for |
 |---|---|
 | `ADMIN_MONGODB_URI` | Connection string to the admin database — source of all environment and global config |
+| `ENVIRONMENTS_ENCRYPTION_KEY` | Decrypts the secret fields of the environments document read from the admin database; without it the deploy cannot read any environment credentials |
 | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | Docker Hub login to pull the application image |
 
 Per-environment Fly.io API tokens, Cloudflare credentials, AWS keys and MongoDB credentials are

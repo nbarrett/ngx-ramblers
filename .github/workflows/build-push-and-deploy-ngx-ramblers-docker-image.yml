@@ -56,6 +56,7 @@ jobs:
         id: vars
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
         run: ./server/node_modules/.bin/tsx server/deploy/resolve-build-time-vars.ts
 
   test:
@@ -233,6 +234,7 @@ jobs:
         timeout-minutes: 15
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
         run: |
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ needs.resolve.outputs.auto_deploy_target }}" --image-tag "${{ github.run_number }}"
 
@@ -241,6 +243,7 @@ jobs:
         timeout-minutes: 15
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
           INTEGRATION_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
         run: |
           ts-node server/deploy/deploy-integration-worker.ts --image-tag "integration-worker-${{ github.run_number }}"
@@ -338,6 +341,7 @@ jobs:
         timeout-minutes: 15
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          ENVIRONMENTS_ENCRYPTION_KEY: ${{ secrets.ENVIRONMENTS_ENCRYPTION_KEY }}
         run: ts-node server/deploy/deploy-jitsi.ts
 
       - name: Advance jitsi-deployed ref after successful deploy
