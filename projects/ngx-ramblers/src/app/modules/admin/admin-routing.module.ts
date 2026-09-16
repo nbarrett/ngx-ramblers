@@ -261,6 +261,12 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
+      path: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_MOVE_BREVO),
+      loadComponent: () => import("../../pages/admin/move-brevo/move-brevo")
+        .then(m => m.MoveBrevoComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
       path: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_HEALTH),
       loadComponent: () => import("../../pages/admin/migration-health/migration-health.component")
         .then(m => m.MigrationHealthComponent),

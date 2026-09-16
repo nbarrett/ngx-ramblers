@@ -603,15 +603,19 @@ export class MailMessagingService {
       this.mailMessagingConfig.mailConfig.respectEmailBlocks = booleanOf(this.mailMessagingConfig.mailConfig.respectEmailBlocks, false);
     }
     this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
-      if (!this.mailMessagingConfig?.mailConfig?.listSettings.find(item => item.id === list.id)) {
+      const existing = this.mailMessagingConfig?.mailConfig?.listSettings.find(item => item.id === list.id);
+      if (!existing) {
         const listSetting: ListSetting = {
           id: list.id,
+          name: list.name,
           autoSubscribeNewMembers: false,
           requiresMemberEmailMarketingConsent: false,
           memberSubscribable: false
         };
         this.logger.info("adding listSetting:", listSetting);
         this.mailMessagingConfig.mailConfig.listSettings.push(listSetting);
+      } else if (list.name && existing.name !== list.name) {
+        existing.name = list.name;
       }
     });
   }

@@ -2,7 +2,7 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { logBrevoError } from "../common/error-log";
-import { Brevo, BrevoError } from "@getbrevo/brevo";
+import { Brevo, BrevoClient, BrevoError } from "@getbrevo/brevo";
 import {
   BrevoDnsRecord,
   BrevoDomainConfiguration,
@@ -17,9 +17,9 @@ debugLog.enabled = true;
 
 const EMPTY_DNS_RECORD: BrevoDnsRecord = {type: "", hostName: "", value: "", status: false};
 
-async function domainsApi() {
-  const client = await brevoClient();
-  return client.domains;
+async function domainsApi(client?: BrevoClient) {
+  const resolved = client || await brevoClient();
+  return resolved.domains;
 }
 
 function mapDnsRecord(record: { type: string; host_name: string; value: string; status: boolean } | null | undefined): BrevoDnsRecord {
@@ -41,8 +41,8 @@ function mapDnsRecords(records: Brevo.CreateDomainResponse.DnsRecords | Brevo.Ge
   };
 }
 
-export async function listDomains(): Promise<BrevoDomainInfo[]> {
-  const api = await domainsApi();
+export async function listDomains(client?: BrevoClient): Promise<BrevoDomainInfo[]> {
+  const api = await domainsApi(client);
   const response = await api.getDomains();
   const domains = response.domains ?? [];
   debugLog("listDomains: found", domains.length, "domains");
@@ -54,8 +54,8 @@ export async function listDomains(): Promise<BrevoDomainInfo[]> {
   }));
 }
 
-export async function registerDomain(name: string): Promise<DomainRegistrationResult> {
-  const api = await domainsApi();
+export async function registerDomain(name: string, client?: BrevoClient): Promise<DomainRegistrationResult> {
+  const api = await domainsApi(client);
   debugLog("registerDomain:", name);
   const body = await api.createDomain({name});
   debugLog("registerDomain raw response:", JSON.stringify(body));
@@ -67,8 +67,8 @@ export async function registerDomain(name: string): Promise<DomainRegistrationRe
   };
 }
 
-export async function domainConfiguration(domainName: string): Promise<BrevoDomainConfiguration> {
-  const api = await domainsApi();
+export async function domainConfiguration(domainName: string, client?: BrevoClient): Promise<BrevoDomainConfiguration> {
+  const api = await domainsApi(client);
   debugLog("domainConfiguration:", domainName);
   const body = await api.getDomainConfiguration({domainName});
   debugLog("domainConfiguration raw dnsRecords:", JSON.stringify(body.dns_records));
@@ -80,8 +80,8 @@ export async function domainConfiguration(domainName: string): Promise<BrevoDoma
   };
 }
 
-export async function authenticateDomain(domainName: string): Promise<{ domainName: string; message: string }> {
-  const api = await domainsApi();
+export async function authenticateDomain(domainName: string, client?: BrevoClient): Promise<{ domainName: string; message: string }> {
+  const api = await domainsApi(client);
   debugLog("authenticateDomain:", domainName);
   try {
     const body = await api.authenticateDomain({domainName});
@@ -100,13 +100,13 @@ export async function authenticateDomain(domainName: string): Promise<{ domainNa
   }
 }
 
-export async function deleteDomain(domainName: string): Promise<void> {
-  const api = await domainsApi();
+export async function deleteDomain(domainName: string, client?: BrevoClient): Promise<void> {
+  const api = await domainsApi(client);
   debugLog("deleteDomain:", domainName);
   await api.deleteDomain({domainName});
 }
 
-export async function findDomainByName(name: string): Promise<BrevoDomainInfo | null> {
-  const domains = await listDomains();
+export async function findDomainByName(name: string, client?: BrevoClient): Promise<BrevoDomainInfo | null> {
+  const domains = await listDomains(client);
   return domains.find(d => d.domainName === name) || null;
 }

@@ -276,11 +276,21 @@ export class MailListSettingsComponent implements OnInit {
     }
     const existing = mailConfig.listSettings.find(item => item.id === this.list.id);
     if (existing) {
+      if (this.list.name && existing.name !== this.list.name) {
+        existing.name = this.list.name;
+      }
       return existing;
+    } else {
+      const created: ListSetting = {
+        id: this.list.id,
+        name: this.list.name,
+        autoSubscribeNewMembers: false,
+        requiresMemberEmailMarketingConsent: false,
+        memberSubscribable: false
+      };
+      mailConfig.listSettings.push(created);
+      return created;
     }
-    const created: ListSetting = {id: this.list.id, autoSubscribeNewMembers: false, requiresMemberEmailMarketingConsent: false, memberSubscribable: false};
-    mailConfig.listSettings.push(created);
-    return created;
   }
 
   autoSubscribeNewMembersChange() {

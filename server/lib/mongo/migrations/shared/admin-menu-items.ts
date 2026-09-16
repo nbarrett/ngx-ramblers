@@ -229,6 +229,14 @@ export const ENVIRONMENT_MIGRATION_MENU_ITEM: ActionButtonColumn = {
   contentText: "Move an environment to isolated MongoDB credentials with validation, restore verification, and explicit cutover"
 };
 
+export const MOVE_BREVO_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "environmentAdmin",
+  title: "Move Brevo",
+  icon: "faEnvelope",
+  href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_MOVE_BREVO,
+  contentText: "Propagate sending domain, senders, lists, contacts and the events webhook to a destination Brevo account"
+};
+
 export const ESTATE_REBUILD_CAPTURE_MENU_ITEM: ActionButtonColumn = {
   accessLevel: "environmentAdmin",
   title: "Platform Configuration Values",
@@ -253,6 +261,7 @@ export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "Backup and restore MongoDB databases across environments"
   },
   ENVIRONMENT_MIGRATION_MENU_ITEM,
+  MOVE_BREVO_MENU_ITEM,
   {
     accessLevel: "committee",
     title: "Environments Monitoring",

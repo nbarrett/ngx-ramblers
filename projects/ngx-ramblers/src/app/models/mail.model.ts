@@ -1406,6 +1406,7 @@ export interface ListSetting {
   autoSubscribeNewMembers: boolean;
   requiresMemberEmailMarketingConsent: boolean;
   id: number;
+  name?: string;
 }
 
 export interface MailIdentifiers {
