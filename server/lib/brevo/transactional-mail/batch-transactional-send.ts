@@ -65,6 +65,8 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
 import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-message-import";
+import { compositionSenderEmail } from "../../inbox/inbox-composition-sender";
+import { normaliseEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { protectedEmailSendError } from "../../salesforce/salesforce-permissions";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 
@@ -364,7 +366,24 @@ async function volunteerMergeFieldSource(request: BatchTransactionalSendRequest)
   }
 }
 
-async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, renderedHtmlContent: string, brevoMessageId: string | null, senderRoleType: string | null): Promise<void> {
+async function recordedSenderEmail(request: BatchTransactionalSendRequest, sentAddress: string, mailboxAccountEmail: string | null, aliasEmail: string, currentMemberId: string | null): Promise<string> {
+  if (!mailboxAccountEmail || normaliseEmail(sentAddress) !== normaliseEmail(mailboxAccountEmail)) {
+    return sentAddress;
+  } else {
+    const owner = currentMemberId ? await memberModel.findById(currentMemberId).select("email").lean() as {email?: string} | null : null;
+    const sentUnbranded = request.brandingMode === BrandingMode.UNBRANDED;
+    return compositionSenderEmail({
+      brandingMode: request.brandingMode,
+      brandedSenderEmail: sentUnbranded ? request.senderEmailOverride : sentAddress,
+      unbrandedSenderEmail: sentUnbranded ? sentAddress : request.unbrandedSenderEmail,
+      ownerEmail: owner?.email,
+      aliasEmail,
+      mailboxAccountEmail
+    });
+  }
+}
+
+async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, renderedHtmlContent: string, brevoMessageId: string | null, senderRoleType: string | null, currentMemberId: string | null): Promise<void> {
   const context = request.inboxReplyContext;
   const mailboxRoleType = senderRoleType || context?.senderRoleType || null;
   if (!mailboxRoleType) {
@@ -392,6 +411,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
             writebackErrorLog("inbox writeback: insertSentCopy failed", (writeBackError as Error).message);
           }
         }
+        const senderEmail = await recordedSenderEmail(request, emailRequest.sender?.email ?? "", mailboxConnectionDoc?.gmailAccountEmail ?? null, alias.roleEmail, currentMemberId);
         const outboundMessage: InboxMessage = {
           threadId: context?.threadId ?? "",
           mailboxConnectionId,
@@ -399,7 +419,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
           messageId: outboundMessageId,
           inReplyTo: context?.inReplyTo ?? null,
           references: context?.references ?? [],
-          from: {name: emailRequest.sender?.name ?? null, email: emailRequest.sender?.email ?? ""},
+          from: {name: emailRequest.sender?.name ?? null, email: senderEmail},
           to: (emailRequest.to ?? []).map(address => ({name: address.name ?? null, email: address.email})),
           cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
           subject: emailRequest.subject,
@@ -661,7 +681,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
-        await performInboxWriteback(request, emailRequest, sendResult.renderedHtmlContent, sendResult?.body?.messageId ?? null, senderRoleType);
+        await performInboxWriteback(request, emailRequest, sendResult.renderedHtmlContent, sendResult?.body?.messageId ?? null, senderRoleType, currentMemberId);
         if (item.kind === "external" && currentMemberId) {
           await recordSendUsage({
             email: item.recipient.email,
@@ -721,7 +741,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         const sentAt = dateTimeNow().toMillis();
         externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
         progress.sentCount += externalEntries.length;
-        await performInboxWriteback(request, externalEmailRequest, externalSendResult.renderedHtmlContent, externalSendResult?.body?.messageId ?? null, senderRoleType);
+        await performInboxWriteback(request, externalEmailRequest, externalSendResult.renderedHtmlContent, externalSendResult?.body?.messageId ?? null, senderRoleType, currentMemberId);
         if (currentMemberId) {
           await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
             await acc;
