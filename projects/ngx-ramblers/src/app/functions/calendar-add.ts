@@ -1,8 +1,12 @@
+import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
+import { faCalendarDay } from "@fortawesome/free-solid-svg-icons";
+import { isBrowser } from "es-toolkit";
 import { DateTime } from "luxon";
-import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } from "../models/inbox.model";
+import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind, OrganiserLabel } from "../models/inbox.model";
 import { UIDateFormat } from "../models/date-format.model";
 import { ExtendedGroupEvent } from "../models/group-event.model";
-import { WalkStatus } from "../models/ramblers-walks-manager";
+import { RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
 import { escapeHtml } from "./text-diff";
 
 const DEFAULT_WALK_DURATION_HOURS = 3;
@@ -26,6 +30,39 @@ export function deviceKindFromUserAgent(userAgent: string, platform?: string | n
     } else {
       return DeviceKind.OTHER;
     }
+  }
+}
+
+export function browserDeviceKind(): DeviceKind {
+  return deviceKindFromUserAgent(isBrowser() ? navigator.userAgent : "", isBrowser() ? navigator.platform : null);
+}
+
+export function browserCalendarApps(): CalendarApp[] {
+  return calendarAppsForDevice(browserDeviceKind());
+}
+
+export function browserCalendarClientHints(): CalendarClientHints {
+  return {
+    userAgent: isBrowser() ? navigator.userAgent : "",
+    origin: isBrowser() ? window.location.origin : null
+  };
+}
+
+export function calendarAppIcon(app: CalendarApp): IconDefinition {
+  if (app === CalendarApp.GOOGLE) {
+    return faGoogle;
+  } else if (app === CalendarApp.OUTLOOK) {
+    return faMicrosoft;
+  } else {
+    return faCalendarDay;
+  }
+}
+
+export function organiserLabelFor(itemType: string | null | undefined): OrganiserLabel {
+  if (!itemType || itemType === RamblersEventType.GROUP_WALK) {
+    return OrganiserLabel.WALK_LEADER;
+  } else {
+    return OrganiserLabel.ORGANISER;
   }
 }
 
@@ -91,6 +128,7 @@ export function calendarEventFromGroupEvent(event: ExtendedGroupEvent | null): C
       url: event.groupEvent.url || null,
       status: event.groupEvent.status === WalkStatus.CANCELLED ? "CANCELLED" : "CONFIRMED",
       organiser,
+      organiserLabel: organiserLabelFor(event.groupEvent.item_type),
       organiserEmail: null,
       organiserPhone: null,
       uid: event.id || null,
@@ -150,10 +188,10 @@ function googleDates(event: CalendarPreviewEvent): string | null {
 }
 
 function calendarBody(event: CalendarPreviewEvent): string | null {
-  const leader = [event.organiser, event.organiserPhone, event.organiserEmail].filter(Boolean).map(escapeHtml).join(" ");
+  const organiser = [event.organiser, event.organiserPhone, event.organiserEmail].filter(Boolean).map(escapeHtml).join(" ");
   const rows = [
     event.description ? `<strong>Description:</strong> ${escapeHtml(event.description)}` : null,
-    leader ? `<strong>Walk leader:</strong> ${leader}` : null,
+    organiser ? `<strong>${event.organiserLabel}:</strong> ${organiser}` : null,
     event.url ? `<strong>Website:</strong> <a href="${escapeHtml(event.url)}">${escapeHtml(event.url)}</a>` : null
   ].filter(Boolean);
   return rows.length ? rows.join("<br>") : null;

@@ -2,7 +2,7 @@ import express, { NextFunction } from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { extendedGroupEvent } from "../models/extended-group-event";
-import { count, dateRange, nextWalkStartDate, queryVenues, queryWalkLeaders, urlFromTitle } from "../controllers/extended-group-event";
+import { count, dateRange, LOCAL_ACTIVE_FILTER, nextWalkStartDate, queryVenues, queryWalkLeaders, urlFromTitle } from "../controllers/extended-group-event";
 import { programmeSummary } from "../controllers/walk-programme";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
@@ -12,12 +12,6 @@ import { createErrorDebugLog } from "../../shared/error-debug-log";
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, false, [GroupEventField.WALK_LEADER, GroupEventField.EVENT_ORGANISER]);
 const router = express.Router();
 const errorDebugLog = createErrorDebugLog("database:group-event-routes");
-const LOCAL_ACTIVE_FILTER = {
-  $or: [
-    { [DocumentField.SOURCE]: { $ne: EventSource.LOCAL } },
-    { [DocumentField.SOURCE]: EventSource.LOCAL, [GroupEventField.STATUS]: { $ne: "deleted" } }
-  ]
-};
 
 function mergeLocalFilter(criteria: any = {}) {
   if (criteria && criteria.$and) {
