@@ -291,6 +291,7 @@ export interface CalendarPreviewEvent {
   url: string | null;
   status: string | null;
   organiser: string | null;
+  organiserLabel: OrganiserLabel;
   organiserEmail: string | null;
   organiserPhone: string | null;
   uid: string | null;
@@ -311,6 +312,11 @@ export interface InboxCalendarReplyRequest {
 export interface InboxCalendarReplyResponse {
   status: CalendarRsvpStatus;
   attendeeEmail: string;
+}
+
+export enum OrganiserLabel {
+  WALK_LEADER = "Walk leader",
+  ORGANISER = "Organiser"
 }
 
 export enum DeviceKind {

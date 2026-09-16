@@ -3,10 +3,8 @@ import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { isString } from "es-toolkit/compat";
 import { Component, inject, Input } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
 import {
   faCalendarDays,
-  faCalendarPlus,
   faCheck,
   faCircleCheck,
   faCircleQuestion,
@@ -14,7 +12,6 @@ import {
   faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { firstValueFrom } from "rxjs";
-import { isBrowser } from "es-toolkit";
 import { NgxLoggerLevel } from "ngx-logger";
 import { UIDateFormat } from "../../../models/date-format.model";
 import {
@@ -24,11 +21,10 @@ import {
   CalendarMethod,
   CalendarPreviewEvent,
   CalendarRsvpStatus,
-  DeviceKind,
   InboxAttachment,
   InboxMessage
 } from "../../../models/inbox.model";
-import { calendarAppLabel, calendarAppsForDevice, calendarHrefFor, deviceKindFromUserAgent } from "../../../functions/calendar-add";
+import { browserCalendarApps, browserCalendarClientHints, calendarAppIcon, calendarAppLabel, calendarHrefFor } from "../../../functions/calendar-add";
 import { calendarInviteCanRsvp, isCalendarFile, parseIcsCalendar } from "../../../functions/ics-calendar";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
@@ -145,23 +141,14 @@ export class InboxCalendarInviteComponent {
   protected readonly CalendarMethod = CalendarMethod;
   protected readonly CalendarApp = CalendarApp;
   protected readonly faCalendarDays = faCalendarDays;
-  protected readonly faCalendarPlus = faCalendarPlus;
   protected readonly faCheck = faCheck;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faCircleQuestion = faCircleQuestion;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faXmark = faXmark;
-  protected readonly faGoogle = faGoogle;
-  protected readonly faMicrosoft = faMicrosoft;
-  protected readonly deviceKind: DeviceKind = deviceKindFromUserAgent(
-    isBrowser() ? navigator.userAgent : "",
-    isBrowser() ? navigator.platform : null
-  );
-  protected readonly calendarApps: CalendarApp[] = calendarAppsForDevice(this.deviceKind);
-  private readonly calendarClientHints: CalendarClientHints = {
-    userAgent: isBrowser() ? navigator.userAgent : "",
-    origin: isBrowser() ? window.location.origin : null
-  };
+  protected readonly calendarApps: CalendarApp[] = browserCalendarApps();
+  protected readonly calendarIcon = calendarAppIcon;
+  private readonly calendarClientHints: CalendarClientHints = browserCalendarClientHints();
 
   protected invite: CalendarInvite | null = null;
   protected inviteEvent: CalendarPreviewEvent | null = null;
@@ -265,16 +252,6 @@ export class InboxCalendarInviteComponent {
 
   calendarLabel(app: CalendarApp): string {
     return calendarAppLabel(app);
-  }
-
-  calendarIcon(app: CalendarApp) {
-    if (app === CalendarApp.GOOGLE) {
-      return this.faGoogle;
-    } else if (app === CalendarApp.OUTLOOK) {
-      return this.faMicrosoft;
-    } else {
-      return this.faCalendarPlus;
-    }
   }
 
   calendarIsPrimary(app: CalendarApp): boolean {

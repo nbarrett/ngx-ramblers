@@ -5,7 +5,8 @@ import {
   CalendarInvite,
   CalendarMethod,
   CalendarPreviewEvent,
-  CalendarRsvpStatus
+  CalendarRsvpStatus,
+  OrganiserLabel
 } from "../models/inbox.model";
 
 interface IcsLine {
@@ -155,6 +156,7 @@ function eventFromLines(lines: string[]): CalendarPreviewEvent {
     url: byName("URL")?.value || null,
     status: byName("STATUS")?.value || null,
     organiser: organiser ? organiserFrom(organiser) : null,
+    organiserLabel: OrganiserLabel.ORGANISER,
     organiserEmail: organiser ? mailtoEmail(organiser.value) || null : null,
     organiserPhone: null,
     uid: byName("UID")?.value || null,

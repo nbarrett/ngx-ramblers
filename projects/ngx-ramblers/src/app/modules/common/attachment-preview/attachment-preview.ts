@@ -3,16 +3,14 @@ import { Component, inject, Input } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { HttpClient } from "@angular/common/http";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCalendarPlus, faDownload, faPaperclip, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
-import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
+import { faDownload, faPaperclip, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { parse } from "csv-parse/browser/esm/sync";
 import { firstValueFrom } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { UIDateFormat } from "../../../models/date-format.model";
-import { AttachmentPreview, AttachmentPreviewKind, CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind } from "../../../models/inbox.model";
+import { AttachmentPreview, AttachmentPreviewKind, CalendarApp, CalendarClientHints, CalendarPreviewEvent } from "../../../models/inbox.model";
 import { parseIcsEvents } from "../../../functions/ics-calendar";
-import { calendarAppLabel, calendarAppsForDevice, calendarHrefFor, deviceKindFromUserAgent } from "../../../functions/calendar-add";
-import { isBrowser } from "es-toolkit";
+import { browserCalendarApps, browserCalendarClientHints, calendarAppIcon, calendarAppLabel, calendarHrefFor } from "../../../functions/calendar-add";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UrlService } from "../../../services/url.service";
@@ -164,18 +162,9 @@ export class AttachmentPreviewComponent {
   private urlService = inject(UrlService);
   private dateUtils = inject(DateUtilsService);
   protected readonly AttachmentPreviewKind = AttachmentPreviewKind;
-  protected readonly deviceKind: DeviceKind = deviceKindFromUserAgent(
-    isBrowser() ? navigator.userAgent : "",
-    isBrowser() ? navigator.platform : null
-  );
-  protected readonly calendarApps: CalendarApp[] = calendarAppsForDevice(this.deviceKind);
-  private readonly calendarClientHints: CalendarClientHints = {
-    userAgent: isBrowser() ? navigator.userAgent : "",
-    origin: isBrowser() ? window.location.origin : null
-  };
-  protected readonly faCalendarPlus = faCalendarPlus;
-  protected readonly faGoogle = faGoogle;
-  protected readonly faMicrosoft = faMicrosoft;
+  protected readonly calendarApps: CalendarApp[] = browserCalendarApps();
+  protected readonly calendarIcon = calendarAppIcon;
+  private readonly calendarClientHints: CalendarClientHints = browserCalendarClientHints();
 
   @Input() maximumPreviewRows = 200;
   @Input() maximumPreviewCharacters = 100000;
@@ -298,16 +287,6 @@ export class AttachmentPreviewComponent {
 
   calendarLabel(app: CalendarApp): string {
     return calendarAppLabel(app);
-  }
-
-  calendarIcon(app: CalendarApp) {
-    if (app === CalendarApp.GOOGLE) {
-      return this.faGoogle;
-    } else if (app === CalendarApp.OUTLOOK) {
-      return this.faMicrosoft;
-    } else {
-      return this.faCalendarPlus;
-    }
   }
 
   calendarOpensInNewTab(app: CalendarApp): boolean {

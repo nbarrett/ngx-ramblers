@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { CalendarMethod, CalendarRsvpStatus } from "../models/inbox.model";
+import { CalendarMethod, CalendarRsvpStatus, OrganiserLabel } from "../models/inbox.model";
 import {
   calendarInviteCanRsvp,
   calendarReplyDocument,
@@ -231,6 +231,7 @@ describe("meetingRoomFromCalendarEvent", () => {
       url: "https://www.example.co.uk/video-meetings/guest/committee-meeting-18-august-2026",
       status: null,
       organiser: null,
+      organiserLabel: OrganiserLabel.ORGANISER,
       organiserEmail: null,
       organiserPhone: null,
       uid: null,

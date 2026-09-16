@@ -1,9 +1,19 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { CalendarApp, CalendarPreviewEvent, DeviceKind } from "../models/inbox.model";
+import { CalendarApp, CalendarPreviewEvent, DeviceKind, OrganiserLabel } from "../models/inbox.model";
 import { ExtendedGroupEvent } from "../models/group-event.model";
-import { WalkStatus } from "../models/ramblers-walks-manager";
-import { calendarAppLabel, calendarAppsForDevice, calendarEventFromGroupEvent, calendarHrefFor, deviceKindFromUserAgent, localCalendarHref, googleCalendarUrl, outlookCalendarUrl } from "./calendar-add";
+import { RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
+import {
+  calendarAppLabel,
+  calendarAppsForDevice,
+  calendarEventFromGroupEvent,
+  calendarHrefFor,
+  deviceKindFromUserAgent,
+  googleCalendarUrl,
+  localCalendarHref,
+  organiserLabelFor,
+  outlookCalendarUrl
+} from "./calendar-add";
 
 function event(overrides: Partial<CalendarPreviewEvent> = {}): CalendarPreviewEvent {
   return {
@@ -16,6 +26,7 @@ function event(overrides: Partial<CalendarPreviewEvent> = {}): CalendarPreviewEv
     url: null,
     status: "CONFIRMED",
     organiser: null,
+    organiserLabel: OrganiserLabel.WALK_LEADER,
     organiserEmail: null,
     organiserPhone: null,
     uid: "abc123@example.org",
@@ -129,6 +140,24 @@ describe("outlookCalendarUrl", () => {
     expect(body).toContain("<strong>Walk leader:</strong> Rachel M 07970 319734 rachel@example.co.uk");
   });
 
+  it("names the organiser of a social event as the organiser, not the walk leader", () => {
+    const body = new URL(outlookCalendarUrl(event({
+      organiser: "Rachel M",
+      organiserLabel: OrganiserLabel.ORGANISER
+    }))).searchParams.get("body");
+    expect(body).toContain("<strong>Organiser:</strong> Rachel M");
+  });
+
+});
+
+describe("organiserLabelFor", () => {
+
+  it("labels walks, including those without an item type, by their walk leader and everything else by its organiser", () => {
+    expect(organiserLabelFor(RamblersEventType.GROUP_WALK)).toEqual(OrganiserLabel.WALK_LEADER);
+    expect(organiserLabelFor(undefined)).toEqual(OrganiserLabel.WALK_LEADER);
+    expect(organiserLabelFor(RamblersEventType.GROUP_EVENT)).toEqual(OrganiserLabel.ORGANISER);
+  });
+
 });
 
 describe("calendarEventFromGroupEvent", () => {
@@ -154,7 +183,28 @@ describe("calendarEventFromGroupEvent", () => {
     expect(mapped?.startsAt).toEqual(DateTime.fromISO("2026-08-15T10:00:00+01:00").toMillis());
     expect(mapped?.endsAt).toEqual(DateTime.fromISO("2026-08-15T13:00:00+01:00").toMillis());
     expect(mapped?.organiser).toEqual("Nick Barrett");
+    expect(mapped?.organiserLabel).toEqual(OrganiserLabel.WALK_LEADER);
     expect(mapped?.url).toEqual("https://example.org/walks/chilham-circular");
+  });
+
+  it("maps a social event's organiser into the calendar event under the organiser label", () => {
+    const socialEvent = {
+      id: "event-1",
+      groupEvent: {
+        item_type: RamblersEventType.GROUP_EVENT,
+        title: "Summer barbecue",
+        start_date_time: "2026-08-15T18:00:00+01:00",
+        end_date_time: "2026-08-15T21:00:00+01:00",
+        description: "Bring a plate",
+        location: {description: "The Village Hall", postcode: "CT4 8BY"},
+        status: WalkStatus.CONFIRMED,
+        event_organiser: {name: "Rachel M"}
+      }
+    } as ExtendedGroupEvent;
+    const mapped = calendarEventFromGroupEvent(socialEvent);
+    expect(mapped?.organiser).toEqual("Rachel M");
+    expect(mapped?.organiserLabel).toEqual(OrganiserLabel.ORGANISER);
+    expect(mapped?.location).toEqual("The Village Hall, CT4 8BY");
   });
 
 });
