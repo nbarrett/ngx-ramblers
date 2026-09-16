@@ -16,6 +16,7 @@ export enum ConfigKey {
   SALESFORCE = "salesforce",
   MEMBER_SYNC_POLICY = "member-sync-policy",
   PLATFORM_SEND_CONTROL = "platform-send-control",
+  SITE_REGISTRATION = "site-registration",
   SYSTEM = "system",
   LEGACY_REDIRECT = "legacy-redirect",
   WALKS = "walks",

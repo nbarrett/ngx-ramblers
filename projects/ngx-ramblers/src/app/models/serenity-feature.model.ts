@@ -4,7 +4,8 @@ import { RamblersWalksManagerDateFormat, UIDateFormat } from "./date-format.mode
 export enum SerenityFeature {
   WALKS_UPLOAD = "walks-upload.ts",
   OS_MAPS_EXPORT = "os-maps-export.ts",
-  OS_MAPS_LIST = "os-maps-list.ts"
+  OS_MAPS_LIST = "os-maps-list.ts",
+  OS_DATA_HUB_API_KEY = "os-data-hub-api-key.ts"
 }
 
 export interface SerenityFeatureFileName {
@@ -29,6 +30,12 @@ export const SERENITY_FEATURE_FILE_NAMES: Record<SerenityFeature, SerenityFeatur
   },
   [SerenityFeature.OS_MAPS_LIST]: {
     prefix: "os-maps-list-",
+    extension: "json",
+    timestampPattern: "\\d{8}-\\d{6}",
+    timestampFormat: UIDateFormat.FILE_TIMESTAMP_COMPACT
+  },
+  [SerenityFeature.OS_DATA_HUB_API_KEY]: {
+    prefix: "os-data-hub-api-key-",
     extension: "json",
     timestampPattern: "\\d{8}-\\d{6}",
     timestampFormat: UIDateFormat.FILE_TIMESTAMP_COMPACT

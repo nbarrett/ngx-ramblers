@@ -364,11 +364,17 @@ export interface BuiltInProcessMappings {
   volunteerNotificationConfigId: string;
   memberBulkLoadDigestConfigId: string;
   photoUploadNotificationConfigId: string;
+  registrationConfirmationConfigId: string;
+  registrationInvitationConfigId: string;
+  registrationReviewConfigId: string;
 }
 
 export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
 export const MEMBER_BULK_LOAD_DIGEST_SUBJECT_TEXT = "Member bulk load summary";
 export const PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT = "Walk photos added";
+export const REGISTRATION_CONFIRMATION_SUBJECT_TEXT = "Confirm your NGX registration";
+export const REGISTRATION_INVITATION_SUBJECT_TEXT = "Your NGX site is ready to try";
+export const REGISTRATION_REVIEW_SUBJECT_TEXT = "NGX site ready for review";
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
   forgotPasswordNotificationConfigId: "Forgotten Password Reset",
@@ -378,7 +384,10 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   bookingNotificationConfigId: "Booking Notification",
   memberSyncNotificationConfigId: "Member Sync Notification",
   volunteerNotificationConfigId: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT,
-  photoUploadNotificationConfigId: PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT
+  photoUploadNotificationConfigId: PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT,
+  registrationConfirmationConfigId: REGISTRATION_CONFIRMATION_SUBJECT_TEXT,
+  registrationInvitationConfigId: REGISTRATION_INVITATION_SUBJECT_TEXT,
+  registrationReviewConfigId: REGISTRATION_REVIEW_SUBJECT_TEXT
 };
 export const PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT = "Photographs and video";
 export const PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME = "photographs-and-video";

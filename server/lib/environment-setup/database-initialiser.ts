@@ -19,6 +19,7 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { configuredEnvironments } from "../environments/environments-config";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
+import { connect as connectMongoose } from "../mongo/mongoose-client";
 import { seedAdminMenuStructure } from "../mongo/migrations/shared/seed-admin-menu";
 import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-banner";
 import { values } from "es-toolkit/compat";
@@ -33,9 +34,14 @@ export async function environmentSiteUrl(environmentName: string, appName: strin
 }
 
 export function toGroupShortName(groupName: string): string {
-  return groupName
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const name = (groupName || "").replace(/\s+/g, " ").trim();
+  const shortened = name
+    .replace(/^the\s+/i, "")
+    .replace(/^ramblers['’]?\s+/i, "")
+    .replace(/\s+ramblers['’]?(\s+(walking\s+)?group)?$/i, "")
+    .replace(/\s+(walking\s+)?group$/i, "")
+    .trim();
+  return shortened || name;
 }
 
 const COLLECTIONS = {
@@ -284,6 +290,7 @@ export async function runMigrations(mongoUri: string, reportProgress: (step: str
     } else {
       delete process.env.MONGODB_URI;
     }
+    await connectMongoose(debugLog);
   }
 }
 

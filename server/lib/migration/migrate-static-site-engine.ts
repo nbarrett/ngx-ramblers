@@ -1,12 +1,18 @@
+import { fetchPublicSiteHtml, fetchPublicSiteImage } from "../site-registration/public-site-fetch";
+import { HttpError } from "../shared/http-error";
 import { Browser, Page } from "playwright";
 import { launchBrowser as sharedLaunchBrowser } from "./browser-utils";
-import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
   ContentText,
+  IndexContentType,
+  IndexRenderMode,
   PageContent,
+  PageContentColumn,
   PageContentRow,
-  PageContentType
+  AlbumData,
+  PageContentType,
+  StringMatch
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
@@ -18,9 +24,8 @@ import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } f
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { queryAWSConfig } from "../aws/aws-controllers";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { contentTypeFrom, extensionFrom } from "../aws/aws-utils";
 import { contentMetadata } from "../mongo/models/content-metadata";
-import { progress } from "./migration-progress";
+import { assertMigrationNotCancelled, progress } from "./migration-progress";
 import * as exclusions from "./text-exclusions";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
@@ -31,6 +36,7 @@ import {
   SiteMigrationConfig
 } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import {
+  FlickrGroupLink,
   MigratedAlbum,
   MigrationResult,
   ScrapedImage,
@@ -38,20 +44,29 @@ import {
   ScrapedSegment
 } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { PageTransformationEngine } from "./page-transformation-engine";
-import { createTurndownService } from "./turndown-service-factory";
+import { htmlToMarkdown } from "./turndown-service-factory";
 import mongoose from "mongoose";
+import {uploadMigrationBufferToS3} from "./migration-file-upload";
+import { fetchFlickrGroupPool, flickrGroupNamesIn } from "../external-album/flickr-provider";
+import { SourceSiteUnavailableError, sourceSiteLimiter } from "../site-registration/source-site-limiter";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-const turndownService = createTurndownService();
-const s3 = new S3({});
 let cachedAwsConfig: AWSConfig | undefined;
 const awsConfig = (): AWSConfig => cachedAwsConfig ?? (cachedAwsConfig = queryAWSConfig());
+
+const MAX_FLICKR_GROUP_PHOTOS = 144;
+const MIN_IMAGES_FOR_PAGE_ALBUM = 4;
+const MIN_IMAGES_FOR_HOME_CAROUSEL = 2;
+const REPEATED_BLOCK_PAGE_SHARE = 0.2;
+const MIN_PAGES_FOR_REPEATED_BLOCK = 3;
 
 type Ctx = {
   config: SiteMigrationConfig;
   browser: Browser | null;
+  imageMappings: Map<string, string>;
   templateCache: Map<string, PageContent | null>;
+  sourceSiteStopped: SourceSiteUnavailableError | null;
 };
 
 function withDefaults(config: SiteMigrationConfig): SiteMigrationConfig {
@@ -79,24 +94,23 @@ async function closeBrowser(ctx: Ctx): Promise<void> {
 async function loadTemplate(ctx: Ctx, identifier?: string): Promise<PageContent | null> {
   if (!identifier) {
     return null;
-  }
-  if (ctx.templateCache.has(identifier)) {
+  } else if (ctx.templateCache.has(identifier)) {
     return ctx.templateCache.get(identifier) || null;
-  }
-  let template: PageContent | null = null;
-  if (mongoose.isValidObjectId(identifier)) {
-    template = await pageContentModel.findById(identifier).lean<PageContent>().exec();
-  }
-  if (!template) {
-    template = await pageContentModel.findOne({path: identifier}).lean<PageContent>().exec();
-  }
-  if (!template) {
-    debugLog(`❌ Template not found for identifier ${identifier}`);
+  } else if (ctx.config.templatePages) {
+    debugLog(`❌ Template not supplied with the job for identifier ${identifier}`);
+    ctx.templateCache.set(identifier, null);
+    return null;
   } else {
-    debugLog(`✅ Loaded template ${template.path || identifier}`);
+    const byId = mongoose.isValidObjectId(identifier) ? await pageContentModel.findById(identifier).lean<PageContent>().exec() : null;
+    const template = byId || await pageContentModel.findOne({path: identifier}).lean<PageContent>().exec();
+    if (!template) {
+      debugLog(`❌ Template not found for identifier ${identifier}`);
+    } else {
+      debugLog(`✅ Loaded template ${template.path || identifier}`);
+    }
+    ctx.templateCache.set(identifier, template);
+    return template;
   }
-  ctx.templateCache.set(identifier, template);
-  return template;
 }
 
 async function templateForParent(ctx: Ctx, parentPageConfig?: ParentPageConfig): Promise<PageContent | null> {
@@ -113,9 +127,6 @@ function configurePageDiagnostics(page: Page): void {
       if (status >= 400) {
         const url = res.url();
         debugLog(`❌ Subresource ${status}: ${url}`);
-        if (status !== 404) {
-          progress(`Resource load error ${status}: ${url}`);
-        }
       }
     } catch (error) {
       debugLog("response diagnostics handler failed", error);
@@ -126,17 +137,48 @@ function configurePageDiagnostics(page: Page): void {
       const url = req.url();
       const failure = req.failure()?.errorText || "request failed";
       debugLog(`❌ Subresource failed: ${url} -> ${failure}`);
-      progress(`Resource failed: ${url} -> ${failure}`);
     } catch (error) {
       debugLog("requestfailed diagnostics handler failed", error);
     }
   });
 }
 
+export function skippedPageReason(error: unknown): string {
+  const status = error instanceof HttpError ? error.status : null;
+  if (status === 404 || status === 410) {
+    return "the old site no longer has this page";
+  } else if (status) {
+    return `the old site answered with HTTP ${status}`;
+  } else {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 async function createPage(ctx: Ctx): Promise<Page> {
+  assertMigrationNotCancelled();
+  assertSourceSiteResponding(ctx);
   const browser = await launchBrowser(ctx);
-  const page = await browser.newPage();
-  configurePageDiagnostics(page);
+  const page = await browser.newPage({javaScriptEnabled: !ctx.config.publicHtmlOnly});
+  if (ctx.config.publicHtmlOnly) {
+    await page.route("**/*", async route => {
+      if (route.request().isNavigationRequest() && route.request().frame() === page.mainFrame()) {
+        try {
+          await route.fulfill({status: 200, contentType: "text/html", body: await fetchPublicSiteHtml(route.request().url())});
+        } catch (error) {
+          if (error instanceof SourceSiteUnavailableError) {
+            ctx.sourceSiteStopped = error;
+          }
+          progress(`Skipped ${route.request().url()}: ${skippedPageReason(error)}`);
+          await route.fulfill({status: 404, contentType: "text/html", body: "<html><body></body></html>"});
+        }
+      } else {
+        await route.abort();
+      }
+    });
+  }
+  if (!ctx.config.publicHtmlOnly) {
+    configurePageDiagnostics(page);
+  }
   return page;
 }
 
@@ -147,8 +189,50 @@ function toContentPath(path: string): string {
   return contentPath;
 }
 
+function fidelityText(value: string): string {
+  return exclusions.cleanMarkdown(value || "").replace(/\s+/g, " ").trim();
+}
+
+function contentColumns(rows: PageContentRow[]): PageContentColumn[] {
+  return rows.flatMap(row => row.columns || []).flatMap(column => [column, ...contentColumns(column.rows || [])]);
+}
+
+export function sourceFidelityGaps(source: ScrapedPage, target: PageContent, imageMappings: Map<string, string> = new Map()): string[] {
+  const columns = contentColumns(target.rows || []);
+  const targetText = fidelityText(columns.flatMap(column => [column.contentText || "", column.alt || ""]).join("\n"));
+  const targetImages = new Set(columns.map(column => column.imageSource).filter(Boolean));
+  const missingText = source.segments.map(segment => fidelityText(segment.text)).filter(Boolean)
+    .filter(text => !targetText.includes(text)).map((text, index) => `text block ${index + 1}: ${text.slice(0, 80)}`);
+  const sourceImages = source.segments.filter(segment => segment.image).map(segment => segment.image.src);
+  const allowedTargetImages = new Set(sourceImages.map(imageSource => imageMappings.get(imageSource) || imageSource));
+  const missingImages = sourceImages
+    .filter(imageSource => !targetImages.has(imageMappings.get(imageSource) || imageSource)).map(imageSource => `image: ${imageSource}`);
+  const nonSourceImages = [...targetImages].filter(imageSource => !allowedTargetImages.has(imageSource)).map(imageSource => `non-source image: ${imageSource}`);
+  return [...missingText, ...missingImages, ...nonSourceImages];
+}
+
+function assertSourceSiteResponding(ctx: Ctx): void {
+  if (ctx.sourceSiteStopped) {
+    throw ctx.sourceSiteStopped;
+  }
+}
+
+function assertSourceFidelity(ctx: Ctx, source: ScrapedPage, target: PageContent): void {
+  assertSourceSiteResponding(ctx);
+  if (ctx.config.requireSourceFidelity) {
+    const gaps = sourceFidelityGaps(source, target, ctx.imageMappings);
+    if (gaps.length > 0) {
+      throw new Error(`Source fidelity validation failed for ${source.path}: ${gaps.join("; ")}`);
+    }
+  }
+}
+
 function isExcludedImage(ctx: Ctx, url: string): boolean {
-  const excludes = exclusions.coerceList(ctx.config.excludeImageUrls).map(u => u.toLowerCase());
+  return excludedImage(url, ctx.config.excludeImageUrls);
+}
+
+export function excludedImage(url: string, excludeImageUrls: string[] | string): boolean {
+  const excludes = exclusions.coerceList(excludeImageUrls).map(u => u.toLowerCase());
   const u = url.toLowerCase();
   try {
     const parsed = new URL(u);
@@ -198,6 +282,52 @@ async function scrapePageLinks(ctx: Ctx): Promise<PageLink[]> {
   }
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function imageMarkers(img: ScrapedImage): string[] {
+  const url = new URL(img.src);
+  return [
+    `![${img.alt}](${img.src})`,
+    `![${img.alt}](${url.pathname})`,
+    `![${img.alt}](${url.pathname.split("/").pop()})`
+  ];
+}
+
+function imageMarkerIn(text: string, img: ScrapedImage): string | null {
+  return imageMarkers(img).reduce((found: string | null, marker) => {
+    if (found) {
+      return found;
+    } else {
+      const linked = text.match(new RegExp(`\\[${escapeRegex(marker)}\\]\\([^)]*\\)`));
+      return linked ? linked[0] : text.includes(marker) ? marker : null;
+    }
+  }, null);
+}
+
+export function markdownSegments(markdown: string, images: ScrapedImage[]): ScrapedSegment[] {
+  const state = images.reduce((current, img) => {
+    const marker = imageMarkerIn(current.remainingText, img);
+    if (marker) {
+      const [before, ...after] = current.remainingText.split(marker);
+      return {
+        segments: [...current.segments, ...(before.trim() ? [{text: before.trim()}] : []), {text: img.alt || "", image: img}],
+        matched: [...current.matched, img],
+        remainingText: after.join(marker)
+      };
+    } else {
+      debugLog(`⚠️ No image marker found for ${img.src}`);
+      return current;
+    }
+  }, {segments: [] as ScrapedSegment[], matched: [] as ScrapedImage[], remainingText: markdown});
+  return [
+    ...state.segments,
+    ...(state.remainingText.trim() ? [{text: state.remainingText.trim()}] : []),
+    ...images.filter(image => !state.matched.includes(image)).map(image => ({text: image.alt || "", image}))
+  ];
+}
+
 async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedPage> {
   const page = await createPage(ctx);
   try {
@@ -225,56 +355,36 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
         const src = img.getAttribute("src");
         if (src) img.setAttribute("src", new URL(src, location.href).href);
       });
+      Array.from(node.querySelectorAll("select")).forEach(select => {
+        const values = Array.from(select.querySelectorAll("option")).map(option => (option.textContent || "").trim()).filter(Boolean);
+        const list = document.createElement("ul");
+        values.forEach(value => {
+          const item = document.createElement("li");
+          item.textContent = value;
+          list.appendChild(item);
+        });
+        select.replaceWith(list);
+      });
+      Array.from(node.querySelectorAll("input, button, textarea")).forEach(element => element.remove());
       const html = node.innerHTML;
-      const images = Array.from(node.querySelectorAll("img")).map(img => ({
-        src: img.src,
-        alt: img.alt || ""
+      const fromImg = Array.from(node.querySelectorAll("img, input[type=image]")).map(img => ({
+        src: (img as HTMLImageElement).src || new URL(img.getAttribute("src") || "", location.href).href,
+        alt: (img as HTMLImageElement).alt || img.getAttribute("alt") || ""
       }));
+      const fromBackground = Array.from(node.querySelectorAll("[background]")).map(element => ({
+        src: new URL(element.getAttribute("background") || "", location.href).href,
+        alt: ""
+      }));
+      const images = [...fromImg, ...fromBackground].filter(image => image.src && !image.src.startsWith("data:"));
       return {html, images};
     }, {contentSelector: ctx.config.contentSelector, excludeSelectors: exclusions.coerceList(ctx.config.excludeSelectors)});
-    let markdown = turndownService.turndown(html);
+    let markdown = htmlToMarkdown(html, pageLink.path);
     markdown = exclusions.applyTextExclusions(markdown, {
       excludeTextPatterns: ctx.config.excludeTextPatterns,
       excludeMarkdownBlocks: ctx.config.excludeMarkdownBlocks,
       excludeImageUrls: ctx.config.excludeImageUrls
     });
-    const segments: ScrapedSegment[] = [];
-    let remainingText = markdown;
-    debugLog(`✅ Segmenting page ${pageLink.path}: found ${pluraliseWithCount(images.length, "image")}`);
-    debugLog(`   First 500 chars of markdown:`, markdown.substring(0, 500));
-    for (const img of images) {
-      const url = new URL(img.src);
-      const absoluteMarker = `![${img.alt}](${img.src})`;
-      const pathMarker = `![${img.alt}](${url.pathname})`;
-      const fileMarker = `![${img.alt}](${url.pathname.split("/").pop()})`;
-      debugLog(` Trying markers for img.alt="${img.alt}", img.src="${img.src}"`);
-      debugLog(` absoluteMarker: ${absoluteMarker}`);
-      debugLog(` pathMarker: ${pathMarker}`);
-      debugLog(` fileMarker: ${fileMarker}`);
-      let split = remainingText.split(absoluteMarker);
-      let markerUsed = absoluteMarker;
-      if (split.length === 1) {
-        split = remainingText.split(pathMarker);
-        markerUsed = pathMarker;
-      }
-      if (split.length === 1) {
-        split = remainingText.split(fileMarker);
-        markerUsed = fileMarker;
-      }
-      if (split.length > 1) {
-        const [before, ...after] = split;
-        if (before.trim()) segments.push({text: before.trim()});
-        segments.push({text: img.alt || "Image", image: img});
-        remainingText = after.join(markerUsed);
-        debugLog(`✅ Split on marker: ${markerUsed}, split.length=${split.length}`);
-      } else {
-        debugLog(`⚠️ No match found! Checking if marker exists in remainingText...`);
-        debugLog(`   Contains absoluteMarker: ${remainingText.includes(absoluteMarker)}`);
-        debugLog(`   Contains pathMarker: ${remainingText.includes(pathMarker)}`);
-        debugLog(`   Contains fileMarker: ${remainingText.includes(fileMarker)}`);
-      }
-    }
-    if (remainingText.trim()) segments.push({text: remainingText.trim()});
+    const segments = markdownSegments(markdown, images.filter(image => !isExcludedImage(ctx, image.src)));
     debugLog(`✅ Created ${pluraliseWithCount(segments.length, "segment")} for ${pageLink.path}`);
     debugLog(`   First segment preview:`, segments[0] ? {
       hasText: !!segments[0].text,
@@ -302,32 +412,22 @@ async function scrapeAllPages(ctx: Ctx): Promise<ScrapedPage[]> {
   return scrapedPages;
 }
 
-async function uploadImageToS3(ctx: Ctx, img: ScrapedImage): Promise<string> {
+async function uploadImageToS3(ctx: Ctx, img: ScrapedImage): Promise<string | null> {
   if (!ctx.config.uploadTos3) {
+    ctx.imageMappings.set(img.src, img.src);
     return img.src;
-  }
-  try {
-    const response = await fetch(img.src);
-    if (!response.ok) {
-      debugLog(`❌ Failed to fetch image ${img.src}: Status ${response.status}`);
+  } else {
+    try {
+      const buffer = await fetchPublicSiteImage(img.src);
+      const awsFileName = await uploadMigrationBufferToS3(ctx.config.uploadBucket || awsConfig().bucket, img.src, buffer);
+      ctx.imageMappings.set(img.src, awsFileName);
+      return awsFileName;
+    } catch (error) {
+      debugLog(`❌ Error uploading image ${img.src}:`, error);
+      progress(`Kept original image URL ${img.src}: ${error?.message || error}`);
+      ctx.imageMappings.set(img.src, img.src);
       return img.src;
     }
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const fileName = generateUid() + extensionFrom(img.src);
-    const awsFileName = `${RootFolder.siteContent}/${fileName}`;
-    debugLog(`✅ Uploading image ${img.src} to S3 as ${awsFileName}`);
-    await s3.send(new PutObjectCommand({
-      Bucket: awsConfig().bucket,
-      Key: fileName,
-      Body: buffer,
-      ContentType: contentTypeFrom(img.src),
-      ACL: "public-read"
-    }));
-    return awsFileName;
-  } catch (error) {
-    debugLog(`❌ Error uploading image ${img.src}:`, error);
-    return img.src;
   }
 }
 
@@ -366,14 +466,16 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
         lastRowIsHeading = isHeading;
       } else if (segment.image) {
         const imageSource = await uploadImageToS3(ctx, segment.image);
-        const imageAlt = segment.image.alt || segment.text || "Image";
-        imageCount++;
-        if (lastRowHasText && !lastRowIsHeading && !pendingImageSource) {
-          const prev = nestedRows[nestedRows.length - 1];
-          prev.maxColumns = 2;
-          prev.columns = [prev.columns[0], {columns: 3, imageSource, alt: imageAlt, imageBorderRadius: 6}];
-        } else {
-          pendingImageSource = {src: imageSource, alt: imageAlt};
+        if (imageSource) {
+          const imageAlt = segment.image.alt || segment.text || "Image";
+          imageCount++;
+          if (lastRowHasText && !lastRowIsHeading && !pendingImageSource) {
+            const prev = nestedRows[nestedRows.length - 1];
+            prev.maxColumns = 2;
+            prev.columns = [prev.columns[0], {columns: 3, imageSource, alt: imageAlt, imageBorderRadius: 6}];
+          } else {
+            pendingImageSource = {src: imageSource, alt: imageAlt};
+          }
         }
       }
     }
@@ -382,6 +484,7 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
     path: pagePath || "home",
     rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, rows: nestedRows}]}]
   };
+  assertSourceFidelity(ctx, content, pageContent);
   if (ctx.config.persistData) {
     const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, pageContent);
     progress(`Page migrated: ${pagePath || "home"} with ${pluraliseWithCount(textCount, "text block")} and ${pluraliseWithCount(imageCount, "image")}`);
@@ -455,6 +558,7 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
     }
   }
   const pageContent: PageContent = {path: pagePath || "home", rows: pageContentRows};
+  assertSourceFidelity(ctx, content, pageContent);
   if (ctx.config.persistData) {
     const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath || "home"}, pageContent);
     progress(`Page migrated: ${pagePath || "home"} with ${pluraliseWithCount(textCount, "text block")} and ${pluraliseWithCount(imageCount, "image")}`);
@@ -462,6 +566,41 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
   }
   progress(`Page prepared (dry run): ${pagePath || "home"} with ${pluraliseWithCount(textCount, "text block")} and ${pluraliseWithCount(imageCount, "image")}`);
   return pageContent;
+}
+
+function migratedAlbumCarousel(name: string, title: string, introductoryText: string, showPreAlbumText: boolean, albumView: AlbumView = AlbumView.GALLERY): AlbumData {
+  return {
+    name,
+    createdAt: null,
+    createdBy: null,
+    eventType: "walks",
+    title,
+    subtitle: `Photos from ${titleCase(title)}`,
+    showTitle: true,
+    introductoryText,
+    coverImageHeight: 400,
+    coverImageVerticalPosition: 50,
+    coverImageBorderRadius: 6,
+    showCoverImageAndText: false,
+    showPreAlbumText,
+    preAlbumText: null,
+    albumView,
+    gridViewOptions: {showTitles: true, showDates: true},
+    galleryViewOptions: {
+      thumbPosition: "left",
+      imageSize: "cover",
+      thumbImageSize: "cover",
+      loadingStrategy: "lazy",
+      dotsPosition: "bottom"
+    },
+    allowSwitchView: false,
+    showStoryNavigator: true,
+    showIndicators: true,
+    slideInterval: 5000,
+    height: null,
+    eventId: null,
+    eventDate: null
+  } as AlbumData;
 }
 
 function albumFrom(title: string): string {
@@ -479,12 +618,44 @@ function albumFrom(title: string): string {
   return name;
 }
 
-async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
-  if (!ctx.config.galleryPath || !ctx.config.gallerySelector || !ctx.config.galleryImagePath) {
-    debugLog("⚠️ Gallery configuration incomplete, skipping gallery scraping");
-    progress("Skipping album migration: gallery configuration incomplete");
+export async function discoverPhotoClusters(ctx: Ctx, pageUrl: string, pageTitle: string): Promise<{title: string; images: ScrapedImage[]}[]> {
+  const page = await createPage(ctx);
+  try {
+    const response = await page.goto(pageUrl, {waitUntil: "domcontentloaded", timeout: 30000});
+    if (!response || response.ok()) {
+    return await page.evaluate(({contentSelector}: {contentSelector: string}): {title: string; images: ScrapedImage[]}[] => {
+      const root = document.querySelector(contentSelector) || document.body;
+      const chrome = /previous|pause|next|play|logo|icon|btn|button|spacer|bullet|nav/i;
+      const photoSrc = (src: string) => /\.(jpe?g|png|webp)(\?|$)/i.test(src) && !chrome.test(src.split("/").pop() || "");
+      const clusters = Array.from(root.querySelectorAll("*")).map(node => {
+        const images = Array.from(node.querySelectorAll("img")).map(img => ({
+          src: (img as HTMLImageElement).src,
+          alt: (img as HTMLImageElement).alt || ""
+        })).filter(image => image.src && photoSrc(image.src));
+        return {node, images};
+      }).filter(cluster => cluster.images.length >= 3);
+      const nested = new Set(clusters.flatMap(cluster => clusters.filter(other => other !== cluster && cluster.node.contains(other.node)).map(other => other.node)));
+      return clusters.filter(cluster => !nested.has(cluster.node)).map((cluster, index) => ({
+        title: index === 0 ? "Photos" : `Photos ${index + 1}`,
+        images: cluster.images.filter((image, imageIndex, list) => list.findIndex(item => item.src === image.src) === imageIndex)
+      }));
+    }, {contentSelector: ctx.config.contentSelector}).then(clusters => clusters.map(cluster => ({
+      title: cluster.title === "Photos" ? `${pageTitle} photos` : cluster.title,
+      images: cluster.images
+    })));
+    } else {
+      return [];
+    }
+  } catch (error) {
+    debugLog("discoverPhotoClusters %s: %s", pageUrl, (error as Error).message);
     return [];
+  } finally {
+    await page.close();
   }
+}
+
+async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
+  if (ctx.config.galleryPath && ctx.config.gallerySelector && ctx.config.galleryImagePath) {
   const page = await createPage(ctx);
   const pageUrl = `${ctx.config.baseUrl}/${ctx.config.galleryPath}`;
   debugLog(`✅ Scraping gallery index at ${pageUrl}`);
@@ -509,6 +680,9 @@ async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
     return [];
   } finally {
     await page.close();
+  }
+  } else {
+    return [];
   }
 }
 
@@ -558,38 +732,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
         showSwiper: false,
         type: PageContentType.ALBUM,
         columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC}],
-        carousel: {
-          name,
-          createdAt: null,
-          createdBy: null,
-          eventType: "walks",
-          title: albumLink.title,
-          subtitle: `Photos from ${titleCase(albumLink.title)}`,
-          showTitle: true,
-          introductoryText: "To be completed",
-          coverImageHeight: 400,
-          coverImageVerticalPosition: 50,
-          coverImageBorderRadius: 6,
-          showCoverImageAndText: false,
-          showPreAlbumText: true,
-          preAlbumText: null,
-          albumView: AlbumView.GRID,
-          gridViewOptions: {showTitles: true, showDates: true},
-          galleryViewOptions: {
-            thumbPosition: "left",
-            imageSize: "cover",
-            thumbImageSize: "cover",
-            loadingStrategy: "lazy",
-            dotsPosition: "bottom"
-          },
-          allowSwitchView: true,
-          showStoryNavigator: true,
-          showIndicators: true,
-          slideInterval: 5000,
-          height: null,
-          eventId: null,
-          eventDate: null
-        } as any
+        carousel: migratedAlbumCarousel(name, albumLink.title, "To be completed", true)
       }]
     };
     if (ctx.config.persistData) {
@@ -606,25 +749,187 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
   }
 }
 
-async function migrateAlbums(ctx: Ctx): Promise<MigratedAlbum[]> {
+async function albumFromImages(ctx: Ctx, title: string, images: ScrapedImage[], albumView: AlbumView = AlbumView.GALLERY): Promise<MigratedAlbum | null> {
+  const files = (await Promise.all(images.map(async (img, index) => {
+    const uploaded = await uploadImageToS3(ctx, img);
+    return uploaded ? {
+      image: uploaded,
+      originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
+      text: (img.alt || "").trim() || humaniseFileStemFromUrl(img.src),
+      tags: []
+    } : null;
+  }))).filter(Boolean);
+  if (files.length) {
+  const name = albumFrom(title);
+  const album: ContentMetadata = {
+    rootFolder: RootFolder.siteContent,
+    name,
+    aspectRatio: null,
+    files,
+    coverImage: null,
+    imageTags: [],
+    maxImageSize: 1024
+  } as any;
+  const pageContent: PageContent = {
+    path: name,
+    rows: [{
+      maxColumns: 1,
+      showSwiper: false,
+      type: PageContentType.ALBUM,
+      columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC}],
+      carousel: migratedAlbumCarousel(name, title, "", false, albumView)
+    }]
+  };
+  if (ctx.config.persistData) {
+    const savedAlbum = await mongooseClient.upsert<ContentMetadata>(contentMetadata, {name}, album);
+    const savedPageContent = await mongooseClient.upsert<PageContent>(pageContentModel, {path: name}, pageContent);
+    return {album: savedAlbum, pageContent: savedPageContent};
+  } else {
+    return {album, pageContent};
+  }
+  } else {
+    return null;
+  }
+}
+
+function meaningfulText(text: string): boolean {
+  return /[\p{L}\p{N}]/u.test(text || "");
+}
+
+export function pageImageRuns(page: PageContent, minimumImages = MIN_IMAGES_FOR_PAGE_ALBUM): {rows: PageContentRow[]; images: ScrapedImage[]} {
+  const imageOnly = (row: PageContentRow) => (row.columns || []).length > 0
+    && (row.columns || []).every(column => !!column.imageSource && !meaningfulText(column.contentText) && !column.rows?.length);
+  const imagesOf = (rows: PageContentRow[]) => rows.flatMap(row => (row.columns || []).map(column => ({src: column.imageSource, alt: column.alt && column.alt !== "Image" ? column.alt : ""})));
+  const nestedImageRows = (row: PageContentRow) => (row.columns || []).length > 0
+    && (row.columns || []).every(column => !meaningfulText(column.contentText) && !column.imageSource && (column.rows || []).length > 0 && column.rows.every(imageOnly))
+    ? (row.columns || []).flatMap(column => column.rows)
+    : [];
+  const runs = (page.rows || []).reduce((found, row) => {
+    const nestedImages = imagesOf(nestedImageRows(row));
+    if (nestedImages.length >= minimumImages) {
+      return {rows: found.rows, images: [...found.images, ...nestedImages]};
+    } else {
+      return {rows: [...found.rows, row], images: found.images};
+    }
+  }, {rows: [] as PageContentRow[], images: [] as ScrapedImage[]});
+  const albumSources = runs.images.map(image => image.src);
+  const withoutAlbumImages = (rows: PageContentRow[]): PageContentRow[] => rows.map(row => ({
+    ...row,
+    columns: (row.columns || []).map(column => ({
+      ...column,
+      contentText: column.contentText ? exclusions.collapseExcessBlankLines(exclusions.removeExcludedImages(column.contentText, albumSources)).trim() : column.contentText,
+      rows: column.rows ? withoutAlbumImages(column.rows) : column.rows
+    }))
+  }));
+  return {rows: albumSources.length ? withoutAlbumImages(runs.rows) : runs.rows, images: runs.images};
+}
+
+export function homePage(page: PageContent): boolean {
+  return ["home", "index", "#home-content"].includes(page.path || "home");
+}
+
+export function withoutRepeatedBlocks(pageContents: PageContent[]): PageContent[] {
+  const blockKey = (block: string) => block.replace(/\s+/g, " ").trim().toLowerCase();
+  const blocksOf = (page: PageContent) => new Set((page.rows || []).flatMap(row => (row.columns || []).flatMap(column => (column.contentText || "").split(/\n\s*\n/).map(blockKey).filter(block => block.length > 0 && !/^migrated from /.test(block)))));
+  const threshold = Math.max(MIN_PAGES_FOR_REPEATED_BLOCK, Math.ceil(pageContents.length * REPEATED_BLOCK_PAGE_SHARE));
+  const counts = pageContents.reduce((found, page) => {
+    blocksOf(page).forEach(block => found.set(block, (found.get(block) || 0) + 1));
+    return found;
+  }, new Map<string, number>());
+  const homeBlocks = new Set(pageContents.filter(homePage).flatMap(page => [...blocksOf(page)]));
+  const repeated = new Set([...counts.entries()].filter(([block, count]) => count >= threshold || (homeBlocks.has(block) && count >= MIN_PAGES_FOR_REPEATED_BLOCK)).map(([block]) => block));
+  const cleanText = (text: string) => text.split(/\n\s*\n/).filter(block => !repeated.has(blockKey(block))).join("\n\n").trim();
+  return repeated.size === 0 ? pageContents : pageContents.map(page => ({
+    ...page,
+    rows: (page.rows || []).map(row => ({
+      ...row,
+      columns: (row.columns || []).map(column => column.contentText ? {...column, contentText: cleanText(column.contentText)} : column)
+    }))
+  }));
+}
+
+async function pageAlbums(ctx: Ctx, pageContents: PageContent[]): Promise<{pages: PageContent[]; albums: MigratedAlbum[]}> {
+  return pageContents.reduce(async (previous, page) => {
+    const collected = await previous;
+    const home = homePage(page);
+    const runs = pageImageRuns(page, home ? MIN_IMAGES_FOR_HOME_CAROUSEL : MIN_IMAGES_FOR_PAGE_ALBUM);
+    if (runs.images.length === 0) {
+      return {pages: [...collected.pages, page], albums: collected.albums};
+    } else {
+      const title = `${titleCase((page.path || "home").split("/").pop().replace(/-/g, " "))} photos`;
+      const album = await albumFromImages(ctx, title, runs.images, home ? AlbumView.CAROUSEL : AlbumView.GALLERY);
+      if (album) {
+        progress(`Collected ${pluraliseWithCount(runs.images.length, "photo")} from ${page.path} into the album ${title}`);
+        return {pages: [...collected.pages, {...page, rows: runs.rows}], albums: [...collected.albums, {...album, sourcePagePath: page.path}]};
+      } else {
+        return {pages: [...collected.pages, page], albums: collected.albums};
+      }
+    }
+  }, Promise.resolve({pages: [] as PageContent[], albums: [] as MigratedAlbum[]}));
+}
+
+export function flickrGroupLinks(pageContents: PageContent[]): FlickrGroupLink[] {
+  const galleryPage = (page: PageContent) => /photo|gallery|album/i.test(page.path || "") ? 0 : 1;
+  return [...pageContents].sort((left, right) => galleryPage(left) - galleryPage(right))
+    .flatMap(page => flickrGroupNamesIn(JSON.stringify(page.rows || [])).map(groupName => ({groupName, pagePath: page.path})))
+    .filter((link, index, links) => links.findIndex(item => item.groupName === link.groupName) === index);
+}
+
+async function migrateAlbums(ctx: Ctx, flickrGroups: FlickrGroupLink[] = []): Promise<MigratedAlbum[]> {
   const rawLinks = ctx.config.specificAlbums && ctx.config.specificAlbums.length > 0 ? ctx.config.specificAlbums : await scrapeGalleryLinks(ctx);
   const galleryLinks = (rawLinks || []).filter(l => l && isString(l.path) && /^https?:\/\//i.test(l.path));
-  if (!galleryLinks.length) {
-    debugLog("⚠️ No gallery links found");
-    progress("No gallery links found; skipping album migration");
-    return [];
-  }
-  progress(`Processing ${pluraliseWithCount(galleryLinks.length, "album")}`);
   const albums: MigratedAlbum[] = [];
-  for (const [index, galleryLink] of galleryLinks.entries()) {
-    progress(`Migrating album ${index + 1}/${galleryLinks.length}: ${galleryLink.title}`);
-    const album = await scrapeAlbum(ctx, galleryLink);
-    if (album) {
-      albums.push(album);
-      progress(`Completed album ${index + 1}/${galleryLinks.length}: ${galleryLink.title}`);
-    } else {
-      progress(`Skipped album ${index + 1}/${galleryLinks.length}: ${galleryLink.title}`);
+  if (galleryLinks.length) {
+    progress(`Processing ${pluraliseWithCount(galleryLinks.length, "album")}`);
+    await galleryLinks.reduce(async (previous, galleryLink, index) => {
+      await previous;
+      progress(`Migrating album ${index + 1}/${galleryLinks.length}: ${galleryLink.title}`);
+      const album = await scrapeAlbum(ctx, galleryLink);
+      if (album) {
+        albums.push(album);
+        progress(`Completed album ${index + 1}/${galleryLinks.length}: ${galleryLink.title}`);
+      } else {
+        progress(`Skipped album ${index + 1}/${galleryLinks.length}: ${galleryLink.title}`);
+      }
+    }, Promise.resolve());
+  }
+  const pagesToScan = [
+    {path: ctx.config.baseUrl, title: "Home"},
+    ...(ctx.config.parentPages || []).filter(page => page.url).map(page => ({
+      path: page.url.startsWith("http") ? page.url : `${ctx.config.baseUrl}/${page.url}`,
+      title: page.pathPrefix || "Photos"
+    }))
+  ];
+  await pagesToScan.reduce(async (previous, pageLink) => {
+    await previous;
+    const clusters = await discoverPhotoClusters(ctx, pageLink.path, pageLink.title);
+    await clusters.reduce(async (inner, cluster) => {
+      await inner;
+      progress(`Found ${pluraliseWithCount(cluster.images.length, "photo")} on ${pageLink.title}`);
+      const album = await albumFromImages(ctx, cluster.title, cluster.images);
+      if (album) {
+        albums.push(album);
+        progress(`Completed album ${cluster.title}`);
+      }
+    }, Promise.resolve());
+  }, Promise.resolve());
+  await flickrGroups.reduce(async (previous, {groupName, pagePath}) => {
+    await previous;
+    progress(`Fetching photos from the Flickr group ${groupName}`);
+    const pool = await fetchFlickrGroupPool(groupName, MAX_FLICKR_GROUP_PHOTOS).catch(error => {
+      progress(`Skipped the Flickr group ${groupName}: ${(error as Error).message}`);
+      return {title: "", photos: []};
+    });
+    if (pool.photos.length) {
+      const album = await albumFromImages(ctx, `${pool.title || groupName} photos`, pool.photos);
+      if (album) {
+        albums.push({...album, sourcePagePath: pagePath});
+        progress(`Completed album ${pool.title || groupName} photos with ${pluraliseWithCount(pool.photos.length, "photo")} from Flickr`);
+      }
     }
+  }, Promise.resolve());
+  if (!albums.length) {
+    progress("No photo albums were found on the source pages");
   }
   return albums;
 }
@@ -699,6 +1004,7 @@ async function migrateUsingTemplate(
   const engine = new PageTransformationEngine();
   const transformedPage = await engine.transformWithTemplate(scrapedPage, template, (img: ScrapedImage) => uploadImageToS3(ctx, img));
   transformedPage.path = pagePath;
+  assertSourceFidelity(ctx, scrapedPage, transformedPage);
   const templateLabel = template.path || template.migrationTemplate?.templateName || "template";
   if (ctx.config.persistData) {
     const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, transformedPage);
@@ -730,13 +1036,15 @@ async function migrateChildPage(
     const engine = new PageTransformationEngine();
     const transformedPage = await engine.transform(scrapedPage, pageTransformationConfig, (img: ScrapedImage) => uploadImageToS3(ctx, img));
     transformedPage.path = pagePath;
+    assertSourceFidelity(ctx, scrapedPage, transformedPage);
     if (ctx.config.persistData) {
       const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, transformedPage);
       progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) using transformation: ${pageTransformationConfig.name}`);
       return saved;
+    } else {
+      progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run) using transformation: ${pageTransformationConfig.name}`);
+      return transformedPage;
     }
-    progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run) using transformation: ${pageTransformationConfig.name}`);
-    return transformedPage;
   }
   const pageContentRows: PageContentRow[] = [];
   if (ctx.config.useNestedRows) {
@@ -767,13 +1075,15 @@ async function migrateChildPage(
       path: pagePath,
       rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, rows: nestedRows}]}]
     };
+    assertSourceFidelity(ctx, scrapedPage, pageContent);
     if (ctx.config.persistData) {
       const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, pageContent);
       progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath})`);
       return saved;
+    } else {
+      progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run)`);
+      return pageContent;
     }
-    progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run)`);
-    return pageContent;
   }
   for (const segment of scrapedPage.segments) {
     if (segment.text && !segment.image) {
@@ -812,6 +1122,7 @@ async function migrateChildPage(
     }
   }
   const pageContent: PageContent = {path: pagePath, rows: pageContentRows};
+  assertSourceFidelity(ctx, scrapedPage, pageContent);
   if (ctx.config.persistData) {
     const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, pageContent);
     progress(`✅ Migrated ${childLink.title} to ${pagePath}`);
@@ -845,7 +1156,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       if (parentPageContent) pageContents.push(parentPageContent);
     } else if (mode === ParentPageMode.ACTION_BUTTONS) {
       const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
-      const allChildLinks = await scrapeParentPageLinks(ctx, parentPageConfig);
+      const allChildLinks = parentPageConfig.selectedChildren ?? await scrapeParentPageLinks(ctx, parentPageConfig);
       const childLinks = parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0
         ? allChildLinks.slice(0, parentPageConfig.maxChildren)
         : allChildLinks;
@@ -857,7 +1168,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       for (const link of childLinks) {
         const cleanedTitle = (link.title || "").replace(/\s+/g, " ").trim();
         const childPath = link.contentPath || toContentPath(link.path);
-        const scraped = await scrapePageContent(ctx, link);
+        const scraped: ScrapedPage = ctx.config.publicHtmlOnly ? {path: link.path, title: cleanedTitle, segments: []} : await scrapePageContent(ctx, link);
         const segments = scraped.segments || [];
         const textSegments = segments.filter(s => s.text && !s.image);
         const nonHeading = textSegments.find(s => !/^\s*#+\s+/.test(exclusions.cleanMarkdown(s.text)));
@@ -880,12 +1191,14 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
           imageSource,
           alt: imageAlt,
           imageBorderRadius: imageSource ? 6 : undefined,
+          showPlaceholderImage: !imageSource,
           accessLevel: AccessLevel.PUBLIC
         });
       }
+      const actionButtonsTemplate = parentTemplate?.rows?.find(row => row.type === PageContentType.ACTION_BUTTONS);
       const pageContent: PageContent = {
         path: parentContentPath || "home",
-        rows: [{type: PageContentType.ACTION_BUTTONS, maxColumns: 1, showSwiper: false, columns: buttons}]
+        rows: [{...(actionButtonsTemplate ? JSON.parse(JSON.stringify(actionButtonsTemplate)) : {type: PageContentType.ACTION_BUTTONS, maxColumns: 1, showSwiper: true}), showSwiper: true, columns: buttons}]
       };
       if (ctx.config.persistData) {
         const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pageContent.path}, pageContent);
@@ -895,8 +1208,39 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
         pageContents.push(pageContent);
         progress(`Prepared action buttons (dry run) on ${pageContent.path} with ${pluraliseWithCount(buttons.length, "button")}`);
       }
+    } else if (mode === ParentPageMode.INDEX) {
+      const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
+      const title = (parentContentPath.split("/").pop() || "Index").replace(/[-_]/g, " ").replace(/\b\w/g, value => value.toUpperCase());
+      const indexTemplate = parentTemplate?.rows?.find(row => row.type === PageContentType.ALBUM_INDEX);
+      const pageContent: PageContent = {
+        path: parentContentPath,
+        rows: [{
+          ...(indexTemplate ? JSON.parse(JSON.stringify(indexTemplate)) : {type: PageContentType.ALBUM_INDEX, maxColumns: 4, minColumns: 2, showSwiper: true}),
+          showSwiper: true,
+          columns: [],
+          albumIndex: {
+            ...indexTemplate?.albumIndex,
+            contentPaths: [{contentPath: `${parentContentPath}/`, stringMatch: StringMatch.STARTS_WITH, maxPathSegments: parentContentPath.split("/").length + 1}],
+            contentTypes: [IndexContentType.PAGES, IndexContentType.INDEX_PAGES],
+            renderModes: [IndexRenderMode.ACTION_BUTTONS],
+            indexMarkdown: `# ${title}`,
+            autoTitle: false,
+            showInParentIndex: true,
+            minCols: 2,
+            maxCols: 4
+          }
+        }]
+      };
+      if (ctx.config.persistData) {
+        const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pageContent.path}, pageContent);
+        pageContents.push(saved);
+        progress(`Created child index on ${pageContent.path}`);
+      } else {
+        pageContents.push(pageContent);
+        progress(`Prepared child index (dry run) on ${pageContent.path}`);
+      }
     }
-    const allChildLinksForPages = await scrapeParentPageLinks(ctx, parentPageConfig);
+    const allChildLinksForPages = parentPageConfig.selectedChildren ?? await scrapeParentPageLinks(ctx, parentPageConfig);
     const childLinks = parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0
       ? allChildLinksForPages.slice(0, parentPageConfig.maxChildren)
       : allChildLinksForPages;
@@ -904,7 +1248,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       debugLog(`✅ Limiting to ${parentPageConfig.maxChildren} child pages`);
       progress(`Limiting to ${pluraliseWithCount(parentPageConfig.maxChildren, "child page")}`);
     }
-    for (const childLink of childLinks) {
+    for (const childLink of parentPageConfig.migrateChildren === false ? [] : childLinks) {
       const pageContent = await migrateChildPage(ctx, childLink, transformationConfig, parentTemplate);
       if (pageContent) {
         pageContents.push(pageContent);
@@ -915,9 +1259,9 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
   return pageContents;
 }
 
-export async function migrateStaticSite(configInput: SiteMigrationConfig): Promise<MigrationResult> {
+export async function migrateStaticSite(configInput: SiteMigrationConfig, browser: Browser | null = null): Promise<MigrationResult> {
   const config: SiteMigrationConfig = withDefaults(configInput);
-  const ctx: Ctx = {config, browser: null, templateCache: new Map()};
+  const ctx: Ctx = {config, browser, imageMappings: new Map(), templateCache: new Map((config.templatePages || []).map(page => [page.path, page])), sourceSiteStopped: null};
   try {
     debugLog(`✅ Starting migration for ${config.siteIdentifier}`);
     const pageContents: PageContent[] = [];
@@ -941,9 +1285,15 @@ export async function migrateStaticSite(configInput: SiteMigrationConfig): Promi
         progress(`✅ Migrated ${content.title} to ${pageContent.path}`);
       }
     }
-    const albums = await migrateAlbums(ctx);
+    const collected = await pageAlbums(ctx, withoutRepeatedBlocks(pageContents));
+    const albums = [...collected.albums, ...await migrateAlbums(ctx, flickrGroupLinks(collected.pages))];
+    assertSourceSiteResponding(ctx);
+    if (config.publicHtmlOnly) {
+      const requests = sourceSiteLimiter.summary(config.baseUrl);
+      progress(`Read ${pluraliseWithCount(requests.requests, "page")} from ${requests.host}, averaging ${requests.averageResponseMs}ms, with ${pluraliseWithCount(requests.retries, "retry", "retries")}`);
+    }
     debugLog(`✅ ${config.siteIdentifier} migration complete!`);
-    return {pageContents, contentTextItems, albums};
+    return {pageContents: collected.pages, contentTextItems, albums};
   } finally {
     await closeBrowser(ctx);
   }

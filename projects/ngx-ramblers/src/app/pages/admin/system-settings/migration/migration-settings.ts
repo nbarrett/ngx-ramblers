@@ -1,14 +1,5 @@
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  inject,
-  OnDestroy,
-  OnInit,
-  QueryList,
-  ViewChildren
-} from "@angular/core";
-import { faAdd, faArrowUpRightFromSquare, faClose, faCompress, faCopy, faExpand, faPaste, faPlay, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import {Component, inject, OnDestroy, OnInit, QueryList, ViewChildren} from "@angular/core";
+import { faAdd, faArrowUpRightFromSquare, faClose, faCopy, faPaste, faPlay, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { UIDateFormat } from "../../../../models/date-format.model";
@@ -38,22 +29,27 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { ActivatedRoute, Router } from "@angular/router";
 import { WebSocketClientService } from "../../../../services/websockets/websocket-client.service";
-import { EventType, MessageType } from "../../../../models/websocket.model";
+import { MessageType } from "../../../../models/websocket.model";
 import { DisplayTimeWithSecondsPipe } from "../../../../pipes/display-time.pipe-with-seconds";
 import { StatusIconComponent } from "../../status-icon";
-import { isNull, values } from "es-toolkit/compat";
-import { sortBy } from "../../../../functions/arrays";
+import { isNull, startCase, values } from "es-toolkit/compat";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageTransformationEditor } from "./page-transformation-editor";
 import { cloneDeep } from "es-toolkit/compat";
-import { MigrationHistory } from "../../../../models/migration-history.model";
+import { MigrationActivityLog, MigrationHistory, MigrationSettingsTab } from "../../../../models/migration-history.model";
 import { MigrationHistoryService } from "../../../../services/migration/migration-history.service";
 import { ContentTemplateType, EM_DASH_WITH_SPACES, PageContent } from "../../../../models/content-text.model";
-import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
 import { ClipboardService } from "../../../../services/clipboard.service";
 import { UiActionsService } from "../../../../services/ui-actions.service";
 import { StoredValue, StoredValueQueryParameters } from "../../../../models/ui-actions";
 import { PageContentService } from "../../../../services/page-content.service";
+import { SortableTableComponent } from "../../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn, SortableTableSortState } from "../../../../modules/common/sortable-table/sortable-table.model";
+import { SiteMapViewComponent } from "../../../../modules/common/site-map/site-map-view";
+import { SiteMapViewMode, SitemapNode } from "../../../../models/sitemap.model";
+import { migrationSectionIndex, migrationSectionNodes } from "../../../../functions/migration-section-tree";
+import { ASCENDING, DESCENDING } from "../../../../models/table-filtering.model";
 
 type SitePasteState = { active: boolean; value: string; error?: string };
 
@@ -61,51 +57,35 @@ type SitePasteState = { active: boolean; value: string; error?: string };
   selector: "app-migration-settings",
   template: `
     <app-page autoTitle>
-      <tabset class="custom-tabset">
-        <tab [active]="activeTabId === MigrationTab.SETTINGS" (selectTab)="selectTab(MigrationTab.SETTINGS)"
-             heading="Settings">
-          <div class="row">
-            <div class="col-sm-12">
-              @if (migrationConfig) {
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <ng-template #migrationBtn let-site="site">
-                    <app-badge-button [icon]="faPlay" (click)="runMigration(site)" [disabled]="!site.enabled"
-                                      caption="Run {{site.name}} Migration"/>
-                  </ng-template>
-                  <div class="col-sm-12 mt-2 mb-2">
-                    <app-content-text-editor category="admin" name="migration-settings-help"
-                                         standalone
-                                         description="Migration settings help"></app-content-text-editor>
-                  </div>
-                  <div class="col-sm-12">
-                    <app-badge-button [icon]="faAdd" (click)="addSite()" caption="Add new site"/>
-                  </div>
-                  <div class="col-sm-12 mt-3">
-                    @for (site of migrationConfig.sites; track site.name; let siteIndex = $index) {
-                      <div class="row thumbnail-heading-frame-compact">
-                        <div class="thumbnail-heading">
-                          <div>Site Configuration ({{ migrationConfig.sites.indexOf(site) + 1 }}
-                            of {{ migrationConfig.sites?.length || 0 }}${EM_DASH_WITH_SPACES}{{ site.name }})
-                          </div>
-                          <app-badge-button noRightMargin [icon]="site.expanded? faCompress : faExpand"
-                                            (click)="toggleExpandForSite(site)"
-                                            delay=500
-                                            [tooltip]="site.expanded?'Collapse site configuration':'Expand site configuration'"/>
-                          <app-badge-button noRightMargin [icon]="faClose" (click)="deleteSite(site)" delay=500
-                                            tooltip="Delete site configuration"/>
-                          <app-badge-button noRightMargin [icon]="faClone" (click)="duplicateSite(site)" delay=500
-                                            tooltip="Duplicate this site configuration"/>
-                          <app-badge-button noRightMargin [icon]="faPaste" (click)="activateSitePaste(site)" delay=500
-                                            tooltip="Paste site configuration from clipboard"/>
-                          <app-badge-button noRightMargin [icon]="faCopy" (click)="copySiteConfig(site)" delay=500
-                                            tooltip="Copy site configuration to clipboard"/>
-                        </div>
-                        @if (site.expanded) {
-                          <div class="row">
-                            <div class="col-sm-12">
-                              <ng-container [ngTemplateOutlet]="migrationBtn" [ngTemplateOutletContext]="{site: site}"/>
-                            </div>
-                          </div>
+      @if (migrationConfig) {
+        @if (migrationConfig.sites.length === 0) {
+          <div class="img-thumbnail thumbnail-admin-edit p-3 mb-3">
+            <p class="mb-0">This site has no migration configuration. One is created when a group registers and its pages are imported.</p>
+          </div>
+        }
+        @if (migrationConfig.sites.length > 1) {
+          <div class="site-chooser mb-3">
+            <span class="site-chooser-label">Old website:</span>
+            @for (option of migrationConfig.sites; track option.name) {
+              <button type="button" class="site-chooser-option" [class.active]="option === activeSite()"
+                      (click)="chooseSite(option)">{{ option.name }}</button>
+            }
+          </div>
+        }
+        @if (activeSite(); as site) {
+          @let siteIndex = migrationConfig.sites.indexOf(site);
+          <div class="migration-site-summary mb-3">
+            <div>
+              <span class="fw-semibold">{{ site.name }}</span>
+              <span class="text-muted">${EM_DASH_WITH_SPACES}{{ site.parentPages?.length || 0 }} content sections read from {{ site.baseUrl }}</span>
+            </div>
+            <div class="migration-site-actions">
+              <app-badge-button noRightMargin [icon]="faPaste" (click)="activateSitePaste(site)" delay=500
+                                tooltip="Paste site configuration from clipboard"/>
+              <app-badge-button noRightMargin [icon]="faCopy" (click)="copySiteConfig(site)" delay=500
+                                tooltip="Copy site configuration to clipboard"/>
+            </div>
+          </div>
                           @if (sitePasteActive(site)) {
                             <div class="row">
                               <div class="col-sm-12">
@@ -121,14 +101,176 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                                     <div class="text-danger mt-1">{{ sitePasteError(site) }}</div>
                                   }
                                   <div class="mt-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    <button type="button" class="btn btn-quiet"
                                             (click)="cancelSitePaste(site)">Cancel
                                     </button>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          }
+                          }        }
+      }
+      <tabset class="custom-tabset">
+        <tab [active]="activeTabId === MigrationTab.SECTIONS" (selectTab)="selectTab(MigrationTab.SECTIONS)"
+             heading="Content sections">
+          <div class="img-thumbnail thumbnail-admin-edit">
+                  <ng-template #sectionEditor let-site="site" let-parentPage="parentPage" let-siteIndex="siteIndex" let-parentIndex="parentIndex">
+                                  <div class="row p-3">
+                                    <div class="col-12">
+                                      <div class="form-group">
+                                        <label [for]="stringUtils.kebabCase('parent-url', siteIndex, parentIndex)">
+                                          Starting page on the old site</label>
+                                        <input [id]="stringUtils.kebabCase('parent-url', siteIndex, parentIndex)"
+                                               type="text" class="form-control"
+                                               placeholder="e.g., Walks/index.htm" [(ngModel)]="parentPage.url">
+                                        <div class="form-text">The landing page where this section is discovered.</div>
+                                      </div>
+                                    </div>
+                                    <div class="col-12">
+                                      <div class="form-group">
+                                        <label [for]="stringUtils.kebabCase('path-prefix', siteIndex, parentIndex)">
+                                          Destination on the new site</label>
+                                        <input [id]="stringUtils.kebabCase('path-prefix', siteIndex, parentIndex)"
+                                               type="text" class="form-control"
+                                               placeholder="e.g., walks" [(ngModel)]="parentPage.pathPrefix">
+                                        <div class="form-text">For example, <strong>about-us</strong> creates pages beneath that address.</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div class="row p-3">
+                                    <div class="col-12">
+                                      <div class="form-group">
+                                        <label
+                                          [for]="stringUtils.kebabCase('link-selector', siteIndex, parentIndex)">
+                                          Child-page links (advanced)</label>
+                                        <input [id]="stringUtils.kebabCase('link-selector', siteIndex, parentIndex)"
+                                               type="text" class="form-control"
+                                               placeholder="Leave empty to use content area"
+                                               [(ngModel)]="parentPage.linkSelector">
+                                      </div>
+                                    </div>
+                                    <div class="col-12">
+                                      <div class="form-group">
+                                        <label
+                                          [for]="stringUtils.kebabCase('migrate-parent-mode', siteIndex, parentIndex)">
+                                          Landing-page treatment</label>
+                                          <select class="form-select form-select-sm"
+                                                [id]="stringUtils.kebabCase('migrate-parent-mode', siteIndex, parentIndex)"
+                                                [(ngModel)]="parentPage.parentPageMode">
+                                          <option [ngValue]="null">Import child pages only</option>
+                                          <option [ngValue]="ParentPageMode.AS_IS">Import the landing page and its content</option>
+                                          <option [ngValue]="ParentPageMode.ACTION_BUTTONS">Import the landing page with child-page buttons
+                                          </option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div class="row p-3">
+                                    <div class="col-12">
+                                      <div class="form-group">
+                                        <label [for]="stringUtils.kebabCase('max-children', siteIndex, parentIndex)">
+                                          Child-page limit (optional)</label>
+                                        <input [id]="stringUtils.kebabCase('max-children', siteIndex, parentIndex)"
+                                               type="number" min="0" class="form-control"
+                                               placeholder="e.g., 5" [(ngModel)]="parentPage.maxChildren">
+                                      </div>
+                                    </div>
+                                    <div class="col-12">
+                                      <div class="form-group">
+                                        <label
+                                          [for]="stringUtils.kebabCase('parent-template', siteIndex, parentIndex)">
+                                          Page layout override (optional)</label>
+                                        <ng-select
+                                          class="w-100"
+                                          [id]="stringUtils.kebabCase('parent-template', siteIndex, parentIndex)"
+                                          [items]="migrationTemplates"
+                                          bindLabel="path"
+                                          bindValue="id"
+                                          [loading]="migrationTemplatesLoading"
+                                          [clearable]="true"
+                                          placeholder="Use site template"
+                                          [(ngModel)]="parentPage.templateFragmentId">
+                                          <ng-template ng-option-tmp let-item="item">
+                                            <div>{{ item?.path }}</div>
+                                          </ng-template>
+                                        </ng-select>
+                                        <div class="d-flex gap-3 flex-wrap align-items-center mt-2">
+                                          @if (parentPage.templateFragmentId) {
+                                            <a class="rams-text-decoration-pink fw-semibold"
+                                               [attr.href]="templateHref(parentPage.templateFragmentId) || null"
+                                               target="_blank" rel="noreferrer">
+                                              {{ migrationTemplateLabelById(parentPage.templateFragmentId) }}
+                                            </a>
+                                            <app-badge-button
+                                              [icon]="faArrowUpRightFromSquare"
+                                              caption="Edit template"
+                                              (click)="openTemplate(parentPage.templateFragmentId)"/>
+                                          } @else {
+                                            <span
+                                              class="small text-muted align-self-center">{{ parentTemplateSummary(site, parentPage) }}</span>
+                                          }
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div class="row p-3">
+                                    <div class="col-sm-12">
+                                      <details>
+                                        <summary class="fw-semibold mb-2 pointer">
+                                          Optional clean-up steps
+                                        </summary>
+                                        <p class="small text-muted">Use these only when this section needs different clean-up from the rest of the site. Steps run from top to bottom and change presentation without inventing or discarding source content.</p>
+                                        <app-page-transformation-editor [(config)]="parentPage.pageTransformation"/>
+                                      </details>
+                                    </div>
+                                  </div>
+                  </ng-template>
+            @if (activeSite(); as site) {
+              @let siteIndex = migrationConfig.sites.indexOf(site);
+                            <div class="p-3">
+                              <p class="mb-3">Each content section is one branch of the old site, taken from the pages chosen when the group registered. Choose a section to review or change where it starts, which linked pages come with it and where it appears on the new site.</p>
+                              <app-site-map-view [roots]="contentSectionNodes(site)" [viewMode]="SiteMapViewMode.TREE"
+                                                 [treeDepth]="0" showFilter showPreview
+                                                 (focusChange)="focusSection(site, $event)"
+                                                 emptyMessage="This site has no content sections.">
+                                @if (focusedSection(site); as parentPage) {
+                                  <div class="thumbnail-heading d-flex align-items-start justify-content-between">
+                                    <div>
+                                      <span>{{ contentSectionTitle(parentPage) }}</span>
+                                      <span class="heading-summary">{{ contentSectionSummary(parentPage) }}</span>
+                                    </div>
+                                    <app-badge-button noRightMargin (click)="deleteParentPage(site, parentPage)" delay=500
+                                                      tooltip="Delete content section" [icon]="faClose"/>
+                                  </div>
+                                  <ng-container [ngTemplateOutlet]="sectionEditor"
+                                                [ngTemplateOutletContext]="{site, parentPage, siteIndex, parentIndex: sectionIndex(site, parentPage)}"/>
+                                } @else {
+                                  <div class="thumbnail-heading">Content section</div>
+                                  <p class="mb-0">Choose a content section to review or change it. Only the section you choose is shown.</p>
+                                }
+                              </app-site-map-view>
+                            </div>
+            } @else {
+              <p class="p-3 mb-0">There is no migration configuration for this site yet.</p>
+            }
+          </div>
+        </tab>
+        <tab [active]="activeTabId === MigrationTab.RULES" (selectTab)="selectTab(MigrationTab.RULES)"
+             heading="Import rules">
+          <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="col-sm-12 mt-2 mb-2">
+                    <details>
+                      <summary class="fw-semibold pointer">Additional migration guidance</summary>
+                      <div class="mt-2">
+                        <app-content-text-editor category="admin" name="migration-settings-help"
+                                             standalone
+                                             description="Migration settings help"></app-content-text-editor>
+                      </div>
+                    </details>
+                  </div>
+            @if (activeSite(); as site) {
+              @let siteIndex = migrationConfig.sites.indexOf(site);
+                            <p class="small text-muted mt-2 mb-3">These settings apply to every content section. Most generated registrations are ready to use without changing them.</p>
                           <div class="row">
                             <div class="col-sm-6">
                               <div class="form-group">
@@ -331,128 +473,6 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                               }
                             }
                           </div>
-                          <div class="thumbnail-heading-frame-compact">
-                            <div class="thumbnail-heading">Parent Pages
-                              <app-badge-button (click)="addParentPage(site)" delay=500
-                                                tooltip="Add parent page" [icon]="faAdd"/>
-                            </div>
-                            @if (site.parentPages?.length) {
-                              @for (parentPage of site.parentPages; track parentPage.url; let parentIndex = $index) {
-                                <div class="thumbnail-heading-frame-compact">
-                                  <div class="thumbnail-heading">Parent Page {{ parentIndex + 1 }}
-                                    <app-badge-button (click)="deleteParentPage(site, parentPage)" delay=500
-                                                      tooltip="Delete parent page" [icon]="faClose"/>
-                                  </div>
-                                  <div class="row p-3">
-                                    <div class="col-sm-6">
-                                      <div class="form-group">
-                                        <label [for]="stringUtils.kebabCase('parent-url', siteIndex, parentIndex)">
-                                          Parent Page URL</label>
-                                        <input [id]="stringUtils.kebabCase('parent-url', siteIndex, parentIndex)"
-                                               type="text" class="form-control"
-                                               placeholder="e.g., Walks/index.htm" [(ngModel)]="parentPage.url">
-                                      </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                      <div class="form-group">
-                                        <label [for]="stringUtils.kebabCase('path-prefix', siteIndex, parentIndex)">
-                                          Path Prefix</label>
-                                        <input [id]="stringUtils.kebabCase('path-prefix', siteIndex, parentIndex)"
-                                               type="text" class="form-control"
-                                               placeholder="e.g., walks" [(ngModel)]="parentPage.pathPrefix">
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div class="row p-3">
-                                    <div class="col-sm-6">
-                                      <div class="form-group">
-                                        <label
-                                          [for]="stringUtils.kebabCase('link-selector', siteIndex, parentIndex)">
-                                          Link Selector (optional)</label>
-                                        <input [id]="stringUtils.kebabCase('link-selector', siteIndex, parentIndex)"
-                                               type="text" class="form-control"
-                                               placeholder="Leave empty to use content area"
-                                               [(ngModel)]="parentPage.linkSelector">
-                                      </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                      <div class="form-group">
-                                        <label
-                                          [for]="stringUtils.kebabCase('migrate-parent-mode', siteIndex, parentIndex)">
-                                          Migrate parent page</label>
-                                          <select class="form-select form-select-sm"
-                                                [id]="stringUtils.kebabCase('migrate-parent-mode', siteIndex, parentIndex)"
-                                                [(ngModel)]="parentPage.parentPageMode">
-                                          <option [ngValue]="null">Not migrated</option>
-                                          <option [ngValue]="ParentPageMode.AS_IS">As-is</option>
-                                          <option [ngValue]="ParentPageMode.ACTION_BUTTONS">With Links as Action Buttons Row
-                                          </option>
-                                        </select>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div class="row p-3">
-                                    <div class="col-sm-6">
-                                      <div class="form-group">
-                                        <label [for]="stringUtils.kebabCase('max-children', siteIndex, parentIndex)">
-                                          Max child pages (optional)</label>
-                                        <input [id]="stringUtils.kebabCase('max-children', siteIndex, parentIndex)"
-                                               type="number" min="0" class="form-control"
-                                               placeholder="e.g., 5" [(ngModel)]="parentPage.maxChildren">
-                                      </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                      <div class="form-group">
-                                        <label
-                                          [for]="stringUtils.kebabCase('parent-template', siteIndex, parentIndex)">
-                                          Override Template (optional)</label>
-                                        <ng-select
-                                          class="w-100"
-                                          [id]="stringUtils.kebabCase('parent-template', siteIndex, parentIndex)"
-                                          [items]="migrationTemplates"
-                                          bindLabel="path"
-                                          bindValue="id"
-                                          [loading]="migrationTemplatesLoading"
-                                          [clearable]="true"
-                                          placeholder="Use site template"
-                                          [(ngModel)]="parentPage.templateFragmentId">
-                                          <ng-template ng-option-tmp let-item="item">
-                                            <div>{{ item?.path }}</div>
-                                          </ng-template>
-                                        </ng-select>
-                                        <div class="d-flex gap-3 flex-wrap align-items-center mt-2">
-                                          @if (parentPage.templateFragmentId) {
-                                            <a class="rams-text-decoration-pink fw-semibold"
-                                               [attr.href]="templateHref(parentPage.templateFragmentId) || null"
-                                               target="_blank" rel="noreferrer">
-                                              {{ migrationTemplateLabelById(parentPage.templateFragmentId) }}
-                                            </a>
-                                            <app-badge-button
-                                              [icon]="faArrowUpRightFromSquare"
-                                              caption="Edit template"
-                                              (click)="openTemplate(parentPage.templateFragmentId)"/>
-                                          } @else {
-                                            <span
-                                              class="small text-muted align-self-center">{{ parentTemplateSummary(site, parentPage) }}</span>
-                                          }
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div class="row p-3">
-                                    <div class="col-sm-12">
-                                      <details #transformationDetails>
-                                        <summary class="fw-semibold mb-2 pointer">
-                                          Page Transformation Configuration (optional)
-                                        </summary>
-                                        <app-page-transformation-editor [(config)]="parentPage.pageTransformation"/>
-                                      </details>
-                                    </div>
-                                  </div>
-                                </div>
-                              }
-                            }
-                          </div>
                           <div class="row p-3">
                             <div class="col-sm-3">
                               <div class="form-group">
@@ -499,26 +519,9 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                               </div>
                             </div>
                           </div>
-                          <div class="row">
-                            <div class="col-sm-12">
-                              <ng-container [ngTemplateOutlet]="migrationBtn"
-                                            [ngTemplateOutletContext]="{site: site}"/>
-                            </div>
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                </div>
-              }
-              <div class="row">
-                <div class="col-sm-12">
-                  <app-form-save-actions
-                    [disabled]="notReady()"
-                    [actions]="formSaveActions"/>
-                </div>
-              </div>
-            </div>
+            } @else {
+              <p class="p-3 mb-0">There is no migration configuration for this site yet.</p>
+            }
           </div>
         </tab>
         <tab [active]="activeTabId === MigrationTab.ACTIVITY" (selectTab)="selectTab(MigrationTab.ACTIVITY)"
@@ -538,187 +541,122 @@ type SitePasteState = { active: boolean; value: string; error?: string };
             }
             <div class="row p-3">
               <div class="col-sm-12">
-                <div class="d-none d-md-block">
-                  <div class="row g-2 align-items-center mb-2">
-                    <div class="col-12 col-md-auto">
-                      <label class="form-label mb-0">History:</label>
-                    </div>
-                    <div class="col" style="min-width: 0;">
-                      @if (showHistorySelect) {
-                        <ng-select [clearable]="true"
-                                   bindLabel="createdDate"
-                                   [searchable]="false"
-                                   [(ngModel)]="selectedHistory"
-                                   (ngModelChange)="onHistoryChange()"
-                                   dropdownPosition="bottom">
-                          <ng-template ng-label-tmp let-h="item">
+                <div class="row g-2 align-items-center mb-2">
+                  <div class="col-12 col-md-auto">
+                    <label class="form-label mb-0">Migration run</label>
+                  </div>
+                  <div class="col activity-history-select">
+                    @if (showHistorySelect) {
+                      <ng-select [clearable]="true" bindLabel="createdDate" [searchable]="false"
+                                 [(ngModel)]="selectedHistory" (ngModelChange)="onHistoryChange()"
+                                 dropdownPosition="bottom">
+                        <ng-template ng-label-tmp let-h="item">
+                          <div class="d-flex align-items-center">
+                            <app-status-icon noLabel [status]="h.status || 'info'"/>
+                            <span class="ms-2 text-truncate">{{ h.createdDate | displayTimeWithSeconds }} — {{ decode(h.siteIdentifier || h.siteName) }}</span>
+                          </div>
+                        </ng-template>
+                        @for (h of migrationHistories; track h.id) {
+                          <ng-option [value]="h">
                             <div class="d-flex align-items-center">
                               <app-status-icon noLabel [status]="h.status || 'info'"/>
-                              <span class="ms-2 text-truncate">{{ h.createdDate | displayTimeWithSeconds }}
-                                — {{ decode(h.siteIdentifier || h.siteName) }}</span>
+                              <span class="ms-2 text-truncate">{{ h.createdDate | displayTimeWithSeconds }} — {{ decode(h.siteIdentifier || h.siteName) }}</span>
                             </div>
-                          </ng-template>
-                          @for (h of migrationHistories; track h.id) {
-                            <ng-option [value]="h">
-                              <div class="d-flex align-items-center">
-                                <app-status-icon noLabel [status]="h.status || 'info'"/>
-                                <span class="ms-2 text-truncate">{{ h.createdDate | displayTimeWithSeconds }}
-                                  — {{ decode(h.siteIdentifier || h.siteName) }}</span>
-                              </div>
-                            </ng-option>
-                          }
-                        </ng-select>
-                      } @else {
-                        <div class="d-flex align-items-center">
-                          <app-status-icon noLabel [status]="'info'"/>
-                          <span class="ms-2">Finding history...</span>
-                        </div>
-                      }
-                    </div>
-                    @if (selectedHistory) {
-                      <div class="col-auto">
-                        <button type="button" class="btn btn-sm btn-secondary" (click)="clearHistorySelection()">Clear
-                        </button>
-                      </div>
-                    }
-                  </div>
-                  <div class="audit-table-scroll">
-                    <table class="round styled-table table-striped table-hover table-sm table-pointer">
-                      <thead>
-                      <tr>
-                        <th (click)="sortLogsBy('status')"><span class="nowrap">Status @if (logSortField === 'status') {
-                          <span class="sorting-header">{{ logSortDirection === 'DESC' ? '▼' : '▲' }}</span>
-                        }</span></th>
-                        <th (click)="sortLogsBy('time')"><span class="nowrap">Time @if (logSortField === 'time') {
-                          <span class="sorting-header">{{ logSortDirection === 'DESC' ? '▼' : '▲' }}</span>
-                        }</span></th>
-                        <th (click)="sortLogsBy('message')"><span
-                          class="nowrap">Message @if (logSortField === 'message') {
-                          <span class="sorting-header">{{ logSortDirection === 'DESC' ? '▼' : '▲' }}</span>
-                        }</span></th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                        @for (log of filteredLogs; track log.id) {
-                          <tr>
-                            <td>
-                              <app-status-icon noLabel [status]="log.status"/>
-                            </td>
-                            <td class="nowrap">{{ log.time | displayTimeWithSeconds }}</td>
-                            <td class="text-break" markdown>{{ log.message }}</td>
-                          </tr>
+                          </ng-option>
                         }
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div class="d-md-none">
-                  <div class="row g-2 align-items-center mb-2">
-                    <div class="col-12 col-md-auto">
-                      <label class="form-label mb-0">History:</label>
-                    </div>
-                    <div class="col" style="min-width: 0;">
-                      @if (showHistorySelect) {
-                        <ng-select [clearable]="true"
-                                   bindLabel="createdDate"
-                                   [searchable]="false"
-                                   [(ngModel)]="selectedHistory"
-                                   (ngModelChange)="onHistoryChange()"
-                                   dropdownPosition="bottom">
-                          <ng-template ng-label-tmp let-h="item">
-                            <div class="d-flex align-items-center">
-                              <app-status-icon noLabel [status]="h.status || 'info'"/>
-                              <span class="ms-2 text-truncate">{{ h.createdDate | displayTimeWithSeconds }}
-                                — {{ decode(h.siteIdentifier || h.siteName) }}</span>
-                            </div>
-                          </ng-template>
-                          @for (h of migrationHistories; track h.id) {
-                            <ng-option [value]="h">
-                              <div class="d-flex align-items-center">
-                                <app-status-icon noLabel [status]="h.status || 'info'"/>
-                                <span class="ms-2 text-truncate">{{ h.createdDate | displayTimeWithSeconds }}
-                                  — {{ decode(h.siteIdentifier || h.siteName) }}</span>
-                              </div>
-                            </ng-option>
-                          }
-                        </ng-select>
-                      } @else {
-                        <div class="d-flex align-items-center">
-                          <app-status-icon noLabel [status]="'info'"/>
-                          <span class="ms-2">Finding history...</span>
-                        </div>
-                      }
-                    </div>
-                    @if (selectedHistory) {
-                      <div class="col-12 mt-2">
-                        <button type="button" class="btn btn-sm btn-secondary w-100" (click)="clearHistorySelection()">
-                          Clear
-                        </button>
+                      </ng-select>
+                    } @else {
+                      <div class="d-flex align-items-center">
+                        <app-status-icon noLabel [status]="'info'"/>
+                        <span class="ms-2">Finding migration runs...</span>
                       </div>
                     }
                   </div>
-                  @for (log of filteredLogs; track log.id) {
-                    <div class="border rounded p-2 mb-2">
-                      <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                        <app-status-icon noLabel [status]="log.status"/>
-                        <span class="fw-semibold">{{ log.time | displayTimeWithSeconds }}</span>
-                      </div>
-                      <div class="text-break">{{ log.message }}</div>
+                  @if (selectedHistory) {
+                    <div class="col-12 col-md-auto">
+                      <button type="button" class="btn btn-quiet w-100" (click)="clearHistorySelection()">Show current activity</button>
                     </div>
                   }
                 </div>
+                <app-sortable-table [rows]="logs" [columns]="logColumns" [defaultSortKey]="logSortField"
+                                    [defaultSortDirection]="logSortDirection" maxHeight="60vh"
+                                    emptyMessage="No activity has been recorded for this migration run."
+                                    (sortChange)="logSortChanged($event)">
+                  <ng-template appSortableTableCell="status" let-log>
+                    <app-status-icon noLabel [status]="log.status"/>
+                  </ng-template>
+                  <ng-template appSortableTableCell="time" let-log>
+                    <span class="nowrap">{{ log.time | displayTimeWithSeconds }}</span>
+                  </ng-template>
+                  <ng-template appSortableTableCell="message" let-log>
+                    <div class="text-break" markdown>{{ log.message }}</div>
+                  </ng-template>
+                </app-sortable-table>
               </div>
             </div>
           </div>
         </tab>
       </tabset>
-    </app-page>`,
+      @if (activeSite()) {
+        <div class="row">
+          <div class="col-sm-12">
+            <app-form-save-actions [disabled]="notReady()" [actions]="formSaveActions"/>
+          </div>
+        </div>
+      }
+`,
   styles: [`
-    .audit-table-scroll
-      position: relative
-      max-height: 60vh
-      overflow-y: auto
-      overflow-x: hidden
+    .activity-history-select
+      min-width: 0
 
-    .audit-table-scroll table
-      margin-bottom: 0
-      width: 100%
+    .migration-site-summary
+      display: flex
+      flex-wrap: wrap
+      gap: .5rem
+      align-items: center
+      justify-content: space-between
 
-    .audit-table-scroll thead
-      position: sticky
-      top: 0
-      z-index: 20
-      background-clip: padding-box
+    .migration-site-actions
+      display: flex
+      gap: .25rem
 
-    .audit-table-scroll thead th
-      position: sticky
-      top: 0
-      z-index: 20
-      box-shadow: 0 1px 0 rgba(0,0,0,0.05)
+    .site-chooser
+      display: flex
+      flex-wrap: wrap
+      gap: .5rem
+      align-items: center
 
-    .audit-table-scroll th, .audit-table-scroll td
-      vertical-align: top
-      padding-top: .5rem
-      padding-bottom: .5rem
+    .site-chooser-label
+      font-weight: 600
 
-    .audit-table-scroll td[markdown]
-      white-space: normal
-      line-height: 1.35
+    .site-chooser-option
+      border: 1px solid #ced4da
+      background: #fff
+      border-radius: 2rem
+      padding: .15rem .75rem
+      &.active
+        background: #f1b495
+        border-color: #f1b495
+        font-weight: 600
 
-    .audit-table-scroll td[markdown] p,
-    .audit-table-scroll td[markdown] ul,
-    .audit-table-scroll td[markdown] ol,
-    .audit-table-scroll td[markdown] pre,
-    .audit-table-scroll td[markdown] blockquote
-      margin-top: 0
-      margin-bottom: .25rem
+    .site-chooser
+      display: flex
+      flex-wrap: wrap
+      gap: .5rem
+      align-items: center
 
-    .audit-table-scroll td[markdown] > :last-child
-      margin-bottom: 0
+    .site-chooser-label
+      font-weight: 600
 
-    .audit-table-scroll td[markdown] a
-      word-break: break-word
-      overflow-wrap: anywhere
+    .site-chooser-option
+      border: 1px solid #ced4da
+      background: #fff
+      border-radius: 2rem
+      padding: .15rem .75rem
+      &.active
+        background: #f1b495
+        border-color: #f1b495
+        font-weight: 600
 
     .migration-template-link
       cursor: pointer
@@ -730,15 +668,35 @@ type SitePasteState = { active: boolean; value: string; error?: string };
       border-radius: 4px
       display: inline-block
 
+    .migration-flow
+      display: flex
+      align-items: center
+      flex-wrap: wrap
+      gap: var(--space-2)
+
+    .migration-flow span
+      padding: var(--space-2) var(--space-3)
+      border-radius: var(--radius-2)
+      background: var(--rsm-table-header-bg)
+      color: var(--rsm-text)
+      font-weight: 600
+
+    .heading-summary
+      display: block
+      margin-top: var(--space-1)
+      color: var(--rsm-muted)
+      font-size: .8rem
+      font-weight: 400
+
     details[open]
       overflow: visible
 
     .thumbnail-heading-frame-compact:has(details[open])
       overflow: visible
   `],
-  imports: [PageComponent, ContentTextEditor, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent]
+  imports: [PageComponent, ContentTextEditor, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditor, NgOptionComponent, NgOptionTemplateDirective, FormSaveActionsComponent, SortableTableComponent, SortableTableCellDirective, SiteMapViewComponent]
 })
-export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
+export class MigrationSettingsComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MigrationSettingsComponent", NgxLoggerLevel.ERROR);
   public formSaveActions: FormSaveActions = {
@@ -748,6 +706,11 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     cancel: () => this.cancel()
   };
   protected readonly ParentPageMode = ParentPageMode;
+  protected readonly SiteMapViewMode = SiteMapViewMode;
+  private focusedSectionIndexes: Record<string, number> = {};
+  private chosenSiteName = "";
+  private sectionNodes: Record<string, SitemapNode[]> = {};
+  private sectionNodeSignatures: Record<string, string> = {};
   stringUtils = inject(StringUtilsService);
   private urlService = inject(UrlService);
   private migrationConfigService = inject(MigrationConfigService);
@@ -762,35 +725,33 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   public migrationConfig: MigrationConfig;
   protected readonly faClose = faClose;
   protected readonly faAdd = faAdd;
-  protected readonly faPlay = faPlay;
-  protected readonly faExpand = faExpand;
-  protected readonly faClone = faClone;
-  protected readonly faCompress = faCompress;
   protected readonly faPaste = faPaste;
   protected readonly faCopy = faCopy;
   protected readonly faSpinner = faSpinner;
   protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
   public activityMessages: string[] = [];
   public activityNotifier: AlertInstance;
-  public MigrationTab = { SETTINGS: "settings", ACTIVITY: "activity" } as const;
-  public activeTabId: string = this.MigrationTab.SETTINGS;
+  public MigrationTab = MigrationSettingsTab;
+  public activeTabId: MigrationSettingsTab = MigrationSettingsTab.SECTIONS;
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private clipboardService = inject(ClipboardService);
   private migrationHistoryService = inject(MigrationHistoryService);
   private uiActionsService = inject(UiActionsService);
   private pageContentService = inject(PageContentService);
-  public logs: { id: string; status: string; time: number; message: string }[] = [];
-  public filteredLogs: { id: string; status: string; time: number; message: string }[] = [];
+  public logs: MigrationActivityLog[] = [];
   public migrationHistories: MigrationHistory[] = [];
   public selectedHistory: MigrationHistory | null = null;
-  public streamingLogs: { id: string; status: string; time: number; message: string }[] = [];
+  public streamingLogs: MigrationActivityLog[] = [];
   public showHistorySelect = false;
   public logSortField = "time";
-  public logReverseSort = true;
-  public logSortDirection = "DESC";
+  public logSortDirection = DESCENDING;
+  public logColumns: SortableTableColumn<MigrationActivityLog>[] = [
+    {key: "status", label: "Status", sortKey: "status", cellGetter: log => log.status},
+    {key: "time", label: "Time", sortKey: "time", cellGetter: log => log.time},
+    {key: "message", label: "Message", sortKey: "message", cellGetter: log => log.message}
+  ];
   private pendingSessionParam: string | null = null;
   private activeHistorySessionId: string | null = null;
-  @ViewChildren("transformationDetails") transformationDetailsElements: QueryList<ElementRef<HTMLDetailsElement>>;
   @ViewChildren(ContentTextEditor) editors: QueryList<ContentTextEditor>;
   private sitePasteState: Map<SiteMigrationConfig, SitePasteState> = new Map();
   public migrationTemplates: PageContent[] = [];
@@ -805,8 +766,10 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     this.activityNotifier = this.notifierService.createAlertInstance(this.activityTarget);
     this.route.queryParams.subscribe(params => {
       const tab = params[StoredValue.TAB];
-      this.activeTabId = tab && values(this.MigrationTab).includes(tab) ? tab : this.MigrationTab.SETTINGS;
+      this.activeTabId = tab && values(this.MigrationTab).includes(tab) ? tab as MigrationSettingsTab : this.MigrationTab.SECTIONS;
       this.pendingSessionParam = params[StoredValue.SESSION];
+      this.logSortField = params[StoredValue.MIGRATION_LOG_SORT] || "time";
+      this.logSortDirection = params[StoredValue.MIGRATION_LOG_SORT_ORDER] === ASCENDING ? ASCENDING : DESCENDING;
     });
     this.webSocketClientService.connect().then(() => {
       this.subscriptions.push(this.webSocketClientService.receiveMessages<any>(MessageType.PROGRESS).subscribe((data: any) => {
@@ -869,37 +832,9 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     this.refreshMigrationTemplates();
   }
 
-  ngAfterViewInit(): void {
-    this.autoExpandTransformationDetails();
-    this.transformationDetailsElements.changes.subscribe(() => {
-      this.autoExpandTransformationDetails();
-    });
-  }
-
   ngOnDestroy(): void {
     this.subscription.unsubscribe();
     this.subscriptions.forEach(s => s.unsubscribe());
-  }
-
-  private autoExpandTransformationDetails(): void {
-    if (!this.migrationConfig?.sites) return;
-
-    setTimeout(() => {
-      const detailsArray = this.transformationDetailsElements?.toArray() || [];
-      let detailsIndex = 0;
-
-      this.migrationConfig.sites.forEach(site => {
-        site.parentPages?.forEach(parentPage => {
-          if (detailsIndex < detailsArray.length) {
-            const detailsElement = detailsArray[detailsIndex].nativeElement;
-            if (parentPage.pageTransformation?.steps?.length > 0) {
-              detailsElement.open = true;
-            }
-            detailsIndex++;
-          }
-        });
-      });
-    }, 0);
   }
 
   saveAndExit() {
@@ -932,18 +867,6 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
 
   notReady() {
     return !this.migrationConfig;
-  }
-
-  deleteSite(site: SiteMigrationConfig) {
-    this.migrationConfig.sites = this.migrationConfig.sites.filter(item => item !== site);
-  }
-
-  duplicateSite(site: SiteMigrationConfig) {
-    const duplicatedSite: SiteMigrationConfig = cloneDeep(site);
-    duplicatedSite.name = "Copy of " + duplicatedSite.name;
-    const rowIndex = this.migrationConfig.sites.indexOf(site);
-    this.logger.info("duplicateSite:site:", duplicatedSite, "at index position:", rowIndex);
-    this.migrationConfig.sites.splice(rowIndex, 0, duplicatedSite);
   }
 
   activateSitePaste(site: SiteMigrationConfig) {
@@ -1046,6 +969,56 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     return "No template selected";
   }
 
+  activeSite(): SiteMigrationConfig {
+    const sites = this.migrationConfig?.sites || [];
+    return sites.find(site => site.name === this.chosenSiteName) || sites[0] || null;
+  }
+
+  chooseSite(site: SiteMigrationConfig): void {
+    this.chosenSiteName = site?.name || "";
+  }
+
+  contentSectionNodes(site: SiteMigrationConfig): SitemapNode[] {
+    const nodes = migrationSectionNodes(site.parentPages || [], section => ({
+      title: this.contentSectionTitle(section),
+      detail: this.contentSectionSummary(section)
+    }));
+    const signature = JSON.stringify(nodes);
+    if (this.sectionNodeSignatures[site.name] !== signature) {
+      this.sectionNodeSignatures[site.name] = signature;
+      this.sectionNodes[site.name] = nodes;
+    }
+    return this.sectionNodes[site.name];
+  }
+
+  focusSection(site: SiteMigrationConfig, node: SitemapNode): void {
+    this.focusedSectionIndexes[site.name] = node ? migrationSectionIndex(node.key) : -1;
+  }
+
+  focusedSection(site: SiteMigrationConfig): ParentPageConfig {
+    return (site.parentPages || [])[this.focusedSectionIndexes[site.name]] || null;
+  }
+
+  sectionIndex(site: SiteMigrationConfig, parentPage: ParentPageConfig): number {
+    return (site.parentPages || []).indexOf(parentPage);
+  }
+
+  contentSectionTitle(parentPage: ParentPageConfig): string {
+    const path = parentPage.pathPrefix || parentPage.url || "New section";
+    const finalSegment = path.split(/[/?#]/).filter(Boolean).pop() || path;
+    return startCase(finalSegment.replace(/\.[a-z0-9]+$/i, ""));
+  }
+
+  contentSectionSummary(parentPage: ParentPageConfig): string {
+    const landingPage = parentPage.parentPageMode === ParentPageMode.ACTION_BUTTONS ? "landing page with buttons"
+      : parentPage.parentPageMode === ParentPageMode.AS_IS || parentPage.migrateParent ? "landing page and content"
+        : "child pages only";
+    const selectedChildren = parentPage.selectedChildren?.length;
+    const childPages = selectedChildren ? `${selectedChildren} selected child ${selectedChildren === 1 ? "page" : "pages"}`
+      : parentPage.migrateChildren ? "linked child pages" : "no child pages selected";
+    return `${landingPage}; ${childPages}`;
+  }
+
   siteConfigJson(site: SiteMigrationConfig): string {
     return JSON.stringify(this.prepareSiteForCopy(site), null, 2);
   }
@@ -1076,26 +1049,10 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     return clone;
   }
 
-  addSite() {
-    this.migrationConfig.sites.push(this.migrationConfigService.emptySiteMigrationConfig());
-  }
-
-  addParentPage(site: SiteMigrationConfig) {
-    if (!site.parentPages) {
-      site.parentPages = [];
-    }
-    site.parentPages.push({
-      url: "",
-      pathPrefix: "",
-      linkSelector: "",
-      migrateParent: false,
-      maxChildren: undefined
-    });
-  }
-
   deleteParentPage(site: SiteMigrationConfig, parentPage: ParentPageConfig) {
     if (site.parentPages) {
       site.parentPages = site.parentPages.filter(item => item !== parentPage);
+      this.focusedSectionIndexes[site.name] = -1;
     }
   }
 
@@ -1116,28 +1073,7 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     this.migrationConfigService.refreshConfig();
   }
 
-  runMigration(site: SiteMigrationConfig) {
-    if (!site.enabled) {
-      this.logger.warn("Site is disabled:", site.name);
-      return;
-    }
-
-    const siteName = encodeURIComponent(site.name);
-    const persistData = site.persistData || false;
-    const uploadTos3 = site.uploadTos3 || false;
-    this.activityMessages = [];
-    this.selectTab(this.MigrationTab.ACTIVITY);
-    this.activityNotifier.warning({ title: "Migration", message: `Starting migration for ${site.name}` }, false, true);
-    this.activityMessages.push(`Started migration for ${site.name}`);
-    this.logs = [];
-    this.filteredLogs = [];
-    this.addLog("info", `Starting migration for ${site.name}`);
-    this.webSocketClientService.connect().then(() => {
-      this.webSocketClientService.sendMessage(EventType.SITE_MIGRATION, { siteName, persistData, uploadTos3, siteConfig: site });
-    });
-  }
-
-  selectTab(tab: string): void {
+  selectTab(tab: MigrationSettingsTab): void {
     this.activeTabId = tab;
     this.updateUrl();
   }
@@ -1146,23 +1082,12 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     const now = this.dateUtils.dateTimeNowAsValue();
     const entry = { id: `${now}-${Math.random().toString(36).slice(2, 8)}`, status, time: now, message };
     this.logs = [entry, ...this.logs];
-    this.applyLogSorting();
   }
 
-  sortLogsBy(field: string): void {
-    if (this.logSortField === field) {
-      this.logReverseSort = !this.logReverseSort;
-    } else {
-      this.logReverseSort = true;
-    }
-    this.logSortField = field;
-    this.logSortDirection = this.logReverseSort ? "DESC" : "ASC";
-    this.applyLogSorting();
-  }
-
-  private applyLogSorting(): void {
-    const prefix = this.logReverseSort ? "-" : "";
-    this.filteredLogs = this.logs.slice().sort(sortBy(`${prefix}${this.logSortField}`));
+  logSortChanged(sort: SortableTableSortState): void {
+    this.logSortField = sort.key || "time";
+    this.logSortDirection = sort.direction;
+    this.updateUrl();
   }
 
   async loadHistory() {
@@ -1190,20 +1115,18 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   onHistoryChange() {
     if (!this.selectedHistory) {
       this.logs = this.streamingLogs.slice();
-      this.applyLogSorting();
       this.updateUrl();
-      return;
+    } else {
+      const h = this.selectedHistory;
+      this.logs = (h.auditLog || []).map(log => ({ id: `${log.time}-${Math.random().toString(36).slice(2, 6)}`, status: log.status || "info", time: log.time || 0, message: log.message }));
+      this.updateUrl();
     }
-    const h = this.selectedHistory;
-    this.logs = (h.auditLog || []).map(log => ({ id: `${log.time}-${Math.random().toString(36).slice(2, 6)}`, status: log.status || "info", time: log.time || 0, message: log.message }));
-    this.applyLogSorting();
-    this.updateUrl();
   }
 
   clearHistorySelection() {
     this.selectedHistory = null;
     this.logs = this.streamingLogs.slice();
-    this.applyLogSorting();
+    this.updateUrl();
   }
 
   private shouldDisplayStreamingLog(historyId: string | null): boolean {
@@ -1216,9 +1139,8 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     return this.historySessionId(this.selectedHistory) === historyId;
   }
 
-  private appendLogEntry(log: { id: string; status: string; time: number; message: string }, historyId: string | null): void {
+  private appendLogEntry(log: MigrationActivityLog, historyId: string | null): void {
     this.logs = [log, ...this.logs];
-    this.applyLogSorting();
     if (historyId && this.selectedHistory && this.historySessionId(this.selectedHistory) === historyId) {
       const auditEntry = { time: log.time, status: log.status, message: log.message };
       this.selectedHistory.auditLog = [auditEntry, ...(this.selectedHistory.auditLog || [])];
@@ -1236,11 +1158,6 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
       return `${(value as any).createdDate}`;
     }
     return null;
-  }
-
-  toggleExpandForSite(site: SiteMigrationConfig) {
-    site.expanded = !site.expanded;
-    this.saveSiteExpansionState(site);
   }
 
   private expansionStateKey(siteIndex: number): string {
@@ -1274,10 +1191,12 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   private updateUrl(): void {
-    const queryParams: StoredValueQueryParameters = { [StoredValue.TAB]: this.activeTabId };
-    if (this.selectedHistory?.createdDate) {
-      queryParams[StoredValue.SESSION] = this.sessionToUrlParam(this.selectedHistory.createdDate);
-    }
+    const queryParams: StoredValueQueryParameters = {
+      [StoredValue.MIGRATION_LOG_SORT]: this.logSortField,
+      [StoredValue.MIGRATION_LOG_SORT_ORDER]: this.logSortDirection,
+      [StoredValue.SESSION]: this.selectedHistory?.createdDate ? this.sessionToUrlParam(this.selectedHistory.createdDate) : null,
+      [StoredValue.TAB]: this.activeTabId
+    };
 
     this.router.navigate([], {
       relativeTo: this.route,

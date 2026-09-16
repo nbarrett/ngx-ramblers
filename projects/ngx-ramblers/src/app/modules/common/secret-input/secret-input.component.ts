@@ -1,6 +1,6 @@
-import { Component, Input, forwardRef, inject } from "@angular/core";
+import { Component, Input, OnDestroy, forwardRef, inject } from "@angular/core";
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from "@angular/forms";
-
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash, faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { ClipboardService } from "../../../services/clipboard.service";
@@ -35,6 +35,9 @@ import { InputSize } from "../../../models/ui-size.model";
       min-width: 0
       width: 100%
       padding-right: 80px
+
+    .secret-input.copy-only
+      padding-right: 2.5rem
 
     .secret-input.masked
       -webkit-text-security: disc
@@ -77,7 +80,8 @@ import { InputSize } from "../../../models/ui-size.model";
       <input
         type="text"
         class="form-control secret-input"
-        [class.masked]="!isVisible"
+        [class.masked]="reveal && !isVisible"
+        [class.copy-only]="!reveal"
         [class.input-sm]="size === InputSize.SM"
         [id]="id"
         [value]="value"
@@ -85,20 +89,23 @@ import { InputSize } from "../../../models/ui-size.model";
         (blur)="onTouched()"
         [placeholder]="placeholder"
         [disabled]="disabled"
+        [readonly]="readOnly"
         [attr.autocomplete]="autocomplete"
         [attr.data-form-type]="ignorePasswordManagers ? 'other' : null"
       />
       <div class="secret-input-actions">
-        <button
-          type="button"
-          class="secret-btn"
-          (click)="toggleVisibility()"
-          [disabled]="disabled"
-          [tooltip]="isVisible ? 'Hide' : 'Show'"
-          delay="500"
-          container="body">
-          <fa-icon [icon]="isVisible ? faEyeSlash : faEye"></fa-icon>
-        </button>
+        @if (reveal) {
+          <button
+            type="button"
+            class="secret-btn"
+            (click)="toggleVisibility()"
+            [disabled]="disabled"
+            [tooltip]="isVisible ? 'Hide' : 'Show'"
+            delay="500"
+            container="body">
+            <fa-icon [icon]="isVisible ? faEyeSlash : faEye"></fa-icon>
+          </button>
+        }
         <button
           type="button"
           class="secret-btn"
@@ -114,7 +121,7 @@ import { InputSize } from "../../../models/ui-size.model";
     </div>
   `
 })
-export class SecretInputComponent implements ControlValueAccessor {
+export class SecretInputComponent implements ControlValueAccessor, OnDestroy {
   private clipboardService = inject(ClipboardService);
   protected readonly InputSize = InputSize;
 
@@ -123,6 +130,18 @@ export class SecretInputComponent implements ControlValueAccessor {
   @Input() size: InputSize = InputSize.MD;
   @Input() autocomplete = "new-password";
   @Input() ignorePasswordManagers = false;
+  @Input() set reveal(value: boolean) {
+    this.revealValue = coerceBooleanProperty(value);
+  }
+  get reveal(): boolean {
+    return this.revealValue;
+  }
+  @Input() set readOnly(value: boolean) {
+    this.readOnlyValue = coerceBooleanProperty(value);
+  }
+  get readOnly(): boolean {
+    return this.readOnlyValue;
+  }
 
   faEye = faEye;
   faEyeSlash = faEyeSlash;
@@ -133,6 +152,8 @@ export class SecretInputComponent implements ControlValueAccessor {
   disabled = false;
   isVisible = false;
   justCopied = false;
+  private revealValue = true;
+  private readOnlyValue = false;
 
   private copyTimeout: any;
 
@@ -166,18 +187,16 @@ export class SecretInputComponent implements ControlValueAccessor {
   }
 
   async copyToClipboard(): Promise<void> {
-    if (!this.value) return;
-
-    await this.clipboardService.copyToClipboard(this.value);
-    this.justCopied = true;
-
-    if (this.copyTimeout) {
-      clearTimeout(this.copyTimeout);
+    if (this.value) {
+      await this.clipboardService.copyToClipboard(this.value);
+      this.justCopied = true;
+      if (this.copyTimeout) {
+        clearTimeout(this.copyTimeout);
+      }
+      this.copyTimeout = setTimeout(() => {
+        this.justCopied = false;
+      }, 2000);
     }
-
-    this.copyTimeout = setTimeout(() => {
-      this.justCopied = false;
-    }, 2000);
   }
 
   ngOnDestroy(): void {

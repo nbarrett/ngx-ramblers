@@ -6,6 +6,16 @@ export interface MigrationAuditLog {
   message: string;
 }
 
+export interface MigrationActivityLog extends MigrationAuditLog, Identifiable {
+  status: string;
+}
+
+export enum MigrationSettingsTab {
+  ACTIVITY = "activity",
+  SECTIONS = "content-sections",
+  RULES = "import-rules"
+}
+
 export interface MigrationHistory extends Identifiable {
   createdDate: number;
   completedDate?: number;
@@ -21,4 +31,3 @@ export interface MigrationHistory extends Identifiable {
 export interface MigrationHistoryApiResponse extends ApiResponse {
   response: MigrationHistory | MigrationHistory[];
 }
-
