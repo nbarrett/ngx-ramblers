@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faEnvelope, faPlus, faSave, faSpinner, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faEnvelope, faPlus, faSave, faSpinner, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { AdminAlertsService } from "../../../../services/admin-alerts.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 
@@ -100,8 +100,9 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
             Loading alert emails...
           </p>
         } @else if (draftEmails.length === 0) {
-          <div class="alert alert-warning mb-3">
-            No admin alert recipients configured. Platform operations problems will be logged on the server only.
+          <div class="alert alert-warning d-flex align-items-start mb-3">
+            <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+            <div><strong>No alert recipients</strong><p class="mb-0">Platform operations problems will be logged on the server only.</p></div>
           </div>
         } @else {
           <div class="alert-email-chip-list mb-3" role="list" aria-label="Admin alert email recipients">
@@ -137,7 +138,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
             <fa-icon [icon]="busy ? faSpinner : faSave" [animation]="busy ? 'spin' : null"/>
             Save alert emails
           </button>
-          <button type="button" class="btn btn-outline-secondary" [disabled]="busy || loading || !dirty"
+          <button type="button" class="btn btn-quiet" [disabled]="busy || loading || !dirty"
                   (click)="resetDraft()">
             Discard changes
           </button>
@@ -156,6 +157,7 @@ export class AdminAlertEmailsComponent implements OnInit {
   private service = inject(AdminAlertsService);
   protected stringUtils = inject(StringUtilsService);
   protected readonly faEnvelope = faEnvelope;
+  protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faPlus = faPlus;
   protected readonly faSave = faSave;
   protected readonly faSpinner = faSpinner;

@@ -7,6 +7,12 @@ export function isValidEmailAddress(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
 }
 
+export function formatEmailAddress(mailbox: {name?: string; email: string}): string {
+  const email = (mailbox.email || "").trim();
+  const name = (mailbox.name || "").trim();
+  return name ? `${name} <${email}>` : email;
+}
+
 export function capitalisePersonName(value: string): string {
   return (value || "")
     .trim()

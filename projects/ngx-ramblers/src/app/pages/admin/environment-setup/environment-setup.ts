@@ -1,3 +1,4 @@
+import { environmentNameForGroup, prefixedEnvironmentResourceName } from "../../../models/environment-setup.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -1515,7 +1516,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.request.serviceConfigs.mongodb.username = details.serviceConfigs.mongodb.username;
       this.request.serviceConfigs.mongodb.password = details.serviceConfigs.mongodb.password;
       this.request.serviceConfigs.aws.region = details.serviceConfigs.aws.region;
-      this.request.serviceConfigs.brevo.apiKey = details.serviceConfigs.brevo.apiKey;
+      this.request.serviceConfigs.brevo.apiKey = "";
       this.request.serviceConfigs.googleMaps.apiKey = details.serviceConfigs.googleMaps.apiKey;
       this.request.serviceConfigs.ramblers.apiKey = details.serviceConfigs.ramblers.apiKey
         || this.systemConfig?.national?.walksManager?.apiKey
@@ -1538,9 +1539,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
           secretKey: details.serviceConfigs.recaptcha.secretKey
         };
       }
-      if (details.serviceConfigs.brevo?.apiKey && this.cloneType !== CloneType.FULL_DUPLICATE) {
-        this.request.options.authenticateBrevoDomain = true;
-      }
+      this.request.options.authenticateBrevoDomain = false;
       this.sourceSiteHref = details.siteHref || null;
       if (this.cloneType === CloneType.FULL_DUPLICATE) {
         this.sandboxHostnameMode = this.groupDomainHostname
@@ -1880,14 +1879,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   updateEnvironmentDefaults() {
-    const envName = this.request.ramblersInfo.groupName
-      .toLowerCase()
-      .replace(/ramblers?/gi, "")
-      .replace(/group/gi, "")
-      .replace(/[^a-z0-9]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
-      .substring(0, 45);
+    const envName = environmentNameForGroup(this.request.ramblersInfo.groupName);
 
     this.request.environmentBasics.environmentName = envName;
     this.updateAppName();
@@ -1920,15 +1912,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   private prefixedName(envName: string, maxLength: number): string {
-    const safe = flySafeResourceName(envName);
-    const prefixed = `ngx-ramblers-${safe}`;
-    if (prefixed.length <= maxLength) {
-      return prefixed;
-    } else if (safe.length <= maxLength) {
-      return safe;
-    } else {
-      return safe.substring(0, maxLength);
-    }
+    return prefixedEnvironmentResourceName(envName, maxLength);
   }
 
   async validateMongodb() {

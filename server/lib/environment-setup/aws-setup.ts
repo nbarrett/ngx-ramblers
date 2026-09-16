@@ -3,9 +3,11 @@ import {
   CopyObjectCommand,
   CreateBucketCommand,
   CreateBucketCommandInput,
+  GetObjectCommand,
   HeadBucketCommand,
   ListObjectsV2Command,
   PutBucketCorsCommand,
+  PutObjectCommand,
   PutPublicAccessBlockCommand,
   S3Client
 } from "@aws-sdk/client-s3";
@@ -29,6 +31,9 @@ import { AssetToCopy, AwsAdminConfig, AwsCustomerCredentials, CopyAssetsResult, 
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig } from "../config/system-config";
+import { CopiedImage } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { BannerPictureStore } from "./banner-picture.model";
+import { findRamblersDirectoryLogo } from "../site-registration/registration-logos";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:aws-setup"));
 debugLog.enabled = true;
@@ -548,4 +553,39 @@ export async function copyStandardAssets(
   }
 
   return result;
+}
+
+export function bannerPictureStoreFor(adminConfig: AwsAdminConfig, bucket: string): BannerPictureStore {
+  const s3Client = createS3Client(adminConfig);
+  return {
+    read: async (awsFileName: string) => {
+      try {
+        const object = await s3Client.send(new GetObjectCommand({Bucket: bucket, Key: awsFileName}));
+        return object.Body ? await object.Body.transformToByteArray() : null;
+      } catch (error) {
+        debugLog("Could not read %s/%s for the banner picture: %s", bucket, awsFileName, error.message);
+        return null;
+      }
+    },
+    write: async (awsFileName: string, content: Buffer, contentType: string) => {
+      await s3Client.send(new PutObjectCommand({Bucket: bucket, Key: awsFileName, Body: content, ContentType: contentType}));
+    }
+  };
+}
+
+export async function copyRamblersDirectoryLogo(adminConfig: AwsAdminConfig, targetBucket: string, groupName: string, areaName: string): Promise<CopiedImage | null> {
+  const logo = await findRamblersDirectoryLogo(groupName, areaName);
+  if (!logo) {
+    return null;
+  } else {
+    const sourceBucket = envConfig.aws().bucket;
+    if (sourceBucket !== targetBucket) {
+      await createS3Client(adminConfig).send(new CopyObjectCommand({
+        Bucket: targetBucket,
+        CopySource: `${sourceBucket}/${logo.awsFileName}`,
+        Key: logo.awsFileName
+      }));
+    }
+    return {width: 300, padding: 0, originalFileName: logo.originalFileName, awsFileName: logo.awsFileName};
+  }
 }

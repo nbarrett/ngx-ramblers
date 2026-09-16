@@ -18,6 +18,7 @@ import {
 } from "./messages";
 import { localTemplateNames } from "../templates/local-template-reader";
 import {
+  EmailTemplateName,
   TemplateOverride,
   TemplateOverrides,
   TemplateOverrideState,
@@ -395,7 +396,7 @@ describe("brevo messages", () => {
     });
 
     it("renders the markdown welcome-to-the-group from the repo file as html, with merge fields resolved", () => {
-      const result = renderLocalBrandedTemplate("welcome-to-the-group", paramsWith("https://example.org.uk/admin/set-password/abc-def-123"));
+      const result = renderLocalBrandedTemplate(EmailTemplateName.WELCOME_TO_THE_GROUP, paramsWith("https://example.org.uk/admin/set-password/abc-def-123"));
       expect(result).toContain("Welcome to <a href=\"https://example.org.uk\"");
       expect(result).toContain("Example Walking Group");
       expect(result).toContain("https://example.org.uk/walks");
@@ -407,7 +408,7 @@ describe("brevo messages", () => {
 
     it("leaves login and account activation out of the welcome email", () => {
       const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
-      const result = renderLocalBrandedTemplate("welcome-to-the-group", paramsWith(passwordResetLink));
+      const result = renderLocalBrandedTemplate(EmailTemplateName.WELCOME_TO_THE_GROUP, paramsWith(passwordResetLink));
       expect(result).not.toContain(passwordResetLink);
       expect(result).not.toContain("PW_RESET_LINK");
       expect(result).not.toContain("Activate");
@@ -415,7 +416,7 @@ describe("brevo messages", () => {
 
     it("renders website-and-login-details from the repo file with PW_RESET_LINK resolved and not mangled", () => {
       const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
-      const result = renderLocalBrandedTemplate("website-and-login-details", paramsWith(passwordResetLink));
+      const result = renderLocalBrandedTemplate(EmailTemplateName.WEBSITE_AND_LOGIN_DETAILS, paramsWith(passwordResetLink));
       expect(result).toContain(passwordResetLink);
       expect(result).not.toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
       expect(result).not.toContain("%7B%7B");
@@ -423,7 +424,7 @@ describe("brevo messages", () => {
 
     it("renders photographs-and-video with the preference page and password reset link", () => {
       const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
-      const result = renderLocalBrandedTemplate("photographs-and-video", paramsWith(passwordResetLink));
+      const result = renderLocalBrandedTemplate(EmailTemplateName.PHOTOGRAPHS_AND_VIDEO, paramsWith(passwordResetLink));
       expect(result).toContain("https://example.org.uk/admin/profile/photos-and-video");
       expect(result).toContain(`${passwordResetLink}?redirect=/admin/profile/photos-and-video`);
       expect(result).toContain("never logged in");
@@ -433,14 +434,14 @@ describe("brevo messages", () => {
 
     it("renders the externally supplied body for fully-automated-text-body (the booking shell)", () => {
       const bodyContent = "<p>Your booking for the Wye Downs walk is confirmed.</p>";
-      const result = renderLocalBrandedTemplate("fully-automated-text-body", paramsWith("", bodyContent));
+      const result = renderLocalBrandedTemplate(EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY, paramsWith("", bodyContent));
       expect(result).toContain("Your booking for the Wye Downs walk is confirmed.");
       expect(result).not.toContain("{{params.messageMergeFields.BODY_CONTENT}}");
     });
 
     it("resolves booking merge fields inside the externally supplied booking body", () => {
       const bodyContent = `<p>If you need to cancel your booking, you can do so from the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a>.</p>`;
-      const result = renderLocalBrandedTemplate("fully-automated-text-body", paramsWith("", bodyContent));
+      const result = renderLocalBrandedTemplate(EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY, paramsWith("", bodyContent));
       expect(result).toContain(`href="https://ngx-ramblers.org.uk/walks/evening-walk-for-summer-solstice"`);
       expect(result).not.toContain("{{params.bookingMergeFields.EVENT_LINK}}");
       expect(result).not.toContain("%7B%7B");

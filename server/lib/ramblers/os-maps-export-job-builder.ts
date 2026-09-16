@@ -38,6 +38,20 @@ export function buildOsMapsExportJob(routeUrls: string[], walkId?: string, rambl
   };
 }
 
+export function buildOsDataHubApiKeyJob(projectName: string): RamblersUploadJob {
+  return {
+    jobId: randomUUID(),
+    createdAt: dateTimeNowAsValue(),
+    state: RamblersUploadJobState.QUEUED,
+    data: {
+      ...emptyWalkJobData(),
+      fileName: `os-data-hub-api-key-${formatDateTime(dateTimeNow(), UIDateFormat.FILE_TIMESTAMP_COMPACT)}.json`,
+      feature: SerenityFeature.OS_DATA_HUB_API_KEY,
+      osDataHubProjectName: projectName
+    }
+  };
+}
+
 export function buildOsMapsListJob(ramblersUser?: string): RamblersUploadJob {
   return {
     jobId: randomUUID(),

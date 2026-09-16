@@ -1,8 +1,12 @@
 import { AdminSettingsPath } from "../../../../models/admin-route-paths.model";
 import { values, keys } from "es-toolkit/compat";
-import { Component, EventEmitter, inject, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
 import {
   ComposerRoleDefaults,
+  EMAIL_COMPOSER_BODY_PLACEHOLDER,
+  EmailContentAnchor,
+  EmailContentSource,
+  MISSING_EMAIL_CONTENT_ISSUE,
   MailMessagingConfig,
   MailSettingsTab,
   MemberSelection,
@@ -139,8 +143,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
               <select [ngModel]="selectedConfigValue()"
                       (ngModelChange)="selectByValue($event)"
                       id="template-mapping"
-                      class="form-control input-sm"
-                      style="width: auto; max-width: 300px;">
+                      class="form-control input-sm flex-grow-1">
                 @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.id || mapping.subject.text; let index = $index) {
                   <option [ngValue]="configSelectionValue(mapping, index)">{{ cachedConfigLabels.get(mapping) || mapping?.subject?.text }}</option>
                 }
@@ -181,12 +184,24 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
           @if (notificationConfig) {
             @if (cachedIssues.length > 0) {
               <div class="col-sm-12 mt-2">
-                <div class="alert alert-warning py-2 mb-2">
-                  <fa-icon [icon]="faTriangleExclamation" class="me-1"/>
-                  <strong>{{ cachedIssues.length }} issue{{ cachedIssues.length > 1 ? 's' : '' }} found:</strong>
-                  @for (issue of cachedIssues; track issue) {
-                    <div><small>{{ issue }}</small></div>
-                  }
+                <div class="alert alert-warning d-flex align-items-start py-2 mb-2">
+                  <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                  <div>
+                    <strong>{{ cachedIssues.length }} issue{{ cachedIssues.length > 1 ? "s" : "" }} found</strong>
+                    @for (issue of cachedIssues; track issue) {
+                      @if (issue === missingEmailContentIssue) {
+                        <div><small>
+                          In <a [href]="'#' + emailContentAnchor.SECTION" (click)="revealEmailContent($event, emailContentSource.WRITTEN)">Email content</a> below,
+                          <a [href]="'#' + emailContentAnchor.CHOOSE_TEMPLATE" (click)="revealEmailContent($event, emailContentSource.TEMPLATE)">choose a template</a>,
+                          or write the email there
+                          (<a [href]="'#' + emailContentAnchor.SECTION" (click)="revealEmailContent($event, emailContentSource.WRITTEN)">Written here</a>,
+                          or <a [href]="'#' + emailContentAnchor.SECTION" (click)="revealEmailContent($event, emailContentSource.COMPOSER)">Written in the Email Composer</a>).
+                        </small></div>
+                      } @else {
+                        <div><small>{{ issue }}</small></div>
+                      }
+                    }
+                  </div>
                 </div>
               </div>
             }
@@ -377,7 +392,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                             [mergeFieldCatalogue]="BOOKING_MERGE_FIELD_CATALOGUE"
                                             [omitAllowed]="!isBookingConfig()"/>
                 } @else if (notificationConfig) {
-                  <app-email-body-editor [notificationConfig]="notificationConfig" [isBuiltInProcess]="isWorkflowConfig"/>
+                  <app-email-body-editor #emailBodyEditor [notificationConfig]="notificationConfig" [templateName]="notificationConfig.templateName" [isBuiltInProcess]="isWorkflowConfig" (templateNameChange)="templateNameChanged($event)" (contentChange)="refreshCachedState()"/>
                 }
               </div>
               <app-thumbnail-heading-frame heading="Member Selection And Actions">
@@ -565,6 +580,10 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   public cachedIssues: string[] = [];
   public cachedConfigLabels: Map<NotificationConfig, string> = new Map();
   public isWorkflowConfig = false;
+  @ViewChild("emailBodyEditor") private emailBodyEditor: EmailBodyEditorComponent;
+  protected readonly emailContentAnchor = EmailContentAnchor;
+  protected readonly emailContentSource = EmailContentSource;
+  protected readonly missingEmailContentIssue = MISSING_EMAIL_CONTENT_ISSUE;
 
   protected readonly MemberSelection = MemberSelection;
 
@@ -794,6 +813,17 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     return this.notificationConfig?.templateName || null;
   }
 
+  templateNameChanged(templateName: string): void {
+    this.notificationConfig.templateName = templateName || null;
+    this.refreshCachedState();
+    this.refreshTemplateDiff();
+  }
+
+  revealEmailContent(event: Event, source: EmailContentSource): void {
+    event.preventDefault();
+    this.emailBodyEditor?.reveal(source);
+  }
+
   private bookingBlockKeys(): string[] {
     return this.notificationConfig?.subject?.text === "Booking Notification"
       ? values(BOOKING_EMAIL_BLOCK_KEYS)
@@ -855,8 +885,11 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       return [];
     }
     const issues: string[] = [];
-    if (!target.templateName) {
-      issues.push("No template configured - emails cannot be sent");
+    const body = (target.body || "").trim();
+    const writtenInComposer = body === EMAIL_COMPOSER_BODY_PLACEHOLDER;
+    const writtenHere = body.length > 0 && !writtenInComposer;
+    if (!target.templateName && !writtenInComposer && !writtenHere) {
+      issues.push(MISSING_EMAIL_CONTENT_ISSUE);
     }
     if (!target.bannerId) {
       issues.push("No banner image selected");

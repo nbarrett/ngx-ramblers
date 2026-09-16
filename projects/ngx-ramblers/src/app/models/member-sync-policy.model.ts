@@ -22,6 +22,11 @@ export const DEFAULT_MEMBER_SYNC_POLICY: MemberSyncPolicy = {
   overrides: {}
 };
 
+export const NEW_ENVIRONMENT_MEMBER_SYNC_POLICY: MemberSyncPolicy = {
+  defaultMode: MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE,
+  overrides: {}
+};
+
 export interface MemberSyncPolicyApiResponse extends ApiResponse {
   request: any;
   response?: MemberSyncPolicy;

@@ -2638,10 +2638,17 @@ export class PageTransformationEngine {
   }
 
   private async applyExtractedContentToRow(row: PageContentRow, item: ExtractedContent, mapping?: ColumnMappingConfig): Promise<boolean> {
-    if (!row.columns || row.columns.length === 0) {
-      return false;
+    if (row.columns?.length) {
+      return this.applyExtractedContent(row.columns, item, mapping);
+    } else {
+      const column: PageContentColumn = {columns: 12};
+      const applied = this.applyExtractedContentToColumn(column, item, mapping?.contentType || ColumnContentType.MIXED);
+      const updated = applied.imageApplied || applied.textApplied;
+      if (updated) {
+        row.columns = [column];
+      }
+      return updated;
     }
-    return this.applyExtractedContent(row.columns, item, mapping);
   }
 
   private applyExtractedContent(columns: PageContentColumn[], item: ExtractedContent, mapping?: ColumnMappingConfig): boolean {

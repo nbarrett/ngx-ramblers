@@ -1,12 +1,18 @@
 import WebSocket from "ws";
+import {
+  IntegrationWorkerMigrationProgressCallback,
+  IntegrationWorkerMigrationResultCallback
+} from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 
 export interface MigrationSession {
   jobId: string;
-  ws: WebSocket;
+  ws?: WebSocket;
   siteIdentifier: string;
   siteName: string;
-  historyId: string;
+  historyId?: string;
   startedAt: number;
+  onProgress?: (event: IntegrationWorkerMigrationProgressCallback) => void;
+  onResult?: (result: IntegrationWorkerMigrationResultCallback) => void;
 }
 
 const activeMigrationSessions = new Map<string, MigrationSession>();

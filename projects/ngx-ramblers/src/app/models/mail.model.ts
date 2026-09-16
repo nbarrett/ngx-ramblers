@@ -292,6 +292,8 @@ export interface MessageMergeFields {
   ACCENT_COLOR?: string;
 }
 
+export const EMAIL_COMPOSER_BODY_PLACEHOLDER = "{{params.messageMergeFields.BODY_CONTENT}}";
+
 export interface SystemMergeFields {
   APP_URL: string;
   APP_SHORTNAME: string;
@@ -364,11 +366,17 @@ export interface BuiltInProcessMappings {
   volunteerNotificationConfigId: string;
   memberBulkLoadDigestConfigId: string;
   photoUploadNotificationConfigId: string;
+  registrationConfirmationConfigId: string;
+  registrationInvitationConfigId: string;
+  registrationReviewConfigId: string;
 }
 
 export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
 export const MEMBER_BULK_LOAD_DIGEST_SUBJECT_TEXT = "Member bulk load summary";
 export const PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT = "Walk photos added";
+export const REGISTRATION_CONFIRMATION_SUBJECT_TEXT = "Confirm your NGX registration";
+export const REGISTRATION_INVITATION_SUBJECT_TEXT = "Your NGX site is ready to try";
+export const REGISTRATION_REVIEW_SUBJECT_TEXT = "NGX site ready for review";
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
   forgotPasswordNotificationConfigId: "Forgotten Password Reset",
@@ -378,10 +386,61 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   bookingNotificationConfigId: "Booking Notification",
   memberSyncNotificationConfigId: "Member Sync Notification",
   volunteerNotificationConfigId: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT,
-  photoUploadNotificationConfigId: PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT
+  photoUploadNotificationConfigId: PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT,
+  registrationConfirmationConfigId: REGISTRATION_CONFIRMATION_SUBJECT_TEXT,
+  registrationInvitationConfigId: REGISTRATION_INVITATION_SUBJECT_TEXT,
+  registrationReviewConfigId: REGISTRATION_REVIEW_SUBJECT_TEXT
 };
 export const PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT = "Photographs and video";
-export const PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME = "photographs-and-video";
+
+export enum EmailTemplateName {
+  FORGOT_PASSWORD = "forgot-password",
+  FULLY_AUTOMATED_TEXT_BODY = "fully-automated-text-body",
+  MEMBER_SYNC_NOTIFICATION = "member-sync-notification",
+  MEMBERSHIP_EXPIRY = "membership-expiry",
+  MEMBERSHIP_EXPIRY_WARNING = "membership-expiry-warning",
+  PASSWORD_RESET = "password-reset",
+  PHOTOGRAPHS_AND_VIDEO = "photographs-and-video",
+  RAMBLERS_CAMPAIGN = "ramblers-campaign",
+  WEBSITE_AND_LOGIN_DETAILS = "website-and-login-details",
+  WELCOME_TO_THE_GROUP = "welcome-to-the-group"
+}
+
+export enum EmailTemplateKind {
+  PROCESS = "process",
+  WRITTEN = "written"
+}
+
+export interface EmailTemplateDefinition {
+  kind: EmailTemplateKind;
+  label: string;
+}
+
+export enum EmailContentSource {
+  TEMPLATE = "template",
+  WRITTEN = "written",
+  COMPOSER = "composer"
+}
+
+export enum EmailContentAnchor {
+  SECTION = "email-content",
+  CHOOSE_TEMPLATE = "email-content-choose-template"
+}
+
+export const MISSING_EMAIL_CONTENT_ISSUE = "missing-email-content";
+
+export const EMAIL_TEMPLATES: Record<EmailTemplateName, EmailTemplateDefinition> = {
+  [EmailTemplateName.FORGOT_PASSWORD]: {kind: EmailTemplateKind.WRITTEN, label: "Forgot Password"},
+  [EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY]: {kind: EmailTemplateKind.PROCESS, label: "Fully Automated Text Body"},
+  [EmailTemplateName.MEMBER_SYNC_NOTIFICATION]: {kind: EmailTemplateKind.PROCESS, label: "Member Sync Notification"},
+  [EmailTemplateName.MEMBERSHIP_EXPIRY]: {kind: EmailTemplateKind.WRITTEN, label: "Membership Expiry"},
+  [EmailTemplateName.MEMBERSHIP_EXPIRY_WARNING]: {kind: EmailTemplateKind.WRITTEN, label: "Membership Expiry Warning"},
+  [EmailTemplateName.PASSWORD_RESET]: {kind: EmailTemplateKind.WRITTEN, label: "Password Reset"},
+  [EmailTemplateName.PHOTOGRAPHS_AND_VIDEO]: {kind: EmailTemplateKind.WRITTEN, label: "Photographs And Video"},
+  [EmailTemplateName.RAMBLERS_CAMPAIGN]: {kind: EmailTemplateKind.WRITTEN, label: "Ramblers Campaign"},
+  [EmailTemplateName.WEBSITE_AND_LOGIN_DETAILS]: {kind: EmailTemplateKind.WRITTEN, label: "Website And Login Details"},
+  [EmailTemplateName.WELCOME_TO_THE_GROUP]: {kind: EmailTemplateKind.WRITTEN, label: "Welcome To The Group"}
+};
 
 export interface WalkPhotosAddedNotificationRequest {
   walkId: string;
@@ -726,7 +785,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     bannerId: null,
     omitComposeStep: true,
     omitEventsStep: true,
-    templateName: PHOTOGRAPHS_AND_VIDEO_TEMPLATE_NAME
+    templateName: EmailTemplateName.PHOTOGRAPHS_AND_VIDEO
   },
   {
     subject: {
@@ -740,7 +799,8 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
-    bannerId: null
+    bannerId: null,
+    templateName: EmailTemplateName.MEMBER_SYNC_NOTIFICATION
   },
   {
     subject: {
@@ -751,7 +811,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     preSendActions: [],
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
-    templateName: "fully-automated-text-body",
+    templateName: EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
     senderRole: "secretary",
     replyToRole: "secretary",
     signOffRoles: ["secretary"],
@@ -766,7 +826,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     preSendActions: [],
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
-    templateName: "member-sync-notification",
+    templateName: EmailTemplateName.MEMBER_SYNC_NOTIFICATION,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],

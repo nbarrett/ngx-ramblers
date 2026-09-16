@@ -21,12 +21,10 @@ describe("UiActionsService", () => {
     beforeEach(() => {
         vi.restoreAllMocks();
         keys(storage).forEach(key => delete storage[key]);
-        vi.spyOn(Storage.prototype, "getItem").mockImplementation((key: string) => storage[key] ?? null);
-        vi.spyOn(Storage.prototype, "setItem").mockImplementation((key: string, value: string) => {
-            storage[key] = value;
-        });
-        vi.spyOn(Storage.prototype, "removeItem").mockImplementation((key: string) => {
-            delete storage[key];
+        vi.stubGlobal("localStorage", {
+            getItem: (key: string) => storage[key] ?? null,
+            setItem: (key: string, value: string) => storage[key] = value,
+            removeItem: (key: string) => delete storage[key]
         });
 
         TestBed.configureTestingModule({
@@ -38,6 +36,8 @@ describe("UiActionsService", () => {
         });
         service = TestBed.inject(UiActionsService);
     });
+
+    afterEach(() => vi.unstubAllGlobals());
 
     it("returns stored values when present", () => {
         storage["test-key"] = "stored";

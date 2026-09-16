@@ -28,7 +28,14 @@ describe("cronScheduleDescription", () => {
   });
 
   it("identifies custom cron schedules that do not map to common display patterns", () => {
-    expect(cronScheduleDescription("0 9 * 1 1")).toEqual("Custom cron schedule (0 9 * 1 1)");
+    expect(cronScheduleDescription("0 9 * 1 1")).toEqual("Custom schedule (0 9 * 1 1)");
+  });
+
+  it("describes a task that runs every minute in plain words", () => {
+    expect(cronScheduleDescription("* * * * *")).toEqual("Every minute");
+    expect(cronScheduleDescription("*/1 * * * *")).toEqual("Every minute");
+    expect(cronScheduleDescription("*/5 * * * *")).toEqual("Every 5 minutes");
+    expect(cronScheduleDescription("every day")).toEqual("Custom schedule (every day)");
   });
 });
 

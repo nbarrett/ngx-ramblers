@@ -14,7 +14,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { MigrationResult } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { migrateStaticSite } from "../migration/migrate-static-site-engine";
-import { setErrorSender, setProgressSender } from "../migration/migration-progress";
+import { cancelMigration, resetMigrationCancellation, setErrorSender, setProgressSender } from "../migration/migration-progress";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-migration-routes"));
 debugLog.enabled = true;
@@ -39,6 +39,7 @@ router.post("/jobs", async (req: Request, res: Response) => {
     return;
   }
   activeMigrationJobId = request.jobId;
+  resetMigrationCancellation();
   res.json({ accepted: true, jobId: request.jobId });
   void runMigration(request).finally(() => {
     activeMigrationJobId = null;
@@ -143,5 +144,17 @@ function requestIsSigned(req: Request): boolean {
   const body = JSON.stringify(req.body ?? {});
   return verifyRamblersUploadSignature(body, secret, signature);
 }
+
+router.post("/jobs/:jobId/cancel", async (req: Request, res: Response) => {
+  if (!requestIsSigned(req)) {
+    res.status(401).json({ error: "Invalid integration worker request signature" });
+  } else if (activeMigrationJobId !== req.params.jobId) {
+    res.json({ cancelled: false, activeJobId: activeMigrationJobId });
+  } else {
+    cancelMigration(isString(req.body?.reason) ? req.body.reason : "The migration was stopped");
+    debugLog("migration job cancel requested jobId:", req.params.jobId);
+    res.json({ cancelled: true });
+  }
+});
 
 export const integrationWorkerMigrationRoutes = router;

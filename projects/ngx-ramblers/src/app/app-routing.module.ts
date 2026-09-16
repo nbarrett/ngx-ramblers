@@ -13,12 +13,16 @@ import { MeetingRoomLeaveGuard } from "./guards/meeting-room-leave-guard";
 import { AdminContentPath } from "./models/admin-route-paths.model";
 import { LEGACY_VERSION_PAGE_PATH, VERSION_PAGE_PATH } from "./models/build-version.model";
 import { LOCATE_PAGE_PATH } from "./models/locate.model";
+import { PlatformEnabledGuard } from "./guards/platform-enabled-guard";
 
 export function locateMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   return segments.length > 0 && segments[segments.length - 1].path === LOCATE_PAGE_PATH ? {consumed: segments} : null;
 }
 
 const routes: Routes = [
+  {path: "register/confirm/:confirmation", loadComponent: () => import("./pages/site-registration/site-registration").then(m => m.SiteRegistrationComponent), canActivate: [PlatformEnabledGuard]},
+  {path: "register/:token", loadComponent: () => import("./pages/site-registration/site-registration").then(m => m.SiteRegistrationComponent), canActivate: [PlatformEnabledGuard]},
+  {path: "register", loadComponent: () => import("./pages/site-registration/site-registration").then(m => m.SiteRegistrationComponent), canActivate: [PlatformEnabledGuard]},
   {
     path: "",
     loadComponent: () => import("./pages/home/home.component")
