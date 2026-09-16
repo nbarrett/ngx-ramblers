@@ -172,7 +172,8 @@ export const DEPLOYMENT_DEFAULTS = {
 } as const;
 
 export const AWS_DEFAULTS = {
-  REGION: "eu-west-2"
+  REGION: "eu-west-2",
+  OBJECT_ACL: "public-read"
 } as const;
 
 export function createEmptyAwsConfig(): AwsConfig {

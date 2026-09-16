@@ -1,5 +1,5 @@
 import { MongoConfig } from "./environment-config.model";
-import { BackupLocation, S3BackupSummary } from "./backup-session.model";
+import { BackupLocation, S3BackupSummary, S3LiveCopyCheckpoint } from "./backup-session.model";
 
 export enum EnvironmentMigrationTab {
   PLAN = "Plan & Restore",
@@ -30,6 +30,7 @@ export enum EnvironmentMigrationPhase {
   VALIDATE_SOURCE = "validate-source",
   VALIDATE_TARGET = "validate-target",
   DUMP_SOURCE = "dump-source",
+  COPY_S3 = "copy-s3",
   RESTORE_TARGET = "restore-target",
   VERIFY_TARGET = "verify-target",
   ROTATE_CREDENTIALS = "rotate-credentials"
@@ -42,6 +43,19 @@ export interface EnvironmentMigrationMongoTarget {
   password: string;
 }
 
+export interface EnvironmentMigrationAwsTarget {
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+export interface EnvironmentMigrationAwsSummary {
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+}
+
 export interface EnvironmentMigrationRequest {
   environment: string;
   mode?: EnvironmentMigrationMode;
@@ -50,6 +64,7 @@ export interface EnvironmentMigrationRequest {
   backupName?: string;
   backupLocation?: BackupLocation;
   targetMongo: EnvironmentMigrationMongoTarget;
+  targetAws?: EnvironmentMigrationAwsTarget;
   confirmEnvironment?: string;
   rotateCredentials?: boolean;
   rotateS3Credentials?: boolean;
@@ -90,8 +105,19 @@ export interface EnvironmentMigrationVerification {
 export interface EnvironmentMigrationRollbackInfo {
   oldMongo: EnvironmentMigrationMongoSummary;
   targetMongo: EnvironmentMigrationMongoSummary;
+  oldAws?: EnvironmentMigrationAwsSummary;
+  targetAws?: EnvironmentMigrationAwsSummary;
   timestamp: Date | number;
   backupUsed?: string;
+}
+
+export interface EnvironmentMigrationLiveCopyRequest {
+  site: string;
+  source: EnvironmentMigrationAwsTarget;
+  target: EnvironmentMigrationAwsTarget;
+  dryRun: boolean;
+  resumeAfterKey?: string;
+  onProgress?: (progress: S3LiveCopyCheckpoint) => Promise<void>;
 }
 
 export interface EnvironmentMigrationAudit {
@@ -107,6 +133,8 @@ export interface EnvironmentMigrationAudit {
   backupPath?: string;
   sourceMongo: EnvironmentMigrationMongoSummary;
   targetMongo: EnvironmentMigrationMongoSummary;
+  sourceAws?: EnvironmentMigrationAwsSummary;
+  targetAws?: EnvironmentMigrationAwsSummary;
   executionId?: string;
   executionStartedAt?: Date | number;
   heartbeatAt?: Date | number;
@@ -115,6 +143,7 @@ export interface EnvironmentMigrationAudit {
   verification?: EnvironmentMigrationVerification;
   s3Backups?: S3BackupSummary[];
   s3Restores?: S3BackupSummary[];
+  s3CopyCheckpoint?: S3LiveCopyCheckpoint;
   rollbackInfo?: EnvironmentMigrationRollbackInfo;
   rotatedAt?: Date | number;
   error?: string;
@@ -125,6 +154,7 @@ export interface EnvironmentMigrationRotationRequest {
   migrationId: string;
   confirmEnvironment: string;
   targetMongo: EnvironmentMigrationMongoTarget;
+  targetAws?: EnvironmentMigrationAwsTarget;
   rotateS3Credentials?: boolean;
   user?: string;
 }

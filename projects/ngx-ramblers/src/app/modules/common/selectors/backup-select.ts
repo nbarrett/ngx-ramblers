@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { BackupListItem, BackupLocation, BackupSessionStatus } from "../../../models/backup-session.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { backupEnvironment, backupSource } from "../../../functions/backup-list-items";
+import { backupEnvironment, backupOutcome, backupSource } from "../../../functions/backup-list-items";
 
 @Component({
   selector: "app-backup-select",
@@ -156,7 +156,7 @@ export class BackupSelectComponent {
   }
 
   backupOutcome(item: BackupListItem): string {
-    return item.outcome || item.status || BackupSessionStatus.COMPLETED;
+    return backupOutcome(item);
   }
 
   backupOutcomeLabel(item: BackupListItem): string {
