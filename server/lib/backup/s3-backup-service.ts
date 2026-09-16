@@ -6,10 +6,12 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  HeadObjectCommandOutput,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { isNumber } from "es-toolkit/compat";
@@ -25,7 +27,12 @@ import {
   S3RestoreRequest
 } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import {
+  EnvironmentMigrationAwsTarget,
+  EnvironmentMigrationLiveCopyRequest
+} from "../../../projects/ngx-ramblers/src/app/models/environment-migration.model";
 import { s3BackupManifest } from "../mongo/models/s3-backup-manifest";
+import { bucketExists, createS3Bucket, createS3Client } from "../environment-setup/aws-setup";
 import { configuredBackup } from "./backup-config";
 import { backupEvents } from "./backup-events";
 
@@ -260,6 +267,138 @@ export function siteConfigFor(backupConfig: BackupConfig, siteName: string): Sit
   ) || null;
 }
 
+const LIVE_COPY_CONCURRENCY = 8;
+const SOURCE_ETAG_METADATA_KEY = "ngx-source-etag";
+
+async function processIndexesConcurrently(itemCount: number, concurrency: number, processIndex: (index: number) => Promise<void>): Promise<void> {
+  const state = { nextIndex: 0, firstError: null as Error | null };
+  const worker = async (): Promise<void> => {
+    const index = state.nextIndex++;
+    if (!state.firstError && index < itemCount) {
+      try {
+        await processIndex(index);
+      } catch (error: any) {
+        state.firstError = error;
+      }
+      await worker();
+    }
+  };
+  const workerCount = Math.max(1, Math.min(concurrency, itemCount));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  if (state.firstError) {
+    throw state.firstError;
+  }
+}
+
+export function destinationObjectMatchesSource(head: Pick<HeadObjectCommandOutput, "ContentLength" | "ETag" | "Metadata">, objectInfo: S3ObjectInfo): boolean {
+  const destinationETag = (head.ETag || "").replace(/"/g, "");
+  const copiedFromETag = head.Metadata?.[SOURCE_ETAG_METADATA_KEY] || "";
+  return head.ContentLength === objectInfo.size && (destinationETag === objectInfo.eTag || copiedFromETag === objectInfo.eTag);
+}
+
+export async function migrateLiveBucket(input: EnvironmentMigrationLiveCopyRequest): Promise<S3BackupSummary> {
+  const started = dateTimeNowAsValue();
+  const sourceClient = createS3Client(input.source);
+  const destClient = createS3Client(input.target);
+  const sourceObjects = await listAllObjects(sourceClient, input.source.bucket);
+  await prepareDestinationBucket(destClient, input.target, input.dryRun);
+  const resumeAfterKey = input.resumeAfterKey || "";
+  const completed: boolean[] = sourceObjects.map(() => false);
+  const progress = { copied: 0, skipped: 0, bytes: 0, completedThrough: -1, lastProgressMs: dateTimeNowAsValue() };
+  const completedThrough = (index: number): number => index + 1 < completed.length && completed[index + 1] ? completedThrough(index + 1) : index;
+  const lastCompletedKey = (): string => progress.completedThrough >= 0 ? sourceObjects[progress.completedThrough].key : "";
+  const reportProgress = async (isLast: boolean): Promise<void> => {
+    if (input.onProgress) {
+      const nowMs = dateTimeNowAsValue();
+      if (isLast || nowMs - progress.lastProgressMs >= PROGRESS_EVERY_MS) {
+        progress.lastProgressMs = nowMs;
+        await input.onProgress({
+          lastKey: lastCompletedKey(),
+          copiedObjects: progress.copied,
+          skippedObjects: progress.skipped,
+          copiedBytes: progress.bytes
+        });
+      }
+    }
+  };
+  const copyObject = async (objectInfo: S3ObjectInfo): Promise<void> => {
+    const got = await sourceClient.send(new GetObjectCommand({ Bucket: input.source.bucket, Key: objectInfo.key }));
+    await destClient.send(new PutObjectCommand({
+      Bucket: input.target.bucket,
+      Key: objectInfo.key,
+      Body: got.Body ? got.Body as Readable : Buffer.alloc(0),
+      ACL: AWS_DEFAULTS.OBJECT_ACL,
+      ContentLength: isNumber(got.ContentLength) ? got.ContentLength : objectInfo.size,
+      ContentType: got.ContentType,
+      CacheControl: got.CacheControl,
+      ContentDisposition: got.ContentDisposition,
+      ContentEncoding: got.ContentEncoding,
+      Metadata: { ...(got.Metadata || {}), [SOURCE_ETAG_METADATA_KEY]: objectInfo.eTag }
+    }));
+  };
+  const processObject = async (index: number): Promise<void> => {
+    const objectInfo = sourceObjects[index];
+    if (objectInfo.key <= resumeAfterKey) {
+      progress.skipped += 1;
+    } else if (await destinationObjectMatches(destClient, input.target.bucket, objectInfo)) {
+      progress.skipped += 1;
+    } else {
+      await copyObject(objectInfo);
+      progress.copied += 1;
+      progress.bytes += objectInfo.size;
+    }
+    completed[index] = true;
+    progress.completedThrough = completedThrough(progress.completedThrough);
+    await reportProgress(false);
+  };
+  if (input.dryRun) {
+    debugLog(`[${input.site}] dry-run live S3 copy of ${sourceObjects.length} objects to ${input.target.bucket}`);
+  } else {
+    debugLog(`[${input.site}] live S3 copy of ${sourceObjects.length} objects to ${input.target.bucket}${resumeAfterKey ? ` resuming after ${resumeAfterKey}` : ""}`);
+    await processIndexesConcurrently(sourceObjects.length, LIVE_COPY_CONCURRENCY, processObject);
+    await reportProgress(true);
+  }
+  return {
+    site: input.site,
+    timestamp: dateTimeNow().toFormat(DateFormat.FILE_TIMESTAMP),
+    totalObjects: sourceObjects.length,
+    copiedObjects: progress.copied,
+    skippedObjects: input.dryRun ? sourceObjects.length : progress.skipped,
+    totalSizeBytes: sourceObjects.reduce((sum, objectInfo) => sum + objectInfo.size, 0),
+    copiedSizeBytes: progress.bytes,
+    durationMs: dateTimeNowAsValue() - started,
+    status: BackupSessionStatus.COMPLETED,
+    lastCopiedKey: lastCompletedKey() || undefined
+  };
+}
+
+function isS3MissingError(error: unknown): boolean {
+  const named = error as {name?: string; $metadata?: {httpStatusCode?: number}};
+  return named.name === "NotFound" || named.name === "NoSuchKey" || named.name === "NotFoundError" || named.$metadata?.httpStatusCode === 404;
+}
+
+async function destinationObjectMatches(destClient: S3Client, bucket: string, objectInfo: S3ObjectInfo): Promise<boolean> {
+  try {
+    const head = await destClient.send(new HeadObjectCommand({ Bucket: bucket, Key: objectInfo.key }));
+    return destinationObjectMatchesSource(head, objectInfo);
+  } catch (error) {
+    if (isS3MissingError(error)) {
+      return false;
+    } else {
+      throw error;
+    }
+  }
+}
+
+async function prepareDestinationBucket(destClient: S3Client, target: EnvironmentMigrationAwsTarget, dryRun: boolean): Promise<void> {
+  if (dryRun) {
+    const exists = await bucketExists(destClient, target.bucket);
+    debugLog(exists ? `Destination bucket ${target.bucket} exists` : `Destination bucket ${target.bucket} is missing; execute will create it`);
+  } else {
+    await createS3Bucket(destClient, target.bucket, target.region);
+  }
+}
+
 async function previousManifest(config: SiteConfig): Promise<S3BackupManifest | null> {
   const manifest = await s3BackupManifest.findOne({ site: config.site, status: BackupSessionStatus.COMPLETED }).sort({ timestamp: -1 }).lean() as S3BackupManifest | null;
   return manifest ? manifestWithEntries(config, manifest) : null;
@@ -312,14 +451,12 @@ async function performIncrementalBackup(
 
   const manifestEntries: S3BackupManifestEntry[] = [];
   const state = {
-    nextIndex: 0,
     copiedCount: 0,
     skippedCount: 0,
     copiedBytes: 0,
     totalBytes: 0,
     lastProgressMs: dateTimeNowAsValue(),
-    processed: 0,
-    firstError: null as Error | null
+    processed: 0
   };
   const effectiveConcurrency = boundedConcurrency(concurrency);
 
@@ -394,25 +531,7 @@ async function performIncrementalBackup(
     await emitProgress();
   };
 
-  const worker = async (): Promise<void> => {
-    const index = state.nextIndex++;
-    if (state.firstError || index >= sourceObjects.length) {
-      return;
-    }
-    try {
-      await processObject(index);
-    } catch (error: any) {
-      state.firstError = error;
-      return;
-    }
-    return worker();
-  };
-
-  const workerCount = Math.min(effectiveConcurrency, sourceObjects.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  if (state.firstError) {
-    throw state.firstError;
-  }
+  await processIndexesConcurrently(sourceObjects.length, effectiveConcurrency, processObject);
 
   const durationMs = dateTimeNowAsValue() - startMs;
 

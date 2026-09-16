@@ -32,8 +32,8 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { StoredValue } from "../../../models/ui-actions";
 import { InputSize } from "../../../models/ui-size.model";
 import { DESCENDING } from "../../../models/table-filtering.model";
-import { EnvironmentsConfig } from "../../../models/environment-config.model";
-import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../../functions/backup-list-items";
+import { AWS_DEFAULTS, EnvironmentsConfig } from "../../../models/environment-config.model";
+import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } from "../../../functions/backup-list-items";
 
 @Component({
   selector: "app-environment-migration",
@@ -158,7 +158,16 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
                                  (ngModelChange)="setIncludeS3($event)"
                                  name="includeS3"
                                  id="includeS3">
-                          <label class="form-check-label" for="includeS3">Restore S3 objects from the matching snapshot</label>
+                          <label class="form-check-label" for="includeS3">Include S3 objects in this migration</label>
+                        </div>
+                        <div class="form-check">
+                          <input type="checkbox" class="form-check-input"
+                                 [(ngModel)]="copyToDestinationAws"
+                                 (ngModelChange)="updateS3Preview()"
+                                 name="copyToDestinationAws"
+                                 id="copyToDestinationAws"
+                                 [disabled]="request.mode !== EnvironmentMigrationMode.MONGO_AND_S3">
+                          <label class="form-check-label" for="copyToDestinationAws">Copy live S3 objects to a destination AWS account (otherwise restore the matching snapshot)</label>
                         </div>
                         <div class="form-check">
                           <input type="checkbox" class="form-check-input"
@@ -166,7 +175,7 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
                                  name="rotateS3Credentials"
                                  id="rotateS3Credentials"
                                  [disabled]="request.mode !== EnvironmentMigrationMode.MONGO_AND_S3">
-                          <label class="form-check-label" for="rotateS3Credentials">Rotate AWS credentials to bucket-scoped access during cutover</label>
+                          <label class="form-check-label" for="rotateS3Credentials">{{ liveCopyRequested() ? "Point this environment at the destination AWS credentials on cutover" : "Rotate AWS credentials to bucket-scoped access during cutover" }}</label>
                         </div>
                       </div>
                     </div>
@@ -212,6 +221,46 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
                     </div>
                   </div>
                 </div>
+                @if (liveCopyRequested()) {
+                  <div class="row mt-3">
+                    <div class="col-12">
+                      <div class="row thumbnail-heading-frame">
+                        <div class="thumbnail-heading d-flex align-items-center gap-3">
+                          <app-vendor-brand-mark serviceId="aws" [sizePx]="30"/>
+                          <span>Destination AWS</span>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label" for="target-bucket">Bucket</label>
+                          <input id="target-bucket" class="form-control" name="targetBucket"
+                                 [(ngModel)]="request.targetAws.bucket" placeholder="ngx-ramblers-group" autocomplete="off">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label" for="target-region">Region</label>
+                          <input id="target-region" class="form-control" name="targetRegion"
+                                 [(ngModel)]="request.targetAws.region" [placeholder]="AWS_DEFAULTS.REGION" autocomplete="off">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label" for="target-access-key">Access key ID</label>
+                          <app-secret-input [(ngModel)]="request.targetAws.accessKeyId"
+                                            name="targetAccessKeyId"
+                                            id="target-access-key"
+                                            [size]="InputSize.SM"
+                                            autocomplete="off">
+                          </app-secret-input>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label" for="target-secret-key">Secret access key</label>
+                          <app-secret-input [(ngModel)]="request.targetAws.secretAccessKey"
+                                            name="targetSecretAccessKey"
+                                            id="target-secret-key"
+                                            [size]="InputSize.SM"
+                                            autocomplete="new-password">
+                          </app-secret-input>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
               </div>
 
             <div class="col-12">
@@ -270,7 +319,7 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
                 <div class="alert alert-warning d-flex align-items-start gap-2 w-100 mt-3 mb-0" role="alert">
                   <fa-icon [icon]="faExclamationTriangle" class="mt-1"/>
                   <span>
-                    <strong>S3 Restore Scope</strong> —
+                    <strong>S3 Scope</strong> —
                     {{ s3RestoreScopeSummary() }}
                   </span>
                 </div>
@@ -387,6 +436,7 @@ export class EnvironmentMigrationComponent implements OnInit {
   protected readonly EnvironmentMigrationStatus = EnvironmentMigrationStatus;
   protected readonly EnvironmentMigrationTab = EnvironmentMigrationTab;
   protected readonly InputSize = InputSize;
+  protected readonly AWS_DEFAULTS = AWS_DEFAULTS;
   protected readonly DESCENDING = DESCENDING;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faRotate = faRotate;
@@ -402,6 +452,7 @@ export class EnvironmentMigrationComponent implements OnInit {
   selectedMigration: EnvironmentMigrationAudit | null = null;
   environmentsConfig: EnvironmentsConfig | null = null;
   backupSource: BackupLocation = BackupLocation.S3;
+  copyToDestinationAws = true;
   sourceEnvironment = "";
   error = "";
   success = "";
@@ -440,7 +491,13 @@ export class EnvironmentMigrationComponent implements OnInit {
       password: ""
     },
     confirmEnvironment: "",
-    rotateS3Credentials: true
+    rotateS3Credentials: true,
+    targetAws: {
+      bucket: "",
+      region: AWS_DEFAULTS.REGION,
+      accessKeyId: "",
+      secretAccessKey: ""
+    }
   };
 
   async ngOnInit(): Promise<void> {
@@ -557,19 +614,32 @@ export class EnvironmentMigrationComponent implements OnInit {
   }
 
   s3RestoreScopeSummary(): string {
-    const targetBucket = this.targetS3Bucket();
-    if (this.selectedS3Manifest) {
-      return `S3 objects will be restored from ${this.selectedS3Manifest.backupBucket}/${this.selectedS3Manifest.backupPrefix} into ${targetBucket || "the target bucket, which is not configured yet"}.`;
-    }
+    const destination = this.request.targetAws?.bucket;
+    const sourceBucket = this.targetS3Bucket();
     const timestamp = this.selectedBackupForRestore ? this.backupTimestamp(this.selectedBackupForRestore) : "";
-    if (this.request.environment && timestamp) {
-      return `This backup does not have a completed S3 object snapshot, so S3 restore is not ready. Choose another backup or turn off S3 restore. Target bucket: ${targetBucket || "not configured"}.`;
+    if (!this.liveCopyRequested()) {
+      if (this.selectedS3Manifest) {
+        return `S3 objects will be restored from ${this.selectedS3Manifest.backupBucket}/${this.selectedS3Manifest.backupPrefix} into ${sourceBucket || "the target bucket, which is not configured yet"}.`;
+      } else if (this.request.environment && timestamp) {
+        return `This backup does not have a completed S3 object snapshot, so S3 restore is not ready. Choose another backup, or copy live objects to a destination AWS account instead. Target bucket: ${sourceBucket || "not configured"}.`;
+      } else {
+        return `Choose a backup to show which S3 objects will be restored. Target bucket: ${sourceBucket || "not configured"}.`;
+      }
+    } else if (destination && this.request.targetAws?.accessKeyId) {
+      return `Live objects in ${sourceBucket || "the current environment bucket"} will be copied into ${destination} using the destination account keys. The bucket is created if it does not exist. Mongo still restores to the target cluster separately.`;
+    } else {
+      return `Enter destination bucket and AWS keys. Copy is live from ${sourceBucket || "the current environment bucket"}, not from a backup snapshot.`;
     }
-    return `Choose a backup to show which S3 objects will be restored. Target bucket: ${targetBucket || "not configured"}.`;
+  }
+
+  liveCopyRequested(): boolean {
+    return this.request.mode === EnvironmentMigrationMode.MONGO_AND_S3 && this.copyToDestinationAws;
   }
 
   formReady(): boolean {
-    return !!(this.request.environment && this.request.targetMongo.cluster && this.request.targetMongo.db && this.request.targetMongo.username && this.request.targetMongo.password);
+    const mongoReady = !!(this.request.environment && this.request.targetMongo.cluster && this.request.targetMongo.db && this.request.targetMongo.username && this.request.targetMongo.password);
+    const awsReady = !!(this.request.targetAws?.bucket && this.request.targetAws?.region && this.request.targetAws?.accessKeyId && this.request.targetAws?.secretAccessKey);
+    return mongoReady && (!this.liveCopyRequested() || awsReady);
   }
 
   confirmationReady(): boolean {
@@ -583,7 +653,7 @@ export class EnvironmentMigrationComponent implements OnInit {
   async plan(): Promise<void> {
     await this.run("plan", async () => {
       const migration = await firstValueFrom(this.migrationService.planMongoOnlyMigration({
-        ...this.request,
+        ...this.requestToSend(),
         dryRun: true
       }));
       this.selectedMigration = migration;
@@ -596,7 +666,7 @@ export class EnvironmentMigrationComponent implements OnInit {
   async execute(rotateCredentials: boolean): Promise<void> {
     await this.run("execute", async () => {
       const migration = await firstValueFrom(this.migrationService.executeMongoOnlyMigration({
-        ...this.request,
+        ...this.requestToSend(),
         dryRun: false,
         rotateCredentials
       }));
@@ -617,6 +687,7 @@ export class EnvironmentMigrationComponent implements OnInit {
         migrationId: this.selectedMigration!.migrationId,
         confirmEnvironment: this.request.confirmEnvironment || "",
         targetMongo: this.request.targetMongo,
+        ...(this.liveCopyRequested() ? { targetAws: this.request.targetAws } : {}),
         rotateS3Credentials: this.request.rotateS3Credentials
       }));
       this.selectedMigration = migration;
@@ -633,6 +704,13 @@ export class EnvironmentMigrationComponent implements OnInit {
     this.request.targetMongo.db = migration.targetMongo.db;
     this.request.targetMongo.username = migration.targetMongo.username;
     this.request.mode = migration.mode;
+    this.copyToDestinationAws = !!migration.targetAws;
+    this.request.targetAws = {
+      bucket: migration.targetAws?.bucket || "",
+      region: migration.targetAws?.region || AWS_DEFAULTS.REGION,
+      accessKeyId: migration.targetAws?.accessKeyId || "",
+      secretAccessKey: migration.targetAws && this.request.targetAws?.accessKeyId === migration.targetAws.accessKeyId ? this.request.targetAws?.secretAccessKey || "" : ""
+    };
     this.request.backupPath = migration.backupPath || "";
     this.request.backupName = migration.backupName || "";
     this.request.backupLocation = migration.backupLocation || this.backupSource;
@@ -665,28 +743,29 @@ export class EnvironmentMigrationComponent implements OnInit {
 
   private applyBackupFilter(): void {
     const environment = this.sourceEnvironment || this.request.environment;
-    const sourceBackups = this.allBackups.filter(backup => backupSource(backup, this.backupSource) === this.backupSource);
-    this.backups = environment ? sourceBackups.filter(backup => sameBackupEnvironment(this.envOf(backup), environment)) : [...sourceBackups];
+    this.backups = restorableBackups(backupsForSourceAndEnvironment(this.allBackups, this.backupSource, environment));
   }
 
-  private updateS3Preview(): void {
-    if (this.request.mode !== EnvironmentMigrationMode.MONGO_AND_S3 || !this.selectedBackupForRestore) {
+  updateS3Preview(): void {
+    const environment = this.selectedBackupForRestore ? this.envOf(this.selectedBackupForRestore) : "";
+    const timestamp = this.selectedBackupForRestore ? this.backupTimestamp(this.selectedBackupForRestore) : "";
+    const snapshotRestoreRequested = this.request.mode === EnvironmentMigrationMode.MONGO_AND_S3 && !this.copyToDestinationAws;
+    if (snapshotRestoreRequested && environment && timestamp) {
+      this.backupService.s3ManifestByTimestamp(environment, timestamp).subscribe({
+        next: manifest => this.selectedS3Manifest = manifest,
+        error: error => {
+          this.logger.error("Failed to load S3 manifest preview:", error);
+          this.selectedS3Manifest = null;
+        }
+      });
+    } else {
       this.selectedS3Manifest = null;
-      return;
     }
-    const environment = this.envOf(this.selectedBackupForRestore);
-    const timestamp = this.backupTimestamp(this.selectedBackupForRestore);
-    if (!environment || !timestamp) {
-      this.selectedS3Manifest = null;
-      return;
-    }
-    this.backupService.s3ManifestByTimestamp(environment, timestamp).subscribe({
-      next: manifest => this.selectedS3Manifest = manifest,
-      error: error => {
-        this.logger.error("Failed to load S3 manifest preview:", error);
-        this.selectedS3Manifest = null;
-      }
-    });
+  }
+
+  private requestToSend(): EnvironmentMigrationRequest {
+    const { targetAws, ...request } = this.request;
+    return this.liveCopyRequested() ? { ...request, targetAws } : request;
   }
 
   private backupTimestamp(item: BackupListItem): string {

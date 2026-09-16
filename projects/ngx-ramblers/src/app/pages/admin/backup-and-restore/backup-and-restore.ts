@@ -62,7 +62,7 @@ import { EnvironmentSelectComponent } from "../../../modules/common/selectors/en
 import { CollectionsMultiSelectComponent } from "../../../modules/common/selectors/collections-multi-select";
 import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/backups-multi-select";
 import { BackupSelectComponent } from "../../../modules/common/selectors/backup-select";
-import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../../functions/backup-list-items";
+import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } from "../../../functions/backup-list-items";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import {
   SortableTableCellDirective,
@@ -292,15 +292,15 @@ const HISTORY_INVOCATION_GAP_MS = 15 * 60 * 1000;
                     <div class="mb-3">
                       <app-backup-select
                         label="Backup to Restore"
-                        [items]="backups"
+                        [items]="completedBackups"
                         [selected]="selectedBackupForRestore"
                         [source]="backupSource"
                         (selectedChange)="onBackupForRestoreChange($event)"
                         name="backupForRestore"
                         placeholder="Select backup..."
                         emptySummary="Select a backup before restoring."></app-backup-select>
-                      @if (backups.length === 0) {
-                        <small class="form-text">No backups available.</small>
+                      @if (completedBackups.length === 0) {
+                        <small class="form-text">No completed backups available.</small>
                       }
                     </div>
                     <div class="mb-3">
@@ -717,6 +717,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   selectedBackups: BackupListItem[] = [];
   backupDeleteConfirm = new Confirm();
   allBackups: BackupListItem[] = [];
+  completedBackups: BackupListItem[] = [];
   selectedBackupForRestore: BackupListItem | null = null;
   backupSource: BackupLocation = BackupLocation.S3;
   sourceEnvironment = "";
@@ -1653,12 +1654,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   private applyBackupFilter() {
-    const sourceBackups = this.allBackups.filter(backup => backupSource(backup, this.backupSource) === this.backupSource);
-    if (this.sourceEnvironment) {
-      this.backups = sourceBackups.filter(b => sameBackupEnvironment(this.envOf(b), this.sourceEnvironment));
-    } else {
-      this.backups = [...sourceBackups];
-    }
+    this.backups = backupsForSourceAndEnvironment(this.allBackups, this.backupSource, this.sourceEnvironment);
+    this.completedBackups = restorableBackups(this.backups);
   }
 
   restoreButtonLabel(): string {

@@ -1,13 +1,30 @@
 import expect from "expect";
-import { describe, it } from "mocha";
+import sinon from "sinon";
+import { afterEach, beforeEach, describe, it } from "mocha";
+import { Readable } from "stream";
+import {
+  CreateBucketCommand,
+  GetObjectCommand,
+  HeadBucketCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutBucketCorsCommand,
+  PutObjectCommand,
+  PutPublicAccessBlockCommand,
+  S3Client
+} from "@aws-sdk/client-s3";
 import {
   buildBackupPrefix,
   buildManifestEntriesObjectKey,
   buildETagIndex,
   collectCopiedKeys,
+  destinationObjectMatchesSource,
+  migrateLiveBucket,
   siteConfigs,
   siteConfigFor
 } from "./s3-backup-service";
+import { dateTimeFromIso } from "../shared/dates";
+import { S3LiveCopyCheckpoint } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import {
   BackupConfig,
   BackupSessionStatus,
@@ -227,6 +244,144 @@ describe("s3-backup-service", () => {
         { key: "b.jpg", action: S3BackupAction.SKIPPED }
       ]);
       expect(collectCopiedKeys(manifest)).toEqual([]);
+    });
+
+  });
+
+  describe("destinationObjectMatchesSource", () => {
+
+    const objectInfo = { key: "a.jpg", eTag: "abc", size: 10, lastModified: "2026-04-11T00:00:00Z" };
+
+    it("treats a same-size object with a different ETag as changed", () => {
+      expect(destinationObjectMatchesSource({ ContentLength: 10, ETag: "\"zzz\"" }, objectInfo)).toEqual(false);
+    });
+
+    it("matches on size and ETag", () => {
+      expect(destinationObjectMatchesSource({ ContentLength: 10, ETag: "\"abc\"" }, objectInfo)).toEqual(true);
+    });
+
+    it("matches a re-uploaded object by the source ETag recorded in its metadata", () => {
+      expect(destinationObjectMatchesSource({ ContentLength: 10, ETag: "\"different-after-put\"", Metadata: { "ngx-source-etag": "abc" } }, objectInfo)).toEqual(true);
+    });
+
+    it("never matches on a size difference", () => {
+      expect(destinationObjectMatchesSource({ ContentLength: 11, ETag: "\"abc\"" }, objectInfo)).toEqual(false);
+    });
+
+  });
+
+  describe("migrateLiveBucket", () => {
+
+    const source = { bucket: "source-bucket", region: "eu-west-2", accessKeyId: "source-key", secretAccessKey: "source-secret" };
+    const target = { bucket: "destination-bucket", region: "eu-west-2", accessKeyId: "destination-key", secretAccessKey: "destination-secret" };
+    const lastModified = dateTimeFromIso("2026-04-11T00:00:00.000Z").toJSDate();
+    const sourceObjects = [
+      { Key: "a.jpg", ETag: "\"aaa\"", Size: 1, LastModified: lastModified },
+      { Key: "b.jpg", ETag: "\"bbb\"", Size: 2, LastModified: lastModified },
+      { Key: "c.jpg", ETag: "\"ccc\"", Size: 3, LastModified: lastModified },
+      { Key: "d.jpg", ETag: "\"ddd\"", Size: 4, LastModified: lastModified }
+    ];
+    const destinationHeads: Record<string, any> = {
+      "b.jpg": { ContentLength: 2, ETag: "\"bbb\"" },
+      "c.jpg": { ContentLength: 3, ETag: "\"stale\"" }
+    };
+    const state = { sandbox: sinon.createSandbox(), sent: [] as any[], bucketMissing: false };
+
+    beforeEach(() => {
+      state.sandbox = sinon.createSandbox();
+      state.sent = [];
+      state.bucketMissing = false;
+      state.sandbox.stub(S3Client.prototype, "send").callsFake(async (command: any) => {
+        state.sent.push(command);
+        if (command instanceof ListObjectsV2Command) {
+          return { Contents: sourceObjects, IsTruncated: false };
+        } else if (command instanceof HeadBucketCommand) {
+          if (state.bucketMissing) {
+            throw Object.assign(new Error("missing"), { name: "NotFound", $metadata: { httpStatusCode: 404 } });
+          } else {
+            return {};
+          }
+        } else if (command instanceof HeadObjectCommand) {
+          const head = destinationHeads[command.input.Key];
+          if (head) {
+            return head;
+          } else {
+            throw Object.assign(new Error("missing"), { name: "NotFound", $metadata: { httpStatusCode: 404 } });
+          }
+        } else if (command instanceof GetObjectCommand) {
+          return { Body: Readable.from(["x"]), ContentType: "image/jpeg", CacheControl: "max-age=3600", Metadata: { album: "walks" } };
+        } else {
+          return {};
+        }
+      });
+    });
+
+    afterEach(() => {
+      state.sandbox.restore();
+    });
+
+    function sentOf<T>(type: new (...args: any[]) => T): T[] {
+      return state.sent.filter(command => command instanceof type);
+    }
+
+    it("copies with the site's public-read ACL, preserves headers and metadata, and skips unchanged or checkpointed objects", async () => {
+      const checkpoints: S3LiveCopyCheckpoint[] = [];
+      const summary = await migrateLiveBucket({
+        site: "staging",
+        source,
+        target,
+        dryRun: false,
+        resumeAfterKey: "a.jpg",
+        onProgress: async progress => {
+          checkpoints.push(progress);
+        }
+      });
+
+      const headedKeys = sentOf(HeadObjectCommand).map((command: any) => command.input.Key);
+      expect(headedKeys).not.toContain("a.jpg");
+      expect(headedKeys.sort()).toEqual(["b.jpg", "c.jpg", "d.jpg"]);
+      const puts = sentOf(PutObjectCommand).map((command: any) => command.input);
+      expect(puts.map(put => put.Key).sort()).toEqual(["c.jpg", "d.jpg"]);
+      puts.forEach(put => {
+        expect(put.Bucket).toEqual("destination-bucket");
+        expect(put.ACL).toEqual("public-read");
+        expect(put.ContentType).toEqual("image/jpeg");
+        expect(put.CacheControl).toEqual("max-age=3600");
+        expect(put.Metadata.album).toEqual("walks");
+      });
+      expect(puts.find(put => put.Key === "c.jpg").Metadata["ngx-source-etag"]).toEqual("ccc");
+      expect(summary.totalObjects).toEqual(4);
+      expect(summary.copiedObjects).toEqual(2);
+      expect(summary.skippedObjects).toEqual(2);
+      expect(summary.copiedSizeBytes).toEqual(7);
+      expect(summary.lastCopiedKey).toEqual("d.jpg");
+      expect(checkpoints[checkpoints.length - 1]).toEqual({ lastKey: "d.jpg", copiedObjects: 2, skippedObjects: 2, copiedBytes: 7 });
+      expect(sentOf(ListObjectsV2Command).length).toEqual(1);
+    });
+
+    it("creates a missing destination bucket with the same public access and CORS setup as a new site", async () => {
+      state.bucketMissing = true;
+      await migrateLiveBucket({ site: "staging", source, target, dryRun: false });
+
+      const created = sentOf(CreateBucketCommand).map((command: any) => command.input);
+      expect(created).toEqual([{ Bucket: "destination-bucket", CreateBucketConfiguration: { LocationConstraint: "eu-west-2" } }]);
+      const publicAccess = sentOf(PutPublicAccessBlockCommand).map((command: any) => command.input);
+      expect(publicAccess.length).toEqual(1);
+      expect(publicAccess[0].Bucket).toEqual("destination-bucket");
+      expect(publicAccess[0].PublicAccessBlockConfiguration.BlockPublicAcls).toEqual(false);
+      expect(sentOf(PutBucketCorsCommand).map((command: any) => command.input.Bucket)).toEqual(["destination-bucket"]);
+    });
+
+    it("lists without writing on a dry run", async () => {
+      state.bucketMissing = true;
+      const summary = await migrateLiveBucket({ site: "staging", source, target, dryRun: true });
+
+      expect(sentOf(ListObjectsV2Command).length).toEqual(1);
+      expect(sentOf(CreateBucketCommand).length).toEqual(0);
+      expect(sentOf(PutObjectCommand).length).toEqual(0);
+      expect(sentOf(HeadObjectCommand).length).toEqual(0);
+      expect(summary.totalObjects).toEqual(4);
+      expect(summary.copiedObjects).toEqual(0);
     });
 
   });

@@ -1,5 +1,6 @@
 import { kebabCase } from "es-toolkit/compat";
-import { BackupListItem, BackupLocation } from "../models/backup-session.model";
+import { BackupListItem, BackupLocation, BackupSessionStatus } from "../models/backup-session.model";
+import { sortBy } from "./arrays";
 
 const TIMESTAMP_LENGTH = 19;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}/;
@@ -14,6 +15,19 @@ export function backupEnvironment(item: BackupListItem): string {
   } else {
     return environmentFromS3Path(item.path) || environmentFromS3Path(item.name) || environmentFromLocalName(item);
   }
+}
+
+export function backupOutcome(item: BackupListItem): string {
+  return item.outcome || item.status || BackupSessionStatus.COMPLETED;
+}
+
+export function backupsForSourceAndEnvironment(backups: BackupListItem[], source: BackupLocation, environment: string): BackupListItem[] {
+  const fromSource = backups.filter(backup => backupSource(backup, source) === source);
+  return environment ? fromSource.filter(backup => sameBackupEnvironment(backupEnvironment(backup), environment)) : [...fromSource];
+}
+
+export function restorableBackups(backups: BackupListItem[]): BackupListItem[] {
+  return backups.filter(backup => backupOutcome(backup) === BackupSessionStatus.COMPLETED).sort(sortBy("-timestamp", "name"));
 }
 
 export function sameBackupEnvironment(left: string, right: string): boolean {
