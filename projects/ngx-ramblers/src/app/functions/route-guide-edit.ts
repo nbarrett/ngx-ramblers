@@ -8,7 +8,19 @@ export function guideEntriesFor(markers: MapMarker[], points: RouteFollowPoint[]
   return markers
     .map((marker, index) => ({marker, index}))
     .filter(entry => includeUnwritten ? isAuthoredMarker(entry.marker) : !!entry.marker.instruction?.trim())
-    .map(entry => ({...entry, distanceMetres: distanceAlongRouteMetres(points, entry.marker)}));
+    .map(entry => ({...entry, distanceMetres: guideDistanceMetres(points, entry.marker)}));
+}
+
+function guideDistanceMetres(points: RouteFollowPoint[], marker: MapMarker): number | null {
+  if (points.length < 2) {
+    return null;
+  } else if (marker.kind === RouteWaypointKind.START) {
+    return 0;
+  } else if (marker.kind === RouteWaypointKind.END) {
+    return cumulativeDistances(points)[points.length - 1];
+  } else {
+    return distanceAlongRouteMetres(points, marker);
+  }
 }
 
 export function stepAfter(points: RouteFollowPoint[], entries: RouteGuideEntry[], entry: RouteGuideEntry, id: string): MapMarker {
