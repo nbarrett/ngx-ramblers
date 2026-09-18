@@ -166,10 +166,12 @@ export interface MaximisableMapState {
   `]
 })
 export class MaximisableMapComponent implements OnInit, OnDestroy {
+  private static readonly urlSyncedMaps = new Set<MaximisableMapComponent>();
   private route = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   private host = inject(ElementRef);
   private fullScreenPlaceholder: Comment | null = null;
+  private fullScreenWrapper: HTMLElement | null = null;
 
   @Input() title = "";
   @Input() allowExpanded = true;
@@ -188,11 +190,13 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (this.syncToUrl) {
+      MaximisableMapComponent.urlSyncedMaps.add(this);
       this.subscriptions.push(this.route.queryParamMap.subscribe(paramMap => queueMicrotask(() => this.applyFromQuery(paramMap))));
     }
   }
 
   ngOnDestroy(): void {
+    MaximisableMapComponent.urlSyncedMaps.delete(this);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
     this.restoreFromBody();
     this.lockBodyScroll(false);
@@ -203,8 +207,21 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
     if (!this.fullScreenPlaceholder && element?.parentNode) {
       this.fullScreenPlaceholder = document.createComment("maximisable-map-placeholder");
       element.parentNode.insertBefore(this.fullScreenPlaceholder, element);
-      document.body.appendChild(element);
+      this.fullScreenWrapper = this.wrapperWithAncestorHostAttributes(element);
+      this.fullScreenWrapper.appendChild(element);
+      document.body.appendChild(this.fullScreenWrapper);
     }
+  }
+
+  private wrapperWithAncestorHostAttributes(element: HTMLElement): HTMLElement {
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "contents";
+    const ancestors = (node: Element | null): Element[] => node ? [node, ...ancestors(node.parentElement)] : [];
+    ancestors(element.parentElement)
+      .flatMap(ancestor => Array.from(ancestor.attributes))
+      .filter(attribute => attribute.name.startsWith("_nghost-"))
+      .forEach(attribute => wrapper.setAttribute(attribute.name, attribute.value));
+    return wrapper;
   }
 
   private restoreFromBody(): void {
@@ -213,6 +230,8 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
       placeholder.parentNode.insertBefore(this.host.nativeElement, placeholder);
       placeholder.remove();
     }
+    this.fullScreenWrapper?.remove();
+    this.fullScreenWrapper = null;
     this.fullScreenPlaceholder = null;
   }
 
@@ -247,9 +266,21 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
     }
   }
 
+  private get pageAnchor(): Node {
+    return this.fullScreenPlaceholder || this.host.nativeElement;
+  }
+
+  private get urlValue(): string {
+    const ordered = [...MaximisableMapComponent.urlSyncedMaps]
+      .sort((left, right) => left.pageAnchor.compareDocumentPosition(right.pageAnchor) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+    const position = ordered.indexOf(this);
+    return position > 0 ? String(position + 1) : "true";
+  }
+
   private applyFromQuery(paramMap: ParamMap): void {
-    const maximised = paramMap.get(StoredValue.MAXIMISE) === "true";
-    const expanded = !maximised && paramMap.get(StoredValue.EXPANDED) === "true";
+    const urlValue = this.urlValue;
+    const maximised = paramMap.get(StoredValue.MAXIMISE) === urlValue;
+    const expanded = !maximised && paramMap.get(StoredValue.EXPANDED) === urlValue;
     this.applyState(expanded, maximised);
   }
 
@@ -266,8 +297,8 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
       }
       if (this.syncToUrl) {
         this.uiActions.updateQueryParameters({
-          [StoredValue.EXPANDED]: this.expanded ? "true" : null,
-          [StoredValue.MAXIMISE]: this.fullScreen ? "true" : null
+          [StoredValue.EXPANDED]: this.expanded ? this.urlValue : null,
+          [StoredValue.MAXIMISE]: this.fullScreen ? this.urlValue : null
         });
       }
       this.sizeChange.emit({expanded: this.expanded, fullScreen: this.fullScreen});
