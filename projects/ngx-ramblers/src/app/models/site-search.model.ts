@@ -1,4 +1,6 @@
 import { ApiResponse } from "./api-response.model";
+import { AccessLevel } from "./member-resource.model";
+import { PageContent } from "./content-text.model";
 
 export enum SiteSearchResultType {
   PAGE = "page",
@@ -65,4 +67,21 @@ export interface SiteMapPagesApiResponse extends ApiResponse {
 export interface SiteMapPagesOutcome {
   paths: string[];
   indexing: boolean;
+}
+
+export interface SearchableSegment {
+  text: string;
+  level: AccessLevel;
+}
+
+export interface SegmentSources {
+  albumCaptions: Map<string, string>;
+  pagesById: Map<string, PageContent>;
+}
+
+export interface PageEntry {
+  path: string;
+  title: string;
+  breadcrumb: string;
+  segments: SearchableSegment[];
 }

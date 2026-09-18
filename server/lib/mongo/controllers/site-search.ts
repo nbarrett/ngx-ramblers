@@ -3,21 +3,18 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { dateTimeNowAsValue } from "../../shared/dates";
-import { lastItemFrom, titleCase } from "../../shared/string-utils";
+import { lastItemFrom } from "../../shared/string-utils";
 import { isQuoted } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { excerptAround, matches, termOverlap } from "./site-search-matching";
+import { pageEntriesFrom } from "./site-search-pages";
 import { pageContent } from "../models/page-content";
 import { extendedGroupEvent } from "../models/extended-group-event";
-import {
-  BuiltInPath,
-  PageContent,
-  PageContentRow,
-  USER_TEMPLATES_PATH_PREFIX
-} from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { AccessLevel } from "../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import {
+  PageEntry,
   SiteSearchRelevance,
   SiteSearchResult,
   SiteSearchResultType
@@ -29,6 +26,8 @@ import { eventHasIndexablePublicSlug } from "../../seo/public-path-indexability"
 import { eventPathFor } from "../../shared/event-url";
 import { systemConfig } from "../../config/system-config";
 import { Organisation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
+import { contentMetadata } from "../models/content-metadata";
+import { ContentMetadata } from "../../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
 const searchLog: debug.Debugger = debug(envConfig.logNamespace("database:site-search"));
 searchLog.enabled = true;
@@ -40,7 +39,6 @@ const PAGE_INDEX_LIMIT = 3000;
 const EVENT_INDEX_LIMIT = 6000;
 const INDEX_TTL_MS = 30 * 60 * 1000;
 const INDEX_BUILD_WAIT_MS = 25000;
-const APPLICATION_SEGMENTS = [BuiltInPath.ADMIN, USER_TEMPLATES_PATH_PREFIX.split("/")[0]];
 
 const LOCAL_ACTIVE_FILTER = {
   $or: [
@@ -48,18 +46,6 @@ const LOCAL_ACTIVE_FILTER = {
     {[DocumentField.SOURCE]: EventSource.LOCAL, [GroupEventField.STATUS]: {$ne: "deleted"}}
   ]
 };
-
-interface SearchableSegment {
-  text: string;
-  level: AccessLevel;
-}
-
-interface PageEntry {
-  path: string;
-  title: string;
-  breadcrumb: string;
-  segments: SearchableSegment[];
-}
 
 interface EventEntry {
   type: SiteSearchResultType;
@@ -98,41 +84,6 @@ function accessibleLevels(user: any): AccessLevel[] {
     }
   }
   return levels;
-}
-
-function titleFromPath(path: string): string {
-  return titleCase((lastItemFrom(path) || path || "").replace(/-/g, " "));
-}
-
-function breadcrumbFromPath(path: string): string {
-  const segments = (path || "").split("/").filter(segment => segment.length > 0);
-  return segments.slice(0, -1).map(segment => titleCase(segment.replace(/-/g, " "))).join(" / ");
-}
-
-function collectSegments(rows: PageContentRow[], accumulator: SearchableSegment[]): SearchableSegment[] {
-  (rows || []).forEach(row => {
-    (row.columns || []).forEach(column => {
-      const text = [column.contentText, column.title].filter(value => !!value).join(" ");
-      if (text.trim().length > 0) {
-        accumulator.push({text, level: column.accessLevel || AccessLevel.PUBLIC});
-      }
-      if (column.rows) {
-        collectSegments(column.rows, accumulator);
-      }
-    });
-  });
-  return accumulator;
-}
-
-function firstSegmentOf(path: string): string {
-  return (path || "").split("/").filter(segment => segment.length > 0)[0] || "";
-}
-
-function pathIncluded(page: PageContent): boolean {
-  return !!page.path
-    && !page.path.includes("#")
-    && !APPLICATION_SEGMENTS.includes(firstSegmentOf(page.path))
-    && !page.migrationTemplate?.isTemplate;
 }
 
 function pageVisible(entry: PageEntry, levels: AccessLevel[]): boolean {
@@ -189,20 +140,16 @@ async function timed<T>(label: string, action: () => Promise<T>): Promise<T> {
 async function buildSearchIndex(): Promise<SearchIndex> {
   const startedAt = dateTimeNowAsValue();
   searchLog("buildSearchIndex: starting full index build from database");
-  const [pages, events, config] = await Promise.all([
+  const [pages, events, config, albums] = await Promise.all([
     timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).lean().exec() as Promise<PageContent[]>),
     timed("events load", () => extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
       .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.status groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
       .limit(EVENT_INDEX_LIMIT).lean().exec() as Promise<ExtendedGroupEvent[]>),
-    timed("system-config load", () => systemConfig())
+    timed("system-config load", () => systemConfig()),
+    timed("album captions load", () => contentMetadata.find({})
+      .select("name files.text files.draft").lean().exec() as Promise<ContentMetadata[]>)
   ]);
-  const includedPages = pages.filter(pathIncluded);
-  const pageEntries: PageEntry[] = includedPages.map(page => ({
-    path: page.path,
-    title: titleFromPath(page.path),
-    breadcrumb: breadcrumbFromPath(page.path),
-    segments: collectSegments(page.rows, [])
-  }));
+  const pageEntries: PageEntry[] = pageEntriesFrom(pages, albums);
   const eventEntries: EventEntry[] = events.map(event => toEventEntry(event, config?.group)).filter(entry => !!entry);
   searchLog("buildSearchIndex: complete - loaded", pages.length, "page documents (", pageEntries.length, "indexed ),", events.length, "events (", eventEntries.length, "indexed ) - total", dateTimeNowAsValue() - startedAt, "ms");
   return {pages: pageEntries, events: eventEntries, builtAt: dateTimeNowAsValue()};
