@@ -1,9 +1,9 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowUp, faCodeFork, faPlus, faRoute, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUp, faCodeFork, faFlag, faFlagCheckered, faPlus, faRoute, faTrash, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { MapMarker, RouteGuideEntry } from "../../models/content-text.model";
-import { RouteBranch, RouteBranchChoice } from "../../models/route-follow.model";
+import { RouteBranch, RouteBranchChoice, RouteWaypointKind } from "../../models/route-follow.model";
 import { branchChoiceLabel } from "../../functions/route-branches";
 import { turnRotationDegrees } from "../../functions/route-turns";
 import { milesFromStart } from "../../functions/route-step-popup";
@@ -61,7 +61,13 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
           <li class="route-guide-item" [class.active]="activeMarker === entry.marker" [attr.data-guide-index]="entry.index"
               [style.border-left-color]="activeMarker === entry.marker ? null : markerColour"
               role="button" tabindex="0" (click)="stepSelect.emit(entry)" (keydown.enter)="stepSelect.emit(entry)">
-            <span class="route-guide-number" [style.background]="markerColour">{{ entry.marker.label || entry.index + 1 }}</span>
+            <span class="route-guide-number" [style.background]="markerColour">
+              @if (locationIcon(entry.marker); as icon) {
+                <fa-icon [icon]="icon"/>
+              } @else {
+                {{ entry.marker.label || entry.index + 1 }}
+              }
+            </span>
             <span class="route-guide-body">
               <span class="route-guide-distance">
                 @if (entry.marker.turn) {
@@ -185,6 +191,16 @@ export class RouteGuidePanel {
 
   milesAlong(metres: number): string {
     return milesFromStart(metres);
+  }
+
+  locationIcon(marker: MapMarker): IconDefinition | null {
+    if (marker.kind === RouteWaypointKind.START) {
+      return faFlag;
+    } else if (marker.kind === RouteWaypointKind.END) {
+      return faFlagCheckered;
+    } else {
+      return null;
+    }
   }
 
   turnDegrees(marker: MapMarker): number {

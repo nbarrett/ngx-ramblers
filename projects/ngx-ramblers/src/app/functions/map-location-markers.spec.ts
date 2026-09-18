@@ -22,6 +22,14 @@ describe("markersSyncedWithLocation", () => {
     expect(markersSyncedWithLocation([], {start: location.start} as LocationRowData).map(marker => marker.label)).toEqual(["TR 243 576"]);
     expect(markersSyncedWithLocation([], undefined)).toEqual([]);
   });
+
+  it("labels the start by its grid reference, never by a place name description", () => {
+    const start = {latitude: 51.37, longitude: 0.37, description: "Camer Park, Meopham, Sole Street, Gravesham", grid_reference_6: "TQ653671"};
+    const placeOnly = {latitude: 51.37, longitude: 0.37, description: "Camer Park, Meopham, Sole Street, Gravesham"};
+    expect(markersSyncedWithLocation([], {start} as LocationRowData)[0].label).toEqual("TQ 653 671");
+    expect(markersSyncedWithLocation([], {start: placeOnly} as LocationRowData)[0].label).toEqual("Start");
+    expect(markersSyncedWithLocation([], {start} as LocationRowData)[0].instruction).toEqual("Camer Park, Meopham, Sole Street, Gravesham");
+  });
 });
 
 describe("isAuthoredMarker", () => {

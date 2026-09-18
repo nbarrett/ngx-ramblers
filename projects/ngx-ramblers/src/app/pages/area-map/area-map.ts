@@ -268,6 +268,19 @@ import {
       font-size: 1.1rem
       letter-spacing: 0.01em
 
+    .map-loading-overlay
+      position: absolute
+      top: 0
+      left: 0
+      right: 0
+      bottom: 0
+      z-index: 500
+      display: flex
+      align-items: center
+      justify-content: center
+      background: rgba(255, 255, 255, 0.6)
+      pointer-events: none
+
     .map-loading-icon
       font-size: 2.8rem
       color: var(--ramblers-colour-sunrise, #e2a100)
@@ -477,6 +490,14 @@ import {
                [leafletFitBounds]="fitBounds"
                (leafletMapReady)="onMapReady($event)">
           </div>
+          @if (parishesLoading) {
+            <div class="map-loading-overlay rounded" [style.height.px]="mapFullScreen ? null : mapHeight">
+              <div class="map-loading">
+                <fa-icon class="map-loading-icon" [icon]="faSpinner" animation="spin-pulse"></fa-icon>
+                <div class="map-loading-text">Loading parishes…</div>
+              </div>
+            </div>
+          }
           @if (showLegend && legendItems.length > 0 && legendPosition !== LegendPosition.BELOW_MAP) {
             <div class="map-legend" [class]="legendPosition">
               <div class="map-legend-title">Groups</div>
@@ -668,6 +689,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   public options: any;
   public layers: L.Layer[] = [];
   public fitBounds: L.LatLngBounds | undefined;
+  private viewBeforeFullScreen: {center: L.LatLng; zoom: number} | null = null;
   public showMap = true;
   public mapHeight = 480;
   public mapKey = 0;
@@ -772,18 +794,25 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     this.mapFullScreen = state.fullScreen;
     this.scheduleMapInvalidate();
     if (state.fullScreen) {
+      this.viewBeforeFullScreen = this.mapRef ? {center: this.mapRef.getCenter(), zoom: this.mapRef.getZoom()} : null;
       setTimeout(() => this.fitToContent(), 500);
     } else {
-      setTimeout(() => this.forceMapReset(), 500);
+      setTimeout(() => this.restoreViewBeforeFullScreen(), 500);
     }
   }
 
-  private forceMapReset(): void {
-    if (this.mapRef) {
+  private restoreViewBeforeFullScreen(): void {
+    const view = this.viewBeforeFullScreen;
+    this.viewBeforeFullScreen = null;
+    if (!this.mapRef) {
+      return;
+    } else if (view) {
       this.suppressViewPersist = true;
       this.mapRef.invalidateSize(true);
-      this.mapRef.setView(this.mapRef.getCenter(), this.mapRef.getZoom(), {animate: false});
+      this.mapRef.setView(view.center, view.zoom, {animate: false});
       setTimeout(() => this.suppressViewPersist = false, 200);
+    } else {
+      this.fitToContent();
     }
   }
 

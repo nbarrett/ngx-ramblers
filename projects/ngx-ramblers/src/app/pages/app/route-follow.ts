@@ -29,7 +29,7 @@ import {
   faStop,
   faSun,
   faUpLong,
-  faXmark, faCodeFork } from "@fortawesome/free-solid-svg-icons";
+  faXmark, faCodeFork, faSignsPost } from "@fortawesome/free-solid-svg-icons";
 import * as L from "leaflet";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -452,6 +452,15 @@ import proj4 from "proj4";
                   <fa-icon [icon]="faListOl"/>
                 </button>
               }
+              @if (directedWaypoints.length) {
+                <button class="follow-tool" type="button" [class.is-active]="directionsOnMap"
+                        (click)="toggleDirectionsOnMap()"
+                        [tooltip]="currentStepLabel()" [isDisabled]="!tooltipsEnabled"
+                        placement="left" container=".follow-app"
+                        [attr.aria-label]="currentStepLabel()">
+                  <fa-icon [icon]="faSignsPost"/>
+                </button>
+              }
               <button class="follow-tool" type="button" [class.is-active]="showStylePicker"
                       (click)="toggleStylePicker()"
                       tooltip="Map style" [isDisabled]="!tooltipsEnabled"
@@ -480,12 +489,24 @@ import proj4 from "proj4";
           <div class="follow-sheet-peek"
                (pointerdown)="onSheetHandlePointerDown($event)"
                (click)="onSheetHandleClick()">
-            @if (hasElevation) {
-              <div class="follow-peek-stat">
-                <span>Elevation</span>
-                <strong>{{ currentElevation }}</strong>
-              </div>
-            }
+            <div class="follow-peek-stats">
+              @if (sheetMinimised && hasLine && progress?.mode !== RouteFollowMode.EDITING) {
+                <div class="follow-peek-stat">
+                  <span>Remaining</span>
+                  <strong>{{ remainingDistance }}</strong>
+                </div>
+                <div class="follow-peek-stat">
+                  <span>Time left</span>
+                  <strong>{{ remainingTime }}</strong>
+                </div>
+              }
+              @if (hasElevation) {
+                <div class="follow-peek-stat">
+                  <span>Elevation</span>
+                  <strong>{{ currentElevation }}</strong>
+                </div>
+              }
+            </div>
             @if (sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING) {
               @if (progress?.mode === RouteFollowMode.PAUSED) {
                 <button class="follow-start-tool" type="button"
@@ -827,6 +848,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly osErrorHref = OsMapsBrandingHref.ERROR_REPORTING;
   protected readonly faLayerGroup = faLayerGroup;
   protected readonly faListOl = faListOl;
+  protected readonly faSignsPost = faSignsPost;
   protected readonly faArrowUp = faArrowUp;
   protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
@@ -1198,6 +1220,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.clearPointer();
       this.redraw();
     }
+  }
+
+  currentStepLabel(): string {
+    return this.directionsOnMap ? "Hide the current step" : "Show the current step";
   }
 
   closeDirections(): void {
