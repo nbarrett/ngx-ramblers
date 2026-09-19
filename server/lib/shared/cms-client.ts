@@ -1,12 +1,15 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import type { DataQueryOptions } from "../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import { escapeRegExp } from "es-toolkit/compat";
 import type { InboxReplyComposeRequest, InboxReplyComposeResponse, InboxThreadListResponse, InboxThreadMessagesResponse } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import type { EmailCompositionDocumentDto } from "../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { pluraliseWithCount } from "./string-utils";
-import { isArray, keys } from "es-toolkit/compat";
+import { toPairs } from "es-toolkit/compat";
+import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 import { dateTimeFromIsoWithZone } from "./dates";
 import { slugPatternFor } from "./slug-matching";
 import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
@@ -208,25 +211,33 @@ export async function deletePageContent(auth: CMSAuth, id: string): Promise<void
   debugLog(`Deleted page: ${id}`);
 }
 
-export async function fetchAllPages(auth: CMSAuth): Promise<PageContent[]> {
-  const url = `${auth.baseUrl}/api/database/page-content/all`;
-
-  debugLog(`Fetching all pages from: ${auth.baseUrl}`);
-
-  const response = await fetch(url, {
-    headers: authHeaders(auth)
-  });
-
+export async function queryPages(auth: CMSAuth, options: DataQueryOptions = {}): Promise<PageContent[]> {
+  const parameters = new URLSearchParams(toPairs(options)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => [key, isString(value) || isNumber(value) ? String(value) : JSON.stringify(value)]));
+  const query = parameters.toString();
+  const url = `${auth.baseUrl}/api/database/page-content/all${query ? `?${query}` : ""}`;
+  debugLog(`Fetching pages from ${auth.baseUrl} with ${query || "no criteria"}`);
+  const response = await fetch(url, {headers: authHeaders(auth)});
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to fetch all pages: ${response.status} ${response.statusText} - ${errorText}`);
+    throw new Error(`Failed to fetch pages: ${response.status} ${response.statusText} - ${await response.text()}`);
   }
-
   const data = await response.json();
   const pages = data.response || data || [];
-
   debugLog(`Found ${pages.length} pages`);
   return pages;
+}
+
+export function pathPrefixCriteria(pathPrefix: string): DataQueryOptions["criteria"] {
+  return {path: {$regex: `^${escapeRegExp(pathPrefix)}`}};
+}
+
+export async function fetchPagesUnder(auth: CMSAuth, pathPrefix: string, options: DataQueryOptions = {}): Promise<PageContent[]> {
+  return queryPages(auth, {...options, criteria: pathPrefixCriteria(pathPrefix)});
+}
+
+export async function fetchAllPages(auth: CMSAuth): Promise<PageContent[]> {
+  return queryPages(auth);
 }
 
 export async function fetchAllWalks(baseUrl: string): Promise<any[]> {

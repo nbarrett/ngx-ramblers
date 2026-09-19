@@ -24,7 +24,7 @@ function textValues(rows: PageContentRow[]): string[] {
 }
 
 function committeeSource(pages: PageContent[]): string {
-  return pages.filter(page => /committee|contact/i.test(page.path)).flatMap(page => textValues(page.rows || [])).join("\n");
+  return pages.flatMap(page => textValues(page.rows || [])).join("\n");
 }
 
 function cleanMarkdown(value: string): string {

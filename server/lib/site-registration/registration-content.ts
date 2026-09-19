@@ -13,6 +13,7 @@ import { PageContent, PageContentRow, PageContentType } from "../../../projects/
 import { MigratedAlbum } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { fetchPublicSiteHtml, publicSiteUrl } from "./public-site-fetch";
+import { isDocumentUrl } from "./registration-documents";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import { systemConfig } from "../config/system-config";
 import * as requestDefaults from "../ramblers/request-defaults";
@@ -31,12 +32,20 @@ const CRAWL_BATCH_SIZE = 5;
 const menuSelectors: Record<RegistrationSiteFlavour, string> = {
   [RegistrationSiteFlavour.GENERIC]: "nav a, header a, a[href]",
   [RegistrationSiteFlavour.RAMBLERSWEBS]: ".BMenu a",
+  [RegistrationSiteFlavour.RAMBLERS_HOSTED]: "main .type-group-hub a[href], main .type-content a[href]",
   [RegistrationSiteFlavour.WORDPRESS]: ".wp-block-navigation a, .main-navigation a, nav a"
 };
 const contentSelectors: Record<RegistrationSiteFlavour, string> = {
   [RegistrationSiteFlavour.GENERIC]: "#BContent, main, article, #content, [role=main]",
   [RegistrationSiteFlavour.RAMBLERSWEBS]: "#BContent",
+  [RegistrationSiteFlavour.RAMBLERS_HOSTED]: "main .type-group-hub .col-md-8 .bg-white, main .type-content .col-md-8, main .type-content .container",
   [RegistrationSiteFlavour.WORDPRESS]: ".entry-content, .wp-block-post-content, main, article, [role=main]"
+};
+
+const COMMON_EXCLUDE_SELECTORS = ["script", "style", "nav", "header", "footer", ".cookie-notice", ".wp-block-navigation", ".site-header", ".site-footer"];
+
+const flavourExcludeSelectors: Partial<Record<RegistrationSiteFlavour, string[]>> = {
+  [RegistrationSiteFlavour.RAMBLERS_HOSTED]: [".breadcrumb", ".page-header", "aside", ".card-carousel", ".btn-container", ".sr-only"]
 };
 
 const MIN_PAGES_FOR_LAYOUT_IMAGE = 3;
@@ -92,17 +101,45 @@ export function registrationPageType(path: string, title = "", sourcePath = ""):
   }
 }
 
+function ramblersHostedCardTitle(link: HTMLAnchorElement): string {
+  const heading = link.closest(".card")?.querySelector(".card-title");
+  return heading?.textContent?.replace(/\s+/g, " ").trim() || "";
+}
+
+function ramblersHostedLinkTitle(link: HTMLAnchorElement): string {
+  return ramblersHostedCardTitle(link) || link.textContent?.replace(/\s+/g, " ").trim();
+}
+
+export function ramblersHostedGroupPath(url: URL): string {
+  const match = (url?.pathname || "").match(/^(\/go-walking\/ramblers-groups\/[^/]+)/);
+  return url?.hostname?.endsWith("ramblers.org.uk") && match ? match[1] : null;
+}
+
 export function discoverRegistrationPages(html: string, website: string): {pages: RegistrationPage[]; flavour: RegistrationSiteFlavour} {
   const document = new JSDOM(html, {url: website}).window.document;
   const base = publicSiteUrl(website);
   const flavour = document.querySelector(".BMenu") ? RegistrationSiteFlavour.RAMBLERSWEBS
+    : document.querySelector("main .type-group-hub, main .type-content") && ramblersHostedGroupPath(base) ? RegistrationSiteFlavour.RAMBLERS_HOSTED
     : document.querySelector('meta[name="generator"][content*="WordPress"], link[href*="wp-content"]') ? RegistrationSiteFlavour.WORDPRESS : RegistrationSiteFlavour.GENERIC;
+  const groupPath = ramblersHostedGroupPath(base);
   const items: {url: string; title: string; parentTitle: string; sourcePath: string}[] = [];
   document.querySelectorAll<HTMLAnchorElement>(menuSelectors[flavour]).forEach(link => {
     try {
       const url = new URL(link.href, base);
       const samePublicHost = url.origin === base.origin && !url.username && !url.password && (!url.port || ["80", "443"].includes(url.port));
-      if (samePublicHost) {
+      if (flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED) {
+        const title = ramblersHostedLinkTitle(link);
+        const ownPage = samePublicHost && url.pathname.startsWith(`${groupPath}/`);
+        const groupDocument = isDocumentUrl(url.href) && !url.hostname.endsWith("ramblers.org.uk");
+        const sourceUrl = groupDocument ? url.href : registrationSourceUrl(url.href);
+        const existing = items.find(item => item.url === sourceUrl);
+        if (title && (ownPage || groupDocument) && !existing) {
+          items.push({url: sourceUrl, title, parentTitle: "", sourcePath: ownPage ? url.pathname.slice(groupPath.length + 1) : toKebabCase(title.toLowerCase())});
+        } else if (existing && ramblersHostedCardTitle(link)) {
+          existing.title = ramblersHostedCardTitle(link);
+          existing.sourcePath = existing.sourcePath.startsWith("http") ? existing.sourcePath : existing.sourcePath;
+        }
+      } else if (samePublicHost) {
         const sourcePath = url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.(html?|php|aspx?)$/i, "") || "home";
         const title = link.textContent?.replace(/\s+/g, " ").trim();
         const parentLink = link.closest("li")?.parentElement?.closest("li")?.querySelector<HTMLAnchorElement>(":scope > a[href]");
@@ -117,12 +154,15 @@ export function discoverRegistrationPages(html: string, website: string): {pages
       debugLog("skipping source link %s: %s", link.href, error instanceof Error ? error.message : error);
     }
   });
+  if (flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED && !items.some(item => item.sourcePath === "home")) {
+    items.unshift({url: registrationSourceUrl(base.href), title: "Home", parentTitle: "", sourcePath: "home"});
+  }
   if (items.length > MAX_DISCOVERED_PAGES) {
     throw new Error(`The source page contains more than ${MAX_DISCOVERED_PAGES} internal page links. Reduce duplicate navigation before migration.`);
   }
   const used = new Set<string>();
   const pages = items.reduce((collected, item) => {
-    const leaf = /^(index|home)?$/i.test(item.sourcePath) ? "home" : toKebabCase(item.title) || "page";
+    const leaf = /^(index|home)?$/i.test(item.sourcePath) ? "home" : toKebabCase(item.title.toLowerCase()) || "page";
     const parentLeaf = item.parentTitle && !isRamblersWalksListing("", item.parentTitle, "") ? toKebabCase(item.parentTitle) : "";
     const parentPages = parentLeaf && parentLeaf !== leaf && !used.has(parentLeaf)
       ? (used.add(parentLeaf), [{url: item.url, path: parentLeaf, title: item.parentTitle, type: RegistrationPageType.INDEX, selected: true, parentPath: null as string, proposed: true}])
@@ -499,12 +539,12 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
     expanded: false, name: registration.group.name, baseUrl: registration.website, siteIdentifier: registration.environmentName,
     menuSelector: menuSelectors[registration.flavour],
     contentSelector: contentSelectors[registration.flavour],
-    excludeSelectors: ["script", "style", "nav", "header", "footer", ".cookie-notice", ".wp-block-navigation", ".site-header", ".site-footer"],
+    excludeSelectors: [...COMMON_EXCLUDE_SELECTORS, ...(flavourExcludeSelectors[registration.flavour] || [])],
     excludeImageUrls: repeatedLayoutImagePaths(registration.pages),
     galleryPathPrefixes: [`${RegistrationNavbarPath.PHOTOS}/`],
     enabled: true, uploadTos3: false, persistData: false, publicHtmlOnly: true, requireSourceFidelity,
     defaultPageTransformation: registrationTransformation(),
-    parentPages: selected.filter(page => page.url && !isRegistrationFeaturePath(page.path) && !isRamblersWalksListing(page.path, page.title)).map(page => ({
+    parentPages: selected.filter(page => page.url && !isDocumentUrl(page.url) && !isRegistrationFeaturePath(page.path) && !isRamblersWalksListing(page.path, page.title)).map(page => ({
       url: registrationSourceUrl(page.url), pathPrefix: page.path, parentPageMode: page.proposed ? ParentPageMode.INDEX : ParentPageMode.AS_IS,
       selectedChildren: page.type === RegistrationPageType.INDEX ? selected.filter(child => child.parentPath === page.path).map(child => ({path: registrationSourceUrl(child.url), contentPath: child.path, title: child.title})) : [],
       migrateChildren: false,

@@ -44,6 +44,7 @@ import {
   IndexContentType, IndexRenderMode, PageContent, PageContentColumn, PageContentRow, PageContentType, StringMatch
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {migrateRegistrationAssets} from "./registration-assets";
+import { documentMarkdown, isDocumentUrl } from "./registration-documents";
 import {importRegistrationCommittee} from "./registration-committee";
 import {createAllSamplePageContent, PRIVACY_POLICY_PATH} from "../environment-setup/templates/sample-data/page-content-templates";
 import {COMMITTEE_ROOT_PATH} from "../environment-setup/templates/sample-data/committee-page-template";
@@ -266,13 +267,15 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     requireSourceFidelity: migration.requireSourceFidelity,
     uploadTos3: false
   }, importProgress, registration.id);
-  const imported = result.pageContents.filter(page => page.path && page.rows?.length);
+  const documentPages = await importedDocumentPages(registration, importProgress);
+  const scrapedPages = [...result.pageContents, ...documentPages];
+  const imported = scrapedPages.filter(page => page.path && page.rows?.length);
   if (!imported.length) {
     throw new Error("No pages could be imported from the current website.");
   }
   const assembled = registrationNavigationPages(registration);
   importProgress("Tidying the imported text for spelling, grammar and old-site clutter");
-  const preparedPages = await Promise.all(result.pageContents.map(async page => {
+  const preparedPages = await Promise.all(scrapedPages.map(async page => {
     const targetPath = importedPagePath(page.path, registration.pages || [], assembled);
     const title = targetPath === RegistrationNavbarPath.HOME ? registration.group.name : assembled.find(item => item.path === targetPath)?.title;
     const titledPage = withPageHeading({...page, path: targetPath}, title);
@@ -345,6 +348,22 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     await connection.client.close();
   }
   await registrations().updateOne({id: registration.id, leaseOwner: workerId}, {$set: {importedAt: dateTimeNowAsValue()}});
+}
+
+async function importedDocumentPages(registration: StoredSiteRegistration, importProgress: (message: string) => void): Promise<PageContent[]> {
+  const documents = (registration.pages || []).filter(page => page.selected && isDocumentUrl(page.url));
+  return (await Promise.all(documents.map(async page => {
+    try {
+      importProgress(`Reading ${page.title} from the document linked on the current website`);
+      const markdown = await documentMarkdown(page.url);
+      return markdown.trim()
+        ? [{path: page.path, rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: markdown.trim(), accessLevel: AccessLevel.PUBLIC}]}]} as PageContent]
+        : [];
+    } catch (error) {
+      importProgress(`Skipped ${page.title}: its linked document could not be read (${error instanceof Error ? error.message : error})`);
+      return [];
+    }
+  }))).flat();
 }
 
 function cleanMigratedText(text: string): string {

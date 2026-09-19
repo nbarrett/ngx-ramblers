@@ -44,7 +44,7 @@ export async function syncReleaseNotesIndexImages(
   const log = options.log || noopLog;
   const dryRun = Boolean(options.dryRun);
 
-  const allPages = await cms.fetchAllPages(auth);
+  const allPages = await cms.fetchPagesUnder(auth, SUB_PAGE_PREFIX);
   const imageStatusByPath = new Map<string, boolean>();
   for (const page of allPages) {
     if (!isString(page.path)) continue;

@@ -75,6 +75,7 @@ export enum RegistrationNavbarPath {
 export enum RegistrationSiteFlavour {
   GENERIC = "generic",
   RAMBLERSWEBS = "ramblerswebs",
+  RAMBLERS_HOSTED = "ramblers-hosted",
   WORDPRESS = "wordpress"
 }
 

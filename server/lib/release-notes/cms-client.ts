@@ -8,5 +8,6 @@ export {
   createOrUpdatePageContent,
   deletePageContent,
   fetchAllPages,
+  fetchPagesUnder,
   fetchAllWalks
 } from "../shared/cms-client";
