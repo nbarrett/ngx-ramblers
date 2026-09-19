@@ -20,6 +20,7 @@ import { DateFormat, RamblersEventType, RamblersEventsApiResponse } from "../../
 import { dateTimeNow } from "../shared/dates";
 import { chunk, isEmpty } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { CONTACT_US_TYPE } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 
 export { proposedRegistrationNavigation };
@@ -42,6 +43,32 @@ const MIN_PAGES_FOR_LAYOUT_IMAGE = 3;
 const LAYOUT_IMAGE_PAGE_SHARE = 0.75;
 const IMAGES_PER_ROW = 2;
 const HALF_WIDTH_COLUMNS = 6;
+
+const CONTACT_PAGE_LINK = /\[([^\]]+)\]\(([^)\s]*(?:component\/contact\/|option=com_contact)[^)\s]*)\)/gi;
+
+const CONTACT_ROLE_KEYWORDS: {role: string; keywords: string[]}[] = [
+  {role: "membership", keywords: ["membership", "member"]},
+  {role: "treasurer", keywords: ["treasurer", "treasury", "finance"]},
+  {role: "chairman", keywords: ["chair"]},
+  {role: "walks", keywords: ["walk", "footpath", "rights of way"]},
+  {role: "social", keywords: ["social", "event"]},
+  {role: "publicity", keywords: ["publicity", "press", "media"]},
+  {role: "webmaster", keywords: ["webmaster", "website", "web"]},
+  {role: "secretary", keywords: ["secretary"]}
+];
+
+export function contactUsRoleFor(text: string): string {
+  const haystack = (text || "").toLowerCase();
+  return CONTACT_ROLE_KEYWORDS.find(entry => entry.keywords.some(keyword => haystack.includes(keyword)))?.role || CONTACT_US_TYPE;
+}
+
+export function withContactUsLinks(text: string, redirectPath: string): string {
+  return (text || "").replace(CONTACT_PAGE_LINK, (match, label, href) => {
+    const role = contactUsRoleFor(`${label} ${href}`);
+    const redirect = (redirectPath || "").replace(/^\/+/, "");
+    return redirect ? `[${label}](?contact-us&role=${role}&redirect=${redirect})` : `[${label}](?contact-us&role=${role})`;
+  });
+}
 
 export function isRamblersWalksListing(path: string, title = "", sourcePath = ""): boolean {
   const leaf = path.split("/").pop() || "";
@@ -426,9 +453,15 @@ export function pairedImageRows(rows: PageContentRow[]): PageContentRow[] {
       return [...found, {row: {...row, columns: (row.columns || []).map(column => column.rows ? {...column, rows: pairedImageRows(column.rows)} : column)}}];
     }
   }, [] as {images?: PageContentRow[]; row?: PageContentRow}[]);
-  return runs.flatMap(run => run.images
+  return runs.flatMap(run => run.images?.length > 1
     ? chunk(run.images, IMAGES_PER_ROW).map(pair => ({...pair[0], maxColumns: IMAGES_PER_ROW, columns: pair.map(imageRow => ({...imageRow.columns[0], columns: HALF_WIDTH_COLUMNS}))}))
-    : [run.row]);
+    : run.images || [withoutSingleNestedRow(run.row)]);
+}
+
+function withoutSingleNestedRow(row: PageContentRow): PageContentRow {
+  const column = row.columns?.length === 1 ? row.columns[0] : null;
+  const nestedRow = column?.rows?.length === 1 && !column.contentText && !column.imageSource ? column.rows[0] : null;
+  return nestedRow?.columns?.length ? {...nestedRow, marginTop: row.marginTop ?? nestedRow.marginTop, marginBottom: row.marginBottom ?? nestedRow.marginBottom} : row;
 }
 
 function imageOnlyRow(row: PageContentRow): boolean {

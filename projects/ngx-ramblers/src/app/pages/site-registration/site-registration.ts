@@ -9,7 +9,7 @@ import { PageComponent } from "../../page/page.component";
 import { GroupSelector } from "../walks/walk-edit/group-selector";
 import { SiteRegistrationService } from "../../services/site-registration.service";
 import { UrlService } from "../../services/url.service";
-import { REGISTRATION_STEPS, RamblersDirectoryLogo, RegistrationDiscoveryProgress, RegistrationPage, RegistrationPageAnchor, RegistrationPlan, RegistrationState, RegistrationStep, SiteRegistration } from "../../models/site-registration.model";
+import { REGISTRATION_ADMIN_HELP_PROMPT, REGISTRATION_ENQUIRY_SUBJECT, REGISTRATION_PATH, REGISTRATION_STEPS, RamblersDirectoryLogo, RegistrationDiscoveryProgress, RegistrationPage, RegistrationPageAnchor, RegistrationPlan, RegistrationState, RegistrationStep, SiteRegistration } from "../../models/site-registration.model";
 import { registrationPageTree } from "../../functions/registration-page-tree";
 import { SiteMapViewMode, SitemapMoveDirection, SitemapNode } from "../../models/sitemap.model";
 import { SiteMapViewComponent } from "../../modules/common/site-map/site-map-view";
@@ -32,6 +32,8 @@ import { AvailableArea } from "../../models/system.model";
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { RegistrationStepperComponent } from "../../modules/common/registration-stepper/registration-stepper";
 import { BuiltInAnchor } from "../../models/content-text.model";
+import { ContactUsModalService } from "../contact-us/contact-us-modal.service";
+import { CONTACT_US_TYPE } from "../../models/committee.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
 
 @Component({
@@ -47,9 +49,15 @@ import { MemberLoginService } from "../../services/member/member-login.service";
       }
       @if (registrationOpen === false) {
         <div class="alert alert-warning d-flex align-items-start"><fa-icon [icon]="faCircleExclamation" class="me-2"/><div>
-          <strong>Site registration is switched off</strong>
-          <p>Turn it on under <a [routerLink]="'/' + registrationsPath" [fragment]="Anchor.PUBLIC_REGISTRATION" target="_blank" rel="noopener noreferrer">Site registrations</a>.</p>
+          <strong>Registration is not open at the moment</strong>
+          <p class="mb-0">New groups and areas cannot register just now. Please <a href="#" (click)="openRegistrationEnquiry($event)">get in touch</a> if you would like to know when it reopens.</p>
         </div></div>
+      }
+      @if (registrationOpen === false && memberLoginService.allowMemberAdminEdits()) {
+        <div class="alert alert-warning d-flex align-items-center"><fa-icon [icon]="faCircleExclamation" class="me-2"/>
+          <strong class="me-1">Site registration is switched off</strong>
+          <span>Turn it on under <a [routerLink]="'/' + registrationsPath" [fragment]="Anchor.PUBLIC_REGISTRATION" target="_blank" rel="noopener noreferrer">Site registrations</a>.</span>
+        </div>
       }
       @if (token) {
         <div class="thumbnail-heading-frame mb-3"><div class="thumbnail-heading">Return to this registration</div>
@@ -57,6 +65,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
           <app-secret-input id="registration-return-link" [(ngModel)]="resumeUrl" [reveal]="false" readOnly aria-label="Private return link" autocomplete="off"/>
         </div>
       }
+      @if (registrationOpen !== false) {
       <p-stepper class="p-stepper" [(value)]="activeStep" [linear]="false">
         @for (step of steps; track step.key; let index = $index) {
           <p-step-item [value]="index + 1">
@@ -163,15 +172,17 @@ import { MemberLoginService } from "../../services/member/member-login.service";
                   <app-site-map-view [roots]="selectedPageNodes" [viewMode]="SiteMapViewMode.TREE" [treeDepth]="99" showFilter emptyMessage="No pages are ticked for import."/>
                 }
                 @case (Step.PROGRESS) {
-                  <app-registration-stepper class="d-block mb-3" [stages]="registration?.stages || []"/>
                   <app-registration-progress-log class="d-block mb-3" [progress]="registration?.progress || []" [error]="registration?.error || ''" [inFlight]="progressInFlight()"/>
                 }
               }
               @if (message && step.key !== Step.CONTENT) {
-                <div class="alert alert-warning d-flex align-items-start mt-3 mb-0"><fa-icon [icon]="faCircleExclamation" class="me-2"/><div><strong>Registration update</strong><p class="mb-0">{{message}}</p></div></div>
+                <div class="alert alert-warning d-flex align-items-start mt-3 mb-0"><fa-icon [icon]="faCircleExclamation" class="me-2"/><div><strong>Registration update</strong><p class="mb-0">{{messageBeforeHelpPrompt()}}@if (messageOffersHelp()) {<a href="#" (click)="openRegistrationEnquiry($event)">{{helpPrompt}}</a>.}</p></div></div>
               }
               <div class="stepper-nav stepper-nav-split mt-3">
                 <button class="btn btn-quiet" [disabled]="busy || index === 0" (click)="goToStep(index - 1)"><fa-icon [icon]="icons.back" class="me-2"/>Back</button>
+                @if (step.key === Step.PROGRESS) {
+                  <app-registration-stepper class="registration-stepper-inline" [stages]="registration?.stages || []"/>
+                }
                 @if (step.key === Step.REVIEW) {
                   <button class="btn btn-primary ms-auto" [disabled]="busy" (click)="submit()"><fa-icon [icon]="icons.build" class="me-2"/>Confirm and build site</button>
                 } @else if (step.key === Step.PROGRESS && (registration?.state === State.FAILED || registration?.state === State.BROKEN)) {
@@ -186,6 +197,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
           </p-step-item>
         }
       </p-stepper>
+      }
     </app-page>`
 })
 export class SiteRegistrationComponent implements OnInit, OnDestroy {
@@ -201,8 +213,24 @@ export class SiteRegistrationComponent implements OnInit, OnDestroy {
   protected readonly Step = RegistrationStep;
   protected readonly Plan = RegistrationPlan;
   protected readonly State = RegistrationState;
+  protected readonly helpPrompt = REGISTRATION_ADMIN_HELP_PROMPT;
   protected readonly Anchor = RegistrationPageAnchor;
   protected readonly registrationsPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_REGISTRATIONS;
+  private contactUsModalService = inject(ContactUsModalService);
+
+  messageOffersHelp(): boolean {
+    return (this.message || "").includes(REGISTRATION_ADMIN_HELP_PROMPT);
+  }
+
+  messageBeforeHelpPrompt(): string {
+    const promptAt = (this.message || "").indexOf(REGISTRATION_ADMIN_HELP_PROMPT);
+    return promptAt === -1 ? this.message : this.message.slice(0, promptAt);
+  }
+
+  openRegistrationEnquiry(event: Event): void {
+    event.preventDefault();
+    this.contactUsModalService.openContactModalForRole(CONTACT_US_TYPE, REGISTRATION_ENQUIRY_SUBJECT, REGISTRATION_PATH);
+  }
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly BuiltInAnchor = BuiltInAnchor;
   protected memberLoginService = inject(MemberLoginService);

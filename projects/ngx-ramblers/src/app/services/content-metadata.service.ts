@@ -158,7 +158,6 @@ export class ContentMetadataService {
   albumCatalogue(): Promise<ContentMetadata[]> {
     if (!this.albumCataloguePromise) {
       const options: DataQueryOptions = {
-        criteria: {rootFolder: RootFolder.carousels},
         select: {name: 1, rootFolder: 1, aspectRatio: 1, maxImageSize: 1}
       };
       const params = this.commonDataService.toHttpParams(options);
@@ -296,8 +295,7 @@ export class ContentMetadataService {
   refreshLookups() {
     if (this.memberLoginService.allowContentEdits()) {
       return this.all().then(items => {
-        this.carousels = items.filter(content => content.rootFolder === RootFolder.carousels)
-          .map(content => content.name).sort();
+        this.carousels = items.map(content => content.name).sort();
       });
     } else {
       return Promise.resolve();

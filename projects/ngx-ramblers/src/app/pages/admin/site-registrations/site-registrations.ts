@@ -1,8 +1,10 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowUpRightFromSquare, faChevronDown, faChevronRight, faCircleExclamation, faCircleCheck, faCheck, faRotate, faSpinner, faWrench, faKey, faStop, faPen, faTrash, faSave, faPlus, faXmark, faGears, faEnvelope } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUpRightFromSquare, faChevronDown, faChevronRight, faCircleExclamation, faCircleCheck, faCheck, faRotate, faSpinner, faWrench, faKey, faStop, faPen, faTrash, faSave, faPlus, faXmark, faGears, faEnvelope, faMagnifyingGlass, faEllipsisVertical } from "@fortawesome/free-solid-svg-icons";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgSelectComponent } from "@ng-select/ng-select";
@@ -36,8 +38,17 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
 
 @Component({
   selector: "app-site-registrations",
-  imports: [FormsModule, RouterLink, FontAwesomeModule, TooltipModule, TabDirective, TabsetComponent, NgSelectComponent, PageComponent, SortableTableComponent, SortableTableCellDirective, SortableTableExpandedRowDirective, RegistrationProgressLogComponent, GroupSelector, AreaSelector, RecipientFieldComponent, RegistrationStepperComponent],
+  imports: [FormsModule, NgClass, RouterLink, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FontAwesomeModule, TooltipModule, TabDirective, TabsetComponent, NgSelectComponent, PageComponent, SortableTableComponent, SortableTableCellDirective, SortableTableExpandedRowDirective, RegistrationProgressLogComponent, GroupSelector, AreaSelector, RecipientFieldComponent, RegistrationStepperComponent],
   styles: [`
+    .registration-action-item
+      display: flex
+      align-items: center
+      gap: 0.5rem
+
+      fa-icon
+        flex: 0 0 1.25rem
+        text-align: center
+
     .registration-actions
       grid-auto-flow: column
       justify-content: end
@@ -67,12 +78,18 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
     .registration-details-text
       min-width: 0
       overflow-wrap: anywhere
+      display: -webkit-box
+      -webkit-line-clamp: 2
+      line-clamp: 2
+      -webkit-box-orient: vertical
+      overflow: hidden
+      text-align: left
   `],
   template: `
     <app-page pageTitle="Site registrations">
       <p>Use this page to switch site registration on for groups and areas, follow each request, and decide who may start one. <a routerLink="/how-to/group-registration">How to use this</a>.</p>
       <div class="mb-3">
-        <a class="btn btn-primary btn-sm" routerLink="/register"><fa-icon [icon]="icons.open" class="me-2"/>Open the registration form</a>
+        <a class="btn btn-primary btn-sm" routerLink="/register"><fa-icon [icon]="icons.open" [fixedWidth]="true"/>Open the registration form</a>
       </div>
       @if (message) { <div class="alert d-flex align-items-start" [class.alert-success]="messageVariant === AlertVariant.SUCCESS" [class.alert-danger]="messageVariant === AlertVariant.DANGER" [class.alert-warning]="messageVariant === AlertVariant.WARNING"><fa-icon [icon]="messageVariant === AlertVariant.SUCCESS ? icons.success : icons.warning" class="me-2"/><div><strong>{{messageTitle}}</strong><p>{{message}}</p></div></div> }
       @if (reviewUrl) {
@@ -141,27 +158,39 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                   }
                 </ng-template>
                 <ng-template appSortableTableCell="actions" let-row>
-                  <div class="d-grid gap-2 registration-actions">
-                  @if (row.state === State.REVIEW) {
-                    <button class="btn btn-primary btn-icon" tooltip="Open reviewer login" [disabled]="busy" (click)="reviewLogin(row)"><fa-icon [icon]="icons.key"/></button>
-                    <button class="btn btn-primary btn-icon" [tooltip]="siteUnreachable(row) ? 'The public hostname is not live yet' : 'Approve and invite the group'" [disabled]="busy || siteUnreachable(row)" (click)="approve(row)"><fa-icon [icon]="icons.check"/></button>
-                    <button class="btn btn-primary btn-icon" tooltip="Run import again" [disabled]="busy" (click)="retry(row)"><fa-icon [icon]="icons.retry"/></button>
-                    <button class="btn btn-quiet btn-icon" tooltip="Mark broken" [disabled]="busy" (click)="broken(row)"><fa-icon [icon]="icons.wrench"/></button>
-                  }
-                  @if (row.state === State.AWAITING_EMAIL || row.state === State.DRAFT) {
-                    <button class="btn btn-primary btn-icon" tooltip="Email a fresh return link to the committee address" [disabled]="busy" (click)="emailReturnLink(row)"><fa-icon [icon]="icons.email"/></button>
-                  }
-                  @if (inFlight(row)) {
-                    <button class="btn btn-danger btn-icon" tooltip="Stop this build" [disabled]="busy" (click)="stop(row)"><fa-icon [icon]="icons.stop"/></button>
-                  }
-                  @if (row.state === State.FAILED || row.state === State.BROKEN) {
-                    <button class="btn btn-primary btn-icon" tooltip="Retry from saved progress" [disabled]="busy" (click)="retry(row)"><fa-icon [icon]="icons.retry"/></button>
-                  }
-                  @if (!inFlight(row)) {
-                    <button class="btn btn-quiet btn-icon" tooltip="Delete this registration request" [disabled]="busy" (click)="pendingDelete = row"><fa-icon [icon]="icons.trash"/></button>
-                  }
-                  @if (openSiteUrl(row)) { <a [href]="openSiteUrl(row)" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-icon" [class.disabled]="inFlight(row)" [attr.aria-disabled]="inFlight(row)" [attr.tabindex]="inFlight(row) ? -1 : null" [tooltip]="siteUnreachable(row) ? 'Open working Fly site' : 'Open site'"><fa-icon [icon]="icons.open"/></a> }
-                  @if (siteUnreachable(row)) { <a [routerLink]="'/' + setupPath" [queryParams]="setupQuery(row)" class="btn btn-danger btn-icon" [class.disabled]="inFlight(row)" [attr.aria-disabled]="inFlight(row)" [attr.tabindex]="inFlight(row) ? -1 : null" [tooltip]="siteHealthTooltip(row)"><fa-icon [icon]="icons.setup"/></a> }
+                  <div class="btn-group" dropdown container="body" placement="bottom right">
+                    <button class="btn btn-primary btn-sm dropdown-toggle" dropdownToggle type="button" [disabled]="rowBusy(row)">
+                      <fa-icon [icon]="icons.actions"/><span class="ms-2">Actions</span><span class="caret"></span>
+                    </button>
+                    <ul *dropdownMenu class="dropdown-menu dropdown-menu-end" role="menu">
+                      @if (row.state === State.REVIEW) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="reviewLogin(row)"><fa-icon [icon]="icons.key" [fixedWidth]="true"/>Open reviewer login</a></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" [ngClass]="{'disabled': siteUnreachable(row)}" [tooltip]="siteUnreachable(row) ? 'The public hostname is not live yet' : ''" (click)="approve(row)"><fa-icon [icon]="icons.check" [fixedWidth]="true"/>Approve and invite the group</a></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="retry(row)"><fa-icon [icon]="icons.retry" [fixedWidth]="true"/>Run import again</a></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="rediscover(row)"><fa-icon [icon]="icons.findPages" [fixedWidth]="true"/>Find pages again, then rebuild</a></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="broken(row)"><fa-icon [icon]="icons.wrench" [fixedWidth]="true"/>Mark broken</a></li>
+                      }
+                      @if (row.state === State.AWAITING_EMAIL || row.state === State.DRAFT) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="emailReturnLink(row)"><fa-icon [icon]="icons.email" [fixedWidth]="true"/>Email a fresh return link</a></li>
+                      }
+                      @if (inFlight(row)) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="stop(row)"><fa-icon [icon]="icons.stop" [fixedWidth]="true"/>Stop this build</a></li>
+                      }
+                      @if (row.state === State.FAILED || row.state === State.BROKEN) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="retry(row)"><fa-icon [icon]="icons.retry" [fixedWidth]="true"/>Retry from saved progress</a></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="rediscover(row)"><fa-icon [icon]="icons.findPages" [fixedWidth]="true"/>Find pages again, then rebuild</a></li>
+                      }
+                      @if (openSiteUrl(row)) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" [ngClass]="{'disabled': inFlight(row)}" [href]="openSiteUrl(row)" target="_blank" rel="noopener noreferrer"><fa-icon [icon]="icons.open" [fixedWidth]="true"/>{{siteUnreachable(row) ? "Open working Fly site" : "Open site"}}</a></li>
+                      }
+                      @if (siteUnreachable(row)) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" [ngClass]="{'disabled': inFlight(row)}" [routerLink]="'/' + setupPath" [queryParams]="setupQuery(row)" [tooltip]="siteHealthTooltip(row)"><fa-icon [icon]="icons.setup" [fixedWidth]="true"/>Environment setup</a></li>
+                      }
+                      @if (!inFlight(row)) {
+                        <li class="dropdown-divider"></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item text-danger" (click)="pendingDelete = row"><fa-icon [icon]="icons.trash" [fixedWidth]="true"/>Delete this registration request</a></li>
+                      }
+                    </ul>
                   </div>
                 </ng-template>
                 <ng-template appSortableTableExpandedRow let-row>
@@ -248,7 +277,7 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
   readonly states = values(RegistrationState);
   readonly ascending = ASCENDING;
   protected readonly approvalCode = approvalCode;
-  readonly icons = {warning: faCircleExclamation, success: faCircleCheck, running: faSpinner, check: faCheck, retry: faRotate, wrench: faWrench, stop: faStop, key: faKey, edit: faPen, trash: faTrash, open: faArrowUpRightFromSquare, save: faSave, add: faPlus, cancel: faXmark, expand: faChevronRight, collapse: faChevronDown, setup: faGears, email: faEnvelope};
+  readonly icons = {warning: faCircleExclamation, success: faCircleCheck, running: faSpinner, check: faCheck, retry: faRotate, wrench: faWrench, stop: faStop, key: faKey, edit: faPen, trash: faTrash, open: faArrowUpRightFromSquare, save: faSave, add: faPlus, cancel: faXmark, expand: faChevronRight, collapse: faChevronDown, setup: faGears, email: faEnvelope, findPages: faMagnifyingGlass, actions: faEllipsisVertical};
   registrations: SiteRegistration[] = [];
   loading = true;
   settings: RegistrationSettings = null;
@@ -266,6 +295,7 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
   pendingDelete: SiteRegistration = null;
   reviewUrl = "";
   busy = false;
+  busyRowId: string = null;
   message = "";
   messageTitle = "Registration update";
   messageVariant = AlertPanelVariant.WARNING;
@@ -386,9 +416,9 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
       }
     });
   }
-  async approve(row: SiteRegistration): Promise<void> { await this.perform(async () => { await this.service.approve(row.id); this.registrations = await this.service.list(); }); }
+  async approve(row: SiteRegistration): Promise<void> { await this.performForRow(row, async () => { await this.service.approve(row.id); this.registrations = await this.service.list(); }); }
   async emailReturnLink(row: SiteRegistration): Promise<void> {
-    await this.perform(async () => {
+    await this.performForRow(row, async () => {
       const sent = await this.service.emailReturnLink(row.id);
       this.messageTitle = "Return link sent";
       this.messageVariant = AlertPanelVariant.SUCCESS;
@@ -398,15 +428,23 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   async stop(row: SiteRegistration): Promise<void> {
-    await this.perform(async () => {
+    await this.performForRow(row, async () => {
       await this.service.stop(row.id);
       this.setBuildLogOpen(row.id, true);
       this.registrations = await this.service.list();
     });
   }
 
+  async rediscover(row: SiteRegistration): Promise<void> {
+    await this.performForRow(row, async () => {
+      await this.service.rediscover(row.id);
+      this.setBuildLogOpen(row.id, true);
+      this.registrations = await this.service.list();
+    });
+  }
+
   async retry(row: SiteRegistration): Promise<void> {
-    await this.perform(async () => {
+    await this.performForRow(row, async () => {
       await this.service.retry(row.id);
       this.setBuildLogOpen(row.id, true);
       this.registrations = await this.service.list();
@@ -422,8 +460,9 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
       });
     }
   }
-  async broken(row: SiteRegistration): Promise<void> { await this.perform(async () => { await this.service.broken(row.id); this.registrations = await this.service.list(); }); }
+  async broken(row: SiteRegistration): Promise<void> { await this.performForRow(row, async () => { await this.service.broken(row.id); this.registrations = await this.service.list(); }); }
   async reviewLogin(row: SiteRegistration): Promise<void> {
+    this.busyRowId = row.id;
     this.busy = true;
     this.message = "";
     this.reviewUrl = "";
@@ -440,6 +479,7 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
       this.message = this.stringUtils.userErrorMessage(error, "The reviewer sign-in link could not be created.");
     } finally {
       this.busy = false;
+      this.busyRowId = null;
     }
   }
 
@@ -506,6 +546,19 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
   selectTab(tab: RegistrationAdminTab): void { this.tab = tab; this.router.navigate([], {queryParams: {[StoredValue.TAB]: kebabCase(tab)}, queryParamsHandling: "merge"}); }
   sortChanged(sort: SortableTableSortState): void { this.sort = sort; this.router.navigate([], {queryParams: {[StoredValue.SORT]: sort.key, [StoredValue.SORT_ORDER]: sort.direction}, queryParamsHandling: "merge"}); }
   approvalSortChanged(sort: SortableTableSortState): void { this.approvalSort = sort; this.router.navigate([], {queryParams: {[StoredValue.REGISTRATION_EMAIL_SORT]: sort.key, [StoredValue.REGISTRATION_EMAIL_SORT_ORDER]: sort.direction}, queryParamsHandling: "merge"}); }
+
+  rowBusy(row: SiteRegistration): boolean {
+    return this.busyRowId ? this.busyRowId === row.id : this.busy;
+  }
+
+  private async performForRow(row: SiteRegistration, action: () => Promise<void>): Promise<void> {
+    this.busyRowId = row.id;
+    try {
+      await this.perform(action);
+    } finally {
+      this.busyRowId = null;
+    }
+  }
 
   private async perform(action: () => Promise<void>): Promise<void> {
     this.busy = true;

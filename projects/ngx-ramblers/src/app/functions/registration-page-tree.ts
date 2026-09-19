@@ -58,7 +58,7 @@ export function proposedRegistrationNavigation(pages: RegistrationPage[]): Regis
 const NAVBAR_ROLES: {path: RegistrationNavbarPath; title: RegistrationNavbarTitle; synonyms: string[]}[] = [
   {path: RegistrationNavbarPath.HOME, title: RegistrationNavbarTitle.HOME, synonyms: ["home", "welcome"]},
   {path: RegistrationNavbarPath.ABOUT_US, title: RegistrationNavbarTitle.ABOUT_US, synonyms: ["about", "about us", "about-us"]},
-  {path: RegistrationNavbarPath.CONTACT_US, title: RegistrationNavbarTitle.CONTACT_US, synonyms: ["contact", "contact us", "contact-us"]},
+  {path: RegistrationNavbarPath.CONTACT_US, title: RegistrationNavbarTitle.CONTACT_US, synonyms: ["contact", "contacts", "contact us", "contact-us", "contact details"]},
   {path: RegistrationNavbarPath.PHOTOS, title: RegistrationNavbarTitle.PHOTOS, synonyms: ["photos", "gallery", "scrapbook", "albums", "album"]},
   {path: RegistrationNavbarPath.LEADING_A_WALK, title: RegistrationNavbarTitle.LEADING_A_WALK, synonyms: ["leading a walk", "walk leaders", "walk-leaders", "leaders"]},
   {path: RegistrationNavbarPath.IN_THE_NEWS, title: RegistrationNavbarTitle.IN_THE_NEWS, synonyms: ["in the news", "news", "notice board", "notices", "notice-board"]},
@@ -67,6 +67,8 @@ const NAVBAR_ROLES: {path: RegistrationNavbarPath; title: RegistrationNavbarTitl
   {path: RegistrationNavbarPath.COMMITTEE, title: RegistrationNavbarTitle.COMMITTEE, synonyms: ["committee"]},
   {path: RegistrationNavbarPath.INFORMATION, title: RegistrationNavbarTitle.INFORMATION, synonyms: ["information", "info"]}
 ];
+
+const MAX_NAVBAR_TITLE_WORDS = 3;
 
 const NAVBAR_CORE_PATHS: string[] = [
   RegistrationNavbarPath.HOME, RegistrationNavbarPath.WALKS, RegistrationNavbarPath.EVENTS,
@@ -168,12 +170,18 @@ function isAboutSubpage(page: RegistrationPage): boolean {
   return /testimonial/.test(haystack);
 }
 
+export function isNavbarTitle(title: string): boolean {
+  const words = (title || "").trim().split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.length <= MAX_NAVBAR_TITLE_WORDS && !/[.?!,;:]/.test(title);
+}
+
 export function constrainRegistrationNavbar(pages: RegistrationPage[]): RegistrationPage[] {
   const ordered = orderRegistrationNavbar(pages);
   const roots = ordered.filter(page => !page.parentPath);
   const coreRoots = roots.filter(page => NAVBAR_CORE_PATHS.includes(page.path) && !(isRegistrationFeaturePath(page.path) && page.url));
+  const sentenceRoots = roots.filter(page => !coreRoots.some(core => core.path === page.path) && !NAVBAR_REQUIRED_PATHS.includes(page.path) && !isNavbarTitle(page.title));
   const overflowRoots = roots.filter(page => !coreRoots.some(core => core.path === page.path) && !NAVBAR_REQUIRED_PATHS.includes(page.path));
-  if (!overflowRoots.length && coreRoots.length <= REGISTRATION_NAVBAR_LIMIT) {
+  if (roots.length <= REGISTRATION_NAVBAR_LIMIT && !sentenceRoots.length) {
     return ordered;
   } else {
     const information = roots.find(page => page.path === RegistrationNavbarPath.INFORMATION) || {
@@ -186,7 +194,9 @@ export function constrainRegistrationNavbar(pages: RegistrationPage[]): Registra
     const room = REGISTRATION_NAVBAR_LIMIT - 1 - required.length;
     const kept = [...required, ...optional.slice(0, Math.max(room, 0))];
     const droppedCore = keptCore.filter(page => !kept.some(item => item.path === page.path));
-    const overflowList = [...overflowRoots.filter(page => page.path !== information.path), ...droppedCore];
+    const overflowList = roots.length > REGISTRATION_NAVBAR_LIMIT
+      ? [...overflowRoots.filter(page => page.path !== information.path), ...droppedCore]
+      : sentenceRoots.filter(page => page.path !== information.path);
     const overflow = (page: RegistrationPage) => overflowList.some(root => page.path === root.path || page.path.startsWith(`${root.path}/`));
     const rehomed = ordered.filter(overflow).map(page => ({
       ...page,
@@ -194,7 +204,8 @@ export function constrainRegistrationNavbar(pages: RegistrationPage[]): Registra
       parentPath: page.parentPath ? `${information.path}/${page.parentPath}` : information.path
     }));
     const retained = ordered.filter(page => !overflow(page) && page.path !== information.path);
-    return [...kept, information, ...retained.filter(page => !!page.parentPath), ...rehomed];
+    const keptRoots = roots.length > REGISTRATION_NAVBAR_LIMIT ? kept : retained.filter(page => !page.parentPath);
+    return orderRegistrationNavbar([...keptRoots, information, ...retained.filter(page => !!page.parentPath), ...rehomed]);
   }
 }
 
@@ -206,7 +217,7 @@ function orderRegistrationNavbar(pages: RegistrationPage[]): RegistrationPage[] 
       RegistrationNavbarPath.INFORMATION, RegistrationNavbarPath.ADMIN
     ];
     const index = order.indexOf(path);
-    return index < 0 ? 100 : index;
+    return index < 0 ? order.indexOf(RegistrationNavbarPath.INFORMATION) + 0.5 : index;
   };
   const roots = pages.filter(page => !page.parentPath).sort((left, right) => rank(left.path) - rank(right.path));
   const children = pages.filter(page => !!page.parentPath);

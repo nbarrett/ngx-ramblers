@@ -7,7 +7,7 @@ import { ADMIN_SET_PASSWORD_PATH, EventPopulation, SystemConfig } from "../../..
 import { ensureRegistrationIndexes, recordRegistrationHistory, registrations, registrationSettings } from "./registration-store";
 import { assertRegistrationEditable } from "./registration-policy";
 import { registrationForToken } from "./registration-service";
-import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withContactUsLinks, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { createEnvironment } from "../environment-setup/environment-setup-service";
 import { environmentDetails } from "../environment-setup/environment-details";
@@ -279,7 +279,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     const pageWithNavigation = assembled.some(sourcePage => sourcePage.parentPath === targetPath) ? withChildNavigation(titledPage) : titledPage;
     const hasAlbum = result.albums.some(album => album.sourcePagePath === page.path);
     const landingPage = !hasAlbum && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(pageWithNavigation) : pageWithNavigation;
-    return {...landingPage, rows: await tidyPageRows(pairedImageRows(cleanPageRows(landingPage.rows)))};
+    return {...landingPage, rows: await tidyPageRows(pairedImageRows(cleanPageRows(landingPage.rows, targetPath)))};
   }));
   const uploadBucket = context.envConfigData.aws?.bucket;
   if (!uploadBucket) {
@@ -351,13 +351,13 @@ function cleanMigratedText(text: string): string {
   return collapseExcessBlankLines(applyTextExclusions(text || "", {})).replace(/^\s*\[\s*$/gm, "").trim();
 }
 
-function cleanPageRows(rows: PageContentRow[]): PageContentRow[] {
+function cleanPageRows(rows: PageContentRow[], path: string): PageContentRow[] {
   return (rows || []).map(row => ({
     ...row,
     columns: (row.columns || []).map(column => ({
       ...column,
-      contentText: column.contentText ? cleanMigratedText(column.contentText) : column.contentText,
-      rows: column.rows ? cleanPageRows(column.rows) : column.rows
+      contentText: column.contentText ? withContactUsLinks(cleanMigratedText(column.contentText), path) : column.contentText,
+      rows: column.rows ? cleanPageRows(column.rows, path) : column.rows
     }))
   }));
 }
@@ -410,10 +410,18 @@ function withChildNavigation(page: PageContent): PageContent {
 }
 
 function withLandingVisual(page: PageContent): PageContent {
-  const openingRow = page.rows?.[0];
-  const hasOpeningVisual = openingRow?.showSwiper && openingRow.columns.some(column => column.imageSource || column.rows?.length);
-  const visualColumns = visualColumnsFromPages([page]);
-  return hasOpeningVisual || visualColumns.length === 0 ? page : withRowsUnderHeading(page, [landingVisualRow(visualColumns)]);
+  const rows = page.rows || [];
+  const openingRow = rows[0];
+  const hasOpeningVisual = openingRow?.columns?.some(column => column.imageSource || column.rows?.length);
+  const imageRowIndex = rows.findIndex(row => (row.columns || []).length > 0 && (row.columns || []).every(column => column.imageSource && !column.contentText));
+  if (hasOpeningVisual) {
+    return page;
+  } else if (imageRowIndex > -1) {
+    return withRowsUnderHeading({...page, rows: rows.filter((row, index) => index !== imageRowIndex)}, [rows[imageRowIndex]]);
+  } else {
+    const visualColumns = visualColumnsFromPages([page]);
+    return visualColumns.length === 0 ? page : withRowsUnderHeading(page, [landingVisualRow(visualColumns)]);
+  }
 }
 
 function landingVisualRow(columns: PageContentColumn[]): PageContentRow {

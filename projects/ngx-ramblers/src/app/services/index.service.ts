@@ -754,8 +754,8 @@ export class IndexService {
       path: "generated-album-index-row-"+ rowIndex,
       rows: [{
         type: PageContentType.ACTION_BUTTONS,
-        minColumns: pageContentRow.albumIndex?.minCols ?? pageContentRow.minColumns,
-        maxColumns: pageContentRow.albumIndex?.maxCols ?? pageContentRow.maxColumns,
+        minColumns: pageContentRow.minColumns ?? pageContentRow.albumIndex?.minCols,
+        maxColumns: pageContentRow.maxColumns ?? pageContentRow.albumIndex?.maxCols,
         showSwiper: pageContentRow.showSwiper,
         columns: albumIndexes
       }]

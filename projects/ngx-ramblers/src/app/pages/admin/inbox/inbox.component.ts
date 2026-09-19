@@ -894,14 +894,13 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           const response = await this.inboxService.getThread(requestedSlug);
           const requested = response.thread;
           if (!this.threadBelongsToCurrentView(requested)) {
-            this.syncThreadToUrl(null);
-            return null;
-          } else {
-            if (!this.matchingThread(this.threads, this.threadIdOf(requested))) {
-              this.threads = [requested, ...this.threads];
-            }
-            return requested;
+            this.selectedMailboxView = this.viewForThread(requested);
+            this.filteredThreadsDirty = true;
           }
+          if (!this.matchingThread(this.threads, this.threadIdOf(requested))) {
+            this.threads = [requested, ...this.threads];
+          }
+          return requested;
         } catch (error) {
           this.logger.error("Failed to open thread from URL:", error);
           return null;
@@ -922,11 +921,20 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedMailboxView === InboxThreadFolder.DELETED;
   }
 
+  private viewForThread(thread: InboxThread): string {
+    const folder = thread?.folder;
+    return folder === InboxThreadFolder.DELETED || folder === InboxThreadFolder.JUNK || folder === InboxThreadFolder.SENT || folder === InboxThreadFolder.DRAFTS
+      ? folder
+      : InboxViewScope.ALL_ACCESSIBLE;
+  }
+
   private threadBelongsToCurrentView(thread: InboxThread): boolean {
     const folder = thread?.folder;
     return folder === InboxThreadFolder.DELETED ? this.viewingDeleted
       : folder === InboxThreadFolder.JUNK ? this.viewingJunk
-      : !this.viewingDeleted && !this.viewingJunk;
+      : folder === InboxThreadFolder.SENT ? this.viewingSent
+      : folder === InboxThreadFolder.DRAFTS ? this.selectedMailboxView === InboxThreadFolder.DRAFTS
+      : !this.viewingDeleted && !this.viewingJunk && !this.viewingSent;
   }
 
   get viewingSent(): boolean {

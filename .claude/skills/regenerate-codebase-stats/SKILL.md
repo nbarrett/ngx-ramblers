@@ -53,6 +53,32 @@ Label rounding: big numbers in chart labels are rounded to `K` (219,685 → "220
 
 The page is plain HTML + Chart.js from a CDN. Open the file in a browser; do not start a new dev server. Sanity checks: component LOC sums to the hero LOC, no chart shows a flat/empty final bar, and the mobile view (header, 2-column stat grid) still looks right at ~380px.
 
-## 4. Publishing
+## 4. Commit message: summary stats are mandatory
 
-This is GitHub Pages from the `main` branch root, so `codebase-evolution-stats.html` is served from the repository's Pages URL. Publishing means committing the file and pushing to `main` when the user asks. Do not commit or push without explicit instruction.
+The commit message feeds the release notes, so a subject line alone is not enough. Every snapshot commit must carry the headline figures in its body, so the release notes show the high-level picture without opening the dashboard. Use the standard user-guide sections:
+
+```
+docs(stats): refresh the codebase evolution snapshot for <D Month YYYY>
+
+## What's new
+
+One short paragraph: the new total LOC, total commits, and the most notable change since the previous snapshot.
+
+## At a glance
+
+- Lines of TypeScript: <new> (up from <previous> at the <date> snapshot, +<delta>)
+- Split: client <N>K, server <N>K, Serenity end-to-end tests <N>K
+- Commits: <total> across the three repositories; <this year> in <year> so far (<comparison with last full year>)
+- TypeScript files: <new> (up from <previous>)
+- Growth since July 2024: <N>-fold overall (+<pct>%); server from 6K to <N>K
+
+## Technical changes
+
+- Figures recomputed with `gather-stats.sh` and mapped into the hero cards, charts, timeline and insight cards of `codebase-evolution-stats.html`.
+```
+
+Take the "previous" figures from the diff (`git diff -U0 codebase-evolution-stats.html`) so every delta is exact.
+
+## 5. Publishing
+
+This is GitHub Pages from the `main` branch root, so `codebase-evolution-stats.html` is served from the repository's Pages URL. Publishing means committing the file and pushing to `main` when the user asks. Do not push without explicit instruction.

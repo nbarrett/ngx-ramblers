@@ -4,6 +4,7 @@ import { toPairs, keys } from "es-toolkit/compat";
 import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { BuiltInRole } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS, NOTIFICATION_CONFIG_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { AdminUserConfig, SetupStepStatus } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { CopiedAssets, EnvironmentSetupRequest, InitialiseDatabaseResult, MongoDbConnectionParams, ProgressCallback, ReinitDatabaseParams, SeedDatabaseParams, ValidationResult } from "./types";
@@ -394,7 +395,7 @@ export async function wireNotificationConfigsToProcesses(db: Db): Promise<{ wire
 export async function assignAdminToCommitteeRoles(
   db: Db,
   adminUser: AdminUserConfig,
-  rolesToAssign: string[] = ["membership", "support"]
+  builtInRolesToAssign: BuiltInRole[] = [BuiltInRole.CONTACT_US]
 ): Promise<{ assignedCount: number }> {
   const configCollection = db.collection(COLLECTIONS.CONFIG);
   const committeeDoc = await configCollection.findOne({ key: ConfigKey.COMMITTEE });
@@ -405,7 +406,7 @@ export async function assignAdminToCommitteeRoles(
   let assignedCount = 0;
 
   for (const role of roles) {
-    if (rolesToAssign.includes(role.type) && role.vacant) {
+    if (builtInRolesToAssign.includes(role.builtInRoleMapping) && role.vacant) {
       role.email = adminUser.email.toLowerCase();
       role.fullName = fullName;
       role.nameAndDescription = `${fullName} - ${role.description}`;
@@ -415,12 +416,9 @@ export async function assignAdminToCommitteeRoles(
   }
 
   const contactUs = committeeDoc.value.contactUs || {};
-  for (const roleType of rolesToAssign) {
-    if (contactUs[roleType]) {
-      const matchingRole = roles.find((r: { type: string }) => r.type === roleType);
-      if (matchingRole) {
-        contactUs[roleType] = { ...matchingRole };
-      }
+  for (const role of roles) {
+    if (builtInRolesToAssign.includes(role.builtInRoleMapping) && contactUs[role.type]) {
+      contactUs[role.type] = { ...role };
     }
   }
 

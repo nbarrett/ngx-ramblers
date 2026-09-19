@@ -498,23 +498,14 @@ import { ClipboardService } from "../../../services/clipboard.service";
                             </div>
                           </div>
                         }
-                        @if (isNarrow(column)) {
-                          <div class="form-group mt-2">
+                        <div class="mt-2" [ngClass]="isNarrow(column) ? '' : 'row g-2 align-items-end'">
+                          <div [ngClass]="isNarrow(column) ? 'form-group' : 'col-auto'">
                             <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
                           </div>
-                          <div class="form-group">
+                          <div [ngClass]="isNarrow(column) ? 'form-group' : 'col'">
                             <ng-container [ngTemplateOutlet]="accessLevelSelectControl"></ng-container>
                           </div>
-                        } @else {
-                          <div class="row g-2 mt-2 align-items-end">
-                            <div class="col-auto">
-                              <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
-                            </div>
-                            <div class="col">
-                              <ng-container [ngTemplateOutlet]="accessLevelSelectControl"></ng-container>
-                            </div>
-                          </div>
-                        }
+                        </div>
                       }
                     </div>
                   </div>

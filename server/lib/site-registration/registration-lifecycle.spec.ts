@@ -257,7 +257,7 @@ describe("site registration lifecycle", () => {
     expect(target.deletedPaths).toContain("walks/information");
     expect(target.deletedPaths).not.toContain("about-us");
     expect(uploads.args.map(args => args[0])).toEqual(["review-site", "review-site", "review-site"]);
-    expect(target.landingVisualImages).toEqual(["site-content/one.jpg", "site-content/two.jpg"]);
+    expect(target.landingVisualImages).toEqual(["site-content/one.jpg", "site-content/two.jpg", "site-content/three.jpg"]);
     expect(sendEmail.firstCall.args[2]).toBe("reviewer@example.com");
   });
 });

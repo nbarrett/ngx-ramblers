@@ -184,7 +184,9 @@ export interface ContentMetadataResizeRequest {
 }
 
 export interface ContentMetadataCopyImageRequest {
+  sourceRootFolder: string;
   sourceAlbumName: string;
+  destinationRootFolder: string;
   destinationAlbumName: string;
   sourceImage: string;
 }
