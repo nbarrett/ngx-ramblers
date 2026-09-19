@@ -22,6 +22,7 @@ import {
 import { addCustomDomainForEnvironment, setupSubdomainForEnvironment } from "../cli/commands/subdomain";
 import { baseDomainFrom } from "../environment-setup/environment-context";
 import { appIpAddresses, queryCertificates } from "./fly-certificates";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("fly-org-migration"));
 debugLog.enabled = true;
@@ -255,7 +256,7 @@ async function publicAppUrlForEnvironment(
 ): Promise<string> {
   const href = await groupHrefForEnvironment(environmentName);
   if (href) {
-    return href.replace(/\/$/, "");
+    return stripTrailingSlash(href);
   } else {
     return freeHostFallback;
   }

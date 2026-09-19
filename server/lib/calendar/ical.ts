@@ -4,6 +4,7 @@ import { WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramble
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromIsoWithZone, dateTimeFromMillis, dateTimeNow, formatDateTime } from "../shared/dates";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const DEFAULT_EVENT_DURATION_HOURS = 3;
 const MAXIMUM_LINE_OCTETS = 75;
@@ -60,7 +61,7 @@ function locationDescription(event: ExtendedGroupEvent): string {
 }
 
 export function eventUid(event: ExtendedGroupEvent, baseUrl: string): string {
-  const host = (baseUrl || "").replace(/^https?:\/\//, "").replace(/\/+$/, "") || "ngx-ramblers";
+  const host = stripTrailingSlash((baseUrl || "").replace(/^https?:\/\//, "")) || "ngx-ramblers";
   return `${event?.id || (event as any)?._id?.toString()}@${host}`;
 }
 

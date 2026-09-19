@@ -12,6 +12,7 @@ import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { guestMeetingOccupantId, nameFromEmailAddress } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-join";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const MEETING_TOKEN_EXPIRY_SECONDS = 60 * 60 * 4;
 const GUEST_TOKEN_EXPIRY_SECONDS = 60 * 60 * 12;
@@ -68,7 +69,7 @@ async function senderForMember(member: MemberCookie): Promise<EmailAddress | nul
 
 async function buildGuestLink(room: string, token: string | null): Promise<string> {
   const system = await systemConfig();
-  const base = (system?.group?.href || envConfig.value(Environment.BASE_URL) || "").replace(/\/+$/, "");
+  const base = stripTrailingSlash(system?.group?.href || envConfig.value(Environment.BASE_URL));
   const tokenQuery = token ? `?t=${encodeURIComponent(token)}` : "";
   return `${base}/video-meetings/guest/${encodeURIComponent(room)}${tokenQuery}`;
 }

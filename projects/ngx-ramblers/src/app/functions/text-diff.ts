@@ -1,5 +1,5 @@
 import { DiffSegment, DiffSegmentKind } from "../models/text-diff.model";
-import { decodeHtmlEntities } from "./strings";
+import { decodeHtmlEntities, escapeHtml } from "./strings";
 
 function tokens(text: string): string[] {
   return (text || "").split(/(\s+|[.,;:!?…]+(?=\s|$)|\*{1,3}|_{2,3}|`+)/).filter(token => token.length > 0);
@@ -44,9 +44,6 @@ export function wordDiff(before: string, after: string): DiffSegment[] {
   return mergeAdjacent(walk(beforeTokens.length, afterTokens.length, []));
 }
 
-export function escapeHtml(text: string): string {
-  return (text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 export const DIFF_REMOVED_CLASS = "text-danger text-decoration-line-through";
 export const DIFF_ADDED_CLASS = "text-success";

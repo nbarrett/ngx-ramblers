@@ -22,6 +22,7 @@ import { systemConfig } from "../../config/system-config";
 import { contactUsParentSegment } from "../contacts/unsubscribe-token";
 import { fetchBrevoAccount } from "../account/account";
 import { publicCampaignAttachmentUrl } from "./campaign-attachment";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -35,7 +36,7 @@ async function injectCampaignUnsubscribeUrl(createCampaignRequest: CreateCampaig
   if (!Number.isFinite(listId)) return;
   const requestAppUrl = createCampaignRequest.params?.systemMergeFields?.APP_URL;
   const sys = await systemConfig();
-  const groupHref = (requestAppUrl || sys?.group?.href || "").replace(/\/+$/, "");
+  const groupHref = stripTrailingSlash(requestAppUrl || sys?.group?.href);
   if (!groupHref) return;
   const parent = await contactUsParentSegment();
   const path = parent ? `/${parent}/unsubscribe` : "/unsubscribe";

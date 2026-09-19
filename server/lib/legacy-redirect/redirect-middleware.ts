@@ -8,6 +8,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import { LegacyRedirectConfig } from "../../../projects/ngx-ramblers/src/app/models/legacy-url-redirect.model";
 import { pathWithTrackingQueryStripped } from "../seo/tracking-query";
 import { homeRedirectTarget } from "../seo/public-path-indexability";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("redirect-middleware"));
 
@@ -33,7 +34,7 @@ function safeDecode(path: string): string {
 }
 
 function normalisePath(path: string): string {
-  return safeDecode(path || "").toLowerCase().replace(/\/+$/, "") || "/";
+  return stripTrailingSlash(safeDecode(path || "").toLowerCase()) || "/";
 }
 
 async function loadConfig(): Promise<void> {

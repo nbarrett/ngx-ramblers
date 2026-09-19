@@ -30,6 +30,7 @@ import { MemberCookie } from "../models/member.model";
 import { VolunteerMergeFields } from "../models/mail.model";
 import { isNumber, isUndefined, uniq } from "es-toolkit/compat";
 import { memberFullName } from "./member-names";
+import { escapeHtml } from "./strings";
 
 export const COORDINATOR_VIEWS = [VolunteerWorkspaceView.PARISHES, VolunteerWorkspaceView.VOLUNTEERS, VolunteerWorkspaceView.REPORTS];
 export const COORDINATOR_REPORTS = [VolunteerReportType.PARISH_LIST, VolunteerReportType.VACANCIES, VolunteerReportType.ACTIVE_ROLE_HOLDERS];
@@ -247,15 +248,12 @@ function volunteerCounterpartTableHtml(supporterId: string, held: {assignment: V
     }))
     .sort((first, second) => (first.parish?.parishName ?? "").localeCompare(second.parish?.parishName ?? "")
       || volunteerRoleLabel(first.assignment.roleType).localeCompare(volunteerRoleLabel(second.assignment.roleType)));
-  const rows = counterparts.map(entry => `<tr><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(entry.assignment.parishCode)}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(entry.parish?.parishName ?? "")}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(volunteerRoleLabel(entry.assignment.roleType))}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(volunteerAssignmentDisplayName(entry.assignment, members))}</td><td style="${EMAIL_WRAP_CELL_STYLE}">${escapeHtmlValue(entry.email)}</td></tr>`).join("");
+  const rows = counterparts.map(entry => `<tr><td style="${EMAIL_CELL_STYLE}">${escapeHtml(entry.assignment.parishCode)}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(entry.parish?.parishName ?? "")}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(volunteerRoleLabel(entry.assignment.roleType))}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(volunteerAssignmentDisplayName(entry.assignment, members))}</td><td style="${EMAIL_WRAP_CELL_STYLE}">${escapeHtml(entry.email)}</td></tr>`).join("");
   return counterparts.length > 0
     ? `<table role="presentation" style="${EMAIL_TABLE_STYLE}"><thead><tr><th style="${EMAIL_HEADER_STYLE}">Code</th><th style="${EMAIL_HEADER_STYLE}">Parish</th><th style="${EMAIL_HEADER_STYLE}">Role</th><th style="${EMAIL_HEADER_STYLE}">Name</th><th style="${EMAIL_HEADER_STYLE}">Email</th></tr></thead><tbody>${rows}</tbody></table>`
     : "";
 }
 
-function escapeHtmlValue(value: string): string {
-  return (value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 const EMAIL_TABLE_STYLE = "width:100%;border-collapse:collapse;font-size:15px;margin:6px 0 18px;border:1px solid #e3e8e4;border-radius:8px;overflow:hidden;";
 const EMAIL_HEADER_STYLE = "text-align:left;padding:10px 14px;background:#eef4ef;border-bottom:2px solid #cfe0d4;font-weight:600;white-space:nowrap;color:#404143;";
@@ -263,7 +261,7 @@ const EMAIL_CELL_STYLE = "padding:10px 14px;border-bottom:1px solid #edf1ee;vert
 const EMAIL_WRAP_CELL_STYLE = "padding:10px 14px;border-bottom:1px solid #edf1ee;vertical-align:top;word-break:break-word;";
 
 function volunteerParishTableHtml(held: {assignment: VolunteerAssignment; parish: VolunteerParish | null}[], formatDate: (value: number) => string): string {
-  const rows = held.map(entry => `<tr><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(entry.parish?.parishName ?? entry.assignment.parishCode)}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(volunteerRoleLabel(entry.assignment.roleType))}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(volunteerCoverLabel(entry.assignment.coverage))}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(entry.parish?.localAuthorityName ?? "")}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtmlValue(entry.assignment.effectiveFrom ? formatDate(entry.assignment.effectiveFrom) : "")}</td></tr>`).join("");
+  const rows = held.map(entry => `<tr><td style="${EMAIL_CELL_STYLE}">${escapeHtml(entry.parish?.parishName ?? entry.assignment.parishCode)}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(volunteerRoleLabel(entry.assignment.roleType))}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(volunteerCoverLabel(entry.assignment.coverage))}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(entry.parish?.localAuthorityName ?? "")}</td><td style="${EMAIL_CELL_STYLE}">${escapeHtml(entry.assignment.effectiveFrom ? formatDate(entry.assignment.effectiveFrom) : "")}</td></tr>`).join("");
   return held.length > 0
     ? `<table role="presentation" style="${EMAIL_TABLE_STYLE}"><thead><tr><th style="${EMAIL_HEADER_STYLE}">Parish</th><th style="${EMAIL_HEADER_STYLE}">Role</th><th style="${EMAIL_HEADER_STYLE}">Cover</th><th style="${EMAIL_HEADER_STYLE}">Authority</th><th style="${EMAIL_HEADER_STYLE}">From</th></tr></thead><tbody>${rows}</tbody></table>`
     : "";

@@ -11,6 +11,7 @@ import {
 import { UrlService } from "../url.service";
 import { renderEmailComposerMarkdown } from "../../functions/email-composer-markdown";
 import { dividerHtml } from "../../functions/email-composer";
+import { escapeHtml } from "../../functions/strings";
 
 @Injectable({ providedIn: "root" })
 export class EmailComposerRenderingService {
@@ -26,7 +27,7 @@ export class EmailComposerRenderingService {
 
   renderArticleBlock(block: ArticleBlock): string {
     const titleHtml = block.title
-      ? `<h3 style="font-family:Arial,sans-serif;color:#202124;margin:18px 0 8px 0;">${this.escapeHtml(block.title)}</h3>`
+      ? `<h3 style="font-family:Arial,sans-serif;color:#202124;margin:18px 0 8px 0;">${escapeHtml(block.title)}</h3>`
       : "";
     const bodyHtml = this.markdownToHtml(block.markdown);
     const buttonHtml = this.ctaButtonHtml(block);
@@ -35,11 +36,11 @@ export class EmailComposerRenderingService {
     if (!image?.src) {
       return this.tableSection(contentHtml);
     }
-    const altAttr = image.alt ? this.escapeHtml(image.alt) : "";
+    const altAttr = image.alt ? escapeHtml(image.alt) : "";
     const widthAttr = image.width ? ` width="${image.width}"` : ` width="100%"`;
     const cleanedSrc = this.urlService.isRemoteUrl(image.src) ? image.src : image.src.replace(/^\/+/, "");
     const resolvedSrc = this.urlService.imageSource(cleanedSrc, true) ?? cleanedSrc;
-    const imgTag = `<img src="${this.escapeAttr(resolvedSrc)}" alt="${altAttr}"${widthAttr} style="max-width:100%;height:auto;border:0;display:block;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;vertical-align:bottom"/>`;
+    const imgTag = `<img src="${escapeHtml(resolvedSrc)}" alt="${altAttr}"${widthAttr} style="max-width:100%;height:auto;border:0;display:block;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;vertical-align:bottom"/>`;
     if (image.alignment === ArticleBlockImageAlignment.LEFT) {
       return this.tableSectionWithSideImage(imgTag, contentHtml, SideImagePlacement.Left);
     }
@@ -53,8 +54,8 @@ export class EmailComposerRenderingService {
     const text = block.buttonText?.trim();
     const url = block.buttonUrl?.trim();
     if (!text || !url) return "";
-    const safeText = this.escapeHtml(text);
-    const safeUrl = this.escapeAttr(this.urlService.absoluteUrlFor(url));
+    const safeText = escapeHtml(text);
+    const safeUrl = escapeHtml(this.urlService.absoluteUrlFor(url));
     return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:100%;" width="100%"><tbody><tr><td align="center" style="padding-top: 0;padding-bottom: 18px;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="top"><table border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate !important;border-radius: 0px;background-color: #F9B104;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" width="100%"><tbody><tr><td align="center" style="font-family: Arial;font-size: 16px;padding: 12px;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="middle"><a target="_blank" style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#222222;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;display:block;" title="${safeText}" href="${safeUrl}">${safeText}</a></td></tr></tbody></table></td></tr></tbody></table>`;
   }
 
@@ -113,16 +114,5 @@ export class EmailComposerRenderingService {
     return [above, intro, middle, below].filter(part => part).join("\n");
   }
 
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
 
-  private escapeAttr(value: string): string {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;");
-  }
 }

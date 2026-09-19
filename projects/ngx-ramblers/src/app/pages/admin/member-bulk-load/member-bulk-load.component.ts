@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
-import { faEnvelopesBulk, faSearch, faCloudArrowDown, faTrash, faPaperPlane, faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelopesBulk, faSearch, faCloudArrowDown, faTrash, faPaperPlane, faCircleExclamation, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { first, isNumber, isString, groupBy, map, max, min, reduce, kebabCase, values } from "es-toolkit/compat";
 import { extractErrorMessage } from "../../../functions/strings";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
@@ -20,7 +20,7 @@ import {
   MemberAction,
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
-  MemberBulkLoadDigest,
+  MemberBulkLoadDigestPreview,
   MemberBulkLoadUploadedRow,
   MemberUpdateAudit,
   MemberUpdateAuditRow,
@@ -40,8 +40,10 @@ import { SortableTableColumn, SortableTableSortState } from "../../../modules/co
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { memberBulkLoadUploadedRows, memberUpdateAuditRows } from "../../../functions/member-bulk-load-rows";
-import { memberBulkLoadDigest, memberBulkLoadDigestCountsLabel } from "../../../functions/member-bulk-load-digest";
-import { memberFullName } from "../../../functions/member-names";
+import { memberBulkLoadDigestCountsLabel } from "../../../functions/member-bulk-load-digest";
+import { ComposerExternalRecipient } from "../../../models/email-composer.model";
+import { RecipientFieldComponent } from "../../../modules/common/recipient-field/recipient-field";
+import { EmailPreviewComponent } from "../../../modules/common/email-preview/email-preview.component";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { EditMode, StoredValue } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
@@ -61,7 +63,7 @@ import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-mo
 import { SalesforceConfig, memberBulkLoadSourceLabel } from "../../../models/salesforce.model";
 import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
 import { SalesforceSyncService } from "../../../services/salesforce/salesforce-sync.service";
-import { MailMessagingConfig } from "../../../models/mail.model";
+import { EmailAddress, MailMessagingConfig } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { cloneDeep } from "es-toolkit/compat";
@@ -403,59 +405,39 @@ export enum MemberBulkLoadSubTab {
                               </button>
                             }
                           </div>
-                          @if (committeeSummaryArmed && committeeSummaryDigest) {
+                          @if (committeeSummaryArmed && committeeSummaryPreview) {
                             <div class="alert alert-warning mb-3">
                               <div class="d-flex align-items-start">
                                 <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
-                                <div>
+                                <div class="flex-grow-1" style="min-width:0">
                                   <strong>Send committee summary?</strong>
                                   <p class="mb-2 mt-1">
-                                    This emails the roles listed on Mail Settings → Member bulk load summary for the selected bulk load:
-                                    {{ memberBulkLoadDigestCountsLabel(committeeSummaryDigest) }}.
-                                    New members still receive their own welcome. Nothing is sent until you confirm.
+                                    For the selected bulk load: {{ memberBulkLoadDigestCountsLabel(committeeSummaryPreview.digest) }}.
+                                    Check the preview, choose who receives it, then send. Nothing is sent until you press Send.
                                   </p>
-                                  @if (committeeSummaryDigest.created.length > 0) {
-                                    <p class="mb-1"><strong>New members</strong></p>
-                                    <ul class="mb-2">
-                                      @for (member of committeeSummaryDigest.created; track member.membershipNumber || member.name) {
-                                        <li>{{ member.name }}@if (member.membershipNumber) {
-                                          ({{ member.membershipNumber }})
-                                        }</li>
-                                      }
-                                    </ul>
+                                  @if (committeeSummaryPreview.problem) {
+                                    <p class="mb-2"><strong>{{ committeeSummaryPreview.problem }}</strong></p>
+                                  } @else {
+                                    <label class="form-label mb-1">Send to</label>
+                                    <app-recipient-field [to]="committeeSummaryRecipients"
+                                                         (toChange)="committeeSummaryRecipients = $event"
+                                                         [members]="members" [plain]="true"/>
+                                    <p class="mb-1 mt-3"><strong>Subject:</strong> {{ committeeSummaryPreview.subject }}</p>
+                                    <app-email-preview [html]="committeeSummaryPreview.htmlContent"/>
                                   }
-                                  @if (committeeSummaryDigest.updated.length > 0) {
-                                    <p class="mb-1"><strong>Updated members</strong></p>
-                                    <ul class="mb-2">
-                                      @for (member of committeeSummaryDigest.updated; track member.membershipNumber || member.name) {
-                                        <li>{{ member.name }}@if (member.changeSummary) {
-                                          : {{ member.changeSummary }}
-                                        }</li>
-                                      }
-                                    </ul>
-                                  }
-                                  @if (committeeSummaryDigest.errors.length > 0) {
-                                    <p class="mb-1"><strong>Failed to save</strong></p>
-                                    <ul class="mb-2">
-                                      @for (member of committeeSummaryDigest.errors; track member.membershipNumber || member.name) {
-                                        <li>{{ member.name }}@if (member.errorText) {
-                                          : {{ member.errorText }}
-                                        }</li>
-                                      }
-                                    </ul>
-                                  }
-                                  <div class="d-flex flex-wrap gap-2">
+                                  <div class="d-flex flex-wrap gap-2 mt-3">
                                     <button type="button"
                                             class="btn btn-primary"
-                                            [disabled]="notifyTarget.busy || sendingCommitteeSummary"
+                                            [disabled]="notifyTarget.busy || sendingCommitteeSummary || !!committeeSummaryPreview.problem || committeeSummaryRecipients.length === 0"
                                             (click)="sendCommitteeSummary()">
                                       <fa-icon [icon]="faPaperPlane" class="me-1"/>
-                                      Send to committee
+                                      Send
                                     </button>
                                     <button type="button"
                                             class="btn btn-quiet"
                                             [disabled]="notifyTarget.busy || sendingCommitteeSummary"
                                             (click)="cancelCommitteeSummary()">
+                                      <fa-icon [icon]="faXmark" class="me-1"/>
                                       Cancel
                                     </button>
                                   </div>
@@ -748,7 +730,7 @@ export enum MemberBulkLoadSubTab {
       </div>
     </app-page>`,
   styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, StatusIconComponent, FormsModule, LinkComponent, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe, RouterLink, DateRangeSlider, SortableTableComponent, SortableTableCellDirective]
+  imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, StatusIconComponent, FormsModule, LinkComponent, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe, RouterLink, DateRangeSlider, SortableTableComponent, SortableTableCellDirective, RecipientFieldComponent, EmailPreviewComponent]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);
@@ -847,9 +829,11 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   faTrash = faTrash;
   faPaperPlane = faPaperPlane;
   faCircleExclamation = faCircleExclamation;
+  faXmark = faXmark;
   protected readonly memberBulkLoadDigestCountsLabel = memberBulkLoadDigestCountsLabel;
   public committeeSummaryArmed = false;
-  public committeeSummaryDigest: MemberBulkLoadDigest | null = null;
+  public committeeSummaryPreview: MemberBulkLoadDigestPreview | null = null;
+  public committeeSummaryRecipients: ComposerExternalRecipient[] = [];
   public sendingCommitteeSummary = false;
   salesforceConfig: SalesforceConfig | null = null;
   salesforceSyncing = false;
@@ -1722,7 +1706,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return !!this.mailMessagingConfig?.mailConfig?.memberBulkLoadDigestConfigId;
   }
 
-  offerCommitteeSummary() {
+  async offerCommitteeSummary() {
     if (!this.uploadSession?.id) {
       this.notify.warning({
         title: "No upload session",
@@ -1730,24 +1714,27 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       });
     } else {
       this.selectTab(MemberBulkLoadTab.UPLOAD_HISTORY);
-      const uploadedBy = this.members.find(member => member.id === this.uploadSession.createdBy);
-      const uploadedByName = memberFullName(
-        uploadedBy,
-        this.uploadSession.createdBy === "system" ? "System" : "Unknown member"
-      );
-      this.committeeSummaryDigest = memberBulkLoadDigest(
-        this.uploadSession,
-        this.memberUpdateAudits,
-        this.members,
-        uploadedByName
-      );
-      this.committeeSummaryArmed = true;
+      this.notify.setBusy();
+      try {
+        this.committeeSummaryPreview = await this.memberBulkLoadAuditService.committeeSummaryPreview(this.uploadSession.id);
+        this.committeeSummaryRecipients = this.committeeSummaryPreview.recipients.map(recipient => ({email: recipient.email, name: recipient.name}));
+        this.committeeSummaryArmed = true;
+      } catch (error) {
+        this.logger.error("offerCommitteeSummary failed", error);
+        this.notify.error({
+          title: "Committee summary preview failed",
+          message: extractErrorMessage(error)
+        });
+      } finally {
+        this.notify.clearBusy();
+      }
     }
   }
 
   cancelCommitteeSummary() {
     this.committeeSummaryArmed = false;
-    this.committeeSummaryDigest = null;
+    this.committeeSummaryPreview = null;
+    this.committeeSummaryRecipients = [];
   }
 
   async sendCommitteeSummary() {
@@ -1755,17 +1742,18 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       this.sendingCommitteeSummary = true;
       this.notify.setBusy();
       try {
-        const result = await this.memberBulkLoadAuditService.sendCommitteeSummary(this.uploadSession.id);
+        const recipients: EmailAddress[] = this.committeeSummaryRecipients.map(recipient => ({email: recipient.email, name: recipient.name || ""}));
+        const result = await this.memberBulkLoadAuditService.sendCommitteeSummary(this.uploadSession.id, recipients);
         if (result.sent) {
           this.notify.success({
             title: "Committee summary sent",
-            message: `Sent to ${this.stringUtils.pluraliseWithCount(result.recipientCount, "committee recipient")}: ${result.recipients.join(", ")}.`
+            message: `Sent to ${this.stringUtils.pluraliseWithCount(result.recipientCount, "recipient")}: ${result.recipients.join(", ")}.`
           });
           this.cancelCommitteeSummary();
         } else {
           this.notify.error({
             title: "Committee summary not sent",
-            message: "Check Mail Settings → Built-in Processes for the member bulk load summary mapping, sender and committee recipients."
+            message: "Check Mail Settings → Built-in Processes for the member bulk load summary mapping and sender."
           });
         }
       } catch (error) {

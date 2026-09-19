@@ -4,9 +4,10 @@ import {
   TextGenerationProvider,
   TextGenerationRequest
 } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 async function chatCompletion(config: Ai, body: object): Promise<string> {
-  const endpoint = `${config.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const endpoint = `${stripTrailingSlash(config.baseUrl)}/chat/completions`;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {

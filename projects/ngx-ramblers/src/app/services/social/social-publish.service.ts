@@ -35,6 +35,7 @@ import { WebSocketClientService } from "../websockets/websocket-client.service";
 import { SystemConfigService } from "../system/system-config.service";
 import { UrlService } from "../url.service";
 import { NumberUtilsService } from "../number-utils.service";
+import { stripTrailingSlash } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -107,7 +108,7 @@ export class SocialPublishService {
   private currentPageUrlFrom(publicBaseUrl: string): string {
     try {
       const path = new URL(this.urlService.absoluteUrl()).pathname;
-      return publicBaseUrl && path && path !== "/" ? `${publicBaseUrl.replace(/\/+$/, "")}${path}` : null;
+      return publicBaseUrl && path && path !== "/" ? `${stripTrailingSlash(publicBaseUrl)}${path}` : null;
     } catch (error) {
       this.logger.warn("could not derive the album page url:", error);
       return null;

@@ -18,7 +18,7 @@ import {
   StringMatch
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
-import { booleanOf } from "../functions/strings";
+import { booleanOf, stripTrailingSlash } from "../functions/strings";
 import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
@@ -562,7 +562,7 @@ export class IndexService {
         if (!contentPath.maxPathSegments) {
           return true;
         } else {
-          const basePath = (contentPath.contentPath || "").replace(/\/$/, "");
+          const basePath = stripTrailingSlash(contentPath.contentPath);
           const pagePath = page.path || "";
           const regex = this.pathMongoRegex(contentPath, basePath);
           if (!new RegExp(regex.$regex, regex.$options).test(pagePath)) {
@@ -587,7 +587,7 @@ export class IndexService {
     if (!contentPath.maxPathSegments) {
       return baseRegex;
     } else {
-      const basePath = (contentPath.contentPath || "").replace(/\/$/, "");
+      const basePath = stripTrailingSlash(contentPath.contentPath);
       const depthSuffix = `(/[^/]+){1,${contentPath.maxPathSegments}}$`;
       if (contentPath.stringMatch === StringMatch.STARTS_WITH || !contentPath.stringMatch) {
         return {$regex: "^" + basePath + depthSuffix, $options: "i"};

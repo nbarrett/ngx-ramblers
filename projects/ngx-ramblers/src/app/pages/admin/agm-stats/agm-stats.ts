@@ -50,7 +50,7 @@ import { agmStatisticsDetailTables } from "../../../functions/agm-statistics-det
 import { FileUploadService } from "../../../services/file-upload.service";
 import { UrlService } from "../../../services/url.service";
 import { EmailAttachment } from "../../../models/mail.model";
-import { extractErrorMessage } from "../../../functions/strings";
+import { extractErrorMessage, stripTrailingSlash } from "../../../functions/strings";
 import { downloadBlob } from "../../../functions/file-download";
 
 Chart.register(...registerables);
@@ -653,7 +653,7 @@ export class AGMStatsComponent implements OnInit {
     } else if (this.urlService.isRemoteUrl(value)) {
       return value;
     } else {
-      return `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${value.replace(/^\//, "")}`;
+      return `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${value.replace(/^\//, "")}`;
     }
   }
 

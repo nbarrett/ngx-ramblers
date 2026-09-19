@@ -2,6 +2,7 @@ import Bold from "@tiptap/extension-bold";
 import Italic from "@tiptap/extension-italic";
 import Link from "@tiptap/extension-link";
 import { JSONContent } from "@tiptap/core";
+import { escapeHtml } from "../../../functions/strings";
 
 type MarkRenderHelpers = { renderChildren: (nodes?: JSONContent | JSONContent[] | JSONContent, separator?: string) => string };
 
@@ -12,13 +13,6 @@ function markdownMark(content: string, marker: string): string {
   return markedContent ? `${leadingWhitespace}${marker}${markedContent}${marker}${trailingWhitespace}` : content;
 }
 
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
 export function markdownMarksForClipboard(markdown: string): string {
   return markdown
@@ -32,9 +26,9 @@ export function renderLinkMarkdown(node: JSONContent, helpers: MarkRenderHelpers
   const target = node.attrs?.["target"];
   const text = helpers.renderChildren(node);
   const rel = String(node.attrs?.["rel"] || "noopener noreferrer");
-  const titleAttr = title ? ` title="${escapeHtmlAttribute(title)}"` : "";
+  const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
   return target === "_blank"
-    ? `<a href="${escapeHtmlAttribute(href)}" target="_blank" rel="${escapeHtmlAttribute(rel)}"${titleAttr}>${text}</a>`
+    ? `<a href="${escapeHtml(href)}" target="_blank" rel="${escapeHtml(rel)}"${titleAttr}>${text}</a>`
     : (title ? `[${text}](${href} "${title}")` : `[${text}](${href})`);
 }
 

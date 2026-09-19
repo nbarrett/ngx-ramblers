@@ -8,6 +8,7 @@ import { htmlToMarkdown } from "./turndown-service-factory";
 import { buildHtmlPastePreview, buildMarkdownPastePreview } from "./html-paste-preview";
 import { isString } from "es-toolkit/compat";
 import { parseVenueFromHtml } from "../venue/venue-parser";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("migration-routes"));
 const router = express.Router();
@@ -211,7 +212,7 @@ router.post("/scrape-venue", async (req, res) => {
     }
 
     const baseUrl = `${parsed.protocol}//${parsed.host}`;
-    const inputUrlWithoutTrailingSlash = parsed.toString().replace(/\/+$/, "");
+    const inputUrlWithoutTrailingSlash = stripTrailingSlash(parsed.toString());
     const html = await fetchHtmlFromUrl(parsed.toString());
     let result = parseVenueFromHtml(html, inputUrlWithoutTrailingSlash);
     debugLog("scrape-venue: initial result from", url, "confidence:", result.confidence);
@@ -219,7 +220,7 @@ router.post("/scrape-venue", async (req, res) => {
     if (result.confidence < 50) {
       debugLog("scrape-venue: low confidence, trying contact paths");
       const triedPaths = new Set<string>([parsed.pathname]);
-      const inputPath = parsed.pathname.replace(/\/+$/, "");
+      const inputPath = stripTrailingSlash(parsed.pathname);
       const RELATIVE_CONTACT_SUFFIXES = ["contact", "contact-us", "find-us", "location"];
 
       const pathsToTry: string[] = [];

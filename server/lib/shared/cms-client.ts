@@ -9,6 +9,7 @@ import { pluraliseWithCount } from "./string-utils";
 import { isArray, keys } from "es-toolkit/compat";
 import { dateTimeFromIsoWithZone } from "./dates";
 import { slugPatternFor } from "./slug-matching";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("shared:cms-client"));
 debugLog.enabled = true;
@@ -35,7 +36,7 @@ function authHeaders(auth: CMSAuth): Record<string, string> {
 }
 
 export async function login(baseUrl: string, username: string, password: string): Promise<CMSAuth> {
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
   const url = `${normalizedBaseUrl}/api/database/auth/login`;
 
   debugLog(`Logging in as ${username}...`);
@@ -229,7 +230,7 @@ export async function fetchAllPages(auth: CMSAuth): Promise<PageContent[]> {
 }
 
 export async function fetchAllWalks(baseUrl: string): Promise<any[]> {
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
   const url = `${normalizedBaseUrl}/api/database/group-event/all`;
 
   debugLog(`Fetching all walks from: ${normalizedBaseUrl}`);
@@ -251,7 +252,7 @@ export async function fetchAllWalks(baseUrl: string): Promise<any[]> {
 }
 
 export async function groupEventsByCriteria(baseUrl: string, criteria: any): Promise<any[]> {
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
   const url = `${normalizedBaseUrl}/api/database/group-event/all?criteria=${encodeURIComponent(JSON.stringify(criteria))}`;
   const response = await fetch(url, { headers: { "Content-Type": "application/json" } });
   if (!response.ok) {

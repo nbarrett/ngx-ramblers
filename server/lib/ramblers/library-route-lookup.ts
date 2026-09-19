@@ -10,6 +10,7 @@ import {
   RouteWaypointKind
 } from "../../../projects/ngx-ramblers/src/app/models/route-follow.model";
 import { generateUid } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:library-route"));
 debugLog.enabled = false;
@@ -32,7 +33,7 @@ export function ramblersRouteSlugFrom(value: string | null | undefined): string 
           : `https://www.ramblers.org.uk${trimmed.startsWith("/") ? "" : "/"}${trimmed}`;
         const parsed = new URL(withProtocol);
         const hostAllowed = RAMBLERS_ROUTE_HOSTS.includes(parsed.hostname.toLowerCase());
-        const path = parsed.pathname.replace(/\/+$/, "");
+        const path = stripTrailingSlash(parsed.pathname);
         if (hostAllowed && path.startsWith(ROUTE_PATH_PREFIX)) {
           return toRouteSlug(path.slice(ROUTE_PATH_PREFIX.length));
         } else {

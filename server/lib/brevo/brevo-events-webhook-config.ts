@@ -5,6 +5,7 @@ import { MailConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.m
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { systemConfig } from "../config/system-config";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("brevo:events-webhook-config"));
 debugLog.enabled = true;
@@ -20,7 +21,7 @@ function newSecret(): string {
 
 async function deriveWebhookUrl(secret: string): Promise<string> {
   const sys = await systemConfig();
-  const base = (sys?.group?.href || "").replace(/\/+$/, "");
+  const base = stripTrailingSlash(sys?.group?.href);
   if (!base) {
     throw new Error("System config group.href not set; cannot derive webhook URL");
   }

@@ -31,6 +31,7 @@ import { normalisePostcode } from "../../addresses/shared";
 import { signoffHtmlForConfig } from "./signoff-names";
 import { assertSendAllowed } from "../send-permission";
 import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const messageType = "brevo:send-forgot-password-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -187,7 +188,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
 
   const configuredHref = systemCfg?.group?.href?.trim();
   const requestDerivedHref = `${req.protocol}://${req.get("host")}`;
-  const groupHref = (configuredHref || requestDerivedHref).replace(/\/+$/, "");
+  const groupHref = stripTrailingSlash(configuredHref || requestDerivedHref);
   debugLog("resolved groupHref:", groupHref, "(configured:", configuredHref, "requestDerived:", requestDerivedHref, ")");
   const groupShortName = systemCfg?.group?.shortName || "";
   const groupLongName = systemCfg?.group?.longName || "";

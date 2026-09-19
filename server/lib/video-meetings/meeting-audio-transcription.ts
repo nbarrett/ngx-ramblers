@@ -12,12 +12,13 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
 import { meetingTranscribePrompt } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
 import { MeetingAudioTranscription } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:audio"));
 debug.enabled = true;
 
 function geminiGenerateContentUrl(baseUrl: string, model: string): string {
-  const root = baseUrl.replace(/\/openai\/?$/i, "").replace(/\/+$/, "");
+  const root = stripTrailingSlash(baseUrl.replace(/\/openai\/?$/i, ""));
   return `${root}/models/${encodeURIComponent(model)}:generateContent`;
 }
 

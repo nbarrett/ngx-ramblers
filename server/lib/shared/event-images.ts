@@ -2,6 +2,7 @@ import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/model
 import { ResolvedAlbumImage } from "../../../projects/ngx-ramblers/src/app/models/social-publish.model";
 import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 export const MAXIMUM_EVENT_IMAGES = 4;
 
@@ -15,7 +16,7 @@ export function s3RelativePath(fileName: string): string {
 }
 
 export function absoluteImageUrl(url: string, baseUrl: string): string {
-  const trimmedBase = (baseUrl || "").replace(/\/+$/, "");
+  const trimmedBase = stripTrailingSlash(baseUrl);
   return isRemoteUrl(url) ? url.replace(/ /g, "%20") : `${trimmedBase}/${s3RelativePath(url)}`;
 }
 

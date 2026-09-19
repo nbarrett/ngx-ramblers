@@ -4,7 +4,7 @@ import { envConfig } from "../../env-config/env-config";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { lastItemFrom } from "../../shared/string-utils";
-import { isQuoted } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { isQuoted, stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { excerptAround, matches, termOverlap } from "./site-search-matching";
 import { pageEntriesFrom } from "./site-search-pages";
 import { pageContent } from "../models/page-content";
@@ -303,7 +303,7 @@ export async function search(req: Request, res: Response): Promise<void> {
     res.status(200).json({action: ApiAction.QUERY, request: {query: rawQuery}, response: [], total: 0});
     return;
   }
-  const scope = ((req.query.scope as string) || "").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+  const scope = stripTrailingSlash(((req.query.scope as string) || "").trim().replace(/^\/+/, ""));
   const exact = req.query.exact === "1";
   const matchQuery = exact && !isQuoted(rawQuery) ? `"${rawQuery}"` : rawQuery;
   const startedAt = dateTimeNowAsValue();

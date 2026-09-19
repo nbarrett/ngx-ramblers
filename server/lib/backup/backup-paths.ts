@@ -1,6 +1,7 @@
 import * as path from "path";
 import { dateTimeInTimezone } from "../shared/dates";
 import { RamblersWalksManagerDateFormat as DateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/;
 const TIMESTAMP_ENV_DB_PATTERN = /^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-([^-]+(?:-[^-]+)*?)-([^-]+)$/;
@@ -41,7 +42,7 @@ export function buildS3LocationUrl(bucket: string, s3Key: string): string {
 }
 
 export function parseS3BackupPrefix(prefix: string): { environment: string; timestamp: string } | null {
-  const trimmed = prefix.replace(/\/$/, "");
+  const trimmed = stripTrailingSlash(prefix);
   const parts = trimmed.split("/");
   if (parts.length === 2 && TIMESTAMP_PATTERN.test(parts[1])) {
     return { environment: parts[0], timestamp: parts[1] };

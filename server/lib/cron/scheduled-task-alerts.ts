@@ -7,12 +7,10 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 import { StoredValue } from "../../../projects/ngx-ramblers/src/app/models/ui-actions";
 import { envConfig } from "../env-config/env-config";
-import {
-  escapeHtml,
-  sendAdminAlertEmail,
-  siteBaseUrl
-} from "../alerts/admin-alerts";
+import { sendAdminAlertEmail } from "../alerts/admin-alerts";
+import { siteBaseUrl } from "../config/site-base-url";
 import { dateTimeNow } from "../shared/dates";
+import { escapeHtml } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("cron:scheduled-task-alerts"));
 debugLog.enabled = true;

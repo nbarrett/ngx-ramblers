@@ -33,6 +33,7 @@ import { loadBookingConfig } from "../../config/booking-config";
 import { kebabCase } from "es-toolkit/compat";
 import { dateTimeFromIso } from "../../shared/dates";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 export async function buildBookingEmailRequest(
   emailType: BookingEmailType,
@@ -175,7 +176,7 @@ function resolveParameter(paramPath: string, params: any): string {
 function eventSlug(event: any): string {
   const rawUrl: string = event?.groupEvent?.url?.trim() || "";
   if (rawUrl) {
-    const segments = rawUrl.replace(/\/+$/, "").split("/").filter(Boolean);
+    const segments = stripTrailingSlash(rawUrl).split("/").filter(Boolean);
     const last = segments[segments.length - 1];
     if (last) {
       return last;
@@ -207,7 +208,7 @@ function publicEventLink(event: any, suppliedEventLink: string | null, systemCfg
   if (suppliedEventLink?.trim()) {
     return suppliedEventLink.trim();
   }
-  const groupHref = (systemCfg?.group?.href || "").trim().replace(/\/+$/, "");
+  const groupHref = stripTrailingSlash((systemCfg?.group?.href || "").trim());
   if (groupHref) {
     const slug = eventSlug(event);
     if (slug) {

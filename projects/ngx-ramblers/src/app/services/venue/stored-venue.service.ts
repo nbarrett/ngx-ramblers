@@ -6,6 +6,7 @@ import { StoredVenue, StoredVenueApiResponse, Venue } from "../../models/event-v
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { DateUtilsService } from "../date-utils.service";
+import { stripTrailingSlash } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -115,7 +116,7 @@ export class StoredVenueService {
     }
     try {
       const parsed = new URL(url.trim());
-      const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+      const path = stripTrailingSlash(parsed.pathname).toLowerCase();
       return `${parsed.protocol}//${parsed.host}${path}`.toLowerCase();
     } catch {
       return null;
@@ -128,7 +129,7 @@ export class StoredVenueService {
     }
     try {
       const parsed = new URL(url.trim());
-      const path = parsed.pathname.replace(/\/+$/, "");
+      const path = stripTrailingSlash(parsed.pathname);
       return path.length > 0;
     } catch {
       return false;

@@ -1,4 +1,5 @@
 import { Marked } from "marked";
+import { escapeHtml } from "./strings";
 
 const emailComposerMarked = new Marked({
   extensions: [
@@ -21,11 +22,7 @@ export function renderEmailComposerMarkdown(markdown: string): string {
     const rendered = emailComposerMarked.parse(markdown, {async: false}) as string;
     return styleMarkdownElements(constrainQuotedImages(constrainInlineImages(rendered)));
   } catch {
-    const escaped = markdown
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    return `<pre>${escaped}</pre>`;
+    return `<pre>${escapeHtml(markdown)}</pre>`;
   }
 }
 

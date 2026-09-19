@@ -7,6 +7,7 @@ import { DEFAULT_SOCIAL_EVENTS_BASE_PATH, DEFAULT_WALKS_BASE_PATH, eventPathFor 
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { isMongoIdString } from "../mongo/controllers/transforms";
 import { lastItemFrom } from "../shared/string-utils";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 export enum SeoReservedAppSegment {
   ADMIN = "admin",
@@ -121,7 +122,7 @@ export function eventHasIndexablePublicSlug(event: ExtendedGroupEvent): boolean 
 }
 
 export function homeRedirectTarget(path: string): string {
-  const normalised = (path || "/").replace(/\/+$/, "") || "/";
+  const normalised = stripTrailingSlash(path || "/") || "/";
   if (normalised === "/home") {
     return "/";
   } else {

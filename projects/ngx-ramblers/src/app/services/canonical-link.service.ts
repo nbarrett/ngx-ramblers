@@ -5,6 +5,7 @@ import { filter } from "rxjs/operators";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { SystemConfigService } from "./system/system-config.service";
+import { stripTrailingSlash } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -19,7 +20,7 @@ export class CanonicalLinkService {
 
   initialise(): void {
     this.systemConfigService.events().subscribe(config => {
-      this.baseHref = (config?.group?.href || "").replace(/\/+$/, "");
+      this.baseHref = stripTrailingSlash(config?.group?.href);
       this.updateCanonicalLink();
     });
     this.router.events
@@ -29,7 +30,7 @@ export class CanonicalLinkService {
 
   private updateCanonicalLink(): void {
     if (this.baseHref) {
-      const path = this.router.url.split("?")[0].split("#")[0].replace(/\/+$/, "");
+      const path = stripTrailingSlash(this.router.url.split("?")[0].split("#")[0]);
       const canonicalUrl = path && path !== "/" ? `${this.baseHref}${path}` : this.baseHref;
       const link = this.canonicalLinkElement();
       link.setAttribute("href", canonicalUrl);

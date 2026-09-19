@@ -1,4 +1,5 @@
 import { Account, AccountMergeFields } from "./mail.model";
+import { escapeHtml } from "../functions/strings";
 
 export const RAMBLERS_CHARITY_ENGLAND_WALES_NUMBER = "1093577";
 export const RAMBLERS_CHARITY_SCOTLAND_NUMBER = "SC039799";
@@ -19,7 +20,7 @@ export function ramblersCharityLine(): string {
 }
 
 export function ramblersCharityLineHtml(): string {
-  return ramblersCharityLine().replace(/&/g, "&amp;");
+  return escapeHtml(ramblersCharityLine());
 }
 
 export function ramblersLegalBoilerplate(): string {

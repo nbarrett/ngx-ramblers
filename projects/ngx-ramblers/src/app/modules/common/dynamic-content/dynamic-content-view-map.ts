@@ -54,7 +54,6 @@ import { RouteGuidePanel } from "../../../shared/components/route-guide-panel";
 import { StoredValue } from "../../../models/ui-actions";
 import { travelBearingAt } from "../../../functions/route-turns";
 import { milesFromStart, ROUTE_STEP_POPUP_OPTIONS, routeStepPopupHtml } from "../../../functions/route-step-popup";
-import { escape } from "es-toolkit";
 import { travelAlongRoute } from "../../../services/maps/route-travel";
 import { distanceAlongRouteMetres } from "../../../functions/route-directions";
 import { cumulativeDistances, nearestPointIndex, snapToRoute } from "../../../functions/route-geometry";
@@ -68,6 +67,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { escapeHtml } from "../../../functions/strings";
 
 @Component({
   selector: "app-dynamic-content-view-map",
@@ -1368,10 +1368,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const pathName = option ? `${this.row?.routeGuide?.title || route.name || "Route"}: ${option.label}` : (this.row?.routeGuide?.title || track.name || route.name || "Route");
     const pathType = track.description;
 
-    let content = `<div><strong>${escape(pathName)}</strong></div>`;
+    let content = `<div><strong>${escapeHtml(pathName)}</strong></div>`;
 
     if (pathType && pathType !== pathName) {
-      content += `<div class="mt-1"><small class="text-muted">${escape(pathType)}</small></div>`;
+      content += `<div class="mt-1"><small class="text-muted">${escapeHtml(pathType)}</small></div>`;
     }
 
     if (track.totalDistance) {
@@ -2271,9 +2271,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       });
       if (marker.label || marker.instruction) {
         const numbered = !!label && label.length <= 3;
-        const title = marker.instruction && numbered ? "" : `<div><strong>${escape(marker.label || "Waypoint")}</strong></div>`;
-        const instruction = marker.instruction ? `<div${title ? " class=\"mt-1\"" : ""}>${escape(marker.instruction)}</div>` : "";
-        const note = marker.note ? `<div class="mt-1"><small>${escape(marker.note)}</small></div>` : "";
+        const title = marker.instruction && numbered ? "" : `<div><strong>${escapeHtml(marker.label || "Waypoint")}</strong></div>`;
+        const instruction = marker.instruction ? `<div${title ? " class=\"mt-1\"" : ""}>${escapeHtml(marker.instruction)}</div>` : "";
+        const note = marker.note ? `<div class="mt-1"><small>${escapeHtml(marker.note)}</small></div>` : "";
         if (numbered && marker.instruction) {
           leafletMarker.bindPopup(() => this.stepPopupHtml(marker), ROUTE_STEP_POPUP_OPTIONS);
         } else {
@@ -2351,9 +2351,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private createWaypointPopupContent(name: string, description?: string): string {
-    const title = escape(name);
+    const title = escapeHtml(name);
     const details = description
-      ? `<div class="mt-1"><small>${escape(description)}</small></div>`
+      ? `<div class="mt-1"><small>${escapeHtml(description)}</small></div>`
       : `<div class="mt-1 text-muted"><small>This waypoint has no description</small></div>`;
     return `<div><strong>${title}</strong></div>${details}`;
   }
