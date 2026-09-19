@@ -17,6 +17,7 @@ import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeFile, meetingHasVenue, meetingIsOnline } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { committeeFileMeetingTitle } from "../../../projects/ngx-ramblers/src/app/functions/committee-meeting-agenda";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("calendar"));
 debugLog.enabled = false;
@@ -82,7 +83,7 @@ export async function meetingCalendarFile(committeeFileId: string, req: Request)
     return null;
   } else {
     const config: SystemConfig = await systemConfig();
-    const baseUrl = publicImageBaseUrl(req, config).replace(/\/+$/, "");
+    const baseUrl = stripTrailingSlash(publicImageBaseUrl(req, config));
     const committeeConfigDoc = await queryKey(ConfigKey.COMMITTEE);
     const fallbackOrganiser = committeeSecretaryEmail(committeeConfigDoc?.value as CommitteeConfig || null);
     const host = baseUrl.replace(/^https?:\/\//, "") || "ngx-ramblers";

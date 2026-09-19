@@ -1,9 +1,9 @@
-import { escape } from "es-toolkit";
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
 import { MapProvider } from "../../models/map.model";
 import { FollowPointerSize, followPointerPixels, HEADING_RING_CLASS, RouteWaypointKind } from "../../models/route-follow.model";
 import { WalkStatus } from "../../models/ramblers-walks-manager";
+import { escapeHtml } from "../../functions/strings";
 
 @Injectable({ providedIn: "root" })
 export class MapMarkerStyleService {
@@ -17,7 +17,7 @@ export class MapMarkerStyleService {
 
   numberedMarkerIcon(label: string, provider: MapProvider, style: string, travelBearing: number | null = null): L.DivIcon {
     const color = this.numberedMarkerColour(provider);
-    const text = escape(label || "");
+    const text = escapeHtml(label || "");
     const fontSize = text.length > 2 ? 9 : 12;
     const heading = travelBearing === null ? "" : this.headingRingHtml(color, travelBearing);
     const html = `${heading}

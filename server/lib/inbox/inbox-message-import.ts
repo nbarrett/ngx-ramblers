@@ -13,7 +13,7 @@ import {
   InboxThreadFolder,
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { emailDomain, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { emailDomain, escapeHtml, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -632,11 +632,3 @@ function quotedBodyHtml(originalMessage: InboxMessage): string {
   return originalMessage.bodyHtml ?? (originalMessage.bodyText ? `<pre>${escapeHtml(originalMessage.bodyText)}</pre>` : "");
 }
 
-function escapeHtml(raw: string): string {
-  return raw
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}

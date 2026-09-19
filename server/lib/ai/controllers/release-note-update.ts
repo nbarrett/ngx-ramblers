@@ -37,6 +37,7 @@ import {
   quietEmptyIntro,
   truncateExcerpt
 } from "../release-note-update";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debug = debugLib(envConfig.logNamespace("ai:release-note-update"));
 debug.enabled = true;
@@ -51,7 +52,7 @@ export function requireReleaseNoteUpdatePlatformAdmin(_req: Request, res: Respon
 
 async function siteIdentity(): Promise<{ siteName: string; baseUrl: string } | null> {
   const config = await systemConfig();
-  const baseUrl = (config?.group?.href || "").replace(/\/+$/, "");
+  const baseUrl = stripTrailingSlash(config?.group?.href);
   const siteName = config?.group?.longName || config?.group?.shortName;
   return baseUrl && siteName ? {siteName, baseUrl} : null;
 }

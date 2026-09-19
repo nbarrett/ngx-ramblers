@@ -31,6 +31,7 @@ import { logBrevoError } from "../common/error-log";
 import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { bannerImageSource, buildSubject, emailAddressForRole } from "./send-member-bulk-load-digest-email";
 import { dateTimeFromIso, formatDateTime } from "../../shared/dates";
+import { escapeHtml, stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const messageType = "brevo:send-walk-photos-added-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -48,10 +49,6 @@ function toEmailAddress(recipient: Member | null): EmailAddress | null {
 
 function uniqueByEmail(addresses: EmailAddress[]): EmailAddress[] {
   return addresses.filter((address, index, all) => !!address?.email && all.findIndex(item => item.email?.toLowerCase() === address.email.toLowerCase()) === index);
-}
-
-function escapeHtml(value: string): string {
-  return (value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function bodyHtml(uploaderName: string, photoCount: number, walkTitle: string, walkDate: string, walkLink: string, reviewLink: string): string {
@@ -97,11 +94,11 @@ export async function sendWalkPhotosAddedEmail(request: WalkPhotosAddedNotificat
     debugLog("no walk leader or walk notification recipients with an email address");
     return {sent: false, recipients: []};
   } else {
-    const groupHref = (systemCfg?.group?.href || "").replace(/\/+$/, "");
+    const groupHref = stripTrailingSlash(systemCfg?.group?.href);
     const allBanners: BannerConfig[] = await banner.find({}).lean().then(docs => docs.map(transforms.toObjectWithId));
     const walkTitle = walk.groupEvent?.title || "the walk";
     const walkDate = walk.groupEvent?.start_date_time ? formatDateTime(dateTimeFromIso(walk.groupEvent.start_date_time), UIDateFormat.DISPLAY_DATE) : "";
-    const walkSlug = (walk.groupEvent?.url || "").replace(/\/+$/, "").split("/").filter(Boolean).pop() || walk.id;
+    const walkSlug = stripTrailingSlash(walk.groupEvent?.url).split("/").filter(Boolean).pop() || walk.id;
     const walkLink = groupHref ? `${groupHref}/walks/${encodeURIComponent(walkSlug)}` : "";
     const albumPath = (request.albumPath || "").replace(/^\/+/, "");
     const reviewLink = groupHref && albumPath ? `${groupHref}/${albumPath}?${StoredValue.ALBUM_WORKFLOW}=1` : "";

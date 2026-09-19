@@ -39,6 +39,7 @@ import {
   isConsoleAccessPasswordField
 } from "./console-access-catalogue";
 import { PLATFORM_FIELDS, SITE_FIELDS, systemIdForSiteField, THIRD_PARTY_SYSTEMS } from "./estate-rebuild-fields";
+import { escapeHtml } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("ops:estate-rebuild-capture"));
 debugLog.enabled = true;
@@ -1019,13 +1020,6 @@ function buildMarkdown(
   return lines.join("\n");
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function buildHtml(
   generatedAtUtc: string,

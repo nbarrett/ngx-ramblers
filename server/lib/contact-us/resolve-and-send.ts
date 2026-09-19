@@ -21,7 +21,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { normaliseEmail, stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import {
   catchAllConnectionEmail,
   cloudflareIngressProviderActive,
@@ -195,7 +195,7 @@ async function sitePublicBaseUrl(emailRequest: SendSmtpEmailRequest): Promise<st
   const fromParams = emailRequest.params?.systemMergeFields?.APP_URL || "";
   const configured = (await systemConfig())?.group?.href || "";
   const preferred = fromParams && !DEV_ORIGIN.test(fromParams) ? fromParams : configured;
-  return preferred.replace(/\/+$/, "");
+  return stripTrailingSlash(preferred);
 }
 
 async function withoutDevHostUrls(emailRequest: SendSmtpEmailRequest): Promise<SendSmtpEmailRequest> {

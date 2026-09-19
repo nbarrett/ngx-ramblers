@@ -2,7 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { ADMIN_SET_PASSWORD_PATH } from "../../models/system.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { toPairs, isNumber, isString } from "es-toolkit/compat";
-import { booleanOf } from "../../functions/strings";
+import { booleanOf, stripTrailingSlash } from "../../functions/strings";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -566,7 +566,7 @@ export class MailMessagingService {
   bannerImageSource(notificationConfig: NotificationConfig, absolute: boolean) {
     const selectedBanner = this.mailMessagingConfig?.banners?.find(item => item.id === notificationConfig?.bannerId);
     const relativePath = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, false);
-    const publicBase = this.urlService.publicBaseUrl().replace(/\/+$/, "");
+    const publicBase = stripTrailingSlash(this.urlService.publicBaseUrl());
     let bannerSource = absolute && relativePath ? `${publicBase}/${relativePath.replace(/^\/+/, "")}` : relativePath;
     if (bannerSource && this.urlService.isDevHostUrl(bannerSource) && publicBase && !this.urlService.isDevHostUrl(publicBase)) {
       bannerSource = `${publicBase}/${this.urlService.stripDevHostPrefix(bannerSource)}`;

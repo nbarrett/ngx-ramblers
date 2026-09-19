@@ -7,6 +7,7 @@ import { generateAwsFileName, isAwsUploadErrorResponse } from "../../aws/aws-uti
 import { meetingCalendarFile } from "../../calendar/calendar-controllers";
 import { systemConfig } from "../../config/system-config";
 import { publicImageBaseUrl } from "../../social/public-base-url";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const MEETING_CALENDAR_PATH = /\/api\/calendar\/meeting\/([^/?#]+)/i;
 
@@ -64,7 +65,7 @@ async function storeCampaignAttachment(attachmentUrl: string, req: Request): Pro
         throw new Error("The meeting calendar could not be stored for sending.");
       } else {
         const config = await systemConfig();
-        const base = publicImageBaseUrl(req, config).replace(/\/+$/, "");
+        const base = stripTrailingSlash(publicImageBaseUrl(req, config));
         return `${base}/${S3_BASE_URL}/${RootFolder.emailAttachments}/${awsFileName}`;
       }
     }

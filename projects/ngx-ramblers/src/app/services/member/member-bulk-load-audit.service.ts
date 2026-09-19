@@ -3,11 +3,14 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
+import { EmailAddress } from "../../models/mail.model";
 import {
   Member,
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
   MemberBulkLoadDateMap,
+  MemberBulkLoadDigestPreview,
+  MemberBulkLoadDigestSendRequest,
   MemberBulkLoadDigestSendResult
 } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
@@ -81,11 +84,20 @@ export class MemberBulkLoadAuditService {
     return apiResponse?.response ?? {deletedCount: 0, message: "No sessions deleted"};
   }
 
-  async sendCommitteeSummary(sessionId: string): Promise<MemberBulkLoadDigestSendResult> {
-    this.logger.info("sendCommitteeSummary:sessionId", sessionId);
+  async committeeSummaryPreview(sessionId: string): Promise<MemberBulkLoadDigestPreview> {
+    this.logger.info("committeeSummaryPreview:sessionId", sessionId);
+    const apiResponse = await firstValueFrom(this.http.get<{response: MemberBulkLoadDigestPreview}>(
+      `${this.BASE_URL}/${sessionId}/committee-summary-preview`
+    ));
+    return apiResponse?.response;
+  }
+
+  async sendCommitteeSummary(sessionId: string, recipients: EmailAddress[]): Promise<MemberBulkLoadDigestSendResult> {
+    this.logger.info("sendCommitteeSummary:sessionId", sessionId, "recipients:", recipients);
+    const sendRequest: MemberBulkLoadDigestSendRequest = {recipients};
     const apiResponse = await firstValueFrom(this.http.post<{response: MemberBulkLoadDigestSendResult}>(
       `${this.BASE_URL}/${sessionId}/send-committee-summary`,
-      {}
+      sendRequest
     ));
     return apiResponse?.response ?? {sent: false, recipientCount: 0, recipients: []};
   }

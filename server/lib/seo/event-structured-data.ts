@@ -12,6 +12,7 @@ import {
 import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromIsoWithZone } from "../shared/dates";
 import { walkLeaderDisplayName } from "../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-fields";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const OFFLINE_ATTENDANCE_MODE = "https://schema.org/OfflineEventAttendanceMode";
 
@@ -91,7 +92,7 @@ export function eventStructuredData(
       structuredData.organizer = {
         "@type": "Organization",
         name: organiserName,
-        url: (baseUrl || "").replace(/\/+$/, "") || null
+        url: stripTrailingSlash(baseUrl) || null
       };
     }
     const performerName = walkLeaderDisplayName(event) || groupEvent.event_organiser?.name;

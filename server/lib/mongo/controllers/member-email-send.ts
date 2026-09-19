@@ -31,7 +31,7 @@ export async function recordMemberEmailSends(input: {
   notificationConfigId: string | null;
   subject: string;
   sentBy: string | null;
-  entries: { memberId: string; email: string; sentAt: number }[];
+  entries: { memberId: string; email: string; fullName?: string; membershipNumber?: string; sentAt: number }[];
 }): Promise<void> {
   if (input.entries.length === 0) {
     return;
@@ -39,6 +39,8 @@ export async function recordMemberEmailSends(input: {
   const documents: MemberEmailSendDocument[] = input.entries.map(entry => ({
     memberId: entry.memberId,
     email: entry.email || undefined,
+    fullName: entry.fullName || undefined,
+    membershipNumber: entry.membershipNumber || undefined,
     notificationConfigId: input.notificationConfigId || undefined,
     subject: input.subject || undefined,
     jobId: input.jobId,

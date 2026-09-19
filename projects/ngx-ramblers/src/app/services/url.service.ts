@@ -23,6 +23,7 @@ import { DateUtilsService } from "./date-utils.service";
 import { FALLBACK_MEDIA } from "../models/walk.model";
 import { isMeetupUrl as isMeetupUrlFn } from "../functions/walks/ramblers-event.mapper";
 import { apexHostFromUrl, hostFromUrl, stagingHostForSiteHref } from "../functions/hosts";
+import { stripTrailingSlash } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -397,7 +398,7 @@ export class UrlService {
   absoluteUrlFor(url: string): string {
     if (!url) return url;
     if (this.isRemoteUrl(url) || url.startsWith("mailto:") || url.startsWith("tel:")) return url;
-    const base = this.baseUrl().replace(/\/$/, "");
+    const base = stripTrailingSlash(this.baseUrl());
     const path = url.replace(/^\/+/, "");
     return `${base}/${path}`;
   }

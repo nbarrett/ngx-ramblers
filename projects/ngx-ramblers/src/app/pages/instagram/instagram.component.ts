@@ -14,6 +14,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { stripTrailingSlash } from "../../functions/strings";
 
 @Component({
   selector: "app-instagram",
@@ -92,7 +93,7 @@ export class InstagramComponent implements OnInit, OnDestroy {
   }
 
   profileHref(): string {
-    const groupUrl = (this.externalSystems?.instagram?.groupUrl || "").replace(/\/+$/, "");
+    const groupUrl = stripTrailingSlash(this.externalSystems?.instagram?.groupUrl);
     const groupName = (this.externalSystems?.instagram?.groupName || "").replace(/^@/, "").replace(/^\/+/, "");
     if (groupUrl && groupName && !groupUrl.toLowerCase().includes(groupName.toLowerCase())) {
       return `${groupUrl}/${groupName}`;

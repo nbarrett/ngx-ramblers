@@ -18,6 +18,7 @@ import { AlertMessage } from "../models/alert-target.model";
 import { EmailAttachment } from "../models/mail.model";
 import { RootFolder } from "../models/system.model";
 import { firstValueFrom } from "rxjs";
+import { stripTrailingSlash } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -93,7 +94,7 @@ export class FileUploadService {
     const fileNameData = response?.responses?.[0]?.fileNameData;
     if (fileNameData) {
       const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
-      const url = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
+      const url = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
       return {name: fileName, url, sizeBytes: file.size};
     } else {
       this.logger.warn("uploadEmailAttachment: no fileNameData returned for", fileName, response);

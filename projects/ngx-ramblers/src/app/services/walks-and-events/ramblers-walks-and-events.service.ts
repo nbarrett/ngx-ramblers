@@ -105,6 +105,7 @@ import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
 import { FeaturesService } from "../features.service";
 import { LinksService } from "../links.service";
+import { stripTrailingSlash } from "../../functions/strings";
 
 const QUARTER_HOUR_MINUTES = 15;
 
@@ -580,7 +581,7 @@ export class RamblersWalksAndEventsService {
 
   private websiteLinkPath(websiteLink: string): string {
     try {
-      return new URL(websiteLink).pathname.replace(/\/+$/, "").toLowerCase();
+      return stripTrailingSlash(new URL(websiteLink).pathname).toLowerCase();
     } catch {
       return this.normalisedFieldValue(websiteLink).toLowerCase();
     }

@@ -2,6 +2,7 @@ import debug from "debug";
 import { Request } from "express";
 import { envConfig } from "../env-config/env-config";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("social:public-base-url"));
 debugLog.enabled = false;
@@ -26,7 +27,7 @@ function hostnameFrom(req: Request, fromRequest: string): string {
 
 export function publicImageBaseUrl(req: Request, config: SystemConfig): string {
   const fromRequest = requestBaseUrl(req);
-  const configured = (config?.group?.href || "").trim().replace(/\/+$/, "");
+  const configured = stripTrailingSlash((config?.group?.href || "").trim());
   const hostname = hostnameFrom(req, fromRequest);
   if (configured && isLocalHost(hostname)) {
     debugLog("using group.href for public base URL:", configured, "instead of:", fromRequest);

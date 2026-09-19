@@ -5,6 +5,7 @@ import { signRamblersUploadBody } from "./integration-worker-crypto";
 import { FlickrScrapedUserAlbumsData } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { HtmlFetchResult, IntegrationWorkerCallbackConfig, IntegrationWorkerMigrationJobRequest, PlaywrightWaitUntil } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { SiteMigrationConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-browser-client"));
 debugLog.enabled = true;
@@ -21,7 +22,7 @@ export async function cancelMigrationJobOnIntegrationWorker(jobId: string, reaso
   const workerUrl = required(Environment.INTEGRATION_WORKER_URL);
   const sharedSecret = required(Environment.INTEGRATION_WORKER_SHARED_SECRET);
   const body = JSON.stringify({ reason });
-  const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/migration/jobs/${encodeURIComponent(jobId)}/cancel`;
+  const endpoint = `${stripTrailingSlash(workerUrl)}/api/integration-worker/migration/jobs/${encodeURIComponent(jobId)}/cancel`;
   debugLog("-> cancel migration jobId:", jobId);
   const response = await fetch(endpoint, {
     method: "POST",
@@ -48,7 +49,7 @@ export async function submitMigrationJobToIntegrationWorker(jobId: string, siteC
   const request: IntegrationWorkerMigrationJobRequest = { jobId, siteConfig, persistData, uploadTos3, callback };
   const body = JSON.stringify(request);
   const signature = signRamblersUploadBody(body, sharedSecret);
-  const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/migration/jobs`;
+  const endpoint = `${stripTrailingSlash(workerUrl)}/api/integration-worker/migration/jobs`;
   debugLog("-> submit migration jobId:", jobId, "endpoint:", endpoint);
   const response = await fetch(endpoint, {
     method: "POST",
@@ -66,7 +67,7 @@ async function requestBrowserOperation<T>(operationPath: string, payload: object
   const sharedSecret = required(Environment.INTEGRATION_WORKER_SHARED_SECRET);
   const body = JSON.stringify(payload);
   const signature = signRamblersUploadBody(body, sharedSecret);
-  const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/browser/${operationPath}`;
+  const endpoint = `${stripTrailingSlash(workerUrl)}/api/integration-worker/browser/${operationPath}`;
   debugLog("->", operationPath, "endpoint:", endpoint, "bytes:", body.length);
   const response = await fetch(endpoint, {
     method: "POST",

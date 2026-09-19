@@ -35,6 +35,7 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
 import { StoredValue } from "../../../models/ui-actions";
 import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 import { jointWalkLeaderNames } from "../../../functions/walks/joint-walk-leaders";
+import { escapeHtml } from "../../../functions/strings";
 
 @Component({
   selector: "app-walks-map-view",
@@ -526,8 +527,8 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
 
   private groupAndLeadersHtml(groupName: string, dw: DisplayedWalk): string {
     const leaders = this.leaderNames(dw);
-    const leaderHtml = leaders.map(name => this.escape(name)).join("<br>");
-    return leaderHtml ? `${this.escape(groupName)}<br>${leaderHtml}` : this.escape(groupName);
+    const leaderHtml = leaders.map(name => escapeHtml(name)).join("<br>");
+    return leaderHtml ? `${escapeHtml(groupName)}<br>${leaderHtml}` : escapeHtml(groupName);
   }
 
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
@@ -542,27 +543,24 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
     const media = this.mediaQueryService.imageSource(dw.walk);
     const thumb = media?.url ? `
       <div class=\"popup-thumb-wrap\">\n
-        <img src=\"${this.urlService.imageSource(media.url, false, true)}\" alt=\"${this.escape(media?.alt || title)}\" class=\"popup-thumb\">\n
+        <img src=\"${this.urlService.imageSource(media.url, false, true)}\" alt=\"${escapeHtml(media?.alt || title)}\" class=\"popup-thumb\">\n
       </div>` : "";
     return `<div style=\"min-width:240px;\">\n`+
-           `  <div class=\"small fw-bold mb-1\">${this.escape(title)}</div>\n`+
+           `  <div class=\"small fw-bold mb-1\">${escapeHtml(title)}</div>\n`+
            `  <div class=\"d-flex align-items-start\">\n`+
            `    <div class=\"me-2\">\n`+
            `      <button type=\"button\" class=\"badge bg-primary border-0\" id=\"${linkId}\">view</button>\n`+
            `    </div>\n`+
            `    <div class=\"flex-grow-1\">\n`+
            `      <div class=\"small text-muted\">${groupWithLeader}</div>\n`+
-           `      <div class=\"small\">${this.escape(time)}</div>\n`+
-           `      <div class=\"small\">${this.escape(extraDetails)}</div>\n`+
+           `      <div class=\"small\">${escapeHtml(time)}</div>\n`+
+           `      <div class=\"small\">${escapeHtml(extraDetails)}</div>\n`+
            `    </div>\n`+
            `    ${thumb}\n`+
            `  </div>\n`+
            `</div>`;
   }
 
-  private escape(value: string): string {
-    return value?.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
-  }
 
   private multiPopupHtml(group: DisplayedWalk[]): string {
     let runningIndex = 0;
@@ -581,9 +579,9 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
       const media = this.mediaQueryService.imageSource(dw.walk);
       const thumb = media?.url ? `
         <div class=\"popup-thumb-wrap\">\n
-          <img src=\"${this.urlService.imageSource(media.url, false, true)}\" alt=\"${this.escape(media?.alt || title)}\" class=\"popup-thumb\">\n
+          <img src=\"${this.urlService.imageSource(media.url, false, true)}\" alt=\"${escapeHtml(media?.alt || title)}\" class=\"popup-thumb\">\n
         </div>` : "";
-      const titleHeader = titleKey !== lastTitleKey ? `<div class=\"small fw-bold mt-1\">${this.escape(title)}</div>` : "";
+      const titleHeader = titleKey !== lastTitleKey ? `<div class=\"small fw-bold mt-1\">${escapeHtml(title)}</div>` : "";
       lastTitleKey = titleKey;
       return `
         ${titleHeader}\n` +
@@ -593,8 +591,8 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
         `          </div>\n` +
         `          <div class=\"flex-grow-1\">\n` +
         `            <div class=\"small text-muted\">${groupWithLeader}</div>\n` +
-        `            <div class=\"small\">${this.escape(time)}</div>\n` +
-        `            <div class=\"small\">${this.escape(extraDetails)}</div>\n` +
+        `            <div class=\"small\">${escapeHtml(time)}</div>\n` +
+        `            <div class=\"small\">${escapeHtml(extraDetails)}</div>\n` +
         `          </div>\n` +
         `          ${thumb}\n` +
         `        </div>`;

@@ -6,6 +6,7 @@ import {
   DocumentConversionWorkerResponse
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { signRamblersUploadBody } from "../ramblers/integration-worker-crypto";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("document-conversion-worker-client"));
 debugLog.enabled = true;
@@ -20,7 +21,7 @@ export async function convertDocumentViaIntegrationWorker(buffer: Buffer, fileNa
   const request: DocumentConversionWorkerRequest = {fileName, fileBase64: buffer.toString("base64")};
   const body = JSON.stringify(request);
   const signature = signRamblersUploadBody(body, sharedSecret);
-  const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/document-conversion/convert`;
+  const endpoint = `${stripTrailingSlash(workerUrl)}/api/integration-worker/document-conversion/convert`;
   debugLog("-> convert:", fileName, "endpoint:", endpoint, "bytes:", body.length);
   const response = await fetch(endpoint, {
     method: "POST",

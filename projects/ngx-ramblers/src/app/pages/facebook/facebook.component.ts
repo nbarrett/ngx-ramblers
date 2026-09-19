@@ -14,6 +14,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { stripTrailingSlash } from "../../functions/strings";
 
 @Component({
   selector: "app-facebook",
@@ -142,7 +143,7 @@ export class FacebookComponent implements OnInit, OnDestroy {
 
   private pageName(): string {
     const groupUrl = this.externalSystems?.facebook?.groupUrl;
-    return groupUrl ? groupUrl.replace(/\/+$/, "").split("/").pop() : "";
+    return groupUrl ? stripTrailingSlash(groupUrl).split("/").pop() : "";
   }
 
   private loadRecentPosts(): void {

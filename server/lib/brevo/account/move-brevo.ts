@@ -31,7 +31,7 @@ import { configuredEnvironments } from "../../environments/environments-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { buildMongoUri } from "../../shared/mongodb-uri";
 import { dateTimeNow } from "../../shared/dates";
-import { emailDomain } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { emailDomain, stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { authenticateSendingDomain } from "../domains/domain-authentication";
 import { configuredCloudflare } from "../../cloudflare/cloudflare-config";
 import { zoneForHostname } from "../../cloudflare/cloudflare-dns";
@@ -219,7 +219,7 @@ async function snapshotLists(sourceClient: BrevoClient, mail: MailConfig, member
 
 function eventsWebhookUrl(system: SystemConfig, mail: MailConfig): string {
   const secret = mail.brevoEventsWebhookSecret;
-  const base = (system?.group?.href || "").replace(/\/+$/, "");
+  const base = stripTrailingSlash(system?.group?.href);
   if (!secret || !base) {
     return "";
   } else {

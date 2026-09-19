@@ -13,6 +13,7 @@ import { banner } from "../../mongo/models/banner";
 import * as transforms from "../../mongo/controllers/transforms";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("brevo:send-site-registration-email"));
 const processMapping: Record<RegistrationEmailType, keyof BuiltInProcessMappings> = {
@@ -31,7 +32,7 @@ export async function sendRegistrationEmail(settings: RegistrationSettings, type
     const allBanners: BannerConfig[] = await banner.find({}).lean().then(docs => docs.map(transforms.toObjectWithId));
     const params = {
       messageMergeFields: {
-        subject: "", BANNER_IMAGE_SOURCE: bannerImageSource(allBanners, configured.bannerId || allBanners[0]?.id, (settings.publicUrl || "").replace(/\/+$/, "")), ADDRESS_LINE: "Hello,", BODY_CONTENT: "", BODY_CONTENT_BOTTOM: "",
+        subject: "", BANNER_IMAGE_SOURCE: bannerImageSource(allBanners, configured.bannerId || allBanners[0]?.id, stripTrailingSlash((settings.publicUrl || ""))), ADDRESS_LINE: "Hello,", BODY_CONTENT: "", BODY_CONTENT_BOTTOM: "",
         GROUP_NAME: values.groupName, ACTION_URL: values.actionUrl,
         RETURN_URL: values.returnUrl || "", SITE_URL: values.siteUrl || ""
       },

@@ -22,6 +22,7 @@ import {
   GapPriority,
   SuggestionAction
 } from "../../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("cli:migrate"));
 
@@ -181,7 +182,7 @@ async function fetchOldSite(baseUrl: string): Promise<ReconciliationPage[]> {
         }
       });
 
-      const path = url.replace(baseUrl, "").replace(/^\//, "").replace(/\.html?$/, "").replace(/\/$/, "") || "home";
+      const path = stripTrailingSlash(url.replace(baseUrl, "").replace(/^\//, "").replace(/\.html?$/, "")) || "home";
       const title = pageDoc.querySelector("title")?.textContent?.trim() ||
                    pageDoc.querySelector("h1")?.textContent?.trim() ||
                    path;
@@ -634,8 +635,8 @@ async function runInteractive(): Promise<void> {
   if (isQuit(action) || isBack(action)) return handleQuit();
 
   const config: ReconciliationConfig = {
-    oldSiteUrl: oldSiteUrl.replace(/\/$/, ""),
-    newSiteUrl: newSiteUrl.replace(/\/$/, ""),
+    oldSiteUrl: stripTrailingSlash(oldSiteUrl),
+    newSiteUrl: stripTrailingSlash(newSiteUrl),
     dryRun: action === "reconcile"
   };
 
@@ -665,8 +666,8 @@ export function createMigrateCommand(): Command {
     .requiredOption("--new <url>", "New NGX Ramblers site URL")
     .action(async opts => {
       await runReconcile({
-        oldSiteUrl: opts.old.replace(/\/$/, ""),
-        newSiteUrl: opts.new.replace(/\/$/, ""),
+        oldSiteUrl: stripTrailingSlash(opts.old),
+        newSiteUrl: stripTrailingSlash(opts.new),
         dryRun: true
       });
     });
@@ -681,8 +682,8 @@ export function createMigrateCommand(): Command {
     .option("--dry-run", "Preview changes without applying", false)
     .action(async opts => {
       await runApply({
-        oldSiteUrl: opts.old.replace(/\/$/, ""),
-        newSiteUrl: opts.new.replace(/\/$/, ""),
+        oldSiteUrl: stripTrailingSlash(opts.old),
+        newSiteUrl: stripTrailingSlash(opts.new),
         username: opts.username,
         password: opts.password,
         dryRun: opts.dryRun

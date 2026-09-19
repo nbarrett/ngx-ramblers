@@ -11,6 +11,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
+import { stripTrailingSlash } from "../../../functions/strings";
 
 @Component({
   selector: "app-committee-document-view",
@@ -203,7 +204,7 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
   }
 
   displayHref(): string {
-    return (this.group?.href || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+    return stripTrailingSlash((this.group?.href || "").replace(/^https?:\/\//, ""));
   }
 
   onMarkdownReady(): void {

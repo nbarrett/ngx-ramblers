@@ -1,3 +1,4 @@
+import { escape } from "es-toolkit";
 import { isBoolean, isString, kebabCase } from "es-toolkit/compat";
 
 export function transliterated(value: any): any {
@@ -220,4 +221,12 @@ export function matchesAllowingTruncation(possiblyTruncated: string, full: strin
   }
   const withoutEllipsis = truncated.replace(TRAILING_ELLIPSIS, "").trim();
   return endsWithEllipsis(truncated) && withoutEllipsis.length > 0 && complete.startsWith(withoutEllipsis);
+}
+
+export function escapeHtml(value: string): string {
+  return escape(String(value ?? ""));
+}
+
+export function stripTrailingSlash(url: string): string {
+  return (url || "").replace(/\/+$/, "");
 }

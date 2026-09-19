@@ -3,6 +3,7 @@ import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/ap
 import { SalesforceConfig } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("salesforce-config"));
 debugLog.enabled = false;
@@ -21,7 +22,7 @@ export function persistSalesforceConfig(value: SalesforceConfig): Promise<Config
 }
 
 export function salesforceEndpointBaseUrl(value: string | null | undefined): string {
-  return (value || "").trim().replace(/\/+$/, "");
+  return stripTrailingSlash((value || "").trim());
 }
 
 export function parseGroupCodes(raw: string | null | undefined): string[] {

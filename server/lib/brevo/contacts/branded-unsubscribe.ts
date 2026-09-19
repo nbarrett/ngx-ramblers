@@ -18,6 +18,7 @@ import { buildUnsubscribeToken, contactUsParentSegment, verifyUnsubscribeToken }
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
 import { notifySalesforceFullyOptedOut } from "../../salesforce/salesforce-consent";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const messageType = "brevo:branded-unsubscribe";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -334,7 +335,7 @@ export async function redirectFromList(req: Request, res: Response): Promise<voi
       return;
     }
     const sys = await systemConfig();
-    const groupHref = (sys?.group?.href || "").replace(/\/+$/, "");
+    const groupHref = stripTrailingSlash(sys?.group?.href);
     if (!groupHref) {
       res.status(500).send("Unsubscribe is not configured for this site.");
       return;

@@ -1,5 +1,6 @@
 import { isString } from "es-toolkit/compat";
 import { RELEASE_FEED_TYPE, ReleaseFeed, ReleaseFeedEntry } from "../../../projects/ngx-ramblers/src/app/models/release-feed.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 export { RELEASE_FEED_TYPE };
 export type { ReleaseFeed, ReleaseFeedEntry };
@@ -36,7 +37,7 @@ export interface SiteContentPaths {
 }
 
 export function absoluteUrl(baseUrl: string, sitePath: string): string {
-  const normalisedBase = (baseUrl || "").replace(/\/+$/, "");
+  const normalisedBase = stripTrailingSlash(baseUrl);
   const normalisedPath = (sitePath || "").replace(/^\/+/, "");
   if (!normalisedPath) {
     return normalisedBase;
@@ -49,7 +50,7 @@ export function pageExportUrl(baseUrl: string, sitePath: string, format: string)
 }
 
 export function normaliseSitePath(rawPath: string): string {
-  return (rawPath || "").replace(/^\/+/, "").replace(/\/+$/, "");
+  return stripTrailingSlash((rawPath || "").replace(/^\/+/, ""));
 }
 
 export function normaliseLinkedPath(rawHref: string): string {

@@ -3,6 +3,7 @@ import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/membe
 import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { htmlToPlainText, lastItemFrom, titleCase } from "../shared/string-utils";
 import { renderMarkdownToHtml } from "../shared/markdown-renderer";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const DESCRIPTION_MAX_LENGTH = 160;
 
@@ -29,7 +30,7 @@ export function publicImagesFromRows(rows: PageContentRow[], baseUrl: string): {
   return (rows ?? []).flatMap(row => (row.columns ?? []).filter(publicColumn).flatMap(column => {
     const imageUrl = imageUrlFrom(column);
     const image = imageUrl ? [{
-      url: imageUrl.startsWith("http") ? imageUrl : `${baseUrl.replace(/\/+$/, "")}/${imageUrl.replace(/^\/+/, "")}`,
+      url: imageUrl.startsWith("http") ? imageUrl : `${stripTrailingSlash(baseUrl)}/${imageUrl.replace(/^\/+/, "")}`,
       alt: column.alt || column.title || descriptionFromMarkdown(column.contentText || "")
     }] : [];
     return image.concat(column.rows ? publicImagesFromRows(column.rows, baseUrl) : []);

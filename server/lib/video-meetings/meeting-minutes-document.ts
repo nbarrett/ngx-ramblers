@@ -34,6 +34,7 @@ import { ensureCloudflareIngressConnection } from "../cloudflare/cloudflare-ingr
 import { cloudflareIngressAliasesForMessage, connectionIdentifier } from "../inbox/inbox-aliases";
 import { storeInboundMessage } from "../inbox/inbox-message-import";
 import { htmlToPlainText } from "../shared/string-utils";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:minutes-document"));
 debug.enabled = true;
@@ -57,7 +58,7 @@ async function minutesFileContext(sourceFile: CommitteeFile | null): Promise<{fi
 
 async function siteBase(): Promise<string> {
   const system = await systemConfig();
-  return (system?.group?.href || envConfig.value(Environment.BASE_URL) || "").replace(/\/+$/, "");
+  return stripTrailingSlash(system?.group?.href || envConfig.value(Environment.BASE_URL));
 }
 
 function minutesDocumentSlug(committeeFile: CommitteeFile): string {

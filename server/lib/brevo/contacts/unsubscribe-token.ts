@@ -8,6 +8,7 @@ import { systemConfig } from "../../config/system-config";
 import { signRamblersUploadBody, verifyRamblersUploadSignature } from "../../ramblers/integration-worker-crypto";
 import { logBrevoError } from "../common/error-log";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("brevo:unsubscribe-token"));
 debugLog.enabled = false;
@@ -97,7 +98,7 @@ export async function contactUsParentSegment(): Promise<string | null> {
 
 export async function buildUnsubscribeUrl(email: string, appUrl: string, senderEmail?: string, listId?: number): Promise<string> {
   const token = await buildUnsubscribeToken(email, senderEmail, listId);
-  const base = (appUrl || "").replace(/\/+$/, "");
+  const base = stripTrailingSlash(appUrl);
   const parent = await contactUsParentSegment();
   const path = parent ? `/${parent}/unsubscribe` : "/unsubscribe";
   return `${base}${path}?t=${encodeURIComponent(token)}`;
@@ -105,7 +106,7 @@ export async function buildUnsubscribeUrl(email: string, appUrl: string, senderE
 
 export async function buildUnsubscribeApiUrl(email: string, appUrl: string, senderEmail?: string, listId?: number): Promise<string> {
   const token = await buildUnsubscribeToken(email, senderEmail, listId);
-  const base = (appUrl || "").replace(/\/+$/, "");
+  const base = stripTrailingSlash(appUrl);
   return `${base}/api/mail/unsubscribe/confirm?t=${encodeURIComponent(token)}`;
 }
 
@@ -139,7 +140,7 @@ export async function verifyUnsubscribeToken(token: string): Promise<DecodedUnsu
 
 export async function appBaseUrl(): Promise<string> {
   const sys = await systemConfig();
-  const base = (sys?.group?.href || "").replace(/\/+$/, "");
+  const base = stripTrailingSlash(sys?.group?.href);
   if (!base) {
     throw new Error("System config group.href not set; cannot derive unsubscribe URL");
   }

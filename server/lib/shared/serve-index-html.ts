@@ -9,6 +9,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/functions/google-search-console";
 import { pageSeoDescriptorForPath } from "../content-export/content-export";
 import { OpenGraphType, PageSeoDescriptor } from "../../../projects/ngx-ramblers/src/app/models/content-export.model";
+import { escapeHtml, stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("serve-index-html"));
 debugLog.enabled = false;
@@ -38,7 +39,7 @@ async function cachedHeadConfig(): Promise<HeadConfig> {
     const config = await systemConfig();
     headConfigCache.value = {
       verificationId: config?.googleSearchConsole?.verificationId || null,
-      baseHref: (config?.group?.href || "").replace(/\/+$/, "") || null,
+      baseHref: stripTrailingSlash(config?.group?.href) || null,
       siteName: config?.group?.shortName || config?.group?.longName || null
     };
   } catch (error) {
@@ -67,14 +68,6 @@ async function cachedSeoDescriptor(requestPath: string): Promise<PageSeoDescript
   return descriptor;
 }
 
-function escapeHtml(value: string): string {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function withGoogleSiteVerification(html: string, verificationId: string): string {
   const safeId = extractGoogleSiteVerificationId(verificationId).replace(/[^A-Za-z0-9_-]/g, "");
   if (!safeId) {
@@ -84,7 +77,7 @@ function withGoogleSiteVerification(html: string, verificationId: string): strin
 }
 
 function canonicalUrlFor(baseHref: string, requestPath: string): string {
-  const normalisedPath = (requestPath || "/").replace(/\/+$/, "") || "/";
+  const normalisedPath = stripTrailingSlash(requestPath || "/") || "/";
   return normalisedPath === "/" ? baseHref : `${baseHref}${normalisedPath}`;
 }
 

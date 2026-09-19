@@ -1,5 +1,7 @@
 import { Member, MemberAction, MemberBulkLoadAudit, MemberUpdateAudit } from "../models/member.model";
+import { EmailTemplateName, MemberSelection, NotificationConfig, WorkflowAction } from "../models/mail.model";
 import {
+  expiryNotificationConfigIds,
   memberBulkLoadDigest,
   memberBulkLoadDigestCountsLabel,
   memberBulkLoadDigestHtml,
@@ -41,7 +43,7 @@ function auditFor(overrides: Partial<MemberUpdateAudit>): MemberUpdateAudit {
 }
 
 describe("member bulk load digest", () => {
-  it("groups created, updated, skipped and failed members", () => {
+  it("groups created, skipped and failed members and counts updates without listing them", () => {
     const digest = memberBulkLoadDigest(
       session,
       [
@@ -67,30 +69,63 @@ describe("member bulk load digest", () => {
     expect(digest.uploadedByName).toEqual("Tim Weston");
     expect(digest.dataFileName).toEqual("ExportAll (4).xlsx");
     expect(digest.created.map(member => member.name)).toEqual(["Elizabeth Shearman"]);
-    expect(digest.updated[0].changeSummary).toContain("Email");
+    expect(digest.updatedCount).toEqual(1);
     expect(digest.skippedCount).toEqual(1);
     expect(digest.errors[0].errorText).toEqual("email is required");
-    expect(memberBulkLoadDigestCountsLabel(digest)).toEqual("1 created, 1 updated, 1 skipped, 1 failed");
+    expect(memberBulkLoadDigestCountsLabel(digest)).toEqual("1 created, 1 updated, 1 skipped, 1 failed, 0 sent an expiry warning, 0 sent the expiry email");
   });
 
-  it("summarises field changes without listing skipped members in the email", () => {
+  it("lists new members and expiry emails but not skipped or updated members", () => {
     expect(summariseFieldChanges([])).toContain("No changes");
     const html = memberBulkLoadDigestHtml(
       memberBulkLoadDigest(
         session,
         [
           auditFor({memberAction: MemberAction.created, memberId: "member-elizabeth"}),
-          auditFor({memberAction: MemberAction.skipped, memberId: "member-nicholas"})
+          auditFor({memberAction: MemberAction.skipped, memberId: "member-nicholas"}),
+          auditFor({
+            memberAction: MemberAction.updated,
+            memberId: "member-nicholas",
+            fieldChanges: [{fieldName: "email", from: "", to: "n@example.com", resolution: "Updated"}]
+          })
         ],
         [elizabeth, nicholas],
-        "Tim Weston"
+        "Tim Weston",
+        {
+          expiryWarnings: [{name: "Sam Warned", membershipNumber: "111", email: "sam@example.com", errorText: null}],
+          expiryNotices: [{name: "Jo Expired", membershipNumber: "222", email: "jo@example.com", errorText: null}]
+        }
       ),
       "Sunday, 19 April 2026, 9:55:59 am",
       "https://example.org.uk/admin/member-bulk-load"
     );
     expect(html).toContain("Elizabeth Shearman");
-    expect(html).toContain("1 created, 0 updated, 1 skipped, 0 failed");
+    expect(html).toContain("1 created, 1 updated, 1 skipped, 0 failed, 1 sent an expiry warning, 1 sent the expiry email");
     expect(html).not.toContain("Nicholas Shearman");
+    expect(html).not.toContain("Email");
+    expect(html).toContain("Sent an expiry warning");
+    expect(html).toContain("Sam Warned (111)");
+    expect(html).toContain("Sent the expiry email and removed from the site");
+    expect(html).toContain("Jo Expired (222)");
     expect(html).toContain("Open upload history");
+  });
+
+  it("treats the member-removing email as the expiry email and its follow-on as the warning", () => {
+    const config = (overrides: Partial<NotificationConfig>): NotificationConfig => ({
+      subject: {text: ""},
+      bannerId: null,
+      preSendActions: [],
+      postSendActions: [],
+      defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+      ...overrides
+    } as NotificationConfig);
+    const ids = expiryNotificationConfigIds([
+      config({id: "welcome", templateName: "welcome-to-the-group"}),
+      config({id: "expiry", templateName: "anything", postSendActions: [WorkflowAction.BULK_DELETE_GROUP_MEMBER], nextNotificationConfigId: "warning"}),
+      config({id: "warning", templateName: "custom-warning"}),
+      config({id: "second-warning", templateName: EmailTemplateName.MEMBERSHIP_EXPIRY_WARNING})
+    ]);
+    expect(ids.expiryIds).toEqual(["expiry"]);
+    expect(ids.warningIds).toEqual(["warning", "second-warning"]);
   });
 });

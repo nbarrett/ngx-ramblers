@@ -92,6 +92,7 @@ import { isString } from "es-toolkit/compat";
 import { htmlHasRichFormatting, isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste, shouldPastePlainTextAsMarkdown, stripIncompatibleTextMarks } from "./tiptap-paste";
 import { EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
+import { stripTrailingSlash } from "../../../functions/strings";
 
 @Component({
   selector: "app-tiptap-markdown-editor",
@@ -2014,7 +2015,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const fileNameData = response?.responses?.[0]?.fileNameData;
       if (fileNameData) {
         const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
-        const src = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
+        const src = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
         this.editor?.chain().focus().setImage({src, alt: ""}).run();
       } else {
         this.logger.error("pasted image upload returned no file data:", response);
@@ -2043,7 +2044,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   onImageCropperSave(awsFileData: AwsFileData): void {
     if (!this.editor) return;
     const relative = this.urlService.resourceRelativePathForAWSFileName(awsFileData.awsFileName);
-    const src = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
+    const src = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
     if (this.replaceSelectedImageOnSave && this.imageSelected) {
       this.editor.chain().focus().updateAttributes("image", { src }).run();
     } else {

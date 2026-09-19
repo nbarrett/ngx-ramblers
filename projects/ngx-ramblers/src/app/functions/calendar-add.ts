@@ -7,7 +7,7 @@ import { CalendarApp, CalendarClientHints, CalendarPreviewEvent, DeviceKind, Org
 import { UIDateFormat } from "../models/date-format.model";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
-import { escapeHtml } from "./text-diff";
+import { escapeHtml, stripTrailingSlash } from "./strings";
 
 const DEFAULT_WALK_DURATION_HOURS = 3;
 
@@ -144,7 +144,7 @@ function absoluteFileUrl(fileUrl: string, origin: string | null): string {
   } else if (!origin) {
     return fileUrl;
   } else {
-    return `${origin.replace(/\/+$/, "")}/${(fileUrl || "").replace(/^\/+/, "")}`;
+    return `${stripTrailingSlash(origin)}/${(fileUrl || "").replace(/^\/+/, "")}`;
   }
 }
 

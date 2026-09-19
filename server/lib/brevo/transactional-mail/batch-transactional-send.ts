@@ -763,7 +763,13 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       notificationConfigId: notifConfig?.id ?? null,
       subject: request.subject,
       sentBy: currentMemberId,
-      entries: sentEntries.map(entry => ({ memberId: entry.memberId, email: entry.email, sentAt: entry.sentAt ?? dateTimeNow().toMillis() }))
+      entries: sentEntries.map(entry => ({
+        memberId: entry.memberId,
+        email: entry.email,
+        fullName: entry.fullName,
+        membershipNumber: membersById.get(entry.memberId)?.membershipNumber,
+        sentAt: entry.sentAt ?? dateTimeNow().toMillis()
+      }))
     });
     const otherEntries = memberEntries.filter(entry => entry.status !== BatchSendEntryStatus.Sent);
     const postSendMemberIds = Array.from(new Set(memberEntries.map(entry => entry.memberId)));

@@ -14,7 +14,7 @@ import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { connectedInboxEmails, defaultTenantSlug, derivedAliases } from "./inbox-aliases";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { escapeHtml, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { member as memberModel } from "../mongo/models/member";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
@@ -269,11 +269,3 @@ function buildSnippet(message: InboxMessage): string {
   return collapsed.length > 200 ? `${collapsed.slice(0, 200)}…` : collapsed;
 }
 
-function escapeHtml(raw: string): string {
-  return raw
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}

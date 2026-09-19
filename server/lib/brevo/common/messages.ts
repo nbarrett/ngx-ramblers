@@ -29,6 +29,7 @@ import { errorResponse } from "../../shared/error-response";
 import { logBrevoError } from "./error-log";
 import { SendRefusedError } from "../send-permission";
 import { toPairs, isObject, isString, keys } from "es-toolkit/compat";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
   return path.split(".").reduce((value, key) => value?.[key], source);
@@ -218,7 +219,7 @@ export function normaliseOverrideImageHost(imageUrl: string | undefined, baseHre
   if (!imageUrl || !baseHref) {
     return imageUrl;
   }
-  const base = baseHref.replace(/\/+$/, "");
+  const base = stripTrailingSlash(baseHref);
   if (DEV_IMAGE_ORIGIN.test(imageUrl)) {
     return imageUrl.replace(DEV_IMAGE_ORIGIN, base);
   }

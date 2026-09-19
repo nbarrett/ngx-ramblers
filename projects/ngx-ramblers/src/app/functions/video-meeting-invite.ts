@@ -1,4 +1,5 @@
 import { GUEST_MEETING_EMAIL_PARAM, GUEST_MEETING_NAME_PARAM } from "./video-meeting-join";
+import { escapeHtml } from "./strings";
 
 const INVITEE_NAME_MERGE_FIELD = "{{params.memberMergeFields.FULL_NAME}}";
 const INVITEE_EMAIL_MERGE_FIELD = "{{params.memberMergeFields.EMAIL}}";
@@ -18,7 +19,7 @@ export function personaliseJoinLinkHtml(html: string, joinUrl: string): string {
   if (!base || !html) {
     return html || "";
   } else {
-    const personalised = personalisedGuestJoinUrl(base).replace(/&/g, "&amp;");
+    const personalised = escapeHtml(personalisedGuestJoinUrl(base));
     return html.split(`href="${base}"`).join(`href="${personalised}"`);
   }
 }

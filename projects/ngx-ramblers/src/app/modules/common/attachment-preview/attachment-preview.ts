@@ -17,6 +17,7 @@ import { UrlService } from "../../../services/url.service";
 import { isOfficeContentType, isOfficeFileName, officeViewerEmbedUrl } from "../../../functions/office-viewer";
 import { DraggableModalComponent } from "../draggable-modal/draggable-modal";
 import { ThumbnailHeadingFrameComponent } from "../thumbnail-heading-frame/thumbnail-heading-frame";
+import { stripTrailingSlash } from "../../../functions/strings";
 
 @Component({
   selector: "app-attachment-preview",
@@ -223,7 +224,7 @@ export class AttachmentPreviewComponent {
   private publicUrl(url: string): string {
     try {
       const parsed = new URL(url, this.urlService.publicBaseUrl());
-      return this.urlService.isRemoteUrl(url) ? url : `${this.urlService.publicBaseUrl().replace(/\/$/, "")}${parsed.pathname}${parsed.search}`;
+      return this.urlService.isRemoteUrl(url) ? url : `${stripTrailingSlash(this.urlService.publicBaseUrl())}${parsed.pathname}${parsed.search}`;
     } catch {
       return url;
     }

@@ -37,6 +37,7 @@ import { apexWwwSibling } from "../../cloudflare/hostname-siblings";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { dnsProviderFromNameservers, hostFromUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { nameserversForHostname } from "../../shared/dns-nameservers";
+import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
 
@@ -158,8 +159,8 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
     try {
       const freeHostHref = `https://${fullHostname}`;
       const systemDoc = await db.collection("config").findOne({ key: "system" });
-      const currentHref = String(systemDoc?.value?.group?.href || "").replace(/\/$/, "");
-      const freeHostNormalised = freeHostHref.replace(/\/$/, "");
+      const currentHref = stripTrailingSlash(String(systemDoc?.value?.group?.href || ""));
+      const freeHostNormalised = stripTrailingSlash(freeHostHref);
       const hrefIsEmpty = !currentHref;
       const hrefAlreadyFreeHost = currentHref === freeHostNormalised;
       if (hrefIsEmpty || hrefAlreadyFreeHost) {

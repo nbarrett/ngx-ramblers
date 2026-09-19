@@ -5,7 +5,7 @@ import { uniq } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SiteMapPagesApiResponse, SiteMapPagesOutcome, SiteSearchApiResponse, SiteSearchGroup, SiteSearchIndexStatus, SiteSearchIndexStatusApiResponse, SiteSearchOutcome, SiteSearchResult, SiteSearchResultType } from "../../models/site-search.model";
 import { StoredValue } from "../../models/ui-actions";
-import { isQuoted, unquote } from "../../functions/strings";
+import { escapeHtml, isQuoted, unquote } from "../../functions/strings";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -90,10 +90,10 @@ export class SiteSearchService {
   }
 
   highlight(text: string, query: string): SafeHtml {
-    const escaped = this.escapeHtml(text || "");
+    const escaped = escapeHtml(text || "");
     const trimmed = (query || "").trim();
     const sources = isQuoted(trimmed) ? [unquote(trimmed)].filter(source => source.length > 0) : trimmed.split(/\s+/).filter(source => source.length > 0);
-    const terms = sources.map(source => this.escapeRegExp(this.escapeHtml(source)));
+    const terms = sources.map(source => this.escapeRegExp(escapeHtml(source)));
     if (terms.length === 0) {
       return this.sanitizer.bypassSecurityTrustHtml(escaped);
     }
@@ -101,10 +101,6 @@ export class SiteSearchService {
     return this.sanitizer.bypassSecurityTrustHtml(escaped.replace(regex, "<mark>$1</mark>"));
   }
 
-  private escapeHtml(text: string): string {
-    const replacements: Record<string, string> = {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"};
-    return text.replace(/[&<>"']/g, character => replacements[character]);
-  }
 
   private escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
