@@ -579,15 +579,7 @@ export interface ExpensesConfig {
 
 export interface CommitteeConfig {
   roles: CommitteeMember[],
-  contactUs?: {
-    chairman: CommitteeMember;
-    secretary: CommitteeMember;
-    treasurer: CommitteeMember;
-    membership: CommitteeMember;
-    social: CommitteeMember;
-    walks: CommitteeMember;
-    support: CommitteeMember;
-  };
+  contactUs?: Record<string, CommitteeMember>;
   fileTypes: CommitteeFileType [];
   meetingTypes?: CommitteeMeetingType[];
   documentsPagePath?: string | null;

@@ -13,7 +13,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { ParentPageMode } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import { PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { discoverRegistrationPages, isNgxRamblersSite, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { withContactUsLinks, discoverRegistrationPages, isNgxRamblersSite, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { assembleRegistrationPages, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { SitemapMoveDirection } from "../../../projects/ngx-ramblers/src/app/models/sitemap.model";
 import { excludedImage, markdownSegments, migrateStaticSite, sourceFidelityGaps } from "../migration/migrate-static-site-engine";
@@ -240,7 +240,7 @@ describe("site registration content discovery", () => {
   });
 
   it("builds and persists navigation candidates from selected root pages", () => {
-    expect(proposedRegistrationNavigation(assembleRegistrationPages(registration().pages)).map(item => item.path).filter(path => path !== "admin").sort()).toEqual(["about-us", "contact-us", "information"]);
+    expect(proposedRegistrationNavigation(assembleRegistrationPages(registration().pages)).map(item => item.path).filter(path => path !== "admin").sort()).toEqual(["about-us", "alps-holiday", "contact-us"]);
   });
 });
 
@@ -430,6 +430,16 @@ describe("site registration page addresses and layout images", () => {
     expect(segments.filter(segment => segment.image).map(segment => segment.image.src)).toEqual(["https://group.example/images/walkers.jpg"]);
   });
 
+  it("turns old site contact pages into contact us links for the matching committee role", () => {
+    const text = "[Membership Secretary](https://group.example/component/contact/contact/4-membership.html?Itemid=101&catid=10)";
+    expect(withContactUsLinks(text, "information/members")).toBe("[Membership Secretary](?contact-us&role=membership&redirect=information/members)");
+    expect(withContactUsLinks("[Footpath Secretary](/component/contact/contact/1-footpaths.html)", "information/footpaths"))
+      .toBe("[Footpath Secretary](?contact-us&role=walks&redirect=information/footpaths)");
+    expect(withContactUsLinks("[Get in touch](/index.php?option=com_contact&view=contact&id=2)", "contact-us"))
+      .toBe("[Get in touch](?contact-us&role=contact-us&redirect=contact-us)");
+    expect(withContactUsLinks("[Our walks](/walks.html)", "walks")).toBe("[Our walks](/walks.html)");
+  });
+
   it("sets consecutive images side by side at half width, two to a row", () => {
     const image = (name: string) => ({type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: `site-content/${name}.jpg`}]});
     const text = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "Our walks"}]};
@@ -441,7 +451,16 @@ describe("site registration page addresses and layout images", () => {
       ["site-content/c.jpg@6"]
     ]);
     expect(paired[1]).toEqual(text);
-    expect(paired[2].columns.map(column => column.columns)).toEqual([6]);
+    expect(paired[2].columns.map(column => column.columns)).toEqual([12]);
+  });
+
+  it("keeps a lone image full width in an ordinary row, without a nested row around it", () => {
+    const hero = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "site-content/hero.jpg"}]};
+    const text = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Footpaths"}]};
+    const paired = pairedImageRows([{type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, columns: [{columns: 12, rows: [hero]}]}, text]);
+    expect(paired[0].columns).toEqual([{columns: 12, imageSource: "site-content/hero.jpg"}]);
+    expect(paired[0].columns[0].rows).toBeUndefined();
+    expect(paired[1]).toEqual(text);
   });
 
   it("imports a real page that has child pages with its own content template, keeping child index only for proposed sections", () => {

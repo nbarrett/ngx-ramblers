@@ -130,6 +130,12 @@ export enum RegistrationAdminTab {
   REGISTRATION_REQUESTS = "Registration requests"
 }
 
+export const REGISTRATION_PATH = "register";
+
+export const REGISTRATION_ENQUIRY_SUBJECT = "Registering our group or area";
+
+export const REGISTRATION_ADMIN_HELP_PROMPT = "ask the platform administrator for help";
+
 export enum RegistrationPageAnchor {
   PUBLIC_REGISTRATION = "public-registration"
 }
@@ -199,6 +205,7 @@ export enum RegistrationHistoryAction {
   APPROVED = "approved",
   INVITED = "invited",
   RUN_AGAIN = "run-again",
+  PAGES_FOUND_AGAIN = "pages-found-again",
   STOPPED = "stopped",
   MARKED_BROKEN = "marked-broken",
   FAILED = "failed"
@@ -216,6 +223,7 @@ export const REGISTRATION_HISTORY_LABELS: Record<RegistrationHistoryAction, stri
   [RegistrationHistoryAction.APPROVED]: "Approved",
   [RegistrationHistoryAction.INVITED]: "Group invited",
   [RegistrationHistoryAction.RUN_AGAIN]: "Run again",
+  [RegistrationHistoryAction.PAGES_FOUND_AGAIN]: "Pages found again",
   [RegistrationHistoryAction.STOPPED]: "Stopped",
   [RegistrationHistoryAction.MARKED_BROKEN]: "Marked broken",
   [RegistrationHistoryAction.FAILED]: "Build failed"

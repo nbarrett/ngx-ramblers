@@ -129,6 +129,18 @@ describe("registration-photos", () => {
       expect(yearTemplate.rows[0].columns[0].contentText).toContain("{{year}}");
     });
 
+    it("keeps the migration note at the bottom of the photos page after adding the year index", () => {
+      const pages: PageContent[] = [
+        {path: "photos", rows: [
+          {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Photos"}]},
+          migrationNoteRow("Migrated from", "https://example.org/gallery/?m")
+        ]},
+        {path: "photos/olney-aug-2026", rows: [{type: PageContentType.ALBUM, maxColumns: 1, showSwiper: false, columns: [], carousel: {name: "x", eventDate: 1787482800000} as any}]}
+      ];
+      const landing = photosByYear(pages, [], templates, null).find(item => item.path === "photos");
+      expect(landing.rows.map(row => row.type)).toEqual([PageContentType.TEXT, PageContentType.ALBUM_INDEX, PageContentType.MIGRATION_NOTE]);
+    });
+
     it("uses the walk date so a gallery without eventDate on the page still sits under its year", () => {
       const pages: PageContent[] = [
         {path: "photos", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Photos"}]}]},
@@ -159,9 +171,9 @@ describe("registration-photos", () => {
       const rows = homeContentRows(home, areas);
       expect(rows.map(row => row.type)).toEqual([PageContentType.ALBUM, PageContentType.TEXT, PageContentType.TEXT, PageContentType.ACTION_BUTTONS]);
       expect(rows[0].carousel.showTitle).toBe(false);
-      expect(rows[3].columns.map(column => [column.title, column.contentText])).toEqual([["Walks", "See our programme of upcoming walks"], ["Photos", "Pictures from our Sunday walks."]]);
-      expect(rows[3].maxColumns).toBe(2);
-      expect(rows[3].columns.every(column => !!column.imageSource && column.columns === 6)).toBe(true);
+      expect(rows[3].columns.map(column => [column.title, column.contentText])).toEqual([["Photos", "Pictures from our Sunday walks."]]);
+      expect(rows[3].maxColumns).toBe(1);
+      expect(rows[3].columns.every(column => !!column.imageSource && column.columns === 12)).toBe(true);
     });
 
     it("describes a page in one short sentence, which a migration note row never supplies", () => {

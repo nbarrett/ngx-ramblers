@@ -40,8 +40,7 @@ export function createCommitteeConfig(params: CommitteeConfigTemplateParams): Co
     createCommitteeRole("social", "Social Secretary", RoleType.COMMITTEE_MEMBER, BuiltInRole.SOCIAL_CO_ORDINATOR),
     createCommitteeRole("publicity", "Publicity Officer", RoleType.COMMITTEE_MEMBER),
     createCommitteeRole("webmaster", "Webmaster", RoleType.COMMITTEE_MEMBER),
-    createCommitteeRole("contact-us", "Contact Us", RoleType.SYSTEM_ROLE, BuiltInRole.CONTACT_US),
-    createCommitteeRole("support", "Support", RoleType.SYSTEM_ROLE)
+    createCommitteeRole("contact-us", "Contact Us", RoleType.SYSTEM_ROLE, BuiltInRole.CONTACT_US)
   ];
 
   const roleByType = (type: string): CommitteeMember =>
@@ -65,8 +64,7 @@ export function createCommitteeConfig(params: CommitteeConfigTemplateParams): Co
       treasurer: roleByType("treasurer"),
       membership: roleByType("membership"),
       social: roleByType("social"),
-      walks: roleByType("walks"),
-      support: roleByType("support")
+      walks: roleByType("walks")
     },
     fileTypes,
     expenses: {

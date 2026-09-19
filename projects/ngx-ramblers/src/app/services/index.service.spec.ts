@@ -563,8 +563,15 @@ describe("IndexService", () => {
             expect(result.rows[0].columns.length).toBe(2);
         });
 
-        it("should use albumIndex min/max cols when available", () => {
+        it("should use the row min/max columns the editor sets, in preference to the album index copy", () => {
             const row = { albumIndex: { minCols: 3, maxCols: 6 }, minColumns: 1, maxColumns: 2 } as PageContentRow;
+            const result = service.pageContentFrom(row, [], 0);
+            expect(result.rows[0].minColumns).toBe(1);
+            expect(result.rows[0].maxColumns).toBe(2);
+        });
+
+        it("should use albumIndex min/max cols when the row has none", () => {
+            const row = { albumIndex: { minCols: 3, maxCols: 6 } } as PageContentRow;
             const result = service.pageContentFrom(row, [], 0);
             expect(result.rows[0].minColumns).toBe(3);
             expect(result.rows[0].maxColumns).toBe(6);

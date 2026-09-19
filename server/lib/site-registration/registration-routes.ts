@@ -4,7 +4,7 @@ import { authenticate } from "../auth/auth-config";
 import {
   beginRegistration, discoverRegistration, listRegistrations, lookupRegistrationLogo, markRegistrationBroken, queueRegistration,
   readRegistration, readRegistrationSettings, registrationAvailability, registrationError,
-  requireRegistrationAdmin, requireRegistrationPlatform, retryOwnRegistration, retryRegistration, reviewRegistration, deleteRegistration, sendRegistrationReturnLink, stopRegistration,
+  rediscoverRegistration, requireRegistrationAdmin, requireRegistrationPlatform, retryOwnRegistration, retryRegistration, reviewRegistration, deleteRegistration, sendRegistrationReturnLink, stopRegistration,
   updateRegistration, updateRegistrationSettings, verifyRegistration
 } from "./registration-controllers";
 
@@ -24,6 +24,7 @@ registrationRoutes.get("/admin/settings", authenticate(), requireRegistrationAdm
 registrationRoutes.put("/admin/settings", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", updateRegistrationSettings));
 registrationRoutes.post("/admin/:id/approve", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", reviewRegistration));
 registrationRoutes.post("/admin/:id/retry", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", retryRegistration));
+registrationRoutes.post("/admin/:id/rediscover", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", rediscoverRegistration));
 registrationRoutes.post("/admin/:id/return-link", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", sendRegistrationReturnLink));
 registrationRoutes.post("/admin/:id/stop", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", stopRegistration));
 registrationRoutes.post("/admin/:id/broken", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", markRegistrationBroken));

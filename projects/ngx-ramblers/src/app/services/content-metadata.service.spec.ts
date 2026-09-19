@@ -99,7 +99,7 @@ describe("ContentMetadataService", () => {
     const secondRequest = service.albumCatalogue();
     const request = httpTesting.expectOne(req => req.url === "api/database/content-metadata/all");
 
-    expect(JSON.parse(request.request.params.get("criteria"))).toEqual({rootFolder: RootFolder.carousels});
+    expect(JSON.parse(request.request.params.get("criteria"))).toEqual(null);
     expect(JSON.parse(request.request.params.get("select"))).toEqual({name: 1, rootFolder: 1, aspectRatio: 1, maxImageSize: 1});
     request.flush({response: [summary]});
 

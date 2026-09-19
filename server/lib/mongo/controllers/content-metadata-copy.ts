@@ -1,7 +1,7 @@
 import {CopyObjectCommand, DeleteObjectCommand, S3} from "@aws-sdk/client-s3";
 import debug from "debug";
 import {NextFunction, Request, Response} from "express";
-import {cloneDeep} from "es-toolkit/compat";
+import {cloneDeep, values} from "es-toolkit/compat";
 import {ApiAction} from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import {
   ContentMetadataCopyImageRequest,
@@ -79,8 +79,10 @@ async function sourceContextFor(albumName: string): Promise<ContentMetadataCopyS
 export async function copyImageToAlbum(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const request = req.body as ContentMetadataCopyImageRequest;
-    const sourceAlbum = await contentMetadata.findOne({name: request.sourceAlbumName, rootFolder: RootFolder.carousels});
-    const destinationAlbum = await contentMetadata.findOne({name: request.destinationAlbumName, rootFolder: RootFolder.carousels});
+    const rootFolders: string[] = values(RootFolder);
+    const knownFolders = rootFolders.includes(request.sourceRootFolder) && rootFolders.includes(request.destinationRootFolder);
+    const sourceAlbum = knownFolders ? await contentMetadata.findOne({name: `${request.sourceAlbumName}`, rootFolder: request.sourceRootFolder}) : null;
+    const destinationAlbum = knownFolders ? await contentMetadata.findOne({name: `${request.destinationAlbumName}`, rootFolder: request.destinationRootFolder}) : null;
     const sourceItem = sourceAlbum?.files?.find(item => item.image === request.sourceImage);
     if (!sourceAlbum || !destinationAlbum || !sourceItem?.image) {
       res.status(404).json({error: "The source image or destination album could not be found"});
@@ -101,8 +103,8 @@ export async function copyImageToAlbum(req: Request, res: Response, next: NextFu
         const tagMapping = mappedTags(sourceAlbum.imageTags, destinationAlbum.imageTags, sourceItem.tags);
         const sourceContext = await sourceContextFor(sourceAlbum.name);
         const copiedItem = copiedImageMetadata(sourceItem, destinationImage, tagMapping.keys, sourceContext);
-      destinationAlbum.imageTags = tagMapping.tags;
-      destinationAlbum.files.unshift(copiedItem);
+        destinationAlbum.imageTags = tagMapping.tags;
+        destinationAlbum.files.unshift(copiedItem);
         const savedDestination = await destinationAlbum.save();
         debugLog("copied", sourceKey, "to", destinationKey);
         res.status(200).json({request, action: ApiAction.UPDATE, response: savedDestination});

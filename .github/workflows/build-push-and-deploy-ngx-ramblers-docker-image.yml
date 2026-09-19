@@ -250,7 +250,14 @@ jobs:
 
       - name: Advance worker-deployed ref after successful deploy
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
-        run: git push --force origin HEAD:refs/heads/worker-deployed
+        continue-on-error: true
+        run: |
+          for attempt in 1 2 3 4 5; do
+            git push --force origin HEAD:refs/heads/worker-deployed && exit 0
+            echo "worker-deployed push attempt $attempt failed, retrying"
+            sleep $((attempt * 10))
+          done
+          exit 1
 
       - name: Generate Release Notes
         if: github.ref_name == 'main' && github.event_name == 'push'

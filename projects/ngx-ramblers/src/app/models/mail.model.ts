@@ -589,7 +589,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     timeUnit: DateRangeUnit.MONTHS,
     bannerId: null,
     senderRole: "membership",
-    replyToRole: "support",
+    replyToRole: CONTACT_US_TYPE,
     signOffRoles: ["membership"],
   },
   {

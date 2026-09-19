@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { isArray, isString, values } from "es-toolkit/compat";
-import { RegistrationDraft, RegistrationEmailType, RegistrationHistoryAction, RegistrationPlan, RegistrationSettings, RegistrationSiteFlavour, RegistrationStartRequest, RegistrationStartResponse, RegistrationState, RegistrationStep, StoredSiteRegistration } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
+import { REGISTRATION_ADMIN_HELP_PROMPT, RegistrationDraft, RegistrationEmailType, RegistrationHistoryAction, RegistrationPlan, RegistrationSettings, RegistrationSiteFlavour, RegistrationStartRequest, RegistrationStartResponse, RegistrationState, RegistrationStep, StoredSiteRegistration } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
 import { findEnvironmentFromDatabase } from "../environments/environments-config";
@@ -30,7 +30,7 @@ export async function startRegistration(request: RegistrationStartRequest): Prom
   } else if (!normalisedRegistrationEmail(request?.email) || !validRegistrationEmail(email)) {
     throw new Error("Enter a valid committee email address, such as secretary@yourgroup.org.uk.");
   } else if (!registrationEmailAllowed(settings, code, email)) {
-    throw new Error("That email address is not on the approved list for this group or area. Try another committee email address or ask the platform administrator for help.");
+    throw new Error(`That email address is not on the approved list for this group or area. Try another committee email address or ${REGISTRATION_ADMIN_HELP_PROMPT}.`);
   }
   const entries = await fetchRamblersGroupsFromApi([code]);
   const group = entries.find(candidate => candidate.group_code === code && candidate.scope === scope);

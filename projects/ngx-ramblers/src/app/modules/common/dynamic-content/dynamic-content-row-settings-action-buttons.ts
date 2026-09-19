@@ -11,7 +11,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
     template: `
       @if (actions.isActionButtons(row) || actions.isIndex(row)) {
         <div class="row align-items-center">
-          <div class="col-auto" app-dynamic-content-max-columns-editor [hasColumnRange]="row" (columnsChange)="columnsChange.emit()"></div>
+          <div class="col-auto" app-dynamic-content-max-columns-editor [hasColumnRange]="row" (columnsChange)="columnRangeChanged()"></div>
           @if (actions.isActionButtons(row) || actions.isIndex(row)) {
             <div class="col-auto">
               <div class="form-check form-check-inline mb-0">
@@ -55,6 +55,14 @@ export class RowSettingsActionButtonsComponent implements OnInit {
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
+  }
+
+  columnRangeChanged() {
+    if (this.actions.isIndex(this.row) && this.row.albumIndex) {
+      this.row.albumIndex.minCols = this.row.minColumns;
+      this.row.albumIndex.maxCols = this.row.maxColumns;
+    }
+    this.columnsChange.emit();
   }
 
 }

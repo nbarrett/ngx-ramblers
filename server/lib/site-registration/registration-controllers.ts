@@ -135,6 +135,25 @@ async function queueRetry(saved: {id: string; state: RegistrationState; environm
   await recordRegistrationHistory(saved.id, RegistrationHistoryAction.RUN_AGAIN, by);
 }
 
+export async function rediscoverRegistration(req: Request, res: Response): Promise<void> {
+  const saved = await registrations().findOne({id: req.params.id});
+  if (!saved) {
+    throw new HttpError(404, "That registration no longer exists.");
+  }
+  const reportProgress = async (progress: RegistrationDiscoveryReport) => {
+    await registrations().updateOne({id: saved.id}, {$set: {discoveryProgress: {...progress, updatedAt: dateTimeNowAsValue()}}});
+  };
+  try {
+    const discovered = await discoverRegistrationWebsite(saved.website, saved.group?.group_code, reportProgress);
+    await registrations().updateOne({id: saved.id}, {$set: {...discovered, updatedAt: dateTimeNowAsValue()}});
+  } finally {
+    await registrations().updateOne({id: saved.id}, {$set: {discoveryProgress: null}});
+  }
+  await recordRegistrationHistory(saved.id, RegistrationHistoryAction.PAGES_FOUND_AGAIN, registrationActor(req));
+  await queueRetry(await registrations().findOne({id: saved.id}), registrationActor(req));
+  res.json({success: true});
+}
+
 export async function retryRegistration(req: Request, res: Response): Promise<void> {
   const saved = await registrations().findOne({id: req.params.id});
   await queueRetry(saved, registrationActor(req));

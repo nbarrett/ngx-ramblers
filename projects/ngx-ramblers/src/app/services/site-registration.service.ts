@@ -60,6 +60,10 @@ export class SiteRegistrationService {
     return firstValueFrom(this.http.post(`${this.base}/admin/${id}/approve`, {}));
   }
 
+  rediscover(id: string): Promise<unknown> {
+    return firstValueFrom(this.http.post(`${this.base}/admin/${id}/rediscover`, {}));
+  }
+
   retry(id: string): Promise<unknown> {
     return firstValueFrom(this.http.post(`${this.base}/admin/${id}/retry`, {}));
   }

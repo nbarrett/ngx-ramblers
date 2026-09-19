@@ -146,6 +146,10 @@ function withoutLinkLists(rows: PageContentRow[]): PageContentRow[] {
     .filter(row => !(row.type === PageContentType.TEXT && (row.columns || []).length > 0 && (row.columns || []).every(column => linkListText(column.contentText) && !column.imageSource)));
 }
 
+function withMigrationNoteLast(rows: PageContentRow[]): PageContentRow[] {
+  return [...rows.filter(row => row.type !== PageContentType.MIGRATION_NOTE), ...rows.filter(row => row.type === PageContentType.MIGRATION_NOTE)];
+}
+
 function templateRows(template: PageContent, contentPath: string, year: string, mapCenter: [number, number] | null): PageContentRow[] {
   const rows: PageContentRow[] = JSON.parse(JSON.stringify(template.rows || []).split(REGISTRATION_TEMPLATE_YEAR).join(year));
   return rows.map(row => row.albumIndex ? {
@@ -178,7 +182,7 @@ export function photosByYear(pages: PageContent[], registrationPages: Registrati
       }));
     return [...moved.map(page => page.path === root ? {
       ...page,
-      rows: [...withoutLinkLists(page.rows || []), ...templateRows(templates.index, root, "", mapCenter)]
+      rows: withMigrationNoteLast([...withoutLinkLists(page.rows || []), ...templateRows(templates.index, root, "", mapCenter)])
     } : page), ...yearPages];
   }
 }
@@ -206,22 +210,18 @@ export function shortDescription(rows: PageContentRow[]): string {
 
 export function registrationKeyAreas(navigation: RegistrationPage[], pages: PageContent[], albums: MigratedAlbum[], availablePaths: Set<string>): RegistrationKeyArea[] {
   const photoPool = albums.map(albumPhoto).filter(Boolean);
-  const excluded = [RegistrationNavbarPath.HOME, RegistrationNavbarPath.ADMIN, RegistrationNavbarPath.INFORMATION] as string[];
-  const featureDescriptions: Record<string, string> = {
-    [RegistrationNavbarPath.WALKS]: "See our programme of upcoming walks",
-    [RegistrationNavbarPath.EVENTS]: "See our upcoming social events"
-  };
+  const excluded = [RegistrationNavbarPath.HOME, RegistrationNavbarPath.ADMIN, RegistrationNavbarPath.INFORMATION,
+    RegistrationNavbarPath.WALKS, RegistrationNavbarPath.EVENTS] as string[];
   const descriptionFor = (path: string): string => {
     const page = pages.find(candidate => candidate.path === path);
     const children = pages.filter(candidate => candidate.path.startsWith(`${path}/`) && candidate.path.split("/").length === path.split("/").length + 1);
-    return featureDescriptions[path]
-      || shortDescription(withoutIndexRows(page?.rows || []))
+    return shortDescription(withoutIndexRows(page?.rows || []))
       || children.map(child => shortDescription(withoutIndexRows(child.rows || []))).find(Boolean)
       || "";
   };
   return navigation
     .filter(item => !item.parentPath && item.selected && !excluded.includes(item.path))
-    .filter(item => !!featureDescriptions[item.path] || availablePaths.has(item.path))
+    .filter(item => availablePaths.has(item.path))
     .map(item => ({item, description: descriptionFor(item.path)}))
     .filter(entry => !!entry.description)
     .map((entry, index) => {

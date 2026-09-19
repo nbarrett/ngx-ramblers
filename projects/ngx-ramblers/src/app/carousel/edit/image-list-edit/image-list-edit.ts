@@ -870,11 +870,17 @@ import { uploadGroupEventType } from "../../../models/committee.model";
                 <label for="copy-destination-album">Destination album</label>
                 <select id="copy-destination-album" class="form-control" [(ngModel)]="copyDestinationAlbumName"
                         [disabled]="copyInProgress || copyDestinationAlbums.length === 0">
-                  <option [ngValue]="null">{{ copyDestinationAlbumsLoading ? "Loading albums…" : "Choose an album" }}</option>
-                  @for (album of copyDestinationAlbums; track album.name) {
+                  <option [ngValue]="null">{{ copyDestinationAlbumsLoading ? "Loading albums…" : copyDestinationAlbums.length === 0 ? "No other albums" : "Choose an album" }}</option>
+                  @for (album of copyDestinationAlbums; track album.rootFolder + album.name) {
                     <option [ngValue]="album.name">{{ contentMetadataService.contentMetadataName(album) }}</option>
                   }
                 </select>
+                @if (!copyDestinationAlbumsLoading && copyDestinationAlbums.length === 0) {
+                  <div class="alert alert-warning d-flex align-items-start mt-2 mb-0">
+                    <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+                    <div><strong>No other album to copy to</strong><p class="mb-0">This site has no album apart from this one. Create another album first, for example by adding an album row to a page, then copy the photo into it.</p></div>
+                  </div>
+                }
                 <small class="text-muted d-block mt-1">Any fixed shape on the destination is applied by that album’s presentation. The copied file keeps the source pixels intact.</small>
                 <div class="copy-image-actions">
                   <button type="button" class="btn btn-primary" [disabled]="!copyDestinationAlbumName || copyInProgress"
@@ -1898,7 +1904,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       .then(albums => {
         const recentAlbumNames = this.recentCopyDestinationAlbumNames();
         this.copyDestinationAlbums = albums
-          .filter(album => album.rootFolder === RootFolder.carousels && album.name !== this.contentMetadata.name)
+          .filter(album => album.name !== this.contentMetadata.name || album.rootFolder !== this.contentMetadata.rootFolder)
           .sort((firstAlbum, secondAlbum) => this.compareCopyDestinationAlbums(firstAlbum, secondAlbum, recentAlbumNames));
         this.copyDestinationAlbumName = recentAlbumNames.find(name => this.copyDestinationAlbums.some(album => album.name === name)) || null;
       })
@@ -1924,7 +1930,9 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     if (this.copySourceItem?.image && this.copyDestinationAlbumName) {
       this.copyInProgress = true;
       const request: ContentMetadataCopyImageRequest = {
+        sourceRootFolder: this.contentMetadata.rootFolder,
         sourceAlbumName: this.contentMetadata.name,
+        destinationRootFolder: this.copyDestinationAlbums.find(album => album.name === this.copyDestinationAlbumName)?.rootFolder,
         destinationAlbumName: this.copyDestinationAlbumName,
         sourceImage: this.copySourceItem.image
       };
