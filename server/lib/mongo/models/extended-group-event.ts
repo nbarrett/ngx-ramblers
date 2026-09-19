@@ -125,7 +125,12 @@ const fields = new Schema({
   }, {_id: false}),
   tags: [{type: Number}],
   descriptionTidyFingerprint: {type: String},
-  titleTidyFingerprint: {type: String}
+  titleTidyFingerprint: {type: String},
+  ramblersUpload: {
+    fileName: {type: String},
+    succeeded: {type: Boolean},
+    at: {type: Number}
+  }
 }, {_id: false});
 
 export const extendedGroupEventSchema = new Schema({

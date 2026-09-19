@@ -45,6 +45,8 @@ export interface RamblersWalksUploadRequest {
   rows: WalkUploadRow[];
   ramblersUser: string;
   walkImageUploads: WalkImagesUpload[];
+  localWalkIds: string[];
+  memberId: string;
 }
 
 export interface PublishStatus {
@@ -82,6 +84,7 @@ export enum WalkEditField {
   WEBSITE_LINK = "website link",
   WALK_TYPE = "linear or circular",
   MEETING_TIME = "meeting time",
+  MEETING_POINT = "meeting point",
   DIFFICULTY = "difficulty",
   DISTANCE_KM = "distance km",
   DISTANCE_MILES = "distance miles",
@@ -90,10 +93,19 @@ export enum WalkEditField {
   FINISH_TIME = "estimated finish time"
 }
 
+export interface WalkMeetingPoint {
+  time: string;
+  latitude: string;
+  longitude: string;
+  postcode: string;
+  description: string;
+}
+
 export interface WalkFieldChange {
   field: WalkEditField;
   value: string;
   existingValue: string;
+  meetingPoint?: WalkMeetingPoint;
 }
 
 export enum WalkEditStep {
@@ -113,6 +125,7 @@ export const WALK_EDIT_FIELD_STEPS: Record<WalkEditField, WalkEditStep> = {
   [WalkEditField.WEBSITE_LINK]: WalkEditStep.DESCRIPTION,
   [WalkEditField.WALK_TYPE]: WalkEditStep.LOCATION,
   [WalkEditField.MEETING_TIME]: WalkEditStep.LOCATION,
+  [WalkEditField.MEETING_POINT]: WalkEditStep.LOCATION,
   [WalkEditField.DIFFICULTY]: WalkEditStep.GRADING,
   [WalkEditField.DISTANCE_KM]: WalkEditStep.GRADING,
   [WalkEditField.DISTANCE_MILES]: WalkEditStep.GRADING,

@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, isArray, isString, map, values } from "es-toolkit/compat";
+import { isString, map, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -17,7 +17,6 @@ import { SerenityFeature } from "../../../models/serenity-feature.model";
 import { RamblersEventType, RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
 import {
   DownloadConflictResponse,
-  EventType as WalkHistoryEventType,
   GroupEventField,
   RamblersWalksReconciliation,
   ServerDownloadStatus,
@@ -26,7 +25,6 @@ import {
   WalkExportData,
   WalkExportTab,
 } from "../../../models/walk.model";
-import { publishedToRamblersEvent } from "../../../functions/walks/walk-event-snapshot";
 import { openSerenityReport } from "../../../functions/serenity-report";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -542,20 +540,6 @@ export class WalkExport implements OnInit, OnDestroy {
         this.updateCurrentSessionDurationLabel();
         this.changeDetectorRef.detectChanges();
         this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(matchingAudits.length, "audit record")} just received`);
-        if (!this.postActionRefreshed && this.audits.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS)) {
-          this.postActionRefreshed = true;
-          try {
-            if (!this.deletionsCleared) {
-              await this.clearLocalRamblersFieldsForDeletions();
-            }
-            await this.recordPublishedToRamblersHistory();
-            await this.showAvailableWalkExports();
-            await this.populateWalksDownloadFileContents();
-            this.updateExportStatusMessage();
-            this.broadcastService.broadcast(NamedEvent.named(NamedEventType.REFRESH));
-            this.changeDetectorRef.detectChanges();
-          } catch {}
-        }
       }
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(async error => {
@@ -599,10 +583,6 @@ export class WalkExport implements OnInit, OnDestroy {
             if (!this.deletionsCleared) {
               await this.clearLocalRamblersFieldsForDeletions();
             }
-            if (!this.postActionRefreshed) {
-              await this.recordPublishedToRamblersHistory();
-              this.postActionRefreshed = true;
-            }
           } catch {}
         }
         await this.renderInitialView();
@@ -610,47 +590,6 @@ export class WalkExport implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
       })
     );
-  }
-
-  private walksForPublishHistory(): ExtendedGroupEvent[] {
-    return this.ramblersWalksAndEventsService.selectedExportableWalks(this.walksForExport || [])
-      .map(walkExport => walkExport.displayedWalk?.walk)
-      .filter(walk => !!walk?.id && !!walk?.fields?.publishing?.ramblers?.publish)
-      .map(walk => cloneDeep(walk));
-  }
-
-  private async recordPublishedToRamblersHistory(): Promise<void> {
-    const walksAtUpload = this.walksPendingPublishHistory || [];
-    if (walksAtUpload.length === 0) {
-      return;
-    }
-    const memberId = this.memberLoginService.loggedInMember()?.memberId || "system";
-    const publishedAt = this.dateUtils.nowAsValue();
-    const updates = walksAtUpload.map(async (walkAtUpload: ExtendedGroupEvent) => {
-      try {
-        const latestWalk = await this.walksAndEventsService.queryById(walkAtUpload.id);
-        if (!latestWalk) {
-          this.logger.warn("recordPublishedToRamblersHistory: walk not found:", walkAtUpload.id);
-          return;
-        }
-        if (!isArray(latestWalk.events)) {
-          latestWalk.events = [];
-        }
-        const alreadyRecorded = latestWalk.events.some(event =>
-          event.eventType === WalkHistoryEventType.PUBLISHED_TO_RAMBLERS && event.date === publishedAt);
-        if (alreadyRecorded) {
-          return;
-        }
-        const historyEvent = publishedToRamblersEvent(walkAtUpload, publishedAt, memberId, "Published to Ramblers");
-        latestWalk.events = (latestWalk.events || []).concat(historyEvent);
-        await this.walksAndEventsService.createOrUpdate(latestWalk);
-        this.logger.info("recordPublishedToRamblersHistory: recorded for", latestWalk.groupEvent?.title, latestWalk.id);
-      } catch (error) {
-        this.logger.error("recordPublishedToRamblersHistory failed for", walkAtUpload.id, error);
-      }
-    });
-    await Promise.all(updates);
-    this.walksPendingPublishHistory = [];
   }
 
   private async renderInitialView() {
@@ -666,8 +605,6 @@ export class WalkExport implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private postActionRefreshed = false;
-  private walksPendingPublishHistory: ExtendedGroupEvent[] = [];
 
   async uploadToRamblers() {
     const downloadCheck = await this.downloadStatusService.canStartNewDownload();
@@ -685,9 +622,7 @@ export class WalkExport implements OnInit, OnDestroy {
     this.exportInProgress = true;
     this.startAuditRefreshLoop();
     this.deletionsCleared = false;
-    this.postActionRefreshed = false;
     this.downloadConflict = { allowed: true };
-    this.walksPendingPublishHistory = this.walksForPublishHistory();
 
     const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
     this.webSocketClientService.connect().then(() => {

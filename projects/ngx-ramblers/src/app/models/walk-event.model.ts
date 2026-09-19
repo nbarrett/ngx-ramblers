@@ -69,6 +69,7 @@ export const UNAUDITED_FIELDS: string[] = [
   EventField.MEMBER_PRIORITY_DAYS,
   EventField.MIGRATED_FROM_ID,
   EventField.NOTIFICATIONS,
+  EventField.RAMBLERS_UPLOAD,
   EventField.ROUTE_COLOR,
   EventField.ROUTE_OPACITY,
   EventField.ROUTE_WEIGHT,

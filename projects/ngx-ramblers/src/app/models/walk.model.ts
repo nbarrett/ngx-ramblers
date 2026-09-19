@@ -141,6 +141,12 @@ export interface Publish {
   publish: boolean;
 }
 
+export interface RamblersUploadOutcome {
+  fileName: string;
+  succeeded: boolean;
+  at: number;
+}
+
 export interface ImageConfig {
   source: ImageSource;
   importFrom: {
@@ -338,6 +344,7 @@ export enum EventField {
   CONTACT_DETAILS_MEMBER_ID = "fields.contactDetails.memberId",
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
   DESCRIPTION_TIDY_FINGERPRINT = "fields.descriptionTidyFingerprint",
+  RAMBLERS_UPLOAD = "fields.ramblersUpload",
   TITLE_TIDY_FINGERPRINT = "fields.titleTidyFingerprint",
   GPX_FILE = "fields.gpxFile",
   GPX_FILE_AWS_FILE_NAME = "fields.gpxFile.awsFileName",

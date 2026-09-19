@@ -163,6 +163,65 @@ describe("RamblersWalksAndEventsService", () => {
     });
   });
 
+  describe("last upload outcome", () => {
+    const publishedWalk = {
+      groupEvent: {id: "100487374", title: "Seven Sisters", start_date_time: "2026-09-20T10:30:00+01:00", walk_leader: {name: "Jon Inglett"}},
+      fields: {contactDetails: {displayName: "Jon Inglett"}, publishing: {ramblers: {publish: true, contactName: "Jon Inglett"}}},
+      events: [{eventType: "publishedToRamblers", date: 1, data: {
+        fields: {contactDetails: {displayName: "Jon Inglett"}, publishing: {ramblers: {publish: true, contactName: "Jon Inglett"}}},
+        groupEvent: {title: "Seven Sisters", start_date_time: "2026-09-20T10:30:00+01:00", walk_leader: {name: "Jon Inglett"}}
+      }}]
+    };
+
+    it("needs publishing when the last upload to Ramblers failed, and says so", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const failed = {...publishedWalk, fields: {...publishedWalk.fields, ramblersUpload: {fileName: "walks.csv", succeeded: false, at: 1789826689376}}};
+
+      expect(service.needsRamblersPublish(failed as any)).toBe(true);
+      expect(service.ramblersPublishTooltip(failed as any)).toContain("Last upload to Ramblers failed on");
+    });
+
+    it("does not need publishing when the last upload succeeded and nothing has changed", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const succeeded = {...publishedWalk, fields: {...publishedWalk.fields, ramblersUpload: {fileName: "walks.csv", succeeded: true, at: 1789826689376}}};
+
+      expect(service.lastUploadFailure(succeeded as any)).toBe(null);
+      expect(service.needsRamblersPublish(succeeded as any)).toBe(false);
+    });
+  });
+
+  describe("meeting point", () => {
+    const groupEvent = {
+      id: "100487374", title: "Seven Sisters", start_date_time: "2026-09-20T10:30:00+01:00",
+      start_location: {postcode: "BN25 1JH", description: "Seaford"}
+    };
+    const localWalk = {
+      groupEvent: {...groupEvent, meeting_date_time: "2026-09-20T10:15:00.000+01:00",
+        meeting_location: {postcode: "BN21 3EL", description: "Eastbourne Pier", latitude: 50.7664363, longitude: 0.2941673}},
+      fields: {publishing: {ramblers: {publish: true}}}
+    };
+
+    it("adds a missing meeting point on Ramblers by editing the walk, with its time and position", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const changes = service.walkFieldChanges(localWalk as any, {groupEvent} as any);
+      const meetingPoint = changes.find(change => change.field === WalkEditField.MEETING_POINT);
+
+      expect(meetingPoint.value).toBe("Eastbourne Pier, BN21 3EL");
+      expect(meetingPoint.meetingPoint).toEqual({time: "10:15", latitude: "50.7664363", longitude: "0.2941673", postcode: "BN21 3EL", description: "Eastbourne Pier"});
+      expect(changes.some(change => change.field === WalkEditField.MEETING_TIME)).toBe(false);
+      expect(service.csvReplacementReasons(localWalk as any, {groupEvent} as any)).toEqual([]);
+    });
+
+    it("leaves the meeting point alone when Ramblers already has the same one", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const changes = service.walkFieldChanges(localWalk as any, {groupEvent: localWalk.groupEvent} as any);
+
+      expect(changes.some(change => change.field === WalkEditField.MEETING_POINT)).toBe(false);
+    });
+  });
+
   describe("walkImageUploads", () => {
     const selectedWalk = {
       selected: true,

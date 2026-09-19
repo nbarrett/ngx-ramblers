@@ -22,6 +22,8 @@ describe("buildRamblersUploadJob", () => {
         fieldChanges: [],
         images: [{alternativeText: "Woodland", fileName: "woodland.jpeg", sourceUrl: "https://example.com/woodland.jpeg"}]
       }],
+      localWalkIds: [],
+      memberId: "member-id",
       ramblersUser: "nick@example.com"
     };
 
