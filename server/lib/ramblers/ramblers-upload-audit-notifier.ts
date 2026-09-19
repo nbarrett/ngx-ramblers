@@ -24,6 +24,7 @@ import {
   registerRamblersUploadSession,
   updateRamblersUploadSession
 } from "./ramblers-upload-session-registry";
+import { recordRamblersUploadOutcome } from "./ramblers-upload-outcome";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = false;
@@ -77,6 +78,9 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
     }
     const audits: RamblersUploadAudit[] = unfilteredAuditRecords.filter((item): item is RamblersUploadAudit => item !== null);
     const response: RamblersUploadAuditProgressResponse = {audits};
+    if (props.messageType === MessageType.COMPLETE) {
+      await recordRamblersUploadOutcome(session.jobId, props.status).catch(error => debugLog("recording upload outcome failed:", error.message));
+    }
     broadcast(props.messageType, response);
     if (props.messageType === MessageType.COMPLETE) {
       try {

@@ -167,6 +167,27 @@ export class WalksPageElements {
   public static walkMeetingTimeField = PageElement.located(By.id("edit-field-meeting-time-0-value"))
     .describedAs("walk meeting time");
 
+  public static separateMeetingPointCheckbox = PageElement.located(By.id("edit-field-flag-walk-meeting-point-value"))
+    .describedAs("separate meeting point checkbox");
+
+  public static separateMeetingPointLabel = PageElement.located(By.css("label[for='edit-field-flag-walk-meeting-point-value']"))
+    .describedAs("My walk has a separate meeting point");
+
+  public static meetingPointTab = PageElement.located(By.css("a[href='#edit-group-meeting-point']"))
+    .describedAs("Meeting point tab");
+
+  public static meetingPointSearchField = PageElement.located(By.id("search-edit-field-walk-meeting-point-0-subform-field-location-0-value"))
+    .describedAs("Enter a meeting point");
+
+  public static firstLocationSuggestion = PageElement.located(By.css(".ui-autocomplete:not([style*='display: none']) .ui-menu-item"))
+    .describedAs("first location suggestion");
+
+  public static meetingPointPostcodeField = PageElement.located(By.id("edit-field-walk-meeting-point-0-subform-field-post-code-0-value"))
+    .describedAs("meeting point postcode");
+
+  public static meetingPointDescriptionField = PageElement.located(By.id("edit-field-walk-meeting-point-0-subform-field-description-0-value"))
+    .describedAs("meeting point description");
+
   public static walkDistanceKilometresField = PageElement.located(By.css("input[name='field_walk_distance[0][value]']"))
     .describedAs("walk distance in kilometres");
 

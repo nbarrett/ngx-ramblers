@@ -109,6 +109,8 @@ import { stripTrailingSlash } from "../../functions/strings";
 
 const QUARTER_HOUR_MINUTES = 15;
 
+const LAST_UPLOAD_FAILED = "Last upload to Ramblers failed";
+
 @Injectable({
   providedIn: "root"
 })
@@ -222,6 +224,18 @@ export class RamblersWalksAndEventsService {
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersEventSummaryApiResponse>(`${this.BASE_URL}/list-events`, body), this.walksSubject);
     this.logger.debug("received", apiResponse);
     return apiResponse.response;
+  }
+
+  async livePublishStatus(walk: ExtendedGroupEvent): Promise<PublishStatus | null> {
+    const ramblersId = walk?.groupEvent?.id;
+    if (!ramblersId || !walk?.fields?.publishing?.ramblers?.publish) {
+      return null;
+    } else {
+      const body: EventsListRequest = {suppressEventLinking: false, types: ALL_EVENT_TYPES, ids: [ramblersId]};
+      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersEventSummaryApiResponse>(`${this.BASE_URL}/list-events`, body));
+      const ramblersWalk: RamblersEventSummaryResponse = apiResponse.response?.find(event => event.id === ramblersId) || null;
+      return ramblersWalk ? this.toWalkExport({localWalk: walk, ramblersWalk}).publishStatus : null;
+    }
   }
 
   async allRamblersEvents(eventQueryParameters: EventQueryParameters): Promise<RamblersGroupEventsRawApiResponse> {
@@ -462,8 +476,20 @@ export class RamblersWalksAndEventsService {
       walkCancellations,
       walkUncancellations,
       walkImageUploads: this.walkImageUploads(walkExports),
-      ramblersUser: loggedInMember?.firstName || loggedInMember?.userName
+      ramblersUser: loggedInMember?.firstName || loggedInMember?.userName,
+      localWalkIds: this.selectedExportableWalks(walkExports)
+        .map(walkExport => walkExport.displayedWalk?.walk)
+        .filter(walk => !!walk?.id && !!walk?.fields?.publishing?.ramblers?.publish)
+        .map(walk => walk.id),
+      memberId: loggedInMember?.memberId || "system"
     };
+  }
+
+  public lastUploadFailure(walk: ExtendedGroupEvent): string | null {
+    const upload = walk?.fields?.ramblersUpload;
+    return upload && upload.succeeded === false
+      ? `${LAST_UPLOAD_FAILED} on ${this.dateUtils.displayDateAndTime(upload.at)}`
+      : null;
   }
 
   public ramblersWalksReconciliation(walkExports: WalkExportData[]): RamblersWalksReconciliation {
@@ -507,7 +533,11 @@ export class RamblersWalksAndEventsService {
         from: remoteWalksManagerContactNames,
         to: localWalksManagerContactNames
       }] : []),
-      {field: WalkEditField.MEETING_TIME, from: this.meetingTime(ramblersEvent), to: this.meetingTime(walk)},
+      ...(this.hasMeetingPoint(ramblersEvent) ? [{
+        field: WalkEditField.MEETING_TIME,
+        from: this.meetingTime(ramblersEvent),
+        to: this.meetingTime(walk)
+      }] : []),
       {
         field: WalkEditField.FINISH_TIME,
         from: this.walkFinishTimeOrDefault(ramblersEvent, milesPerHour),
@@ -551,11 +581,12 @@ export class RamblersWalksAndEventsService {
       },
       {field: WalkEditField.ASCENT_FEET, from: ramblersAscent.feet.valueAsString, to: localAscent.feet.valueAsString}
     ];
-    const changes = changedFieldValues(candidates, change => this.fieldValuesEqual(change)).map(change => ({
+    const meetingPointChange = this.meetingPointChange(walk, ramblersEvent);
+    const changes: WalkFieldChange[] = [...changedFieldValues(candidates, change => this.fieldValuesEqual(change)).map(change => ({
       field: change.field,
       existingValue: change.from,
       value: change.to
-    }));
+    })), ...(meetingPointChange ? [meetingPointChange] : [])];
     this.logger.info("walkFieldChanges:", this.displayDate.transform(walk?.groupEvent?.start_date_time), "changes:", changes);
     return changes;
   }
@@ -615,9 +646,11 @@ export class RamblersWalksAndEventsService {
     if (reasons.length === 1 && reasons[0] === "Walk is not yet published") {
       return reasons[0];
     }
-    const replaceReasons = reasons.filter(reason => this.isCsvReplacePublishReason(reason));
-    const editReasons = reasons.filter(reason => !this.isCsvReplacePublishReason(reason));
-    const messages: string[] = [];
+    const failures = reasons.filter(reason => reason.startsWith(LAST_UPLOAD_FAILED) || reason === "Walk is not yet published");
+    const differences = reasons.filter(reason => !failures.includes(reason));
+    const replaceReasons = differences.filter(reason => this.isCsvReplacePublishReason(reason));
+    const editReasons = differences.filter(reason => !this.isCsvReplacePublishReason(reason));
+    const messages: string[] = [...failures];
     if (replaceReasons.length > 0) {
       messages.push(`Walk will be replaced on Ramblers rather than edited: ${replaceReasons.join(", ")}`);
     }
@@ -638,7 +671,8 @@ export class RamblersWalksAndEventsService {
     if (!publishedOnRamblers) {
       return ["Walk is not yet published"];
     }
-    const reasons: string[] = [];
+    const failure = this.lastUploadFailure(walk);
+    const reasons: string[] = failure ? [failure] : [];
     const localWalksManagerContactNames = contactNamesForCsvFromWalk(walk);
     const remoteWalksManagerContactNames = this.remoteWalksManagerContactNameForCompare(walk);
     if (remoteWalksManagerContactNames && !walkLeaderNamesMatch(localWalksManagerContactNames, remoteWalksManagerContactNames)) {
@@ -721,8 +755,7 @@ export class RamblersWalksAndEventsService {
       || reason.includes("location details")
       || reason === "walk features"
       || reason === "starting location"
-      || reason === "finishing location"
-      || reason === "meeting location";
+      || reason === "finishing location";
   }
 
   public csvReplacementReasons(walk: ExtendedGroupEvent, ramblersWalk: RamblersEventSummaryResponse): string[] {
@@ -746,12 +779,6 @@ export class RamblersWalksAndEventsService {
     if (this.comparableTextChanged(this.finishingLocationDetails(walk), this.finishingLocationDetails(ramblersEvent))) {
       reasons.push("finishing location details");
     }
-    if (this.comparableTextChanged(walk?.groupEvent?.meeting_location?.postcode, ramblersWalk.groupEvent?.meeting_location?.postcode)) {
-      reasons.push("meeting postcode");
-    }
-    if (this.comparableTextChanged(walk?.groupEvent?.meeting_location?.description, ramblersWalk.groupEvent?.meeting_location?.description)) {
-      reasons.push("meeting location details");
-    }
     if (this.csvFeaturesChanged(walk, ramblersEvent)) {
       reasons.push("walk features");
     }
@@ -774,6 +801,7 @@ export class RamblersWalksAndEventsService {
       || change.field === WalkEditField.DATE
       || change.field === WalkEditField.START_TIME
       || change.field === WalkEditField.MEETING_TIME
+      || change.field === WalkEditField.MEETING_POINT
       || change.field === WalkEditField.FINISH_TIME
       || change.field === WalkEditField.DIFFICULTY
       || change.field === WalkEditField.WALK_TYPE
@@ -1037,6 +1065,13 @@ export class RamblersWalksAndEventsService {
       }
     }
     const publishStatus = this.toPublishStatus(localAndRamblersWalk);
+    const lastUploadFailure = this.lastUploadFailure(walk);
+    if (lastUploadFailure && walk?.fields?.publishing?.ramblers?.publish) {
+      publishStatus.messages = publishStatus.messages.filter(message => message !== WALK_PUBLISHED_AND_MATCHING);
+      publishStatus.messages.push(lastUploadFailure);
+      publishStatus.publish = true;
+      publishStatus.actionRequired = true;
+    }
     const imageMismatch = this.walkDisplayService.walkPopulationLocal() && this.walkImageMismatch(walk, localAndRamblersWalk.ramblersWalk);
     if (imageMismatch) {
       publishStatus.messages = publishStatus.messages.filter(message => message !== WALK_PUBLISHED_AND_MATCHING);
@@ -1318,6 +1353,32 @@ export class RamblersWalksAndEventsService {
 
   walkStartTime(extendedGroupEvent: ExtendedGroupEvent): string {
     return extendedGroupEvent?.groupEvent?.start_date_time ? this.dateUtils.asString(this.dateUtils.startTimeAsValue(extendedGroupEvent), null, UIDateFormat.RAMBLERS_TIME) : "";
+  }
+
+  private meetingPointChange(walk: ExtendedGroupEvent, ramblersEvent: ExtendedGroupEvent): WalkFieldChange | null {
+    const local = walk?.groupEvent?.meeting_location;
+    const remote = ramblersEvent?.groupEvent?.meeting_location;
+    const changed = this.hasMeetingPoint(walk) && (!this.hasMeetingPoint(ramblersEvent)
+      || this.normalisedFieldValue(local?.postcode) !== this.normalisedFieldValue(remote?.postcode)
+      || this.normalisedFieldValue(this.stringUtilsService.htmlToPlainText(local?.description)) !== this.normalisedFieldValue(this.stringUtilsService.htmlToPlainText(remote?.description)));
+    return changed ? {
+      field: WalkEditField.MEETING_POINT,
+      existingValue: this.hasMeetingPoint(ramblersEvent) ? [remote?.description, remote?.postcode].filter(item => !!item).join(", ") : "",
+      value: [local?.description, local?.postcode].filter(item => !!item).join(", "),
+      meetingPoint: {
+        time: this.meetingTime(walk),
+        latitude: isNumber(local?.latitude) ? `${local.latitude}` : "",
+        longitude: isNumber(local?.longitude) ? `${local.longitude}` : "",
+        postcode: local?.postcode || "",
+        description: this.stringUtilsService.htmlToPlainText(local?.description || "")
+      }
+    } : null;
+  }
+
+  private hasMeetingPoint(extendedGroupEvent: ExtendedGroupEvent): boolean {
+    const meetingLocation = extendedGroupEvent?.groupEvent?.meeting_location;
+    return !!meetingLocation
+      && !!(meetingLocation.postcode || meetingLocation.description || meetingLocation.latitude || this.walkDisplayService.gridReferenceFrom(meetingLocation));
   }
 
   meetingTime(extendedGroupEvent: ExtendedGroupEvent): string {

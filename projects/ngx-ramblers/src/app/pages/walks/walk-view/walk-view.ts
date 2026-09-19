@@ -676,6 +676,21 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.publishTooltip = this.showPublishToRamblers
       ? this.ramblersWalksAndEventsService.ramblersPublishTooltip(walk)
       : "Open Walks export to publish changes to Ramblers";
+    if (!this.showPublishToRamblers && !!this.allowWalkAdminEdits && !!walk && !this.eventHasStarted(walk)) {
+      void this.refreshLivePublishAction(walk);
+    }
+  }
+
+  private async refreshLivePublishAction(walk: ExtendedGroupEvent) {
+    const publishStatus = await this.ramblersWalksAndEventsService.livePublishStatus(walk)
+      .catch(error => {
+        this.logger.warn("refreshLivePublishAction: Ramblers comparison failed:", error);
+        return null;
+      });
+    if (publishStatus?.publish && this.displayedWalk?.walk?.id === walk.id) {
+      this.showPublishToRamblers = true;
+      this.publishTooltip = publishStatus.messages.join(" ");
+    }
   }
 
   showAlbumAction(): boolean {

@@ -13,6 +13,7 @@ import { RamblersUploadQueue } from "./ramblers-upload-queue";
 import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { dispatchRemoteIntegrationWorkerJob, integrationWorkerConfigured } from "./dispatch-integration-worker-job";
 import { envConfig } from "../env-config/env-config";
+import { recordRamblersUploadOutcome, rememberRamblersUploadWalks } from "./ramblers-upload-outcome";
 
 const debugLog = debug(envConfig.logNamespace("ramblers-upload-dispatcher"));
 debugLog.enabled = true;
@@ -44,9 +45,12 @@ export function cancelLocalRamblersUpload(): { cancelledActive: boolean; cancell
 }
 
 export async function dispatchRamblersWalksUpload(ws: WebSocket, request: RamblersWalksUploadRequest): Promise<void> {
+  const dispatched: {jobId: string | null} = {jobId: null};
   try {
     debugLog("dispatch request received, file:", request.fileName, "rows:", request.rows?.length, "ramblersUser:", request.ramblersUser);
     const job = buildRamblersUploadJob(request);
+    dispatched.jobId = job.jobId;
+    rememberRamblersUploadWalks(job.jobId, {fileName: request.fileName, localWalkIds: request.localWalkIds || [], memberId: request.memberId || "system"});
     debugLog("job built", job.jobId, "feature:", job.data.feature);
     const credentials = await queryRamblersUploadCredentials();
     if (integrationWorkerConfigured()) {
@@ -68,6 +72,7 @@ export async function dispatchRamblersWalksUpload(ws: WebSocket, request: Ramble
       }
     }
   } catch (error) {
+    await (dispatched.jobId ? recordRamblersUploadOutcome(dispatched.jobId, Status.ERROR) : Promise.resolve()).catch(outcomeError => debugLog("recording failed upload outcome failed:", outcomeError.message));
     reportErrorAndClose(error, ws);
   }
 }

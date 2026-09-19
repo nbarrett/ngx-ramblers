@@ -15,7 +15,7 @@ import { Venue } from "./event-venue.model";
 import { Notification } from "./committee.model";
 import { FileNameData } from "./aws-object.model";
 import { RouteFollowWaypoint } from "./route-follow.model";
-import { ImageConfig, LinkWithSource, Publish, RiskAssessmentRecord } from "./walk.model";
+import { ImageConfig, LinkWithSource, Publish, RamblersUploadOutcome, RiskAssessmentRecord } from "./walk.model";
 
 export interface HasStartAndEndTime {
   start_date_time: string;
@@ -107,6 +107,7 @@ export interface ExtendedFields {
   tags?: number[];
   descriptionTidyFingerprint?: string | null;
   titleTidyFingerprint?: string | null;
+  ramblersUpload?: RamblersUploadOutcome | null;
 }
 
 export enum EventSource {

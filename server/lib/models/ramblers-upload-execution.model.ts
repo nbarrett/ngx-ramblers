@@ -24,3 +24,9 @@ export interface IntegrationWorkerQueuedUploadJob {
   request: IntegrationWorkerJobRequest;
   enqueuedAt: number;
 }
+
+export interface RamblersUploadWalks {
+  fileName: string;
+  localWalkIds: string[];
+  memberId: string;
+}
