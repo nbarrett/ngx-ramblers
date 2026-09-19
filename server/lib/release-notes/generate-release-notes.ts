@@ -316,12 +316,8 @@ async function dayNotePathFor(auth: CMSAuth, config: ReleaseNotesConfig, date: s
   if (datePage) {
     return datePath;
   } else {
-    const allPages = await cms.fetchAllPages(auth);
-    const issuePages = allPages
-      .map(page => page.path)
-      .filter(path => path?.startsWith(`${datePath}-issue-`))
-      .sort((left, right) => asNumber(right.match(/-issue-(\d+)$/)?.[1]) - asNumber(left.match(/-issue-(\d+)$/)?.[1]));
-    return issuePages[0] || null;
+    const latestIssue = await cms.fetchPagesUnder(auth, `${datePath}-issue-`, {select: {path: 1}, sort: {path: -1}, limit: 1});
+    return latestIssue[0]?.path || null;
   }
 }
 

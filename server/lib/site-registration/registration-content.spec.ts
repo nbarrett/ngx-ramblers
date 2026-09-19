@@ -61,6 +61,33 @@ function registration(pages = discoverRegistrationPages(`
 }
 
 describe("site registration content discovery", () => {
+  it("reads a Ramblers-hosted group page as the group's own pages and linked documents only", () => {
+    const html = `<html><body><main><div class="type-group-hub">
+      <ol class="breadcrumb"><li><a href="/">Home</a></li><li><a href="/go-walking">Go Walking</a></li></ol>
+      <div class="col-md-8"><div class="bg-white"><h1>Walking in the Camel District</h1><p>Welcome to our group.</p></div></div>
+      <div class="card"><div class="card-title">What we do</div><a href="/go-walking/ramblers-groups/camel-district-wadebridge-group/what-we-do">What we do</a></div>
+      <div class="card"><div class="card-title">FAQs</div><a href="https://docs.google.com/document/d/abc123/edit?usp=sharing">click here for our FAQs</a></div>
+      <div class="card"><div class="card-title">Campaign with us</div><a href="/support-us/campaign-with-us">Campaign with us</a></div>
+      <a href="https://cdn.ramblers.org.uk/media/files/faqs.pdf">Ramblers FAQs</a>
+      <a href="https://www.ramblers.org.uk/membership">Join now</a>
+      <a href="/go-walking/group-walks/some-walk">A walk</a>
+    </div></main></body></html>`;
+    const discovered = discoverRegistrationPages(html, "https://www.ramblers.org.uk/go-walking/ramblers-groups/camel-district-wadebridge-group");
+    expect(discovered.flavour).toBe(RegistrationSiteFlavour.RAMBLERS_HOSTED);
+    expect(discovered.pages.map(page => page.path).sort()).toEqual(["faqs", "home", "what-we-do"]);
+    expect(discovered.pages.find(page => page.path === "faqs").title).toBe("FAQs");
+    expect(discovered.pages.find(page => page.path === "faqs").url).toContain("docs.google.com/document/d/abc123");
+  });
+
+  it("keeps a group's own documents out of the page scrape so they can be read as documents", () => {
+    const withDocument = {...registration(), pages: [
+      {url: "https://docs.google.com/document/d/abc123/edit", path: "faqs", title: "FAQs", type: RegistrationPageType.TEXT, selected: true, parentPath: null as string, proposed: false},
+      ...registration().pages
+    ]};
+    const config = registrationMigrationConfig(withDocument);
+    expect(config.parentPages.some(page => page.pathPrefix === "faqs")).toBe(false);
+  });
+
   it("classifies supported page types", () => {
     expect(registrationPageType("walks-programme")).toBe(RegistrationPageType.WALKS);
     expect(registrationPageType("committee/contact-us")).toBe(RegistrationPageType.CONTACT);

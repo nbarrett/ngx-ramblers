@@ -36,8 +36,7 @@ async function cmsStore(cmsUrl: string, username: string, password: string): Pro
   const auth = await cms.login(cmsUrl, username, password);
   return {
     async releaseNotePages() {
-      const pages = await cms.fetchAllPages(auth);
-      return pages.filter(page => page.path?.startsWith(RELEASE_NOTE_PATH_PREFIX));
+      return cms.fetchPagesUnder(auth, RELEASE_NOTE_PATH_PREFIX);
     },
     async save(page) {
       await cms.updatePageContent(auth, page.id!, page);

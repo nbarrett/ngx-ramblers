@@ -15,6 +15,8 @@ const excludedNetworks = new BlockList();
 
 const UNRESOLVABLE_HOST_CODES = ["ENOTFOUND", "ENODATA"];
 
+export const PUBLIC_SITE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 NGX-Ramblers-Registration";
+
 export function sourceUnavailable(error: unknown): boolean {
   const code = (error as {code?: string})?.code;
   return (error instanceof HttpError && error.status >= 400 && error.status < 500) || UNRESOLVABLE_HOST_CODES.includes(code);
@@ -78,7 +80,7 @@ async function requestPublicSiteBody(value: string, redirects: number, accept: s
   return new Promise<Buffer>((resolve, reject) => {
     const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
       lookup: (_hostname, _options, callback) => callback(null, addresses),
-      headers: {"User-Agent": "NGX-Ramblers-Registration", Accept: accept}, timeout: 20000
+      headers: {"User-Agent": PUBLIC_SITE_USER_AGENT, Accept: accept}, timeout: 20000
     }, response => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         response.resume();
