@@ -56,59 +56,34 @@ async function adminAlertRecipients(): Promise<Brevo.SendTransacEmailRequest["to
   return recipients.map(recipient => recipient.name ? recipient : {email: recipient.email});
 }
 
-export function stripTrailingSlash(url: string): string {
-  return url.replace(/\/+$/, "");
-}
-
-export async function siteBaseUrl(): Promise<string | null> {
-  try {
-    const system = await systemConfig();
-    const href = system?.group?.href;
-    if (isString(href) && href.trim()) {
-      return stripTrailingSlash(href.trim());
-    }
-  } catch (error: any) {
-    debugLog("Failed to resolve group.href for alert links:", error?.message || error);
-  }
-  const fromEnv = envConfig.value(Environment.BASE_URL);
-  if (isString(fromEnv) && fromEnv.trim()) {
-    return stripTrailingSlash(fromEnv.trim());
-  }
-  return null;
-}
-
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export async function sendAdminAlertEmail(request: AdminAlertEmailRequest): Promise<boolean> {
+  const category = request.category || "general";
   try {
-    if (!platformAdminEnvironment()) {
-      debugLog(`Skipping admin alert (${request.category || "general"}) - not a platform admin environment`);
-      return false;
-    }
     const recipients = await adminAlertRecipients();
-    if (recipients.length === 0) {
-      debugLog(`No admin alert emails configured - not emailing (${request.category || "general"}): ${request.subject}`);
+    if (!platformAdminEnvironment()) {
+      debugLog(`Skipping admin alert (${category}) - not a platform admin environment`);
       return false;
+    } else if (!envConfig.production) {
+      debugLog(`Skipping admin alert (${category}) - ${envConfig.env} server, alerts are only emailed from deployed environments: ${request.subject}`);
+      return false;
+    } else if (recipients.length === 0) {
+      debugLog(`No admin alert emails configured - not emailing (${category}): ${request.subject}`);
+      return false;
+    } else {
+      await assertSendAllowed(SendPurpose.ADMIN_ALERT, {subject: request.subject, recipientCount: recipients.length});
+      const client = await brevoClient();
+      const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
+        subject: request.subject,
+        sender: {email: "backup@ngx-ramblers.org.uk", name: "NGX-Ramblers Alerts"},
+        to: recipients,
+        htmlContent: request.htmlContent
+      };
+      await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
+      debugLog(`Admin alert emailed to ${recipients.map(recipient => recipient.email).join(", ")} (${category}): ${request.subject}`);
+      return true;
     }
-    await assertSendAllowed(SendPurpose.ADMIN_ALERT, {subject: request.subject, recipientCount: recipients.length});
-    const client = await brevoClient();
-    const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
-      subject: request.subject,
-      sender: {email: "backup@ngx-ramblers.org.uk", name: "NGX-Ramblers Alerts"},
-      to: recipients,
-      htmlContent: request.htmlContent
-    };
-    await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
-    debugLog(`Admin alert emailed to ${recipients.map(recipient => recipient.email).join(", ")} (${request.category || "general"}): ${request.subject}`);
-    return true;
   } catch (error: any) {
-    debugLog(`Failed to email admin alert (${request.category || "general"}):`, error?.message || error);
+    debugLog(`Failed to email admin alert (${category}):`, error?.message || error);
     return false;
   }
 }

@@ -278,6 +278,7 @@ import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
 import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/brevo-campaign-queue.model";
 import { ScheduledTaskId } from "../../models/scheduled-task.model";
 import { ScheduledTaskService } from "../../services/scheduled-task.service";
+import { stripTrailingSlash } from "../../functions/strings";
 
 const HIDDEN_STYLE_PATTERN = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|max-height\s*:\s*0/i;
 const TRACKING_PIXEL_MAX_DIMENSION = 2;
@@ -4856,7 +4857,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       .filter(attachment => this.attachmentExtensionSupported(attachment.filename))
       .map(attachment => ({
         name: attachment.filename,
-        url: `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key)}`,
+        url: `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key)}`,
         sizeBytes: attachment.sizeBytes
       }))
       .filter(attachment => !existingUrls.has(attachment.url));

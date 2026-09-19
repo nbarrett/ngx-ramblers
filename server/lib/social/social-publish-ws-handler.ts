@@ -18,6 +18,7 @@ import { publishAlbumToInstagram } from "../instagram/instagram-publish";
 import { socialPublication } from "../mongo/models/social-publication";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { livePublicationOrNull } from "./publication-status";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("social:publish-ws"));
 debugLog.enabled = true;
@@ -50,8 +51,8 @@ function sendComplete(ws: WebSocket, jobId: string, message: string, data?: any)
 }
 
 function publicBaseUrlFor(config: SystemConfig, requestedBaseUrl?: string): string {
-  const configured = (config?.group?.href || "").trim().replace(/\/+$/, "");
-  const requested = (requestedBaseUrl || "").trim().replace(/\/+$/, "");
+  const configured = stripTrailingSlash((config?.group?.href || "").trim());
+  const requested = stripTrailingSlash((requestedBaseUrl || "").trim());
   let baseUrl = "";
   if (configured) {
     baseUrl = configured;

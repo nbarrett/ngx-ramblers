@@ -10,6 +10,7 @@ import { attachNarrative, namesFromValhallaTrace, placeMatchesQuery, placeNameCa
 import { EPSG_27700_PROJ4 } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
 import * as systemConfig from "../config/system-config";
 import { NOMINATIM_ENDPOINT } from "../addresses/nominatim-lookup";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("route-turn-steps"));
 debugLog.enabled = true;
@@ -25,7 +26,7 @@ const bngToWgs84 = proj4(`${EPSG_27700_PROJ4} +type=crs`, "EPSG:4326");
 const wgs84ToBng = proj4("EPSG:4326", `${EPSG_27700_PROJ4} +type=crs`);
 
 export function valhallaBaseUrl(): string {
-  return (process.env.VALHALLA_BASE_URL || DEFAULT_VALHALLA_BASE_URL).replace(/\/$/, "");
+  return stripTrailingSlash(process.env.VALHALLA_BASE_URL || DEFAULT_VALHALLA_BASE_URL);
 }
 
 export const MAX_TURN_POINTS = 20000;

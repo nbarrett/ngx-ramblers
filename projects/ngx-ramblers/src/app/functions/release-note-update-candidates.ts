@@ -1,11 +1,12 @@
 import { DateTime } from "luxon";
 import { UIDateFormat } from "../models/date-format.model";
 import { ReleaseNoteUpdateCandidate } from "../models/ai.model";
+import { stripTrailingSlash } from "./strings";
 
 const DATED_SLUG = /^(\d{4}-\d{2}-\d{2})/;
 
 export function lastPathSegment(path: string): string {
-  const parts = (path || "").replace(/\/+$/, "").split("/");
+  const parts = stripTrailingSlash(path).split("/");
   return parts[parts.length - 1] || "";
 }
 

@@ -19,6 +19,7 @@ import { WalksAndEventsService } from "../walks-and-events/walks-and-events.serv
 import { WalkGpxService } from "../walks/walk-gpx.service";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
 import { OsMapsExportService } from "./os-maps-export.service";
+import { escapeHtml } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -57,11 +58,11 @@ export class RouteFollowSaveService {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ngx-ramblers" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
   <metadata>
-    <name>${this.escapeXml(name)}</name>
+    <name>${escapeHtml(name)}</name>
     <time>${stamp}</time>
   </metadata>
   <trk>
-    <name>${this.escapeXml(name)}</name>
+    <name>${escapeHtml(name)}</name>
     <type>hiking</type>
     <trkseg>
 ${trackPoints}
@@ -175,11 +176,4 @@ ${trackPoints}
     return new File([this.pointsToGpx(points, payload.title || "Recorded route")], name, {type: "application/gpx+xml"});
   }
 
-  private escapeXml(value: string): string {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
 }

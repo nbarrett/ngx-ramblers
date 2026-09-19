@@ -27,10 +27,10 @@ import { HttpClient } from "@angular/common/http";
 import { FileNameData } from "../../../models/aws-object.model";
 import { MapMarker, PaletteColor, RouteGuideEntry } from "../../../models/content-text.model";
 import { ROUTE_STEP_POPUP_OPTIONS, routeStepPopupHtml } from "../../../functions/route-step-popup";
-import { escape } from "es-toolkit";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
 import { isUndefined } from "es-toolkit/compat";
 import { RouteFollowPoint, RouteFollowWaypoint } from "../../../models/route-follow.model";
+import { escapeHtml } from "../../../functions/strings";
 
 const COMBINED_MAP_BOUNDS_PADDING = 0.25;
 
@@ -536,14 +536,14 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     const description = location?.description?.trim();
     const postcode = location?.postcode?.trim();
     const grid = this.display.gridReferenceFrom(location);
-    const descriptionHtml = description ? `<div class="small">${escape(description)}</div>` : "";
+    const descriptionHtml = description ? `<div class="small">${escapeHtml(description)}</div>` : "";
     const postcodeHtml = postcode
-      ? `<div class="small"><a href="${escape(this.display.postcodeLink(postcode))}">${escape(postcode)}</a></div>`
+      ? `<div class="small"><a href="${escapeHtml(this.display.postcodeLink(postcode))}">${escapeHtml(postcode)}</a></div>`
       : "";
     const gridHtml = grid
-      ? `<div class="small"><a href="${escape(this.display.gridReferenceLink(grid, this.map?.getZoom()))}">${escape(grid)}</a></div>`
+      ? `<div class="small"><a href="${escapeHtml(this.display.gridReferenceLink(grid, this.map?.getZoom()))}">${escapeHtml(grid)}</a></div>`
       : "";
-    return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${escape(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
+    return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${escapeHtml(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
   }
 
   onMapZoom($event: LeafletEvent) {

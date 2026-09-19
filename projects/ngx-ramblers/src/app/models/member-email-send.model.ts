@@ -4,6 +4,8 @@ export interface MemberEmailSend {
   id?: string;
   memberId: string;
   email?: string;
+  fullName?: string;
+  membershipNumber?: string;
   notificationConfigId?: string;
   subject?: string;
   jobId?: string;

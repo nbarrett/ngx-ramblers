@@ -5,6 +5,8 @@ export interface MemberEmailSendDocument {
   id?: string;
   memberId: string;
   email?: string;
+  fullName?: string;
+  membershipNumber?: string;
   notificationConfigId?: string;
   subject?: string;
   jobId?: string;
@@ -15,6 +17,8 @@ export interface MemberEmailSendDocument {
 const memberEmailSendSchema = new mongoose.Schema({
   memberId: { type: String, required: true, index: true },
   email: { type: String },
+  fullName: { type: String },
+  membershipNumber: { type: String },
   notificationConfigId: { type: String, index: true },
   subject: { type: String },
   jobId: { type: String },

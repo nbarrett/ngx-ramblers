@@ -4,6 +4,7 @@ import { systemConfig } from "../config/system-config";
 import { configuredEnvironments } from "../environments/environments-config";
 import { JitsiConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { DEFAULT_GUEST_INSTRUCTIONS, VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const DEFAULT_PUBLIC_HOST = "https://meet.jit.si";
 
@@ -20,7 +21,7 @@ export async function resolveVideoMeetingRuntime(): Promise<VideoMeetingRuntimeC
   const global: JitsiConfig = await globalJitsiConfig();
   const perSite: VideoMeetingsConfig = (await systemConfig())?.videoMeetings;
   const envHost = envConfig.value(Environment.JITSI_HOST_URL);
-  const host = (envHost || global?.hostUrl || DEFAULT_PUBLIC_HOST).replace(/\/$/, "");
+  const host = stripTrailingSlash(envHost || global?.hostUrl || DEFAULT_PUBLIC_HOST);
   const {appId, appSecret} = jitsiJwtCredentials();
   const publicHost = isPublicJitsiHost(host);
   const jwtRequired = !!(appId && appSecret) && !publicHost;

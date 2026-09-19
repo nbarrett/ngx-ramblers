@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../date-utils.service";
 import { RouteProfile } from "../../models/route-calculation.model";
+import { escapeHtml } from "../../functions/strings";
 
 export interface RoutePoint {
   latitude: number;
@@ -121,11 +122,11 @@ export class RouteCalculationService {
     let gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ngx-ramblers" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
   <metadata>
-    <name>${this.escapeXml(name)}</name>`;
+    <name>${escapeHtml(name)}</name>`;
 
     if (description) {
       gpx += `
-    <desc>${this.escapeXml(description)}</desc>`;
+    <desc>${escapeHtml(description)}</desc>`;
     }
 
     gpx += `
@@ -135,11 +136,11 @@ export class RouteCalculationService {
     <time>${timestamp}</time>
   </metadata>
   <trk>
-    <name>${this.escapeXml(name)}</name>`;
+    <name>${escapeHtml(name)}</name>`;
 
     if (description) {
       gpx += `
-    <desc>${this.escapeXml(description)}</desc>`;
+    <desc>${escapeHtml(description)}</desc>`;
     }
 
     gpx += `
@@ -161,12 +162,4 @@ export class RouteCalculationService {
     return gpx;
   }
 
-  private escapeXml(str: string): string {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&apos;");
-  }
 }

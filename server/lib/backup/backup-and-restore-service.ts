@@ -48,6 +48,7 @@ import {
 import { availableSites, completedManifestStatusByTimestamp, externaliseEmbeddedManifestEntries, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
 import { backupEvents } from "./backup-events";
 import { withBackupSlot } from "./backup-concurrency";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
 debugLog.enabled = true;
@@ -1003,7 +1004,7 @@ export class BackupAndRestoreService {
         completedManifestStatusByTimestamp(environment, this.backupConfig)
       ]);
       return tsPrefixes.flatMap(tsPrefix => {
-        const trimmed = tsPrefix.replace(/\/$/, "");
+        const trimmed = stripTrailingSlash(tsPrefix);
         const parsed = parseS3BackupPrefix(trimmed);
         if (!parsed) {
           return [];

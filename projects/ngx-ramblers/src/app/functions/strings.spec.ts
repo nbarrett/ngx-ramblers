@@ -1,4 +1,4 @@
-import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, firstLinkHref, firstLinkText, fitEmailLocalPart, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
+import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, isQuoted, matchesAllowingTruncation, plainText, stripTrailingSlash, toKebabCase, toSlug, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
 
 describe("strings", () => {
 
@@ -317,6 +317,28 @@ describe("strings", () => {
     it("returns null when there is no link", () => {
       expect(firstLinkText("plain text")).toBe(null);
       expect(firstLinkText(null as unknown as string)).toBe(null);
+    });
+  });
+
+  describe("escapeHtml", () => {
+    it("escapes every character that is special in HTML or XML text and attributes", () => {
+      expect(escapeHtml(`<a href="x">Tom & Jerry's</a>`)).toEqual("&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#39;s&lt;/a&gt;");
+    });
+
+    it("treats a missing value as empty text", () => {
+      expect(escapeHtml(null)).toEqual("");
+    });
+  });
+
+  describe("stripTrailingSlash", () => {
+    it("removes every trailing slash and leaves the rest alone", () => {
+      expect(stripTrailingSlash("https://example.org.uk///")).toEqual("https://example.org.uk");
+      expect(stripTrailingSlash("/walks/")).toEqual("/walks");
+      expect(stripTrailingSlash("https://example.org.uk/path")).toEqual("https://example.org.uk/path");
+    });
+
+    it("treats a missing value as empty text", () => {
+      expect(stripTrailingSlash(null)).toEqual("");
     });
   });
 });

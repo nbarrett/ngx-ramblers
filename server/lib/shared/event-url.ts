@@ -1,12 +1,13 @@
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { Organisation } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 export const DEFAULT_WALKS_BASE_PATH = "walks";
 export const DEFAULT_SOCIAL_EVENTS_BASE_PATH = "social";
 
 function slugFromUrl(url: string): string {
-  return (url || "").split("?")[0].split("#")[0].replace(/\/+$/, "").split("/").filter(Boolean).pop() || "";
+  return stripTrailingSlash((url || "").split("?")[0].split("#")[0]).split("/").filter(Boolean).pop() || "";
 }
 
 export function eventSlugFrom(event: ExtendedGroupEvent): string {
@@ -27,6 +28,6 @@ export function eventPathFor(event: ExtendedGroupEvent, group: Organisation): st
 
 export function eventUrlFor(event: ExtendedGroupEvent, group: Organisation, baseUrl: string): string {
   const path = eventPathFor(event, group);
-  const trimmedBase = (baseUrl || "").replace(/\/+$/, "");
+  const trimmedBase = stripTrailingSlash(baseUrl);
   return path && trimmedBase ? `${trimmedBase}${path}` : null;
 }

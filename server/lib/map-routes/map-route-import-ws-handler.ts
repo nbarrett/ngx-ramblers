@@ -18,12 +18,13 @@ import {
   MapRouteImportResponse
 } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
 import { ServerFileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
-import { escapeXml, generateUid, pluraliseWithCount } from "../shared/string-utils";
+import { generateUid, pluraliseWithCount } from "../shared/string-utils";
 import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { SpatialFeatureModel } from "../mongo/models/spatial-feature";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { toPairs, isArray, isNumber, isString, keys } from "es-toolkit/compat";
+import { escapeHtml } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import-ws"));
 debugLog.enabled = true;
@@ -517,7 +518,7 @@ function convertToGpx(geoJson: FeatureCollection, name: string, simplify = true)
   const gpxHeader = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ngx-ramblers" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
-    <name>${escapeXml(name)}</name>
+    <name>${escapeHtml(name)}</name>
   </metadata>`;
 
   const gpxTracks = features.map((feature, index) => {
@@ -544,7 +545,7 @@ function featureToGpxTrack(feature: Feature, trackName: string): string {
   }).join("\n");
 
   return `  <trk>
-    <name>${escapeXml(trackName)}</name>
+    <name>${escapeHtml(trackName)}</name>
     <trkseg>
 ${trackPoints}
     </trkseg>

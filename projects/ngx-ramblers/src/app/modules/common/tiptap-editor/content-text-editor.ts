@@ -69,6 +69,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { HtmlPastePreview, HtmlPasteResult } from "../../../models/html-paste.model";
 import { TiptapMarkdownEditor } from "./tiptap-markdown-editor";
 import { ContentTextUnsavedChangesService } from "../../../services/content-text-unsaved-changes.service";
+import { stripTrailingSlash } from "../../../functions/strings";
 
 @Component({
   selector: "app-content-text-editor",
@@ -1068,7 +1069,7 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
     if (!this.pastePromptBaseUrl) {
       return "";
     }
-    return this.pastePromptBaseUrl.endsWith("/") ? this.pastePromptBaseUrl.slice(0, -1) : this.pastePromptBaseUrl;
+    return stripTrailingSlash(this.pastePromptBaseUrl);
   }
 
   private async loadHtmlPreview(): Promise<HtmlPastePreview | null> {

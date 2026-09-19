@@ -36,6 +36,7 @@ import {
 import { eventStructuredData } from "../seo/event-structured-data";
 import { eventImages, fallbackImageUrl } from "../shared/event-images";
 import { systemConfig } from "../config/system-config";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("content-export"));
 debugLog.enabled = false;
@@ -67,7 +68,7 @@ async function applyExportDiscoveryHeaders(res: Response, pagePath: string): Pro
   res.setHeader("X-Robots-Tag", "noindex, follow");
   const baseUrl = await siteBaseUrl();
   if (baseUrl && pagePath) {
-    const url = `${baseUrl.replace(/\/+$/, "")}/${pagePath.replace(/^\/+/, "")}`;
+    const url = `${stripTrailingSlash(baseUrl)}/${pagePath.replace(/^\/+/, "")}`;
     res.setHeader("Link", `<${url}>; rel="canonical"`);
   }
 }

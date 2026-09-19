@@ -23,6 +23,7 @@ import {
   parseReleaseEntriesFromMarkdown,
   siteContentPaths
 } from "./ai-discovery";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const errorDebugLog = createErrorDebugLog("ai-discovery");
 
@@ -30,7 +31,7 @@ const CACHE_CONTROL = "public, max-age=3600";
 
 async function siteIdentity(): Promise<{ siteName: string; baseUrl: string } | null> {
   const config = await systemConfig();
-  const baseUrl = (config?.group?.href || "").replace(/\/+$/, "");
+  const baseUrl = stripTrailingSlash(config?.group?.href);
   const siteName = config?.group?.longName || config?.group?.shortName;
   if (!baseUrl || !siteName) {
     return null;

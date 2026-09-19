@@ -1,6 +1,7 @@
 import { CommitteeFile } from "../models/committee.model";
 import { CommitteeFileEmailInclude } from "../models/email-composer.model";
 import { renderEmailComposerMarkdown } from "./email-composer-markdown";
+import { escapeHtml } from "./strings";
 
 export interface CommitteeFileEmailLink {
   href: string;
@@ -76,7 +77,7 @@ function sourcePageHtml(sourcePage: CommitteeFileEmailSourcePage | null): string
   if (!sourcePage?.href) {
     return "";
   } else {
-    return `<p style="margin: 4px 0 0 0;">Also available on our ${escapeHtml(sourcePage.groupName)} <a href="${escapeAttr(sourcePage.href)}">${escapeHtml(sourcePage.pageTitle)}</a> page.</p>`;
+    return `<p style="margin: 4px 0 0 0;">Also available on our ${escapeHtml(sourcePage.groupName)} <a href="${escapeHtml(sourcePage.href)}">${escapeHtml(sourcePage.pageTitle)}</a> page.</p>`;
   }
 }
 
@@ -85,20 +86,9 @@ function ctaButtonHtml(link: CommitteeFileEmailLink | null): string {
     return "";
   } else {
     const label = escapeHtml(link.label);
-    const href = escapeAttr(link.href);
+    const href = escapeHtml(link.href);
     return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:100%;margin-top:12px;" width="100%"><tbody><tr><td align="center" style="padding-top: 0;padding-bottom: 18px;" valign="top"><table border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate !important;border-radius: 0px;background-color: #F9B104;" width="100%"><tbody><tr><td align="center" style="font-family: Arial;font-size: 16px;padding: 12px;" valign="middle"><a href="${href}" title="${label}" style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#222222;display:block;">${label}</a></td></tr></tbody></table></td></tr></tbody></table>`;
   }
 }
 
-function escapeHtml(value: string): string {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
-function escapeAttr(value: string): string {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;");
-}

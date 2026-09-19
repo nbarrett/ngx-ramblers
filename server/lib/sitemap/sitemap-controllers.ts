@@ -3,16 +3,16 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { siteBaseUrl } from "../config/site-base-url";
-import { escapeXml } from "../shared/string-utils";
 import { publicSitePaths } from "../mongo/controllers/site-search";
 import { FOR_AI_PATH } from "../content-export/ai-discovery";
+import { escapeHtml } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("sitemap"));
 debugLog.enabled = false;
 const errorDebugLog = createErrorDebugLog("sitemap");
 
 function urlEntry(location: string): string {
-  return `  <url><loc>${escapeXml(location)}</loc></url>`;
+  return `  <url><loc>${escapeHtml(location)}</loc></url>`;
 }
 
 export async function sitemapXml(req: Request, res: Response): Promise<void> {

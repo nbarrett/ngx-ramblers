@@ -3,9 +3,10 @@ import { AppInstallPlatform } from "../models/route-follow.model";
 import { parseGridReference } from "./grid-reference";
 import { LocateSuggestion, UK_POSTCODE_PATTERN } from "../models/locate.model";
 import { StoredValue } from "../models/ui-actions";
+import { stripTrailingSlash } from "./strings";
 
 export function locateParentPath(path: string): string {
-  const trimmed = (path || "").replace(/\/+$/, "");
+  const trimmed = stripTrailingSlash(path);
   return trimmed.endsWith(`/${LOCATE_PAGE_PATH}`) ? trimmed.slice(0, -(LOCATE_PAGE_PATH.length + 1)) : trimmed;
 }
 

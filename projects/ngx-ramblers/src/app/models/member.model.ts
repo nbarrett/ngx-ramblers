@@ -1,6 +1,6 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
-import { MailIdentifiers, MailSubscription } from "./mail.model";
+import { EmailAddress, MailIdentifiers, MailSubscription, SendSmtpEmailRequest } from "./mail.model";
 import { sortBy } from "../functions/arrays";
 import { Contact, HasNgSelectAttributes } from "./ramblers-walks-manager";
 import { ExtendedGroupEvent } from "./group-event.model";
@@ -372,20 +372,48 @@ export interface MemberBulkLoadUploadedRow extends RamblersMember {
 export interface MemberBulkLoadDigestMember {
   name: string;
   membershipNumber: string;
-  changeSummary: string;
+  email?: string;
   errorText: string | null;
 }
 
-export interface MemberBulkLoadDigest {
+export interface MemberBulkLoadDigestEmailSends {
+  expiryWarnings: MemberBulkLoadDigestMember[];
+  expiryNotices: MemberBulkLoadDigestMember[];
+}
+
+export interface MemberBulkLoadExpiryConfigIds {
+  warningIds: string[];
+  expiryIds: string[];
+}
+
+export interface MemberBulkLoadDigest extends MemberBulkLoadDigestEmailSends {
   sessionId: string;
   uploadedOn: number;
   uploadedByName: string;
   dataFileName: string;
   created: MemberBulkLoadDigestMember[];
-  updated: MemberBulkLoadDigestMember[];
+  updatedCount: number;
   errors: MemberBulkLoadDigestMember[];
   skippedCount: number;
   totalAudits: number;
+}
+
+export interface MemberBulkLoadDigestPreview {
+  digest: MemberBulkLoadDigest;
+  subject: string;
+  htmlContent: string;
+  recipients: EmailAddress[];
+  problem: string | null;
+}
+
+export interface MemberBulkLoadDigestEmail {
+  request: SendSmtpEmailRequest | null;
+  defaultRecipients: EmailAddress[];
+  problem: string | null;
+}
+
+export interface MemberBulkLoadDigestSendRequest {
+  recipients: EmailAddress[];
 }
 
 export interface MemberBulkLoadDigestSendResult {

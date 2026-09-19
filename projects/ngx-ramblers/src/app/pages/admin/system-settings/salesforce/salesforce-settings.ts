@@ -12,6 +12,7 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { SalesforceConfigService } from "../../../../services/salesforce/salesforce-config.service";
 import { SalesforceSyncService } from "../../../../services/salesforce/salesforce-sync.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { stripTrailingSlash } from "../../../../functions/strings";
 
 @Component({
   selector: "app-salesforce-settings",
@@ -148,7 +149,7 @@ export class SalesforceSettings implements OnInit, OnDestroy {
 
   configuredEndpointUrl(): string | null {
     const value = this.config.endpointBaseUrl?.trim();
-    return value ? value.replace(/\/+$/, "") : null;
+    return value ? stripTrailingSlash(value) : null;
   }
 
   openEndpoint(): void {

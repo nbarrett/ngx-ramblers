@@ -12,6 +12,7 @@ import {
   ContentMetadata,
   ContentMetadataResizeRequest
 } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-resize-client"));
 debugLog.enabled = true;
@@ -50,7 +51,7 @@ export async function submitResizeJobToIntegrationWorker(jobId: string, mode: Re
 
   const body = JSON.stringify(request);
   const signature = signRamblersUploadBody(body, sharedSecret);
-  const endpoint = `${workerUrl.replace(/\/+$/, "")}/api/integration-worker/resize/jobs`;
+  const endpoint = `${stripTrailingSlash(workerUrl)}/api/integration-worker/resize/jobs`;
   debugLog("-> submit resize jobId:", jobId, "mode:", mode, "endpoint:", endpoint, "bytes:", body.length);
   const response = await fetch(endpoint, {
     method: "POST",

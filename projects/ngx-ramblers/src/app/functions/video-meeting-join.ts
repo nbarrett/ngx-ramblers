@@ -8,6 +8,7 @@ import {
   VideoMeetingParticipant,
   VideoMeetingRuntimeConfig
 } from "../models/video-meeting.model";
+import { stripTrailingSlash } from "./strings";
 
 export const JITSI_IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
 
@@ -41,7 +42,7 @@ export function jitsiJoinMode(publicHost: boolean): JitsiJoinMode {
 }
 
 export function jitsiHostPageUrl(host: string, room: string, subject?: string): string {
-  const trimmedHost = (host || "").replace(/\/$/, "");
+  const trimmedHost = stripTrailingSlash(host);
   const path = `${trimmedHost}/${encodeURIComponent(room || "")}`;
   if (subject?.trim()) {
     return `${path}#config.subject=${encodeURIComponent(JSON.stringify(subject.trim()))}`;

@@ -9,6 +9,7 @@ import {
   deleteMemberBulkLoadAuditsByDateRange,
   deleteMemberBulkLoadAuditsByIds,
   memberBulkLoadDateMap,
+  previewCommitteeSummary,
   sendCommitteeSummary,
 } from "../controllers/member-bulk-load-audit";
 
@@ -19,6 +20,7 @@ router.post("", authConfig.authenticate(), controller.create);
 router.get("/member/:id", authConfig.authenticate(), controller.all);
 router.get("/all", controller.all);
 router.get("/member-bulk-load-date-map", memberBulkLoadDateMap);
+router.get("/:id/committee-summary-preview", authConfig.authenticate(), authConfig.requireFileOrMemberAdmin, previewCommitteeSummary);
 router.post("/:id/send-committee-summary", authConfig.authenticate(), authConfig.requireFileOrMemberAdmin, sendCommitteeSummary);
 router.post("/clear-all", authConfig.authenticate(), authConfig.requireFileOrMemberAdmin, clearAllMemberBulkLoadAudits);
 router.post("/delete-by-date-range", authConfig.authenticate(), authConfig.requireFileOrMemberAdmin, deleteMemberBulkLoadAuditsByDateRange);

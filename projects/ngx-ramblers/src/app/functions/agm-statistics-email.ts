@@ -1,5 +1,6 @@
 import { AGM_STATS_CURRENCY_METRICS, AgmStatsDetailColumnKind, AgmStatsDetailTable, AgmStatsEmailData, AgmStatsEmailSection, SummaryRow } from "../models/agm-stats.model";
 import { detailCellText, isDetailLink } from "./agm-statistics-details";
+import { escapeHtml } from "./strings";
 
 const SECTION_TITLES: Record<AgmStatsEmailSection, string> = {
   [AgmStatsEmailSection.WALKS]: "Walk statistics",
@@ -151,10 +152,3 @@ function markdownCell(value: string): string {
   return String(value).replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
-function escapeHtml(value: string): string {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
