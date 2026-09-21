@@ -12,6 +12,8 @@ import { CanonicalLinkService } from "../services/canonical-link.service";
 import { AppShellService } from "../services/maps/app-shell.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
+import { StandaloneNavigationComponent } from "../pages/app/standalone-navigation";
+import { RouterHistoryService } from "../services/router-history.service";
 
 @Component({
     selector: "app-root",
@@ -24,6 +26,7 @@ import { NewVersionBannerComponent } from "../modules/common/new-version-banner/
     <div [class.app-shell]="appShellActive" [class.container]="!appShellActive">
       @if (!appShellActive) {
         <app-navbar/>
+        <app-standalone-navigation/>
         <app-rejoin-meeting-banner/>
         <app-new-version-banner/>
       }
@@ -34,9 +37,13 @@ import { NewVersionBannerComponent } from "../modules/common/new-version-banner/
     }
     `,
     styleUrls: ["./container.sass"],
-    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent]
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, StandaloneNavigationComponent]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
+  constructor() {
+    inject(RouterHistoryService);
+  }
+
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private dataPopulationService = inject(DataPopulationService);
   private versionCheckService = inject(VersionCheckService);

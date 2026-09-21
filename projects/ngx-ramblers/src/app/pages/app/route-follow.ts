@@ -116,6 +116,8 @@ import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
 import proj4 from "proj4";
+import { StandaloneNavigationComponent } from "./standalone-navigation";
+import { RouterHistoryService } from "../../services/router-history.service";
 
 @Component({
   selector: "app-route-follow",
@@ -123,11 +125,14 @@ import proj4 from "proj4";
     <div class="follow-app">
       @if (error) {
         <div class="follow-status">
-          <button class="follow-icon-btn" type="button" (click)="closeFollow()"
-                  tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
-                  aria-label="Close follow">
-            <fa-icon [icon]="faXmark"/>
-          </button>
+          <div class="follow-top-actions">
+            <button class="follow-icon-btn" type="button" (click)="closeFollow()"
+                    tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
+                    aria-label="Close follow">
+              <fa-icon [icon]="faXmark"/>
+            </button>
+            <app-standalone-navigation [compact]="true"/>
+          </div>
           <div class="follow-alert follow-alert-danger">
             <fa-icon [icon]="faCircleExclamation"/>
             <div>
@@ -138,6 +143,7 @@ import proj4 from "proj4";
         </div>
       } @else if (loading) {
         <div class="follow-status">
+          <app-standalone-navigation [compact]="true"/>
           <p class="follow-loading">Loading the route…</p>
         </div>
       } @else {
@@ -152,11 +158,14 @@ import proj4 from "proj4";
         <h1 class="visually-hidden">{{ payload?.title }}</h1>
         <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead">
           <div class="follow-top-bar">
-            <button class="follow-icon-btn" type="button" (click)="closeFollow()"
-                    tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
-                    aria-label="Close follow">
-              <fa-icon [icon]="faXmark"/>
-            </button>
+            <div class="follow-top-actions">
+              <button class="follow-icon-btn" type="button" (click)="closeFollow()"
+                      tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
+                      aria-label="Close follow">
+                <fa-icon [icon]="faXmark"/>
+              </button>
+              <app-standalone-navigation [compact]="true"/>
+            </div>
             @if (directionsOnMap && instructionWaypoint && instructionText) {
               <div class="follow-instruction">
                 <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
@@ -697,12 +706,13 @@ import proj4 from "proj4";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent, StandaloneNavigationComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private routerHistory = inject(RouterHistoryService);
   private pageContentService = inject(PageContentService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private payloadService = inject(RouteFollowPayloadService);
@@ -2166,6 +2176,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
     this.followService.stop();
     this.clearFollowSession();
+    this.routerHistory.forgetCurrentPage();
     void this.releaseWakeLock();
     const returnUrl = this.walkDisplay.takeFollowReturnUrl();
     if (returnUrl && !this.isFollowPath(returnUrl)) {
