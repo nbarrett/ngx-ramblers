@@ -71,6 +71,17 @@ export function rowHasImage(row: any): boolean {
   return false;
 }
 
+export function imageStatusByPathFrom(pages: { path?: string | null; rows?: unknown }[], prefix: string, pageHasImage: (page: { path?: string | null; rows?: unknown }) => boolean): Map<string, boolean> {
+  return pages.reduce((status, page) => {
+    const path = page.path;
+    const tail = isString(path) ? path.slice(prefix.length) : "";
+    if (isString(path) && path.startsWith(prefix) && tail.length > 0 && !tail.includes("/")) {
+      status.set(path, pageHasImage(page));
+    }
+    return status;
+  }, new Map<string, boolean>());
+}
+
 export function pageHasImages(page: any): boolean {
   if (!page?.rows) return false;
   for (const row of page.rows) {

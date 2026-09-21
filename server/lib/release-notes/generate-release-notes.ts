@@ -20,6 +20,7 @@ import {
   updateIndexPageContent
 } from "./content-generator.js";
 import { syncReleaseNotesIndexImages } from "./index-image-sync.js";
+import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import type { ConventionalCommit, GenerateOptions, ReleaseGroup, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
 import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import type { CMSAuth } from "./cms-client.js";
@@ -231,10 +232,12 @@ async function generateReleaseNote(
   config: ReleaseNotesConfig,
   pathSuffix: string,
   dryRun: boolean
-): Promise<void> {
+): Promise<PageContent | null> {
   const appendedToDayNote = pathSuffix === "-other" && !dryRun && await appendUnassignedToDayNote(data, auth, config);
-  if (!appendedToDayNote) {
-    await createReleaseNotePage(data, auth, config, pathSuffix, dryRun);
+  if (appendedToDayNote) {
+    return null;
+  } else {
+    return createReleaseNotePage(data, auth, config, pathSuffix, dryRun);
   }
 }
 
@@ -244,13 +247,14 @@ async function createReleaseNotePage(
   config: ReleaseNotesConfig,
   pathSuffix: string,
   dryRun: boolean
-): Promise<void> {
+): Promise<PageContent | null> {
   const basePath = `${config.indexPath}/${formatDateForPath(data.date)}${pathSuffix}`;
 
   const existingReleasePage = dryRun ? null : await cms.pageContent(auth, basePath);
   const existingBuild = existingReleasePage ? extractExistingBuildMetadata(existingReleasePage) : null;
   const alreadyPublished = Boolean(existingReleasePage && data.buildNumber && existingBuild?.buildNumber === data.buildNumber);
   let releasePath = basePath;
+  const written = { page: null as PageContent | null };
 
   if (alreadyPublished) {
     debugLog(`Release note ${basePath} already records build #${data.buildNumber}; keeping the published page`);
@@ -292,6 +296,7 @@ async function createReleaseNotePage(
     debugLog(`  Path: ${releasePath}`);
 
     const pageContent = generatePageContent(data, config.githubRepo, releasePath);
+    written.page = pageContent;
 
     if (dryRun) {
       debugLog("DRY RUN - Would create/update page:");
@@ -323,6 +328,7 @@ async function createReleaseNotePage(
     await cms.updatePageContent(auth, indexPage.id!, updatedIndex);
     debugLog(`Updated index page: ${config.indexPath}`);
   }
+  return written.page;
 }
 
 async function filterExistingReleaseNotes(
@@ -360,9 +366,9 @@ async function generateMultipleReleaseNotes(
   buildUrl: string | null,
   dryRun: boolean,
   includeUnassigned: boolean
-): Promise<void> {
-  await groups.reduce(async (previous, group) => {
-    await previous;
+): Promise<PageContent[]> {
+  return groups.reduce(async (previous, group) => {
+    const pages = await previous;
     const data = createReleaseNotesData(group.commits, buildNumber, config.githubRepo);
     if (buildUrl) {
       data.buildUrl = buildUrl;
@@ -371,8 +377,9 @@ async function generateMultipleReleaseNotes(
       data.issueNumber = group.issueNumber;
       data.issueUrl = `https://github.com/${config.githubRepo}/issues/${group.issueNumber}`;
     }
-    await generateReleaseNote(data, auth, config, group.pathSuffix, dryRun);
-  }, Promise.resolve());
+    const page = await generateReleaseNote(data, auth, config, group.pathSuffix, dryRun);
+    return page ? pages.concat(page) : pages;
+  }, Promise.resolve([] as PageContent[]));
 }
 
 async function testAuthentication(config: ReleaseNotesConfig): Promise<void> {
@@ -628,6 +635,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
   let configWithCreds = config;
   let auth: CMSAuth | null = null;
   const includeUnassigned = Boolean(options.includeUnassigned);
+  const published = { pages: [] as PageContent[] };
 
   if (!options.dryRun) {
     configWithCreds = await promptForCredentials(config);
@@ -742,8 +750,8 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
         debugLog("No release notes to generate for that range (commits lack issue references). Use --include-unassigned to include them.");
       } else {
         if (auth) {
-          await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, options.buildNumber || null, options.buildUrl || null, false, includeUnassigned);
-          debugLog(`Published ${pluraliseWithCount(releaseGroups.length, "release note")} covering ${pluraliseWithCount(commits.length, "commit")} in the requested range`);
+          published.pages = await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, options.buildNumber || null, options.buildUrl || null, false, includeUnassigned);
+          debugLog(`Published ${pluraliseWithCount(published.pages.length, "release note")} covering ${pluraliseWithCount(commits.length, "commit")} in the requested range`);
         } else {
           debugLog(`Dry run covers ${pluraliseWithCount(commits.length, "commit")} in ${pluraliseWithCount(releaseGroups.length, "release note")}`);
           await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, true, includeUnassigned);
@@ -814,8 +822,8 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
   }
 
   if (auth && !options.dryRun) {
-    debugLog("Syncing 📸 markers and for-humans index against current image content");
-    await syncReleaseNotesIndexImages(auth, { log: message => debugLog(message) });
+    debugLog("Syncing 📸 markers for the notes just published");
+    await syncReleaseNotesIndexImages(auth, { log: message => debugLog(message), pages: published.pages });
   }
 }
 
