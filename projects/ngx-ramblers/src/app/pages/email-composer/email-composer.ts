@@ -240,6 +240,8 @@ import { GoogleMapsService } from "../../services/google-maps.service";
 import { CommitteeFile, CommitteeMember, GroupEventSummary, Notification, NotificationItem, roleEmailAddresses } from "../../models/committee.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
+import { DocumentConversionService } from "../../services/committee/document-conversion.service";
+import { CONVERTIBLE_DOCUMENT_EXTENSIONS } from "../../models/aws-object.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { CommitteeDisplayService } from "../committee/committee-display.service";
 import { PageService } from "../../services/page.service";
@@ -1537,7 +1539,19 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                                                 placeholder="Write your message here…"
                                                 stickyToolbar
                                                 [showMergeFields]="true"
-                                                [mergeFieldCatalogue]="composerMergeFieldCatalogue"/>
+                                                [mergeFieldCatalogue]="composerMergeFieldCatalogue">
+                      <span toolbarExtras class="toolbar-extras">
+                        <span class="toolbar-divider"></span>
+                        <button type="button" class="toolbar-text-toggle" [disabled]="documentImporting"
+                                tooltip="Start the message from a Word or PDF document" container="body" delay=500
+                                (click)="documentFileInput.value = ''; documentFileInput.click()">
+                          <fa-icon [icon]="documentImporting ? faSpinner : faFile" [spin]="documentImporting" class="me-1"/>
+                          {{ documentImporting ? "Importing…" : "Word or PDF" }}
+                        </button>
+                      </span>
+                    </app-tiptap-markdown-editor>
+                    <input #documentFileInput type="file" class="d-none"
+                           [accept]="documentImportAccept" (change)="onDocumentSelected($event)">
                   }
                   @case (ComposerFragmentKind.SIGNOFF) {
                     <app-tiptap-markdown-editor [value]="state.signoffTextMarkdown"
@@ -2294,6 +2308,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private router = inject(Router);
   private location = inject(Location);
   private notifierService = inject(NotifierService);
+  private documentConversionService = inject(DocumentConversionService);
+  protected readonly documentImportAccept = CONVERTIBLE_DOCUMENT_EXTENSIONS.map(extension => `.${extension}`).join(",");
+  protected documentImporting = false;
   protected mailMessagingService = inject(MailMessagingService);
   private mailService = inject(MailService);
   private mailListUpdaterService = inject(MailListUpdaterService);
@@ -4286,6 +4303,26 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       ?.trim() ?? "";
     if (/^(hi|hello|hey|dear|good (morning|afternoon|evening))\b/i.test(firstLine)) {
       this.state.addresseeType = AddresseeType.NONE;
+    }
+  }
+
+  protected async onDocumentSelected(event: Event): Promise<void> {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) {
+      this.documentImporting = true;
+      this.notify.progress({title: "Document import", message: `Converting ${file.name}…`});
+      try {
+        const converted = await this.documentConversionService.convertFile(file);
+        const markdown = this.documentConversionService.separateEditingBlocks(converted.markdown);
+        this.state.introMarkdown = [this.state.introMarkdown, markdown].filter(Boolean).join("\n\n");
+        this.introEditor?.syncValue(this.state.introMarkdown);
+        this.introEditor?.focusAtEnd();
+        this.notify.success({title: "Document imported", message: `Review the content from ${file.name} before sending`});
+      } catch (error) {
+        this.notify.error({title: "Document import failed", message: error?.error?.error || error?.message || "An unexpected error occurred"});
+      } finally {
+        this.documentImporting = false;
+      }
     }
   }
 

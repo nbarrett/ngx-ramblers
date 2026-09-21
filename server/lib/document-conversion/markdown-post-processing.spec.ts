@@ -7,6 +7,7 @@ import {
   mergeAdjacentEmphasis,
   boldLabelLines,
   pdfTextToMarkdown,
+  isolateImportedImages,
   postProcessConvertedMarkdown,
   promoteMinutesHeadings,
   promotePdfLeadingTitle,
@@ -27,6 +28,22 @@ describe("dropDataUriImages", () => {
 
   it("retains normal images", () => {
     expect(dropDataUriImages("![logo](https://example.com/logo.png)")).toEqual("![logo](https://example.com/logo.png)");
+  });
+});
+
+describe("isolateImportedImages", () => {
+  it("puts an image that arrived at the end of a sentence on its own line", () => {
+    expect(isolateImportedImages("bring up the walks page. ![Walks](https://example.test/walks.png) Walk.")).toEqual(
+      "bring up the walks page.\n\n![Walks](https://example.test/walks.png)\n\nWalk.");
+  });
+
+  it("leaves an image that is already on its own line", () => {
+    expect(isolateImportedImages("![Walks](https://example.test/walks.png)")).toEqual("![Walks](https://example.test/walks.png)");
+  });
+
+  it("does not split an image inside a table row", () => {
+    const row = "| Date | ![Map](https://example.test/map.png) |";
+    expect(isolateImportedImages(row)).toEqual(row);
   });
 });
 

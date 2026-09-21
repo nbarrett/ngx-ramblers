@@ -1,10 +1,31 @@
 import {
   htmlHasRichFormatting,
+  imagesFromRtf,
   isInternalPaste,
+  isWordClipboardHtml,
   sanitiseHtmlForPaste,
   shouldPastePlainTextAsMarkdown,
   stripIncompatibleTextMarks
 } from "./tiptap-paste";
+
+describe("imagesFromRtf", () => {
+  it("reads Word image bytes after nested picture metadata", () => {
+    const rtf = "{\\pict\\pngblip\\bliptag255{\\*\\blipuid fdd18a216f098f83bf17b9573e79d049}"
+      + "89504e470d0a1a0a0000000d49484452" + "00".repeat(30) + "}";
+    const images = imagesFromRtf(rtf);
+    expect(images.length).toBe(1);
+    expect(images[0].type).toBe("image/png");
+    expect(Array.from(images[0].bytes.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+  });
+});
+
+describe("isWordClipboardHtml", () => {
+  it("detects Word HTML even when it has no images", () => {
+    expect(isWordClipboardHtml("<p class=\"MsoNormal\">A paragraph</p>")).toBe(true);
+    expect(isWordClipboardHtml("<p style=\"mso-margin-top-alt:auto\">A paragraph</p>")).toBe(true);
+    expect(isWordClipboardHtml("<p>A normal webpage paragraph</p>")).toBe(false);
+  });
+});
 
 describe("shouldPastePlainTextAsMarkdown", () => {
 

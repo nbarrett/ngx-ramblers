@@ -19,7 +19,7 @@ import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import StarterKit from "@tiptap/starter-kit";
 import { ListItem } from "@tiptap/extension-list";
 import { HtmlBold, HtmlItalic, HtmlLink, markdownMarksForClipboard } from "./html-marks.extension";
-import { ImageAlign, ImageSpacing, SpacedImage } from "./spaced-image.extension";
+import { ImageAlign, ImageResizeCorner, ImageSpacing, SpacedImage } from "./spaced-image.extension";
 import { Markdown } from "@tiptap/markdown";
 import { MermaidCodeBlock, refreshMermaidCodeBlockPreviews } from "./mermaid-code-block.extension";
 import { Table } from "@tiptap/extension-table";
@@ -31,6 +31,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faBold,
   faBolt,
+  faCircleExclamation,
   faCode,
   faEnvelope,
   faExternalLinkAlt,
@@ -80,19 +81,19 @@ import { RootFolder } from "../../../models/system.model";
 import { S3_BASE_URL } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
 import { FileUtilsService } from "../../../file-utils.service";
-import { hasSoftWrappedParagraph, unwrapSoftLineBreaks } from "../../../functions/unwrap-line-breaks";
+import { hasSoftWrappedParagraph, normaliseWordPasteMarkdown, unwrapSoftLineBreaks } from "../../../functions/unwrap-line-breaks";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PasteDetectionService } from "../../../services/paste-detection.service";
+import { DocumentConversionService } from "../../../services/committee/document-conversion.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/compat";
-import { htmlHasRichFormatting, isInternalPaste, sanitiseHtmlForPaste, sanitiseMarkdownForPaste, shouldPastePlainTextAsMarkdown, stripIncompatibleTextMarks } from "./tiptap-paste";
+import { dataImagesFromHtml, htmlHasRichFormatting, htmlReferencesLocalImages, imagesFromRtf, isInternalPaste, isWordClipboardHtml, sanitiseHtmlForPaste, sanitiseMarkdownForPaste, shouldPastePlainTextAsMarkdown, stripIncompatibleTextMarks } from "./tiptap-paste";
 import { EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
-import { stripTrailingSlash } from "../../../functions/strings";
 
 @Component({
   selector: "app-tiptap-markdown-editor",
@@ -103,6 +104,7 @@ import { stripTrailingSlash } from "../../../functions/strings";
      [class.tiptap-editor-shell-disabled]="!editable"
      [class.tiptap-editor-shell-detail]="editable && toolbarExpanded"
      [attr.aria-disabled]="!editable"
+     (pointerdown)="onShellPointerDown()"
      (pointerenter)="onCalmPointerEnter($event)"
      (pointermove)="onCalmPointerMove($event)"
      (pointerleave)="onCalmPointerLeave()">
@@ -363,6 +365,17 @@ import { stripTrailingSlash } from "../../../functions/strings";
       <span class="token-editor-title">Uploading pasted image…</span>
     </div>
   }
+  @if (pastedDocumentImporting) {
+    <div class="inline-input-bar" style="display:block">
+      <span class="token-editor-title">Importing pasted document…</span>
+    </div>
+  }
+  @if (pasteError) {
+    <div class="alert alert-danger d-flex align-items-start gap-2">
+      <fa-icon [icon]="faCircleExclamation"/>
+      <div><strong>Paste failed</strong><br>{{ pasteError }}</div>
+    </div>
+  }
   @if (sourceMode) {
     <textarea class="tiptap-source-editor form-control"
               spellcheck="false"
@@ -382,8 +395,12 @@ import { stripTrailingSlash } from "../../../functions/strings";
     }
   </div>
   @if (editable && imageSelected && !imageCropperOpen) {
-    <div class="image-resize-handle" [style.top.px]="imageHandleTop" [style.left.px]="imageHandleLeft"
-         tooltip="Drag to set the image width" container="body" delay=500 (mousedown)="onImageResizeStart($event)"></div>
+    @for (corner of imageResizeCorners; track corner.corner) {
+      <div class="image-resize-handle" [ngClass]="corner.handleClass"
+           [style.top.px]="corner.top" [style.left.px]="corner.left"
+           tooltip="Drag the corner to resize. The shape stays the same." container="body" delay=500
+           (mousedown)="onImageResizeStart($event, corner.corner)"></div>
+    }
   }
   @if (editable && emojiSuggestions.length > 0) {
     <ul class="emoji-shortcode-suggestions" role="listbox"
@@ -485,16 +502,28 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.syncValue(markdown);
   }
 
+  private appliedMarkdown: string | null = null;
+
   public syncValue(markdown: string): void {
-    const incoming = markdown ?? "";
+    const incoming = this.documentConversionService.separateEditingBlocks(markdown ?? "");
     if (this.sourceMode) {
       this.sourceMarkdown = incoming;
     } else if (this.editor) {
       const current = this.currentMarkdown();
-      if (incoming !== current) {
+      if (incoming !== current && incoming !== this.appliedMarkdown) {
+        const selection = this.editor.state.selection.from;
         this.editor.commands.setContent(incoming, { contentType: "markdown", emitUpdate: false });
+        const canonical = this.currentMarkdown();
+        this.appliedMarkdown = canonical;
+        const end = this.editor.state.doc.content.size;
+        if (selection > 0 && selection < end) {
+          this.editor.commands.setTextSelection(Math.min(selection, end));
+        }
         this.clearEditorHistory();
         this.queueMermaidPreviewRefresh();
+        if (canonical !== incoming) {
+          this.valueChange.emit(canonical);
+        }
       }
     } else {
       this.pendingValue = incoming;
@@ -625,9 +654,13 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected imageSpacing: ImageSpacing = ImageSpacing.Small;
   protected imageAlign: ImageAlign = ImageAlign.Center;
   protected readonly ImageAlign = ImageAlign;
-  protected imageHandleTop: number = 0;
-  protected imageHandleLeft: number = 0;
-  private imageResizeState: { startX: number; startWidth: number; pos: number; img: HTMLImageElement } | null = null;
+  protected imageResizeCorners: { corner: ImageResizeCorner; top: number; left: number; handleClass: string }[] = [
+    {corner: ImageResizeCorner.NorthWest, top: 0, left: 0, handleClass: "image-resize-handle-nw"},
+    {corner: ImageResizeCorner.NorthEast, top: 0, left: 0, handleClass: "image-resize-handle-ne"},
+    {corner: ImageResizeCorner.SouthWest, top: 0, left: 0, handleClass: "image-resize-handle-sw"},
+    {corner: ImageResizeCorner.SouthEast, top: 0, left: 0, handleClass: "image-resize-handle-se"}
+  ];
+  private imageResizeState: { startX: number; startY: number; startWidth: number; aspect: number; pos: number; img: HTMLImageElement; corner: ImageResizeCorner } | null = null;
   protected showExampleValues: boolean = false;
   protected cropperPreloadSrc: string | null = null;
   protected replaceSelectedImageOnSave: boolean = false;
@@ -656,6 +689,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected tokenFieldValue: string = "";
   protected readonly rootFolder = RootFolder.siteContent;
   protected pastedImageUploading = false;
+  protected pastedDocumentImporting = false;
+  protected pasteError = "";
   protected unwrapLineBreaksOnPaste = true;
   private http = inject(HttpClient);
   private fileUtilsService = inject(FileUtilsService);
@@ -663,6 +698,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("TiptapMarkdownEditor", NgxLoggerLevel.ERROR);
   private changeDetector = inject(ChangeDetectorRef);
   private pasteDetectionService = inject(PasteDetectionService);
+  private documentConversionService = inject(DocumentConversionService);
   private emojiShortcodeService = inject(EmojiShortcodeService);
   private host = inject(ElementRef<HTMLElement>);
   private zone = inject(NgZone);
@@ -677,6 +713,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly TiptapMark = TiptapMark;
   protected readonly TiptapTableCommand = TiptapTableCommand;
   protected readonly faBold = faBold;
+  protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faBolt = faBolt;
   protected readonly faCode = faCode;
   protected readonly faImage = faImage;
@@ -754,14 +791,29 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         },
         handleKeyDown: (_view, event) => this.handleEditorKeyDown(event),
         handlePaste: (_view, event) => {
+          const pastedDocument = Array.from(event.clipboardData?.files ?? []).find(file => /\.(docx|pdf)$/i.test(file.name));
           const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
           const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
+          const wordImages = imagesFromRtf(event.clipboardData?.getData("text/rtf") ?? "");
+          const pastedImageFiles = Array.from(event.clipboardData?.items ?? [])
+            .filter(item => item.kind === "file" && item.type.startsWith("image/"))
+            .map(item => item.getAsFile())
+            .filter((file): file is File => !!file);
+          const embeddedDataImages = dataImagesFromHtml(pastedHtml);
           const internalPaste = isInternalPaste(pastedHtml);
           const richTextPaste = !internalPaste && htmlHasRichFormatting(pastedHtml);
           const text = event.clipboardData?.getData("text/plain") ?? "";
           const consumed = {value: false};
           let handled = false;
-          if (pastedImage) {
+          if (!internalPaste && pastedHtml && (isWordClipboardHtml(pastedHtml) || wordImages.length > 0 || pastedImageFiles.length > 0 || embeddedDataImages.length > 0 || htmlReferencesLocalImages(pastedHtml))) {
+            event.preventDefault();
+            void this.pasteWordHtml(pastedHtml, wordImages, pastedImageFiles, embeddedDataImages);
+            handled = true;
+          } else if (pastedDocument) {
+            event.preventDefault();
+            void this.importPastedDocument(pastedDocument);
+            handled = true;
+          } else if (pastedImage && !richTextPaste) {
             event.preventDefault();
             void this.uploadAndInsertPastedImage(pastedImage);
             handled = true;
@@ -775,6 +827,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
             });
             if (consumed.value) {
               event.preventDefault();
+              handled = true;
+            } else if (richTextPaste && pastedHtml && /<img\b[^>]*src=["']data:image\//i.test(pastedHtml)) {
+              event.preventDefault();
+              void this.pasteRichHtmlWithImages(pastedHtml);
               handled = true;
             } else if (shouldPastePlainTextAsMarkdown(internalPaste, text, this.looksLikeMarkdown(text))) {
               event.preventDefault();
@@ -814,7 +870,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor.on("blur", () => {
       this.zone.run(() => {
         requestAnimationFrame(() => {
-          if (!this.editor?.isFocused && !this.hostContainsActiveElement()) {
+          const active = document.activeElement;
+          const focusLeftTheEditor = !!active && active !== document.body && active !== document.documentElement && !this.host.nativeElement.contains(active);
+          if (!this.editor?.isFocused && focusLeftTheEditor) {
             this.exitDetailMode();
             this.queueMermaidPreviewRefresh();
           }
@@ -891,6 +949,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor = null;
   }
 
+  protected onShellPointerDown(): void {
+    if (this.editable) {
+      this.enterDetailMode();
+    }
+  }
+
   protected onCalmPointerEnter(event: PointerEvent): void {
     if (this.calmHintActive()) {
       this.scheduleClickToEditHint(event);
@@ -963,11 +1027,6 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       this.imageSelected = false;
       this.changeDetector.markForCheck();
     }
-  }
-
-  private hostContainsActiveElement(): boolean {
-    const active = document.activeElement;
-    return !!(active && this.host.nativeElement.contains(active));
   }
 
   private handleDocumentPointerDown(event: PointerEvent): void {
@@ -1897,7 +1956,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   onImageActionEdit(): void {
     if (!this.editor) return;
     if (this.imageSelected) {
-      this.cropperPreloadSrc = (this.editor.getAttributes("image")["src"] as string) ?? null;
+      const storedSrc = (this.editor.getAttributes("image")["src"] as string) ?? "";
+      const relativeSrc = this.documentConversionService.relativeAwsImagePath(storedSrc);
+      if (relativeSrc && relativeSrc !== storedSrc) {
+        this.editor.chain().focus().updateAttributes("image", {src: relativeSrc}).run();
+      }
+      this.cropperPreloadSrc = relativeSrc || null;
       this.replaceSelectedImageOnSave = true;
     } else {
       this.cropperPreloadSrc = null;
@@ -1945,11 +2009,19 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     }
     const shellRect = shell.getBoundingClientRect();
     const imageRect = img.getBoundingClientRect();
-    this.imageHandleTop = imageRect.top - shellRect.top + (imageRect.height / 2) - 17;
-    this.imageHandleLeft = imageRect.right - shellRect.left - 5;
+    const top = imageRect.top - shellRect.top;
+    const left = imageRect.left - shellRect.left;
+    const bottom = imageRect.bottom - shellRect.top;
+    const right = imageRect.right - shellRect.left;
+    this.imageResizeCorners = [
+      {corner: ImageResizeCorner.NorthWest, top: top - 4, left: left - 4, handleClass: "image-resize-handle-nw"},
+      {corner: ImageResizeCorner.NorthEast, top: top - 4, left: right - 12, handleClass: "image-resize-handle-ne"},
+      {corner: ImageResizeCorner.SouthWest, top: bottom - 12, left: left - 4, handleClass: "image-resize-handle-sw"},
+      {corner: ImageResizeCorner.SouthEast, top: bottom - 12, left: right - 12, handleClass: "image-resize-handle-se"}
+    ];
   }
 
-  onImageResizeStart(event: MouseEvent): void {
+  onImageResizeStart(event: MouseEvent, corner: ImageResizeCorner): void {
     event.preventDefault();
     event.stopPropagation();
     if (!this.editor) {
@@ -1960,7 +2032,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     if (!img?.getBoundingClientRect) {
       return;
     }
-    this.imageResizeState = { startX: event.clientX, startWidth: img.getBoundingClientRect().width, pos, img };
+    const bounds = img.getBoundingClientRect();
+    const aspect = img.naturalWidth > 0 && img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : bounds.width / Math.max(bounds.height, 1);
+    this.imageResizeState = { startX: event.clientX, startY: event.clientY, startWidth: bounds.width, aspect, pos, img, corner };
     document.addEventListener("mousemove", this.onImageResizeMove);
     document.addEventListener("mouseup", this.onImageResizeEnd);
   }
@@ -1971,9 +2045,16 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     }
     const editable = this.editor.view.dom as HTMLElement;
     const maxWidth = editable?.clientWidth ? editable.clientWidth : 540;
-    const delta = event.clientX - this.imageResizeState.startX;
-    const width = Math.max(60, Math.min(Math.round(this.imageResizeState.startWidth + delta), maxWidth));
+    const horizontal = this.imageResizeState.corner === ImageResizeCorner.NorthEast || this.imageResizeState.corner === ImageResizeCorner.SouthEast ? 1 : -1;
+    const vertical = this.imageResizeState.corner === ImageResizeCorner.SouthWest || this.imageResizeState.corner === ImageResizeCorner.SouthEast ? 1 : -1;
+    const deltaX = (event.clientX - this.imageResizeState.startX) * horizontal;
+    const deltaY = (event.clientY - this.imageResizeState.startY) * vertical;
+    const widthFromDrag = Math.abs(deltaX) >= Math.abs(deltaY)
+      ? this.imageResizeState.startWidth + deltaX
+      : this.imageResizeState.startWidth + (deltaY * this.imageResizeState.aspect);
+    const width = Math.max(60, Math.min(Math.round(widthFromDrag), maxWidth));
     this.imageResizeState.img.style.width = `${width}px`;
+    this.imageResizeState.img.style.height = "auto";
     this.imageResizeState.img.style.maxHeight = "none";
     this.positionImageHandle();
   };
@@ -2006,24 +2087,106 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       return;
     }
     this.pastedImageUploading = true;
+    this.pasteError = "";
     try {
-      const fileName = pastedImage.name || this.fileUtilsService.pastedFilenameForMime(pastedImage.type);
-      const fileToUpload = await this.resizedForEmail(pastedImage, fileName);
-      const formData = new FormData();
-      formData.append("file", fileToUpload, fileName);
-      const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${this.rootFolder}`, formData));
-      const fileNameData = response?.responses?.[0]?.fileNameData;
-      if (fileNameData) {
-        const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
-        const src = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
-        this.editor?.chain().focus().setImage({src, alt: ""}).run();
-      } else {
-        this.logger.error("pasted image upload returned no file data:", response);
-      }
+      const src = await this.uploadedPastedImageUrl(pastedImage);
+      this.editor?.chain().focus().setImage({src, alt: ""}).run();
     } catch (error) {
+      this.pasteError = error?.message || "The image could not be uploaded";
       this.logger.error("pasted image upload failed:", error);
     } finally {
       this.pastedImageUploading = false;
+    }
+  }
+
+  private async pasteWordHtml(html: string, wordImages: { bytes: Uint8Array; type: string }[], pastedImageFiles: File[], embeddedDataImages: string[]): Promise<void> {
+    this.pastedImageUploading = true;
+    this.pasteError = "";
+    try {
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      const images = Array.from(parsed.body.querySelectorAll("img"));
+      const embedded = {index: 0};
+      const files = {index: 0};
+      const dataImages = {index: 0};
+      for (const image of images) {
+        const src = image.getAttribute("src") || "";
+        const usable = /^https?:\/\//i.test(src) || src.startsWith("api/aws/s3/") || src.startsWith("/api/aws/s3/");
+        if (src.startsWith("data:image/")) {
+          image.setAttribute("src", await this.uploadedPastedImageUrl(this.fileUtilsService.base64ToFileWithName(src, "")));
+        } else if (!usable && embedded.index < wordImages.length) {
+          const embeddedImage = wordImages[embedded.index];
+          embedded.index += 1;
+          const extension = embeddedImage.type === "image/jpeg" ? "jpg" : "png";
+          const buffer = new ArrayBuffer(embeddedImage.bytes.byteLength);
+          new Uint8Array(buffer).set(embeddedImage.bytes);
+          image.setAttribute("src", await this.uploadedPastedImageUrl(new File([buffer], `word-image-${embedded.index}.${extension}`, {type: embeddedImage.type})));
+        } else if (!usable && files.index < pastedImageFiles.length) {
+          const pastedFile = pastedImageFiles[files.index];
+          files.index += 1;
+          image.setAttribute("src", await this.uploadedPastedImageUrl(pastedFile));
+        } else if (!usable && dataImages.index < embeddedDataImages.length) {
+          const dataImage = embeddedDataImages[dataImages.index];
+          dataImages.index += 1;
+          image.setAttribute("src", await this.uploadedPastedImageUrl(this.fileUtilsService.base64ToFileWithName(dataImage, "")));
+        }
+      }
+      const converted = await this.documentConversionService.convertClipboardHtml(parsed.body.innerHTML);
+      this.insertMarkdownAtCursor(this.documentConversionService.separateEditingBlocks(normaliseWordPasteMarkdown(converted.markdown)));
+    } catch (error) {
+      this.pasteError = error?.message || "The pictures from Word could not be added";
+      this.logger.error("word paste failed:", error);
+    } finally {
+      this.pastedImageUploading = false;
+    }
+  }
+
+  private async pasteRichHtmlWithImages(html: string): Promise<void> {
+    this.pastedImageUploading = true;
+    this.pasteError = "";
+    try {
+      const document = new DOMParser().parseFromString(sanitiseHtmlForPaste(html), "text/html");
+      const images = Array.from(document.body.querySelectorAll("img[src^='data:image/']"));
+      for (const image of images) {
+        const data = image.getAttribute("src") || "";
+        const file = this.fileUtilsService.base64ToFileWithName(data, "");
+        image.setAttribute("src", await this.uploadedPastedImageUrl(file));
+      }
+      this.editor?.chain().focus().insertContent(document.body.innerHTML).run();
+    } catch (error) {
+      this.pasteError = error?.message || "An embedded image could not be uploaded";
+      this.logger.error("rich text image paste failed:", error);
+    } finally {
+      this.pastedImageUploading = false;
+    }
+  }
+
+  private async importPastedDocument(file: File): Promise<void> {
+    this.pastedDocumentImporting = true;
+    this.pasteError = "";
+    try {
+      const converted = await this.documentConversionService.convertFile(file);
+      const markdown = this.documentConversionService.separateEditingBlocks(converted.markdown);
+      this.insertMarkdownAtCursor(markdown);
+    } catch (error) {
+      this.pasteError = error?.error?.error || error?.message || "An unexpected error occurred";
+      this.logger.error("document paste failed:", error);
+    } finally {
+      this.pastedDocumentImporting = false;
+    }
+  }
+
+  private async uploadedPastedImageUrl(file: File): Promise<string> {
+    const fileName = file.name || this.fileUtilsService.pastedFilenameForMime(file.type);
+    const fileToUpload = await this.resizedForEmail(file, fileName);
+    const formData = new FormData();
+    formData.append("file", fileToUpload, fileName);
+    const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${this.rootFolder}`, formData));
+    const fileNameData = response?.responses?.[0]?.fileNameData;
+    if (fileNameData) {
+      const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
+      return this.documentConversionService.relativeAwsImagePath(relative);
+    } else {
+      throw new Error("Pasted image upload returned no file data");
     }
   }
 
@@ -2043,8 +2206,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   onImageCropperSave(awsFileData: AwsFileData): void {
     if (!this.editor) return;
-    const relative = this.urlService.resourceRelativePathForAWSFileName(awsFileData.awsFileName);
-    const src = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
+    const src = this.documentConversionService.relativeAwsImagePath(this.urlService.resourceRelativePathForAWSFileName(awsFileData.awsFileName));
     if (this.replaceSelectedImageOnSave && this.imageSelected) {
       this.editor.chain().focus().updateAttributes("image", { src }).run();
     } else {

@@ -16,6 +16,40 @@ export function dropDataUriImages(markdown: string): string {
   return markdown.replace(/!\[[^\]]*\]\(data:[^)]*\)/g, "");
 }
 
+const IMPORTED_IMAGE = /!\[[^\]]*\]\([^)\n]+\)|<img\b[^>]*>/gi;
+
+export function isolateImportedImages(markdown: string): string {
+  return markdown.split("\n").flatMap(line => {
+    if (line.trim().startsWith("|")) {
+      return [line];
+    } else {
+      const matches = [...line.matchAll(IMPORTED_IMAGE)];
+      if (matches.length === 0) {
+        return [line];
+      } else {
+        const pieces: string[] = [];
+        const cursor = {index: 0};
+        matches.forEach(match => {
+          const before = line.slice(cursor.index, match.index).trim();
+          if (before) {
+            pieces.push(before, "");
+          }
+          pieces.push(match[0]);
+          cursor.index = (match.index || 0) + match[0].length;
+          if (line.slice(cursor.index).trim()) {
+            pieces.push("");
+          }
+        });
+        const after = line.slice(cursor.index).trim();
+        if (after) {
+          pieces.push(after);
+        }
+        return pieces;
+      }
+    }
+  }).join("\n");
+}
+
 export function rejoinBoldAcrossLineBreaks(markdown: string): string {
   return markdown.replace(/\*\*([^*\n]+?)[ \t]*\n[ \t]*\*\*(?=\s|$)/g, "**$1**");
 }
@@ -246,6 +280,7 @@ export function pdfTextToMarkdown(text: string, pageCount: number): string {
 
 export function postProcessConvertedMarkdown(markdown: string): DocumentConversionResponse {
   const processed = collapseBlankLines(
+    isolateImportedImages(
     stripBoilerplate(
       promoteSectionBoldLinesToHeadings(
         promoteLeadingBoldLineToHeading(
@@ -253,6 +288,6 @@ export function postProcessConvertedMarkdown(markdown: string): DocumentConversi
             mergeAdjacentEmphasis(
               normaliseEmphasisSpacing(
                 rejoinBoldAcrossLineBreaks(
-                  dropDataUriImages(markdown || "")))))))));
+                  dropDataUriImages(markdown || ""))))))))));
   return {markdown: processed, suggestedTitle: suggestedTitleFrom(processed)};
 }

@@ -371,14 +371,12 @@
   height: auto
 
 .tiptap-content img
-  max-height: 120px
+  display: block
   width: auto
   border: 1px solid #ced4da
   border-radius: 4px
   padding: 2px
   background-color: #f8f9fa
-  cursor: zoom-in
-  transition: max-height 0.15s ease
 
 .tiptap-content .ProseMirror code
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
@@ -392,38 +390,25 @@
   display: block
   margin-bottom: 12px
 
-.tiptap-content img[data-sized],
-.tiptap-content img[data-sized]:hover
-  max-height: none
-
 .image-resize-handle
   position: absolute
   z-index: 26
-  width: 10px
-  height: 34px
-  background-color: #ffffff
-  border: 1px solid #6c757d
-  border-radius: 5px
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35)
-  cursor: ew-resize
-
-.image-resize-handle::after
-  content: ""
-  position: absolute
-  top: 50%
-  left: 50%
-  transform: translate(-50%, -50%)
-  width: 4px
+  width: 16px
   height: 16px
-  border-left: 1px solid #adb5bd
-  border-right: 1px solid #adb5bd
+  background-color: #ffffff
+  border: 2px solid #6c757d
+  border-radius: 3px
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35)
 
-.tiptap-content img:hover
-  max-height: 460px
-  cursor: zoom-out
+.image-resize-handle-nw,
+.image-resize-handle-se
+  cursor: nwse-resize
+
+.image-resize-handle-ne,
+.image-resize-handle-sw
+  cursor: nesw-resize
 
 .tiptap-content img.ProseMirror-selectednode
-  max-height: none
   cursor: default
   box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.7)
 

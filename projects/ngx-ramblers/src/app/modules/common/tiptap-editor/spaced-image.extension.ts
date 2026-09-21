@@ -1,5 +1,6 @@
 import Image from "@tiptap/extension-image";
 import { mergeAttributes } from "@tiptap/core";
+import { isString } from "es-toolkit/compat";
 
 export enum ImageSpacing {
   None = "none",
@@ -12,6 +13,13 @@ export enum ImageAlign {
   Left = "left",
   Center = "center",
   Right = "right"
+}
+
+export enum ImageResizeCorner {
+  NorthWest = "nw",
+  NorthEast = "ne",
+  SouthWest = "sw",
+  SouthEast = "se"
 }
 
 export const IMAGE_SPACING_PX: Record<ImageSpacing, number> = {
@@ -112,6 +120,10 @@ export const SpacedImage = Image.extend({
   renderHTML({ node, HTMLAttributes }) {
     const style = imageStyle(node.attrs["spacing"], node.attrs["width"], node.attrs["align"]);
     const attributes = mergeAttributes(this.options["HTMLAttributes"], HTMLAttributes);
+    const src = attributes["src"];
+    if (isString(src) && src.startsWith("api/aws/s3/")) {
+      attributes["src"] = `/${src}`;
+    }
     if (style) {
       attributes["style"] = style;
     }
