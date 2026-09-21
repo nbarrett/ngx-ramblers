@@ -261,7 +261,8 @@ jobs:
 
 
   release-notes:
-    if: github.ref_name == 'main' && github.event_name == 'push'
+    needs: deploy
+    if: github.ref_name == 'main' && github.event_name == 'push' && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     concurrency:
       group: release-notes-main
