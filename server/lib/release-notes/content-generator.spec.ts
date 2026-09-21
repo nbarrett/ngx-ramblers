@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { createReleaseNotesData, extractPlaintextBuildRef, generateMarkdown, linkPlaintextBuildLine, refreshIndexPageContent, stripRedundantIssueRefs, updateIndexPageContent } from "./content-generator";
+import { createReleaseNotesData, extractPlaintextBuildRef, generateMarkdown, generateTitle, linkPlaintextBuildLine, refreshIndexPageContent, releaseNoteSlug, stripRedundantIssueRefs, updateIndexPageContent } from "./content-generator";
 import {
   PageContent,
   PageContentType
@@ -51,6 +51,21 @@ describe("content-generator stripRedundantIssueRefs", () => {
   it("leaves parenthesised wording that is not an issue reference", () => {
     expect(stripRedundantIssueRefs("#800 — refresh codebase evolution stats snapshot (28 July 2026)"))
       .toEqual("#800 — refresh codebase evolution stats snapshot (28 July 2026)");
+  });
+});
+
+describe("content-generator generateTitle", () => {
+  it("turns compound technical scopes into a readable shared subject", () => {
+    const commits = [
+      {scope: "registration+albums+ci+stats", type: "fix", subject: "tidier imported pages"},
+      {scope: "registration+ci", type: "fix", subject: "support Ramblers-hosted pages"}
+    ] as ConventionalCommit[];
+
+    expect(generateTitle(commits)).toEqual("Site registration updates");
+  });
+
+  it("creates readable release-note path suffixes from the title", () => {
+    expect(releaseNoteSlug("Site registration improvements")).toEqual("site-registration-improvements");
   });
 });
 

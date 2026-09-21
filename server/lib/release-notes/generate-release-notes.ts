@@ -1,4 +1,3 @@
-import { pathSuffixFor } from "./release-paths";
 import { Command } from "commander";
 import debug from "debug";
 import inquirer from "inquirer";
@@ -17,15 +16,16 @@ import {
   formatDateForPath,
   generateMarkdown,
   generatePageContent,
+  releaseNoteSlug,
   updateIndexPageContent
 } from "./content-generator.js";
 import { syncReleaseNotesIndexImages } from "./index-image-sync.js";
-import type { ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
+import type { ConventionalCommit, GenerateOptions, ReleaseGroup, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
 import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import type { CMSAuth } from "./cms-client.js";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
-import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import {assertEveryCommitGrouped, groupCommitsByDateAndIssue} from "./release-grouping";
 
 const debugLog = debug(envConfig.logNamespace("release-notes"));
 debugLog.enabled = true;
@@ -118,117 +118,6 @@ function needsBuildMetadataRefresh(data: ReleaseNotesData): boolean {
   return false;
 }
 
-interface ReleaseGroup {
-  date: string;
-  issueNumber: string | null;
-  commits: ConventionalCommit[];
-  pathSuffix: string;
-}
-
-function assignFallbackIssues(commits: ConventionalCommit[]): Map<string, string | null> {
-  const result = commits.reduce<{ assignments: Map<string, string | null>; lastIssue: string | null }>(
-    (state, commit) => {
-      const commitIssue = commit.issueReferences.length > 0 ? commit.issueReferences[0].issue : null;
-      const resolvedIssue = commitIssue ?? state.lastIssue;
-      state.assignments.set(commit.hash, resolvedIssue);
-      return {
-        assignments: state.assignments,
-        lastIssue: commitIssue ?? state.lastIssue
-      };
-    },
-    { assignments: new Map<string, string | null>(), lastIssue: null }
-  );
-
-  return result.assignments;
-}
-
-function groupCommitsByDateAndIssue(commits: ConventionalCommit[]): ReleaseGroup[] {
-  const issueAssignments = assignFallbackIssues(commits);
-
-  const grouped = commits.reduce(
-    (state, commit) => {
-      const assignedIssue = issueAssignments.get(commit.hash);
-
-      if (assignedIssue) {
-        const existingWithIssue = state.issueGroups.get(assignedIssue);
-        const updatedWithIssue: ReleaseGroup = existingWithIssue
-          ? {
-              ...existingWithIssue,
-              commits: existingWithIssue.commits.concat(commit)
-            }
-          : {
-              date: existingWithIssue?.date ?? commit.date,
-              issueNumber: assignedIssue,
-              commits: [commit],
-              pathSuffix: ""
-            };
-
-        state.issueGroups.set(assignedIssue, {
-          ...updatedWithIssue,
-          date: existingWithIssue?.date ?? commit.date
-        });
-        return state;
-      }
-
-      const key = commit.date;
-      const existingUnassigned = state.unassignedGroups.get(key);
-      const updatedUnassigned: ReleaseGroup = existingUnassigned
-        ? {
-            ...existingUnassigned,
-            commits: existingUnassigned.commits.concat(commit)
-          }
-        : {
-            date: key,
-            issueNumber: null,
-            commits: [commit],
-            pathSuffix: ""
-          };
-
-      state.unassignedGroups.set(key, updatedUnassigned);
-      return state;
-    },
-    {
-      issueGroups: new Map<string, ReleaseGroup>(),
-      unassignedGroups: new Map<string, ReleaseGroup>()
-    }
-  );
-
-  const combinedGroups = [
-    ...grouped.issueGroups.values(),
-    ...grouped.unassignedGroups.values()
-  ];
-
-  const groupsByDate = combinedGroups.reduce((map, group) => {
-    const current = map.get(group.date) || [];
-    map.set(group.date, current.concat(group));
-    return map;
-  }, new Map<string, ReleaseGroup[]>());
-
-  const normalizedGroups = Array.from(groupsByDate.entries()).flatMap(([date, dateGroups]) => {
-    const withIssue = dateGroups.filter(group => group.issueNumber);
-    const sortedIssues = [...withIssue].sort((a, b) => asNumber(b.issueNumber) - asNumber(a.issueNumber));
-    const withoutIssue = dateGroups.filter(group => !group.issueNumber);
-    return [...sortedIssues, ...withoutIssue].map(group => ({...group, pathSuffix: pathSuffixFor(group, dateGroups)}));
-  });
-
-  return normalizedGroups.sort((a, b) => {
-    const dateComparison = b.date.localeCompare(a.date);
-    if (dateComparison !== 0) {
-      return dateComparison;
-    }
-    if (a.issueNumber && b.issueNumber) {
-      return asNumber(b.issueNumber) - asNumber(a.issueNumber);
-    }
-    if (a.issueNumber) {
-      return -1;
-    }
-    if (b.issueNumber) {
-      return 1;
-    }
-    return 0;
-  });
-}
-
 function filterReleaseGroups(groups: ReleaseGroup[], includeUnassigned: boolean): ReleaseGroup[] {
   if (includeUnassigned) {
     return groups;
@@ -295,9 +184,7 @@ async function resolveNonCollidingReleasePath(
   basePath: string,
   data: ReleaseNotesData
 ): Promise<string> {
-  const preferredSuffix = data.buildNumber
-    ? `-build-${data.buildNumber}`
-    : `-commit-${data.commitHash}`;
+  const preferredSuffix = `-${releaseNoteSlug(data.title)}`;
 
   const tryCandidate = async (counter: number): Promise<string> => {
     const candidate = counter === 1
@@ -361,75 +248,81 @@ async function createReleaseNotePage(
   const basePath = `${config.indexPath}/${formatDateForPath(data.date)}${pathSuffix}`;
 
   const existingReleasePage = dryRun ? null : await cms.pageContent(auth, basePath);
-
+  const existingBuild = existingReleasePage ? extractExistingBuildMetadata(existingReleasePage) : null;
+  const alreadyPublished = Boolean(existingReleasePage && data.buildNumber && existingBuild?.buildNumber === data.buildNumber);
   let releasePath = basePath;
-  if (existingReleasePage) {
-    releasePath = await resolveNonCollidingReleasePath(auth, basePath, data);
-    debugLog(`Existing release note found at ${basePath}; writing new note at ${releasePath} to preserve manual edits`);
-  }
 
-  if (!data.buildNumber && existingReleasePage) {
-    const existingBuild = extractExistingBuildMetadata(existingReleasePage);
-    if (existingBuild) {
-      data.buildNumber = existingBuild.buildNumber;
-      data.buildUrl = existingBuild.buildUrl;
-      debugLog(`  Preserved build #${existingBuild.buildNumber}`);
+  if (alreadyPublished) {
+    debugLog(`Release note ${basePath} already records build #${data.buildNumber}; keeping the published page`);
+  } else {
+    if (existingReleasePage) {
+      releasePath = await resolveNonCollidingReleasePath(auth, basePath, data);
+      debugLog(`Existing release note found at ${basePath}; writing new note at ${releasePath} to preserve manual edits`);
     }
-  }
 
-  if (!dryRun && needsBuildMetadataRefresh(data)) {
-    debugLog(`  Attempting GitHub build lookup for ${data.commitSha}`);
-    const githubRun = await findWorkflowRunByCommit(config.githubRepo, data.commitSha, config.githubToken || null);
-    if (githubRun) {
-      const displayNumber = githubRun.number || githubRun.id;
-      const resolvedUrl = githubRun.url || `https://github.com/${config.githubRepo}/actions/runs/${githubRun.id}`;
-      data.buildNumber = displayNumber;
-      data.buildUrl = resolvedUrl;
-      debugLog(`  Resolved build #${displayNumber} (run id ${githubRun.id}) from GitHub: ${resolvedUrl}`);
+    if (!data.buildNumber && existingReleasePage) {
+      if (existingBuild) {
+        data.buildNumber = existingBuild.buildNumber;
+        data.buildUrl = existingBuild.buildUrl;
+        debugLog(`  Preserved build #${existingBuild.buildNumber}`);
+      }
+    }
+
+    if (!dryRun && needsBuildMetadataRefresh(data)) {
+      debugLog(`  Attempting GitHub build lookup for ${data.commitSha}`);
+      const githubRun = await findWorkflowRunByCommit(config.githubRepo, data.commitSha, config.githubToken || null);
+      if (githubRun) {
+        const displayNumber = githubRun.number || githubRun.id;
+        const resolvedUrl = githubRun.url || `https://github.com/${config.githubRepo}/actions/runs/${githubRun.id}`;
+        data.buildNumber = displayNumber;
+        data.buildUrl = resolvedUrl;
+        debugLog(`  Resolved build #${displayNumber} (run id ${githubRun.id}) from GitHub: ${resolvedUrl}`);
+      } else {
+        debugLog("  GitHub build lookup returned no results");
+      }
+    } else if (data.buildNumber) {
+      const existingUrl = data.buildUrl || "unknown URL";
+      debugLog(`  Using existing build metadata #${data.buildNumber} (${existingUrl})`);
+    }
+
+    debugLog(`Generating release note for ${data.date}${pathSuffix}`);
+    debugLog(`  Title: ${data.title}`);
+    debugLog(`  Issue: ${data.issueNumber || "none"}`);
+    debugLog(`  Commits: ${data.allCommits.length}`);
+    debugLog(`  Path: ${releasePath}`);
+
+    const pageContent = generatePageContent(data, config.githubRepo, releasePath);
+
+    if (dryRun) {
+      debugLog("DRY RUN - Would create/update page:");
+      debugLog(JSON.stringify(pageContent, null, 2));
     } else {
-      debugLog("  GitHub build lookup returned no results");
+      await cms.createPageContent(auth, pageContent);
+      debugLog(`Created release note page: ${releasePath}`);
     }
-  } else if (data.buildNumber) {
-    const existingUrl = data.buildUrl || "unknown URL";
-    debugLog(`  Using existing build metadata #${data.buildNumber} (${existingUrl})`);
   }
 
-  debugLog(`Generating release note for ${data.date}${pathSuffix}`);
-  debugLog(`  Title: ${data.title}`);
-  debugLog(`  Issue: ${data.issueNumber || "none"}`);
-  debugLog(`  Commits: ${data.allCommits.length}`);
-  debugLog(`  Path: ${releasePath}`);
+  if (!dryRun) {
+    const indexPage = await cms.pageContent(auth, config.indexPath);
 
-  const pageContent = generatePageContent(data, config.githubRepo, releasePath);
-
-  if (dryRun) {
-    debugLog("DRY RUN - Would create/update page:");
-    debugLog(JSON.stringify(pageContent, null, 2));
-    return;
-  }
-
-  await cms.createPageContent(auth, pageContent);
-  debugLog(`Created release note page: ${releasePath}`);
-
-  const indexPage = await cms.pageContent(auth, config.indexPath);
-
-  if (!indexPage) {
-    throw new Error(`Index page not found: ${config.indexPath}`);
-  }
-
-  const updatedIndex = updateIndexPageContent(
-    indexPage,
-    {
-      date: data.date,
-      title: data.title,
-      path: releasePath,
-      issueNumber: data.issueNumber,
-      buildNumber: data.buildNumber
+    if (!indexPage) {
+      throw new Error(`Index page not found: ${config.indexPath}`);
     }
-  );
 
-  await cms.updatePageContent(auth, indexPage.id!, updatedIndex);
-  debugLog(`Updated index page: ${config.indexPath}`);
+    const updatedIndex = updateIndexPageContent(
+      indexPage,
+      {
+        date: data.date,
+        title: data.title,
+        path: releasePath,
+        issueNumber: data.issueNumber,
+        buildNumber: data.buildNumber
+      }
+    );
+
+    await cms.updatePageContent(auth, indexPage.id!, updatedIndex);
+    debugLog(`Updated index page: ${config.indexPath}`);
+  }
 }
 
 async function filterExistingReleaseNotes(
@@ -794,6 +687,9 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
       debugLog("No new commits since last tag");
     } else {
       const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
+      if (includeUnassigned) {
+        assertEveryCommitGrouped(commits, releaseGroups);
+      }
 
       if (releaseGroups.length === 0) {
         debugLog("No release notes to generate for latest commits (commits lack issue references). Use --include-unassigned to include them.");
@@ -838,39 +734,19 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
       debugLog(`No commits between ${options.since} and ${until}`);
     } else {
       const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
+      if (includeUnassigned) {
+        assertEveryCommitGrouped(commits, releaseGroups);
+      }
 
       if (releaseGroups.length === 0) {
         debugLog("No release notes to generate for that range (commits lack issue references). Use --include-unassigned to include them.");
       } else {
         if (auth) {
-          const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
-          const newCount = filtered.new.length;
-          const existingCount = filtered.existing.length;
-          const skippedCount = filtered.skipped.length;
-          const groupsToProcess = [...filtered.new, ...filtered.existing];
-
-          if (skippedCount > 0) {
-            debugLog(`Skipping ${skippedCount} existing release notes from previous days`);
-          }
-          if (newCount > 0 && existingCount > 0) {
-            debugLog(`Found ${groupsToProcess.length} release notes: ${newCount} new, ${existingCount} existing from today (will update)`);
-          } else if (existingCount > 0) {
-            debugLog(`Found ${existingCount} existing release notes from today (will update)`);
-          } else if (newCount > 0) {
-            debugLog(`Found ${newCount} new release notes`);
-          }
-
-          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
-          debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for commit range`);
+          await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, options.buildNumber || null, options.buildUrl || null, false, includeUnassigned);
+          debugLog(`Published ${pluraliseWithCount(releaseGroups.length, "release note")} covering ${pluraliseWithCount(commits.length, "commit")} in the requested range`);
         } else {
-          const todayGroups = filterReleaseGroupsByDate(releaseGroups);
-          const skippedCount = releaseGroups.length - todayGroups.length;
-          if (skippedCount > 0) {
-            debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
-          }
-          debugLog(`Processing ${todayGroups.length} release notes from today`);
-          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
-          debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for commit range`);
+          debugLog(`Dry run covers ${pluraliseWithCount(commits.length, "commit")} in ${pluraliseWithCount(releaseGroups.length, "release note")}`);
+          await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, true, includeUnassigned);
         }
       }
     }

@@ -12,8 +12,9 @@ import {
   StoredSiteRegistration
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { ParentPageMode } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
+import { TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
 import { PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { withContactUsLinks, discoverRegistrationPages, isNgxRamblersSite, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { withContactUsLinks, discoverRegistrationPages, isNgxRamblersSite, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { assembleRegistrationPages, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { SitemapMoveDirection } from "../../../projects/ngx-ramblers/src/app/models/sitemap.model";
 import { excludedImage, markdownSegments, migrateStaticSite, sourceFidelityGaps } from "../migration/migrate-static-site-engine";
@@ -91,6 +92,8 @@ describe("site registration content discovery", () => {
   it("classifies supported page types", () => {
     expect(registrationPageType("walks-programme")).toBe(RegistrationPageType.WALKS);
     expect(registrationPageType("committee/contact-us")).toBe(RegistrationPageType.CONTACT);
+    expect(registrationPageType("contact-us/committee", "Committee", "committee")).toBe(RegistrationPageType.TEXT);
+    expect(registrationPageType("committee")).toBe(RegistrationPageType.TEXT);
     expect(registrationPageType("scrapbook/gallery")).toBe(RegistrationPageType.GALLERY);
     expect(registrationPageType("about-us")).toBe(RegistrationPageType.TEXT);
   });
@@ -271,6 +274,19 @@ describe("site registration content discovery", () => {
   });
 });
 
+describe("registration header buttons", () => {
+  it("adds Current Site next to National Ramblers when the old website is known", () => {
+    expect(registrationHeaderButtons("https://group.example")).toEqual([
+      {title: "Current Site", href: "https://group.example"},
+      {title: "National Ramblers", href: "https://ramblers.org.uk"}
+    ]);
+  });
+
+  it("keeps only National Ramblers when there is no old website", () => {
+    expect(registrationHeaderButtons("")).toEqual([{title: "National Ramblers", href: "https://ramblers.org.uk"}]);
+  });
+});
+
 describe("site registration migration config", () => {
   it("uses the existing migration modes and includes every discovered source page", () => {
     const config = registrationMigrationConfig(registration());
@@ -280,6 +296,8 @@ describe("site registration migration config", () => {
     expect(config.parentPages.some(page => page.pathPrefix === "walks-programme")).toBe(false);
     expect(config.parentPages.some(page => page.pathPrefix === "about-us")).toBe(true);
     expect(config.parentPages.find(page => page.pathPrefix === "contact")?.pageTransformation?.name).toBe("Registration contact");
+    expect(config.parentPages.find(page => page.pathPrefix === "contact")?.pageTransformation?.preset).toBe("contact");
+    expect(config.parentPages.find(page => page.pathPrefix === "contact")?.pageTransformation?.steps.some(step => step.type === TransformationActionType.ADD_CONTACT_CARDS)).toBe(true);
     expect(config.parentPages.find(page => page.pathPrefix === "contact")?.templateFragmentId).toBe(RegistrationMigrationTemplate.CONTACT);
     const nested = registrationMigrationConfig({...registration(), pages: discoverRegistrationPages(`<nav><ul><li><a href="/about">About us</a><ul><li><a href="/scrapbook">Scrapbook</a></li></ul></li></ul></nav>`, "https://group.example").pages});
     expect(nested.parentPages.some(page => page.pathPrefix === "photos" || page.pathPrefix === "about-us/scrapbook")).toBe(true);
@@ -307,6 +325,20 @@ describe("site registration migration config", () => {
     expect(sourceFidelityGaps(source, copied, new Map([["https://group.example/source.jpg", copiedImage]]))).toEqual([]);
   });
 
+  it("does not fail source fidelity when Contact Us is rebuilt as role cards", () => {
+    const source = {path: "https://group.example/contact-us", title: "Contact", segments: [
+      {text: "# Contact Us The group is run by volunteers elected at the AGM towards the end of the year."},
+      {text: "Chairman"},
+      {text: "Pat Taylor"}
+    ]};
+    const target = {path: "contact-us", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [
+      {columns: 12, contentText: "# Contact Us"}
+    ]}, {type: PageContentType.TEXT, maxColumns: 2, showSwiper: false, columns: [
+      {columns: 6, contentText: "## Pat Taylor\n### Chairman\n\n[Contact Pat](?contact-us&role=chairman&redirect=contact-us)"}
+    ]}]};
+    expect(sourceFidelityGaps(source, target)).toEqual([]);
+  });
+
   it("supplies built-in selectors for recognised WordPress sites", () => {
     const saved = registration();
     saved.flavour = RegistrationSiteFlavour.WORDPRESS;
@@ -327,6 +359,27 @@ describe("site registration migration config", () => {
 
   it("allows source-fidelity validation to be disabled for diagnosis", () => {
     expect(registrationMigrationConfig(registration(), false).requireSourceFidelity).toBe(false);
+  });
+
+  it("retries an ordinary committee page with its text transformation when a template loses source content", async () => {
+    const config = registrationMigrationConfig({...registration(), pages: [
+      {url: "https://group.example/committee/", path: "contact-us/committee", title: "Committee", type: RegistrationPageType.CONTACT, selected: true, parentPath: null, proposed: false}
+    ]});
+    config.templatePages = [{path: RegistrationMigrationTemplate.TEXT_WITH_IMAGES, rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false,
+      columns: [{columns: 12, contentText: ""}]}], migrationTemplate: {mappings: []}}];
+    const browser = {
+      newPage: async () => ({route: async () => null, on: () => null, goto: async () => ({ok: () => true}),
+        evaluate: async () => ({html: "<h1>Committee</h1><p>Chairman – <strong>VACANT</strong> (chair@example.com)</p><p>Publicity – Lisa Ord (publicity@example.com)</p>", images: []}), close: async () => null}),
+      close: async () => null
+    } as any;
+    const result = await migrateStaticSite(config, browser);
+    const content = result.pageContents[0].rows.flatMap(row => row.columns || []).flatMap(column => column.rows?.flatMap(nested => nested.columns || []) || [column])
+      .map(column => column.contentText || "").join("\n");
+    expect(content).toContain("VACANT");
+    expect(content).toContain("Lisa Ord");
+    config.parentPages[0].pageTransformation = {...config.parentPages[0].pageTransformation,
+      steps: config.parentPages[0].pageTransformation.steps.filter(step => step.type !== TransformationActionType.ADD_ROW)};
+    await expect(migrateStaticSite(config, browser)).rejects.toThrow("Source fidelity validation failed");
   });
 
   it("builds proposed folders as browseable child indexes through the migration engine", async () => {
@@ -495,6 +548,8 @@ describe("site registration page addresses and layout images", () => {
     expect(registrationContentType(page("contact-us", false))).toBe(RegistrationPageType.CONTACT);
     expect(registrationContentType(page("more-links", false))).toBe(RegistrationPageType.TEXT);
     expect(registrationContentType(page("information", true))).toBe(RegistrationPageType.INDEX);
+    expect(registrationContentType({url: "https://group.example/committee/", path: "committee", title: "Committee", type: RegistrationPageType.CONTACT, selected: true, parentPath: null, proposed: false})).toBe(RegistrationPageType.TEXT);
+    expect(registrationContentType({url: "https://group.example/committee/", path: "contact-us/committee", title: "Committee", type: RegistrationPageType.CONTACT, selected: true, parentPath: "contact-us", proposed: false})).toBe(RegistrationPageType.TEXT);
   });
 
   it("leaves an old site's upcoming walks page to the Walks Manager walks page", () => {
@@ -576,4 +631,3 @@ describe("site registration page addresses and layout images", () => {
     expect(children.map(child => child.path)).toContain("https://group.example/flashgallery/mobile.php?20250112%20Haversham%20%26%20New%20Bradwell~January%202025__");
   });
 });
-

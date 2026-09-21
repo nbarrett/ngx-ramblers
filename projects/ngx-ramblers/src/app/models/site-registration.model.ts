@@ -175,6 +175,7 @@ export interface RegistrationCommitteeCandidate {
   role: string;
   name: string;
   email: string;
+  phone?: string;
 }
 
 export interface RegistrationDraft {

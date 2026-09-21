@@ -24,6 +24,15 @@ import {
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
 
+export const ALBUM_INDEX_PAGE_SELECT = {
+  path: 1,
+  "rows.type": 1,
+  "rows.carousel": 1,
+  "rows.columns.imageSource": 1,
+  "rows.columns.href": 1,
+  "rows.albumIndex": 1
+};
+
 export enum ContentTextCategory {
   MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
 }
@@ -365,7 +374,8 @@ export enum NestedRowContentSource {
   REMAINING_TEXT = "remaining-text",
   ALL_CONTENT = "all-content",
   ALL_IMAGES = "all-images",
-  PATTERN_MATCH = "pattern-match"
+  PATTERN_MATCH = "pattern-match",
+  CONTACT_CARDS = "contact-cards"
 }
 
 export enum NestedRowPackingBehavior {

@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { discoverPhotoClusters, flickrGroupLinks, pageImageRuns, skippedPageReason, withoutRepeatedBlocks } from "./migrate-static-site-engine";
+import { discoverPhotoClusters, flickrAlbumLinks, flickrGroupLinks, pageImageRuns, skippedPageReason, withoutRepeatedBlocks } from "./migrate-static-site-engine";
 import { HttpError } from "../shared/http-error";
 
 function pageClosedBeforeReadFinishes() {
@@ -45,6 +45,21 @@ describe("flickrGroupLinks", () => {
       page("home", "Nothing about Flickr")
     ] as any;
     expect(flickrGroupLinks(pages)).toEqual([{groupName: "examplegroup", pagePath: "photos"}]);
+  });
+});
+
+describe("flickrAlbumLinks", () => {
+  it("keeps a Flickr album address and prefers the photos page when several pages mention it", () => {
+    const page = (path: string, contentText: string) => ({path, rows: [{type: "text", maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText}]}]});
+    const pages = [
+      page("home", "See https://www.flickr.com/photos/hikeessex/albums/72157612345678901"),
+      page("photos", "Album: https://www.flickr.com/photos/hikeessex/sets/72157612345678901 and https://flic.kr/s/aHsmABC")
+    ] as any;
+    expect(flickrAlbumLinks(pages).map(link => link.url)).toEqual([
+      "https://www.flickr.com/photos/hikeessex/sets/72157612345678901",
+      "https://flic.kr/s/aHsmABC"
+    ]);
+    expect(flickrAlbumLinks(pages).every(link => link.pagePath === "photos" || link.url.includes("flic.kr"))).toBe(true);
   });
 });
 

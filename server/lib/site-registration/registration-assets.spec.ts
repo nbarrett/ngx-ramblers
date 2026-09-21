@@ -2,7 +2,7 @@ import expect from "expect";
 import {describe, it} from "mocha";
 import {PageContentType} from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {RegistrationNavbarPath, RegistrationPageType, StoredSiteRegistration} from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
-import {documentSlug, rewriteRegistrationPageLinks, tooSmallForPhoto} from "./registration-assets";
+import {documentSlug, rewriteRegistrationPageLinks} from "./registration-assets";
 
 describe("registration assets", () => {
   it("rewrites links between migrated pages while retaining anchors", () => {
@@ -26,12 +26,12 @@ describe("registration assets", () => {
     expect(rewritten[0].rows[0].columns[0].contentText).toBe("Read [minutes](/home/minutes).");
   });
 
-  it("leaves out an image the current website no longer has, instead of keeping a broken address", () => {
+  it("keeps review-site images pointing at their original website", () => {
     const registration = {website: "https://group.example/", pages: [], proposedNavigation: []} as StoredSiteRegistration;
     const missing = "https://group.example/images/missing.png";
     const pages = [{path: RegistrationNavbarPath.HOME, rows: [{type: PageContentType.TEXT, maxColumns: 2, showSwiper: false, columns: [{columns: 6, imageSource: missing}, {columns: 6, imageSource: "https://group.example/images/walkers.jpg"}]}]}];
-    const rewritten = rewriteRegistrationPageLinks(registration, pages, new Map(), new Map([["https://group.example/images/walkers.jpg", "site-content/walkers.jpg"]]), new Set([missing]));
-    expect(rewritten[0].rows[0].columns.map(column => column.imageSource)).toEqual([null, "site-content/walkers.jpg"]);
+    const rewritten = rewriteRegistrationPageLinks(registration, pages);
+    expect(rewritten[0].rows[0].columns.map(column => column.imageSource)).toEqual([missing, "https://group.example/images/walkers.jpg"]);
   });
 
   it("names a document page after the link that pointed to it, unless the link text is generic", () => {
@@ -55,7 +55,7 @@ describe("registration assets", () => {
     expect(contentText).not.toContain("[our books](https://group.example/books.htm)");
   });
 
-  it("turns links and images pointing back at the old site into plain text, unless they were imported", () => {
+  it("turns old-site navigation links into plain text but keeps inline source images", () => {
     const registration = {
       website: "https://www.group.example/",
       pages: [{url: "https://www.group.example/about.htm", path: "about", title: "About", type: RegistrationPageType.TEXT, selected: true, parentPath: null, proposed: false}],
@@ -73,18 +73,11 @@ describe("registration assets", () => {
     const rewritten = rewriteRegistrationPageLinks(registration, pages, new Map([[minutes, "/about/agm-2024-minutes"]]));
     expect(rewritten[0].rows[0].columns[0].contentText).toBe([
       "Come on our walks and read [about us](/about-us).",
-      "",
+      "![](https://www.group.example/images/hill.jpg)",
       "* [AGM 2024 - Minutes (Draft)](/about/agm-2024-minutes)",
       "See [Hike MK](https://www.hikemk.example/).",
       ""
     ].join("\n\n"));
   });
 
-  it("treats logos, buttons and counters as too small to be photos, but keeps real photos and unreadable images", () => {
-    expect(tooSmallForPhoto(100, 100)).toBe(true);
-    expect(tooSmallForPhoto(468, 60)).toBe(true);
-    expect(tooSmallForPhoto(800, 600)).toBe(false);
-    expect(tooSmallForPhoto(undefined, undefined)).toBe(false);
-  });
 });
-

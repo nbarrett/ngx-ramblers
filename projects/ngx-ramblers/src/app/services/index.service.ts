@@ -15,7 +15,8 @@ import {
   PageContentRow,
   PageContentToRows,
   PageContentType,
-  StringMatch
+  StringMatch,
+  ALBUM_INDEX_PAGE_SELECT
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
 import { booleanOf, stripTrailingSlash } from "../functions/strings";
@@ -88,7 +89,7 @@ export class IndexService {
 
       this.logger.info("Query criteria:", {$or: pathRegex});
 
-      let pages = await this.pageContentService.all({criteria: {$or: pathRegex}});
+      let pages = await this.pageContentService.all({criteria: {$or: pathRegex}, select: ALBUM_INDEX_PAGE_SELECT});
       this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
 
       const hasDepthLimits = contentPaths.some(cp => cp.maxPathSegments > 0);
@@ -288,7 +289,7 @@ export class IndexService {
         }))
       );
       const allChildPages = allContentPathRegex.length > 0
-        ? await this.pageContentService.all({criteria: {$or: allContentPathRegex}})
+        ? await this.pageContentService.all({criteria: {$or: allContentPathRegex}, select: ALBUM_INDEX_PAGE_SELECT})
         : [];
       const allCarouselNames = allChildPages
         .flatMap(page => (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row)))
@@ -415,7 +416,7 @@ export class IndexService {
     );
 
     const allMatchedPages = allContentPathRegex.length > 0
-      ? await this.pageContentService.all({criteria: {$or: allContentPathRegex}})
+      ? await this.pageContentService.all({criteria: {$or: allContentPathRegex}, select: ALBUM_INDEX_PAGE_SELECT})
       : [];
     this.logger.info("Batch enrichment: fetched", allMatchedPages.length, "pages for", childIndexes.length, "child indexes");
 

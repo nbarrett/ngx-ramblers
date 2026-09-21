@@ -5,11 +5,12 @@ import { SetupProgress, SetupStepStatus } from "../../../models/environment-setu
 import { UIDateFormat } from "../../../models/date-format.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../functions/registration-progress";
+import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
   selector: "app-registration-progress-log",
   standalone: true,
-  imports: [FontAwesomeModule],
+  imports: [FontAwesomeModule, MarkdownComponent],
   styles: [`
     .registration-progress-log
       background-color: #1e293b
@@ -37,6 +38,12 @@ import { registrationProgressLines, registrationProgressStatus, sanitiseRegistra
     .registration-progress-message
       overflow-wrap: anywhere
       min-width: 0
+
+    .registration-progress-message ::ng-deep p
+      margin-bottom: 0
+
+    .registration-progress-message ::ng-deep a
+      color: #fbbf24
   `],
   template: `
     <div class="registration-progress-log">
@@ -44,14 +51,14 @@ import { registrationProgressLines, registrationProgressStatus, sanitiseRegistra
         <div class="registration-progress-row">
           <fa-icon [icon]="failed" class="text-danger"/>
           <span class="text-muted registration-progress-time"></span>
-          <span class="registration-progress-message">{{sanitise(error)}}</span>
+          <div class="registration-progress-message" markdown [data]="sanitise(error)"></div>
         </div>
       }
       @for (item of lines(); track $index) {
         <div class="registration-progress-row">
           <fa-icon [icon]="icon(item, $index)" [class.text-success]="status(item, $index) === StepStatus.Completed" [class.text-danger]="status(item, $index) === StepStatus.Failed" [animation]="status(item, $index) === StepStatus.Running ? 'spin' : undefined"/>
           <span class="text-muted registration-progress-time">{{time(item)}}</span>
-          <span class="registration-progress-message">{{sanitise(item.message || item.step)}}</span>
+          <div class="registration-progress-message" markdown [data]="sanitise(item.message || item.step)"></div>
         </div>
       }
       @if (!error && !lines().length) {

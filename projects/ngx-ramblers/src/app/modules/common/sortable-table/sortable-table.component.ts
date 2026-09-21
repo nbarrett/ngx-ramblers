@@ -56,7 +56,7 @@ import {
             }
             @if (!groupCollapsed(group.key)) {
             @for (row of group.rows; track trackRow($index, row)) {
-              <tr [class.selectable]="rowSelect.observed"
+              <tr [class.selectable]="rowSelect.observed" [class.sortable-table-has-expanded-row]="expandedRowTemplate && expandedWhen(row)"
                   [attr.role]="rowSelect.observed ? 'button' : null"
                   [attr.tabindex]="rowSelect.observed ? 0 : null"
                   (click)="selectRow(row)"
@@ -145,6 +145,9 @@ import {
       transition: background-color 0.15s ease
       word-break: break-word
 
+    .sortable-table tbody tr.sortable-table-has-expanded-row td
+      border-bottom: none
+
     .sortable-table tbody tr:last-child td
       border-bottom: none
 
@@ -195,6 +198,9 @@ import {
 
       .sortable-table tbody tr
         border-bottom: 1px solid #e9ecef
+
+      .sortable-table tbody tr.sortable-table-has-expanded-row
+        border-bottom: none
 
       .sortable-table tbody tr:last-child
         border-bottom: none

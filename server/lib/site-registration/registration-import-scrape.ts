@@ -63,6 +63,9 @@ export async function scrapeRegistrationSite(
   onProgress: (message: string) => void,
   registrationId?: string
 ): Promise<MigrationResult> {
+  if (migration.uploadTos3) {
+    throw new Error("A Full registration must not upload images to file storage. Photos stay on the current website until the site goes live.");
+  }
   const jobId = randomUUID();
   const templatePages = await loadTemplatePages(migration);
   return new Promise<MigrationResult>((resolve, reject) => {

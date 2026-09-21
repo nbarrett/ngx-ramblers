@@ -195,7 +195,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                   </div>
                 }
               </ng-template>
-              @if (!column.rows) {
+              @if (!column.rows?.length) {
                 <ng-template #rowContentEditing>
                   <div class="thumbnail-site-edit thumbnail-site-edit-content h-100 mt-2"
                        [class.thumbnail-site-edit-content-active]="controlsShown(column)"
@@ -512,7 +512,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                 </ng-template>
                 <ng-container [ngTemplateOutlet]="rowContentEditing"></ng-container>
               }
-              @if (column.rows) {
+              @if (column.rows?.length) {
                 <ng-template #columnNestedRows>
                   <div class="column-nested-rows">
                     <div class="thumbnail-site-edit" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"

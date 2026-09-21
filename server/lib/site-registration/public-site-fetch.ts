@@ -13,6 +13,8 @@ const excludedNetworks = new BlockList();
   excludedNetworks.addSubnet(address, Number(prefix), "ipv4");
 });
 
+import { PublicSitePage, PublicSiteResponse } from "./public-site-fetch.model";
+
 const UNRESOLVABLE_HOST_CODES = ["ENOTFOUND", "ENODATA"];
 
 export const PUBLIC_SITE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 NGX-Ramblers-Registration";
@@ -67,17 +69,17 @@ export function publicSiteUrl(value: string): URL {
   }
 }
 
-function fetchPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<Buffer> {
+function fetchPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
   return sourceSiteLimiter.request(value, () => requestPublicSiteBody(value, redirects, accept, expectedContentType, maximumBytes));
 }
 
-async function requestPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<Buffer> {
+async function requestPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
   const url = publicSiteUrl(value);
   const addresses = await lookup(url.hostname, {all: true, family: 4});
   if (redirects > 5 || !addresses.length || addresses.some(address => excludedNetworks.check(address.address, "ipv4"))) {
     throw new Error("The website must resolve to a public internet address.");
   }
-  return new Promise<Buffer>((resolve, reject) => {
+  return new Promise<PublicSiteResponse>((resolve, reject) => {
     const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
       lookup: (_hostname, _options, callback) => callback(null, addresses),
       headers: {"User-Agent": PUBLIC_SITE_USER_AGENT, Accept: accept}, timeout: 20000
@@ -103,7 +105,7 @@ async function requestPublicSiteBody(value: string, redirects: number, accept: s
             chunks.push(buffer);
           }
         });
-        response.on("end", () => resolve(Buffer.concat(chunks)));
+        response.on("end", () => resolve({body: Buffer.concat(chunks), url: url.href}));
         response.on("error", reject);
       }
     });
@@ -113,14 +115,19 @@ async function requestPublicSiteBody(value: string, redirects: number, accept: s
   });
 }
 
+export async function fetchPublicSitePage(value: string, redirects = 0): Promise<PublicSitePage> {
+  const response = await fetchPublicSiteBody(value, redirects, "text/html", "text/html", 5000000);
+  return {html: response.body.toString("utf8"), url: response.url};
+}
+
 export async function fetchPublicSiteHtml(value: string, redirects = 0): Promise<string> {
-  return (await fetchPublicSiteBody(value, redirects, "text/html", "text/html", 5000000)).toString("utf8");
+  return (await fetchPublicSitePage(value, redirects)).html;
 }
 
 export async function fetchPublicSiteImage(value: string): Promise<Buffer> {
-  return fetchPublicSiteBody(value, 0, "image/*", "image/", 20000000);
+  return (await fetchPublicSiteBody(value, 0, "image/*", "image/", 20000000)).body;
 }
 
 export async function fetchPublicSiteDocument(value: string): Promise<Buffer> {
-  return fetchPublicSiteBody(value, 0, "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,*/*", "", 30000000);
+  return (await fetchPublicSiteBody(value, 0, "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,*/*", "", 30000000)).body;
 }

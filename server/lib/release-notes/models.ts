@@ -37,6 +37,13 @@ export interface ReleaseNotesData {
   allCommits: ConventionalCommit[];
 }
 
+export interface ReleaseGroup {
+  date: string;
+  issueNumber: string | null;
+  commits: ConventionalCommit[];
+  pathSuffix: string;
+}
+
 export interface ReleaseNotesConfig {
   cmsUrl: string;
   username: string;

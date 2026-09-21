@@ -15,6 +15,14 @@ export function registrationLink(settings: RegistrationSettings, token: string):
 }
 
 export async function startRegistration(request: RegistrationStartRequest): Promise<RegistrationStartResponse> {
+  return createRegistration(request, false);
+}
+
+export async function startRegistrationAsAdmin(request: RegistrationStartRequest, email: string): Promise<RegistrationStartResponse> {
+  return createRegistration({...request, email}, true);
+}
+
+async function createRegistration(request: RegistrationStartRequest, confirmedByAdmin: boolean): Promise<RegistrationStartResponse> {
   const settings = await registrationSettings();
   const email = normalisedRegistrationEmail(request?.email);
   const groupCode = isString(request?.groupCode) ? request.groupCode.trim().toUpperCase() : "";
@@ -27,9 +35,9 @@ export async function startRegistration(request: RegistrationStartRequest): Prom
     throw new Error("Choose Lite or Full before continuing.");
   } else if (!code) {
     throw new Error("Choose your Ramblers area, and your group if you are registering one, before continuing.");
-  } else if (!normalisedRegistrationEmail(request?.email) || !validRegistrationEmail(email)) {
+  } else if (!confirmedByAdmin && (!normalisedRegistrationEmail(request?.email) || !validRegistrationEmail(email))) {
     throw new Error("Enter a valid committee email address, such as secretary@yourgroup.org.uk.");
-  } else if (!registrationEmailAllowed(settings, code, email)) {
+  } else if (!confirmedByAdmin && !registrationEmailAllowed(settings, code, email)) {
     throw new Error(`That email address is not on the approved list for this group or area. Try another committee email address or ${REGISTRATION_ADMIN_HELP_PROMPT}.`);
   }
   const entries = await fetchRamblersGroupsFromApi([code]);
@@ -47,20 +55,22 @@ export async function startRegistration(request: RegistrationStartRequest): Prom
     await registrations().deleteOne({id: existingRecord.id});
   }
   const existing = leftover ? null : existingRecord;
-  const message = "Check your committee inbox for the confirmation or return link.";
-  if (existing && existing.email !== email) {
+  const message = confirmedByAdmin ? "Registration started by a platform administrator." : "Check your committee inbox for the confirmation or return link.";
+  if (existing && confirmedByAdmin) {
+    throw new Error("This group or area already has a registration. Open it under Site registrations.");
+  } else if (existing && existing.email !== email) {
     throw new Error("This group or area already has a registration. Ask the platform administrator to help you resume it.");
   } else if (existing && now - existing.lastEmailAt < 60000) {
     return {message};
   } else {
     const initial: StoredSiteRegistration = {
-      id: randomUUID(), group, email, plan: request.plan, currentStep: RegistrationStep.EMAIL,
-      website: group.external_url || "", pages: [], proposedNavigation: [], state: RegistrationState.AWAITING_EMAIL,
-      verifiedAt: null, createdAt: now, updatedAt: now,
+      id: randomUUID(), group, email, plan: request.plan, currentStep: confirmedByAdmin && request.plan === RegistrationPlan.LITE ? RegistrationStep.REVIEW : confirmedByAdmin ? RegistrationStep.CONTENT : RegistrationStep.EMAIL,
+      website: group.external_url || "", pages: [], proposedNavigation: [], state: confirmedByAdmin ? RegistrationState.DRAFT : RegistrationState.AWAITING_EMAIL,
+      verifiedAt: confirmedByAdmin ? now : null, createdAt: now, updatedAt: now,
       environmentName: group.group_code.toLowerCase(), siteUrl: null, flavour: RegistrationSiteFlavour.GENERIC,
       progress: [], error: null, resumeTokenHash: registrationTokenHash(resumeToken),
-      verificationTokenHash: registrationTokenHash(resumeToken), verificationExpiresAt: now + 86400000,
-      lastEmailAt: now, migrationConfig: null, provisionedAt: null, walksLoadedAt: null, importedAt: null, reviewedAt: null,
+      verificationTokenHash: confirmedByAdmin ? null : registrationTokenHash(resumeToken), verificationExpiresAt: confirmedByAdmin ? 0 : now + 86400000,
+      lastEmailAt: confirmedByAdmin ? 0 : now, migrationConfig: null, provisionedAt: null, walksLoadedAt: null, importedAt: null, reviewedAt: null,
       reviewNotifiedAt: null, invitedAt: null, leaseUntil: 0, leaseOwner: null,
       history: [{action: RegistrationHistoryAction.STARTED, at: now, by: email}]
     };
@@ -70,11 +80,13 @@ export async function startRegistration(request: RegistrationStartRequest): Prom
     if (!saved || (!existing && saved.id !== initial.id)) {
       return {message};
     } else {
-      try {
-        await sendRegistrationLinkEmail(settings, group.name, email, resumeToken);
-      } catch (error) {
-        await registrations().updateOne({id: saved.id, lastEmailAt: now}, {$set: {lastEmailAt: 0}});
-        throw error;
+      if (!confirmedByAdmin) {
+        try {
+          await sendRegistrationLinkEmail(settings, group.name, email, resumeToken);
+        } catch (error) {
+          await registrations().updateOne({id: saved.id, lastEmailAt: now}, {$set: {lastEmailAt: 0}});
+          throw error;
+        }
       }
       return {message, resumeToken};
     }

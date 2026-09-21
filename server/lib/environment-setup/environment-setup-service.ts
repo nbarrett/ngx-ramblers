@@ -411,7 +411,14 @@ export async function createEnvironment(
           return groupLogo ? `Using the Ramblers logo ${groupLogo.originalFileName}` : "No matching Ramblers directory logo";
         });
       } else {
-        reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped copying standard assets");
+        reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped copying standard icons and backgrounds");
+        await runOptionalStep(SetupStep.COPY_STANDARD_ASSETS, "Finding the group's Ramblers logo", async () => {
+          const groupLogo = await copyRamblersDirectoryLogo(awsAdminConfig, awsCredentials.bucket, request.ramblersInfo.groupName, request.ramblersInfo.areaName);
+          if (groupLogo) {
+            copiedAssets = {icons: [], logos: [groupLogo], backgrounds: []};
+          }
+          return groupLogo ? `Using the Ramblers logo ${groupLogo.originalFileName}` : "No matching Ramblers directory logo";
+        });
       }
     } else {
       awsCredentials = {
