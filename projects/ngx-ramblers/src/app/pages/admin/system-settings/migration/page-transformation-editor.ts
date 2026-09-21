@@ -18,6 +18,7 @@ import {
   ColumnConfig,
   ContentMatchType,
   createAllImagesLayoutTransformationConfig,
+  createContactTransformationConfig,
   createCustomRegexTransformationConfig,
   createDefaultTransformationConfig,
   createRouteMapLayoutTransformationConfig,
@@ -73,6 +74,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
             <option value="walkingRoute">Walking Route</option>
             <option value="routeWithLocation">Route with Location</option>
             <option value="routeIndex">Route Index with Map</option>
+            <option value="contact">Contact role cards</option>
           </select>
           @if (config?.preset) {
             <span class="small text-muted">Preset: <strong>{{ presetLabel() }}</strong> — {{ changedPaths().length }} changed</span>
@@ -121,6 +123,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
                   <option [value]="TransformationActionType.ADD_INDEX_ROW">Add Index Row</option>
                   <option [value]="TransformationActionType.ADD_MAP_ROW">Add Map Row</option>
                   <option [value]="TransformationActionType.ADD_MIGRATION_NOTE">Add Migration Note</option>
+                  <option [value]="TransformationActionType.ADD_CONTACT_CARDS">Add Contact Cards</option>
                 </select>
                 @if (step.type === TransformationActionType.ADD_ROW && step.rowConfig) {
                   <span class="step-label">Type:</span>
@@ -1049,6 +1052,8 @@ export class PageTransformationEditor implements OnInit {
         return createRouteWithLocationTransformationConfig();
       case "routeIndex":
         return createRouteIndexTransformationConfig();
+      case "contact":
+        return createContactTransformationConfig();
       default:
         return createDefaultTransformationConfig();
     }
@@ -1065,6 +1070,7 @@ export class PageTransformationEditor implements OnInit {
       case "walkingRoute": return "Walking Route";
       case "routeWithLocation": return "Route with Location";
       case "routeIndex": return "Route Index with Map";
+      case "contact": return "Contact role cards";
       default: return id || "None";
     }
   }
@@ -1285,6 +1291,8 @@ export class PageTransformationEditor implements OnInit {
         return "Add Nested Rows";
       case TransformationActionType.ADD_MIGRATION_NOTE:
         return "Add Migration Note";
+      case TransformationActionType.ADD_CONTACT_CARDS:
+        return "Add Contact Cards";
       default:
         return "Unknown";
     }
@@ -1319,6 +1327,9 @@ export class PageTransformationEditor implements OnInit {
         break;
       case "routeIndex":
         this.config = createRouteIndexTransformationConfig();
+        break;
+      case "contact":
+        this.config = createContactTransformationConfig();
         break;
     }
 

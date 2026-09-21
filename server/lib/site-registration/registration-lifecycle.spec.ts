@@ -18,11 +18,10 @@ import * as environmentDetailsModule from "../environment-setup/environment-deta
 import * as mongoDatabaseUser from "../environment-setup/mongo-database-user";
 import * as systemConfigModule from "../config/system-config";
 import { approveRegistration, runRegistrationJobs, submitRegistration } from "./registration-jobs";
-import { confirmRegistration, startRegistration } from "./registration-service";
+import { confirmRegistration, startRegistration, startRegistrationAsAdmin } from "./registration-service";
 import { registrationMigrationConfig } from "./registration-content";
 import { createEmptySetupRequest } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { MongoClient } from "mongodb";
-import * as publicSiteFetch from "./public-site-fetch";
 import * as migrationFileUpload from "../migration/migration-file-upload";
 import { FLYIO_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
@@ -105,6 +104,25 @@ describe("site registration lifecycle", () => {
     expect(state.registration.environmentName).toBe("ab");
   });
 
+  it("lets a platform administrator start a verified registration without sending a confirmation email", async () => {
+    const state: {registration: StoredSiteRegistration | null} = {registration: null};
+    sandboxState.sandbox.stub(registrationStore, "registrations").returns(inMemoryRegistrations(state));
+    sandboxState.sandbox.stub(registrationStore, "registrationSettings").resolves(settings);
+    sandboxState.sandbox.stub(registrationStore, "ensureRegistrationIndexes").resolves();
+    sandboxState.sandbox.stub(groupsApi, "fetchRamblersGroupsFromApi").resolves([group] as any);
+    const sendEmail = sandboxState.sandbox.stub(registrationEmail, "sendRegistrationEmail").resolves();
+    sandboxState.sandbox.stub(environmentsConfig, "findEnvironmentFromDatabase").resolves(null);
+
+    const started = await startRegistrationAsAdmin({areaCode: "AB", groupCode: "AB01", email: "", plan: RegistrationPlan.FULL}, "administrator@example.com");
+
+    expect(started.resumeToken).toBeTruthy();
+    expect(state.registration.email).toBe("administrator@example.com");
+    expect(state.registration.state).toBe(RegistrationState.DRAFT);
+    expect(state.registration.currentStep).toBe(RegistrationStep.CONTENT);
+    expect(state.registration.verifiedAt).toBeTruthy();
+    expect(sendEmail.callCount).toBe(0);
+  });
+
   it("takes a Lite registration from approved email through confirmation, review and invitation", async () => {
     const state: {registration: StoredSiteRegistration | null} = {registration: null};
     const registrations = inMemoryRegistrations(state);
@@ -168,6 +186,7 @@ describe("site registration lifecycle", () => {
     expect(createEnvironment.firstCall.args[0].serviceConfigs.brevo.apiKey).toBe("");
     expect(createEnvironment.firstCall.args[0].serviceConfigs.mongodb.username).toBe("ngx_example_ramblers_db_user");
     expect(createEnvironment.firstCall.args[0].serviceConfigs.mongodb.password).toBe("generated-password");
+    expect(createEnvironment.firstCall.args[0].options.copyStandardAssets).toBe(false);
 
     await approveRegistration(state.registration.id, "Site Reviewer");
     await runRegistrationJobs();
@@ -194,7 +213,7 @@ describe("site registration lifecycle", () => {
     initial.migrationConfig = registrationMigrationConfig(initial);
     const state = {registration: initial};
     const registrations = inMemoryRegistrations(state);
-    const target = {migrationConfig: null as any, navigation: null as any, groupPages: null as any, pagePaths: [] as string[], deletedPaths: [] as string[], earlierImportQueries: [] as any[], landingVisual: false, landingVisualImages: [] as string[], homeVisual: false};
+    const target = {migrationConfig: null as any, navigation: null as any, groupPages: null as any, pagePaths: [] as string[], deletedPaths: [] as string[], earlierImportQueries: [] as any[], landingVisual: false, landingVisualImages: [] as string[], landingVisualHeights: [] as number[], homeVisual: false};
     const targetDb = {collection: (name: string) => ({
       find: sinon.stub().returns({toArray: sinon.stub().resolves(target.pagePaths.map(path => ({path, rows: [{}]})))}),
       findOne: sinon.stub().resolves(null),
@@ -219,6 +238,7 @@ describe("site registration lifecycle", () => {
           const openingRow = update.$set.rows[headingFirst ? 1 : 0];
           target.landingVisual = openingRow?.showSwiper && openingRow.columns.some((column: any) => column.imageSource || column.showPlaceholderImage || column.rows?.length);
           target.landingVisualImages = (openingRow?.showSwiper ? openingRow.columns : []).map((column: any) => column.imageSource).filter(Boolean);
+          target.landingVisualHeights = (openingRow?.showSwiper ? openingRow.columns : []).map((column: any) => column.imageHeight).filter(Boolean);
         } else if (name === "pageContent" && update.$push?.rows) {
           target.homeVisual = update.$push.rows.$each[0].showSwiper;
         }
@@ -231,7 +251,6 @@ describe("site registration lifecycle", () => {
     sandboxState.sandbox.stub(environmentContext, "connectToEnvironmentMongo").resolves({db: targetDb, client: {close: sinon.stub().resolves()}} as any);
     sandboxState.sandbox.stub(osMapsProvision, "ensureOsMapsApiKey").resolves({apiKey: "os-key", message: "OS Maps API key already configured"});
     sandboxState.sandbox.stub(environmentsConfig, "setEnvironmentEstateDeploy").resolves();
-    sandboxState.sandbox.stub(publicSiteFetch, "fetchPublicSiteImage").resolves(Buffer.from("image"));
     const uploads = sandboxState.sandbox.stub(migrationFileUpload, "uploadMigrationBufferToS3").callsFake(async (_bucket, sourceName) => `site-content/${sourceName.split("/").pop()}`);
     sandboxState.sandbox.stub(importScrape, "registrationPhotoTemplates").resolves({index: {path: "photos-index", rows: []}, year: {path: "photos-year", rows: []}});
     sandboxState.sandbox.stub(importScrape, "scrapeRegistrationSite").resolves({pageContents: [{path: "about", rows: [
@@ -251,13 +270,17 @@ describe("site registration lifecycle", () => {
     expect(target.migrationConfig.sites[0].parentPages[0].templateFragmentId).toContain("fragments/templates/self-service/");
     expect(target.pagePaths).toContain("about-us");
     expect(target.earlierImportQueries.length).toBe(2);
-    expect(target.navigation).toEqual([{title: "National Ramblers", href: "https://ramblers.org.uk"}]);
+    expect(target.navigation).toEqual([
+      {title: "Current Site", href: "https://group.example"},
+      {title: "National Ramblers", href: "https://ramblers.org.uk"}
+    ]);
     expect(target.groupPages.map(page => page.href)).toEqual(["about-us", "admin"]);
-    expect(target.deletedPaths).toContain("contact-us");
     expect(target.deletedPaths).toContain("walks/information");
     expect(target.deletedPaths).not.toContain("about-us");
-    expect(uploads.args.map(args => args[0])).toEqual(["review-site", "review-site", "review-site"]);
-    expect(target.landingVisualImages).toEqual(["site-content/one.jpg", "site-content/two.jpg", "site-content/three.jpg"]);
+    expect(target.deletedPaths).not.toContain("contact-us");
+    expect(uploads.callCount).toBe(0);
+    expect(target.landingVisualImages).toEqual(["https://group.example/one.jpg", "https://group.example/two.jpg", "https://group.example/three.jpg"]);
+    expect(target.landingVisualHeights).toEqual([400, 400, 400]);
     expect(sendEmail.firstCall.args[2]).toBe("reviewer@example.com");
   });
 });

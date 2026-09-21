@@ -1,4 +1,4 @@
-import { fetchPublicSiteHtml, fetchPublicSiteImage } from "../site-registration/public-site-fetch";
+import { fetchPublicSiteHtml } from "../site-registration/public-site-fetch";
 import { HttpError } from "../shared/http-error";
 import { Browser, Page } from "playwright";
 import { launchBrowser as sharedLaunchBrowser } from "./browser-utils";
@@ -18,13 +18,11 @@ import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { first, isArray, isString } from "es-toolkit/compat";
+import { first, isArray, isString, omit } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fullMonthName, galleryDateFrom, MONTH_NAME_PATTERN } from "../../../projects/ngx-ramblers/src/app/functions/gallery-date";
 import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } from "../shared/string-utils";
-import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
-import { queryAWSConfig } from "../aws/aws-controllers";
-import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { ExternalAlbumMetadata, ExternalAlbumSource, RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { assertMigrationNotCancelled, progress } from "./migration-progress";
 import * as exclusions from "./text-exclusions";
@@ -37,6 +35,7 @@ import {
   SiteMigrationConfig
 } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import {
+  FlickrAlbumLink,
   FlickrGroupLink,
   MigratedAlbum,
   MigrationResult,
@@ -47,16 +46,15 @@ import {
 import { PageTransformationEngine } from "./page-transformation-engine";
 import { htmlToMarkdown } from "./turndown-service-factory";
 import mongoose from "mongoose";
-import {uploadMigrationBufferToS3} from "./migration-file-upload";
-import { fetchFlickrGroupPool, flickrGroupNamesIn } from "../external-album/flickr-provider";
+import { fetchFlickrGroupPool, fetchUserAlbums, flickrAlbumUrlsIn, flickrGroupAsAlbum, flickrGroupNamesIn, flickrProvider, flickrUserAlbumsUrlsIn, parseUserAlbumsUrl } from "../external-album/flickr-provider";
+import { externalAlbumDocuments, importExternalAlbum } from "../external-album/external-album-import-service";
 import { SourceSiteUnavailableError, sourceSiteLimiter } from "../site-registration/source-site-limiter";
+import { registrationCommitteeCandidatesFromMarkdown } from "../site-registration/registration-committee";
+import { RegistrationNavbarPath } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-let cachedAwsConfig: AWSConfig | undefined;
-const awsConfig = (): AWSConfig => cachedAwsConfig ?? (cachedAwsConfig = queryAWSConfig());
 
-const MAX_FLICKR_GROUP_PHOTOS = 144;
 const MIN_IMAGES_FOR_PAGE_ALBUM = 4;
 const MIN_IMAGES_FOR_GALLERY_ALBUM = 1;
 const MIN_IMAGES_FOR_HOME_CAROUSEL = 2;
@@ -75,8 +73,8 @@ type Ctx = {
 function withDefaults(config: SiteMigrationConfig): SiteMigrationConfig {
   return {
     persistData: false,
-    uploadTos3: false,
-    ...config
+    ...config,
+    uploadTos3: false
   };
 }
 
@@ -146,6 +144,10 @@ function configurePageDiagnostics(page: Page): void {
   });
 }
 
+function pageContentToPersist(page: PageContent): PageContent {
+  return omit(page, ["debugLogs"]) as PageContent;
+}
+
 export function skippedPageReason(error: unknown): string {
   const status = error instanceof HttpError ? error.status : null;
   if (status === 404 || status === 410) {
@@ -193,25 +195,36 @@ function toContentPath(path: string): string {
 }
 
 function fidelityText(value: string): string {
-  return exclusions.cleanMarkdown(value || "").replace(/\s+/g, " ").trim();
+  return exclusions.cleanMarkdown(value || "").replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "").replace(/\s+/g, " ").trim();
 }
 
 function contentColumns(rows: PageContentRow[]): PageContentColumn[] {
   return rows.flatMap(row => row.columns || []).flatMap(column => [column, ...contentColumns(column.rows || [])]);
 }
 
+function isContactUsPage(target: PageContent): boolean {
+  const path = (target.path || "").replace(/^\/+|\/+$/g, "");
+  return path === RegistrationNavbarPath.CONTACT_US || path.endsWith(`/${RegistrationNavbarPath.CONTACT_US}`);
+}
+
 export function sourceFidelityGaps(source: ScrapedPage, target: PageContent, imageMappings: Map<string, string> = new Map()): string[] {
   const columns = contentColumns(target.rows || []);
   const targetText = fidelityText(columns.flatMap(column => [column.contentText || "", column.alt || ""]).join("\n"));
   const targetImages = new Set(columns.map(column => column.imageSource).filter(Boolean));
-  const missingText = source.segments.map(segment => fidelityText(segment.text)).filter(Boolean)
-    .filter(text => !targetText.includes(text)).map((text, index) => `text block ${index + 1}: ${text.slice(0, 80)}`);
-  const sourceImages = source.segments.filter(segment => segment.image).map(segment => segment.image.src);
-  const allowedTargetImages = new Set(sourceImages.map(imageSource => imageMappings.get(imageSource) || imageSource));
-  const missingImages = sourceImages
-    .filter(imageSource => !targetImages.has(imageMappings.get(imageSource) || imageSource)).map(imageSource => `image: ${imageSource}`);
-  const nonSourceImages = [...targetImages].filter(imageSource => !allowedTargetImages.has(imageSource)).map(imageSource => `non-source image: ${imageSource}`);
-  return [...missingText, ...missingImages, ...nonSourceImages];
+  const markdown = (source.segments || []).map(segment => segment.text || "").join("\n");
+  const contacts = isContactUsPage(target) ? registrationCommitteeCandidatesFromMarkdown(markdown) : [];
+  if (contacts.length > 0) {
+    return contacts.filter(candidate => !targetText.includes(fidelityText(candidate.name))).map(candidate => `contact ${candidate.name}`);
+  } else {
+    const missingText = source.segments.map(segment => fidelityText(segment.text)).filter(Boolean)
+      .filter(text => !targetText.includes(text)).map((text, index) => `text block ${index + 1}: ${text.slice(0, 80)}`);
+    const sourceImages = source.segments.filter(segment => segment.image).map(segment => segment.image.src);
+    const allowedTargetImages = new Set(sourceImages.map(imageSource => imageMappings.get(imageSource) || imageSource));
+    const missingImages = sourceImages
+      .filter(imageSource => !targetImages.has(imageMappings.get(imageSource) || imageSource)).map(imageSource => `image: ${imageSource}`);
+    const nonSourceImages = [...targetImages].filter(imageSource => !allowedTargetImages.has(imageSource)).map(imageSource => `non-source image: ${imageSource}`);
+    return [...missingText, ...missingImages, ...nonSourceImages];
+  }
 }
 
 function assertSourceSiteResponding(ctx: Ctx): void {
@@ -416,22 +429,8 @@ async function scrapeAllPages(ctx: Ctx): Promise<ScrapedPage[]> {
 }
 
 async function uploadImageToS3(ctx: Ctx, img: ScrapedImage): Promise<string | null> {
-  if (!ctx.config.uploadTos3) {
-    ctx.imageMappings.set(img.src, img.src);
-    return img.src;
-  } else {
-    try {
-      const buffer = await fetchPublicSiteImage(img.src);
-      const awsFileName = await uploadMigrationBufferToS3(ctx.config.uploadBucket || awsConfig().bucket, img.src, buffer);
-      ctx.imageMappings.set(img.src, awsFileName);
-      return awsFileName;
-    } catch (error) {
-      debugLog(`❌ Error uploading image ${img.src}:`, error);
-      progress(`Kept original image URL ${img.src}: ${error?.message || error}`);
-      ctx.imageMappings.set(img.src, img.src);
-      return img.src;
-    }
-  }
+  ctx.imageMappings.set(img.src, img.src);
+  return img.src;
 }
 
 async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, contentTextItems: ContentText[]): Promise<PageContent> {
@@ -485,7 +484,7 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
   }
   const pageContent: PageContent = {
     path: pagePath || "home",
-    rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, rows: nestedRows}]}]
+    rows: nestedRows
   };
   assertSourceFidelity(ctx, content, pageContent);
   if (ctx.config.persistData) {
@@ -751,16 +750,22 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
   }
 }
 
+function albumFileFromSource(img: ScrapedImage, index: number, image: string) {
+  return {
+    image,
+    originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
+    text: (img.alt || "").trim() || humaniseFileStemFromUrl(img.src),
+    tags: []
+  };
+}
+
 async function albumFromImages(ctx: Ctx, title: string, images: ScrapedImage[], albumView: AlbumView = AlbumView.GALLERY): Promise<MigratedAlbum | null> {
-  const files = (await Promise.all(images.map(async (img, index) => {
-    const uploaded = await uploadImageToS3(ctx, img);
-    return uploaded ? {
-      image: uploaded,
-      originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
-      text: (img.alt || "").trim() || humaniseFileStemFromUrl(img.src),
-      tags: []
-    } : null;
-  }))).filter(Boolean);
+  const files = ctx.config.uploadTos3
+    ? (await Promise.all(images.map(async (img, index) => {
+      const uploaded = await uploadImageToS3(ctx, img);
+      return uploaded ? albumFileFromSource(img, index, uploaded) : null;
+    }))).filter(Boolean)
+    : images.map((img, index) => albumFileFromSource(img, index, img.src));
   if (files.length) {
   const name = albumFrom(title);
   const album: ContentMetadata = {
@@ -871,6 +876,17 @@ async function pageAlbums(ctx: Ctx, pageContents: PageContent[]): Promise<{pages
   }, Promise.resolve({pages: [] as PageContent[], albums: [] as MigratedAlbum[]}));
 }
 
+export function flickrAlbumLinks(pageContents: PageContent[]): FlickrAlbumLink[] {
+  const galleryPage = (page: PageContent) => /photo|gallery|album/i.test(page.path || "") ? 0 : 1;
+  return [...pageContents].sort((left, right) => galleryPage(left) - galleryPage(right))
+    .flatMap(page => [...flickrAlbumUrlsIn(JSON.stringify(page.rows || [])), ...flickrUserAlbumsUrlsIn(JSON.stringify(page.rows || []))]
+      .map(url => ({url, pagePath: page.path})))
+    .filter((link, index, links) => {
+      const albumId = flickrProvider.parseAlbumUrl(link.url)?.albumId || parseUserAlbumsUrl(link.url) || link.url;
+      return links.findIndex(item => (flickrProvider.parseAlbumUrl(item.url)?.albumId || parseUserAlbumsUrl(item.url) || item.url) === albumId) === index;
+    });
+}
+
 export function flickrGroupLinks(pageContents: PageContent[]): FlickrGroupLink[] {
   const galleryPage = (page: PageContent) => /photo|gallery|album/i.test(page.path || "") ? 0 : 1;
   return [...pageContents].sort((left, right) => galleryPage(left) - galleryPage(right))
@@ -884,7 +900,59 @@ export function repeatsAnAlbum(images: ScrapedImage[], albums: MigratedAlbum[]):
   return images.length > 0 && repeated * 2 >= images.length;
 }
 
-async function migrateAlbums(ctx: Ctx, flickrGroups: FlickrGroupLink[] = [], pageAlbumsCollected: MigratedAlbum[] = []): Promise<MigratedAlbum[]> {
+async function addImportedFlickrAlbum(ctx: Ctx, metadata: ExternalAlbumMetadata, pagePath: string, albums: MigratedAlbum[]): Promise<void> {
+  const title = metadata.title || "Flickr album";
+  const images = metadata.photos.map(photo => ({src: photo.url, alt: photo.title || ""}));
+  if (images.length && !repeatsAnAlbum(images, albums)) {
+    const request = {
+      source: ExternalAlbumSource.FLICKR,
+      albumUrl: metadata.id,
+      targetPath: albumFrom(title),
+      albumTitle: title
+    };
+    const documents = externalAlbumDocuments(request, metadata, "site-migration");
+    const saved = ctx.config.persistData
+      ? await importExternalAlbum(request, metadata, "site-migration")
+      : {success: true, errorMessage: ""};
+    if (saved.success) {
+      albums.push({album: documents.metadata, pageContent: documents.page, sourcePagePath: pagePath, sourceImageUrls: images.map(image => image.src)});
+      progress(`Completed album ${title} with ${pluraliseWithCount(images.length, "photo")} from Flickr`);
+    } else {
+      progress(`Skipped the Flickr album ${title}: ${saved.errorMessage}`);
+    }
+  }
+}
+
+async function albumFromFlickr(ctx: Ctx, url: string, pagePath: string, albums: MigratedAlbum[]): Promise<void> {
+  const parsed = flickrProvider.parseAlbumUrl(url);
+  if (parsed) {
+    progress(`Fetching the Flickr album ${parsed.albumId || url}`);
+    const metadata = await flickrProvider.fetchAlbumMetadata({}, parsed, message => progress(message)).catch(error => {
+      progress(`Skipped the Flickr album ${url}: ${(error as Error).message}`);
+      return null;
+    });
+    if (metadata) {
+      await addImportedFlickrAlbum(ctx, metadata, pagePath, albums);
+    }
+  } else {
+    const userId = parseUserAlbumsUrl(url);
+    if (userId) {
+      progress(`Fetching Flickr albums for ${userId}`);
+      const listed = await fetchUserAlbums({}, userId).catch(error => {
+        progress(`Skipped Flickr albums for ${userId}: ${(error as Error).message}`);
+        return null;
+      });
+      const discovered = listed?.albums || [];
+      const owner = listed?.userId || userId;
+      await discovered.reduce(async (previous, summary) => {
+        await previous;
+        await albumFromFlickr(ctx, `https://www.flickr.com/photos/${owner}/albums/${summary.id}`, pagePath, albums);
+      }, Promise.resolve());
+    }
+  }
+}
+
+async function migrateAlbums(ctx: Ctx, flickrGroups: FlickrGroupLink[] = [], flickrAlbums: FlickrAlbumLink[] = [], pageAlbumsCollected: MigratedAlbum[] = []): Promise<MigratedAlbum[]> {
   const rawLinks = ctx.config.specificAlbums && ctx.config.specificAlbums.length > 0 ? ctx.config.specificAlbums : await scrapeGalleryLinks(ctx);
   const galleryLinks = (rawLinks || []).filter(l => l && isString(l.path) && /^https?:\/\//i.test(l.path));
   const albums: MigratedAlbum[] = [];
@@ -930,17 +998,17 @@ async function migrateAlbums(ctx: Ctx, flickrGroups: FlickrGroupLink[] = [], pag
   await flickrGroups.reduce(async (previous, {groupName, pagePath}) => {
     await previous;
     progress(`Fetching photos from the Flickr group ${groupName}`);
-    const pool = await fetchFlickrGroupPool(groupName, MAX_FLICKR_GROUP_PHOTOS).catch(error => {
+    const pool = await fetchFlickrGroupPool(groupName).catch(error => {
       progress(`Skipped the Flickr group ${groupName}: ${(error as Error).message}`);
-      return {title: "", photos: []};
+      return {title: "", photos: [] as ScrapedImage[]};
     });
     if (pool.photos.length) {
-      const album = await albumFromImages(ctx, `${pool.title || groupName} photos`, pool.photos);
-      if (album) {
-        albums.push({...album, sourcePagePath: pagePath});
-        progress(`Completed album ${pool.title || groupName} photos with ${pluraliseWithCount(pool.photos.length, "photo")} from Flickr`);
-      }
+      await addImportedFlickrAlbum(ctx, flickrGroupAsAlbum(groupName, pool), pagePath, albums);
     }
+  }, Promise.resolve());
+  await flickrAlbums.reduce(async (previous, link) => {
+    await previous;
+    await albumFromFlickr(ctx, link.url, link.pagePath, albums);
   }, Promise.resolve());
   if (!albums.length) {
     progress("No photo albums were found on the source pages");
@@ -1021,12 +1089,35 @@ async function migrateUsingTemplate(
   assertSourceFidelity(ctx, scrapedPage, transformedPage);
   const templateLabel = template.path || template.migrationTemplate?.templateName || "template";
   if (ctx.config.persistData) {
-    const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, transformedPage);
+    const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, pageContentToPersist(transformedPage));
     progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) using template ${templateLabel}`);
     return saved;
+  } else {
+    progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) (dry run) using template ${templateLabel}`);
+    return transformedPage;
   }
-  progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) (dry run) using template ${templateLabel}`);
-  return transformedPage;
+}
+
+async function migrateUsingTransformation(
+  ctx: Ctx,
+  scrapedPage: ScrapedPage,
+  pageTransformationConfig: any,
+  pagePath: string,
+  pageTitle: string
+): Promise<PageContent> {
+  debugLog(`✅ Using page transformation: ${pageTransformationConfig.name}`);
+  const engine = new PageTransformationEngine();
+  const transformedPage = await engine.transform(scrapedPage, pageTransformationConfig, (img: ScrapedImage) => uploadImageToS3(ctx, img));
+  transformedPage.path = pagePath;
+  assertSourceFidelity(ctx, scrapedPage, transformedPage);
+  if (ctx.config.persistData) {
+    const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, pageContentToPersist(transformedPage));
+    progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) using transformation: ${pageTransformationConfig.name}`);
+    return saved;
+  } else {
+    progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) (dry run) using transformation: ${pageTransformationConfig.name}`);
+    return transformedPage;
+  }
 }
 
 async function migrateChildPage(
@@ -1042,24 +1133,20 @@ async function migrateChildPage(
   }
   const pagePath = childLink.contentPath || toContentPath(childLink.path);
   if (template) {
-    return migrateUsingTemplate(ctx, scrapedPage, template, pagePath, childLink.title);
-  }
-
-  if (pageTransformationConfig && pageTransformationConfig.enabled) {
-    debugLog(`✅ Using page transformation: ${pageTransformationConfig.name}`);
-    const engine = new PageTransformationEngine();
-    const transformedPage = await engine.transform(scrapedPage, pageTransformationConfig, (img: ScrapedImage) => uploadImageToS3(ctx, img));
-    transformedPage.path = pagePath;
-    assertSourceFidelity(ctx, scrapedPage, transformedPage);
-    if (ctx.config.persistData) {
-      const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, transformedPage);
-      progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) using transformation: ${pageTransformationConfig.name}`);
-      return saved;
-    } else {
-      progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run) using transformation: ${pageTransformationConfig.name}`);
-      return transformedPage;
+    try {
+      return await migrateUsingTemplate(ctx, scrapedPage, template, pagePath, childLink.title);
+    } catch (error) {
+      if (ctx.config.requireSourceFidelity && pageTransformationConfig?.enabled && !isContactUsPage({path: pagePath, rows: []}) &&
+        (error as Error).message.startsWith("Source fidelity validation failed")) {
+        progress(`The ${template.path} template missed source content on ${childLink.title}; trying the page transformation`);
+        return migrateUsingTransformation(ctx, scrapedPage, pageTransformationConfig, pagePath, childLink.title);
+      } else {
+        throw error;
+      }
     }
-  }
+  } else if (pageTransformationConfig && pageTransformationConfig.enabled) {
+    return migrateUsingTransformation(ctx, scrapedPage, pageTransformationConfig, pagePath, childLink.title);
+  } else {
   const pageContentRows: PageContentRow[] = [];
   if (ctx.config.useNestedRows) {
     const nestedRows: PageContentRow[] = [];
@@ -1087,7 +1174,7 @@ async function migrateChildPage(
     }
     const pageContent: PageContent = {
       path: pagePath,
-      rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, rows: nestedRows}]}]
+      rows: nestedRows
     };
     assertSourceFidelity(ctx, scrapedPage, pageContent);
     if (ctx.config.persistData) {
@@ -1144,6 +1231,7 @@ async function migrateChildPage(
   }
   progress(`✅ Migrated ${childLink.title} to ${pagePath} (dry run)`);
   return pageContent;
+  }
 }
 
 async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Promise<PageContent[]> {
@@ -1300,7 +1388,7 @@ export async function migrateStaticSite(configInput: SiteMigrationConfig, browse
       }
     }
     const collected = await pageAlbums(ctx, withoutRepeatedBlocks(pageContents));
-    const albums = [...collected.albums, ...await migrateAlbums(ctx, flickrGroupLinks(collected.pages), collected.albums)];
+    const albums = [...collected.albums, ...await migrateAlbums(ctx, flickrGroupLinks(collected.pages), flickrAlbumLinks(collected.pages), collected.albums)];
     assertSourceSiteResponding(ctx);
     if (config.publicHtmlOnly) {
       const requests = sourceSiteLimiter.summary(config.baseUrl);

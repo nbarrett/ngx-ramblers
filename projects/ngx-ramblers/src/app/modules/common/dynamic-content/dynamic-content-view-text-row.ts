@@ -117,7 +117,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                   }
                 }
               }
-              @if (!column.rows) {
+              @if (!column.rows?.length) {
                 @if (showYoutubeBeforeText(column)) {
                   <div class="youtube-embed-container">
                     <app-youtube-embed
@@ -132,8 +132,8 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                     [imageFit]="column.imageFit"
                     [aspectRatio]="column.imageAspectRatio"
                     [alt]="altFor(column)"
-                    [unconstrainedHeight]="!column.imageHeight"
-                    [height]="column.imageHeight"
+                    [unconstrainedHeight]="!heroImageHeight(column)"
+                    [height]="heroImageHeight(column)"
                     [focalPoint]="column.imageFocalPoint"
                     [cropperPosition]="column.imageCropperPosition"
                     [imageLink]="imageLinkFor(column)"
@@ -143,6 +143,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                 @if (column.contentText) {
                   <app-content-text-editor [text]="column.contentText"
                                        [styles]="column.styles"
+                                       [presentationMode]="true"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
                                        [category]="contentPath"/>
                 }
@@ -160,8 +161,8 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                     [imageFit]="column.imageFit"
                     [aspectRatio]="column.imageAspectRatio"
                     [alt]="altFor(column)"
-                    [unconstrainedHeight]="!column.imageHeight"
-                    [height]="column.imageHeight"
+                    [unconstrainedHeight]="!heroImageHeight(column)"
+                    [height]="heroImageHeight(column)"
                     [focalPoint]="column.imageFocalPoint"
                     [cropperPosition]="column.imageCropperPosition"
                     [imageLink]="imageLinkFor(column)"
@@ -234,6 +235,16 @@ export class DynamicContentViewTextRow implements OnInit {
 
   altFor(column: PageContentColumn): string {
     return column.alt || firstLinkText(column.contentText);
+  }
+
+  heroImageHeight(column: PageContentColumn): number {
+    if (column.imageHeight) {
+      return column.imageHeight;
+    } else if (column.columns === 12 && !!column.imageSource) {
+      return 400;
+    } else {
+      return null;
+    }
   }
 
   imageSourceFor(column: PageContentColumn): string {

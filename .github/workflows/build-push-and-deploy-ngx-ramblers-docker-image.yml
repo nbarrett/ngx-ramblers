@@ -259,38 +259,73 @@ jobs:
           done
           exit 1
 
-      - name: Generate Release Notes
-        if: github.ref_name == 'main' && github.event_name == 'push'
-        continue-on-error: true
+
+  release-notes:
+    if: github.ref_name == 'main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-notes-main
+      cancel-in-progress: false
+    env:
+      RELEASE_NOTES_INITIAL_BASE: a7dc6de8ed465ee11d45c986189676d7479e588f
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache server node_modules
+        id: cache-release-notes-server-nm
+        uses: actions/cache@v5
+        with:
+          path: server/node_modules
+          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+
+      - name: Install server dependencies
+        if: steps.cache-release-notes-server-nm.outputs.cache-hit != 'true'
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Resolve unpublished commit range
+        id: release-range
+        run: |
+          PUBLISHED_SHA=$(git ls-remote origin refs/heads/release-notes-published | awk '{print $1}')
+          if [ -z "$PUBLISHED_SHA" ]; then
+            PUBLISHED_SHA="$RELEASE_NOTES_INITIAL_BASE"
+            echo "No publication checkpoint exists; backfilling every commit after $PUBLISHED_SHA"
+          else
+            git fetch origin refs/heads/release-notes-published:refs/remotes/origin/release-notes-published
+            echo "The last completely published commit is $PUBLISHED_SHA"
+          fi
+          git cat-file -e "${PUBLISHED_SHA}^{commit}"
+          if git merge-base --is-ancestor "$PUBLISHED_SHA" HEAD; then
+            echo "already-covered=false" >> "$GITHUB_OUTPUT"
+            echo "published-sha=$PUBLISHED_SHA" >> "$GITHUB_OUTPUT"
+          elif git merge-base --is-ancestor HEAD "$PUBLISHED_SHA"; then
+            echo "A newer queued run has already published this commit"
+            echo "already-covered=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::The release-note checkpoint $PUBLISHED_SHA is not related to $GITHUB_SHA"
+            exit 1
+          fi
+
+      - name: Publish every outstanding release note
+        if: steps.release-range.outputs.already-covered == 'false'
         env:
           CMS_USERNAME: ${{ secrets.CMS_USERNAME }}
           CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
-          PREV_SHA: ${{ github.event.before }}
         run: |
           cd server
-          release_notes() {
-            for attempt in 1 2 3; do
-              npm run release-notes -- "$@" && return 0
-              echo "release notes attempt $attempt failed, retrying"
-              sleep $((attempt * 15))
-            done
-            echo "::warning::Release notes could not be generated for this build"
-            return 1
-          }
-          RELEASE_NOTES_ARGS="--build-number ${{ github.run_number }} --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --include-unassigned"
-          if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "0000000000000000000000000000000000000000" ]; then
-            echo "No previous push SHA available - falling back to --latest"
-            release_notes --latest $RELEASE_NOTES_ARGS
-          elif ! git cat-file -e "${PREV_SHA}^{commit}" 2>/dev/null; then
-            echo "Previous SHA $PREV_SHA is not in this clone - falling back to --latest"
-            release_notes --latest $RELEASE_NOTES_ARGS
-          elif ! git merge-base --is-ancestor "$PREV_SHA" HEAD 2>/dev/null; then
-            echo "Previous SHA $PREV_SHA is not an ancestor of HEAD (history rewrite) - falling back to --latest"
-            release_notes --latest $RELEASE_NOTES_ARGS
-          else
-            echo "Generating release notes for commits since $PREV_SHA"
-            release_notes --since "$PREV_SHA" $RELEASE_NOTES_ARGS
-          fi
+          npm run release-notes -- --since "${{ steps.release-range.outputs.published-sha }}" --until "$GITHUB_SHA" --build-number "${{ github.run_number }}" --build-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" --include-unassigned
+
+      - name: Record the completely published range
+        if: steps.release-range.outputs.already-covered == 'false'
+        run: git push origin HEAD:refs/heads/release-notes-published
 
   deploy-jitsi:
     needs: [ resolve, test ]

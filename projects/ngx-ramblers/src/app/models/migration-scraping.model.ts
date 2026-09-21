@@ -41,6 +41,11 @@ export interface FlickrGroupLink {
   pagePath: string;
 }
 
+export interface FlickrAlbumLink {
+  url: string;
+  pagePath: string;
+}
+
 export interface MigrationResult {
   pageContents: PageContent[];
   contentTextItems: ContentText[];

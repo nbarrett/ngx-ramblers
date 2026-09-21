@@ -178,6 +178,30 @@ async function createOrUpdateAlbumIndexPage(path: string): Promise<PageContent> 
   return transforms.toObjectWithId(createdPage);
 }
 
+export function externalAlbumDocuments(
+  request: ExternalAlbumImportRequest,
+  albumMetadata: ExternalAlbumMetadata,
+  createdBy: string
+): { metadata: ContentMetadata; page: PageContent } {
+  const albumName = request.targetPath;
+  const title = request.albumTitle || albumMetadata.title;
+  const subtitle = request.albumSubtitle || "";
+  const albumData = createAlbumData(albumName, title, subtitle, albumMetadata.coverPhotoUrl, createdBy);
+  return {
+    metadata: {
+      rootFolder: RootFolder.carousels,
+      name: albumName,
+      files: photosToContentMetadataItems(albumMetadata.photos),
+      coverImage: albumMetadata.coverPhotoUrl,
+      imageTags: [RECENT_PHOTOS]
+    } as ContentMetadata,
+    page: {
+      path: albumName,
+      rows: [createAlbumRow(albumData)]
+    }
+  };
+}
+
 async function importExternalAlbumSingle(
   request: ExternalAlbumImportRequest,
   albumMetadata: ExternalAlbumMetadata,
@@ -185,8 +209,9 @@ async function importExternalAlbumSingle(
   onProgress?: ProgressCallback
 ): Promise<ExternalAlbumImportResult> {
   const albumName = request.targetPath;
-  const title = request.albumTitle || albumMetadata.title;
-  const subtitle = request.albumSubtitle || "";
+  const documents = externalAlbumDocuments(request, albumMetadata, createdBy);
+  const albumData = documents.page.rows[0].carousel;
+  const albumRow = documents.page.rows[0];
 
   debugLog("importExternalAlbum: starting import for", albumName);
 
@@ -204,23 +229,15 @@ async function importExternalAlbumSingle(
 
     if (existingMetadata) {
       sendProgress("updating-metadata", 30, `Updating existing album with ${pluraliseWithCount(albumMetadata.photoCount, "photo")}...`);
-      existingMetadata.files = photosToContentMetadataItems(albumMetadata.photos);
-      existingMetadata.coverImage = albumMetadata.coverPhotoUrl;
+      existingMetadata.files = documents.metadata.files;
+      existingMetadata.coverImage = documents.metadata.coverImage;
       const updatedMetadata = await existingMetadata.save();
       metadataResult = transforms.toObjectWithId(updatedMetadata);
       debugLog("importExternalAlbum: updated existing metadata", metadataResult.id);
     } else {
       sendProgress("creating-metadata", 30, `Creating album metadata with ${pluraliseWithCount(albumMetadata.photoCount, "photo")}...`);
 
-      const metadataDoc: Partial<ContentMetadata> = {
-        rootFolder: RootFolder.carousels,
-        name: albumName,
-        files: photosToContentMetadataItems(albumMetadata.photos),
-        coverImage: albumMetadata.coverPhotoUrl,
-        imageTags: [RECENT_PHOTOS]
-      };
-
-      const createdMetadata = await contentMetadata.create(metadataDoc);
+      const createdMetadata = await contentMetadata.create(documents.metadata);
       metadataResult = transforms.toObjectWithId(createdMetadata);
       debugLog("importExternalAlbum: created metadata", metadataResult.id);
     }
@@ -230,8 +247,6 @@ async function importExternalAlbumSingle(
     const existingPage = await pageContent.findOne({ path: albumName }).exec();
 
     let pageResult: PageContent;
-    const albumData = createAlbumData(albumName, title, subtitle, albumMetadata.coverPhotoUrl, createdBy);
-    const albumRow = createAlbumRow(albumData);
 
     if (existingPage) {
       sendProgress("updating-page", 70, `Updating existing page with album data...`);
@@ -277,21 +292,13 @@ async function importExternalAlbumSingle(
         debugLog("importExternalAlbum: created page from template", pageResult.id);
       } else {
         sendProgress("creating-page", 70, `Template not found, creating default page at path "${albumName}"...`);
-        const pageDoc: Partial<PageContent> = {
-          path: albumName,
-          rows: [albumRow]
-        };
-        const createdPage = await pageContent.create(pageDoc);
+        const createdPage = await pageContent.create(documents.page);
         pageResult = transforms.toObjectWithId(createdPage);
         debugLog("importExternalAlbum: template not found, created default page", pageResult.id);
       }
     } else {
       sendProgress("creating-page", 70, `Creating page at path "${albumName}"...`);
-      const pageDoc: Partial<PageContent> = {
-        path: albumName,
-        rows: [albumRow]
-      };
-      const createdPage = await pageContent.create(pageDoc);
+      const createdPage = await pageContent.create(documents.page);
       pageResult = transforms.toObjectWithId(createdPage);
       debugLog("importExternalAlbum: created new page", pageResult.id);
     }

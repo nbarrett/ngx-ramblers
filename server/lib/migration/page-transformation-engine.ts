@@ -53,6 +53,8 @@ import { DEFAULT_OS_STYLE, ExtractedLocation } from "../../../projects/ngx-rambl
 import { GeocodeMatchType } from "../../../projects/ngx-ramblers/src/app/models/address-model";
 import { isArray, isNull, isObject, isUndefined, values } from "es-toolkit/compat";
 import { ExtractedContentKind } from "./migration-types";
+import { committeeMembersFromCandidates, registrationCommitteeCandidatesFromMarkdown, registrationContactUsRows } from "../site-registration/registration-committee";
+import { RegistrationMigrationTemplate } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 
 type TextSegmentInfo = { index: number; cleaned: string; segment: ScrapedSegment; isTextBeforeHeading?: boolean; mergedIndices?: number[] };
 type ImageSegmentInfo = { index: number; segment: ScrapedSegment; image: ScrapedImage };
@@ -253,6 +255,11 @@ export class PageTransformationEngine {
         break;
       }
 
+      case TransformationActionType.ADD_CONTACT_CARDS: {
+        this.addContactCards(ctx);
+        break;
+      }
+
       case TransformationActionType.FIND_AND_ADD_TEXT:
         await this.findAndAddText(step, ctx);
         break;
@@ -323,8 +330,36 @@ export class PageTransformationEngine {
       }
     }
 
-    ctx.rows.push(row);
-    debugLog(`   Row added with ${row.columns.length} columns`);
+    const nestedOnly = row.columns.length === 1 && row.columns[0].rows?.length && !row.columns[0].contentText && !row.columns[0].imageSource;
+    if (nestedOnly) {
+      ctx.rows.push(...row.columns[0].rows);
+      debugLog(`   Added ${row.columns[0].rows.length} rows`);
+    } else {
+      ctx.rows.push(row);
+      debugLog(`   Row added with ${row.columns.length} columns`);
+    }
+  }
+
+  private addContactCards(ctx: TransformationContext): void {
+    const source = ctx.markdown || ctx.remainingText.join("\n");
+    const candidates = registrationCommitteeCandidatesFromMarkdown(source);
+    const roles = committeeMembersFromCandidates(candidates);
+    if (candidates.length === 0) {
+      debugLog("No committee contacts found on the source page; keeping remaining text");
+      const remaining = this.matchRemaining(ctx);
+      if (remaining?.contentText) {
+        ctx.rows.push({
+          type: PageContentType.TEXT,
+          maxColumns: 1,
+          showSwiper: false,
+          columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC, contentText: remaining.contentText}]
+        });
+      }
+    } else {
+      ctx.rows.push(...registrationContactUsRows(roles, candidates, source, null, ctx.originalUrl || ""));
+      ctx.segments.forEach((_segment, index) => ctx.usedTextIndices.add(index));
+      debugLog(`Added ${candidates.length} contact cards from the source page`);
+    }
   }
 
   private async buildColumn(
@@ -2080,6 +2115,13 @@ export class PageTransformationEngine {
     this.convertToMarkdown(ctx);
     this.log(`🔄 Starting template transformation with ${template.rows?.length || 0} rows`);
 
+    if (template.path === RegistrationMigrationTemplate.CONTACT) {
+      const candidates = registrationCommitteeCandidatesFromMarkdown(ctx.markdown);
+      const roles = committeeMembersFromCandidates(candidates);
+      result.rows = registrationContactUsRows(roles, candidates, ctx.markdown, template, scrapedPage.path || "");
+      ctx.segments.forEach((_segment, index) => ctx.usedTextIndices.add(index));
+      this.log(`✅ Contact template filled with ${candidates.length} role cards`);
+    } else {
     for (const [rowIndex, templateRow] of template.rows.entries()) {
       const mappings = template.migrationTemplate?.mappings?.filter(m => m.targetRowIndex === rowIndex) || [];
       this.log(`   Processing row ${rowIndex} (type: ${templateRow.type})`);
@@ -2198,6 +2240,7 @@ export class PageTransformationEngine {
       }
 
       result.rows.push(populatedRow);
+    }
     }
 
     this.log(`✅ Template transformation complete: ${result.rows?.length || 0} rows created`);

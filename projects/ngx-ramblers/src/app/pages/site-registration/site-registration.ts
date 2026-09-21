@@ -190,7 +190,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
                 } @else if (step.key === Step.PROGRESS) {
                   <button class="btn btn-quiet ms-auto" [disabled]="busy" (click)="refresh()"><fa-icon [icon]="icons.refresh" class="me-2"/>Refresh status</button>
                 } @else if (index < 4) {
-                  <button class="btn btn-primary ms-auto" [disabled]="busy || !canAccessStep(steps[nextStep(index)].key)" (click)="goToStep(nextStep(index))"><fa-icon [icon]="icons.save" class="me-2"/>Save and next</button>
+                  <button class="btn btn-primary ms-auto" [disabled]="busy || !canContinueFrom(index)" (click)="goToStep(nextStep(index))"><fa-icon [icon]="icons.save" class="me-2"/>Save and next</button>
                 }
               </div>
             </ng-template></p-step-panel>
@@ -236,8 +236,8 @@ export class SiteRegistrationComponent implements OnInit, OnDestroy {
   protected memberLoginService = inject(MemberLoginService);
   readonly icons = {admin: faListCheck, email: faEnvelope, search: faMagnifyingGlass, build: faHammer, refresh: faRotate, back: faArrowLeft, save: faFloppyDisk};
   readonly SiteMapViewMode = SiteMapViewMode;
-  readonly steps = REGISTRATION_STEPS;
-  plan = RegistrationPlan.LITE;
+  readonly steps = REGISTRATION_STEPS.filter(step => !this.memberLoginService.allowMemberAdminEdits() || step.key !== RegistrationStep.EMAIL);
+  plan = RegistrationPlan.FULL;
   areaCode = "";
   groupCode = "";
   group: RamblersGroupsApiResponse = null;
@@ -260,7 +260,7 @@ export class SiteRegistrationComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     const requestedPlan = this.route.snapshot.queryParamMap.get(StoredValue.PLAN) as RegistrationPlan;
-    this.plan = values(RegistrationPlan).includes(requestedPlan) ? requestedPlan : RegistrationPlan.LITE;
+    this.plan = values(RegistrationPlan).includes(requestedPlan) ? requestedPlan : RegistrationPlan.FULL;
     this.areaCode = this.route.snapshot.queryParamMap.get(StoredValue.AREA) || "";
     this.groupCode = this.route.snapshot.queryParamMap.get(StoredValue.GROUP) || "";
     const requestedStep = this.route.snapshot.queryParamMap.get(StoredValue.STEP) as RegistrationStep;
@@ -313,14 +313,27 @@ export class SiteRegistrationComponent implements OnInit, OnDestroy {
   }
 
   nextStep(index: number): number {
-    return index === 2 && this.plan === RegistrationPlan.LITE ? 4 : index + 1;
+    const reviewIndex = this.steps.findIndex(step => step.key === RegistrationStep.REVIEW);
+    const nextIndex = index + 1;
+    return this.plan === RegistrationPlan.LITE && this.steps[nextIndex]?.key === RegistrationStep.CONTENT ? reviewIndex : nextIndex;
+  }
+
+  canContinueFrom(index: number): boolean {
+    const adminStarting = this.memberLoginService.allowMemberAdminEdits() && !this.registration && this.steps[index]?.key === RegistrationStep.GROUP;
+    return adminStarting ? !!this.areaCode : this.canAccessStep(this.steps[this.nextStep(index)]?.key);
   }
 
   async goToStep(index: number): Promise<void> {
     const goingBack = index < this.activeStep - 1;
-    if (goingBack || this.canAccessStep(this.steps[index].key)) {
+    const adminStarting = this.memberLoginService.allowMemberAdminEdits() && !this.registration && this.activeStepKey() === RegistrationStep.GROUP;
+    if (goingBack || adminStarting || this.canAccessStep(this.steps[index].key)) {
       await this.perform(async () => {
-        if (this.registration?.state === RegistrationState.DRAFT) {
+        if (adminStarting) {
+          const result = await this.service.startAsAdmin({email: "", areaCode: this.areaCode, groupCode: this.groupCode, plan: this.plan});
+          this.token = result.resumeToken;
+          this.resumeUrl = `${window.location.origin}/register/${this.token}`;
+          this.applyRegistration(await this.service.current(this.token));
+        } else if (this.registration?.state === RegistrationState.DRAFT) {
           this.applyRegistration(await this.service.save(this.token, {...this.registration, currentStep: this.steps[index].key}));
         }
         this.activeStep = index + 1;

@@ -307,9 +307,8 @@ function extractModelExportData(modelExport: any): FlickrScrapedAlbumData | null
     albumInfo.photoPageList?.data?.totalItems
   ]
     .map(value => {
-      if (isNumber(value)) return value;
-      const parsed = parseInt(value, 10);
-      return Number.isNaN(parsed) ? null : parsed;
+      const parsed = isNumber(value) ? value : parseInt(value, 10);
+      return isNaN(parsed) ? null : parsed;
     })
     .filter(value => value !== null) as number[];
 
@@ -679,8 +678,37 @@ const FLICKR_POOL_PAGE_HEADERS = {
   "Accept": "text/html,application/xhtml+xml"
 };
 
+const FLICKR_ALBUM_LINK = /https?:\/\/(?:www\.)?flickr\.com\/photos\/[^/\s)"']+\/(?:albums|sets)\/\d+|https?:\/\/flic\.kr\/s\/[a-zA-Z0-9]+/gi;
+const FLICKR_USER_ALBUMS_LINK = /https?:\/\/(?:www\.)?flickr\.com\/(?:photos|people)\/([^/\s)"']+)\/albums\/?(?=["'\s)]|$)/gi;
+
+export function flickrAlbumUrlsIn(text: string): string[] {
+  return [...new Set([...(text || "").matchAll(FLICKR_ALBUM_LINK)].map(match => match[0]))];
+}
+
+export function flickrUserAlbumsUrlsIn(text: string): string[] {
+  return [...new Set([...(text || "").matchAll(FLICKR_USER_ALBUMS_LINK)].map(match => match[0]))];
+}
+
 export function flickrGroupNamesIn(text: string): string[] {
   return [...new Set([...(text || "").matchAll(FLICKR_GROUP_LINK)].map(match => match[1].toLowerCase()))];
+}
+
+export function flickrGroupAsAlbum(groupName: string, pool: FlickrGroupPool): ExternalAlbumMetadata {
+  const photos: ExternalPhoto[] = pool.photos.map(photo => ({
+    id: (photo.src.match(/\/(\d+)_/) || [])[1] || photo.src,
+    title: photo.alt || "",
+    url: photo.src,
+    thumbnailUrl: photo.src
+  }));
+  return {
+    source: ExternalAlbumSource.FLICKR,
+    id: groupName,
+    title: pool.title || groupName,
+    description: "",
+    photoCount: photos.length,
+    photos,
+    coverPhotoUrl: photos[0]?.url
+  };
 }
 
 export function flickrGroupPoolFromHtml(html: string): FlickrGroupPool {
@@ -717,24 +745,12 @@ function largestFlickrSizeSuffix(block: string): string {
   return available ? available[1] : "";
 }
 
-export async function fetchFlickrGroupPool(groupName: string, maxPhotos: number, page = 1, collected: ScrapedImage[] = [], title = ""): Promise<FlickrGroupPool> {
-  const pageUrl = `https://www.flickr.com/groups/${encodeURIComponent(groupName)}/pool/${page === 1 ? "" : `page${page}`}`;
+export async function fetchFlickrGroupPool(groupName: string): Promise<FlickrGroupPool> {
+  const pageUrl = `https://www.flickr.com/groups/${encodeURIComponent(groupName)}/pool/`;
   const response = await fetch(pageUrl, {headers: FLICKR_POOL_PAGE_HEADERS});
   if (!response.ok) {
-    if (page === 1) {
-      throw new Error(`Flickr group ${groupName} returned HTTP ${response.status}`);
-    } else {
-      return {title, photos: collected};
-    }
+    throw new Error(`Flickr group ${groupName} returned HTTP ${response.status}`);
   } else {
-    const pool = flickrGroupPoolFromHtml(await response.text());
-    const fresh = pool.photos.filter(photo => !collected.some(existing => existing.src === photo.src));
-    const photos = [...collected, ...fresh].slice(0, maxPhotos);
-    const poolTitle = title || pool.title;
-    if (fresh.length === 0 || photos.length >= maxPhotos) {
-      return {title: poolTitle, photos};
-    } else {
-      return fetchFlickrGroupPool(groupName, maxPhotos, page + 1, photos, poolTitle);
-    }
+    return flickrGroupPoolFromHtml(await response.text());
   }
 }

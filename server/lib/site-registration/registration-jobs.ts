@@ -41,10 +41,13 @@ import { TidyTextKind } from "../../../projects/ngx-ramblers/src/app/models/ai.m
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import {
-  IndexContentType, IndexRenderMode, PageContent, PageContentColumn, PageContentRow, PageContentType, StringMatch
+  ImageFit, IndexContentType, IndexRenderMode, PageContent, PageContentColumn, PageContentRow, PageContentType, StringMatch
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {migrateRegistrationAssets} from "./registration-assets";
 import { documentMarkdown, isDocumentUrl } from "./registration-documents";
+import { ramblersHostedContactPhone, registrationHeaderButtons } from "./registration-content";
+import { fetchPublicSiteHtml } from "./public-site-fetch";
+import { RegistrationSiteFlavour } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import {importRegistrationCommittee} from "./registration-committee";
 import {createAllSamplePageContent, PRIVACY_POLICY_PATH} from "../environment-setup/templates/sample-data/page-content-templates";
 import {COMMITTEE_ROOT_PATH} from "../environment-setup/templates/sample-data/committee-page-template";
@@ -60,6 +63,7 @@ const debugLog = debug(envConfig.logNamespace("site-registration:jobs"));
 const workerId = randomUUID();
 const running = {active: false, registrationId: null as string | null};
 export const REGISTRATION_STOPPED_MESSAGE = "Stopped by the platform reviewer.";
+const LANDING_IMAGE_MAX_HEIGHT = 400;
 
 async function leasedByThisWorker(id: string): Promise<boolean> {
   const current = await registrations().findOne({id}, {projection: {leaseOwner: 1}});
@@ -96,7 +100,10 @@ async function stageFinished(registration: StoredSiteRegistration, key: Registra
 }
 
 export async function submitRegistration(token: string): Promise<void> {
-  const registration = await registrationForToken(token);
+  await submitRegistrationDraft(await registrationForToken(token));
+}
+
+export async function submitRegistrationDraft(registration: StoredSiteRegistration): Promise<void> {
   assertRegistrationEditable(registration);
   const settings = await registrationSettings();
   const environmentName = environmentNameForGroup(registration.group.name) || registration.group.group_code.toLowerCase();
@@ -141,7 +148,7 @@ async function provisionRegistration(registration: StoredSiteRegistration): Prom
       brevo: {apiKey: ""},
       osMaps: {apiKey: ""}},
     adminUser: settings.reviewer,
-    options: {...defaults.options, setupSubdomain: true, ngxLite: registration.plan === RegistrationPlan.LITE, estateDeploy: false}
+    options: {...defaults.options, setupSubdomain: true, ngxLite: registration.plan === RegistrationPlan.LITE, estateDeploy: false, copyStandardAssets: false}
   };
   const existing = await findEnvironmentFromDatabase(name);
   const mongoUri = envConfig.mongo().uri.replace(/^"|"$/g, "");
@@ -247,7 +254,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
   const context = await loadEnvironmentContext(registration.environmentName);
   const migrationConnection = await connectToEnvironmentMongo(context.envConfigData);
   try {
-    await migrationConnection.db.collection("config").updateOne({key: ConfigKey.MIGRATION}, {$set: {value: {sites: [{...migration, persistData: true}]}}}, {upsert: true});
+    await migrationConnection.db.collection("config").updateOne({key: ConfigKey.MIGRATION}, {$set: {value: {sites: [{...migration, persistData: true, uploadTos3: false, enabled: false}]}}}, {upsert: true});
   } finally {
     await migrationConnection.client.close();
   }
@@ -281,8 +288,9 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     const titledPage = withPageHeading({...page, path: targetPath}, title);
     const pageWithNavigation = assembled.some(sourcePage => sourcePage.parentPath === targetPath) ? withChildNavigation(titledPage) : titledPage;
     const hasAlbum = result.albums.some(album => album.sourcePagePath === page.path);
-    const landingPage = !hasAlbum && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(pageWithNavigation) : pageWithNavigation;
-    return {...landingPage, rows: await tidyPageRows(pairedImageRows(cleanPageRows(landingPage.rows, targetPath)))};
+    const flattenedPage = {...pageWithNavigation, rows: pairedImageRows(cleanPageRows(pageWithNavigation.rows, targetPath))};
+    const landingPage = !hasAlbum && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(flattenedPage) : flattenedPage;
+    return {...landingPage, rows: await tidyPageRows(landingPage.rows)};
   }));
   const uploadBucket = context.envConfigData.aws?.bucket;
   if (!uploadBucket) {
@@ -319,7 +327,12 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     const retainedBuiltInPaths = new Set(["#home-content", "admin#action-buttons", RegistrationNavbarPath.WALKS, PRIVACY_POLICY_PATH]);
     const samplePaths = createAllSamplePageContent({groupName: registration.group.name, groupShortName: toGroupShortName(registration.group.name)})
       .map(page => page.path).concat(COMMITTEE_ROOT_PATH);
-    const unusedSamplePaths = samplePaths.filter(path => !migratedPaths.has(path) && !retainedBuiltInPaths.has(path));
+    const navigationPaths = new Set(assembled.map(page => page.path));
+    const unusedSamplePaths = samplePaths.filter(path => !migratedPaths.has(path) && !retainedBuiltInPaths.has(path) && !navigationPaths.has(path));
+    const samplePagesForNavigation = createAllSamplePageContent({groupName: registration.group.name, groupShortName: toGroupShortName(registration.group.name)})
+      .filter(page => navigationPaths.has(page.path) && !migratedPaths.has(page.path));
+    await Promise.all(samplePagesForNavigation.map(page => connection.db.collection("pageContent")
+      .updateOne({path: page.path}, {$setOnInsert: page}, {upsert: true})));
     if (unusedSamplePaths.length > 0) {
       await connection.db.collection("pageContent").deleteMany({path: {$in: unusedSamplePaths}});
       const linkingPages = await connection.db.collection<PageContent>("pageContent")
@@ -327,9 +340,10 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
       await Promise.all(linkingPages.map(page => connection.db.collection("pageContent")
         .updateOne({_id: page._id}, {$set: {rows: withoutButtonsTo(page.rows, unusedSamplePaths)}})));
     }
+    await withSourceContactDetails(connection, registration, importProgress);
     const availablePaths = new Set((await connection.db.collection<PageContent>("pageContent").find({"rows.0": {$exists: true}}, {projection: {path: 1}}).toArray()).map(page => page.path));
     await connection.db.collection("config").updateOne({key: ConfigKey.SYSTEM}, {$set: {
-      "value.header.navigationButtons": [{title: "National Ramblers", href: "https://ramblers.org.uk"}],
+      "value.header.navigationButtons": registrationHeaderButtons(registration.website),
       "value.group.pages": navigationPages(registration, availablePaths)
     }});
     const importedHome = migratedPages.find(page => page.path === "home" || page.path === "index");
@@ -364,6 +378,23 @@ async function importedDocumentPages(registration: StoredSiteRegistration, impor
       return [];
     }
   }))).flat();
+}
+
+async function withSourceContactDetails(connection: EnvironmentMongoConnection, registration: StoredSiteRegistration, importProgress: (message: string) => void): Promise<void> {
+  const phone = registration.flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED
+    ? await fetchPublicSiteHtml(registration.website).then(ramblersHostedContactPhone).catch(() => "")
+    : "";
+  const contactPage = phone ? await connection.db.collection<PageContent>("pageContent").findOne({path: RegistrationNavbarPath.CONTACT_US}) : null;
+  const firstColumn = contactPage?.rows?.[0]?.columns?.[0];
+  if (firstColumn?.contentText && !firstColumn.contentText.includes(phone)) {
+    importProgress(`Added the phone number published on the group's Ramblers page to Contact Us`);
+    const rows = contactPage.rows.map((row, index) => index === 0
+      ? {...row, columns: row.columns.map((column, columnIndex) => columnIndex === 0
+        ? {...column, contentText: `${column.contentText}\n\nYou can also call us on ${phone}.`}
+        : column)}
+      : row);
+    await connection.db.collection("pageContent").updateOne({path: RegistrationNavbarPath.CONTACT_US}, {$set: {rows}});
+  }
 }
 
 function cleanMigratedText(text: string): string {
@@ -434,9 +465,9 @@ function withLandingVisual(page: PageContent): PageContent {
   const hasOpeningVisual = openingRow?.columns?.some(column => column.imageSource || column.rows?.length);
   const imageRowIndex = rows.findIndex(row => (row.columns || []).length > 0 && (row.columns || []).every(column => column.imageSource && !column.contentText));
   if (hasOpeningVisual) {
-    return page;
+    return {...page, rows: [landingImageRow(openingRow), ...rows.slice(1)]};
   } else if (imageRowIndex > -1) {
-    return withRowsUnderHeading({...page, rows: rows.filter((row, index) => index !== imageRowIndex)}, [rows[imageRowIndex]]);
+    return withRowsUnderHeading({...page, rows: rows.filter((row, index) => index !== imageRowIndex)}, [landingImageRow(rows[imageRowIndex])]);
   } else {
     const visualColumns = visualColumnsFromPages([page]);
     return visualColumns.length === 0 ? page : withRowsUnderHeading(page, [landingVisualRow(visualColumns)]);
@@ -444,7 +475,15 @@ function withLandingVisual(page: PageContent): PageContent {
 }
 
 function landingVisualRow(columns: PageContentColumn[]): PageContentRow {
-  return {type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, migrationPlaceholder: true, columns};
+  return landingImageRow({type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, migrationPlaceholder: true, columns});
+}
+
+function landingImageRow(row: PageContentRow): PageContentRow {
+  return {...row, columns: (row.columns || []).map(column => column.imageSource ? {
+    ...column,
+    imageHeight: Math.min(column.imageHeight || LANDING_IMAGE_MAX_HEIGHT, LANDING_IMAGE_MAX_HEIGHT),
+    imageFit: column.imageFit || ImageFit.COVER
+  } : column)};
 }
 
 function visualColumnsFromPages(pages: PageContent[]): PageContentColumn[] {

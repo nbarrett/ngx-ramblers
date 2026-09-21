@@ -16,7 +16,8 @@ export enum TransformationActionType {
   FIND_AND_ADD_IMAGE = "find-and-add-image",
   SPLIT_TEXT_BY_IMAGES = "split-text-by-images",
   FILTER_CONTENT = "filter-content",
-  ADD_MIGRATION_NOTE = "add-migration-note"
+  ADD_MIGRATION_NOTE = "add-migration-note",
+  ADD_CONTACT_CARDS = "add-contact-cards"
 }
 
 export enum ContentMatchType {
@@ -196,6 +197,25 @@ export interface TransformationContext {
   extractedLocation?: LocationRowData;
   consumedCaptions?: Set<string>;
   extractedHeading?: string;
+}
+
+export function createContactTransformationConfig(): PageTransformationConfig {
+  return {
+    name: "Registration contact",
+    description: "Builds committee role cards with secure contact buttons from names and phone numbers on the old contact page. Email addresses are not copied onto the new page.",
+    enabled: true,
+    preset: "contact",
+    steps: [
+      {type: TransformationActionType.CONVERT_TO_MARKDOWN},
+      {type: TransformationActionType.CREATE_PAGE},
+      {type: TransformationActionType.ADD_CONTACT_CARDS},
+      {
+        type: TransformationActionType.ADD_MIGRATION_NOTE,
+        notePrefix: "Migrated from",
+        dateFormat: UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES
+      }
+    ]
+  };
 }
 
 export function createDefaultTransformationConfig(): PageTransformationConfig {

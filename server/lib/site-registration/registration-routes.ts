@@ -2,7 +2,7 @@ import { asyncRoute } from "../shared/async-route";
 import express from "express";
 import { authenticate } from "../auth/auth-config";
 import {
-  beginRegistration, discoverRegistration, listRegistrations, lookupRegistrationLogo, markRegistrationBroken, queueRegistration,
+  beginRegistration, beginRegistrationAsAdmin, discoverRegistration, listRegistrations, lookupRegistrationLogo, markRegistrationBroken, queueRegistration,
   readRegistration, readRegistrationSettings, registrationAvailability, registrationError,
   rediscoverRegistration, requireRegistrationAdmin, requireRegistrationPlatform, retryOwnRegistration, retryRegistration, reviewRegistration, deleteRegistration, sendRegistrationReturnLink, stopRegistration,
   updateRegistration, updateRegistrationSettings, verifyRegistration
@@ -13,6 +13,7 @@ registrationRoutes.use(requireRegistrationPlatform);
 registrationRoutes.get("/availability", asyncRoute("site-registration", registrationAvailability));
 registrationRoutes.get("/logo", asyncRoute("site-registration", lookupRegistrationLogo));
 registrationRoutes.post("/start", asyncRoute("site-registration", beginRegistration));
+registrationRoutes.post("/admin/start", authenticate(), requireRegistrationAdmin, asyncRoute("site-registration", beginRegistrationAsAdmin));
 registrationRoutes.post("/confirm", asyncRoute("site-registration", verifyRegistration));
 registrationRoutes.get("/current", asyncRoute("site-registration", readRegistration));
 registrationRoutes.put("/current", asyncRoute("site-registration", updateRegistration));

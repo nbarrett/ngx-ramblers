@@ -75,14 +75,15 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
       flex-shrink: 0
       margin-top: 0.15rem
 
+    .registration-details-line
+      display: flex
+      align-items: flex-start
+      gap: 0.5rem
+      width: 100%
+
     .registration-details-text
       min-width: 0
       overflow-wrap: anywhere
-      display: -webkit-box
-      -webkit-line-clamp: 2
-      line-clamp: 2
-      -webkit-box-orient: vertical
-      overflow: hidden
       text-align: left
   `],
   template: `
@@ -121,7 +122,7 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
               </div>
             }
             <div class="thumbnail-heading-frame mt-3"><div class="thumbnail-heading">Registration requests</div>
-              <p>New requests appear here after a group starts registration. Open the build log from a row when you need the error or step list. Use Retry from there.</p>
+              <p>New requests appear here after a group starts registration. Details sit on a line under each request. Open the build log from that line when you need the error or step list. Use Retry from there.</p>
               @if (inFlightRows().length) {
                 <div class="alert alert-success d-flex align-items-start mb-2"><fa-icon [icon]="icons.running" animation="spin" class="me-2"/><div>
                   <strong>Build in progress</strong>
@@ -144,19 +145,6 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                 <ng-template appSortableTableCell="progress" let-row>
                   <app-registration-stepper [stages]="row.stages"/>
                 </ng-template>
-                <ng-template appSortableTableCell="error" let-row>
-                  @if (hasBuildLog(row)) {
-                    <button type="button" class="registration-details-toggle" [class.text-danger]="siteUnreachable(row) && !inFlight(row)" [tooltip]="detailsTooltip(row)" (click)="toggleBuildLog(row)">
-                      <fa-icon [icon]="inFlight(row) ? icons.running : (buildLogOpen(row) ? icons.collapse : icons.expand)" [animation]="inFlight(row) ? 'spin' : undefined"/>
-                      @if (siteUnreachable(row) && !inFlight(row)) {
-                        <fa-icon [icon]="icons.warning"/>
-                      }
-                      <span class="registration-details-text">{{detailsText(row)}}</span>
-                    </button>
-                  } @else {
-                    <span class="registration-details-text">{{row.error || ""}}</span>
-                  }
-                </ng-template>
                 <ng-template appSortableTableCell="actions" let-row>
                   <div class="btn-group" dropdown container="body" placement="bottom right">
                     <button class="btn btn-primary btn-sm dropdown-toggle" dropdownToggle type="button" [disabled]="rowBusy(row)">
@@ -172,6 +160,9 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                       }
                       @if (row.state === State.AWAITING_EMAIL || row.state === State.DRAFT) {
                         <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="emailReturnLink(row)"><fa-icon [icon]="icons.email" [fixedWidth]="true"/>Email a fresh return link</a></li>
+                      }
+                      @if (row.state === State.DRAFT) {
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="rediscover(row)"><fa-icon [icon]="icons.findPages" [fixedWidth]="true"/>Find pages and build the site</a></li>
                       }
                       @if (inFlight(row)) {
                         <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="stop(row)"><fa-icon [icon]="icons.stop" [fixedWidth]="true"/>Stop this build</a></li>
@@ -194,6 +185,21 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                   </div>
                 </ng-template>
                 <ng-template appSortableTableExpandedRow let-row>
+                  @if (detailsText(row)) {
+                    <div class="registration-details-line mb-2">
+                      @if (hasBuildLog(row)) {
+                        <button type="button" class="registration-details-toggle" [class.text-danger]="siteUnreachable(row) && !inFlight(row)" [tooltip]="detailsTooltip(row)" (click)="toggleBuildLog(row)">
+                          <fa-icon [icon]="inFlight(row) ? icons.running : (buildLogOpen(row) ? icons.collapse : icons.expand)" [animation]="inFlight(row) ? 'spin' : undefined"/>
+                          @if (siteUnreachable(row) && !inFlight(row)) {
+                            <fa-icon [icon]="icons.warning"/>
+                          }
+                          <span class="registration-details-text">{{detailsText(row)}}</span>
+                        </button>
+                      } @else {
+                        <span class="registration-details-text">{{detailsText(row)}}</span>
+                      }
+                    </div>
+                  }
                   @if (pendingDelete?.id === row.id) {
                     <div class="alert alert-warning d-flex align-items-start mb-2"><fa-icon [icon]="icons.warning" class="me-2"/><div>
                       <strong>Delete the registration request for {{row.group?.name}}?</strong>
@@ -202,13 +208,13 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                       <button class="btn btn-quiet" [disabled]="busy" (click)="pendingDelete = null"><fa-icon [icon]="icons.cancel"/> Cancel</button>
                     </div></div>
                   }
-                  @if (row.error && (row.state === State.FAILED || row.state === State.BROKEN)) {
+                  @if (buildLogOpen(row) && row.error && (row.state === State.FAILED || row.state === State.BROKEN)) {
                     <div class="alert alert-danger d-flex align-items-start mb-2"><fa-icon [icon]="icons.warning" class="me-2"/><div><strong>What went wrong</strong><p class="mb-0">{{sanitiseError(row.error)}}</p></div></div>
                   }
-                  @if (row.progress?.length || inFlight(row)) {
+                  @if (buildLogOpen(row) && (row.progress?.length || inFlight(row))) {
                     <app-registration-progress-log class="d-block mb-2" [progress]="row.progress" [inFlight]="inFlight(row)"/>
                   }
-                  @if (row.history?.length) {
+                  @if (buildLogOpen(row) && row.history?.length) {
                     <details class="mb-2">
                       <summary>History ({{ row.history.length }})</summary>
                       <table class="table table-sm mt-2 mb-0">
@@ -305,7 +311,6 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
     {key: "plan", label: "Plan", sortKey: "plan", cellGetter: row => row.plan, cellClass: "nowrap"},
     {key: "state", label: "State", sortKey: "state", cellGetter: row => row.state, cellClass: "nowrap"},
     {key: "progress", label: "Progress", cellClass: "nowrap"},
-    {key: "error", label: "Details", sortKey: "error", cellGetter: row => row.error || row.progress[row.progress.length - 1]?.message || ""},
     {key: "buildTime", label: "Build time", cellClass: "nowrap", cellGetter: row => this.buildTime(row)},
     {key: "actions", label: "Actions", cellClass: "nowrap"}
   ];
@@ -366,7 +371,7 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
     [StoredValue.ENVIRONMENT]: row.environmentName
   });
   buildLogOpen = (row: SiteRegistration) => this.openBuildLogs.has(row.id) || (this.inFlight(row) && !this.closedBuildLogs.has(row.id));
-  rowExpanded = (row: SiteRegistration) => this.buildLogOpen(row) || this.pendingDelete?.id === row.id;
+  rowExpanded = (_row: SiteRegistration) => true;
   detailsText(row: SiteRegistration): string {
     if (this.inFlight(row)) {
       return sanitiseRegistrationMessage(registrationProgressLines(row.progress)[0]?.message || this.inFlightLabel(row));

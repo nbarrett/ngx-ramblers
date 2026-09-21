@@ -258,6 +258,8 @@ export class CardImageComponent implements OnInit {
       styles["object-fit"] = this.imageFit;
       styles["object-position"] = `50% ${clampedObjectPosition}%`;
     } else if (this.fixedHeight || this.constrainedHeight) {
+      styles["height.px"] = this.constrainedHeight;
+      styles["max-height.px"] = this.constrainedHeight;
       styles["object-fit"] = this.imageFit;
     }
     return styles;

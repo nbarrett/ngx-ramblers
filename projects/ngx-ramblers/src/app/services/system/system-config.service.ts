@@ -80,7 +80,16 @@ export class SystemConfigService {
 
   private async migrateConfigIfRequired(config: SystemConfig): Promise<SystemConfig> {
     const preMigrationConfig = cloneDeep(config);
+    if (!config.header) {
+      config.header = this.headerDefaults();
+    }
+    if (!config.externalSystems && !config["externalUrls"]) {
+      config.externalSystems = this.externalSystemsDefaults();
+    }
     const externalSystemsMigrate = this.migrateConfigKeyIfRequired(config, "externalUrls", "externalSystems");
+    if (!config.externalSystems) {
+      config.externalSystems = this.externalSystemsDefaults();
+    }
     const facebookMigrate = this.prepareMigration(config.externalSystems, "facebook");
     const instagramMigrate = this.prepareMigration(config.externalSystems, "instagram");
     const meetupMigrate = this.prepareMigration(config.externalSystems, "meetup");
@@ -214,14 +223,18 @@ export class SystemConfigService {
   }
 
   private prepareMigration(externalSystems: ExternalSystems, field: string): boolean {
-    const needsMigration = this.needsMigration(externalSystems, field);
-    if (needsMigration) {
-      this.logger.debug("externalSystems ", field, "with value", externalSystems[field], "needs migration");
-      externalSystems[field] = null;
+    if (!externalSystems) {
+      return false;
     } else {
-      this.logger.debug("externalSystems ", field, "with value", externalSystems[field], "already migrated");
+      const needsMigration = this.needsMigration(externalSystems, field);
+      if (needsMigration) {
+        this.logger.debug("externalSystems ", field, "with value", externalSystems[field], "needs migration");
+        externalSystems[field] = null;
+      } else {
+        this.logger.debug("externalSystems ", field, "with value", externalSystems[field], "already migrated");
+      }
+      return needsMigration;
     }
-    return needsMigration;
   }
 
   private migrateConfigKeyIfRequired(systemConfig: SystemConfig, oldKey: string, newKey: string): boolean {
@@ -237,7 +250,7 @@ export class SystemConfigService {
   }
 
   private needsMigration(externalSystems: ExternalSystems, field: string): boolean {
-    return isString(externalSystems[field]);
+    return !!externalSystems && isString(externalSystems[field]);
   }
 
   imageTypeDescription(imageType: RootFolder) {

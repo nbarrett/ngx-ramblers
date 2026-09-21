@@ -5,8 +5,8 @@ import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.mod
 import { publicRegistration, reviewerRegistration, assertRegistrationEditable, registrationSettingsProblem } from "./registration-policy";
 import { recordRegistrationHistory, registrations, registrationSettings, saveRegistrationSettings } from "./registration-store";
 import { findEnvironmentFromDatabase } from "../environments/environments-config";
-import { startRegistration, confirmRegistration, emailRegistrationReturnLink, registrationForToken, saveRegistrationDraft } from "./registration-service";
-import { approveRegistration, REGISTRATION_STOPPED_MESSAGE, submitRegistration } from "./registration-jobs";
+import { startRegistration, startRegistrationAsAdmin, confirmRegistration, emailRegistrationReturnLink, registrationForToken, saveRegistrationDraft } from "./registration-service";
+import { approveRegistration, REGISTRATION_STOPPED_MESSAGE, submitRegistration, submitRegistrationDraft } from "./registration-jobs";
 import { stopRegistrationImport } from "./registration-import-scrape";
 import { discoverRegistrationWebsite } from "./registration-content";
 import { dateTimeNowAsValue } from "../shared/dates";
@@ -45,6 +45,11 @@ export async function beginRegistration(req: Request, res: Response): Promise<vo
   res.json(await startRegistration(req.body));
 }
 
+export async function beginRegistrationAsAdmin(req: Request, res: Response): Promise<void> {
+  const administrator = req.user as Member;
+  res.json(await startRegistrationAsAdmin(req.body, administrator?.email || administrator?.userName || registrationActor(req)));
+}
+
 export async function verifyRegistration(req: Request, res: Response): Promise<void> {
   res.json({resumeToken: await confirmRegistration(req.body.token)});
 }
@@ -68,7 +73,7 @@ export async function discoverRegistration(req: Request, res: Response): Promise
   };
   try {
     const discovered = await discoverRegistrationWebsite(website, saved.group?.group_code, reportProgress);
-    await registrations().updateOne({id: saved.id, state: RegistrationState.DRAFT}, {$set: {...discovered, website, updatedAt: dateTimeNowAsValue()}});
+    await registrations().updateOne({id: saved.id, state: RegistrationState.DRAFT}, {$set: {...discovered, website: discovered.website || website, updatedAt: dateTimeNowAsValue()}});
   } finally {
     await registrations().updateOne({id: saved.id}, {$set: {discoveryProgress: null}});
   }
@@ -145,12 +150,17 @@ export async function rediscoverRegistration(req: Request, res: Response): Promi
   };
   try {
     const discovered = await discoverRegistrationWebsite(saved.website, saved.group?.group_code, reportProgress);
-    await registrations().updateOne({id: saved.id}, {$set: {...discovered, updatedAt: dateTimeNowAsValue()}});
+    await registrations().updateOne({id: saved.id}, {$set: {...discovered, website: discovered.website || saved.website, updatedAt: dateTimeNowAsValue()}});
   } finally {
     await registrations().updateOne({id: saved.id}, {$set: {discoveryProgress: null}});
   }
   await recordRegistrationHistory(saved.id, RegistrationHistoryAction.PAGES_FOUND_AGAIN, registrationActor(req));
-  await queueRetry(await registrations().findOne({id: saved.id}), registrationActor(req));
+  const rediscovered = await registrations().findOne({id: saved.id});
+  if (rediscovered.state === RegistrationState.DRAFT) {
+    await submitRegistrationDraft(rediscovered);
+  } else {
+    await queueRetry(rediscovered, registrationActor(req));
+  }
   res.json({success: true});
 }
 

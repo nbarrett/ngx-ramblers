@@ -20,6 +20,10 @@ export class SiteRegistrationService {
     return firstValueFrom(this.http.post<RegistrationStartResponse>(`${this.base}/start`, request));
   }
 
+  startAsAdmin(request: RegistrationStartRequest): Promise<RegistrationStartResponse> {
+    return firstValueFrom(this.http.post<RegistrationStartResponse>(`${this.base}/admin/start`, request));
+  }
+
   confirm(token: string): Promise<{resumeToken: string}> {
     return firstValueFrom(this.http.post<{resumeToken: string}>(`${this.base}/confirm`, {token}));
   }

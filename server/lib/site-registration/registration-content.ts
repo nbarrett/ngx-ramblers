@@ -8,11 +8,11 @@ import {
   RegistrationDiscoveryReporter, RegistrationSiteFlavour, StoredSiteRegistration
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { ParentPageMode, SiteMigrationConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
-import { createAllImagesLayoutTransformationConfig, createDefaultTransformationConfig, ContentMatchType, PageTransformationConfig, TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
+import { createAllImagesLayoutTransformationConfig, createContactTransformationConfig, createDefaultTransformationConfig, ContentMatchType, PageTransformationConfig, TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
 import { PageContent, PageContentRow, PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { MigratedAlbum } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { fetchPublicSiteHtml, publicSiteUrl } from "./public-site-fetch";
+import { fetchPublicSiteHtml, fetchPublicSitePage, publicSiteUrl, withoutQuery } from "./public-site-fetch";
 import { isDocumentUrl } from "./registration-documents";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import { systemConfig } from "../config/system-config";
@@ -23,8 +23,20 @@ import { chunk, isEmpty } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { CONTACT_US_TYPE } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
+import { Link } from "../../../projects/ngx-ramblers/src/app/models/page.model";
 
 export { proposedRegistrationNavigation };
+
+const NATIONAL_RAMBLERS_HEADER_BUTTON: Link = {title: "National Ramblers", href: "https://ramblers.org.uk"};
+
+export function registrationHeaderButtons(website: string): Link[] {
+  const href = (website || "").trim();
+  if (!href) {
+    return [NATIONAL_RAMBLERS_HEADER_BUTTON];
+  } else {
+    return [{title: "Current Site", href}, NATIONAL_RAMBLERS_HEADER_BUTTON];
+  }
+}
 
 const MAX_DISCOVERED_PAGES = 250;
 const MAX_CRAWLED_PAGES = 250;
@@ -90,15 +102,24 @@ export function isRamblersWalksListing(path: string, title = "", sourcePath = ""
 
 export function registrationPageType(path: string, title = "", sourcePath = ""): RegistrationPageType {
   const haystack = `${path} ${title}`.toLowerCase();
+  const pageName = path.split("/").pop()?.toLowerCase() || "";
+  const sourcePageName = sourcePath.split("/").pop()?.toLowerCase() || "";
   if (isRamblersWalksListing(path, title, sourcePath)) {
     return RegistrationPageType.WALKS;
-  } else if (/contact|committee/.test(haystack)) {
+  } else if ([pageName, sourcePageName, title.trim().toLowerCase()].some(value => /^(contact|contact-us|get-in-touch)$/.test(value))) {
     return RegistrationPageType.CONTACT;
   } else if (/photos|gallery|album/.test(haystack)) {
     return RegistrationPageType.GALLERY;
   } else {
     return RegistrationPageType.TEXT;
   }
+}
+
+export function ramblersHostedContactPhone(html: string): string {
+  const document = new JSDOM(html).window.document;
+  const card = [...document.querySelectorAll("main .card")].find(item => /get in touch/i.test(item.textContent || ""));
+  const phone = (card?.textContent || "").match(/(?:Call|Phone|Tel)\s*:?\s*(\+?[\d][\d\s]{8,15}\d)/i)?.[1];
+  return phone ? phone.replace(/\s+/g, " ").trim() : "";
 }
 
 function ramblersHostedCardTitle(link: HTMLAnchorElement): string {
@@ -231,9 +252,14 @@ export function isNgxRamblersSite(html: string, website: string): boolean {
 }
 
 export async function discoverRegistrationWebsite(website: string, groupCode = "", onProgress: RegistrationDiscoveryReporter = async () => undefined) {
-  const initialUrl = publicSiteUrl(website).href;
+  const requestedUrl = publicSiteUrl(website).href;
   await onProgress({message: "Reading the home page", pagesRead: 0, pagesFound: 0});
-  const initialHtml = await fetchPublicSiteHtml(initialUrl);
+  const initialPage = await fetchPublicSitePage(requestedUrl);
+  const initialUrl = initialPage.url;
+  const initialHtml = initialPage.html;
+  if (initialUrl !== requestedUrl) {
+    await onProgress({message: `The website redirects to ${withoutQuery(initialUrl)}, so pages are read from there`, pagesRead: 0, pagesFound: 0});
+  }
   if (isNgxRamblersSite(initialHtml, initialUrl)) {
     throw new Error("This website is already an NGX Ramblers site, so it does not need to be converted. Contact the platform administrator if you need help with it.");
   } else {
@@ -249,7 +275,7 @@ export async function discoverRegistrationWebsite(website: string, groupCode = "
     const hasSocialEvents = await groupHasRamblersEvents(groupCode, RamblersEventType.GROUP_EVENT, false);
     await onProgress({message: "Arranging the pages into the navbar", pagesRead: 0, pagesFound: discovered.pages.length});
     const navigationPages = assembleRegistrationPages(discovered.pages, hasWalks, hasSocialEvents);
-    return {flavour: discovered.flavour, pages: navigationPages, proposedNavigation: proposedRegistrationNavigation(navigationPages)};
+    return {flavour: discovered.flavour, pages: navigationPages, proposedNavigation: proposedRegistrationNavigation(navigationPages), website: initialUrl};
   }
 }
 
@@ -362,14 +388,17 @@ function galleryRegistrationTransformation(): PageTransformationConfig {
 }
 
 function textRegistrationTransformation(pageType: RegistrationPageType): PageTransformationConfig {
-  const defaults = createDefaultTransformationConfig();
-  const name = pageType === RegistrationPageType.CONTACT ? "Registration contact" : "Registration text and images";
-  return {...defaults, name, steps: defaults.steps.map(step => step.type === TransformationActionType.ADD_ROW ? {
-    ...step, rowConfig: {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12,
-      nestedRows: {contentMatcher: {type: ContentMatchType.COLLECT_WITH_BREAKS, breakOnImage: true, groupTextWithImage: true},
-        rowTemplate: {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false}}
-    }]}
-  } : step)};
+  if (pageType === RegistrationPageType.CONTACT) {
+    return createContactTransformationConfig();
+  } else {
+    const defaults = createDefaultTransformationConfig();
+    return {...defaults, name: "Registration text and images", steps: defaults.steps.map(step => step.type === TransformationActionType.ADD_ROW ? {
+      ...step, rowConfig: {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12,
+        nestedRows: {contentMatcher: {type: ContentMatchType.COLLECT_WITH_BREAKS, breakOnImage: true, groupTextWithImage: true},
+          rowTemplate: {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false}}
+      }]}
+    } : step)};
+  }
 }
 
 export function albumPhotoPaths(album: MigratedAlbum): string[] {
@@ -555,7 +584,11 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
 }
 
 export function registrationContentType(page: RegistrationPage): RegistrationPageType {
-  return page.type === RegistrationPageType.INDEX && !page.proposed ? registrationPageType(page.path, page.title) : page.type;
+  if (page.proposed && page.type === RegistrationPageType.INDEX) {
+    return RegistrationPageType.INDEX;
+  } else {
+    return registrationPageType(page.path, page.title);
+  }
 }
 
 function registrationTemplateFor(pageType: RegistrationPageType): RegistrationMigrationTemplate {

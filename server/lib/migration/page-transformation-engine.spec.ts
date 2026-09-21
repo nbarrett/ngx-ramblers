@@ -14,6 +14,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {
   ContentMatchType,
+  createContactTransformationConfig,
   ImageMatchPattern,
   PageTransformationConfig,
   SegmentType,
@@ -21,6 +22,9 @@ import {
   TransformationActionType
 } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
 import { ScrapedImage, ScrapedPage, ScrapedSegment } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
+import { RegistrationMigrationTemplate } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
+import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
+import { TextStyle } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 
 function img(src: string, alt: string): ScrapedImage {
   return { src, alt };
@@ -106,6 +110,71 @@ describe("page-transformation-engine.basic", () => {
     const col = result.rows?.[0].columns[0];
     expect(col.contentText?.includes("uploaded:banner.jpg")).toBeTruthy();
     expect(col.contentText?.includes("Intro text before images")).toBeTruthy();
+  });
+});
+
+describe("page-transformation-engine.contact cards", () => {
+  it("builds role cards with secure contact links instead of mailto addresses", async () => {
+    const engine = new PageTransformationEngine();
+    const page: ScrapedPage = {
+      path: "https://group.example/contact",
+      title: "Contact",
+      segments: [
+        {text: "## Contacts"},
+        {text: "Chairman"},
+        {text: "[Pat Taylor](mailto:chairman@group.example)"},
+        {text: "07700 900123"},
+        {text: "Please do not send emails advertising holidays."}
+      ]
+    };
+    const result = await engine.transform(page, createContactTransformationConfig(), uploadMock);
+    const text = JSON.stringify(result.rows);
+    expect(text).toContain("?contact-us&role=chairman&redirect=contact-us");
+    expect(text).toContain("Pat Taylor");
+    expect(text).not.toContain("07700 900123");
+    expect(text).toContain("Please do not send emails advertising holidays.");
+    expect(text).not.toContain("mailto:");
+    expect(text).not.toContain("chairman@group.example");
+  });
+
+  it("fills the self-service contact fragment instead of dumping the old page", async () => {
+    const engine = new PageTransformationEngine();
+    const template: PageContent = {
+      path: RegistrationMigrationTemplate.CONTACT,
+      rows: [{
+        type: PageContentType.TEXT, maxColumns: 12, showSwiper: false,
+        columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC, contentText: "# Contact Us"}]
+      }, {
+        type: PageContentType.TEXT, maxColumns: 3, showSwiper: false,
+        columns: [{
+          columns: 4,
+          rows: [{
+            type: PageContentType.TEXT, showSwiper: false, maxColumns: 1,
+            columns: [{
+              columns: 12, accessLevel: AccessLevel.PUBLIC, showPlaceholderImage: true, imageHeight: 200,
+              contentText: "#### Secretary\n\n[Contact Secretary](?contact-us&role=secretary&redirect=contact-us)",
+              styles: {class: TextStyle.AS_BUTTON}
+            }]
+          }]
+        }]
+      }],
+      migrationTemplate: {isTemplate: true, templateType: ContentTemplateType.MIGRATION_TEMPLATE, mappings: []}
+    };
+    const page: ScrapedPage = {
+      path: "https://group.example/contact",
+      title: "Contact",
+      segments: [
+        {text: "Chairman"},
+        {text: "[Pat Taylor](mailto:chairman@group.example)"}
+      ]
+    };
+    const result = await engine.transformWithTemplate(page, template, uploadMock);
+    expect(result.rows[0].columns[0].contentText).toBe("# Contact Us");
+    expect(result.rows[1].columns[0].rows[0].columns[0].contentText).toContain("## Pat Taylor");
+    expect(result.rows[1].columns[0].rows[0].columns[0].contentText).toContain("### Chairman");
+    expect(result.rows[1].columns[0].rows[0].columns[0].contentText).toContain("[Contact Pat](?contact-us&role=chairman&redirect=contact-us)");
+    expect(result.rows[1].columns[0].rows[0].columns[1].showPlaceholderImage).toBe(true);
+    expect(JSON.stringify(result.rows)).not.toContain("mailto:");
   });
 });
 

@@ -10,9 +10,10 @@ import {
   PageContentRow,
   PageContentType
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, textBeforeSeparators, truncateAtWordBoundary } from "../shared/string-utils";
+import { joinWithAnd, pluralise, pluraliseWithCount, textBeforeSeparators, truncateAtWordBoundary } from "../shared/string-utils";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { toSlug } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const TYPE_TITLES: Record<string, string> = {
   feat: "New Features",
@@ -62,6 +63,21 @@ const TYPE_SUMMARIES: Record<string, { singular: string; plural?: string }> = {
 const TITLE_MAX_LENGTH = 90;
 const CAMERA_SUFFIX = " 📸";
 const entryLineRegex = /^-\s*\[(.+?)\]\((.+?)\)(\s*📸)?\s*$/;
+const INTERNAL_SCOPES = new Set(["build", "ci", "stats", "test"]);
+const SCOPE_TITLES: Record<string, string> = {
+  albums: "Photo albums",
+  cms: "Site content",
+  environment: "Site environments",
+  events: "Events",
+  inbox: "Inbox",
+  mail: "Email",
+  maps: "Maps",
+  members: "Members",
+  platform: "Platform administration",
+  registration: "Site registration",
+  routes: "Routes",
+  "walks-export": "Walks export"
+};
 
 export function groupCommitsByType(commits: ConventionalCommit[]): CommitGroup[] {
   const groups: Map<string, ConventionalCommit[]> = new Map();
@@ -112,14 +128,18 @@ export function generateTitle(commits: ConventionalCommit[]): string {
     if (uniqueScopes.length === 1 && scopes.length === commits.length) {
       const withoutTrailingDetail = textBeforeSeparators(commits[0].subject, [" - ", " — ", " (", " ["]);
       return `${uniqueScopes[0]}: ${textBeforeSeparators(withoutTrailingDetail, ["(", "["])}`;
-    } else if (scopeSummary && changeSummary) {
-      return `${scopeSummary}: ${changeSummary}`;
+    } else if (scopeSummary) {
+      return `${scopeSummary} updates`;
     } else if (changeSummary) {
       return changeSummary;
     } else {
       return truncateAtWordBoundary(commits[0].subject, TITLE_MAX_LENGTH);
     }
   }
+}
+
+export function releaseNoteSlug(title: string): string {
+  return toSlug(truncateAtWordBoundary(title, 64)) || "release-note";
 }
 
 export function formatDate(dateStr: string): string {
@@ -369,25 +389,14 @@ function linkIssueReferencesInText(text: string, references: IssueReference[], g
 }
 
 function summariseScopes(commits: ConventionalCommit[]): string | null {
-  const scopes = commits
-    .map(commit => commit.scope)
-    .filter((scope): scope is string => Boolean(scope));
-
+  const scopeSets = commits.map(commit => new Set((commit.scope || "").split("+").filter(scope => scope && !INTERNAL_SCOPES.has(scope))));
+  const commonScopes = scopeSets[0] ? Array.from(scopeSets[0]).filter(scope => scopeSets.every(candidate => candidate.has(scope))) : [];
+  const scopes = commonScopes.length > 0 ? commonScopes : Array.from(new Set(scopeSets.flatMap(scopeSet => Array.from(scopeSet))));
   if (scopes.length === 0) {
     return null;
   }
-
-  const unique = Array.from(new Set(scopes));
-
-  if (unique.length === 1) {
-    return capitalise(unique[0]);
-  }
-
-  if (unique.length === 2) {
-    return `${capitalise(unique[0])} and ${capitalise(unique[1])}`;
-  }
-
-  return `${capitalise(unique[0])}, ${capitalise(unique[1])} and ${unique.length - 2} more areas`;
+  const titles = scopes.map(scope => SCOPE_TITLES[scope] || scope.replace(/-/g, " "));
+  return joinWithAnd(titles);
 }
 
 function summariseChanges(commits: ConventionalCommit[]): string | null {
