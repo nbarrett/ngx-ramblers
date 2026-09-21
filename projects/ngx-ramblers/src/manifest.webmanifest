@@ -1,6 +1,6 @@
 {
-  "name": "Ramblers Walks",
-  "short_name": "Walks",
+  "name": "NGX Ramblers",
+  "short_name": "Ramblers",
   "start_url": "/app",
   "display": "standalone",
   "background_color": "#102018",

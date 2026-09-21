@@ -6,6 +6,7 @@ import { filter } from "rxjs/operators";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { PageService } from "./page.service";
 import { UrlService } from "./url.service";
+import { AppPath } from "../models/route-follow.model";
 
 @Injectable({
   providedIn: "root"
@@ -17,6 +18,7 @@ export class RouterHistoryService {
   private urlService = inject(UrlService);
   private pageService = inject(PageService);
   public pageHistory: string[] = [];
+  private pendingAppBackUrl: string | null = null;
 
   constructor() {
     this.loadRouting();
@@ -26,9 +28,38 @@ export class RouterHistoryService {
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe(({urlAfterRedirects}: NavigationEnd) => {
-        this.pageHistory = [...this.pageHistory, urlAfterRedirects];
+        if (this.pendingAppBackUrl === urlAfterRedirects) {
+          this.pendingAppBackUrl = null;
+        } else {
+          this.pendingAppBackUrl = null;
+          this.pageHistory = [...this.pageHistory, urlAfterRedirects];
+        }
         this.logger.debug("constructed: pageHistory:urlAfterRedirects", urlAfterRedirects, "history now:", this.pageHistory);
       });
+  }
+
+  appBackDestination(): string {
+    const current = this.router.url;
+    const previous = [...this.pageHistory].reverse().find(url => url !== current);
+    return previous || "/" + AppPath.ROOT;
+  }
+
+  navigateBackWithinApp(): void {
+    const destination = this.appBackDestination();
+    const index = this.pageHistory.lastIndexOf(destination);
+    if (index >= 0) {
+      this.pageHistory = this.pageHistory.slice(0, index + 1);
+      this.pendingAppBackUrl = destination;
+    }
+    void this.router.navigateByUrl(destination);
+  }
+
+  forgetCurrentPage(): void {
+    const current = this.router.url;
+    const index = this.pageHistory.lastIndexOf(current);
+    if (index >= 0) {
+      this.pageHistory = this.pageHistory.filter((url, position) => position !== index);
+    }
   }
 
   navigateBackToLastMainPage(unconditionally?: boolean) {
