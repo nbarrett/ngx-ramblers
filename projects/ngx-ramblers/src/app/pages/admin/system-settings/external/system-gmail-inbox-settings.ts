@@ -100,21 +100,21 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
               <input class="form-check-input" type="radio" id="inbox-provider-gmail"
                 name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
                 (change)="selectInboxProvider(InboxReaderProvider.GMAIL_API)">
-              <label class="form-check-label" for="inbox-provider-gmail">Gmail account (<a href="https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-05-29-gmail-inbox-setup" target="_blank" (click)="$event.stopPropagation()">read the user guide</a>)</label>
+              <label class="form-check-label" for="inbox-provider-gmail">Gmail-connected inbox &mdash; per-role forwarding remains possible (<a href="https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-05-29-gmail-inbox-setup" target="_blank" (click)="$event.stopPropagation()">read the user guide</a>)</label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="radio" id="inbox-provider-cloudflare"
                 name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS"
                 (change)="selectInboxProvider(InboxReaderProvider.CLOUDFLARE_INGRESS)">
-              <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; via Cloudflare Email Routing, no Gmail account</label>
+              <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; all role mail stays in NGX, no Gmail account (recommended)</label>
             </div>
             <div class="small text-muted mt-1">
               @if (inboxProvider === InboxReaderProvider.NONE) {
                 This site has no NGX inbox. Committee replies won't appear in Admin &rarr; Inbox &mdash; choose Gmail or Direct-to-inbox above if you want them to.
               } @else if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
-                Mail sent to this site's committee addresses is delivered straight into this inbox through Cloudflare Email Routing. There's no Gmail account, OAuth or Google Cloud project to set up.
+                Recommended: mail sent to this site's committee addresses is delivered straight into the NGX inbox through Cloudflare Email Routing. All roles use the inbox; there is no per-role forwarding or Gmail account to manage.
               } @else {
-                Committee members read replies through a connected Gmail account. Work through the setup steps below.
+                NGX reads mail from a connected Gmail account. Route committee addresses to that shared account so replies remain available in Admin &rarr; Inbox. Per-role forwarding to personal addresses is possible in this mode, but is discouraged because those messages bypass the shared inbox.
               }
             </div>
           </div>

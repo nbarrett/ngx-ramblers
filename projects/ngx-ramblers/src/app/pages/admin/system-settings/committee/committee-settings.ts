@@ -988,7 +988,15 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   committeeMembersLoaded = false;
   committeeRolesAlertDismissed = false;
 
+  private readonly onRoleEditEscape = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && this.editingRoleDraft) {
+      event.preventDefault();
+      this.cancelRoleEdit();
+    }
+  };
+
   ngOnInit() {
+    document.addEventListener("keydown", this.onRoleEditEscape, true);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.cloudflareEmailRoutingService.invalidateCache();
     this.committeeConfigService.refreshConfig();
@@ -1090,6 +1098,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    document.removeEventListener("keydown", this.onRoleEditEscape, true);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 

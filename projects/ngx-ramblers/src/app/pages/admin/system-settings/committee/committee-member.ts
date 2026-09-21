@@ -403,6 +403,16 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                 </div>
               </div>
             } @else {
+              @if (gmailInbox && !roleUsesSharedGmailInbox()) {
+                <div class="alert alert-warning d-flex align-items-start mt-2 mb-3" role="alert">
+                  <fa-icon [icon]="ALERT_WARNING.icon" class="me-2"/>
+                  <div>
+                    <strong>Keep role mail in the shared inbox</strong>
+                    <div>Set this role to Catch-all so mail arrives in the connected Gmail inbox and the committee can read and reply in Admin &rarr; Inbox. Forwarding to a personal or other external address takes mail out of that shared view.</div>
+                    <div class="mt-1"><a href="" (click)="useCatchAll($event)">Use catch-all</a></div>
+                  </div>
+                </div>
+              }
               <app-content-text-editor standalone category="admin" name="committee-inbound-forwarding-help" description="Inbound forwarding help"/>
               <hr/>
               <div class="row">
@@ -571,6 +581,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly adminInboxPath = AdminPath.INBOX;
   protected readonly mailSettingsPath = AdminPath.MAIL_SETTINGS;
   protected internalInbox = false;
+  protected gmailInbox = false;
   baseDomain = "";
   private subscriptions: Subscription[] = [];
   private destinationAddresses: DestinationAddress[] = [];
@@ -639,6 +650,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.systemConfigService.events().subscribe(config => {
         this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
+        this.gmailInbox = config?.inbox?.provider === InboxReaderProvider.GMAIL_API;
       })
     );
     this.subscriptions.push(
@@ -1042,21 +1054,25 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       : this.forwardTargets;
     return targets.flatMap(target => {
       const option = {token: target.value as string, label: this.forwardTargetLabel(target.value)};
-      if (target.value === ForwardEmailTarget.CUSTOM && this.connectedGmailInboxes.length) {
+      if (target.value === ForwardEmailTarget.CUSTOM && this.connectedGmailInboxes.length > 1) {
         const inboxOptions = this.connectedGmailInboxes.map(email => ({token: `${this.GMAIL_TOKEN_PREFIX}${email}`, label: `Gmail inbox (${email})`}));
         return [...inboxOptions, option];
+      } else {
+        return [option];
       }
-      return [option];
     });
   }
 
   forwardSelectionToken(): string {
-    if (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM
+    if (this.connectedGmailInboxes.length === 1 && this.forwardIsConnectedInbox()) {
+      return ForwardEmailTarget.CATCHALL;
+    } else if (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM
       && this.committeeMember.forwardEmailCustom
       && this.connectedGmailInboxes.includes(this.committeeMember.forwardEmailCustom)) {
       return `${this.GMAIL_TOKEN_PREFIX}${this.committeeMember.forwardEmailCustom}`;
+    } else {
+      return this.committeeMember.forwardEmailTarget;
     }
-    return this.committeeMember.forwardEmailTarget;
   }
 
   forwardSelectionChanged(token: string) {
@@ -1078,6 +1094,24 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     return this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM
       && !!this.committeeMember.forwardEmailCustom
       && this.connectedGmailInboxes.includes(this.committeeMember.forwardEmailCustom);
+  }
+
+  roleUsesSharedGmailInbox(): boolean {
+    return this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL
+      || (this.connectedGmailInboxes.length === 1 && this.forwardIsConnectedInbox());
+  }
+
+  useCatchAll(event: Event): void {
+    event.preventDefault();
+    this.committeeMember.forwardEmailTarget = ForwardEmailTarget.CATCHALL;
+    this.forwardTargetChanged();
+  }
+
+  bypassesConnectedInbox(): boolean {
+    return this.committeeMember.forwardEmailTarget === ForwardEmailTarget.MEMBER_EMAIL
+      || this.committeeMember.forwardEmailTarget === ForwardEmailTarget.MULTIPLE
+      || this.committeeMember.forwardEmailTarget === ForwardEmailTarget.NONE
+      || (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM && !this.forwardIsConnectedInbox());
   }
 
   forwardShowsSecondaryField(): boolean {
