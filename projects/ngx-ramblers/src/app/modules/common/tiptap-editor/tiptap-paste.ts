@@ -4,6 +4,10 @@ export function isInternalPaste(html: string): boolean {
   return !!html && html.includes("data-pm-slice");
 }
 
+export function isWordClipboardHtml(html: string): boolean {
+  return /\bMso[A-Za-z]+\b|xmlns:(?:o|w|v)=|\bmso-[a-z-]+:/i.test(html || "");
+}
+
 export function shouldPastePlainTextAsMarkdown(
   internalPaste: boolean,
   plainText: string,
@@ -46,6 +50,57 @@ export function stripIncompatibleTextMarks<T extends PasteJsonNode>(node: T): T 
 
 const RICH_FORMATTING_SELECTOR = "a[href], strong, b, em, i, u, s, strike, del, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, img";
 
+function bytesFromHex(hex: string): Uint8Array {
+  const pairs = hex.match(/.{2}/g) || [];
+  const bytes = new Uint8Array(pairs.length);
+  pairs.forEach((pair, index) => {
+    bytes[index] = parseInt(pair, 16);
+  });
+  return bytes;
+}
+
+export function imagesFromRtf(rtf: string): { bytes: Uint8Array; type: string }[] {
+  if (!rtf) {
+    return [];
+  } else {
+    return Array.from(rtf.matchAll(/\\(pngblip|jpegblip)/gi)).map(marker => {
+      const start = (marker.index || 0) + marker[0].length;
+      const nextPicture = rtf.indexOf("\\pict", start);
+      const body = rtf.slice(start, nextPicture === -1 ? undefined : nextPicture);
+      const jpeg = marker[1].toLowerCase() === "jpegblip";
+      const signature = jpeg ? /ffd8ff/i : /89504e47/i;
+      const imageAt = body.search(signature);
+      const imageHex = imageAt >= 0 ? (body.slice(imageAt).match(/^[0-9a-fA-F\s]+/)?.[0] || "").replace(/\s/g, "") : "";
+      return {bytes: bytesFromHex(imageHex), type: jpeg ? "image/jpeg" : "image/png"};
+    }).filter(image => image.bytes.length > 24);
+  }
+}
+
+export function dataImagesFromHtml(html: string): string[] {
+  if (!html) {
+    return [];
+  } else {
+    return Array.from(html.matchAll(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=\r\n]+/g))
+      .map(match => match[0].replace(/\s+/g, ""));
+  }
+}
+
+export function htmlReferencesLocalImages(html: string): boolean {
+  let local = false;
+  if (html) {
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      local = Array.from(doc.body.querySelectorAll("img")).some(image => {
+        const src = image.getAttribute("src") || "";
+        return !/^https?:\/\//i.test(src) && !src.startsWith("data:image/");
+      });
+    } catch {
+      local = false;
+    }
+  }
+  return local;
+}
+
 export function htmlHasRichFormatting(html: string): boolean {
   let rich = false;
   if (html) {
@@ -83,14 +138,6 @@ export function sanitiseHtmlForPaste(html: string): string {
         const span = doc.createElement("span");
         Array.from(el.childNodes).forEach(child => span.appendChild(child));
         el.replaceWith(span);
-      });
-      doc.querySelectorAll("table").forEach(table => {
-        const fragment = doc.createDocumentFragment();
-        table.querySelectorAll("td, th").forEach(cell => {
-          Array.from(cell.childNodes).forEach(child => fragment.appendChild(child));
-          fragment.appendChild(doc.createElement("br"));
-        });
-        table.replaceWith(fragment);
       });
       result = doc.body.innerHTML;
     } catch {

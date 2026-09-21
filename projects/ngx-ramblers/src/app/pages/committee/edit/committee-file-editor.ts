@@ -312,7 +312,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
       this.notify.progress({title: "Document conversion", message: `converting ${file.name} - please wait...`});
       try {
         const conversion = await this.documentConversionService.convertFile(file);
-        this.committeeFile.document.markdown = conversion.markdown;
+        this.committeeFile.document.markdown = this.documentConversionService.separateEditingBlocks(conversion.markdown);
         if (!this.committeeFile.document.title && conversion.suggestedTitle) {
           this.committeeFile.document.title = conversion.suggestedTitle;
         }

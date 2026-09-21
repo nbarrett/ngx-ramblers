@@ -11,13 +11,11 @@ export function replacePdfImagePlaceholders(markdown: string, imagePaths: Map<st
   return markdown
     .split("\n")
     .map(line => {
-      const placeholder = line.trim().match(/^!\[\]\(pdf-image:([^)]+)\)$/);
-      if (placeholder) {
-        const uploadedPath = imagePaths.get(placeholder[1]);
-        return uploadedPath ? `![](${uploadedPath})` : null;
-      } else {
-        return line;
-      }
+      const replaced = line.replace(/!\[([^\]]*)\]\(pdf-image:([^)]+)\)/g, (match, alt, name) => {
+        const uploadedPath = imagePaths.get(name);
+        return uploadedPath ? `![${alt}](${uploadedPath})` : "";
+      });
+      return replaced.trim().length > 0 ? replaced : null;
     })
     .filter(line => line !== null)
     .join("\n");
@@ -104,18 +102,19 @@ export async function normaliseTables(html: string): Promise<string> {
         });
       if (mergeIndex === undefined) {
         return false;
-      }
-      rows.forEach(row => {
-        const left = row.children[mergeIndex] as HTMLElement;
-        const right = row.children[mergeIndex + 1] as HTMLElement;
-        if (left && right) {
-          if ((right.textContent || "").trim().length > 0) {
-            left.innerHTML = right.innerHTML;
+      } else {
+        rows.forEach(row => {
+          const left = row.children[mergeIndex] as HTMLElement;
+          const right = row.children[mergeIndex + 1] as HTMLElement;
+          if (left && right) {
+            if ((right.textContent || "").trim().length > 0) {
+              left.innerHTML = right.innerHTML;
+            }
+            right.remove();
           }
-          right.remove();
-        }
-      });
-      return true;
+        });
+        return true;
+      }
     };
     const mergeSplitColumns = (): void => {
       if (mergeSplitColumnsOnce()) {
@@ -158,12 +157,103 @@ export async function normaliseTables(html: string): Promise<string> {
   return ownerDocument.body.innerHTML;
 }
 
-async function convertDocx(buffer: Buffer): Promise<DocumentConversionResponse> {
+async function convertDocx(buffer: Buffer, imageUploader?: PdfImageUploader): Promise<DocumentConversionResponse> {
   const { default: mammoth } = await import("mammoth");
-  const result = await mammoth.convertToHtml({buffer});
+  const { default: sharp } = await import("sharp");
+  const imageNumber = {value: 0};
+  const imageFailure = {message: ""};
+  const result = await mammoth.convertToHtml({buffer}, {
+    convertImage: mammoth.images.imgElement(async image => {
+      imageNumber.value += 1;
+      try {
+        const imageBuffer = await sharp(Buffer.from(await image.readAsArrayBuffer())).png().toBuffer();
+        const name = `docx-image-${imageNumber.value}`;
+        const src = imageUploader ? await imageUploader({name, buffer: imageBuffer, pageNumber: 0, width: 0, height: 0}) : null;
+        if (imageUploader && !src) {
+          imageFailure.message = `Could not upload embedded image ${imageNumber.value}`;
+        }
+        return {src: src || ""};
+      } catch (error) {
+        imageFailure.message = `Could not convert embedded image ${imageNumber.value}: ${error.message}`;
+        return {src: ""};
+      }
+    })
+  });
+  if (imageFailure.message) {
+    throw new Error(imageFailure.message);
+  }
   debugLog("mammoth messages:", result.messages);
-  const markdown = htmlToMarkdown(await normaliseTables(result.value), undefined, true);
+  return convertHtmlToMarkdown(result.value);
+}
+
+export async function convertHtmlToMarkdown(html: string): Promise<DocumentConversionResponse> {
+  const markdown = htmlToMarkdown(await normaliseTables(html), undefined, true);
   return postProcessConvertedMarkdown(markdown);
+}
+
+export async function convertWordClipboardHtml(html: string): Promise<DocumentConversionResponse> {
+  const { JSDOM } = await import("jsdom");
+  const dom = new JSDOM(html);
+  const document = dom.window.document;
+  const paragraphs = Array.from(document.body.querySelectorAll("p"));
+  const lists = {current: null as HTMLElement | null};
+  paragraphs.forEach(paragraph => {
+    const parent = paragraph.parentElement;
+    const label = paragraph.textContent || "";
+    const listMarker = label.match(/^\s*(\d+[.)]|[·•])\s*/);
+    const wordList = /mso-list\s*:/i.test(paragraph.getAttribute("style") || "") || !!listMarker;
+    const heading = /\bMsoTitle\b/i.test(paragraph.className) ? "h1" : /\bMsoSubtitle\b/i.test(paragraph.className) ? "h2" : null;
+    if (wordList && listMarker && parent) {
+      const listType = /^\d/.test(listMarker[1]) ? "ol" : "ul";
+      const adjacent = lists.current && lists.current.tagName.toLowerCase() === listType && lists.current === paragraph.previousElementSibling;
+      const list = adjacent ? lists.current : document.createElement(listType);
+      if (!adjacent) {
+        if (listType === "ol") {
+          list.setAttribute("start", listMarker[1].match(/^\d+/)?.[0] || "1");
+        }
+        parent.insertBefore(list, paragraph);
+      }
+      const markerLength = listMarker[0].length;
+      const remaining = {count: markerLength};
+      const walker = document.createTreeWalker(paragraph, dom.window.NodeFilter.SHOW_TEXT);
+      const textNodes: Text[] = [];
+      const collectTextNodes = (): void => {
+        if (walker.nextNode()) {
+          textNodes.push(walker.currentNode as Text);
+          collectTextNodes();
+        }
+      };
+      collectTextNodes();
+      textNodes.forEach(node => {
+        if (remaining.count > 0) {
+          const removed = Math.min(remaining.count, node.data.length);
+          node.data = node.data.slice(removed);
+          remaining.count -= removed;
+        }
+      });
+      const item = document.createElement("li");
+      item.replaceChildren(...Array.from(paragraph.childNodes));
+      list.appendChild(item);
+      lists.current = list;
+      paragraph.remove();
+    } else if (heading && parent) {
+      const element = document.createElement(heading);
+      element.replaceChildren(...Array.from(paragraph.childNodes));
+      parent.replaceChild(element, paragraph);
+      lists.current = null;
+    } else {
+      lists.current = null;
+    }
+  });
+  Array.from(document.body.querySelectorAll("p img")).forEach(image => {
+    const paragraph = image.closest("p");
+    if (paragraph?.parentElement) {
+      const imageParagraph = document.createElement("p");
+      imageParagraph.appendChild(image);
+      paragraph.after(imageParagraph);
+    }
+  });
+  return convertHtmlToMarkdown(document.body.innerHTML);
 }
 
 function pdfResponseFrom(text: string, pageCount: number): DocumentConversionResponse {
@@ -213,7 +303,7 @@ export async function convertBufferToMarkdown(buffer: Buffer, fileName: string, 
   const extension = fileExtension(fileName);
   debugLog("converting", fileName, "with extension", extension, "size", buffer.length);
   if (extension === "docx") {
-    return convertDocx(buffer);
+    return convertDocx(buffer, imageUploader);
   } else if (extension === "pdf") {
     return convertPdf(buffer, imageUploader);
   } else if (extension === "doc") {

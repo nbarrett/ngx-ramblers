@@ -8,9 +8,10 @@ import { objectBufferForKey, putBufferDirect } from "../aws/aws-controllers";
 import { v4 as uuid } from "uuid";
 import { ExtractedPdfImage } from "./pdf-styled-extraction";
 import committeeFile from "../mongo/models/committee-file";
-import { convertBufferToMarkdown, replacePdfImagePlaceholders } from "./document-conversion";
+import { convertBufferToMarkdown, convertWordClipboardHtml, replacePdfImagePlaceholders } from "./document-conversion";
 import { convertDocumentViaIntegrationWorker, documentConversionWorkerConfigured } from "./document-conversion-worker-client";
 import { DocumentConversionResponse } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import {isString} from "es-toolkit/compat";
 
 const CONVERTED_IMAGES_FOLDER = "committeeFiles/converted-images";
 
@@ -104,6 +105,21 @@ async function convertUploadedFile(req: Request, res: Response): Promise<void> {
   }
 }
 
+async function convertClipboardHtml(req: Request, res: Response): Promise<void> {
+  const html = req.body?.html;
+  if (!isString(html) || !html.trim()) {
+    res.status(400).json({request: {}, error: "No HTML was provided"});
+  } else {
+    try {
+      const response = await convertWordClipboardHtml(html);
+      res.json({request: {}, response});
+    } catch (error) {
+      debugLog("convertClipboardHtml failed:", error);
+      res.status(400).json({request: {}, error: error instanceof Error ? error.message : "HTML conversion failed"});
+    }
+  }
+}
+
 async function convertCommitteeFile(req: Request, res: Response): Promise<void> {
   const id = req.params.id;
   try {
@@ -125,6 +141,7 @@ async function convertCommitteeFile(req: Request, res: Response): Promise<void> 
 const router = express.Router();
 
 router.post("/file", authConfig.authenticate(), multer({dest: envConfig.server.uploadDir}).single("file"), convertUploadedFile);
+router.post("/clipboard-html", authConfig.authenticate(), convertClipboardHtml);
 router.post("/committee-file/:id", authConfig.authenticate(), convertCommitteeFile);
 
 export default router;

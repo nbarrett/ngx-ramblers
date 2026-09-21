@@ -50,3 +50,22 @@ export function unwrapSoftLineBreaks(markdown: string): string {
   flushCurrent();
   return result.join("\n");
 }
+
+export function normaliseWordPasteMarkdown(markdown: string): string {
+  const blocks = unwrapSoftLineBreaks(markdown).split(/\n{2,}/).map(block => block.trim().replace(/^[•·▪◦]\s*/, "- ")).filter(Boolean);
+  const isStructured = (block: string) => /^(?:#{1,6}\s|[-*+](?:\s|$)|\d+[.)]\s|>\s|\||!\[|<img\b|```)/.test(block);
+  return blocks.reduce<string[]>((joined, block) => {
+    const previous = joined[joined.length - 1] || "";
+    const previousComplete = /[.!?:;)]$/.test(previous);
+    const continues = /^[a-z0-9£$(“‘]/.test(block) || previous.length >= 60 || /\b(?:the|a|an|of|to|for|on|with|from|by|at|and|or)$/i.test(previous)
+      || (/^\S+$/.test(block) && !/[.!?:;)]$/.test(previous));
+    const listContinuation = /^[-*+]\s/.test(previous) && !isStructured(block) && (/[–-]$/.test(previous) || /^[a-z]/.test(block) || /^\S+$/.test(block));
+    if (previous === "-" && !isStructured(block)) {
+      return [...joined.slice(0, -1), `- ${block}`];
+    } else if (previous && !previousComplete && !isStructured(block) && (listContinuation || (!isStructured(previous) && continues))) {
+      return [...joined.slice(0, -1), `${previous} ${block}`];
+    } else {
+      return [...joined, block];
+    }
+  }, []).join("\n\n");
+}
