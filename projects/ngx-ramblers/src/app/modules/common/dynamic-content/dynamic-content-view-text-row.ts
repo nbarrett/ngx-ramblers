@@ -238,13 +238,7 @@ export class DynamicContentViewTextRow implements OnInit {
   }
 
   heroImageHeight(column: PageContentColumn): number {
-    if (column.imageHeight) {
-      return column.imageHeight;
-    } else if (column.columns === 12 && !!column.imageSource) {
-      return 400;
-    } else {
-      return null;
-    }
+    return column.imageHeight || null;
   }
 
   imageSourceFor(column: PageContentColumn): string {

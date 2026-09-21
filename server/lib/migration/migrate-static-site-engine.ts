@@ -1168,7 +1168,7 @@ async function migrateChildPage(
           type: PageContentType.TEXT,
           maxColumns: 1,
           showSwiper: false,
-          columns: [{columns: 12, imageSource, alt: imageAlt, imageBorderRadius: 6}]
+          columns: [{columns: 12, imageSource, alt: imageAlt, imageBorderRadius: 6, imageHeight: MIGRATED_CAROUSEL_HEIGHT}]
         });
       }
     }
@@ -1217,7 +1217,7 @@ async function migrateChildPage(
           type: PageContentType.TEXT,
           maxColumns: 1,
           showSwiper: false,
-          columns: [{columns: 12, imageSource, alt: imageAlt, imageBorderRadius: 6}]
+          columns: [{columns: 12, imageSource, alt: imageAlt, imageBorderRadius: 6, imageHeight: MIGRATED_CAROUSEL_HEIGHT}]
         });
       }
     }
