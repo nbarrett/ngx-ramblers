@@ -815,6 +815,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly faShoePrints = faShoePrints;
   protected readonly faRightLeft = faRightLeft;
   private mapRef: L.Map | null = null;
+  private restoredMapView: {center: L.LatLng; zoom: number} | null = null;
   private wakeLock: {release: () => Promise<void>} | null = null;
   private subscriptions: Subscription[] = [];
   private gestures: MapGestures | null = null;
@@ -908,6 +909,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.persistFollowSession(true);
     this.cancelTravel();
     const container = this.mapRef?.getContainer();
     if (container) {
@@ -917,6 +919,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
     this.gestures?.setOnBearing(null);
     this.followService.stop();
+    this.mapTiles.allowCachedOsTiles(false);
     void this.releaseWakeLock();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
@@ -1381,6 +1384,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       ? this.followService.headingBetween(this.payload.points[0], this.payload.points[1])
       : 0;
     return routeAlignedMapHeading(this.progress?.routeHeading ?? null, fallback);
+  }
+
+  private pointerHeading(): number {
+    return this.headingUp ? this.routeMapHeading() : this.currentHeading();
   }
 
   cycleAppearance(): void {
@@ -2207,6 +2214,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private followSessionSnapshot(): RouteFollowSession {
+    const center = this.mapRef?.getCenter() || this.restoredMapView?.center || null;
     return {
       walkId: this.payload?.walkId || null,
       path: this.payload?.path || null,
@@ -2219,16 +2227,25 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       previewSpeed: this.previewSpeed,
       previewMetres: this.followService.previewProgressMetres(),
       visitedWaypointIds: this.followService.visitedIds(),
+      trackIndex: Number(this.route.snapshot.queryParamMap.get(StoredValue.TRACK)) || 0,
+      via: this.via,
+      mapCenter: center ? {latitude: center.lat, longitude: center.lng} : null,
+      mapZoom: this.mapRef?.getZoom() ?? this.restoredMapView?.zoom ?? null,
       recordedPoints: this.progress?.mode === RouteFollowMode.RECORDING ? this.followService.trackPoints() : undefined
     };
   }
 
   private storedFollowSession(): RouteFollowSession | null {
-    if (!this.uiActions.itemExistsFor(StoredValue.FOLLOW_SESSION)) {
+    try {
+      if (!this.uiActions.itemExistsFor(StoredValue.FOLLOW_SESSION)) {
+        return null;
+      } else {
+        const stored = this.uiActions.initialObjectValueFor<RouteFollowSession>(StoredValue.FOLLOW_SESSION, null);
+        return stored && isLiveFollowMode(stored.mode) ? stored : null;
+      }
+    } catch (error) {
+      this.logger.warn("saved route session unavailable", error);
       return null;
-    } else {
-      const stored = this.uiActions.initialObjectValueFor<RouteFollowSession>(StoredValue.FOLLOW_SESSION, null);
-      return stored && isLiveFollowMode(stored.mode) ? stored : null;
     }
   }
 
@@ -2237,6 +2254,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     const currentKey = this.payload ? followCacheKey(this.payload) : null;
     if (session && currentKey && followCacheKey(session) === currentKey) {
       this.headingUp = !!session.headingUp;
+      this.restoredMapView = session.mapCenter && isNumber(session.mapZoom)
+        ? {center: L.latLng(session.mapCenter.latitude, session.mapCenter.longitude), zoom: session.mapZoom}
+        : null;
       this.sheetState = RouteFollowSheetState.MINIMISED;
       this.previewSpeed = session.previewSpeed || ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
       this.followService.setPreviewSpeed(this.previewSpeed);
@@ -2262,6 +2282,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = []): Promise<void> {
+    this.mapTiles.allowCachedOsTiles(false);
+    this.restoredMapView = null;
     this.via = via;
     this.loading = true;
     this.error = null;
@@ -2341,6 +2363,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.loginPrompt = !this.canEditRoute && loaded.source !== RouteFollowSource.RAMBLERS_LIBRARY && !this.memberLogin.memberLoggedIn();
       this.styleRoute = this.styleFromPayload(loaded);
       this.rememberSavedStyle(loaded);
+      const key = this.followCache.keyForPayload(loaded);
+      this.offlineStatus = await this.followCache.status(key);
+      this.mapTiles.allowCachedOsTiles(loaded.provider === MapProvider.OS && this.offlineStatus !== RouteFollowOfflineStatus.NEEDS_NETWORK);
       const stored = this.mapControls.queryInitialState({osStyle: loaded.osStyle});
       this.mapProvider = stored.provider;
       this.osStyle = stored.osStyle;
@@ -2348,10 +2373,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.followService.listenForCompass();
       this.restoreFollowSession();
       this.refreshArrows();
-      this.buildMapOptions(loaded);
+      this.buildMapOptions(loaded, this.restoredMapView);
+      this.skipNextFit = !!this.restoredMapView;
       this.redraw();
-      const key = this.followCache.keyForPayload(loaded);
-      this.offlineStatus = await this.followCache.status(key);
       if (navigator.onLine && this.offlineStatus !== RouteFollowOfflineStatus.AVAILABLE) {
         void this.saveOffline();
       }
@@ -2586,7 +2610,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
     const point = this.progress?.position;
     if (point) {
-      this.syncPointer(point.latitude, point.longitude, this.currentHeading());
+      this.syncPointer(point.latitude, point.longitude, this.pointerHeading());
     }
   }
 
@@ -2644,7 +2668,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         ? this.followService.headingBetween(this.payload.points[0], this.payload.points[1])
         : 0;
       const point = this.progress?.position || startPoint;
-      const heading = this.progress?.heading ?? this.progress?.routeHeading ?? routeHeading;
+      const heading = this.headingUp
+        ? this.routeMapHeading()
+        : this.progress?.heading ?? this.progress?.routeHeading ?? routeHeading;
       if (this.headingUp) {
         this.applyHeadingUp();
       }

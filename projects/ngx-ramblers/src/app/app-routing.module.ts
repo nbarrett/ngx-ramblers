@@ -46,14 +46,12 @@ const routes: Routes = [
   {
     path: "app/follow",
     loadComponent: () => import("./pages/app/route-follow")
-      .then(m => m.RouteFollowComponent),
-    canActivate: [SystemHealthyGuard]
+      .then(m => m.RouteFollowComponent)
   },
   {
     path: "app",
     loadComponent: () => import("./pages/app/app-home")
-      .then(m => m.AppHomeComponent),
-    canActivate: [SystemHealthyGuard]
+      .then(m => m.AppHomeComponent)
   },
   {
     path: "forgot-password",

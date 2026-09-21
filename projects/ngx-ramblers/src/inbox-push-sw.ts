@@ -9,9 +9,8 @@ interface InboxPushPayload {
   url?: string;
 }
 
-const FOLLOW_SHELL = "follow-shell-v2";
+const FOLLOW_SHELL = "follow-shell-v4";
 const FOLLOW_TILES = "follow-tiles-v3";
-const OS_TILE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 sw.addEventListener("install", () => {
   void sw.skipWaiting();
@@ -19,10 +18,9 @@ sw.addEventListener("install", () => {
 
 sw.addEventListener("activate", event => {
   event.waitUntil((async () => {
-    const keep = [FOLLOW_SHELL, FOLLOW_TILES];
     const keys = await caches.keys();
     await Promise.all(keys
-      .filter(key => key.startsWith("follow-") && !keep.includes(key))
+      .filter(key => key.startsWith("follow-tiles-") && key !== FOLLOW_TILES)
       .map(key => caches.delete(key)));
     await sw.clients.claim();
   })());
@@ -33,14 +31,21 @@ sw.addEventListener("fetch", event => {
   if (request.method === "GET") {
     const url = new URL(request.url);
     if (request.mode === "navigate" && (url.pathname === "/app" || url.pathname.startsWith("/app/"))) {
-      event.respondWith(networkThenShell(request));
+      event.respondWith(followShell(request));
     } else if (isOsTile(url)) {
-      event.respondWith(osTile(request));
+      event.respondWith(cacheFirst(request, FOLLOW_TILES));
     } else if (isFollowTile(url)) {
       event.respondWith(cacheFirst(request, FOLLOW_TILES));
-    } else if (url.origin === sw.location.origin && isFollowAsset(url.pathname)) {
+    } else if (url.origin === sw.location.origin && isFollowAsset(request, url.pathname)) {
       event.respondWith(cacheFirst(request, FOLLOW_SHELL));
     }
+  }
+});
+
+sw.addEventListener("message", event => {
+  const urls = event.data as string[];
+  if (urls?.length) {
+    event.waitUntil(cacheFollowResources(urls));
   }
 });
 
@@ -52,64 +57,60 @@ function isFollowTile(url: URL): boolean {
   return url.hostname.endsWith("tile.openstreetmap.org");
 }
 
-function isFollowAsset(pathname: string): boolean {
-  return pathname === "/manifest.webmanifest"
+function isFollowAsset(request: Request, pathname: string): boolean {
+  return request.destination === "script"
+    || request.destination === "style"
+    || request.destination === "font"
+    || pathname === "/manifest.webmanifest"
     || pathname === "/favicon.svg"
     || pathname === "/favicon.ico"
     || pathname.startsWith("/assets/images/local/pwa-")
     || pathname === "/assets/images/local/apple-touch-icon.png";
 }
 
-async function networkThenShell(request: Request): Promise<Response> {
-  try {
-    const fresh = await fetch(request);
-    const cache = await caches.open(FOLLOW_SHELL);
-    await cache.put("/app", fresh.clone());
-    return fresh;
-  } catch {
-    const cache = await caches.open(FOLLOW_SHELL);
-    const cached = await cache.match("/app") || await cache.match("/") || await cache.match(request);
-    return cached || new Response("This walking app is not available offline yet. Open it once while connected, then try again.", {
-      status: 503,
-      headers: {"Content-Type": "text/plain; charset=utf-8"}
-    });
-  }
+async function cacheFollowResources(urls: string[]): Promise<void> {
+  const cache = await caches.open(FOLLOW_SHELL);
+  await Promise.all(urls.map(async url => {
+    const parsed = new URL(url, sw.location.origin);
+    const allowed = parsed.origin === sw.location.origin
+      && (parsed.pathname === "/app"
+        || parsed.pathname === "/manifest.webmanifest"
+        || parsed.pathname.startsWith("/assets/images/local/pwa-")
+        || parsed.pathname === "/assets/images/local/apple-touch-icon.png"
+        || /\.(?:js|css|woff2?)$/.test(parsed.pathname));
+    const existing = allowed ? await cache.match(parsed.href) : null;
+    if (allowed && !existing) {
+      await fetch(url)
+        .then(response => cacheable(response) ? cache.put(parsed.href, response) : undefined)
+        .catch(() => undefined);
+    }
+  }));
 }
 
-function clockMs(): number {
-  return self.performance.timeOrigin + self.performance.now();
-}
-
-function cachedAtMs(response: Response): number {
-  const stamped = Number(response.headers.get("x-sw-cached-at"));
-  if (stamped > 0) {
-    return stamped;
-  } else {
-    const dateHeader = Date.parse(response.headers.get("date") || "");
-    return Number.isFinite(dateHeader) ? dateHeader : 0;
-  }
-}
-
-async function osTile(request: Request): Promise<Response> {
-  const cache = await caches.open(FOLLOW_TILES);
-  const cached = await cache.match(request);
-  const now = clockMs();
-  if (cached && now - cachedAtMs(cached) < OS_TILE_MAX_AGE_MS) {
+async function followShell(request: Request): Promise<Response> {
+  const cache = await caches.open(FOLLOW_SHELL);
+  const cached = await cache.match("/app");
+  if (cached) {
     return cached;
   } else {
     try {
       const fresh = await fetch(request);
       if (fresh.ok) {
-        const headers = new Headers(fresh.headers);
-        headers.set("x-sw-cached-at", String(now));
-        const stamped = new Response(fresh.clone().body, {status: fresh.status, statusText: fresh.statusText, headers});
-        await cache.put(request, stamped);
+        await cache.put("/app", fresh.clone());
       }
       return fresh;
     } catch {
-      return cached || new Response("Map tile unavailable", {status: 504});
+      const previous = await caches.match("/app");
+      return previous || new Response("This walking app is not available offline yet. Open it once while connected, then try again.", {
+        status: 503,
+        headers: {"Content-Type": "text/plain; charset=utf-8"}
+      });
     }
   }
+}
+
+function cacheable(response: Response): boolean {
+  return response.ok || response.type === "opaque";
 }
 
 async function cacheFirst(request: Request, cacheName: string): Promise<Response> {
@@ -118,11 +119,17 @@ async function cacheFirst(request: Request, cacheName: string): Promise<Response
   if (cached) {
     return cached;
   } else {
-    const fresh = await fetch(request);
-    if (fresh.ok) {
-      await cache.put(request, fresh.clone());
+    const previous = await caches.match(request);
+    if (previous) {
+      await cache.put(request, previous.clone());
+      return previous;
+    } else {
+      const fresh = await fetch(request);
+      if (cacheable(fresh)) {
+        await cache.put(request, fresh.clone());
+      }
+      return fresh;
     }
-    return fresh;
   }
 }
 

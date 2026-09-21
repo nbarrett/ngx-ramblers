@@ -7,6 +7,7 @@ import { filter } from "rxjs/operators";
 import { BuildVersion, VERSION_CHECK_INTERVAL_MS } from "../models/build-version.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { RouteFollowService } from "./maps/route-follow.service";
+import { AppShellService } from "./maps/app-shell.service";
 
 const NON_TEXT_INPUT_TYPES = ["checkbox", "radio", "range", "color", "file", "submit", "button", "reset", "image"];
 
@@ -19,6 +20,7 @@ export class VersionCheckService {
   private http = inject(HttpClient);
   private router = inject(Router);
   private routeFollow = inject(RouteFollowService);
+  private appShell = inject(AppShellService);
   private BASE_URL = "/api/version";
   private runningBuildNumber: string;
   private newVersionAvailable = false;
@@ -124,7 +126,8 @@ export class VersionCheckService {
   private safeToReload(): boolean {
     return !document.body.classList.contains("modal-open")
       && !this.userHasEditedSinceNavigation
-      && !this.routeFollow.isBusy();
+      && !this.routeFollow.isBusy()
+      && !this.appShell.active();
   }
 
   protected reloadPage(): void {

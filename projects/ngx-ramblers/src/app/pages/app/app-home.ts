@@ -11,8 +11,12 @@ import {
   AppAppearance,
   AppInstallPlatform,
   AppPath,
+  firstCompleted,
   followCacheKey,
+  isLiveFollowMode,
+  ROUTE_FOLLOW_NETWORK_TIMEOUT_MS,
   RouteFollowOfflineStatus,
+  RouteFollowSession,
   RouteFollowSummary
 } from "../../models/route-follow.model";
 import { SystemConfig } from "../../models/system.model";
@@ -29,6 +33,7 @@ import { WalkDisplayService } from "../walks/walk-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { StoredValue } from "../../models/ui-actions";
+import { UiActionsService } from "../../services/ui-actions.service";
 
 @Component({
   selector: "app-home",
@@ -39,6 +44,20 @@ import { StoredValue } from "../../models/ui-actions";
         <h1>Walks</h1>
         <p class="app-home-lead">Pick a walk, then tap Follow. Or paste a Ramblers route link.</p>
       </div>
+
+      @if (activeSession) {
+        <section class="app-home-section">
+          <h2>Continue your route</h2>
+          <a class="app-home-card" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.FOLLOW"
+             [queryParams]="routeQuery(activeSession)">
+            <div class="app-home-card-copy">
+              <h3>Your walk is ready to resume</h3>
+              <p class="app-home-meta">Your route and progress have been saved on this device.</p>
+            </div>
+            <span class="btn btn-primary app-home-card-btn">Resume</span>
+          </a>
+        </section>
+      }
 
       <form class="app-home-open" (submit)="openRamblersRoute($event)">
         <label class="app-home-open-label" for="ramblers-route-url">Ramblers route</label>
@@ -199,6 +218,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private ramblersLibrary = inject(RamblersLibraryRouteService);
   private followCache = inject(RouteFollowCacheService);
   private router = inject(Router);
+  private uiActions = inject(UiActionsService);
   protected display = inject(WalkDisplayService);
   protected payloadService = inject(RouteFollowPayloadService);
   protected routes: RouteFollowSummary[] = [];
@@ -212,6 +232,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected ramblersError: string | null = null;
   protected openingRamblers = false;
   protected offlineByKey: Record<string, RouteFollowOfflineStatus> = {};
+  protected activeSession: RouteFollowSession | null = null;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faPersonWalking = faPersonWalking;
   protected readonly faShareNodes = faShareNodes;
@@ -235,7 +256,11 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => {
       this.groupName = config?.group?.longName || config?.group?.shortName || "Ramblers";
     }));
-    void this.load();
+    this.activeSession = this.activeFollowSession();
+    const coldLaunch = !this.router.lastSuccessfulNavigation()?.previousNavigation;
+    if (!coldLaunch || !this.resumeActiveFollowSession()) {
+      void this.load();
+    }
   }
 
   ngOnDestroy(): void {
@@ -300,7 +325,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     return ["/" + area, this.display.walkSlug(walk)];
   }
 
-  routeQuery(route: RouteFollowSummary): Record<string, string> {
+  routeQuery(route: RouteFollowSummary | RouteFollowSession): Record<string, string> {
     const params: Record<string, string> = {};
     if (route.path) {
       params[StoredValue.FOLLOW_PATH] = route.path;
@@ -311,53 +336,94 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     if (route.ramblersSlug) {
       params[StoredValue.RAMBLERS_SLUG] = route.ramblersSlug;
     }
+    if (route.walkId) {
+      params[StoredValue.WALK_ID] = route.walkId;
+    }
+    if ("osMapsRouteId" in route && route.osMapsRouteId) {
+      params[StoredValue.OS_MAPS_ROUTE_ID] = route.osMapsRouteId;
+    }
+    if ("trackIndex" in route && route.trackIndex) {
+      params[StoredValue.TRACK] = String(route.trackIndex);
+    }
+    if ("via" in route && route.via?.length) {
+      params[StoredValue.VIA] = route.via.join(",");
+    }
     return params;
+  }
+
+  private resumeActiveFollowSession(): boolean {
+    if (this.activeSession) {
+      void this.router.navigate(["/" + AppPath.ROOT, AppPath.FOLLOW], {
+        queryParams: this.routeQuery(this.activeSession),
+        replaceUrl: true
+      });
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private activeFollowSession(): RouteFollowSession | null {
+    try {
+      const session = this.uiActions.itemExistsFor(StoredValue.FOLLOW_SESSION)
+        ? this.uiActions.initialObjectValueFor<RouteFollowSession | null>(StoredValue.FOLLOW_SESSION, null)
+        : null;
+      return session && isLiveFollowMode(session.mode) && followCacheKey(session) ? session : null;
+    } catch (error) {
+      this.logger.warn("saved route session unavailable", error);
+      return null;
+    }
   }
 
   private async load(): Promise<void> {
     this.loading = true;
     try {
-      const now = this.dateUtils.dateTimeNowNoTime();
-      const until = now.plus({days: 90});
-      const [pages, walks] = await Promise.all([
-        this.pageContentService.all({
-          criteria: {
-            $or: [
-              {"rows.type": PageContentType.MAP},
-              {"rows.type": PageContentType.ROUTE},
-              {"rows.columns.rows.type": PageContentType.MAP},
-              {"rows.columns.rows.type": PageContentType.ROUTE},
-              {"rows.map.routes.gpxFile.awsFileName": {$exists: true}},
-              {"rows.columns.rows.map.routes.gpxFile.awsFileName": {$exists: true}}
-            ]
-          }
-        }),
-        this.walkProgrammeService.eventsInRange({
-          dateFrom: now.toMillis(),
-          dateTo: until.toMillis(),
-          walksOnly: true
-        })
-      ]);
-      const live = [
-        ...this.ramblersLibrary.recentSummaries(),
-        ...this.payloadService.summariesFromPages(pages || [])
-      ];
-      this.walks = (walks || []).sort((left, right) => {
-        const leftDate = left.groupEvent?.start_date_time || "";
-        const rightDate = right.groupEvent?.start_date_time || "";
-        return leftDate < rightDate ? -1 : (leftDate > rightDate ? 1 : 0);
-      });
-      const cached = navigator.onLine ? [] : await this.followCache.summaries();
-      this.routes = [...cached, ...live].filter((route, index, list) => {
+      const cached = await this.followCache.summaries();
+      this.routes = [...cached, ...this.ramblersLibrary.recentSummaries()].filter((route, index, list) => {
         const key = followCacheKey(route);
         return list.findIndex(item => followCacheKey(item) === key) === index;
       });
       this.offlineByKey = await this.followCache.statusByKey();
-      this.logger.info("load: routes", this.routes.length, "walks", this.walks.length);
     } catch (error) {
-      this.logger.error("load failed", error);
-      this.routes = [];
-      this.walks = [];
+      this.logger.warn("cached walks unavailable", error);
+    }
+    if (navigator.onLine) {
+      try {
+        const now = this.dateUtils.dateTimeNowNoTime();
+        const until = now.plus({days: 90});
+        const [pages, walks] = await firstCompleted(Promise.all([
+          this.pageContentService.all({
+            criteria: {
+              $or: [
+                {"rows.type": PageContentType.MAP},
+                {"rows.type": PageContentType.ROUTE},
+                {"rows.columns.rows.type": PageContentType.MAP},
+                {"rows.columns.rows.type": PageContentType.ROUTE},
+                {"rows.map.routes.gpxFile.awsFileName": {$exists: true}},
+                {"rows.columns.rows.map.routes.gpxFile.awsFileName": {$exists: true}}
+              ]
+            }
+          }),
+          this.walkProgrammeService.eventsInRange({
+            dateFrom: now.toMillis(),
+            dateTo: until.toMillis(),
+            walksOnly: true
+          })
+        ]), ROUTE_FOLLOW_NETWORK_TIMEOUT_MS, "Walk list network timed out");
+        const live = this.payloadService.summariesFromPages(pages || []);
+        this.walks = (walks || []).sort((left, right) => {
+          const leftDate = left.groupEvent?.start_date_time || "";
+          const rightDate = right.groupEvent?.start_date_time || "";
+          return leftDate < rightDate ? -1 : (leftDate > rightDate ? 1 : 0);
+        });
+        this.routes = [...this.routes, ...live].filter((route, index, list) => {
+          const key = followCacheKey(route);
+          return list.findIndex(item => followCacheKey(item) === key) === index;
+        });
+        this.logger.info("load: routes", this.routes.length, "walks", this.walks.length);
+      } catch (error) {
+        this.logger.warn("online walk list unavailable", error);
+      }
     }
     this.loading = false;
   }
