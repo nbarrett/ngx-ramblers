@@ -128,4 +128,16 @@ describe("MapTilesService without an OS Maps key", () => {
     expect(service.crsForStyle(MapProvider.OS, OSMapStyle.LEISURE_27700.key)).toBe(L.CRS.EPSG3857);
     expect(service.tileUrlsForPoints(MapProvider.OS, OSMapStyle.LEISURE_27700.key, [{latitude: 50.85, longitude: -1.65}]).every(url => url.includes("openstreetmap"))).toBe(true);
   });
+
+  it("uses saved OS tiles for an offline follow route without online configuration", () => {
+    const service = TestBed.inject(MapTilesService);
+    service.allowCachedOsTiles(true);
+
+    expect(service.hasOsApiKey()).toBe(true);
+    expect(service.crsForStyle(MapProvider.OS, OSMapStyle.LEISURE_27700.key)?.code).toBe(MapProjectionCode.BRITISH_NATIONAL_GRID);
+    expect(service.tileUrlsForPoints(MapProvider.OS, OSMapStyle.LEISURE_27700.key, [{latitude: 50.85, longitude: -1.65}]).every(url => url.startsWith("/api/os-maps/tiles/"))).toBe(true);
+
+    service.allowCachedOsTiles(false);
+    expect(service.hasOsApiKey()).toBe(false);
+  });
 });

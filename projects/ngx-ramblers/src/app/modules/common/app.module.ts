@@ -79,6 +79,7 @@ import { EventNotePipe } from "../../pipes/event-note.pipe";
 import { TimepickerModule } from "ngx-bootstrap/timepicker";
 import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
 import { ngxIconPack } from "../../icons/custom-icon-pack";
+import { AppShellService } from "../../services/maps/app-shell.service";
 
 @NgModule({
   imports: [
@@ -165,15 +166,21 @@ import { ngxIconPack } from "../../icons/custom-icon-pack";
     {provide: GALLERY_CONFIG, useValue: {imageSize: ImageFit.COVER} as GalleryConfig},
     {provide: LIGHTBOX_CONFIG, useValue: {keyboardShortcuts: false, exitAnimationTime: 1000} as LightboxConfig},
     provideAppInitializer(() => {
-      const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory), inject(DateUtilsService));
-      return initializerFn();
+      return inject(AppShellService).isAppUrl(window.location.pathname)
+        ? null
+        : initializeGtag(inject(SystemConfigService), inject(LoggerFactory), inject(DateUtilsService))();
     }),
     provideAppInitializer(() => {
-      const initializerFn = initializeCloudflareBeacon(inject(SystemConfigService), inject(LoggerFactory));
-      return initializerFn();
+      return inject(AppShellService).isAppUrl(window.location.pathname)
+        ? null
+        : initializeCloudflareBeacon(inject(SystemConfigService), inject(LoggerFactory))();
     }),
     provideAppInitializer(checkMigrationStatus),
-    provideAppInitializer(() => inject(NgxLiteService).loadStatus())
+    provideAppInitializer(() => {
+      return inject(AppShellService).isAppUrl(window.location.pathname)
+        ? null
+        : inject(NgxLiteService).loadStatus();
+    })
   ]
 })
 export class AppModule implements DoBootstrap {

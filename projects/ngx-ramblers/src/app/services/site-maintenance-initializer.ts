@@ -6,35 +6,38 @@ import { MemberLoginService } from "./member/member-login.service";
 import { LoggerFactory } from "./logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ADMIN_MAINTENANCE_PATH, ADMIN_SET_PASSWORD_PATH } from "../models/system.model";
+import { AppShellService } from "./maps/app-shell.service";
 
 export function checkMigrationStatus() {
   const siteMaintenanceService = inject(SiteMaintenanceService);
   const router = inject(Router);
   const memberLoginService = inject(MemberLoginService);
   const logger = inject(LoggerFactory).createLogger("SiteMaintenanceInitializer", NgxLoggerLevel.OFF);
+  const appShell = inject(AppShellService);
 
   return (async () => {
     try {
       const currentPath = window.location.pathname;
-      if (currentPath.includes(ADMIN_SET_PASSWORD_PATH)) {
+      if (appShell.isAppUrl(currentPath)) {
+        logger.info("Walking app URL detected, skipping migration check");
+      } else if (currentPath.includes(ADMIN_SET_PASSWORD_PATH)) {
         logger.info("Password reset URL detected, skipping migration check");
-        return;
-      }
+      } else {
+        const status = await siteMaintenanceService.getMigrationStatus();
+        logger.info("Migration status on startup:", status);
 
-      const status = await siteMaintenanceService.getMigrationStatus();
-      logger.info("Migration status on startup:", status);
+        const isAdmin = memberLoginService.isAdmin();
 
-      const isAdmin = memberLoginService.isAdmin();
+        if (status.status !== HealthStatus.OK && status.migrations) {
+          const { pending, failed } = status.migrations;
 
-      if (status.status !== HealthStatus.OK && status.migrations) {
-        const { pending, failed } = status.migrations;
-
-        if (failed || pending > 0) {
-          if (!isAdmin) {
-            logger.warn("Migrations pending/failed, redirecting to maintenance page");
-            router.navigate(["/" + ADMIN_MAINTENANCE_PATH]);
-          } else {
-            logger.info("Admin user detected, allowing access despite migration issues");
+          if (failed || pending > 0) {
+            if (!isAdmin) {
+              logger.warn("Migrations pending/failed, redirecting to maintenance page");
+              router.navigate(["/" + ADMIN_MAINTENANCE_PATH]);
+            } else {
+              logger.info("Admin user detected, allowing access despite migration issues");
+            }
           }
         }
       }

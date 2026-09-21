@@ -28,6 +28,7 @@ export class AppShellService {
   readonly installAvailable$ = this.installAvailableSubject.asObservable();
   private appearanceSubject = new BehaviorSubject<AppAppearance>(this.storedAppearance());
   readonly appearance$ = this.appearanceSubject.asObservable();
+  private followWorkerRegistration: ServiceWorkerRegistration | null = null;
 
   constructor() {
     this.applyAppearance(this.appearanceSubject.value);
@@ -37,6 +38,9 @@ export class AppShellService {
         this.apply(this.isAppUrl(event.url));
       } else if (event instanceof NavigationEnd) {
         this.apply(this.isAppUrl(event.urlAfterRedirects));
+        if (this.active() && this.followWorkerRegistration) {
+          this.cacheLoadedFollowResources(this.followWorkerRegistration);
+        }
       }
     });
     this.document.defaultView?.addEventListener("beforeinstallprompt", (event: Event) => {
@@ -53,8 +57,45 @@ export class AppShellService {
 
   private registerFollowWorker(): void {
     if (environment.production && this.document.defaultView && "serviceWorker" in navigator) {
-      void navigator.serviceWorker.register("/inbox-push-sw.js");
+      void this.registerAndCacheFollowShell();
     }
+  }
+
+  private async registerAndCacheFollowShell(): Promise<void> {
+    try {
+      await navigator.serviceWorker.register("/inbox-push-sw.js");
+      const registration = await navigator.serviceWorker.ready;
+      this.followWorkerRegistration = registration;
+      const view = this.document.defaultView;
+      if (view?.document.readyState === "complete") {
+        this.cacheLoadedFollowResources(registration);
+      } else {
+        view?.addEventListener("load", () => this.cacheLoadedFollowResources(registration), {once: true});
+      }
+    } catch (error) {
+      this.logger.warn("walking app cache could not be prepared", error);
+    }
+  }
+
+  private cacheLoadedFollowResources(registration: ServiceWorkerRegistration): void {
+    const view = this.document.defaultView;
+    if (view && this.isAppUrl(view.location.pathname)) {
+      const resources = view.performance.getEntriesByType("resource");
+      const urls = ["/app", ...resources.map(resource => resource.name)]
+        .filter(url => this.followAssetUrl(url));
+      registration.active?.postMessage(urls);
+    }
+  }
+
+  private followAssetUrl(value: string): boolean {
+    const view = this.document.defaultView;
+    const url = new URL(value, view?.location.origin);
+    return url.origin === view?.location.origin
+      && (url.pathname === "/app"
+        || url.pathname === "/manifest.webmanifest"
+        || url.pathname.startsWith("/assets/images/local/pwa-")
+        || url.pathname === "/assets/images/local/apple-touch-icon.png"
+        || /\.(?:js|css|woff2?)$/.test(url.pathname));
   }
 
   active(): boolean {

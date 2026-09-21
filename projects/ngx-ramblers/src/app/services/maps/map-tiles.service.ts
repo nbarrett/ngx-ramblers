@@ -26,6 +26,7 @@ installLeafletMapGestures();
 
 @Injectable({ providedIn: "root" })
 export class MapTilesService {
+  private cachedOsTilesAllowed = false;
   private static readonly EPSG_27700_CRS_OPTIONS = {
     resolutions: EPSG_27700_RESOLUTIONS,
     origin: [-238375.0, 1376256.0] as [number, number],
@@ -40,6 +41,10 @@ export class MapTilesService {
 
   hasOsApiKey(): boolean {
     return this.osApiKeyConfigured();
+  }
+
+  allowCachedOsTiles(allowed: boolean): void {
+    this.cachedOsTilesAllowed = allowed;
   }
 
   initializeProjections(): void {
@@ -258,7 +263,7 @@ export class MapTilesService {
 
   private osApiKeyConfigured(): boolean {
     const cfg: any = this.systemConfig.systemConfig();
-    return !!cfg?.externalSystems?.osMaps?.apiKey;
+    return !!cfg?.externalSystems?.osMaps?.apiKey || this.cachedOsTilesAllowed;
   }
 
   syncMarkersFromLocation(pageContent: PageContent, row: PageContentRow) {

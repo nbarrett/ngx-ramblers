@@ -252,6 +252,10 @@ export interface RouteFollowSession {
   previewSpeed: number;
   previewMetres: number;
   visitedWaypointIds: string[];
+  trackIndex: number;
+  via: number[];
+  mapCenter: RouteFollowPoint | null;
+  mapZoom: number | null;
   recordedPoints?: RouteFollowPoint[];
 }
 
