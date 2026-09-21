@@ -267,8 +267,6 @@ jobs:
     concurrency:
       group: release-notes-main
       cancel-in-progress: false
-    env:
-      RELEASE_NOTES_INITIAL_BASE: a7dc6de8ed465ee11d45c986189676d7479e588f
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -307,9 +305,16 @@ jobs:
         id: release-range
         run: |
           PUBLISHED_SHA=$(git ls-remote origin refs/heads/release-notes-published | awk '{print $1}')
+          PUSH_BEFORE="${{ github.event.before }}"
           if [ -z "$PUBLISHED_SHA" ]; then
-            PUBLISHED_SHA="$RELEASE_NOTES_INITIAL_BASE"
-            echo "No publication checkpoint exists; backfilling every commit after $PUBLISHED_SHA"
+            if [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              PUBLISHED_SHA="$PUSH_BEFORE"
+              echo "No publication checkpoint; publishing only the commits in this push, after $PUBLISHED_SHA"
+            else
+              echo "This push has no previous commit, so there is nothing new to publish"
+              echo "already-covered=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           else
             git fetch origin refs/heads/release-notes-published:refs/remotes/origin/release-notes-published
             echo "The last completely published commit is $PUBLISHED_SHA"

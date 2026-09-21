@@ -567,10 +567,11 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
 
   const configWithCreds = await promptForCredentials(config);
   const auth = await cms.login(configWithCreds.cmsUrl, configWithCreds.username, configWithCreds.password);
+  const published = { pages: [] as PageContent[] };
 
   if (answers.action === "all") {
-    await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, null, null, false, includeUnassigned);
-    debugLog(`Generated ${releaseGroups.length} release notes`);
+    published.pages = await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, null, null, false, includeUnassigned);
+    debugLog(`Generated ${published.pages.length} release notes`);
   } else if (answers.action === "select") {
     const groupAnswers = await inquirer.prompt([
       {
@@ -591,8 +592,8 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
 
     const selectedGroups = groupAnswers.selectedGroups.map((index: number) => releaseGroups[index]);
 
-    await generateMultipleReleaseNotes(selectedGroups, auth, configWithCreds, null, null, false, includeUnassigned);
-    debugLog(`Generated ${selectedGroups.length} release notes`);
+    published.pages = await generateMultipleReleaseNotes(selectedGroups, auth, configWithCreds, null, null, false, includeUnassigned);
+    debugLog(`Generated ${published.pages.length} release notes`);
   } else if (answers.action === "range") {
     const rangeAnswers = await inquirer.prompt([
       {
@@ -623,12 +624,12 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
       return;
     }
 
-    await generateMultipleReleaseNotes(groups, auth, configWithCreds, null, null, false, includeUnassigned);
-    debugLog(`Generated ${pluraliseWithCount(groups.length, "release note")} for commit range`);
+    published.pages = await generateMultipleReleaseNotes(groups, auth, configWithCreds, null, null, false, includeUnassigned);
+    debugLog(`Generated ${pluraliseWithCount(published.pages.length, "release note")} for commit range`);
   }
 
-  debugLog("Syncing 📸 markers and for-humans index against current image content");
-  await syncReleaseNotesIndexImages(auth, { log: message => debugLog(message) });
+  debugLog("Syncing 📸 markers for the notes just published");
+  await syncReleaseNotesIndexImages(auth, { log: message => debugLog(message), pages: published.pages });
 }
 
 async function commandLineMode(options: GenerateOptions, config: ReleaseNotesConfig): Promise<void> {
