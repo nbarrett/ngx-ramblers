@@ -1,7 +1,6 @@
-import { isString } from "es-toolkit/compat";
 import * as cms from "./cms-client.js";
 import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { pageHasImages } from "./image-detection.js";
+import { imageStatusByPathFrom, pageHasImages } from "./image-detection.js";
 import { refreshIndexPageContent, updateIndexPageContent } from "./content-generator.js";
 
 export const REGULAR_INDEX_PATH = "how-to/committee/release-notes";
@@ -26,6 +25,7 @@ export interface IndexSyncResult {
 export interface IndexSyncOptions {
   dryRun?: boolean;
   log?: (message: string) => void;
+  pages?: PageContent[];
 }
 
 interface IndexEntryFields {
@@ -44,15 +44,7 @@ export async function syncReleaseNotesIndexImages(
   const log = options.log || noopLog;
   const dryRun = Boolean(options.dryRun);
 
-  const allPages = await cms.fetchPagesUnder(auth, SUB_PAGE_PREFIX);
-  const imageStatusByPath = new Map<string, boolean>();
-  for (const page of allPages) {
-    if (!isString(page.path)) continue;
-    if (!page.path.startsWith(SUB_PAGE_PREFIX)) continue;
-    const tail = page.path.slice(SUB_PAGE_PREFIX.length);
-    if (tail.length === 0 || tail.includes("/")) continue;
-    imageStatusByPath.set(page.path, pageHasImages(page));
-  }
+  const imageStatusByPath = imageStatusByPathFrom(options.pages || await cms.fetchPagesUnder(auth, SUB_PAGE_PREFIX), SUB_PAGE_PREFIX, pageHasImages);
 
   const inspected = imageStatusByPath.size;
   const withImages = Array.from(imageStatusByPath.values()).filter(Boolean).length;
