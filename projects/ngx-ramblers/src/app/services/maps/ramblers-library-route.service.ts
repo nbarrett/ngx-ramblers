@@ -35,6 +35,10 @@ export class RamblersLibraryRouteService {
     return this.recentRoutes().map(route => this.payloadService.summaryFromLibraryRoute(route));
   }
 
+  forget(slug: string): void {
+    this.writeRecent(this.recentRoutes().filter(route => route.slug !== slug));
+  }
+
   private remember(route: RamblersLibraryRoute): void {
     const others = this.recentRoutes().filter(item => item.slug !== route.slug);
     this.writeRecent([route, ...others].slice(0, 8));

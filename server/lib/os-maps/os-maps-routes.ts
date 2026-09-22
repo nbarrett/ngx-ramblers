@@ -4,7 +4,9 @@ import { tileProxy } from "./os-maps-proxy";
 import {
   exportOsMapsRoute,
   latestOsMapsExportJobResult,
+  listImportedOsMapsRoutes,
   listOsMapsRoutes,
+  publicImportedOsMapsRoute,
   osMapsExportJobResult,
   osMapsImportedRoute,
   refreshOsMapsRoutes,
@@ -14,6 +16,8 @@ import {
 const router = express.Router();
 
 router.get("/tiles/:layer/:z/:x/:y.png", tileProxy);
+router.get("/imported-routes", listImportedOsMapsRoutes);
+router.get("/imported-routes/:routeId", publicImportedOsMapsRoute);
 router.get("/routes", authConfig.authenticate(), authConfig.requireAdmin, listOsMapsRoutes);
 router.get("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmin, osMapsImportedRoute);
 router.put("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmin, updateOsMapsImportedRoute);

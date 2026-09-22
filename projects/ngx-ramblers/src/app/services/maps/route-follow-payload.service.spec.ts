@@ -4,6 +4,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { PageContent, PageContentType } from "../../models/content-text.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { OsMapsRouteSource } from "../../models/os-maps-export.model";
 import { RouteFollowSource, RouteWaypointKind } from "../../models/route-follow.model";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
 import { UrlService } from "../url.service";
@@ -152,5 +153,22 @@ describe("RouteFollowPayloadService", () => {
     expect(waypoint.label).toBe("1");
     expect(waypoint.instruction).toBe("Start at the village hall");
     expect(waypoint.id).toBeTruthy();
+  });
+
+  it("returns a summary for an imported OS Maps route with a GPX file", () => {
+    const summary = service.summaryFromOsMapsRoute({
+      id: "12345",
+      title: "Kent Coast Path",
+      url: "https://explore.osmaps.com/route/12345",
+      createdAt: "",
+      createdAtValue: 0,
+      distanceMetres: 16093.4,
+      source: OsMapsRouteSource.CREATED,
+      importedAt: 1,
+      gpxFile: {awsFileName: "gpx-routes/kent-coast.gpx"}
+    });
+    expect(summary?.source).toBe(RouteFollowSource.OS_MAPS);
+    expect(summary?.osMapsRouteId).toBe("12345");
+    expect(summary?.distanceMiles).toBeCloseTo(10);
   });
 });

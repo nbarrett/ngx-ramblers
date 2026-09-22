@@ -8,7 +8,7 @@ import { dispatchOsMapsExport, dispatchOsMapsList } from "../ramblers/os-maps-ex
 import { cancelActiveWorkerQueueJob } from "../ramblers/integration-worker-queue-client";
 import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJobId } from "./os-maps-export-result-store";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { latestOsMapsRouteListing } from "./os-maps-route-listing-store";
+import { latestOsMapsRouteListing, listedImportedOsMapsRoutes } from "./os-maps-route-listing-store";
 import { osMapsImportedRouteById, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
 
 function actorNameFrom(req: Request): string {
@@ -25,6 +25,31 @@ export async function listOsMapsRoutes(_req: Request, res: Response): Promise<vo
     res.json(listing);
   } catch (error) {
     debugLog("list failed:", (error as Error).message);
+    res.status(500).json({error: (error as Error).message});
+  }
+}
+
+export async function listImportedOsMapsRoutes(_req: Request, res: Response): Promise<void> {
+  try {
+    const routes = await listedImportedOsMapsRoutes();
+    res.json(routes);
+  } catch (error) {
+    debugLog("imported list failed:", (error as Error).message);
+    res.status(500).json({error: (error as Error).message});
+  }
+}
+
+export async function publicImportedOsMapsRoute(req: Request, res: Response): Promise<void> {
+  try {
+    const routes = await listedImportedOsMapsRoutes();
+    const route = routes.find(item => item.id === req.params.routeId);
+    if (!route) {
+      res.status(404).json({error: "That imported OS Maps route was not found"});
+    } else {
+      res.json(route);
+    }
+  } catch (error) {
+    debugLog("public imported route failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});
   }
 }

@@ -43,7 +43,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
           <fa-icon [icon]="floatingBackAvailable() ? faArrowLeft : faHouse"/>
         </button>
       }
-      @if (appShell.installed()) {
+      @if (showFloatingShare()) {
         <button class="btn btn-primary btn-icon app-floating-navigation app-floating-share" type="button" (click)="shareCurrentPage()"
                 [attr.aria-label]="shareFeedback || 'Share or copy link'" [tooltip]="shareFeedback || 'Share or copy link'">
           <fa-icon [icon]="shareFeedback === 'Link copied' ? faCheck : shareFeedback ? faCircleExclamation : faShareNodes"/>
@@ -79,7 +79,11 @@ export class ContainerComponent implements OnInit, OnDestroy {
 
   protected showFloatingNavigation(): boolean {
     const path = this.router.url.split("?")[0];
-    return this.appShell.installed() && path !== "/" && path !== "/home" && path !== "/app/follow";
+    return this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith("/app/follow");
+  }
+
+  protected showFloatingShare(): boolean {
+    return this.appShell.installed() && !this.router.url.split("?")[0].startsWith("/app/follow");
   }
 
   protected floatingBackAvailable(): boolean {

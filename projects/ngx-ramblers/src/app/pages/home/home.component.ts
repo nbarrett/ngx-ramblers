@@ -1,6 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faRotate } from "@fortawesome/free-solid-svg-icons";
+import { faMobileScreenButton, faRotate } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { ExternalSystems } from "../../models/system.model";
@@ -12,6 +13,8 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { SiteEditService } from "../../site-edit/site-edit.service";
 import { NgxLiteService } from "../../services/ngx-lite.service";
 import { UrlService } from "../../services/url.service";
+import { RouterLink } from "@angular/router";
+import { AppPath } from "../../models/route-follow.model";
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { FacebookComponent } from "../facebook/facebook.component";
 import { InstagramComponent } from "../instagram/instagram.component";
@@ -30,6 +33,10 @@ import { BuiltInAnchor } from "../../models/content-text.model";
         </div>
       </div>
     }
+    <a class="btn btn-primary btn-icon app-floating-navigation d-lg-none" [routerLink]="'/' + AppPath.ROOT"
+       aria-label="Open on your phone" tooltip="Open on your phone">
+      <fa-icon [icon]="faMobileScreenButton"/>
+    </a>
     <app-dynamic-content [anchor]="BuiltInAnchor.HOME_CONTENT" contentPathReadOnly/>
     <div class="row g-4">
       @if (externalSystems?.facebook?.showFeed) {
@@ -45,7 +52,7 @@ import { BuiltInAnchor } from "../../models/content-text.model";
     </div>
   `,
     styleUrls: ["./home.component.sass"],
-  imports: [DynamicContentComponent, FacebookComponent, InstagramComponent, FontAwesomeModule]
+  imports: [DynamicContentComponent, FacebookComponent, InstagramComponent, FontAwesomeModule, RouterLink, TooltipModule]
 })
 export class HomeComponent implements OnInit, OnDestroy {
 
@@ -58,11 +65,13 @@ export class HomeComponent implements OnInit, OnDestroy {
   ngxLiteService = inject(NgxLiteService);
   public feeds: { facebook: {} };
   faRotate = faRotate;
+  faMobileScreenButton = faMobileScreenButton;
   public regenerating = false;
   private groupName: string;
   private subscriptions: Subscription[] = [];
   public externalSystems: ExternalSystems;
   protected readonly BuiltInAnchor = BuiltInAnchor;
+  protected readonly AppPath = AppPath;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

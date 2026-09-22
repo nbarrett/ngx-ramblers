@@ -472,3 +472,27 @@ a.btn
   top: 44px
   right: 26px
   z-index: 5
+
+.app-floating-navigation
+  position: fixed
+  z-index: 2100
+  left: 12px
+  bottom: calc(4px + env(safe-area-inset-bottom, 0px))
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  min-height: 44px
+  border-radius: 999px
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25)
+  padding: 0 16px
+
+.btn-icon.app-floating-navigation
+  width: 44px
+  min-width: 44px
+  height: 44px
+  padding: 0
+  background: rgba(249, 177, 4, .45)
+
+.app-floating-share
+  left: auto
+  right: 12px

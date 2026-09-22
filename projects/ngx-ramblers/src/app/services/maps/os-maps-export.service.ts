@@ -22,8 +22,12 @@ export class OsMapsExportService {
     return firstValueFrom(this.http.get<OsMapsRouteListing>(`${this.baseUrl}/routes`));
   }
 
+  importedRoutes(): Promise<OsMapsListedRoute[]> {
+    return firstValueFrom(this.http.get<OsMapsListedRoute[]>(`${this.baseUrl}/imported-routes`));
+  }
+
   importedRoute(routeId: string): Promise<OsMapsListedRoute> {
-    return firstValueFrom(this.http.get<OsMapsListedRoute>(`${this.baseUrl}/routes/${routeId}`));
+    return firstValueFrom(this.http.get<OsMapsListedRoute>(`${this.baseUrl}/imported-routes/${routeId}`));
   }
 
   saveImportedRoute(routeId: string, update: {
