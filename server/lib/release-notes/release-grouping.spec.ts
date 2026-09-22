@@ -1,7 +1,7 @@
 import expect from "expect";
 import {describe, it} from "mocha";
 import type {ConventionalCommit} from "./models";
-import {assertEveryCommitGrouped, groupCommitsByDateAndIssue} from "./release-grouping";
+import {assertEveryCommitGrouped, groupCommitsByDateAndIssue, groupCommitsIndividually} from "./release-grouping";
 
 function commit(hash: string, date: string, issue: string | null): ConventionalCommit {
   return {
@@ -19,6 +19,15 @@ function commit(hash: string, date: string, issue: string | null): ConventionalC
 }
 
 describe("release-note grouping", () => {
+  it("gives every commit its own note so each keeps its own headings", () => {
+    const commits = [commit("newerabc", "2026-09-22", "20"), commit("olderdef", "2026-09-21", "151")];
+    expect(groupCommitsIndividually(commits)).toEqual([
+      {date: "2026-09-22", issueNumber: "20", commits: [commits[0]], pathSuffix: "-issue-20-newerab"},
+      {date: "2026-09-21", issueNumber: "151", commits: [commits[1]], pathSuffix: "-issue-151-olderde"}
+    ]);
+    assertEveryCommitGrouped(commits, groupCommitsIndividually(commits));
+  });
+
   it("combines commits only when their date and issue both match", () => {
     const commits = [commit("newer", "2026-09-20", "20"), commit("same-day", "2026-09-20", "20"), commit("older", "2026-09-16", "20")];
     const groups = groupCommitsByDateAndIssue(commits);

@@ -39,6 +39,18 @@ export function groupCommitsByDateAndIssue(commits: ConventionalCommit[]): Relea
   });
 }
 
+export function groupCommitsIndividually(commits: ConventionalCommit[]): ReleaseGroup[] {
+  return commits.map(commit => {
+    const issueNumber = commit.issueReferences[0]?.issue || null;
+    return {
+      date: commit.date,
+      issueNumber,
+      commits: [commit],
+      pathSuffix: issueNumber ? `-issue-${issueNumber}-${commit.shortHash}` : `-${commit.shortHash}`
+    };
+  });
+}
+
 export function assertEveryCommitGrouped(commits: ConventionalCommit[], groups: ReleaseGroup[]): void {
   const expected = commits.map(commit => commit.hash).sort();
   const grouped = groups.flatMap(group => group.commits.map(commit => commit.hash)).sort();
