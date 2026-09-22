@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, Params, Router } from "@angular/router";
-import { first } from "es-toolkit/compat";
+import { first, isArray, isString } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { filter } from "rxjs/operators";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -17,7 +17,8 @@ export class RouterHistoryService {
   private router = inject(Router);
   private urlService = inject(UrlService);
   private pageService = inject(PageService);
-  public pageHistory: string[] = [];
+  private readonly pageHistoryStorageKey = "router-page-history";
+  public pageHistory: string[] = this.storedPageHistory();
   private pendingAppBackUrl: string | null = null;
 
   constructor() {
@@ -34,14 +35,43 @@ export class RouterHistoryService {
           this.pendingAppBackUrl = null;
           this.pageHistory = [...this.pageHistory, urlAfterRedirects];
         }
+        this.savePageHistory();
         this.logger.debug("constructed: pageHistory:urlAfterRedirects", urlAfterRedirects, "history now:", this.pageHistory);
       });
+  }
+
+  private storedPageHistory(): string[] {
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem(this.pageHistoryStorageKey) || "[]");
+      return isArray(stored) && stored.every(isString) ? stored : [];
+    } catch (error) {
+      this.logger.error("storedPageHistory failed", error);
+      return [];
+    }
+  }
+
+  private savePageHistory(): void {
+    try {
+      window.sessionStorage.setItem(this.pageHistoryStorageKey, JSON.stringify(this.pageHistory));
+    } catch (error) {
+      this.logger.error("savePageHistory failed", error);
+    }
   }
 
   appBackDestination(): string {
     const current = this.router.url;
     const previous = [...this.pageHistory].reverse().find(url => url !== current);
-    return previous || "/" + AppPath.ROOT;
+    return previous || this.walksProgrammeDestination() || "/" + AppPath.ROOT;
+  }
+
+  hasAppBackDestination(): boolean {
+    return this.pageHistory.some(url => url !== this.router.url) || !!this.walksProgrammeDestination();
+  }
+
+  private walksProgrammeDestination(): string | null {
+    const walksPath = this.pageService.walksPage()?.href;
+    const currentPath = this.router.url.split("?")[0];
+    return walksPath && currentPath.startsWith(`/${walksPath}/`) ? `/${walksPath}` : null;
   }
 
   navigateBackWithinApp(): void {
@@ -50,6 +80,7 @@ export class RouterHistoryService {
     if (index >= 0) {
       this.pageHistory = this.pageHistory.slice(0, index + 1);
       this.pendingAppBackUrl = destination;
+      this.savePageHistory();
     }
     void this.router.navigateByUrl(destination);
   }
@@ -59,6 +90,7 @@ export class RouterHistoryService {
     const index = this.pageHistory.lastIndexOf(current);
     if (index >= 0) {
       this.pageHistory = this.pageHistory.filter((url, position) => position !== index);
+      this.savePageHistory();
     }
   }
 

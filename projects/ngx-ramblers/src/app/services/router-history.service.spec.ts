@@ -13,6 +13,7 @@ describe("RouterHistoryService app navigation", () => {
   };
 
   beforeEach(() => {
+    window.sessionStorage.removeItem("router-page-history");
     state.events = new Subject<NavigationEnd>();
     state.router = {url: "/app", navigateByUrl: vi.fn().mockResolvedValue(true)};
     TestBed.configureTestingModule({
@@ -20,7 +21,7 @@ describe("RouterHistoryService app navigation", () => {
       providers: [
         RouterHistoryService,
         {provide: Router, useValue: {...state.router, events: state.events}},
-        {provide: PageService, useValue: {group: {pages: []}}},
+        {provide: PageService, useValue: {group: {pages: []}, walksPage: () => ({href: "go-walking"})}},
         {provide: UrlService, useValue: {navigateTo: vi.fn(), navigateUnconditionallyTo: vi.fn()}}
       ]
     });
@@ -60,5 +61,27 @@ describe("RouterHistoryService app navigation", () => {
     state.events.next(new NavigationEnd(3, "/walks/a", "/walks/a"));
     Object.assign(router, {url: "/walks/a"});
     expect(service.appBackDestination()).toBe("/app");
+  });
+
+  it("retains the previous page when a release note loads as a new document", () => {
+    const service = TestBed.inject(RouterHistoryService);
+    state.events.next(new NavigationEnd(1, "/how-to/committee/release-notes", "/how-to/committee/release-notes"));
+    expect(window.sessionStorage.getItem("router-page-history")).toContain("/how-to/committee/release-notes");
+    const reloadedService = TestBed.runInInjectionContext(() => new RouterHistoryService());
+    const router = TestBed.inject(Router);
+    Object.assign(router, {url: "/how-to/committee/release-notes/2026-09-22"});
+    state.events.next(new NavigationEnd(2, router.url, router.url));
+    expect(reloadedService.appBackDestination()).toBe("/how-to/committee/release-notes");
+    expect(service.pageHistory).toContain(router.url);
+  });
+
+  it("returns to the Walks programme when a walk detail has no saved history", () => {
+    const service = TestBed.inject(RouterHistoryService);
+    const router = TestBed.inject(Router);
+    Object.assign(router, {url: "/go-walking/starting-from-buttway-lane"});
+    expect(service.hasAppBackDestination()).toBe(true);
+    expect(service.appBackDestination()).toBe("/go-walking");
+    service.navigateBackWithinApp();
+    expect(state.router.navigateByUrl).toHaveBeenCalledWith("/go-walking");
   });
 });
