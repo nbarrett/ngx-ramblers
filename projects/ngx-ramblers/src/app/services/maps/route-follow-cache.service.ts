@@ -75,6 +75,15 @@ export class RouteFollowCacheService {
     });
   }
 
+  async remove(key: string): Promise<void> {
+    const db = await this.database();
+    return new Promise((resolve, reject) => {
+      const request = db.transaction(ROUTES_STORE, "readwrite").objectStore(ROUTES_STORE).delete(key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   async payload(key: string): Promise<RouteFollowPayload | null> {
     try {
       const record = await this.cached(key);
@@ -109,8 +118,11 @@ export class RouteFollowCacheService {
       walkId: record.payload.walkId,
       routeId: record.payload.routeId,
       ramblersSlug: record.payload.ramblersSlug,
+      osMapsRouteId: record.payload.osMapsRouteId,
       distanceMiles: record.payload.guide?.distance_miles || null,
-      startDescription: record.payload.guide?.start_location?.description || record.payload.guide?.start_location?.postcode || null
+      startDescription: record.payload.guide?.start_location?.description || record.payload.guide?.start_location?.postcode || null,
+      startLatitude: record.payload.guide?.start_location?.latitude ?? record.payload.points?.[0]?.latitude ?? null,
+      startLongitude: record.payload.guide?.start_location?.longitude ?? record.payload.points?.[0]?.longitude ?? null
     }));
   }
 

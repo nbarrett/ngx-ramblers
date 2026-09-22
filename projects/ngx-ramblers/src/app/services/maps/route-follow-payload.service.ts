@@ -90,8 +90,11 @@ export class RouteFollowPayloadService {
         walkId: null,
         routeId: route.id,
         ramblersSlug: null,
+        osMapsRouteId: null,
         distanceMiles: row.routeGuide?.distance_miles ?? null,
-        startDescription: row.routeGuide?.start_location?.description || row.routeGuide?.start_location?.postcode || null
+        startDescription: row.routeGuide?.start_location?.description || row.routeGuide?.start_location?.postcode || null,
+        startLatitude: this.startLatitude(route.gpxFile, row.routeGuide?.start_location),
+        startLongitude: this.startLongitude(route.gpxFile, row.routeGuide?.start_location)
       } : null;
     }).filter((item): item is RouteFollowSummary => !!item);
   }
@@ -107,8 +110,11 @@ export class RouteFollowPayloadService {
         walkId: eventSlug(walk) || walk.id || null,
         routeId: null,
         ramblersSlug: null,
+        osMapsRouteId: null,
         distanceMiles: walk.groupEvent?.distance_miles || null,
-        startDescription: walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode || null
+        startDescription: walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode || null,
+        startLatitude: this.startLatitude(walk.fields?.gpxFile, walk.groupEvent?.start_location),
+        startLongitude: this.startLongitude(walk.fields?.gpxFile, walk.groupEvent?.start_location)
       };
     }
   }
@@ -148,9 +154,32 @@ export class RouteFollowPayloadService {
       walkId: null,
       routeId: null,
       ramblersSlug: route.slug,
+      osMapsRouteId: null,
       distanceMiles: route.distanceMiles,
-      startDescription: route.startDescription
+      startDescription: route.startDescription,
+      startLatitude: isNumber(route.startLatitude) ? route.startLatitude : null,
+      startLongitude: isNumber(route.startLongitude) ? route.startLongitude : null
     };
+  }
+
+  summaryFromOsMapsRoute(route: OsMapsListedRoute): RouteFollowSummary | null {
+    if (!route?.id || !route.gpxFile?.awsFileName) {
+      return null;
+    } else {
+      return {
+        source: RouteFollowSource.OS_MAPS,
+        title: route.title || "OS Maps route",
+        path: null,
+        walkId: null,
+        routeId: null,
+        ramblersSlug: null,
+        osMapsRouteId: route.id,
+        distanceMiles: route.distanceMetres ? route.distanceMetres / 1609.34 : null,
+        startDescription: null,
+        startLatitude: this.startLatitude(route.gpxFile),
+        startLongitude: this.startLongitude(route.gpxFile)
+      };
+    }
   }
 
   async payloadFromPage(page: PageContent, routeId?: string | null, trackIndex = 0, via: number[] = []): Promise<RouteFollowPayload | null> {
@@ -352,6 +381,30 @@ export class RouteFollowPayloadService {
       const include = row.type === PageContentType.MAP || row.type === PageContentType.ROUTE;
       return include ? [...acc, row, ...nested] : [...acc, ...nested];
     }, []);
+  }
+
+  private startLatitude(file?: FileNameData | null, location?: LocationDetails | null): number | null {
+    const fromFile = file?.startLat;
+    const fromLocation = location?.latitude;
+    if (isNumber(fromFile) && fromFile !== 0) {
+      return fromFile;
+    } else if (isNumber(fromLocation)) {
+      return fromLocation;
+    } else {
+      return null;
+    }
+  }
+
+  private startLongitude(file?: FileNameData | null, location?: LocationDetails | null): number | null {
+    const fromFile = file?.startLng;
+    const fromLocation = location?.longitude;
+    if (isNumber(fromFile) && fromFile !== 0) {
+      return fromFile;
+    } else if (isNumber(fromLocation)) {
+      return fromLocation;
+    } else {
+      return null;
+    }
   }
 
   private titleFromPath(path: string | undefined): string {

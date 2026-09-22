@@ -7,6 +7,9 @@ export enum AppPath {
   FOLLOW = "follow"
 }
 
+export const APP_NEARBY_MILES = 25;
+export const APP_NEARBY_MILES_MAX = 50;
+
 export enum RouteWaypointKind {
   START = "start",
   WAYPOINT = "waypoint",
@@ -284,6 +287,17 @@ export enum AppAppearance {
   DARK = "dark"
 }
 
+export interface AppHomeLayout {
+  savedRoutes: boolean;
+  upcomingWalks: boolean;
+  appearance: boolean;
+}
+
+export enum AppHomeView {
+  MAPS = "maps",
+  UPCOMING = "upcoming"
+}
+
 export function appAppearanceFromStored(value: string | null): AppAppearance {
   if (value === AppAppearance.LIGHT) {
     return AppAppearance.LIGHT;
@@ -531,8 +545,11 @@ export interface RouteFollowSummary {
   walkId: string | null;
   routeId: string | null;
   ramblersSlug: string | null;
+  osMapsRouteId: string | null;
   distanceMiles: number | null;
   startDescription: string | null;
+  startLatitude: number | null;
+  startLongitude: number | null;
 }
 
 export interface RamblersLibraryRoute {

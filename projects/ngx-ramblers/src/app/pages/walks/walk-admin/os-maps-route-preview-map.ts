@@ -13,12 +13,13 @@ import { RouteFollowPayloadService } from "../../../services/maps/route-follow-p
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapProvider } from "../../../models/map.model";
 import { OsMapsListedRoute } from "../../../models/os-maps-export.model";
+import { RouteFollowPoint } from "../../../models/route-follow.model";
 
 @Component({
   selector: "app-os-maps-route-preview-map",
   imports: [FontAwesomeModule, TooltipDirective],
   template: `
-    <div class="os-maps-route-preview" [style.background-color]="'#eef1ea'">
+    <div class="os-maps-route-preview" [class.os-maps-route-preview-compact]="compact" [style.background-color]="'#eef1ea'">
       <div class="os-maps-route-preview-map" #mapContainer></div>
       @if (!hasLine) {
         <div class="os-maps-route-preview-fallback">
@@ -48,6 +49,11 @@ import { OsMapsListedRoute } from "../../../models/os-maps-export.model";
       border-radius: .25rem
       overflow: hidden
       flex-shrink: 0
+
+    .os-maps-route-preview-compact
+      width: 96px
+      min-height: 88px
+      max-height: 88px
 
     .os-maps-route-preview-badge
       position: absolute
@@ -88,7 +94,9 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
   private mapTiles = inject(MapTilesService);
   private dateUtils = inject(DateUtilsService);
   @ViewChild("mapContainer", {static: true}) mapContainerRef!: ElementRef<HTMLDivElement>;
-  @Input() route: OsMapsListedRoute;
+  @Input() route: OsMapsListedRoute | null = null;
+  @Input() points: RouteFollowPoint[] = [];
+  @Input() compact = false;
   faMap = faMap;
   faCircleCheck = faCircleCheck;
   hasLine = false;
@@ -108,7 +116,11 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
 
   ngOnChanges(changes: SimpleChanges): void {
     const key = this.routeKey();
-    if (changes.route && key !== this.loadedRouteKey) {
+    if (changes.points && !this.route) {
+      this.latLngs = this.points.map(point => [point.latitude, point.longitude]);
+      this.hasLine = this.latLngs.length >= 2;
+      this.drawIfReady();
+    } else if (changes.route && key !== this.loadedRouteKey) {
       void this.loadRoute();
     }
   }
@@ -161,7 +173,7 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
       const map = this.mapRef;
       map.eachLayer(layer => map.removeLayer(layer));
       map.addLayer(this.mapTiles.createBaseLayer(MapProvider.OSM, ""));
-      const polyline = L.polyline(this.latLngs, {color: this.route.routeColor || "#2f6f4f", weight: 3});
+      const polyline = L.polyline(this.latLngs, {color: this.route?.routeColor || "#2f6f4f", weight: 3});
       polyline.addTo(map);
       map.fitBounds(polyline.getBounds(), {padding: [3, 3]});
       setTimeout(() => map.invalidateSize(), 0);

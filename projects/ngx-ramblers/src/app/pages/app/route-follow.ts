@@ -162,6 +162,56 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 <fa-icon [icon]="faXmark"/>
               </button>
             </div>
+            <div class="follow-top-banner">
+              @if (forkAhead) {
+                <div class="follow-off-route follow-fork">
+                  <fa-icon [icon]="faCodeFork"/>
+                  <span>{{ forkAhead.label }} ahead. Which way?</span>
+                  <button type="button" class="btn btn-sm btn-primary ms-2" (click)="chooseFork(forkAhead, true)">{{ forkChoice(forkAhead).shortCut }}</button>
+                  <button type="button" class="btn btn-sm btn-light ms-1" (click)="chooseFork(forkAhead, false)">{{ forkChoice(forkAhead).mainRoute }}</button>
+                </div>
+              } @else if (showOffRoute) {
+                <div class="follow-off-route">
+                  <fa-icon [icon]="faCircleExclamation"/>
+                  {{ offRouteMessage }}
+                </div>
+              } @else if (locationMessage) {
+                <div class="follow-off-route follow-location-error">
+                  <fa-icon [icon]="faCircleExclamation"/>
+                  {{ locationMessage }}
+                </div>
+              }
+            </div>
+            <div class="follow-hud">
+              @if (compassHeadingText) {
+                <div class="follow-tape-heading">{{ compassHeadingText }}</div>
+              }
+              <div class="follow-tape" aria-hidden="true">
+                <div class="follow-tape-window">
+                  @for (mark of tapeMarks; track mark.degree + '-' + mark.offsetPx) {
+                    <span class="follow-tape-mark" [style.left]="'calc(50% + ' + mark.offsetPx + 'px)'">
+                      <span class="follow-tape-tick"
+                            [class.is-major]="mark.major"
+                            [class.is-medium]="mark.medium"></span>
+                      @if (mark.label) {
+                        <span class="follow-tape-label">{{ mark.label }}</span>
+                      }
+                    </span>
+                  }
+                  <span class="follow-tape-needle"></span>
+                </div>
+              </div>
+              @if (gridReference) {
+                <div class="follow-tape-grid">{{ gridReference }}</div>
+              }
+            </div>
+            @if (progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING) {
+              <button class="follow-start-tool" type="button" (click)="onPeekAction($event)"
+                      [attr.aria-label]="startControlLabel()" [tooltip]="startControlLabel()"
+                      [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app">
+                <fa-icon [icon]="startControlIcon()"/>
+              </button>
+            }
             @if (directionsOnMap && instructionWaypoint && instructionText) {
               <div class="follow-instruction">
                 <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
@@ -188,49 +238,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
                   }
                 </div>
               </div>
-            }
-          </div>
-          <div class="follow-top-banner">
-            @if (forkAhead) {
-              <div class="follow-off-route follow-fork">
-                <fa-icon [icon]="faCodeFork"/>
-                <span>{{ forkAhead.label }} ahead. Which way?</span>
-                <button type="button" class="btn btn-sm btn-primary ms-2" (click)="chooseFork(forkAhead, true)">{{ forkChoice(forkAhead).shortCut }}</button>
-                <button type="button" class="btn btn-sm btn-light ms-1" (click)="chooseFork(forkAhead, false)">{{ forkChoice(forkAhead).mainRoute }}</button>
-              </div>
-            } @else if (showOffRoute) {
-              <div class="follow-off-route">
-                <fa-icon [icon]="faCircleExclamation"/>
-                {{ offRouteMessage }}
-              </div>
-            } @else if (locationMessage) {
-              <div class="follow-off-route follow-location-error">
-                <fa-icon [icon]="faCircleExclamation"/>
-                {{ locationMessage }}
-              </div>
-            }
-          </div>
-          <div class="follow-hud">
-            @if (compassHeadingText) {
-              <div class="follow-tape-heading">{{ compassHeadingText }}</div>
-            }
-            <div class="follow-tape" aria-hidden="true">
-              <div class="follow-tape-window">
-                @for (mark of tapeMarks; track mark.degree + '-' + mark.offsetPx) {
-                  <span class="follow-tape-mark" [style.left]="'calc(50% + ' + mark.offsetPx + 'px)'">
-                    <span class="follow-tape-tick"
-                          [class.is-major]="mark.major"
-                          [class.is-medium]="mark.medium"></span>
-                    @if (mark.label) {
-                      <span class="follow-tape-label">{{ mark.label }}</span>
-                    }
-                  </span>
-                }
-                <span class="follow-tape-needle"></span>
-              </div>
-            </div>
-            @if (gridReference) {
-              <div class="follow-tape-grid">{{ gridReference }}</div>
             }
           </div>
         </div>
@@ -512,27 +519,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 </div>
               }
             </div>
-            @if (sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING) {
-              @if (progress?.mode === RouteFollowMode.PAUSED) {
-                <button class="follow-start-tool" type="button"
-                        (pointerdown)="$event.stopPropagation()" (click)="onPeekAction($event)"
-                        tooltip="Resume" [isDisabled]="!tooltipsEnabled" placement="top" container=".follow-app" aria-label="Resume">
-                  <fa-icon [icon]="faPlay"/>
-                </button>
-              } @else if (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PREVIEW) {
-                <button class="follow-start-tool" type="button"
-                        (pointerdown)="$event.stopPropagation()" (click)="onPeekAction($event)"
-                        tooltip="Pause" [isDisabled]="!tooltipsEnabled" placement="top" container=".follow-app" aria-label="Pause">
-                  <fa-icon [icon]="faPause"/>
-                </button>
-              } @else {
-                <button class="follow-start-tool" type="button"
-                        (pointerdown)="$event.stopPropagation()" (click)="onPeekAction($event)"
-                        tooltip="Start" [isDisabled]="!tooltipsEnabled" placement="top" container=".follow-app" aria-label="Start">
-                  <fa-icon [icon]="faPersonWalking"/>
-                </button>
-              }
-            }
           </div>
           }
           <div class="follow-sheet-body-slot">
@@ -618,80 +604,62 @@ import { RouterHistoryService } from "../../services/router-history.service";
             </div>
           }
           <div class="follow-actions">
-            <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="closeFollow()">
-              <fa-icon [icon]="faXmark"/>Close
-            </button>
-            @if (!thinningPrompt && progress?.mode === RouteFollowMode.PREVIEW) {
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="stop()">
-                <fa-icon [icon]="faStop"/>Stop preview
+            @if (!thinningPrompt && progress?.mode === RouteFollowMode.EDITING) {
+              <button class="btn btn-quiet btn-icon" type="button" (click)="undoEdit()" [disabled]="editVertices.length === 0"
+                      aria-label="Undo" tooltip="Undo">
+                <fa-icon [icon]="faRotateLeft"/>
               </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="start()">
-                <fa-icon [icon]="faPersonWalking"/>{{ hasLine ? "Start" : "Head to the start" }}
-              </button>
-            } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.EDITING) {
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="undoEdit()" [disabled]="editVertices.length === 0">
-                <fa-icon [icon]="faRotateLeft"/>Undo
-              </button>
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="reverseRoute()" [disabled]="editVertices.length < 2">
-                <fa-icon [icon]="faRightLeft"/>Reverse
+              <button class="btn btn-quiet btn-icon" type="button" (click)="reverseRoute()" [disabled]="editVertices.length < 2"
+                      aria-label="Reverse" tooltip="Reverse">
+                <fa-icon [icon]="faRightLeft"/>
               </button>
               @if (!showEditThinning && originalEditCount > editThinFrom) {
-                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="enableThinning()">
-                  <fa-icon [icon]="faCompress"/>Reduce data density
+                <button class="btn btn-quiet btn-icon" type="button" (click)="enableThinning()"
+                        aria-label="Reduce data density" tooltip="Reduce data density">
+                  <fa-icon [icon]="faCompress"/>
                 </button>
               }
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="cancelEdit()">
-                <fa-icon [icon]="faXmark"/>Cancel
+              <button class="btn btn-quiet btn-icon" type="button" (click)="cancelEdit()"
+                      aria-label="Cancel" tooltip="Cancel">
+                <fa-icon [icon]="faXmark"/>
               </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine">
-                <fa-icon [icon]="faFloppyDisk"/>{{ savingRoute ? "Saving…" : "Save route" }}
+              <button class="btn btn-primary btn-icon" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine"
+                      [attr.aria-label]="savingRoute ? 'Saving' : 'Save route'" [tooltip]="savingRoute ? 'Saving' : 'Save route'">
+                <fa-icon [icon]="faFloppyDisk"/>
               </button>
             } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.RECORDING) {
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="cancelEdit()">
-                Discard
+              <button class="btn btn-quiet btn-icon" type="button" (click)="cancelEdit()"
+                      aria-label="Discard" tooltip="Discard">
+                <fa-icon [icon]="faXmark"/>
               </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine">
-                <fa-icon [icon]="faFloppyDisk"/>{{ savingRoute ? "Saving…" : "Save route" }}
+              <button class="btn btn-primary btn-icon" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine"
+                      [attr.aria-label]="savingRoute ? 'Saving' : 'Save route'" [tooltip]="savingRoute ? 'Saving' : 'Save route'">
+                <fa-icon [icon]="faFloppyDisk"/>
               </button>
             } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.IDLE) {
               @if (!creatingLine && offlineStatus !== RouteFollowOfflineStatus.AVAILABLE && offlineStatus !== RouteFollowOfflineStatus.SAVING) {
-                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="saveOffline()" [disabled]="!!saveProgress">
-                  Save off-line
+                <button class="btn btn-quiet btn-icon" type="button" (click)="saveOffline()" [disabled]="!!saveProgress"
+                        aria-label="Save off-line" tooltip="Save off-line">
+                  <fa-icon [icon]="faFloppyDisk"/>
                 </button>
               } @else if (showPreview && hasLine) {
-                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="preview()">Preview</button>
-              }
-              @if (!creatingLine) {
-                <button class="btn btn-primary follow-main-btn" type="button" (click)="start()">
-                  <fa-icon [icon]="faPersonWalking"/>{{ hasLine ? "Start" : "Head to the start" }}
+                <button class="btn btn-quiet btn-icon" type="button" (click)="preview()"
+                        aria-label="Preview" tooltip="Preview">
+                  <fa-icon [icon]="faPlay"/>
                 </button>
               }
               @if (canEditRoute) {
-                <button class="btn" type="button" (click)="editRoute()"
-                        [class.btn-primary]="creatingLine"
-                        [class.follow-main-btn]="creatingLine"
-                        [class.btn-quiet]="!creatingLine"
-                        [class.follow-secondary-btn]="!creatingLine">
-                  <fa-icon [icon]="faPencil"/>{{ hasLine ? "Edit points" : "Draw route" }}
+                <button class="btn btn-icon" type="button" (click)="editRoute()"
+                        [class.btn-primary]="creatingLine" [class.btn-quiet]="!creatingLine"
+                        [attr.aria-label]="hasLine ? 'Edit points' : 'Draw route'"
+                        [tooltip]="hasLine ? 'Edit points' : 'Draw route'">
+                  <fa-icon [icon]="faPencil"/>
                 </button>
-                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="recordRoute()">
-                  <fa-icon class="red-icon" [icon]="faCircle"/>Record
+                <button class="btn btn-quiet btn-icon" type="button" (click)="recordRoute()"
+                        aria-label="Record" tooltip="Record">
+                  <fa-icon class="red-icon" [icon]="faCircle"/>
                 </button>
               }
-            } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.PAUSED) {
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="stop()">
-                <fa-icon [icon]="faStop"/>Stop
-              </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="resume()">
-                <fa-icon [icon]="faPlay"/>Resume
-              </button>
-            } @else if (!thinningPrompt) {
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="stop()">
-                <fa-icon [icon]="faStop"/>Stop
-              </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="pause()">
-                <fa-icon [icon]="faPause"/>Pause
-              </button>
             }
           </div>
           </div>
@@ -1427,6 +1395,26 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   get sheetMinimised(): boolean {
     return this.sheetState === RouteFollowSheetState.MINIMISED;
+  }
+
+  startControlLabel(): string {
+    if (this.progress?.mode === RouteFollowMode.PAUSED) {
+      return "Resume";
+    } else if (this.progress?.mode === RouteFollowMode.FOLLOWING || this.progress?.mode === RouteFollowMode.PREVIEW) {
+      return "Pause";
+    } else {
+      return this.hasLine ? "Start" : "Head to the start";
+    }
+  }
+
+  startControlIcon() {
+    if (this.progress?.mode === RouteFollowMode.PAUSED) {
+      return this.faPlay;
+    } else if (this.progress?.mode === RouteFollowMode.FOLLOWING || this.progress?.mode === RouteFollowMode.PREVIEW) {
+      return this.faPause;
+    } else {
+      return this.faPersonWalking;
+    }
   }
 
   onPeekAction(event: Event): void {

@@ -1,3 +1,10 @@
+:host
+  display: block
+  height: 100%
+  min-height: 100%
+  min-height: 100dvh
+  overflow: hidden
+
 .follow-app
   --follow-bg: #f4f5f5
   --follow-ink: #1b1b1b
@@ -13,6 +20,8 @@
   --follow-instruction: rgba(255, 255, 255, 0.96)
   position: relative
   height: 100%
+  min-height: 100%
+  min-height: 100dvh
   background: var(--follow-bg)
   color: var(--follow-ink)
   overflow: hidden
@@ -80,12 +89,13 @@
 
 .follow-top-bar
   display: flex
-  flex-direction: column
-  align-items: flex-start
+  flex-direction: row
+  flex-wrap: wrap
+  align-items: center
   flex: 0 0 auto
   min-width: 0
   gap: 8px
-  min-height: 36px
+  min-height: 44px
   z-index: 2
 
 .follow-top-actions
@@ -93,6 +103,7 @@
   align-items: center
   gap: 8px
   pointer-events: auto
+  flex-shrink: 0
 
   .follow-icon-btn
     width: 44px
@@ -102,42 +113,49 @@
 .follow-top-banner
   display: flex
   align-items: center
+  flex: 1 1 auto
   min-width: 0
   gap: 8px
+  overflow: hidden
 
   &:empty
     display: none
 
-.follow-top.has-banner .follow-top-banner
-  margin-top: 8px
+.follow-top.has-banner .follow-instruction
+  flex: 1 1 100%
 
 .follow-hud
   pointer-events: none
   display: flex
   flex-direction: column
   align-items: center
+  justify-content: center
+  flex: 1 1 100%
   width: 100%
-  margin-top: 6px
+  min-width: 0
+  order: 5
+  height: 44px
+  padding: 2px 10px 4px
+  margin: 0
   color: var(--follow-ink)
+  background: var(--follow-btn)
+  border-radius: 22px
+  box-shadow: var(--follow-shadow)
+  overflow: hidden
 
 .follow-tape-heading
-  min-height: 36px
+  min-height: 0
   display: flex
   align-items: center
-  font-size: 1.05rem
+  font-size: 0.82rem
   font-weight: 700
-  line-height: 1.1
+  line-height: 1
   letter-spacing: 0.01em
-  text-shadow: 0 0 5px var(--follow-bg), 0 0 8px var(--follow-bg), 0 1px 2px var(--follow-bg)
-
-.follow-top.has-banner .follow-tape-heading
-  min-height: 0
-  padding-top: 4px
 
 .follow-tape
   width: 100%
-  max-width: 420px
-  height: 32px
+  max-width: none
+  height: 22px
   overflow: hidden
   mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent)
   -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent)
@@ -190,12 +208,7 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85)
 
 .follow-tape-grid
-  margin-top: 3px
-  font-size: 0.78rem
-  font-weight: 700
-  letter-spacing: 0.04em
-  line-height: 1.15
-  text-shadow: 0 0 5px var(--follow-bg), 0 0 8px var(--follow-bg), 0 1px 2px var(--follow-bg)
+  display: none
 
 .follow-bottom-chrome
   display: flex
@@ -294,15 +307,18 @@
   min-width: 0
   background: #c21d4b
   color: #fff
-  border-radius: 12px
-  padding: 8px 12px
-  min-height: 36px
+  border-radius: 22px
+  padding: 0 12px
+  min-height: 44px
   font-weight: 600
   font-size: 0.88rem
   display: flex
   align-items: center
   gap: 8px
-  line-height: 1.3
+  line-height: 1
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
   box-shadow: var(--follow-shadow)
 
 .follow-location-error
@@ -353,10 +369,12 @@
   letter-spacing: 0.02em
 
 .follow-start-tool
-  width: 48px
-  height: 48px
-  min-width: 48px
-  margin-left: auto
+  width: 44px
+  height: 44px
+  min-width: 44px
+  margin-left: 0
+  flex-shrink: 0
+  pointer-events: auto
   border: 0
   border-radius: 50%
   background: #f9b104
