@@ -125,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-group
-      cancel-in-progress: true
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -259,49 +259,8 @@ jobs:
           done
           exit 1
 
-
-  release-notes:
-    needs: deploy
-    if: github.ref_name == 'main' && github.event_name == 'push' && needs.deploy.result == 'success'
-    runs-on: ubuntu-latest
-    concurrency:
-      group: release-notes-main
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cache root node_modules
-        id: cache-release-notes-root-nm
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: root-nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install root dependencies
-        if: steps.cache-release-notes-root-nm.outputs.cache-hit != 'true'
-        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
-
-      - name: Cache server node_modules
-        id: cache-release-notes-server-nm
-        uses: actions/cache@v5
-        with:
-          path: server/node_modules
-          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
-
-      - name: Install server dependencies
-        if: steps.cache-release-notes-server-nm.outputs.cache-hit != 'true'
-        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
-        working-directory: ./server
-
       - name: Resolve unpublished commit range
+        if: github.ref_name == 'main' && github.event_name == 'push'
         id: release-range
         run: |
           PUBLISHED_SHA=$(git ls-remote origin refs/heads/release-notes-published | awk '{print $1}')
@@ -332,7 +291,7 @@ jobs:
           fi
 
       - name: Publish every outstanding release note
-        if: steps.release-range.outputs.already-covered == 'false'
+        if: github.ref_name == 'main' && github.event_name == 'push' && steps.release-range.outputs.already-covered == 'false'
         env:
           CMS_USERNAME: ${{ secrets.CMS_USERNAME }}
           CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
@@ -341,7 +300,7 @@ jobs:
           npm run release-notes -- --since "${{ steps.release-range.outputs.published-sha }}" --until "$GITHUB_SHA" --build-number "${{ github.run_number }}" --build-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" --include-unassigned
 
       - name: Record the completely published range
-        if: steps.release-range.outputs.already-covered == 'false'
+        if: github.ref_name == 'main' && github.event_name == 'push' && steps.release-range.outputs.already-covered == 'false'
         run: git push origin HEAD:refs/heads/release-notes-published
 
   deploy-jitsi:

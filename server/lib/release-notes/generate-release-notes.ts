@@ -26,7 +26,7 @@ import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import type { CMSAuth } from "./cms-client.js";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
-import {assertEveryCommitGrouped, groupCommitsByDateAndIssue} from "./release-grouping";
+import {assertEveryCommitGrouped, groupCommitsByDateAndIssue, groupCommitsIndividually} from "./release-grouping";
 
 const debugLog = debug(envConfig.logNamespace("release-notes"));
 debugLog.enabled = true;
@@ -257,6 +257,10 @@ async function createReleaseNotePage(
   const written = { page: null as PageContent | null };
 
   if (alreadyPublished) {
+    if (existingBuild) {
+      data.buildNumber = existingBuild.buildNumber;
+      data.buildUrl = existingBuild.buildUrl;
+    }
     debugLog(`Release note ${basePath} already records build #${data.buildNumber}; keeping the published page`);
   } else {
     if (existingReleasePage) {
@@ -742,7 +746,9 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
     if (commits.length === 0) {
       debugLog(`No commits between ${options.since} and ${until}`);
     } else {
-      const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
+      const releaseGroups = options.buildNumber
+        ? groupCommitsIndividually(commits)
+        : filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
       if (includeUnassigned) {
         assertEveryCommitGrouped(commits, releaseGroups);
       }

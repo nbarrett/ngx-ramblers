@@ -71,6 +71,16 @@ describe("content-generator generateTitle", () => {
 
 describe("content-generator updateIndexPageContent", () => {
 
+  it("replaces a retried build link instead of adding a second entry", () => {
+    const path = "how-to/committee/release-notes/build-since-abcdef123";
+    const existing = makeIndexPage(`# Release Notes\n\n## 2026\n\n- [21-Sep-2026 — build 963 — Site updates](${path})`);
+    const updated = updateIndexPageContent(existing, {date: "2026-09-22", title: "Site updates", path, issueNumber: null, buildNumber: "964"});
+    const content = extractContent(updated);
+    expect(content.match(/build-since-abcdef123/g)?.length).toEqual(1);
+    expect(content).toContain("build 964");
+    expect(content).not.toContain("build 963");
+  });
+
   it("drops a redundant trailing issue ref from a new entry, keeping the camera marker", () => {
     const existing = makeIndexPage(
       [
