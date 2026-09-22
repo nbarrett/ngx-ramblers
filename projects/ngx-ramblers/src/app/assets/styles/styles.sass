@@ -93,6 +93,10 @@ body.app-shell-active
   -webkit-text-size-adjust: 100%
   text-size-adjust: 100%
 
+@media (display-mode: standalone)
+  body:not(.app-shell-active)
+    padding-top: env(safe-area-inset-top, 0px)
+
 body.app-shell-active .tooltip,
 .follow-app .tooltip
   z-index: 4000

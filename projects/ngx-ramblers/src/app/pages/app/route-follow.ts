@@ -116,7 +116,6 @@ import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
 import proj4 from "proj4";
-import { StandaloneNavigationComponent } from "./standalone-navigation";
 import { RouterHistoryService } from "../../services/router-history.service";
 
 @Component({
@@ -131,7 +130,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
                     aria-label="Close follow">
               <fa-icon [icon]="faXmark"/>
             </button>
-            <app-standalone-navigation [compact]="true"/>
           </div>
           <div class="follow-alert follow-alert-danger">
             <fa-icon [icon]="faCircleExclamation"/>
@@ -143,7 +141,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
         </div>
       } @else if (loading) {
         <div class="follow-status">
-          <app-standalone-navigation [compact]="true"/>
           <p class="follow-loading">Loading the route…</p>
         </div>
       } @else {
@@ -164,7 +161,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
                       aria-label="Close follow">
                 <fa-icon [icon]="faXmark"/>
               </button>
-              <app-standalone-navigation [compact]="true"/>
             </div>
             @if (directionsOnMap && instructionWaypoint && instructionText) {
               <div class="follow-instruction">
@@ -706,7 +702,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent, StandaloneNavigationComponent]
+  imports: [LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);

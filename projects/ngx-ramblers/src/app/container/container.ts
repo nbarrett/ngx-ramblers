@@ -12,8 +12,14 @@ import { CanonicalLinkService } from "../services/canonical-link.service";
 import { AppShellService } from "../services/maps/app-shell.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
-import { StandaloneNavigationComponent } from "../pages/app/standalone-navigation";
 import { RouterHistoryService } from "../services/router-history.service";
+import { Router } from "@angular/router";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faArrowLeft, faCheck, faCircleExclamation, faHouse, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
+import { nativeShareSupported } from "../functions/native-share";
+import { NgxLoggerLevel } from "ngx-logger";
+import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
 @Component({
     selector: "app-root",
@@ -26,24 +32,42 @@ import { RouterHistoryService } from "../services/router-history.service";
     <div [class.app-shell]="appShellActive" [class.container]="!appShellActive">
       @if (!appShellActive) {
         <app-navbar/>
-        <app-standalone-navigation/>
         <app-rejoin-meeting-banner/>
         <app-new-version-banner/>
       }
       <router-outlet/>
+      @if (showFloatingNavigation()) {
+        <button class="btn btn-primary btn-icon app-floating-navigation" type="button" (click)="navigateFloating()"
+                [attr.aria-label]="floatingBackAvailable() ? 'Back' : 'Home'"
+                [tooltip]="floatingBackAvailable() ? 'Back' : 'Home'">
+          <fa-icon [icon]="floatingBackAvailable() ? faArrowLeft : faHouse"/>
+        </button>
+      }
+      @if (appShell.installed()) {
+        <button class="btn btn-primary btn-icon app-floating-navigation app-floating-share" type="button" (click)="shareCurrentPage()"
+                [attr.aria-label]="shareFeedback || 'Share or copy link'" [tooltip]="shareFeedback || 'Share or copy link'">
+          <fa-icon [icon]="shareFeedback === 'Link copied' ? faCheck : shareFeedback ? faCircleExclamation : faShareNodes"/>
+        </button>
+        <span class="visually-hidden" role="status">{{ shareFeedback }}</span>
+      }
     </div>
     @if (!appShellActive) {
       <app-footer/>
     }
     `,
     styleUrls: ["./container.sass"],
-    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, StandaloneNavigationComponent]
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, FontAwesomeModule, TooltipModule]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
-  constructor() {
-    inject(RouterHistoryService);
-  }
-
+  private routerHistory = inject(RouterHistoryService);
+  private router = inject(Router);
+  private logger: Logger = inject(LoggerFactory).createLogger("ContainerComponent", NgxLoggerLevel.ERROR);
+  protected readonly faArrowLeft = faArrowLeft;
+  protected readonly faCheck = faCheck;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faHouse = faHouse;
+  protected readonly faShareNodes = faShareNodes;
+  protected shareFeedback: string | null = null;
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private dataPopulationService = inject(DataPopulationService);
   private versionCheckService = inject(VersionCheckService);
@@ -52,6 +76,51 @@ export class ContainerComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected config: SystemConfig;
   protected appShellActive = false;
+
+  protected showFloatingNavigation(): boolean {
+    const path = this.router.url.split("?")[0];
+    return this.appShell.installed() && path !== "/" && path !== "/home" && path !== "/app/follow";
+  }
+
+  protected floatingBackAvailable(): boolean {
+    const path = this.router.url.split("?")[0];
+    return path !== "/app" && this.routerHistory.hasAppBackDestination();
+  }
+
+  protected navigateFloating(): void {
+    if (this.floatingBackAvailable()) {
+      this.routerHistory.navigateBackWithinApp();
+    } else {
+      void this.router.navigateByUrl("/");
+    }
+  }
+
+  protected async shareCurrentPage(): Promise<void> {
+    const url = window.location.href;
+    this.shareFeedback = null;
+    if (nativeShareSupported()) {
+      try {
+        await navigator.share({title: document.title, url});
+      } catch (error) {
+        if ((error as DOMException)?.name !== "AbortError") {
+          this.logger.warn("shareCurrentPage failed", error);
+          await this.copyCurrentPageUrl(url);
+        }
+      }
+    } else {
+      await this.copyCurrentPageUrl(url);
+    }
+  }
+
+  private async copyCurrentPageUrl(url: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(url);
+      this.shareFeedback = "Link copied";
+    } catch (error) {
+      this.logger.error("copyCurrentPageUrl failed", error);
+      this.shareFeedback = "Unable to copy link";
+    }
+  }
 
   ngOnInit() {
     this.dataPopulationService.clearLegacyLocalStorage();
