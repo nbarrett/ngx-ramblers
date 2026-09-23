@@ -297,7 +297,9 @@ if (fs.existsSync(distFolder)) {
   app.use("/", express.static(distFolder, {
     index: false,
     setHeaders: (res, filePath) => {
-      if (/-[A-Za-z0-9]{8,}\.(js|css|woff2?|ttf|eot|otf)$/i.test(filePath)) {
+      if (filePath.endsWith("inbox-push-sw.js")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      } else if (/-[A-Za-z0-9]{8,}\.(js|css|woff2?|ttf|eot|otf)$/i.test(filePath)) {
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       }
     }

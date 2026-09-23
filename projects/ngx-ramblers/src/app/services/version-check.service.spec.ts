@@ -48,8 +48,8 @@ describe("VersionCheckService", () => {
     expect(reloads).toBe(1);
   });
 
-  it("keeps the walking app open when a new version is deployed", async () => {
-    vi.spyOn(service["appShell"], "active").mockReturnValue(true);
+  it("keeps a live follow open when a new version is deployed", async () => {
+    vi.spyOn(service["routeFollow"], "isBusy").mockReturnValue(true);
     const check = service["checkForNewVersion"]();
     respondWith("746");
     await check;

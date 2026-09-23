@@ -147,6 +147,7 @@ import { debounceTime } from "rxjs/operators";
         position: relative
         flex: 1
         height: 6px
+        touch-action: pan-x
 
       .slider-track
         position: absolute

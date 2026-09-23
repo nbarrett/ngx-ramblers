@@ -9,7 +9,7 @@ interface InboxPushPayload {
   url?: string;
 }
 
-const FOLLOW_SHELL = "follow-shell-v4";
+const FOLLOW_SHELL = "follow-shell-v5";
 const FOLLOW_TILES = "follow-tiles-v3";
 
 sw.addEventListener("install", () => {
@@ -20,7 +20,8 @@ sw.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys
-      .filter(key => key.startsWith("follow-tiles-") && key !== FOLLOW_TILES)
+      .filter(key => (key.startsWith("follow-tiles-") && key !== FOLLOW_TILES)
+        || (key.startsWith("follow-shell-") && key !== FOLLOW_SHELL))
       .map(key => caches.delete(key)));
     await sw.clients.claim();
   })());
@@ -78,9 +79,8 @@ async function cacheFollowResources(urls: string[]): Promise<void> {
         || parsed.pathname.startsWith("/assets/images/local/pwa-")
         || parsed.pathname === "/assets/images/local/apple-touch-icon.png"
         || /\.(?:js|css|woff2?)$/.test(parsed.pathname));
-    const existing = allowed ? await cache.match(parsed.href) : null;
-    if (allowed && !existing) {
-      await fetch(url)
+    if (allowed) {
+      await fetch(url, {cache: "no-store"})
         .then(response => cacheable(response) ? cache.put(parsed.href, response) : undefined)
         .catch(() => undefined);
     }
@@ -89,23 +89,18 @@ async function cacheFollowResources(urls: string[]): Promise<void> {
 
 async function followShell(request: Request): Promise<Response> {
   const cache = await caches.open(FOLLOW_SHELL);
-  const cached = await cache.match("/app");
-  if (cached) {
-    return cached;
-  } else {
-    try {
-      const fresh = await fetch(request);
-      if (fresh.ok) {
-        await cache.put("/app", fresh.clone());
-      }
-      return fresh;
-    } catch {
-      const previous = await caches.match("/app");
-      return previous || new Response("This walking app is not available offline yet. Open it once while connected, then try again.", {
-        status: 503,
-        headers: {"Content-Type": "text/plain; charset=utf-8"}
-      });
+  try {
+    const fresh = await fetch(request, {cache: "no-store"});
+    if (fresh.ok) {
+      await cache.put("/app", fresh.clone());
     }
+    return fresh;
+  } catch {
+    const cached = await cache.match("/app") || await caches.match("/app");
+    return cached || new Response("This walking app is not available offline yet. Open it once while connected, then try again.", {
+      status: 503,
+      headers: {"Content-Type": "text/plain; charset=utf-8"}
+    });
   }
 }
 

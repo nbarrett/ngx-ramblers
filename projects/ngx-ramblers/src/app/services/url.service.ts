@@ -104,10 +104,53 @@ export class UrlService {
       this.logger.debug("navigateToUrl:", url, "controlOrMetaKey:", controlOrMetaKey, "$event:", $event);
       if (controlOrMetaKey) {
         window.open(url, "_blank");
+      } else if (this.followOwnSiteHref(url)) {
+        return;
       } else {
         this.document.location.href = url;
       }
     }
+  }
+
+  handleOwnSiteClick(event: MouseEvent): void {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    } else {
+      const target = event.target as Element | null;
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.hasAttribute("download")) {
+        return;
+      } else {
+        const href = anchor.getAttribute("href");
+        if (!href || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) {
+          return;
+        } else {
+          this.followOwnSiteHref(href, event);
+        }
+      }
+    }
+  }
+
+  followOwnSiteHref(href: string, event?: Event): boolean {
+    try {
+      const url = new URL(href, this.absoluteUrl());
+      if (!this.ownSite(url) || url.pathname.startsWith("/api/")) {
+        return false;
+      } else {
+        event?.preventDefault();
+        void this.router.navigateByUrl(url.pathname + url.search + url.hash);
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  ownSite(url: URL): boolean {
+    const target = apexHostFromUrl(url.href);
+    const current = apexHostFromUrl(this.absoluteUrl());
+    const group = apexHostFromUrl(this.group?.href);
+    return !!target && (target === current || (!!group && target === group));
   }
 
   navigateToAbsoluteUrl(url: string) {

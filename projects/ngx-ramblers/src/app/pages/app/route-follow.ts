@@ -205,13 +205,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 <div class="follow-tape-grid">{{ gridReference }}</div>
               }
             </div>
-            @if (progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING) {
-              <button class="follow-start-tool" type="button" (click)="onPeekAction($event)"
-                      [attr.aria-label]="startControlLabel()" [tooltip]="startControlLabel()"
-                      [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app">
-                <fa-icon [icon]="startControlIcon()"/>
-              </button>
-            }
             @if (directionsOnMap && instructionWaypoint && instructionText) {
               <div class="follow-instruction">
                 <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
@@ -605,59 +598,67 @@ import { RouterHistoryService } from "../../services/router-history.service";
           }
           <div class="follow-actions">
             @if (!thinningPrompt && progress?.mode === RouteFollowMode.EDITING) {
-              <button class="btn btn-quiet btn-icon" type="button" (click)="undoEdit()" [disabled]="editVertices.length === 0"
-                      aria-label="Undo" tooltip="Undo">
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="undoEdit()" [disabled]="editVertices.length === 0">
                 <fa-icon [icon]="faRotateLeft"/>
+                Undo
               </button>
-              <button class="btn btn-quiet btn-icon" type="button" (click)="reverseRoute()" [disabled]="editVertices.length < 2"
-                      aria-label="Reverse" tooltip="Reverse">
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="reverseRoute()" [disabled]="editVertices.length < 2">
                 <fa-icon [icon]="faRightLeft"/>
+                Reverse
               </button>
               @if (!showEditThinning && originalEditCount > editThinFrom) {
-                <button class="btn btn-quiet btn-icon" type="button" (click)="enableThinning()"
-                        aria-label="Reduce data density" tooltip="Reduce data density">
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="enableThinning()">
                   <fa-icon [icon]="faCompress"/>
+                  Thin
                 </button>
               }
-              <button class="btn btn-quiet btn-icon" type="button" (click)="cancelEdit()"
-                      aria-label="Cancel" tooltip="Cancel">
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="cancelEdit()">
                 <fa-icon [icon]="faXmark"/>
+                Cancel
               </button>
-              <button class="btn btn-primary btn-icon" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine"
-                      [attr.aria-label]="savingRoute ? 'Saving' : 'Save route'" [tooltip]="savingRoute ? 'Saving' : 'Save route'">
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine">
                 <fa-icon [icon]="faFloppyDisk"/>
+                {{ savingRoute ? "Saving" : "Save" }}
               </button>
             } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.RECORDING) {
-              <button class="btn btn-quiet btn-icon" type="button" (click)="cancelEdit()"
-                      aria-label="Discard" tooltip="Discard">
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="cancelEdit()">
                 <fa-icon [icon]="faXmark"/>
+                Discard
               </button>
-              <button class="btn btn-primary btn-icon" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine"
-                      [attr.aria-label]="savingRoute ? 'Saving' : 'Save route'" [tooltip]="savingRoute ? 'Saving' : 'Save route'">
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine">
                 <fa-icon [icon]="faFloppyDisk"/>
+                {{ savingRoute ? "Saving" : "Save" }}
+              </button>
+            } @else if (!thinningPrompt && (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW)) {
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)">
+                <fa-icon [icon]="startControlIcon()"/>
+                {{ startControlLabel() }}
               </button>
             } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.IDLE) {
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)">
+                <fa-icon [icon]="startControlIcon()"/>
+                {{ startControlLabel() }}
+              </button>
               @if (!creatingLine && offlineStatus !== RouteFollowOfflineStatus.AVAILABLE && offlineStatus !== RouteFollowOfflineStatus.SAVING) {
-                <button class="btn btn-quiet btn-icon" type="button" (click)="saveOffline()" [disabled]="!!saveProgress"
-                        aria-label="Save off-line" tooltip="Save off-line">
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="saveOffline()" [disabled]="!!saveProgress">
                   <fa-icon [icon]="faFloppyDisk"/>
+                  Save off-line
                 </button>
               } @else if (showPreview && hasLine) {
-                <button class="btn btn-quiet btn-icon" type="button" (click)="preview()"
-                        aria-label="Preview" tooltip="Preview">
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="preview()">
                   <fa-icon [icon]="faPlay"/>
+                  Preview
                 </button>
               }
               @if (canEditRoute) {
-                <button class="btn btn-icon" type="button" (click)="editRoute()"
-                        [class.btn-primary]="creatingLine" [class.btn-quiet]="!creatingLine"
-                        [attr.aria-label]="hasLine ? 'Edit points' : 'Draw route'"
-                        [tooltip]="hasLine ? 'Edit points' : 'Draw route'">
+                <button class="btn follow-secondary-btn" type="button" (click)="editRoute()"
+                        [class.btn-primary]="creatingLine" [class.btn-quiet]="!creatingLine">
                   <fa-icon [icon]="faPencil"/>
+                  {{ hasLine ? "Edit" : "Draw" }}
                 </button>
-                <button class="btn btn-quiet btn-icon" type="button" (click)="recordRoute()"
-                        aria-label="Record" tooltip="Record">
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="recordRoute()">
                   <fa-icon class="red-icon" [icon]="faCircle"/>
+                  Record
                 </button>
               }
             }
