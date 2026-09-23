@@ -505,7 +505,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private appliedMarkdown: string | null = null;
 
   public syncValue(markdown: string): void {
-    const incoming = this.documentConversionService.separateEditingBlocks(markdown ?? "");
+    const incoming = markdown ?? "";
     if (this.sourceMode) {
       this.sourceMarkdown = incoming;
     } else if (this.editor) {
