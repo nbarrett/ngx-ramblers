@@ -21,7 +21,7 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   protected readonly ticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   protected refreshing = false;
-  private pull = {active: false, startY: 0, distance: 0};
+  private pull = {active: false, startX: 0, startY: 0, distance: 0, committed: false};
   private listeners: {target: EventTarget; type: string; listener: EventListener; options: AddEventListenerOptions}[] = [];
   private readonly threshold = 72;
 
@@ -56,24 +56,38 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
   }
 
   private onTouchStart(event: TouchEvent): void {
-    if (!this.refreshing && event.touches.length === 1 && this.scrollerAtTop()) {
+    if (!this.refreshing && event.touches.length === 1 && this.scrollerAtTop() && !this.controlTouch(event)) {
       this.pull.active = true;
+      this.pull.committed = false;
+      this.pull.startX = event.touches[0].clientX;
       this.pull.startY = event.touches[0].clientY;
       this.pull.distance = 0;
     } else {
       this.pull.active = false;
+      this.pull.committed = false;
     }
   }
 
   private onTouchMove(event: TouchEvent): void {
     if (this.pull.active && !this.refreshing && event.touches.length === 1) {
-      const raw = event.touches[0].clientY - this.pull.startY;
-      if (raw > 0) {
+      const dx = event.touches[0].clientX - this.pull.startX;
+      const dy = event.touches[0].clientY - this.pull.startY;
+      if (!this.pull.committed) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) >= dy) {
+          this.pull.active = false;
+          this.pull.distance = 0;
+          this.shiftPage(0, false);
+          this.redraw();
+        } else if (dy > 12 && dy > Math.abs(dx) * 1.4) {
+          this.pull.committed = true;
+        }
+      }
+      if (this.pull.committed && dy > 0) {
         event.preventDefault();
-        this.pull.distance = Math.min(raw * 0.5, 140);
+        this.pull.distance = Math.min(dy * 0.5, 140);
         this.shiftPage(this.pull.distance, false);
         this.redraw();
-      } else {
+      } else if (this.pull.committed) {
         this.pull.distance = 0;
         this.shiftPage(0, false);
         this.redraw();
@@ -82,7 +96,7 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
   }
 
   private onTouchEnd(): void {
-    if (this.pull.active && !this.refreshing) {
+    if (this.pull.active && this.pull.committed && !this.refreshing) {
       if (this.pull.distance >= this.threshold) {
         this.refreshing = true;
         this.pull.distance = this.threshold;
@@ -94,8 +108,40 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
         this.shiftPage(0, true);
         this.redraw();
       }
+    } else if (this.pull.distance > 0) {
+      this.pull.distance = 0;
+      this.shiftPage(0, true);
+      this.redraw();
     }
     this.pull.active = false;
+    this.pull.committed = false;
+  }
+
+  private controlTouch(event: TouchEvent): boolean {
+    return this.touchAncestors(event.target as Element | null).some(node => this.blocksPull(node));
+  }
+
+  private touchAncestors(from: Element | null): Element[] {
+    const limit = this.overflowScroller();
+    if (!from || from === limit || from === this.document.documentElement) {
+      return [];
+    } else {
+      return [from].concat(this.touchAncestors(from.parentElement));
+    }
+  }
+
+  private blocksPull(node: Element): boolean {
+    if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement
+      || node instanceof HTMLButtonElement || node instanceof HTMLAnchorElement || node instanceof HTMLLabelElement) {
+      return true;
+    } else if (node instanceof HTMLElement && node.isContentEditable) {
+      return true;
+    } else {
+      const role = node.getAttribute("role");
+      const touchAction = node instanceof HTMLElement ? this.document.defaultView?.getComputedStyle(node).touchAction || "" : "";
+      const captured = touchAction === "none" || touchAction === "pan-x";
+      return role === "slider" || role === "button" || role === "switch" || role === "tab" || role === "listbox" || captured;
+    }
   }
 
   private redraw(): void {

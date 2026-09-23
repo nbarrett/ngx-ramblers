@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
 import { Subscription } from "rxjs";
 import { SystemConfig } from "../models/system.model";
 import { SystemConfigService } from "../services/system/system-config.service";
@@ -10,6 +10,7 @@ import { DataPopulationService } from "../pages/admin/data-population.service";
 import { VersionCheckService } from "../services/version-check.service";
 import { CanonicalLinkService } from "../services/canonical-link.service";
 import { AppShellService } from "../services/maps/app-shell.service";
+import { UrlService } from "../services/url.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
 import { PullToRefreshComponent } from "../modules/common/pull-to-refresh/pull-to-refresh";
@@ -77,7 +78,13 @@ export class ContainerComponent implements OnInit, OnDestroy {
   private versionCheckService = inject(VersionCheckService);
   private canonicalLinkService = inject(CanonicalLinkService);
   protected appShell = inject(AppShellService);
+  private urlService = inject(UrlService);
   private subscriptions: Subscription[] = [];
+
+  @HostListener("document:click", ["$event"])
+  onDocumentClick(event: MouseEvent): void {
+    this.urlService.handleOwnSiteClick(event);
+  }
   protected config: SystemConfig;
   protected appShellActive = false;
 

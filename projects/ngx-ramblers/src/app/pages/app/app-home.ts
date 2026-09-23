@@ -1,10 +1,10 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { DecimalPipe } from "@angular/common";
+import { DecimalPipe, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -81,9 +81,9 @@ import { KM_PER_MILE } from "../../models/walk.model";
         <button class="btn btn-icon" type="button" (click)="customising = !customising"
                 [class.btn-primary]="customising" [class.btn-quiet]="!customising"
                 [attr.aria-expanded]="customising" aria-controls="app-home-customise"
-                [attr.aria-label]="customising ? 'Done' : 'Customise'"
-                [tooltip]="customising ? 'Done' : 'Customise'">
-          <fa-icon [icon]="faSliders"/>
+                [attr.aria-label]="customising ? 'Back' : 'Customise'"
+                [tooltip]="customising ? 'Back' : 'Customise'">
+          <fa-icon [icon]="customising ? faArrowLeft : faSliders"/>
         </button>
       </div>
 
@@ -124,7 +124,6 @@ import { KM_PER_MILE } from "../../models/walk.model";
         <section id="app-home-customise" class="app-home-customise" [attr.aria-label]="'Choose what appears in ' + groupName">
           <div class="app-home-customise-heading">
             <h2>What each view shows</h2>
-            <button class="btn btn-primary" type="button" (click)="customising = false">Done</button>
           </div>
           <p class="app-home-key">Nothing is created on this phone. Content comes from the group's website, then you follow it here.</p>
           <label class="app-home-customise-item">
@@ -141,17 +140,11 @@ import { KM_PER_MILE } from "../../models/walk.model";
               <span>The group's published programme. Walks with a GPX can be followed from here.</span>
             </span>
           </label>
-          <label class="app-home-customise-item">
-            <input type="checkbox" [checked]="layout.appearance" (change)="setLayout('appearance', $event)">
-            <span>
-              <strong>Appearance</strong>
-              <span>Light, dark, or match the phone.</span>
-            </span>
-          </label>
           @if (hiddenKeys.length) {
             <button class="btn btn-quiet" type="button" (click)="showHiddenMaps()">Show hidden maps ({{ hiddenKeys.length }})</button>
           }
-          <button class="btn btn-primary" type="button" (click)="customising = false">Done</button>
+          <h2>Appearance</h2>
+          <ng-container *ngTemplateOutlet="appearanceControls"/>
         </section>
       }
 
@@ -326,38 +319,41 @@ import { KM_PER_MILE } from "../../models/walk.model";
       </section>
       }
 
-      @if (!customising && layout.appearance) {
+      @if (!customising) {
       <section class="app-home-section">
         <h2>Appearance</h2>
-        <div class="app-home-appearance" role="group" aria-label="Appearance">
-          <button type="button" class="btn btn-icon app-home-appearance-btn"
-                  [class.btn-primary]="appearance === AppAppearance.SYSTEM"
-                  [class.btn-quiet]="appearance !== AppAppearance.SYSTEM"
-                  (click)="chooseAppearance(AppAppearance.SYSTEM)"
-                  aria-label="Match phone" tooltip="Match phone">
-            <fa-icon [icon]="faCircleHalfStroke"/>
-          </button>
-          <button type="button" class="btn btn-icon app-home-appearance-btn"
-                  [class.btn-primary]="appearance === AppAppearance.LIGHT"
-                  [class.btn-quiet]="appearance !== AppAppearance.LIGHT"
-                  (click)="chooseAppearance(AppAppearance.LIGHT)"
-                  aria-label="Light" tooltip="Light">
-            <fa-icon [icon]="faSun"/>
-          </button>
-          <button type="button" class="btn btn-icon app-home-appearance-btn"
-                  [class.btn-primary]="appearance === AppAppearance.DARK"
-                  [class.btn-quiet]="appearance !== AppAppearance.DARK"
-                  (click)="chooseAppearance(AppAppearance.DARK)"
-                  aria-label="Dark" tooltip="Dark">
-            <fa-icon [icon]="faMoon"/>
-          </button>
-        </div>
+        <ng-container *ngTemplateOutlet="appearanceControls"/>
       </section>
       }
     </div>
+    <ng-template #appearanceControls>
+      <div class="app-home-appearance" role="group" aria-label="Appearance">
+        <button type="button" class="btn btn-icon app-home-appearance-btn"
+                [class.btn-primary]="appearance === AppAppearance.SYSTEM"
+                [class.btn-quiet]="appearance !== AppAppearance.SYSTEM"
+                (click)="chooseAppearance(AppAppearance.SYSTEM)"
+                aria-label="Match phone" tooltip="Match phone">
+          <fa-icon [icon]="faCircleHalfStroke"/>
+        </button>
+        <button type="button" class="btn btn-icon app-home-appearance-btn"
+                [class.btn-primary]="appearance === AppAppearance.LIGHT"
+                [class.btn-quiet]="appearance !== AppAppearance.LIGHT"
+                (click)="chooseAppearance(AppAppearance.LIGHT)"
+                aria-label="Light" tooltip="Light">
+          <fa-icon [icon]="faSun"/>
+        </button>
+        <button type="button" class="btn btn-icon app-home-appearance-btn"
+                [class.btn-primary]="appearance === AppAppearance.DARK"
+                [class.btn-quiet]="appearance !== AppAppearance.DARK"
+                (click)="chooseAppearance(AppAppearance.DARK)"
+                aria-label="Dark" tooltip="Dark">
+          <fa-icon [icon]="faMoon"/>
+        </button>
+      </div>
+    </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [RouterLink, FormsModule, FontAwesomeModule, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DecimalPipe, DistanceRangeSlider]
+  imports: [RouterLink, FormsModule, FontAwesomeModule, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DecimalPipe, DistanceRangeSlider, NgTemplateOutlet]
 })
 export class AppHomeComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("AppHomeComponent", NgxLoggerLevel.ERROR);
@@ -380,7 +376,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private mediaQueryService = inject(MediaQueryService);
   protected payloadService = inject(RouteFollowPayloadService);
   protected routes: RouteFollowSummary[] = [];
-  protected layout: AppHomeLayout = {savedRoutes: true, upcomingWalks: true, appearance: false};
+  protected layout: AppHomeLayout = {savedRoutes: true, upcomingWalks: true};
   protected readonly APP_NEARBY_MILES_MAX = APP_NEARBY_MILES_MAX;
   protected readonly AppHomeView = AppHomeView;
   protected view = AppHomeView.MAPS;
@@ -407,6 +403,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected logoUrl: string | null = null;
   protected offlineByKey: Record<string, RouteFollowOfflineStatus> = {};
   protected activeSession: RouteFollowSession | null = null;
+  protected readonly faArrowLeft = faArrowLeft;
   protected readonly faCalendarDay = faCalendarDay;
   protected readonly faCircle = faCircle;
   protected readonly faCircleHalfStroke = faCircleHalfStroke;

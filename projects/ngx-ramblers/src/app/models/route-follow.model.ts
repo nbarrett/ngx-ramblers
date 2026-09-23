@@ -291,7 +291,6 @@ export enum AppAppearance {
 export interface AppHomeLayout {
   savedRoutes: boolean;
   upcomingWalks: boolean;
-  appearance: boolean;
 }
 
 export enum AppHomeView {
