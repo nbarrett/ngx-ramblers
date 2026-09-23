@@ -45,7 +45,7 @@ These still need a rewrite even when no banned word is present:
 - UK English in commits and docs ("centralised", "colour", "behaviour").
 - "Head office" for Ramblers' central organisation, never "HQ".
 - GitHub Actions: `run 746` in prose, link with `/actions/runs/<databaseId>`, never `#746`.
-- Commit bodies keep the three Markdown headings. Do not hard-wrap paragraphs.
+- Commit bodies keep `## What's new` and `## Technical changes`. Do not add `## At a glance`. Do not hard-wrap paragraphs.
 - Do not name a specific group or trial site in release notes unless the user asked for that audience.
 
 ## Reply

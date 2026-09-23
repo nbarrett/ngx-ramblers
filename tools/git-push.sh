@@ -88,12 +88,32 @@ trigger_all_environments_deploy() {
     exit 1
   fi
 
-  echo "Triggering deploy-to-environments workflow for all environments using image tag $run_number..."
+  image_tag="$(docker_image_tag_for_deploy "$run_number")"
+
+  echo "Triggering deploy-to-environments workflow for all environments using image tag $image_tag..."
   gh workflow run "Deploy to Selected Environments" \
     --ref main \
     -f environments=all \
-    -f image_tag="$run_number"
+    -f image_tag="$image_tag"
   echo "Deploy workflow triggered from successful build run: $run_url"
+}
+
+docker_image_tag_for_deploy() {
+  local wanted="$1"
+  local attempt=0
+  local listed=""
+  while [[ "$attempt" -lt 18 ]]; do
+    listed="$(gh run list --workflow=build-push-and-deploy-ngx-ramblers-docker-image.yml --limit 20 --json number,conclusion --jq ".[] | select(.number == ${wanted} and .conclusion == \"success\") | .number")"
+    if [[ "$listed" == "$wanted" ]]; then
+      printf '%s\n' "$wanted"
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    echo "Waiting for Docker build run $wanted to show as success in the workflow list (${attempt}/18)..." >&2
+    sleep 10
+  done
+  echo "Docker build run $wanted succeeded but is not in the recent success list yet; deploying with image_tag=latest instead." >&2
+  printf '%s\n' "latest"
 }
 
 if should_deploy_all_after_build; then

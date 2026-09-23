@@ -102,6 +102,7 @@ export enum StoredValue {
   EMAIL_TYPE = "email-type",
   END_DATE = "end-date",
   ENVIRONMENT = "environment",
+  ENVIRONMENT_SECTION = "environment-section",
   ENVIRONMENTS = "environments",
   EVENT = "event",
   EVENT_ID = "event-id",

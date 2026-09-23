@@ -117,6 +117,8 @@ export class CardImageComponent implements OnInit {
 
   @Input("imageSource") set acceptChangesFrom(imageSource: string) {
     this.imageSource = imageSource || FALLBACK_MEDIA.url;
+    this.naturalWidth = null;
+    this.naturalHeight = null;
     if (!imageSource) {
       this.imageText = ImageMessage.NO_IMAGE_AVAILABLE;
     } else {
@@ -182,6 +184,8 @@ export class CardImageComponent implements OnInit {
   public compactEdit = false;
   public objectPositionY: number = null;
   public cropperPosition: ImageCropperPosition = null;
+  public naturalWidth: number = null;
+  public naturalHeight: number = null;
   public focalPoint: FocalPoint = null;
   public padding = 0;
   public imageFit = ImageFit.COVER;
@@ -232,6 +236,11 @@ export class CardImageComponent implements OnInit {
   }
 
   imageLoaded(event: Event) {
+    const img = event.target as HTMLImageElement;
+    if (img?.naturalWidth > 0 && img?.naturalHeight > 0) {
+      this.naturalWidth = img.naturalWidth;
+      this.naturalHeight = img.naturalHeight;
+    }
     this.logger.info("imageLoaded:", event);
     this.imageText = null;
   }
@@ -303,7 +312,14 @@ export class CardImageComponent implements OnInit {
   }
 
   cropperWrapperStyles(): any {
-    const styles = cropperWrapperStyles(this.constrainedHeight, this.borderRadius, this.noBorderRadius);
+    const styles = cropperWrapperStyles(
+      this.constrainedHeight,
+      this.borderRadius,
+      this.noBorderRadius,
+      this.cropperPosition,
+      this.naturalWidth,
+      this.naturalHeight
+    );
     this.applyFrameStyles(styles);
     return styles;
   }

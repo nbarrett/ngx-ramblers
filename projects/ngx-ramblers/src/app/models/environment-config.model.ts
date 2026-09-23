@@ -168,6 +168,18 @@ export enum FlyioMemory {
   MB_8192 = "8192mb"
 }
 
+export enum EnvironmentConfigSection {
+  ALL = "all",
+  AI = "ai",
+  AWS = "aws",
+  DETAILS = "details",
+  EMAIL_ROUTING = "email-routing",
+  FLY_IO = "fly-io",
+  MONGODB = "mongodb",
+  SECRETS = "secrets",
+  WEB_ANALYTICS = "web-analytics"
+}
+
 export const FLYIO_DEFAULTS = {
   MEMORY: FlyioMemory.MB_512,
   SCALE_COUNT: 1,

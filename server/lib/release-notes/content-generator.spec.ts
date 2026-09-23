@@ -395,24 +395,20 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     expect(markdown).not.toContain("- the image step is skipped entirely.\n");
   });
 
-  it("omits the Technical changes section from the committee-facing note but keeps the sections around it", () => {
+  it("omits the Technical changes section from the committee-facing note and keeps What's new", () => {
     const body = [
       "## What's new",
       "Something a committee member cares about.",
       "",
       "## Technical changes",
       "- Extract Cloudflare email-routing controllers from the route declarations",
-      "- Inline shared worker template dependencies",
-      "",
-      "## At a glance",
-      "- A user visible bullet"
+      "- Inline shared worker template dependencies"
     ].join("\n");
 
     const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
     const markdown = generateMarkdown(data, "owner/repo");
 
     expect(markdown).toContain("Something a committee member cares about.");
-    expect(markdown).toContain("- A user visible bullet");
     expect(markdown).not.toContain("Technical changes");
     expect(markdown).not.toContain("Extract Cloudflare email-routing controllers");
   });
