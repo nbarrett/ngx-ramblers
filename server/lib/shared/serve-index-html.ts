@@ -86,6 +86,16 @@ function withCanonicalLink(html: string, baseHref: string, requestPath: string):
   return html.replace("</head>", `  <link rel="canonical" href="${canonicalUrl}">\n</head>`);
 }
 
+export function withAppIdentity(html: string, siteName: string): string {
+  if (!siteName) {
+    return html;
+  } else {
+    return html
+      .replace(/<meta name="application-name" content="[^"]*">/, `<meta name="application-name" content="${escapeHtml(siteName)}">`)
+      .replace(/<meta name="apple-mobile-web-app-title" content="[^"]*">/, `<meta name="apple-mobile-web-app-title" content="${escapeHtml(siteName)}">`);
+  }
+}
+
 function withTitle(html: string, siteName: string, pageTitle: string): string {
   const fullTitle = [siteName, pageTitle].filter(part => part && part.trim().length > 0).join(" — ");
   if (!fullTitle) {
@@ -190,6 +200,7 @@ export async function serveIndexHtml(indexPath: string, res: Response, requestPa
     const transformations: ((input: string) => string)[] = [
       input => headConfig?.verificationId ? withGoogleSiteVerification(input, headConfig.verificationId) : input,
       input => headConfig?.baseHref ? withCanonicalLink(input, headConfig.baseHref, requestPath) : input,
+      input => withAppIdentity(input, headConfig?.siteName),
       input => withTitle(input, headConfig?.siteName, seoDescriptor?.title),
       input => withMetaDescription(input, seoDescriptor?.description),
       input => withRobotsMeta(input, seoDescriptor?.robots),

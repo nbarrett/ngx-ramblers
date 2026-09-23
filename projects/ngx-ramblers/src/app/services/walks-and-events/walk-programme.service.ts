@@ -63,6 +63,7 @@ export class WalkProgrammeService {
     [GroupEventField.LOCATION]: 1,
     [GroupEventField.START_LOCATION]: 1,
     [GroupEventField.END_LOCATION]: 1,
+    [GroupEventField.MEDIA]: 1,
     [EventField.CONTACT_DETAILS_DISPLAY_NAME]: 1,
     [EventField.CONTACT_DETAILS_MEMBER_ID]: 1,
     [EventField.INPUT_SOURCE]: 1,

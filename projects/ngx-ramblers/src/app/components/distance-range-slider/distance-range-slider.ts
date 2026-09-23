@@ -11,16 +11,19 @@ import { debounceTime } from "rxjs/operators";
   selector: "app-distance-range-slider",
   imports: [FormsModule],
   template: `
-    <div class="distance-range-slider">
+    <div class="distance-range-slider" [class.distance-range-slider-single]="singleThumb">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <label class="form-label mb-0">{{ label }}</label>
-        <div class="distance-values">
+        <label class="form-label mb-0 distance-heading">
+          {{ label }}
           @if (singleThumb) {
             <span class="selected-range">{{ highDisplay }} {{ unitDisplay }}</span>
-          } @else {
-            <span class="selected-range">{{ lowDisplay }} - {{ highDisplay }} {{ unitDisplay }}</span>
           }
-        </div>
+        </label>
+        @if (!singleThumb) {
+          <div class="distance-values">
+            <span class="selected-range">{{ lowDisplay }} - {{ highDisplay }} {{ unitDisplay }}</span>
+          </div>
+        }
       </div>
       <div class="range-slider-container pb-0">
         <div class="range-slider-row">
@@ -77,6 +80,35 @@ import { debounceTime } from "rxjs/operators";
       .selected-range
         font-size: 0.8rem
         color: #6c757d
+
+      &.distance-range-slider-single
+        .distance-heading
+          display: flex
+          align-items: baseline
+          gap: 0.4rem
+          font-size: 1.05rem
+          font-weight: 700
+        .selected-range
+          font-size: 1.2rem
+          font-weight: 700
+          color: inherit
+        .slider-wrapper
+          height: 14px
+        .slider-track
+          height: 10px
+        .range-slider
+          height: 14px
+        .range-edge
+          font-size: 0.85rem
+        .btn-unit
+          min-height: 40px
+          padding: 0.4rem 0.85rem
+        .range-slider::-webkit-slider-thumb
+          width: 28px
+          height: 28px
+        .range-slider::-moz-range-thumb
+          width: 28px
+          height: 28px
 
       .btn-unit
         padding: 0.25rem 0.75rem

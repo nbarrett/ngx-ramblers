@@ -36,6 +36,8 @@ export enum StoredValue {
   APP_FAVOURITE_ROUTES = "app-favourite-routes",
   APP_HIDDEN_ROUTES = "app-hidden-routes",
   APP_HOME_LAYOUT = "app-home-layout",
+  APP_HOME_LIST_CACHE = "app-home-list-cache",
+  APP_INSTALL_HINT_DISMISSED = "app-install-hint-dismissed",
   AREA = "area",
   AREA_MAP_CENTER = "area-map-center",
   AREA_MAP_CLICK_ACTION = "area-map-click-action",

@@ -60,8 +60,20 @@ export class RouterHistoryService {
 
   appBackDestination(): string {
     const current = this.router.url;
+    const appRoot = "/" + AppPath.ROOT;
     const previous = [...this.pageHistory].reverse().find(url => url !== current);
-    return previous || this.walksProgrammeDestination() || "/" + AppPath.ROOT;
+    if (previous && this.isAppHistoryUrl(previous)) {
+      return previous;
+    } else {
+      const previousApp = [...this.pageHistory].reverse().find(url => this.isAppHistoryUrl(url) && url !== current);
+      return previousApp || previous || this.walksProgrammeDestination() || appRoot;
+    }
+  }
+
+  private isAppHistoryUrl(url: string): boolean {
+    const path = url.split("?")[0];
+    const appRoot = "/" + AppPath.ROOT;
+    return path === appRoot || path.startsWith(appRoot + "/");
   }
 
   hasAppBackDestination(): boolean {

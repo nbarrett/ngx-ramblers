@@ -13,7 +13,7 @@
   color: var(--app-ink)
   overflow-y: auto
   -webkit-overflow-scrolling: touch
-  overscroll-behavior: contain
+  overscroll-behavior: none
   -webkit-text-size-adjust: 100%
   text-size-adjust: 100%
   -webkit-tap-highlight-color: transparent
@@ -31,10 +31,10 @@
   --app-input-bg: #1b2d24
 
 @media (prefers-color-scheme: dark)
-  body:not(.app-appearance-light) .app-home
+  :host-context(body:not(.app-appearance-light)) .app-home
     @include app-home-dark-tokens
 
-body.app-appearance-dark .app-home
+:host-context(body.app-appearance-dark) .app-home
   @include app-home-dark-tokens
 
 .app-home-header
@@ -84,12 +84,42 @@ body.app-appearance-dark .app-home
 .app-home-views .btn
   flex: 1
   margin-left: 0 !important
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 6px
+  white-space: nowrap
+
+.app-home-filters
+  display: flex
+  gap: 8px
+  margin: 0 0 10px
+
+.app-home-filters .btn
+  flex: 1
+  margin-left: 0 !important
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 6px
+  min-height: 40px
+  white-space: nowrap
 
 .app-home-customise
   display: flex
   flex-direction: column
   gap: 12px
   margin-top: 20px
+
+.app-home-customise-heading
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 12px
+
+.app-home-customise-heading .btn
+  flex-shrink: 0
+  white-space: nowrap
 
 .app-home-customise h2
   font-size: 1.05rem
@@ -129,16 +159,46 @@ body.app-appearance-dark .app-home
   align-items: center
   flex: 1
   min-width: 0
-  gap: 6px
+  position: relative
   margin: 0
   color: var(--app-muted)
 
+.app-home-search-icon
+  position: absolute
+  left: 10px
+  z-index: 1
+  pointer-events: none
+
 .app-home-search .form-control
   min-height: 36px
+  width: 100%
+  padding-left: 32px
+  padding-right: 36px
   border-radius: 12px
   border: 1px solid var(--app-input-border)
   background: var(--app-input-bg)
   color: var(--app-ink)
+  text-transform: none
+
+.app-home-search .form-control::-webkit-search-cancel-button
+  -webkit-appearance: none
+  appearance: none
+
+.app-home-search-clear
+  position: absolute
+  right: 4px
+  top: 50%
+  transform: translateY(-50%)
+  width: 28px
+  height: 28px
+  border: 0
+  border-radius: 50%
+  background: transparent
+  color: inherit
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding: 0
 
 .app-home-route-actions
   display: flex
@@ -152,7 +212,14 @@ body.app-appearance-dark .app-home
 
 .app-home-nearby-slider
   display: block
-  margin: 0 0 12px
+  margin: 0 0 16px
+
+.app-home-walk-photo
+  flex: 0 0 96px
+  width: 96px
+  height: 72px
+  object-fit: cover
+  border-radius: 10px
 
 .app-home-route-main
   display: flex
@@ -214,6 +281,7 @@ body.app-appearance-dark .app-home
   border-radius: 16px
   padding: 14px 16px
   margin-bottom: 22px
+  position: relative
 
 .app-home-install fa-icon
   margin-top: 3px
@@ -233,6 +301,16 @@ body.app-appearance-dark .app-home
   margin-top: 12px
   width: 100%
   min-height: 48px
+
+.app-home-install-dismiss
+  flex-shrink: 0
+  width: 40px
+  min-width: 40px
+  height: 40px
+  min-height: 40px
+  margin-left: 0 !important
+  color: #fff6d6
+  background: transparent
 
 .app-home-open
   display: flex
@@ -368,10 +446,11 @@ body.app-appearance-dark .app-home
 
 .app-home-appearance
   display: flex
-  flex-wrap: wrap
   gap: 8px
 
 .app-home-appearance-btn
-  flex: 1 1 0
-  min-height: 44px
   margin-left: 0 !important
+  width: 40px
+  min-width: 40px
+  height: 40px
+  min-height: 40px

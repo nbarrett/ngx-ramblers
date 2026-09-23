@@ -103,15 +103,10 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
               }
             </carousel>
           } @else {
-            <div class="fallback-carousel" [ngStyle]="{'height.px': album?.height || DEFAULT_HEIGHT}">
+            <div class="fallback-carousel" [ngStyle]="fallbackCarouselStyles()">
               <img [src]="FALLBACK_MEDIA.url"
                    [alt]="FALLBACK_MEDIA.alt"
-                   [ngStyle]="{
-                     'height.px': album?.height || DEFAULT_HEIGHT,
-                     'min-width': '100%',
-                     'max-width': '100%',
-                     'object-fit': 'cover',
-                     'object-position': 'center'}">
+                   [ngStyle]="fallbackImageStyles()">
               <div class="carousel-caption">
                 <h4>{{ album?.subtitle || 'Loading...' }}</h4>
               </div>
@@ -254,6 +249,24 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   carouselCropperWrapperStyles(): any {
     return cropperWrapperStyles(this.album?.height || null, null, true);
+  }
+
+  fallbackCarouselStyles(): Record<string, string | number> {
+    if (this.album?.height) {
+      return {"height.px": this.album.height};
+    } else {
+      return {"aspect-ratio": "16 / 6"};
+    }
+  }
+
+  fallbackImageStyles(): Record<string, string | number> {
+    return {
+      ...this.fallbackCarouselStyles(),
+      "min-width": "100%",
+      "max-width": "100%",
+      "object-fit": "cover",
+      "object-position": "center"
+    };
   }
 
   carouselCropperImageStyles(item: ContentMetadataItem): any {

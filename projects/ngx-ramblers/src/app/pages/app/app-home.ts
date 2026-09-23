@@ -4,12 +4,13 @@ import { DecimalPipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faCircle, faCircleExclamation, faCircleInfo, faEyeSlash, faLocationDot, faMagnifyingGlass, faPersonWalking, faShareNodes, faSliders, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import {
+  APP_NEARBY_GPS_TRUST_MILES,
   APP_NEARBY_MILES,
   APP_NEARBY_MILES_MAX,
   AppAppearance,
@@ -34,6 +35,7 @@ import { PageContentService } from "../../services/page-content.service";
 import { RouteFollowPayloadService } from "../../services/maps/route-follow-payload.service";
 import { RamblersLibraryRouteService } from "../../services/maps/ramblers-library-route.service";
 import { RouteFollowCacheService } from "../../services/maps/route-follow-cache.service";
+import { AppHomeListCacheService } from "../../services/maps/app-home-list-cache.service";
 import { AppShellService } from "../../services/maps/app-shell.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { WalkProgrammeService } from "../../services/walks-and-events/walk-programme.service";
@@ -44,6 +46,7 @@ import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { OsMapsRoutePreviewMapComponent } from "../walks/walk-admin/os-maps-route-preview-map";
+import { MediaQueryService } from "../../services/committee/media-query.service";
 import { OsMapsExportService } from "../../services/maps/os-maps-export.service";
 import { OsMapsListedRoute } from "../../models/os-maps-export.model";
 import { CurrentLocationService } from "../../services/maps/current-location.service";
@@ -63,16 +66,23 @@ import { KM_PER_MILE } from "../../models/walk.model";
         <h1 [class.visually-hidden]="!!logoUrl">{{ groupName }}</h1>
         @if (!customising) {
           <div class="app-home-search">
-            <fa-icon [icon]="faMagnifyingGlass"/>
+            <fa-icon class="app-home-search-icon" [icon]="faMagnifyingGlass"/>
             <input type="search" class="form-control" [placeholder]="view === AppHomeView.MAPS ? 'Search maps' : 'Search walks'"
                    [ngModel]="routeSearch" (ngModelChange)="onRouteSearch($event)"
+                   autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"
                    [attr.aria-label]="view === AppHomeView.MAPS ? 'Search maps' : 'Search walks'">
+            @if (routeSearch) {
+              <button class="app-home-search-clear" type="button" (click)="onRouteSearch('')" aria-label="Clear search">
+                <fa-icon [icon]="faXmark"/>
+              </button>
+            }
           </div>
         }
         <button class="btn btn-icon" type="button" (click)="customising = !customising"
                 [class.btn-primary]="customising" [class.btn-quiet]="!customising"
                 [attr.aria-expanded]="customising" aria-controls="app-home-customise"
-                aria-label="Customise" tooltip="Customise">
+                [attr.aria-label]="customising ? 'Done' : 'Customise'"
+                [tooltip]="customising ? 'Done' : 'Customise'">
           <fa-icon [icon]="faSliders"/>
         </button>
       </div>
@@ -81,30 +91,41 @@ import { KM_PER_MILE } from "../../models/walk.model";
       <div class="app-home-toolbar">
         <div class="app-home-views" role="group" [attr.aria-label]="groupName + ' view'">
           <button class="btn" [class.btn-primary]="view === AppHomeView.MAPS" [class.btn-quiet]="view !== AppHomeView.MAPS"
-                  type="button" (click)="chooseView(AppHomeView.MAPS)">Maps</button>
+                  type="button" (click)="chooseView(AppHomeView.MAPS)">
+            <fa-icon [icon]="faMap"/>
+            Maps
+          </button>
           <button class="btn" [class.btn-primary]="view === AppHomeView.UPCOMING" [class.btn-quiet]="view !== AppHomeView.UPCOMING"
-                  type="button" (click)="chooseView(AppHomeView.UPCOMING)">Upcoming</button>
+                  type="button" (click)="chooseView(AppHomeView.UPCOMING)">
+            <fa-icon [icon]="faCalendarDay"/>
+            Upcoming
+          </button>
         </div>
-        @if (view === AppHomeView.MAPS && layout.savedRoutes) {
-          <button class="btn btn-icon" type="button" [attr.aria-pressed]="nearbyOnly"
+      </div>
+      @if (view === AppHomeView.MAPS && layout.savedRoutes) {
+        <div class="app-home-filters" role="group" aria-label="Map filters">
+          <button class="btn" type="button" [attr.aria-pressed]="nearbyOnly"
                   [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly"
-                  aria-label="Near me" tooltip="Near me"
                   (click)="chooseNearby()">
             <fa-icon [icon]="faLocationDot"/>
+            Near me
           </button>
-          <button class="btn btn-icon" type="button" [attr.aria-pressed]="favouritesOnly"
+          <button class="btn" type="button" [attr.aria-pressed]="favouritesOnly"
                   [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
-                  aria-label="Favourites" tooltip="Favourites"
                   (click)="favouritesOnly = !favouritesOnly">
             <fa-icon [icon]="faStar"/>
+            Favourites
           </button>
-        }
-      </div>
+        </div>
+      }
       }
 
       @if (customising) {
         <section id="app-home-customise" class="app-home-customise" [attr.aria-label]="'Choose what appears in ' + groupName">
-          <h2>What each view shows</h2>
+          <div class="app-home-customise-heading">
+            <h2>What each view shows</h2>
+            <button class="btn btn-primary" type="button" (click)="customising = false">Done</button>
+          </div>
           <p class="app-home-key">Nothing is created on this phone. Content comes from the group's website, then you follow it here.</p>
           <label class="app-home-customise-item">
             <input type="checkbox" [checked]="layout.savedRoutes" (change)="setLayout('savedRoutes', $event)">
@@ -130,6 +151,7 @@ import { KM_PER_MILE } from "../../models/walk.model";
           @if (hiddenKeys.length) {
             <button class="btn btn-quiet" type="button" (click)="showHiddenMaps()">Show hidden maps ({{ hiddenKeys.length }})</button>
           }
+          <button class="btn btn-primary" type="button" (click)="customising = false">Done</button>
         </section>
       }
 
@@ -166,18 +188,22 @@ import { KM_PER_MILE } from "../../models/walk.model";
         <section class="app-home-install">
           <fa-icon [icon]="faCircleExclamation"/>
           <div>
-            <strong>Add this to your Home Screen</strong>
+            <strong>Add {{ groupName }} to your Home Screen</strong>
             @if (platform === AppInstallPlatform.IOS) {
               <p>Tap <fa-icon [icon]="faShareNodes"/> Share, then Add to Home Screen. It then opens like an app, with no website header.</p>
             } @else if (platform === AppInstallPlatform.ANDROID) {
-              <p>Tap Install, or open the browser menu and choose Add to Home screen / Install app.</p>
+              <p>Tap Add to Home Screen, or open the browser menu and choose Add to Home screen / Install app.</p>
             } @else {
               <p>Open this page on your phone, then add it to your Home Screen for the full-screen app.</p>
             }
             @if (canInstall) {
-              <button class="btn btn-primary app-home-install-btn" type="button" (click)="install()">Install app</button>
+              <button class="btn btn-primary app-home-install-btn" type="button" (click)="install()">Add to Home Screen</button>
             }
           </div>
+          <button class="btn btn-icon app-home-install-dismiss" type="button" (click)="dismissInstallHint()"
+                  aria-label="Dismiss" tooltip="Dismiss">
+            <fa-icon [icon]="faXmark"/>
+          </button>
         </section>
       }
 
@@ -254,27 +280,30 @@ import { KM_PER_MILE } from "../../models/walk.model";
         <h2 class="visually-hidden">Upcoming walks</h2>
         @if (loading) {
           <p class="app-home-empty">Finding walks…</p>
-        } @else if (walks.length === 0) {
-          <p class="app-home-empty">There are no upcoming walks on the programme. When walks are published on the website, they appear here.</p>
         } @else if (visibleWalks().length === 0) {
-          <p class="app-home-empty">No walks match that search.</p>
+          <p class="app-home-empty">{{ emptyWalksMessage() }}</p>
         }
         @for (walk of visibleWalks(); track walk.id) {
           <article class="app-home-card">
-            <div class="app-home-card-copy">
-              <h3>{{ walk.groupEvent?.title }}</h3>
-              <p class="app-home-meta">
-                {{ walk.groupEvent?.start_date_time | displayDate }}
-                ·
-                {{ walk.groupEvent?.start_date_time | displayTime }}
-                @if (walk.groupEvent?.distance_miles) {
-                  · {{ walk.groupEvent.distance_miles }} miles
-                }
-              </p>
-              @if (walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode) {
-                <p class="app-home-meta">{{ walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode }}</p>
+            <a class="app-home-route-main" [routerLink]="walkDetailsLink(walk)">
+              @if (walkPhoto(walk)) {
+                <img class="app-home-walk-photo" [src]="walkPhoto(walk)" [alt]="walk.groupEvent?.title || 'Walk photo'">
               }
-            </div>
+              <div class="app-home-card-copy">
+                <h3>{{ walk.groupEvent?.title }}</h3>
+                <p class="app-home-meta">
+                  {{ walk.groupEvent?.start_date_time | displayDate }}
+                  ·
+                  {{ walk.groupEvent?.start_date_time | displayTime }}
+                  @if (walk.groupEvent?.distance_miles) {
+                    · {{ walk.groupEvent.distance_miles }} miles
+                  }
+                </p>
+                @if (walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode) {
+                  <p class="app-home-meta">{{ walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode }}</p>
+                }
+              </div>
+            </a>
             <div class="app-home-route-actions">
               @if (payloadService.walkHasGpx(walk)) {
                 <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.FOLLOW"
@@ -301,23 +330,26 @@ import { KM_PER_MILE } from "../../models/walk.model";
       <section class="app-home-section">
         <h2>Appearance</h2>
         <div class="app-home-appearance" role="group" aria-label="Appearance">
-          <button type="button" class="btn btn-sm app-home-appearance-btn"
+          <button type="button" class="btn btn-icon app-home-appearance-btn"
                   [class.btn-primary]="appearance === AppAppearance.SYSTEM"
                   [class.btn-quiet]="appearance !== AppAppearance.SYSTEM"
-                  (click)="chooseAppearance(AppAppearance.SYSTEM)">
-            Match phone
+                  (click)="chooseAppearance(AppAppearance.SYSTEM)"
+                  aria-label="Match phone" tooltip="Match phone">
+            <fa-icon [icon]="faCircleHalfStroke"/>
           </button>
-          <button type="button" class="btn btn-sm app-home-appearance-btn"
+          <button type="button" class="btn btn-icon app-home-appearance-btn"
                   [class.btn-primary]="appearance === AppAppearance.LIGHT"
                   [class.btn-quiet]="appearance !== AppAppearance.LIGHT"
-                  (click)="chooseAppearance(AppAppearance.LIGHT)">
-            Light
+                  (click)="chooseAppearance(AppAppearance.LIGHT)"
+                  aria-label="Light" tooltip="Light">
+            <fa-icon [icon]="faSun"/>
           </button>
-          <button type="button" class="btn btn-sm app-home-appearance-btn"
+          <button type="button" class="btn btn-icon app-home-appearance-btn"
                   [class.btn-primary]="appearance === AppAppearance.DARK"
                   [class.btn-quiet]="appearance !== AppAppearance.DARK"
-                  (click)="chooseAppearance(AppAppearance.DARK)">
-            Dark
+                  (click)="chooseAppearance(AppAppearance.DARK)"
+                  aria-label="Dark" tooltip="Dark">
+            <fa-icon [icon]="faMoon"/>
           </button>
         </div>
       </section>
@@ -340,10 +372,12 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private currentLocation = inject(CurrentLocationService);
   private geoDistance = inject(GeoDistanceService);
   private followCache = inject(RouteFollowCacheService);
+  private listCache = inject(AppHomeListCacheService);
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   protected display = inject(WalkDisplayService);
+  private mediaQueryService = inject(MediaQueryService);
   protected payloadService = inject(RouteFollowPayloadService);
   protected routes: RouteFollowSummary[] = [];
   protected layout: AppHomeLayout = {savedRoutes: true, upcomingWalks: true, appearance: false};
@@ -373,16 +407,22 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected logoUrl: string | null = null;
   protected offlineByKey: Record<string, RouteFollowOfflineStatus> = {};
   protected activeSession: RouteFollowSession | null = null;
+  protected readonly faCalendarDay = faCalendarDay;
   protected readonly faCircle = faCircle;
+  protected readonly faCircleHalfStroke = faCircleHalfStroke;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faEyeSlash = faEyeSlash;
   protected readonly faLocationDot = faLocationDot;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
+  protected readonly faMap = faMap;
+  protected readonly faMoon = faMoon;
   protected readonly faPersonWalking = faPersonWalking;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faSliders = faSliders;
   protected readonly faStar = faStar;
+  protected readonly faSun = faSun;
+  protected readonly faXmark = faXmark;
   protected readonly AppPath = AppPath;
   protected readonly AppInstallPlatform = AppInstallPlatform;
   protected readonly AppAppearance = AppAppearance;
@@ -404,16 +444,20 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     }
     this.platform = this.appShell.platform();
     this.appearance = this.appShell.appearance();
-    this.showInstallHint = !this.appShell.installed();
+    this.showInstallHint = !this.appShell.installed() && this.appShell.mobilePlatform()
+      && !this.uiActions.initialBooleanValueFor(StoredValue.APP_INSTALL_HINT_DISMISSED, false);
     this.canInstall = this.appShell.canPromptInstall();
     this.subscriptions.push(this.appShell.installAvailable$.subscribe(available => {
       this.canInstall = available;
+      if (this.appShell.installed()) {
+        this.showInstallHint = false;
+      }
     }));
     this.subscriptions.push(this.appShell.appearance$.subscribe(appearance => {
       this.appearance = appearance;
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => {
-      this.groupName = config?.group?.longName || config?.group?.shortName || "Ramblers";
+      this.groupName = config?.group?.shortName || config?.group?.longName || "Ramblers";
       const logo = config?.logos?.images?.find(image => image.originalFileName === config?.header?.selectedLogo);
       this.logoUrl = logo?.awsFileName ? this.urlService.resourceRelativePathForAWSFileName(logo.awsFileName) : null;
     }));
@@ -429,7 +473,16 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   install(): void {
-    void this.appShell.promptInstall();
+    void this.appShell.promptInstall().then(outcome => {
+      if (outcome === "accepted") {
+        this.dismissInstallHint();
+      }
+    });
+  }
+
+  dismissInstallHint(): void {
+    this.showInstallHint = false;
+    this.uiActions.saveValueFor(StoredValue.APP_INSTALL_HINT_DISMISSED, true);
   }
 
   chooseAppearance(appearance: AppAppearance): void {
@@ -469,10 +522,23 @@ export class AppHomeComponent implements OnInit, OnDestroy {
 
   visibleWalks(): ExtendedGroupEvent[] {
     const needle = this.routeSearch.trim().toLowerCase();
-    if (needle.length === 0) {
-      return this.walks;
+    return this.walks.filter(walk => {
+      const allowed = !this.display.awaitingLeader(walk) && !this.display.walkHiddenFromPublic(walk);
+      const named = needle.length === 0 || (walk.groupEvent?.title || "").toLowerCase().includes(needle);
+      return allowed && named;
+    });
+  }
+
+  walkPhoto(walk: ExtendedGroupEvent): string | null {
+    const media = this.mediaQueryService.imageSource(walk);
+    return media?.url ? this.urlService.imageSource(media.url) : null;
+  }
+
+  emptyWalksMessage(): string {
+    if (this.routeSearch.trim()) {
+      return "No walks match that search.";
     } else {
-      return this.walks.filter(walk => (walk.groupEvent?.title || "").toLowerCase().includes(needle));
+      return "There are no upcoming walks on the programme. When walks are published on the website, they appear here.";
     }
   }
 
@@ -545,11 +611,47 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private async refreshLocation(): Promise<void> {
     const position = await this.currentLocation.currentPosition();
     if (position) {
-      this.here = {latitude: position.lat, longitude: position.lng};
+      this.here = this.hereForNearby({latitude: position.lat, longitude: position.lng});
       this.locationError = null;
     } else {
-      this.here = null;
-      this.locationError = "Location is not available, so Near me cannot filter the list.";
+      this.here = this.mapsCentre();
+      this.locationError = this.here ? null : "Location is not available, so Near me cannot filter the list.";
+    }
+  }
+
+  private hereForNearby(gps: {latitude: number; longitude: number}): {latitude: number; longitude: number} {
+    const centre = this.mapsCentre();
+    const nearest = this.nearestMapMiles(gps);
+    if (centre && (nearest === null || nearest > APP_NEARBY_GPS_TRUST_MILES)) {
+      return centre;
+    } else {
+      return gps;
+    }
+  }
+
+  private nearestMapMiles(from: {latitude: number; longitude: number}): number | null {
+    const distances = this.routes
+      .map(route => {
+        const start = this.startPoint(route);
+        return start ? this.geoDistance.calculateDistanceMiles(from, start) : null;
+      })
+      .filter((miles): miles is number => miles !== null);
+    if (distances.length === 0) {
+      return null;
+    } else {
+      return Math.min(...distances);
+    }
+  }
+
+  private mapsCentre(): {latitude: number; longitude: number} | null {
+    const points = this.routes.map(route => this.startPoint(route)).filter((point): point is {latitude: number; longitude: number} => !!point);
+    if (points.length === 0) {
+      return null;
+    } else {
+      return {
+        latitude: points.reduce((sum, point) => sum + point.latitude, 0) / points.length,
+        longitude: points.reduce((sum, point) => sum + point.longitude, 0) / points.length
+      };
     }
   }
 
@@ -708,8 +810,38 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     }
   }
 
+  private applyListSnapshot(): boolean {
+    const snapshot = this.listCache.snapshot();
+    if (snapshot && (snapshot.walks.length || snapshot.routes.length)) {
+      this.routes = snapshot.routes;
+      this.walks = snapshot.walks;
+      this.websiteMapKeys = snapshot.websiteMapKeys;
+      this.importedOsMapsByKey = snapshot.importedOsMapsByKey;
+      this.previewPoints = snapshot.previewPoints || {};
+      this.offlineByKey = snapshot.offlineByKey || {};
+      this.loading = false;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private persistListSnapshot(): void {
+    this.listCache.save({
+      routes: this.routes,
+      walks: this.walks,
+      websiteMapKeys: this.websiteMapKeys,
+      importedOsMapsByKey: this.importedOsMapsByKey,
+      previewPoints: this.previewPoints,
+      offlineByKey: this.offlineByKey
+    });
+  }
+
   private async load(): Promise<void> {
-    this.loading = true;
+    const hadSnapshot = this.applyListSnapshot();
+    if (!hadSnapshot) {
+      this.loading = true;
+    }
     try {
       const cached = await this.followCache.summaries();
       const previews = await Promise.all(cached.map(async route => {
@@ -776,10 +908,15 @@ export class AppHomeComponent implements OnInit, OnDestroy {
           return list.findIndex(item => followCacheKey(item) === key) === index;
         });
         this.logger.info("load: routes", this.routes.length, "walks", this.walks.length);
+        this.persistListSnapshot();
       } catch (error) {
         this.logger.warn("online walk list unavailable", error);
       }
     }
     this.loading = false;
+    this.persistListSnapshot();
+    if (this.nearbyOnly) {
+      await this.refreshLocation();
+    }
   }
 }
