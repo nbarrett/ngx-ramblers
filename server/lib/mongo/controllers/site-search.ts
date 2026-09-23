@@ -39,6 +39,8 @@ const PAGE_INDEX_LIMIT = 3000;
 const EVENT_INDEX_LIMIT = 6000;
 const INDEX_TTL_MS = 30 * 60 * 1000;
 const INDEX_BUILD_WAIT_MS = 25000;
+const INDEX_QUERY_MAX_TIME_MS = 20000;
+const INDEX_RETRY_COOLDOWN_MS = 15000;
 
 const LOCAL_ACTIVE_FILTER = {
   $or: [
@@ -66,7 +68,8 @@ interface SearchIndex {
 }
 
 let searchIndexCache: SearchIndex | null = null;
-let searchIndexBuilding: Promise<SearchIndex> | null = null;
+let searchIndexBuilding: Promise<SearchIndex | null> | null = null;
+let searchIndexFailedAt: number | null = null;
 
 function accessibleLevels(user: any): AccessLevel[] {
   const levels = [AccessLevel.PUBLIC];
@@ -141,13 +144,13 @@ async function buildSearchIndex(): Promise<SearchIndex> {
   const startedAt = dateTimeNowAsValue();
   searchLog("buildSearchIndex: starting full index build from database");
   const [pages, events, config, albums] = await Promise.all([
-    timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).lean().exec() as Promise<PageContent[]>),
+    timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<PageContent[]>),
     timed("events load", () => extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
       .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.status groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
-      .limit(EVENT_INDEX_LIMIT).lean().exec() as Promise<ExtendedGroupEvent[]>),
+      .limit(EVENT_INDEX_LIMIT).maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<ExtendedGroupEvent[]>),
     timed("system-config load", () => systemConfig()),
     timed("album captions load", () => contentMetadata.find({})
-      .select("name files.text files.draft").lean().exec() as Promise<ContentMetadata[]>)
+      .select("name files.text files.draft").maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<ContentMetadata[]>)
   ]);
   const pageEntries: PageEntry[] = pageEntriesFrom(pages, albums);
   const eventEntries: EventEntry[] = events.map(event => toEventEntry(event, config?.group)).filter(entry => !!entry);
@@ -155,23 +158,33 @@ async function buildSearchIndex(): Promise<SearchIndex> {
   return {pages: pageEntries, events: eventEntries, builtAt: dateTimeNowAsValue()};
 }
 
+function inFailureCooldown(): boolean {
+  return !!searchIndexFailedAt && (dateTimeNowAsValue() - searchIndexFailedAt) < INDEX_RETRY_COOLDOWN_MS;
+}
+
 function ensureSearchIndex(): SearchIndex | null {
   const stale = !searchIndexCache || (dateTimeNowAsValue() - searchIndexCache.builtAt) >= INDEX_TTL_MS;
-  if (stale && !searchIndexBuilding) {
-    searchLog("ensureSearchIndex:", searchIndexCache ? "cache stale - triggering background rebuild" : "no cache yet - triggering initial build (this loads the full index and can take a while on a slow cluster)");
+  if (stale && !searchIndexBuilding && !inFailureCooldown()) {
+    searchLog("ensureSearchIndex:", searchIndexCache ? "cache stale - triggering background rebuild" : "no cache yet - triggering initial build");
     searchIndexBuilding = buildSearchIndex()
       .then(built => {
         searchIndexCache = built;
         searchIndexBuilding = null;
+        searchIndexFailedAt = null;
         return built;
       })
       .catch(error => {
         searchIndexBuilding = null;
+        searchIndexFailedAt = dateTimeNowAsValue();
         errorDebugLog("buildSearchIndex failed:", error);
         return null;
       });
   }
   return searchIndexCache;
+}
+
+export function warmSearchIndex(): void {
+  ensureSearchIndex();
 }
 
 async function ensureSearchIndexReady(): Promise<SearchIndex | null> {
@@ -265,6 +278,7 @@ export function searchStatus(req: Request, res: Response): void {
     response: {
       indexed: !!searchIndexCache,
       building: searchIndexBuilding !== null,
+      failed: !searchIndexCache && !searchIndexBuilding && !!searchIndexFailedAt,
       pages: searchIndexCache?.pages.length ?? 0,
       events: searchIndexCache?.events.length ?? 0,
       builtAtMillis,
@@ -311,18 +325,19 @@ export async function search(req: Request, res: Response): Promise<void> {
     const levels = accessibleLevels((req as any).user);
     const index = req.query.wait === "1" ? await ensureSearchIndexReady() : ensureSearchIndex();
     if (!index) {
-      searchLog("search: query", JSON.stringify(rawQuery), "- index still building, returning indexing flag");
-      res.status(200).json({action: ApiAction.QUERY, request: {query: rawQuery}, response: [], total: 0, indexing: true});
-      return;
+      const failed = !searchIndexBuilding && !!searchIndexFailedAt;
+      searchLog("search: query", JSON.stringify(rawQuery), failed ? "- index build failed, not leaving the client spinning" : "- index still building, returning indexing flag");
+      res.status(200).json({action: ApiAction.QUERY, request: {query: rawQuery}, response: [], total: 0, indexing: !failed, failed});
+    } else {
+      const pageResults = index.pages.map(entry => scanPage(entry, matchQuery, levels)).filter(result => !!result);
+      const eventResults = index.events.map(entry => scanEvent(entry, matchQuery)).filter(result => !!result);
+      const combined = pageResults.concat(eventResults);
+      const scoped = scope ? combined.filter(result => result.path === scope || result.path.startsWith(`${scope}/`)) : combined;
+      const ranked = dedupe(scoped.sort((left, right) => right.score - left.score || left.title.localeCompare(right.title)));
+      const response = ranked.slice(0, MAX_RESULTS);
+      searchLog("search: query", JSON.stringify(rawQuery), "- matched", pageResults.length, "pages and", eventResults.length, "events, returning", response.length, "of", ranked.length, "total for levels", levels, "in", dateTimeNowAsValue() - startedAt, "ms");
+      res.status(200).json({action: ApiAction.QUERY, request: {query: rawQuery}, response, total: ranked.length, indexing: false});
     }
-    const pageResults = index.pages.map(entry => scanPage(entry, matchQuery, levels)).filter(result => !!result);
-    const eventResults = index.events.map(entry => scanEvent(entry, matchQuery)).filter(result => !!result);
-    const combined = pageResults.concat(eventResults);
-    const scoped = scope ? combined.filter(result => result.path === scope || result.path.startsWith(`${scope}/`)) : combined;
-    const ranked = dedupe(scoped.sort((left, right) => right.score - left.score || left.title.localeCompare(right.title)));
-    const response = ranked.slice(0, MAX_RESULTS);
-    searchLog("search: query", JSON.stringify(rawQuery), "- matched", pageResults.length, "pages and", eventResults.length, "events, returning", response.length, "of", ranked.length, "total for levels", levels, "in", dateTimeNowAsValue() - startedAt, "ms");
-    res.status(200).json({action: ApiAction.QUERY, request: {query: rawQuery}, response, total: ranked.length, indexing: false});
   } catch (error) {
     errorDebugLog("search failed for query", rawQuery, "after", dateTimeNowAsValue() - startedAt, "ms - error:", error);
     res.status(500).json({message: "Site search failed", request: {query: rawQuery}, error: error?.message || error});

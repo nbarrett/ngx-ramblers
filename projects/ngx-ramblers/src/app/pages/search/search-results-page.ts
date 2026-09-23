@@ -18,7 +18,8 @@ import { StringUtilsService } from "../../services/string-utils.service";
 import { StoredValue } from "../../models/ui-actions";
 
 const MIN_QUERY_LENGTH = 2;
-const INDEXING_POLL_MS = 600;
+const INDEXING_POLL_MS = 1000;
+const INDEXING_POLL_LIMIT = 20;
 
 @Component({
   selector: "app-search-results-page",
@@ -64,8 +65,10 @@ const INDEXING_POLL_MS = 600;
       } @else if (indexing) {
         <p class="search-indexing">
           <span class="search-spinner"></span>
-          <span>Building the search index for the first time. Your results will appear automatically when it's ready…</span>
+          <span>Building the search index. Results will appear when it's ready…</span>
         </p>
+      } @else if (indexFailed) {
+        <p>Search isn't available just now. Try again in a moment.</p>
       } @else if (submittedQuery.length >= minQueryLength) {
         @if (locateSuggestion) {
           <a class="search-result search-locate mb-4" [routerLink]="'/' + LOCATE_PAGE_PATH" [queryParams]="locateSuggestion.queryParams">
@@ -146,6 +149,7 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
   groups: SiteSearchGroup[] = [];
   searching = false;
   indexing = false;
+  indexFailed = false;
   total = 0;
   statusText = "";
   scopePath = "";
@@ -153,6 +157,7 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
   scopeActive = false;
   phraseMode = false;
   private indexingTimer: ReturnType<typeof setTimeout> | null = null;
+  private indexingPolls = 0;
   private subscriptions: Subscription[] = [];
 
   private readonly typeIcons: Record<SiteSearchResultType, IconProp> = {
@@ -278,8 +283,10 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
   private statusTextFrom(status: SiteSearchIndexStatus): string {
     if (!status) {
       return "";
+    } else if (status.failed) {
+      return "Search isn't available just now. Try again in a moment.";
     } else if (status.building && !status.indexed) {
-      return "Search index is building for the first time. Results will be available shortly.";
+      return "Search index is building. Results will be available shortly.";
     } else if (!status.indexed) {
       return "Search index will build on the first search.";
     } else {
@@ -289,7 +296,7 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async runSearch(query: string, wait = false): Promise<void> {
+  private async runSearch(query: string): Promise<void> {
     this.clearIndexingPoll();
     const trimmed = (query || "").trim();
     this.submittedQuery = trimmed;
@@ -297,34 +304,56 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
     if (trimmed.length < MIN_QUERY_LENGTH) {
       this.results = [];
       this.groups = [];
-      return;
-    }
-    if (!wait) {
+    } else {
       this.searching = true;
-    }
-    try {
-      const outcome = await this.siteSearchService.search(trimmed, this.scopeActive && this.scopePath ? this.scopePath : undefined, this.phraseMode, wait);
-      this.results = outcome.results;
-      this.groups = this.siteSearchService.groupResults(outcome.results);
-      this.indexing = outcome.indexing;
-      this.total = outcome.total;
-      if (!this.indexing) {
-        this.loadStatus();
+      try {
+        const outcome = await this.siteSearchService.search(trimmed, this.scopeActive && this.scopePath ? this.scopePath : undefined, this.phraseMode);
+        this.results = outcome.results;
+        this.groups = this.siteSearchService.groupResults(outcome.results);
+        this.indexFailed = outcome.failed;
+        this.indexing = outcome.indexing && !outcome.failed;
+        this.total = outcome.total;
+        this.indexingPolls = 0;
+        if (!this.indexing) {
+          this.loadStatus();
+        }
+        this.scheduleIndexingPoll();
+      } catch (error) {
+        this.logger.error("search failed:", error);
+        this.results = [];
+        this.groups = [];
+        this.indexing = false;
+        this.indexFailed = true;
+      } finally {
+        this.searching = false;
       }
-      this.scheduleIndexingPoll();
-    } catch (error) {
-      this.logger.error("search failed:", error);
-      this.results = [];
-      this.groups = [];
-    } finally {
-      this.searching = false;
     }
   }
 
   private scheduleIndexingPoll(): void {
     this.clearIndexingPoll();
     if (this.indexing && this.results.length === 0 && this.submittedQuery.length >= MIN_QUERY_LENGTH) {
-      this.indexingTimer = setTimeout(() => this.runSearch(this.submittedQuery, true), INDEXING_POLL_MS);
+      this.indexingTimer = setTimeout(() => {
+        this.siteSearchService.indexStatus().then(status => {
+          if (status.indexed) {
+            this.runSearch(this.submittedQuery);
+          } else if (status.failed || !status.building) {
+            this.indexing = false;
+            this.indexFailed = true;
+          } else {
+            this.indexingPolls += 1;
+            if (this.indexingPolls >= INDEXING_POLL_LIMIT) {
+              this.indexing = false;
+              this.indexFailed = true;
+            } else {
+              this.scheduleIndexingPoll();
+            }
+          }
+        }).catch(() => {
+          this.indexing = false;
+          this.indexFailed = true;
+        });
+      }, INDEXING_POLL_MS);
     }
   }
 

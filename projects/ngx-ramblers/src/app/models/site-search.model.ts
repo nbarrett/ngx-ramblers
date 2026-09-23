@@ -36,18 +36,21 @@ export interface SiteSearchGroup {
 export interface SiteSearchApiResponse extends ApiResponse {
   response?: SiteSearchResult[];
   indexing?: boolean;
+  failed?: boolean;
   total?: number;
 }
 
 export interface SiteSearchOutcome {
   results: SiteSearchResult[];
   indexing: boolean;
+  failed: boolean;
   total: number;
 }
 
 export interface SiteSearchIndexStatus {
   indexed: boolean;
   building: boolean;
+  failed: boolean;
   pages: number;
   events: number;
   builtAtMillis: number | null;
