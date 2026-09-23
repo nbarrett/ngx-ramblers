@@ -28,20 +28,29 @@ export class SiteSearchService {
     {type: SiteSearchResultType.EVENT, title: "Events"}
   ];
 
-  async search(query: string, scope?: string, exact?: boolean, wait?: boolean): Promise<SiteSearchOutcome> {
+  async search(query: string, scope?: string, exact?: boolean): Promise<SiteSearchOutcome> {
     const base = new HttpParams().set("q", query);
     const withScope = scope ? base.set("scope", scope) : base;
-    const withExact = exact ? withScope.set("exact", "1") : withScope;
-    const params = wait ? withExact.set("wait", "1") : withExact;
+    const params = exact ? withScope.set("exact", "1") : withScope;
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<SiteSearchApiResponse>(this.BASE_URL, {params}));
     this.logger.info("search for", query, "scope", scope, "returned", apiResponse?.response);
     const results = (apiResponse?.response as SiteSearchResult[]) || [];
-    return {results, indexing: !!apiResponse?.indexing, total: apiResponse?.total ?? results.length};
+    return {results, indexing: !!apiResponse?.indexing, failed: !!apiResponse?.failed, total: apiResponse?.total ?? results.length};
   }
 
   async indexStatus(): Promise<SiteSearchIndexStatus> {
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<SiteSearchIndexStatusApiResponse>(`${this.BASE_URL}/status`));
-    return apiResponse?.response as SiteSearchIndexStatus;
+    const status = apiResponse?.response as SiteSearchIndexStatus;
+    return {
+      indexed: !!status?.indexed,
+      building: !!status?.building,
+      failed: !!status?.failed,
+      pages: status?.pages ?? 0,
+      events: status?.events ?? 0,
+      builtAtMillis: status?.builtAtMillis ?? null,
+      ageMinutes: status?.ageMinutes ?? null,
+      ttlMinutes: status?.ttlMinutes ?? 0
+    };
   }
 
   async siteMapPages(): Promise<SiteMapPagesOutcome> {

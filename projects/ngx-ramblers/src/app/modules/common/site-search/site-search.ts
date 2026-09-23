@@ -15,7 +15,8 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { StoredValue } from "../../../models/ui-actions";
 
 const MIN_QUERY_LENGTH = 2;
-const INDEXING_POLL_MS = 600;
+const INDEXING_POLL_MS = 1000;
+const INDEXING_POLL_LIMIT = 20;
 const PANEL_MARGIN = 16;
 
 @Component({
@@ -66,8 +67,10 @@ const PANEL_MARGIN = 16;
             } @else if (indexing) {
               <div class="site-search-message site-search-indexing">
                 <span class="site-search-spinner"></span>
-                <span>Building the search index for the first time. Your results will appear here automatically when it's ready…</span>
+                <span>Building the search index. Results will appear here when it's ready…</span>
               </div>
+            } @else if (indexFailed) {
+              <div class="site-search-message">Search isn't available just now. Try again in a moment.</div>
             } @else if (query.trim().length >= minQueryLength) {
               @if (results.length) {
                 @for (group of groups; track group.type) {
@@ -130,6 +133,7 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
   recent: string[] = [];
   searching = false;
   indexing = false;
+  indexFailed = false;
   total = 0;
   activeIndex = -1;
   scopePath = "";
@@ -142,6 +146,7 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
   private pressStartedInside = false;
   private queryChanged = new Subject<string>();
   private indexingTimer: ReturnType<typeof setTimeout> | null = null;
+  private indexingPolls = 0;
   private subscriptions: Subscription[] = [];
 
   ngOnInit(): void {
@@ -149,17 +154,21 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
       debounceTime(250),
       distinctUntilChanged(),
       tap(query => this.searching = query.trim().length >= MIN_QUERY_LENGTH),
-      switchMap(query => query.trim().length >= MIN_QUERY_LENGTH ? from(this.siteSearchService.search(query, this.currentScope(), this.phraseMode)) : of({results: [], indexing: false, total: 0} as SiteSearchOutcome))
+      switchMap(query => query.trim().length >= MIN_QUERY_LENGTH ? from(this.siteSearchService.search(query, this.currentScope(), this.phraseMode)) : of({results: [], indexing: false, failed: false, total: 0} as SiteSearchOutcome))
     ).subscribe(outcome => this.applyOutcome(outcome)));
   }
 
   private applyOutcome(outcome: SiteSearchOutcome): void {
     this.results = outcome.results;
     this.groups = this.siteSearchService.groupResults(outcome.results);
-    this.indexing = outcome.indexing;
+    this.indexFailed = outcome.failed;
+    this.indexing = outcome.indexing && !outcome.failed;
     this.total = outcome.total;
     this.searching = false;
     this.activeIndex = -1;
+    if (this.indexing) {
+      this.indexingPolls = 0;
+    }
     this.scheduleIndexingPoll();
   }
 
@@ -181,7 +190,25 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
     this.clearIndexingPoll();
     if (this.indexing && this.results.length === 0 && this.query.trim().length >= MIN_QUERY_LENGTH) {
       this.indexingTimer = setTimeout(() => {
-        this.siteSearchService.search(this.query, this.currentScope(), this.phraseMode, true).then(outcome => this.applyOutcome(outcome));
+        this.siteSearchService.indexStatus().then(status => {
+          if (status.indexed) {
+            this.siteSearchService.search(this.query, this.currentScope(), this.phraseMode).then(outcome => this.applyOutcome(outcome));
+          } else if (status.failed || !status.building) {
+            this.indexing = false;
+            this.indexFailed = true;
+          } else {
+            this.indexingPolls += 1;
+            if (this.indexingPolls >= INDEXING_POLL_LIMIT) {
+              this.indexing = false;
+              this.indexFailed = true;
+            } else {
+              this.scheduleIndexingPoll();
+            }
+          }
+        }).catch(() => {
+          this.indexing = false;
+          this.indexFailed = true;
+        });
       }, INDEXING_POLL_MS);
     }
   }
@@ -275,6 +302,7 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
       this.results = [];
       this.groups = [];
       this.indexing = false;
+      this.indexFailed = false;
       this.activeIndex = -1;
       this.clearIndexingPoll();
       this.recent = this.siteSearchService.recentSearches();

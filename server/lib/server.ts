@@ -23,6 +23,7 @@ import { ramblersRoutes } from "./ramblers/ramblers-routes";
 import { salesforceRoutes } from "./salesforce/salesforce-routes";
 import { pageContentRoutes } from "./mongo/routes/page-content";
 import { siteSearchRoutes } from "./mongo/routes/site-search";
+import { warmSearchIndex } from "./mongo/controllers/site-search";
 import { walksRoutes } from "./mongo/routes/walk";
 import { contentMetadataRoutes } from "./mongo/routes/content-metadata";
 import { brevoRoutes } from "./brevo/brevo-routes";
@@ -367,6 +368,7 @@ async function startServer() {
     debugLog("⏳Connecting to MongoDB in background...");
     mongooseClient.connect().then(() => {
       debugLog("✅ MongoDB connected successfully");
+      warmSearchIndex();
 
       initialiseRedirectMiddleware().catch(error => {
         debugLog("❌ Failed to initialise redirect middleware:", error);
