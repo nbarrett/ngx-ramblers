@@ -5,6 +5,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../models/api-request.model";
 import {
+  ALBUM_FIRST_SLIDE_COUNT,
+  ALBUM_FIRST_SLIDES_SELECT,
   AllAndSelectedContentMetaData,
   ContentMetadata,
   ContentMetadataApiResponse,
@@ -173,14 +175,29 @@ export class ContentMetadataService {
     return this.albumCataloguePromise;
   }
 
-  async items(rootFolder: RootFolder, name: string, includeDrafts = false): Promise<ContentMetadata> {
-    const options: DataQueryOptions = {criteria: {$or: [{name}, {contentMetaDataType: name}]}};
+  async items(rootFolder: RootFolder, name: string, includeDrafts = false, select?: object): Promise<ContentMetadata> {
+    const criteria = {$or: [{name}, {contentMetaDataType: name}]};
+    const options: DataQueryOptions = select ? {criteria, select} : {criteria};
     const params = this.commonDataService.toHttpParams(options);
     this.logger.debug("items:criteria:params", params.toString());
     const apiResponse: ContentMetadataApiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponse>(this.BASE_URL, {params}), this.contentMetadataSubject);
     const response = this.optionallyMigrate(apiResponse.response, rootFolder || RootFolder.carousels, name);
     this.logger.info("items:transformed apiResponse", response);
     return includeDrafts ? response : this.withoutDrafts(response);
+  }
+
+  loadAlbumInStages(name: string, firstSlidesLoaded: (contentMetadata: ContentMetadata, complete: boolean) => void, allSlidesLoaded: (contentMetadata: ContentMetadata) => void): Promise<void> {
+    return this.items(RootFolder.carousels, name, true, ALBUM_FIRST_SLIDES_SELECT)
+      .then(firstSlides => {
+        const complete = (firstSlides?.files?.length || 0) < ALBUM_FIRST_SLIDE_COUNT;
+        firstSlidesLoaded(this.withoutDrafts(firstSlides), complete);
+        return complete ? null : this.items(RootFolder.carousels, name);
+      })
+      .then(contentMetadata => {
+        if (contentMetadata) {
+          allSlidesLoaded(contentMetadata);
+        }
+      });
   }
 
   withoutDrafts(contentMetadata: ContentMetadata): ContentMetadata {

@@ -147,6 +147,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   public album: AlbumData;
   public preview = false;
   public FALLBACK_MEDIA = FALLBACK_MEDIA;
+  private currentTag: ImageTag = ALL_PHOTOS;
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);
@@ -185,16 +186,20 @@ export class CarouselComponent implements OnInit, OnDestroy {
     if (this.lazyLoadingMetadata) {
       this.logger.info("externally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
     } else {
-      this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
-        .then(contentMetadata => {
-          setTimeout(() => {
-            this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
-            this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-            this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
-            this.configureShowIndicators(window.innerWidth);
-            this.logger.info("internally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
-          });
-        });
+      this.contentMetadataService.loadAlbumInStages(this.album?.name,
+        (contentMetadata, complete) => setTimeout(() => {
+          this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
+          this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
+          this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
+          this.configureShowIndicators(window.innerWidth);
+          this.logger.info("internally initialised with", contentMetadata?.files?.length, "slides, complete:", complete, "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
+        }),
+        contentMetadata => setTimeout(() => {
+          this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
+          this.lazyLoadingMetadataService.replaceContentMetadata(this.lazyLoadingMetadata, contentMetadata, this.duplicateImages, this.currentTag);
+          this.configureShowIndicators(window.innerWidth);
+          this.logger.info("fully initialised with", contentMetadata?.files?.length, "slides in total");
+        }));
     }
   }
 
@@ -260,6 +265,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   }
 
   tagChanged(imageTag: ImageTag) {
+    this.currentTag = imageTag;
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.TAG_CHANGE, this.duplicateImages, imageTag);
   }
 

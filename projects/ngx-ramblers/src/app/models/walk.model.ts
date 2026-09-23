@@ -645,3 +645,12 @@ export const ALBUM_INDEX_LOCATION_SELECT: Record<string, number> = {
   [GroupEventField.END_LOCATION]: 1,
   [EventField.MIGRATED_FROM_ID]: 1
 };
+
+export const EVENT_SLUG_SELECT: Record<string, number> = {
+  [GroupEventField.ID]: 1,
+  [GroupEventField.URL]: 1,
+  [GroupEventField.START_DATE]: 1,
+  [EventField.MIGRATED_FROM_ID]: 1,
+  [EventEventField.EVENT_TYPE]: 1,
+  [EventEventField.DATE]: 1
+};

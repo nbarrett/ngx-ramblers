@@ -304,3 +304,9 @@ export const ALBUM_INDEX_METADATA_SELECT = {
   coverImage: 1,
   files: {$slice: 1}
 };
+
+export const ALBUM_FIRST_SLIDE_COUNT = 20;
+
+export const ALBUM_FIRST_SLIDES_SELECT = {
+  files: {$slice: ALBUM_FIRST_SLIDE_COUNT}
+};

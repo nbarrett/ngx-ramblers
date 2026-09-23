@@ -41,23 +41,46 @@ export class LazyLoadingMetadataService {
       this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:tag:", tag, "reason:", reason);
       lazyLoadingMetadata.activeSlideIndex = 0;
       lazyLoadingMetadata.selectedSlides = [];
-      const files: ContentMetadataItem[] = lazyLoadingMetadata?.contentMetadata?.files;
-      const imageTags: ImageTag[] = lazyLoadingMetadata?.contentMetadata?.imageTags;
-      if (tag === ALL_PHOTOS) {
-        lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.ALL);
-        this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", ALL_PHOTOS, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
-      } else if (tag === RECENT_PHOTOS) {
-        lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.RECENT);
-        this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", RECENT_PHOTOS, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
-      } else if (tag) {
-        lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.TAG, tag);
-        this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", tag.subject, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
-      } else {
-        lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.RECENT);
-        this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", reason, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
-      }
+      lazyLoadingMetadata.availableSlides = this.availableSlidesFor(lazyLoadingMetadata.contentMetadata, duplicateImages, tag);
+      this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", tag?.subject || reason, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
       this.add(lazyLoadingMetadata, slideCount, "add inside initialiseAvailableSlides");
     }
+  }
+
+  public replaceContentMetadata(lazyLoadingMetadata: LazyLoadingMetadata, contentMetadata: ContentMetadata, duplicateImages: DuplicateImages, tag: ImageTag): void {
+    if (lazyLoadingMetadata) {
+      const selectedSlides = lazyLoadingMetadata.selectedSlides;
+      const availableSlides = this.availableSlidesFor(contentMetadata, duplicateImages, tag);
+      const unchangedPrefix = availableSlides.slice(0, selectedSlides.length);
+      const selectionStillValid = unchangedPrefix.length === selectedSlides.length
+        && unchangedPrefix.every((slide, index) => this.slideKey(slide) === this.slideKey(selectedSlides[index]));
+      lazyLoadingMetadata.contentMetadata = contentMetadata;
+      lazyLoadingMetadata.availableSlides = availableSlides;
+      if (selectionStillValid) {
+        lazyLoadingMetadata.selectedSlides = unchangedPrefix;
+      } else {
+        lazyLoadingMetadata.activeSlideIndex = 0;
+        lazyLoadingMetadata.selectedSlides = [];
+        this.add(lazyLoadingMetadata, 1, "add after replacing content metadata");
+      }
+      this.logger.info(contentMetadata?.name, "replaceContentMetadata: available:", availableSlides.length, "selected:", lazyLoadingMetadata.selectedSlides.length, "selectionStillValid:", selectionStillValid);
+    }
+  }
+
+  private availableSlidesFor(contentMetadata: ContentMetadata, duplicateImages: DuplicateImages, tag?: ImageTag): ContentMetadataItem[] {
+    const files: ContentMetadataItem[] = contentMetadata?.files;
+    const imageTags: ImageTag[] = contentMetadata?.imageTags;
+    if (tag === ALL_PHOTOS) {
+      return this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.ALL);
+    } else if (tag && tag !== RECENT_PHOTOS) {
+      return this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.TAG, tag);
+    } else {
+      return this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.RECENT);
+    }
+  }
+
+  private slideKey(slide: ContentMetadataItem): string {
+    return slide?.image || slide?.youtubeId || slide?.base64Content;
   }
 
   public add(lazyLoadingMetadata: LazyLoadingMetadata, slideCount?: number, reason?: string): ContentMetadataItem[] {
