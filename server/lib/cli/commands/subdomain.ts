@@ -30,10 +30,11 @@ import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/conf
 import {
   CustomDomainEntry,
   CustomDomainStatus,
-  EnvironmentsConfig
+  EnvironmentsConfig,
+  SiteUrlPreference
 } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { ApexRedirectOperationResult, ApexRedirectRemovalResult, CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
-import { apexWwwSibling } from "../../cloudflare/hostname-siblings";
+import { apexWwwSibling, hostnameIsApexOrWww, publicHostnameForSiteUrlPreference, siteUrlPreferenceFromHostname } from "../../cloudflare/hostname-siblings";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { dnsProviderFromNameservers, hostFromUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { nameserversForHostname } from "../../shared/dns-nameservers";
@@ -351,6 +352,32 @@ async function persistCustomDomainRemoval(environmentName: string, hostname: str
   await saveEnvironmentsConfigDocument({ ...environmentsConfig, environments });
 }
 
+async function persistSiteUrlPreference(environmentName: string, preference: SiteUrlPreference): Promise<void> {
+  const environmentsConfig = await loadEnvironmentsConfigDocument();
+  const environments = (environmentsConfig.environments || []).map(env =>
+    env.environment === environmentName
+      ? { ...env, siteUrlPreference: preference }
+      : env);
+  await saveEnvironmentsConfigDocument({ ...environmentsConfig, environments });
+}
+
+function resolvedSiteUrlPreference(
+  zone: CloudflareZone | undefined,
+  hostname: string,
+  requested: SiteUrlPreference | undefined,
+  stored: SiteUrlPreference | undefined
+): SiteUrlPreference {
+  if (requested === SiteUrlPreference.WWW || requested === SiteUrlPreference.APEX) {
+    return requested;
+  } else if (stored === SiteUrlPreference.WWW || stored === SiteUrlPreference.APEX) {
+    return stored;
+  } else if (zone && hostname === `www.${zone.name}`) {
+    return SiteUrlPreference.WWW;
+  } else {
+    return SiteUrlPreference.APEX;
+  }
+}
+
 function subdomainLabelForHostname(hostname: string, zone: CloudflareZone): string {
   if (hostname === zone.name) {
     return "@";
@@ -389,7 +416,11 @@ async function logExternalDnsInstructions(
   }
 }
 
-export async function addCustomDomainForEnvironment(environmentName: string, hostnameInput: string): Promise<CustomDomainOperationResult> {
+export async function addCustomDomainForEnvironment(
+  environmentName: string,
+  hostnameInput: string,
+  options: { siteUrlPreference?: SiteUrlPreference } = {}
+): Promise<CustomDomainOperationResult> {
   const logs: string[] = [];
   const step = (msg: string) => { logs.push(msg); log(msg); };
 
@@ -535,24 +566,25 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
     message: statusMessage
   };
 
-  const existingDomains = (environmentsConfig.environments || []).find(env => env.environment === environmentName)?.customDomains || [];
-  const attachedApex = zone
-    ? existingDomains.find(entry =>
-      entry.hostname !== hostname && entry.status === CustomDomainStatus.ATTACHED && entry.hostname === zone.name)
-    : undefined;
-  const shouldUpdateHref = isApex || !attachedApex;
+  const envRecord = (environmentsConfig.environments || []).find(env => env.environment === environmentName);
+  const preference = resolvedSiteUrlPreference(zone, hostname, options.siteUrlPreference, envRecord?.siteUrlPreference);
+  const publicHostname = zone && hostnameIsApexOrWww(hostname, zone)
+    ? publicHostnameForSiteUrlPreference(zone.name, preference)
+    : hostname;
 
-  if (shouldUpdateHref && envConfig.mongo?.cluster && envConfig.mongo?.db) {
-    await updateGroupHref(step, envConfig, hostname);
-  } else if (attachedApex) {
-    step(`  - Group Web URL kept at https://${attachedApex.hostname} (apex takes precedence over companion)`);
-  } else if (!envConfig.mongo?.cluster || !envConfig.mongo?.db) {
+  if (zone && hostnameIsApexOrWww(hostname, zone)) {
+    await persistSiteUrlPreference(environmentName, preference);
+  }
+
+  if (envConfig.mongo?.cluster && envConfig.mongo?.db) {
+    await updateGroupHref(step, envConfig, publicHostname);
+  } else {
     step("  ⚠ Could not update Group Web URL automatically (no MongoDB config on this env). Set it manually in Admin → System Settings → Group → Web URL.");
   }
 
   if (zone) {
     try {
-      await applyDomainRedirectHygiene(step, environmentsConfig, environmentName, hostname, zone);
+      await applyDomainRedirectHygiene(step, environmentsConfig, environmentName, hostname, zone, preference);
     } catch (error) {
       step(`  ⚠ Apex/www redirect reconciliation skipped: ${redirectErrorDetail(error)}`);
     }
@@ -710,48 +742,44 @@ async function reconcileRedirectPlaceholderRecord(
   }
 }
 
-function siblingAttachedToEnvironment(environmentsConfig: EnvironmentsConfig, environmentName: string, sibling: string): boolean {
-  const customDomains = (environmentsConfig.environments || [])
-    .find(env => env.environment === environmentName)?.customDomains || [];
-  return customDomains.some(entry => entry.hostname === sibling && entry.status === CustomDomainStatus.ATTACHED);
-}
-
 async function applyDomainRedirectHygiene(
   step: (msg: string) => void,
   environmentsConfig: EnvironmentsConfig,
   environmentName: string,
   attachedHostname: string,
-  zone: CloudflareZone
+  zone: CloudflareZone,
+  preference: SiteUrlPreference = SiteUrlPreference.APEX
 ): Promise<void> {
   const cloudflareConfig: CloudflareDnsConfig = { apiToken: environmentsConfig.cloudflare.apiToken, zoneId: zone.id };
 
   step("Reconciling apex/www redirect rules...");
-  try {
-    const removed = await removeHostRedirectRule(cloudflareConfig, attachedHostname);
-    if (removed) {
-      step(`  ✓ Removed a stale redirect rule that pointed ${attachedHostname} elsewhere (it now serves the site)`);
-    }
-  } catch (error) {
-    step(`  ⚠ Could not check redirect rules for ${attachedHostname}: ${redirectErrorDetail(error)}`);
-  }
-
-  const sibling = apexWwwSibling(attachedHostname, zone);
-  if (!sibling) {
+  if (!hostnameIsApexOrWww(attachedHostname, zone)) {
     step(`  - ${attachedHostname} is not the apex or www of ${zone.name} — no apex/www redirect applies`);
     return;
   }
-  if (siblingAttachedToEnvironment(environmentsConfig, environmentName, sibling)) {
-    step(`  - ${sibling} is attached as its own custom domain — no redirect created`);
+
+  const publicHostname = publicHostnameForSiteUrlPreference(zone.name, preference);
+  const fromHost = apexWwwSibling(publicHostname, zone);
+  try {
+    const removed = await removeHostRedirectRule(cloudflareConfig, publicHostname);
+    if (removed) {
+      step(`  ✓ Removed a stale redirect rule that pointed ${publicHostname} elsewhere (it now serves the site)`);
+    }
+  } catch (error) {
+    step(`  ⚠ Could not check redirect rules for ${publicHostname}: ${redirectErrorDetail(error)}`);
+  }
+
+  if (!fromHost) {
     return;
   }
   try {
-    const result = await ensureHostRedirectRule(cloudflareConfig, { fromHost: sibling, toHost: attachedHostname });
-    const recordName = subdomainLabelForHostname(sibling, zone);
-    const existingRecords = await listDnsRecords(cloudflareConfig, sibling);
-    await reconcileRedirectPlaceholderRecord(step, cloudflareConfig, recordName, sibling, existingRecords);
-    step(`  ✓ Redirect rule ${result.action}: ${sibling} -> https://${attachedHostname} (302, path + query preserved)`);
+    const result = await ensureHostRedirectRule(cloudflareConfig, { fromHost, toHost: publicHostname });
+    const recordName = subdomainLabelForHostname(fromHost, zone);
+    const existingRecords = await listDnsRecords(cloudflareConfig, fromHost);
+    await reconcileRedirectPlaceholderRecord(step, cloudflareConfig, recordName, fromHost, existingRecords);
+    step(`  ✓ Redirect rule ${result.action}: ${fromHost} -> https://${publicHostname} (302, path + query preserved)`);
   } catch (error) {
-    step(`  ⚠ Could not set up the ${sibling} redirect: ${redirectErrorDetail(error)}`);
+    step(`  ⚠ Could not set up the ${fromHost} redirect: ${redirectErrorDetail(error)}`);
   }
 }
 
@@ -811,41 +839,23 @@ export async function setupApexRedirectForEnvironment(environmentName: string, p
   }
   step(`  ✓ Zone ${zone.name} (${zone.id})`);
 
-  const cloudflareConfig: CloudflareDnsConfig = { apiToken: environmentsConfig.cloudflare.apiToken, zoneId: zone.id };
-
-  const redirectFrom = apexWwwSibling(primaryHostname, zone);
-  if (!redirectFrom) {
+  const preference = siteUrlPreferenceFromHostname(primaryHostname, zone);
+  if (!preference) {
     throw new Error(`${primaryHostname} is not the apex or www of zone ${zone.name}, so there is no apex/www pair to redirect. Only ${zone.name} and www.${zone.name} can be paired this way.`);
   }
-  step(`  ✓ Redirect pair: ${redirectFrom} -> ${primaryHostname}`);
+  const publicHostname = publicHostnameForSiteUrlPreference(zone.name, preference);
+  const redirectFrom = apexWwwSibling(publicHostname, zone);
+  step(`  ✓ Visitors will see https://${publicHostname}; ${redirectFrom} redirects there`);
 
-  step(`Checking ${primaryHostname} can serve the site before redirecting to it...`);
-  const primaryRecords = await listDnsRecords(cloudflareConfig, primaryHostname);
-  const primaryServingRecord = primaryRecords.find(record => ["A", "AAAA", "CNAME"].includes(record.type));
-  if (!primaryServingRecord) {
-    throw new Error(`${primaryHostname} has no A, AAAA or CNAME record, so it does not resolve. Redirecting ${redirectFrom} to it would take the site offline. Attach ${primaryHostname} as a custom domain first.`);
-  }
-  if (primaryServingRecord.content === REDIRECT_PLACEHOLDER_IPV4) {
-    throw new Error(`${primaryHostname} points at the redirect placeholder ${REDIRECT_PLACEHOLDER_IPV4}, so it cannot serve the site. Redirecting ${redirectFrom} to it would take the site offline.`);
-  }
-  step(`  ✓ ${primaryHostname} resolves (${primaryServingRecord.type} ${primaryServingRecord.content})`);
-
-  if (siblingAttachedToEnvironment(environmentsConfig, environmentName, redirectFrom)) {
-    step(`  - ${redirectFrom} is attached as its own custom domain — it serves the site directly, no redirect created`);
-    return { primaryHostname, redirectFrom, zoneId: zone.id, redirectCreated: false, logs };
-  }
-
-  step(`Creating Cloudflare redirect rule ${redirectFrom} -> https://${primaryHostname}...`);
-  const result = await ensureHostRedirectRule(cloudflareConfig, { fromHost: redirectFrom, toHost: primaryHostname });
-  step(`  ✓ Redirect rule ${result.action} (302, path + query preserved)`);
-
-  step(`Ensuring ${redirectFrom} reaches Cloudflare's edge...`);
-  const recordName = subdomainLabelForHostname(redirectFrom, zone);
-  const existingRecords = await listDnsRecords(cloudflareConfig, redirectFrom);
-  await reconcileRedirectPlaceholderRecord(step, cloudflareConfig, recordName, redirectFrom, existingRecords);
-
-  step(`Done: https://${redirectFrom} now redirects to https://${primaryHostname}`);
-  return { primaryHostname, redirectFrom, zoneId: zone.id, redirectCreated: true, logs };
+  const attach = await addCustomDomainForEnvironment(environmentName, publicHostname, { siteUrlPreference: preference });
+  logs.push(...attach.logs);
+  return {
+    primaryHostname: publicHostname,
+    redirectFrom,
+    zoneId: zone.id,
+    redirectCreated: true,
+    logs
+  };
 }
 
 export async function removeApexRedirectForEnvironment(environmentName: string, redirectFromInput: string): Promise<ApexRedirectRemovalResult> {

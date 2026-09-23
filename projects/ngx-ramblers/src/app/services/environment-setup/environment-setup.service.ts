@@ -32,6 +32,7 @@ import {
   ValidateRequestResponse,
   ValidationResult
 } from "../../models/environment-setup.model";
+import { SiteUrlPreference } from "../../models/environment-config.model";
 import { CommonDataService } from "../common-data-service";
 import { PlatformSendControlRequest } from "../../models/mail.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -428,10 +429,10 @@ export class EnvironmentSetupService {
     return response as unknown as CustomDomainEligibilityResponse;
   }
 
-  async addCustomDomain(environmentName: string, hostname: string): Promise<CustomDomainResponse> {
+  async addCustomDomain(environmentName: string, hostname: string, siteUrlPreference?: SiteUrlPreference): Promise<CustomDomainResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/add-custom-domain/${environmentName}`, {hostname}, this.opts),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/add-custom-domain/${environmentName}`, {hostname, siteUrlPreference}, this.opts),
       this.notifications
     );
     return response as unknown as CustomDomainResponse;

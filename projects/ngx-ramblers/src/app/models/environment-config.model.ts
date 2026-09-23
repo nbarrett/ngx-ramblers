@@ -100,6 +100,11 @@ export type EnvironmentConsoleAccess = {
   [K in ConsoleAccessService]?: ConsoleAccessLogin;
 };
 
+export enum SiteUrlPreference {
+  APEX = "apex",
+  WWW = "www"
+}
+
 export interface EnvironmentConfig {
   environment: string;
   aws?: AwsConfig;
@@ -107,6 +112,7 @@ export interface EnvironmentConfig {
   flyio?: FlyioConfig;
   cloudflare?: PerEnvironmentCloudflareConfig;
   customDomains?: CustomDomainEntry[];
+  siteUrlPreference?: SiteUrlPreference;
   secrets?: Record<string, string>;
   ai?: Ai;
   ngxLite?: boolean;
