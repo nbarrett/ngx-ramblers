@@ -449,6 +449,7 @@ export interface SystemConfig {
 }
 
 export interface VolunteerSettingsConfig {
+  enabled?: boolean;
   supporterEmailDomain?: string;
   supporterReferencePrefix?: string;
   contactRetentionDays?: number;

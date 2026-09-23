@@ -1,4 +1,4 @@
-import { BuiltInRole, CommitteeConfig, CommitteeMember, ExpensesConfig, roleRecipientMemberIds } from "../../models/committee.model";
+import { BuiltInRole, CommitteeConfig, CommitteeMember, ExpensesConfig, RoleType, roleRecipientMemberIds } from "../../models/committee.model";
 import { committeeRoleForMemberId } from "../../functions/committee-members";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
@@ -23,6 +23,10 @@ export class CommitteeReferenceData {
 
   committeeMembers(): CommitteeMember[] {
     return this.injectedCommitteeMembers;
+  }
+
+  mailCommitteeMembers(): CommitteeMember[] {
+    return this.committeeMembers().filter(role => role.roleType !== RoleType.GROUP_MEMBER);
   }
 
   loggedOnRole(): CommitteeMember {

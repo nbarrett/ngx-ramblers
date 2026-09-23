@@ -11,6 +11,17 @@ import { SystemConfig } from "../../../../models/system.model";
       @if (config) {
         <div class="col-sm-12">
           <p class="my-3">
+            Turn this on only for groups that manage rights of way volunteers, parish coverage and
+            related correspondence. When it is off, volunteer menu items and volunteer email
+            configurations stay hidden.
+          </p>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="volunteer-management-enabled"
+                   [(ngModel)]="volunteers.enabled">
+            <label class="form-check-label" for="volunteer-management-enabled">Enable volunteer management</label>
+          </div>
+          @if (volunteers.enabled) {
+          <p class="my-3">
             Used when volunteer records are brought in from another system. Volunteers who are not
             members have no membership number, so each one is given a reference built from this
             prefix, and an address on this domain where the older records hold none. Both are stored
@@ -52,6 +63,7 @@ import { SystemConfig } from "../../../../models/system.model";
               </div>
             </div>
           </div>
+          }
         </div>
       }
     </div>
@@ -61,7 +73,7 @@ export class VolunteerSettings {
   @Input() set config(config: SystemConfig) {
     this.systemConfig = config;
     if (config && !config.volunteers) {
-      config.volunteers = {};
+      config.volunteers = {enabled: false};
     }
   }
 
@@ -70,7 +82,7 @@ export class VolunteerSettings {
   }
 
   get volunteers() {
-    return this.systemConfig?.volunteers ?? {};
+    return this.systemConfig?.volunteers;
   }
 
   private systemConfig: SystemConfig;

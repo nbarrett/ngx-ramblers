@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, inject, Input, OnInit } from "@angular/core";
+import { Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import { isEqual, isUndefined, max, min } from "es-toolkit/compat";
@@ -20,8 +20,11 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { adminPathAllowedInNgxLite } from "../../../models/admin-route-paths.model";
+import { adminPathAllowedInNgxLite, volunteerManagementHref } from "../../../models/admin-route-paths.model";
 import { NgxLiteService } from "../../../services/ngx-lite.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { volunteerManagementEnabled } from "../../../functions/volunteer-management";
+import { Subscription } from "rxjs";
 import { SvgComponent } from "../svg/svg";
 import { CardEditorComponent } from "../card-editor/card-editor";
 import {
@@ -132,7 +135,7 @@ import { SwipeableDirective } from "../swipe/swipeable.directive";
 `],
     imports: [SvgComponent, CardEditorComponent, DynamicContentSearchInputComponent, SwipeableDirective]
 })
-export class ActionButtons implements OnInit {
+export class ActionButtons implements OnInit, OnDestroy {
 
   private elementRef = inject(ElementRef);
   public pageContentService: PageContentService = inject(PageContentService);
@@ -142,6 +145,9 @@ export class ActionButtons implements OnInit {
   public urlService: UrlService = inject(UrlService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
   private ngxLiteService: NgxLiteService = inject(NgxLiteService);
+  private systemConfigService: SystemConfigService = inject(SystemConfigService);
+  private subscriptions: Subscription[] = [];
+  private volunteerManagementEnabled = false;
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("ActionButtons", NgxLoggerLevel.ERROR);
   public instance = this;
@@ -202,13 +208,25 @@ export class ActionButtons implements OnInit {
 
   ngOnInit() {
     this.applyMaxViewableSlideCount();
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config => {
+      this.volunteerManagementEnabled = volunteerManagementEnabled(config);
+    }));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   pageContentColumns(): PageContentColumn[] {
     const columns = filterColumnsBySearchText(this.row?.columns || [], this.searchText);
-    return this.ngxLiteService.ngxLite
+    const liteFiltered = this.ngxLiteService.ngxLite
       ? columns.filter(column => adminPathAllowedInNgxLite(column.href))
       : columns;
+    if (this.volunteerManagementEnabled) {
+      return liteFiltered;
+    } else {
+      return liteFiltered.filter(column => !volunteerManagementHref(column.href));
+    }
   }
 
   private determineMaxViewableSlideCount(): number {

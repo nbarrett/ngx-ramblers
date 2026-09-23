@@ -57,6 +57,9 @@ import { AlertLevel } from "../../models/alert-target.model";
 import { BroadcastService } from "../broadcast-service";
 import { MailService } from "./mail.service";
 import { AlertInstance } from "../notifier.service";
+import { MemberResourcesReferenceDataService } from "../member/member-resources-reference-data.service";
+import { volunteerManagementEnabled } from "../../functions/volunteer-management";
+import { NotificationConfigVisibilityFlags, visibleNotificationConfigs } from "../../functions/notification-config-visibility";
 
 @Injectable({
   providedIn: "root"
@@ -78,6 +81,9 @@ export class MailMessagingService {
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
   private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.ERROR);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  private platformAdminEnabled = false;
+  private volunteerManagementEnabledFlag = false;
 
   private readonly defaultTransactionalAddressLine = "Hi {{params.memberMergeFields.FNAME}},";
 
@@ -89,9 +95,27 @@ export class MailMessagingService {
     this.systemConfigService.events().subscribe(item => {
       this.mailMessagingConfig.group = item.group;
       this.mailMessagingConfig.externalSystems = item.externalSystems;
+      this.volunteerManagementEnabledFlag = volunteerManagementEnabled(item);
       this.emitConfigWhenReadyGiven("Group Information");
     });
+    this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(enabled => {
+      this.platformAdminEnabled = enabled;
+      this.emitConfigWhenReadyGiven("Platform admin");
+    });
+    this.broadcastService.on(NamedEventType.MEMBER_LOGIN_COMPLETE, () => this.emitConfigWhenReadyGiven("Member login"));
+    this.broadcastService.on(NamedEventType.MEMBER_LOGOUT_COMPLETE, () => this.emitConfigWhenReadyGiven("Member logout"));
     this.initialise();
+  }
+
+  public notificationConfigFlags(): NotificationConfigVisibilityFlags {
+    return {
+      platformMailConfigsVisible: this.platformAdminEnabled && this.memberLoginService.allowMemberAdminEdits(),
+      volunteerManagementEnabled: this.volunteerManagementEnabledFlag
+    };
+  }
+
+  public visibleNotificationConfigs(configs: NotificationConfig[] | null): NotificationConfig[] {
+    return visibleNotificationConfigs(configs, this.mailMessagingConfig?.mailConfig, this.notificationConfigFlags());
   }
 
   brevoAccountConfigured(): boolean {
@@ -248,7 +272,7 @@ export class MailMessagingService {
       const ids = configListing.forceIncludeConfigIds;
       return !!ids && ids.length > 0 && ids.includes(item.id);
     };
-    const notificationConfigs = this.mailMessagingConfig.notificationConfigs
+    const notificationConfigs = this.visibleNotificationConfigs(this.mailMessagingConfig.notificationConfigs)
       .filter(item => forceInclude(item) || configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id))
       .filter(item => forceInclude(item) || !configListing.excludeConfigsWithPreSendActions || !item.preSendActions || item.preSendActions.length === 0)
       .filter(item => forceInclude(item) || !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))

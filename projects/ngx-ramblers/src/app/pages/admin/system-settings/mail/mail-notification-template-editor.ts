@@ -137,15 +137,13 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading-with-select">
             <div class="d-flex flex-nowrap align-items-center gap-2">
-              <label for="template-mapping">Email Configuration
-                {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
-                of {{ mailMessagingConfig.notificationConfigs.length }}: </label>
+              <label for="template-mapping" class="text-nowrap flex-shrink-0">Email Configuration {{ visibleConfigs().indexOf(notificationConfig) + 1 }} of {{ visibleConfigs().length }}:</label>
               <select [ngModel]="selectedConfigValue()"
                       (ngModelChange)="selectByValue($event)"
                       id="template-mapping"
                       class="form-control input-sm flex-grow-1"
                       style="min-width: 0; max-width: 600px;">
-                @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.id || mapping.subject.text; let index = $index) {
+                @for (mapping of visibleConfigs(); track mapping.id || mapping.subject.text; let index = $index) {
                   <option [ngValue]="configSelectionValue(mapping, index)">{{ cachedConfigLabels.get(mapping) || mapping?.subject?.text }}</option>
                 }
               </select>
@@ -641,7 +639,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   }
 
   selectedConfigValue(): string {
-    const selectedIndex = this.mailMessagingConfig?.notificationConfigs?.indexOf(this.notificationConfig) ?? -1;
+    const selectedIndex = this.visibleConfigs().indexOf(this.notificationConfig);
     return selectedIndex > -1 ? this.configSelectionValue(this.notificationConfig, selectedIndex) : null;
   }
 
@@ -667,7 +665,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       this.configDeleted.emit(this.notificationConfig.id);
     }
     this.removeFromNotificationConfigs(this.notificationConfig);
-    this.notificationConfig = first(this.mailMessagingConfig.notificationConfigs);
+    this.notificationConfig = first(this.visibleConfigs());
   }
 
   protected onDefaultListingChanged(checked: boolean): void {
@@ -724,13 +722,13 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
 
   nextConfig() {
     if (!this.nextConfigDisabled()) {
-      this.select(this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) + 1]);
+      this.select(this.visibleConfigs()[this.visibleConfigs().indexOf(this.notificationConfig) + 1]);
     }
   }
 
   previousConfig() {
     if (!this.previousConfigDisabled()) {
-      this.select(this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) - 1]);
+      this.select(this.visibleConfigs()[this.visibleConfigs().indexOf(this.notificationConfig) - 1]);
     }
   }
 
@@ -759,7 +757,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   }
 
   selectByValue(selectionValue: string) {
-    const selectedConfig = this.mailMessagingConfig?.notificationConfigs?.find((config, index) => this.configSelectionValue(config, index) === selectionValue);
+    const selectedConfig = this.visibleConfigs().find((config, index) => this.configSelectionValue(config, index) === selectionValue);
     this.select(selectedConfig);
   }
 
@@ -777,8 +775,12 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     return toKebabCase(config?.subject?.text || "");
   }
 
+  visibleConfigs(): NotificationConfig[] {
+    return this.mailMessagingService.visibleNotificationConfigs(this.mailMessagingConfig?.notificationConfigs);
+  }
+
   private selectedConfigFor(mailMessagingConfig: MailMessagingConfig): NotificationConfig {
-    const notificationConfigs = mailMessagingConfig?.notificationConfigs || [];
+    const notificationConfigs = this.mailMessagingService.visibleNotificationConfigs(mailMessagingConfig?.notificationConfigs);
     const selectedConfigByCurrentValue = notificationConfigs.find(config => this.notificationConfigComparer(config, this.notificationConfig));
     if (selectedConfigByCurrentValue) {
       return selectedConfigByCurrentValue;
@@ -803,11 +805,11 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   }
 
   nextConfigDisabled() {
-    return this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) === this.mailMessagingConfig.notificationConfigs.length - 1;
+    return this.visibleConfigs().indexOf(this.notificationConfig) === this.visibleConfigs().length - 1;
   }
 
   previousConfigDisabled() {
-    return this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) === 0;
+    return this.visibleConfigs().indexOf(this.notificationConfig) === 0;
   }
 
   selectedTemplateName(): string {
@@ -876,7 +878,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
 
   thenRunCandidates(): NotificationConfig[] {
     const workflowIds: string[] = this.mailMessagingService.workflowIdsFor(this.mailMessagingConfig?.mailConfig) || [];
-    return (this.mailMessagingConfig?.notificationConfigs || [])
+    return this.visibleConfigs()
       .filter(config => !!config.id && config !== this.notificationConfig && !workflowIds.includes(config.id));
   }
 

@@ -103,6 +103,14 @@ const NGX_LITE_ADMIN_PATHS: string[] = [
   AdminSettingsPath.MAINTENANCE,
 ];
 
+export function volunteerManagementHref(href: string): boolean {
+  const path = (href || "").replace(/^\//, "");
+  return path === AdminMembersPath.VOLUNTEERS
+    || path.startsWith(`${AdminMembersPath.VOLUNTEERS}/`)
+    || path === AdminMembersPath.MY_VOLUNTEER_INFORMATION
+    || path.startsWith(`${AdminMembersPath.MY_VOLUNTEER_INFORMATION}/`);
+}
+
 export function adminPathAllowedInNgxLite(href: string): boolean {
   const isAdminPath = href === AdminPath.ADMIN || href?.startsWith("admin/");
   if (!isAdminPath) {

@@ -6,7 +6,7 @@ import { hasDynamicPath, hasEmailComposerPath, hasSendNotificationPath } from ".
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { EmailComposerAuthGuard } from "../../guards/email-composer-auth-guard";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
-import { AdminAuthGuard, MemberAdminAuthGuard, VolunteerAdminAuthGuard } from "../../guards/admin-auth-guard";
+import { AdminAuthGuard, MemberAdminAuthGuard, VolunteerAdminAuthGuard, VolunteerFeatureGuard } from "../../guards/admin-auth-guard";
 import { EnvironmentAdminGuard } from "../../guards/environment-admin-guard";
 import { MaintenanceGuard } from "../../guards/maintenance-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
@@ -127,13 +127,13 @@ const rp = adminRelativePath;
       path: rp(AdminMembersPath.VOLUNTEERS),
       loadComponent: () => import("../../pages/admin/volunteers/volunteer-management")
         .then(m => m.VolunteerManagementComponent),
-      canActivate: [SystemHealthyGuard, VolunteerAdminAuthGuard]
+      canActivate: [SystemHealthyGuard, VolunteerFeatureGuard, VolunteerAdminAuthGuard]
     },
     {
       path: rp(AdminMembersPath.MY_VOLUNTEER_INFORMATION),
       loadComponent: () => import("../../pages/admin/volunteers/my-volunteer-information")
         .then(m => m.MyVolunteerInformationComponent),
-      canActivate: [SystemHealthyGuard, LoggedInGuard]
+      canActivate: [SystemHealthyGuard, VolunteerFeatureGuard, LoggedInGuard]
     },
     {
       path: rp(AdminMembersPath.ROOT), loadComponent: () => import("../../pages/admin/members/members-landing.component")

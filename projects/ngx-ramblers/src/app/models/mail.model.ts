@@ -391,6 +391,13 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   registrationInvitationConfigId: REGISTRATION_INVITATION_SUBJECT_TEXT,
   registrationReviewConfigId: REGISTRATION_REVIEW_SUBJECT_TEXT
 };
+
+export const PLATFORM_PROCESS_MAPPING_KEYS: (keyof BuiltInProcessMappings)[] = [
+  "registrationConfirmationConfigId",
+  "registrationInvitationConfigId",
+  "registrationReviewConfigId"
+];
+
 export const PHOTOGRAPHS_AND_VIDEO_SUBJECT_TEXT = "Photographs and video";
 
 export enum EmailTemplateName {

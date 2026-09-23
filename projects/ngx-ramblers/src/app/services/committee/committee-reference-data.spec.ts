@@ -81,6 +81,25 @@ describe("CommitteeReferenceData", () => {
     expect(service.committeeMembers()).toContainEqual(EXPECTED_NIC);
   });
 
+  it("mailCommitteeMembers omits group members", () => {
+    const ordinary: CommitteeMember = {
+      roleType: RoleType.GROUP_MEMBER,
+      type: "ordinary-member",
+      description: "Ordinary Member",
+      fullName: "Noreen Dawes",
+      email: "",
+      memberId: "ordinary-1",
+      nameAndDescription: "Ordinary Member (Noreen Dawes)"
+    };
+    const service: CommitteeReferenceData = CommitteeReferenceData.create({
+      ...mockData,
+      roles: [...mockData.roles, ordinary]
+    }, null);
+    expect(service.committeeMembers()).toContainEqual(ordinary);
+    expect(service.mailCommitteeMembers()).not.toContainEqual(ordinary);
+    expect(service.mailCommitteeMembers()).toContainEqual(EXPECTED_NIC);
+  });
+
   it("contactUsField should data based on supplied role and field", () => {
     const service: CommitteeReferenceData = CommitteeReferenceData.create(mockData, null);
     expect(service.contactUsField("support", "memberId")).toEqual("52ab5d94e4b0f92ce9a5caee");

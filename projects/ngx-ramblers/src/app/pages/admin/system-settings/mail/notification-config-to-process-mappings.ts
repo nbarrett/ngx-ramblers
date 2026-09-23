@@ -7,7 +7,8 @@ import { Subscription } from "rxjs";
 import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { FormsModule } from "@angular/forms";
-import { EnvironmentSetupService } from "../../../../services/environment-setup/environment-setup.service";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { volunteerManagementEnabled } from "../../../../functions/volunteer-management";
 
 @Component({
     selector: "app-notification-config-to-process-mapping",
@@ -130,21 +131,23 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
             </select>
           </div>
         </div>
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="process-mapping-volunteer-notification">Rights of Way Volunteer Correspondence Uses Email Configuration</label>
-            <select [(ngModel)]="mailMessagingConfig.mailConfig.volunteerNotificationConfigId"
-              id="process-mapping-volunteer-notification"
-              class="form-control input-sm">
-              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
-                <option
-                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
-                </option>
-              }
-            </select>
+        @if (volunteerManagementEnabled) {
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="process-mapping-volunteer-notification">Rights of Way Volunteer Correspondence Uses Email Configuration</label>
+              <select [(ngModel)]="mailMessagingConfig.mailConfig.volunteerNotificationConfigId"
+                id="process-mapping-volunteer-notification"
+                class="form-control input-sm">
+                @for (mapping of notificationConfigsPlusNone; track mapping.id) {
+                  <option
+                    [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                  </option>
+                }
+              </select>
+            </div>
           </div>
-        </div>
-        @if (platformAdminEnabled) {
+        }
+        @if (platformMailConfigsVisible) {
           @for (process of registrationProcesses; track process.key) {
             <div class="col-sm-12">
               <div class="form-group">
@@ -172,27 +175,38 @@ export class NotificationConfigToProcessMappingComponent implements OnInit, OnDe
   private logger: Logger = this.loggerFactory.createLogger("NotificationConfigToProcessMappingComponent", NgxLoggerLevel.ERROR);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
   public mailMessagingConfig: MailMessagingConfig;
-  public platformAdminEnabled = false;
-  private environmentSetupService = inject(EnvironmentSetupService);
+  public platformMailConfigsVisible = false;
+  public volunteerManagementEnabled = false;
+  private systemConfigService = inject(SystemConfigService);
   public readonly registrationProcesses = [
     {key: "registrationConfirmationConfigId", label: "Site Registration Confirmation"},
     {key: "registrationReviewConfigId", label: "Site Registration Review"},
     {key: "registrationInvitationConfigId", label: "Site Registration Invitation"}
   ] as const;
 
-  async ngOnInit() {
+  ngOnInit() {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
+      this.refreshNotificationConfigOptions();
+      this.logger.info("mailMessagingConfig:", mailMessagingConfig, "notificationConfigsPlusNone:", this.notificationConfigsPlusNone);
+    }));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config => {
+      this.volunteerManagementEnabled = volunteerManagementEnabled(config);
+      this.refreshNotificationConfigOptions();
+    }));
+    this.refreshNotificationConfigOptions();
+  }
+
+  private refreshNotificationConfigOptions() {
+    const flags = this.mailMessagingService.notificationConfigFlags();
+    this.platformMailConfigsVisible = flags.platformMailConfigsVisible;
+    if (!this.mailMessagingConfig) {
+      this.notificationConfigsPlusNone = [];
+    } else {
       this.notificationConfigsPlusNone = [{
         id: KEY_NULL_VALUE_NONE.key,
         subject: {text: KEY_NULL_VALUE_NONE.value}
-      } as NotificationConfig].concat(mailMessagingConfig.notificationConfigs);
-      this.logger.info("mailMessagingConfig:", mailMessagingConfig, "notificationConfigsPlusNone:", this.notificationConfigsPlusNone);
-    }));
-    try {
-      this.platformAdminEnabled = (await this.environmentSetupService.status()).platformAdminEnabled;
-    } catch (_error) {
-      this.platformAdminEnabled = false;
+      } as NotificationConfig].concat(this.mailMessagingService.visibleNotificationConfigs(this.mailMessagingConfig.notificationConfigs));
     }
   }
 
