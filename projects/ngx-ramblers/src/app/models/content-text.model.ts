@@ -28,9 +28,18 @@ export const ALBUM_INDEX_PAGE_SELECT = {
   path: 1,
   "rows.type": 1,
   "rows.carousel": 1,
+  "rows.location": 1,
+  "rows.routeGuide": 1,
+  "rows.albumIndex": 1,
   "rows.columns.imageSource": 1,
   "rows.columns.href": 1,
-  "rows.albumIndex": 1
+  "rows.columns.contentText": 1,
+  "rows.columns.rows.type": 1,
+  "rows.columns.rows.location": 1,
+  "rows.columns.rows.routeGuide": 1,
+  "rows.columns.rows.columns.imageSource": 1,
+  "rows.columns.rows.columns.href": 1,
+  "rows.columns.rows.columns.contentText": 1
 };
 
 export enum ContentTextCategory {

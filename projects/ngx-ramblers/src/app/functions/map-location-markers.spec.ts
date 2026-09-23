@@ -56,6 +56,19 @@ describe("pageLocation", () => {
     expect(pageLocation(page)?.renderingMode).toBe(LocationRenderingMode.HIDDEN);
   });
 
+  it("reads a nested route row's start", () => {
+    const page = {
+      rows: [{
+        type: PageContentType.TEXT,
+        columns: [{
+          columns: 8,
+          rows: [{type: PageContentType.ROUTE, routeGuide: {start_location: start}, columns: []}]
+        }]
+      }]
+    } as PageContent;
+    expect(pageLocation(page)?.start.postcode).toBe("CT4 6NZ");
+  });
+
   it("returns null when the page has neither", () => {
     expect(pageLocation({rows: [{type: PageContentType.TEXT, columns: []}]} as PageContent)).toBeNull();
   });

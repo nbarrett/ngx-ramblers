@@ -9,7 +9,7 @@ import { UrlService } from "./url.service";
 import { StringUtilsService } from "./string-utils.service";
 import { YouTubeService } from "./youtube.service";
 import { last } from "es-toolkit/compat";
-import { pageLocation } from "../functions/map-location-markers";
+import { pageLocation, rowsWithin } from "../functions/map-location-markers";
 
 const MIGRATION_NOTE = /^Migrated from /;
 
@@ -36,18 +36,12 @@ export class LocationExtractionService {
       this.logger.info("Page", pageContent.path, "location", locatable ? "found" : "missing");
 
       const location = locatable ? pageLocationData.start : null;
-      let description = locatable ? this.formatLocationDescription(pageLocationData.start, pageLocationData.end) : null;
-      let title = null;
-
-      if (!description) {
-        const extracted = this.extractTitleAndDescription(pageContent);
-        title = extracted.title;
-        description = extracted.description;
-      }
-
-      if (!title) {
-        title = this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(href)));
-      }
+      const extracted = this.extractTitleAndDescription(pageContent);
+      const locationDescription = locatable ? this.formatLocationDescription(pageLocationData.start, pageLocationData.end) : null;
+      const title = extracted.title || this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(href)));
+      const description = extracted.description
+        || (locationDescription && locationDescription !== "Location" ? locationDescription : null)
+        || "No description available";
 
       this.logger.info("Page:", title, "- location:", location ? "found" : "missing", "- imageSource:", imageSource);
 
@@ -68,15 +62,19 @@ export class LocationExtractionService {
 
   private extractTitleAndDescription(pageContent: PageContent): { title: string | null; description: string | null } {
     let result = { title: null, description: null };
+    const routeGuide = rowsWithin(pageContent.rows).find(row => row.type === PageContentType.ROUTE)?.routeGuide;
+    if (routeGuide?.title) {
+      result = { title: routeGuide.title, description: routeGuide.summary || null };
+    }
 
-    for (const row of pageContent.rows || []) {
+    for (const row of rowsWithin(pageContent.rows || [])) {
       if (row.type === PageContentType.ALBUM_INDEX) {
         if (row.albumIndex?.indexMarkdown) {
           const text = row.albumIndex.indexMarkdown.trim();
           const strippedText = this.stringUtils.stripMarkdown(text);
           if (strippedText.length > 0) {
             const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
-            result = { title: null, description: truncated };
+            result = { title: result.title, description: result.description || truncated };
           }
         }
         continue;
@@ -84,7 +82,7 @@ export class LocationExtractionService {
       for (const column of row.columns || []) {
         if (column.contentText && !MIGRATION_NOTE.test(column.contentText.trim())) {
           const text = column.contentText.trim();
-          const headingMatch = text.match(/^#\s+(.+?)(?:\n|$)/);
+          const headingMatch = text.match(/^#{1,6}\s+(.+?)(?:\n|$)/);
 
           if (headingMatch) {
             const title = headingMatch[1].trim();
@@ -93,21 +91,21 @@ export class LocationExtractionService {
             const truncatedDescription = description.length > 200 ? description.substring(0, 197) + "..." : description;
 
             result = {
-              title,
-              description: truncatedDescription || null
+              title: result.title || title,
+              description: result.description || truncatedDescription || null
             };
             break;
           } else {
             const strippedText = this.stringUtils.stripMarkdown(text);
             if (strippedText.length > 0) {
               const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
-              result = { title: result.title, description: truncated };
+              result = { title: result.title, description: result.description || truncated };
               break;
             }
           }
         }
       }
-      if (result.description !== null) {
+      if (result.title && result.description !== null) {
         break;
       }
     }
