@@ -1,6 +1,7 @@
 import { isArray, isObject, isString } from "es-toolkit/compat";
 import { MeetingTranscriptLine } from "../models/video-meeting.model";
 import { toBritishEnglish } from "./british-english";
+import { matchKnownSpeaker, shortSpeakerName, speakerAttendees } from "./meeting-speaker-names";
 
 const TRANSCRIPT_REFUSAL = /no (clear )?speech|indistinct|unable to transcribe|can'?t (provide|transcribe)|no speech in the audio|appears to be silent|can'?t provide a transcription|looks like there was no speech|collection of indistinct/i;
 const TRANSCRIPT_FILLER = /^(uh|um|er|ah|mm|hmm)([,\s]+(uh|um|er|ah|mm|hmm))+$/i;
@@ -42,11 +43,13 @@ export const UNKNOWN_SPEAKER = "Unknown";
 
 export function unlabelledSpeaker(recorderName: string, participants: string[], speakers: string[]): string {
   const recorder = (recorderName || "").trim();
-  const heard = (speakers || []).map(name => (name || "").trim()).filter(name => !!name);
-  const others = (participants || [])
-    .map(name => (name || "").trim())
-    .filter(name => !!name && name.toLowerCase() !== recorder.toLowerCase());
-  if (heard.length) {
+  const heard = speakerAttendees(speakers);
+  const others = speakerAttendees(participants)
+    .filter(name => name.toLowerCase() !== recorder.toLowerCase());
+  const heardOther = heard.find(name => name.toLowerCase() !== recorder.toLowerCase());
+  if (heardOther) {
+    return heardOther;
+  } else if (heard.length === 1 && !others.length) {
     return heard[0];
   } else if (others.length || !recorder) {
     return UNKNOWN_SPEAKER;
@@ -57,17 +60,23 @@ export function unlabelledSpeaker(recorderName: string, participants: string[], 
 
 export function speakerLabelledLines(text: string, recorderName: string, participants: string[], speakers: string[] = []): {authorName: string; text: string}[] {
   const recorder = (recorderName || "").trim();
-  const known = [recorder, ...(participants || []), ...(speakers || [])].map(name => (name || "").trim()).filter(name => !!name);
+  const known = speakerAttendees([recorder, ...(participants || []), ...(speakers || [])]);
   const fallback = unlabelledSpeaker(recorder, participants, speakers);
+  const heard = speakerAttendees(speakers);
+  const othersPresent = known.some(name => name.toLowerCase() !== recorder.toLowerCase());
+  const singleHeard = heard.length === 1 && (heard[0].toLowerCase() !== recorder.toLowerCase() || !othersPresent)
+    ? heard[0]
+    : "";
   return (text || "")
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(line => !!line)
     .map(line => {
       const label = speakerLabel(line, known);
-      const matched = known.find(name => name.toLowerCase() === label.toLowerCase());
+      const matched = matchKnownSpeaker(label, known);
       const speech = label ? transcriptSpeechText(line) : line;
-      return {authorName: matched || label || fallback, text: toBritishEnglish(speech)};
+      const attributed = matched || label || singleHeard || fallback;
+      return {authorName: shortSpeakerName(attributed, known), text: toBritishEnglish(speech)};
     })
     .filter(line => isUsableTranscriptText(line.text));
 }
@@ -136,10 +145,11 @@ export function usableTranscriptText(transcript: string): string {
     .join("\n");
 }
 
-export function transcriptLineLabel(line: MeetingTranscriptLine): string {
+export function transcriptLineLabel(line: MeetingTranscriptLine, attendees: string[] = []): string {
   const author = (line?.authorName || "").trim();
   const text = toBritishEnglish((line?.text || "").trim());
-  return text && author ? `${author}: ${text}` : text;
+  const shown = attendees.length ? shortSpeakerName(author, attendees) : author;
+  return text && shown ? `${shown}: ${text}` : text;
 }
 
 function transcriptLineKey(line: MeetingTranscriptLine): string {
@@ -157,8 +167,9 @@ export function dedupeTranscriptLines(lines: MeetingTranscriptLine[]): MeetingTr
 }
 
 export function joinTranscriptLines(lines: MeetingTranscriptLine[]): string {
+  const attendees = speakerAttendees((lines || []).map(line => line?.authorName || ""));
   return dedupeTranscriptLines(lines)
-    .map(transcriptLineLabel)
+    .map(line => transcriptLineLabel(line, attendees))
     .filter(label => !!label)
     .join("\n");
 }

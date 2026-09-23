@@ -81,6 +81,13 @@ describe("transcriptLineLabel", () => {
 
 describe("joinTranscriptLines", () => {
 
+  it("uses first names in the joined record when they are unique", () => {
+    expect(joinTranscriptLines([
+      {room: "r", authorName: "Nick Barrett", text: "hello", at: 1},
+      {room: "r", authorName: "Chris Green", text: "hi", at: 2}
+    ])).toEqual("Nick: hello\nChris: hi");
+  });
+
   it("joins labelled lines and skips blanks", () => {
     expect(joinTranscriptLines([
       {room: "r", authorName: "Jane", text: "one", at: 1},
@@ -96,7 +103,7 @@ describe("joinTranscriptLines", () => {
       {room: "r", authorName: "Nick Barrett", text: "the react button doesn't do anything", at: 3},
       {room: "r", authorName: "Nick Barrett", text: "I can't provide a transcription for this audio. It appears to be silent.", at: 4},
       {room: "r", authorName: "Nick Barrett", text: "uh uh uh uh", at: 5}
-    ])).toEqual("Nick Barrett: the react button doesn't do anything");
+    ])).toEqual("Nick: the react button doesn't do anything");
   });
 
 });
@@ -199,9 +206,15 @@ describe("speakerLabelledLines", () => {
   it("stores each utterance under the named speaker rather than the person recording", () => {
     const text = "Nick Barrett: can you see my screen\nRachel: yes I can\nNick Barrett: these are the minutes";
     expect(speakerLabelledLines(text, "Nick Barrett", ["Nick Barrett", "Rachel"])).toEqual([
-      {authorName: "Nick Barrett", text: "can you see my screen"},
+      {authorName: "Nick", text: "can you see my screen"},
       {authorName: "Rachel", text: "yes I can"},
-      {authorName: "Nick Barrett", text: "these are the minutes"}
+      {authorName: "Nick", text: "these are the minutes"}
+    ]);
+  });
+
+  it("matches a first name to the unique person in the meeting", () => {
+    expect(speakerLabelledLines("Nick: can you hear me", "Nick Barrett", ["Nick Barrett", "Chris Green"])).toEqual([
+      {authorName: "Nick", text: "can you hear me"}
     ]);
   });
 
@@ -219,6 +232,12 @@ describe("speakerLabelledLines", () => {
     ]);
   });
 
+  it("does not blame the recorder for unlabelled speech when someone else is in the meeting", () => {
+    expect(speakerLabelledLines("we meet at seven", "Nick Barrett", ["Chris"], ["Nick Barrett"])).toEqual([
+      {authorName: "Unknown", text: "we meet at seven"}
+    ]);
+  });
+
   it("marks unlabelled lines Unknown rather than blaming the recorder when other people are present", () => {
     expect(speakerLabelledLines("we meet at seven", "Nick Barrett", ["Rachel"])).toEqual([
       {authorName: "Unknown", text: "we meet at seven"}
@@ -227,7 +246,7 @@ describe("speakerLabelledLines", () => {
 
   it("attributes unlabelled lines to the recorder when nobody else is in the meeting", () => {
     expect(speakerLabelledLines("we meet at seven", "Nick Barrett", ["Nick Barrett"])).toEqual([
-      {authorName: "Nick Barrett", text: "we meet at seven"}
+      {authorName: "Nick", text: "we meet at seven"}
     ]);
   });
 

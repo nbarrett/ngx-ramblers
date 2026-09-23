@@ -23,6 +23,13 @@ signed JWT per meeting so members join with enforced identity and committee memb
 moderators, with no separate Jitsi sign-in. Those two values must match `JWT_APP_ID` /
 `JWT_APP_SECRET` here.
 
+The Fly app is allowed to stop when idle (`auto_stop_machines = "stop"`, `min_machines_running = 0`)
+so it is not billed at full size around the clock. Fly only counts new HTTP traffic as load, so a
+live call's WebSocket and UDP media do not keep the machine up on their own. While anyone is in an
+embedded meeting, NGX posts `/api/video-meetings/keep-awake` every 30 seconds and the group server
+GETs the Jitsi host through Fly's proxy. That inbound request is what holds the machine. When the
+last participant leaves, pings stop and Fly winds the app down again after a few idle minutes.
+
 ## Local development
 
 ```bash

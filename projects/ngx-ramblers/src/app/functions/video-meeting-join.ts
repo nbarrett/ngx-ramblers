@@ -11,6 +11,11 @@ import {
 import { stripTrailingSlash } from "./strings";
 
 export const JITSI_IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
+export const JITSI_VIDEO_TYPE_DESKTOP = "desktop";
+
+export function remoteScreenShareParticipant(sharingParticipantIds: string[], localParticipantId: string): string {
+  return (sharingParticipantIds || []).find(participantId => !!participantId && participantId !== localParticipantId) || "";
+}
 
 export const JITSI_MEETING_TOOLBAR_BUTTONS = [
   "microphone", "camera", "desktop", "chat", "raisehand", "reactions",

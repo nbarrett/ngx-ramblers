@@ -15,6 +15,7 @@ import { StoredValue } from "../../models/ui-actions";
 import { UIDateFormat } from "../../models/date-format.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { meetingMinutesDocumentSlug, preferredCommitteeDocumentsPagePath } from "../../functions/committee-documents-page";
+import { shortSpeakerName, speakerAttendees } from "../../functions/meeting-speaker-names";
 import { CommitteeDocumentsPageChoice } from "../../models/content-text.model";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
@@ -155,7 +156,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
             @if (transcriptEntries.length) {
               @for (entry of transcriptEntries; track $index) {
                 <div class="transcript-entry">
-                  <span class="transcript-speaker">{{ entry.authorName || "Speaker" }}</span>
+                  <span class="transcript-speaker">{{ speakerName(entry.authorName) }}</span>
                   @if (entry.at) {
                     <span class="transcript-time">{{ transcriptTime(entry.at) }}</span>
                   }
@@ -358,6 +359,11 @@ export class VideoMeetingMinutesComponent implements OnInit {
 
   transcriptTime(at: number): string {
     return this.dateUtils.displayTime(at);
+  }
+
+  speakerName(authorName: string): string {
+    const attendees = speakerAttendees(this.transcriptEntries.map(entry => entry.authorName || ""));
+    return shortSpeakerName(authorName || "Speaker", attendees) || "Speaker";
   }
 
   async rewriteFromTranscript(): Promise<void> {

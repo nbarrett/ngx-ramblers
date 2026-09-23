@@ -16,6 +16,7 @@ import {
   joinVideoMeetingAsGuest,
   memberMeetingQueryParams,
   nameFromEmailAddress,
+  remoteScreenShareParticipant,
   shouldPromptForGuestName,
   usableMeetingDisplayName,
   occupantIdentityKey,
@@ -157,6 +158,12 @@ describe("jitsiEmbedConfigOverwrite", () => {
 
   it("offers Follow Me so a moderator can present a shared screen to everyone", () => {
     expect(jitsiEmbedConfigOverwrite(runtime(), "Meeting").followMeEnabled).toEqual(true);
+  });
+
+  it("picks the remote person who is sharing a screen, not the local sharer", () => {
+    expect(remoteScreenShareParticipant(["local", "remote"], "local")).toEqual("remote");
+    expect(remoteScreenShareParticipant(["local"], "local")).toEqual("");
+    expect(remoteScreenShareParticipant([], "local")).toEqual("");
   });
 
   it("joins normally with sound by default", () => {

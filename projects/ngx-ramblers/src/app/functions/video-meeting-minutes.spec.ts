@@ -64,15 +64,17 @@ describe("meetingTranscribePrompt", () => {
   it("names the recorder and the other people so each line is labelled with its speaker", () => {
     const prompt = meetingTranscribePrompt("Nick Barrett", ["nick barrett", "Rachel", "Rachel", " "]);
     expect(prompt).toContain("verbatim");
-    expect(prompt).toContain("recorded on the device of Nick Barrett");
-    expect(prompt).toContain("The people in the meeting are: Nick Barrett, Rachel.");
+    expect(prompt).toContain("recorded on the device of Nick");
+    expect(prompt).toContain("The people in the meeting are: Nick, Rachel.");
     expect(prompt).toContain("prefixed with the speaker's name");
     expect(prompt).toContain("Never attribute one person's words to another");
+    expect(prompt).not.toContain("the loudest, closest voice");
   });
 
   it("tells the model who the meeting heard speaking during the clip", () => {
     const prompt = meetingTranscribePrompt("Nick Barrett", ["Rachel", "Tim"], ["Rachel", "Nick Barrett"]);
-    expect(prompt).toContain("detected these people speaking during this clip, the one who spoke most first: Rachel, Nick Barrett.");
+    expect(prompt).toContain("detected these people speaking during this clip, the one who spoke most first: Rachel, Nick.");
+    expect(prompt).toContain("Do not label their words as Nick");
   });
 
   it("asks for numbered speakers when nobody is known", () => {
