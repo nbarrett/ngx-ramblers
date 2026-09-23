@@ -53,7 +53,7 @@ import { FormsModule } from "@angular/forms";
                           {{ allSelected() ? "Select None" : "Select All" }}
                         </label>
                       </div>
-                      @for (committeeMember of display.committeeReferenceData.committeeMembers(); track committeeMember; let roleIndex = $index) {
+                      @for (committeeMember of display.committeeReferenceData.mailCommitteeMembers(); track committeeMember; let roleIndex = $index) {
                         <div class="form-check">
                           <input aria-describedby="role-description"
                                  type="checkbox"

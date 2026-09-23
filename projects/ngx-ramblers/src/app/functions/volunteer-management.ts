@@ -28,9 +28,14 @@ import {
 } from "../models/volunteer-management.model";
 import { MemberCookie } from "../models/member.model";
 import { VolunteerMergeFields } from "../models/mail.model";
+import { SystemConfig } from "../models/system.model";
 import { isNumber, isUndefined, uniq } from "es-toolkit/compat";
 import { memberFullName } from "./member-names";
 import { escapeHtml } from "./strings";
+
+export function volunteerManagementEnabled(config: SystemConfig | null | undefined): boolean {
+  return config?.volunteers?.enabled === true;
+}
 
 export const COORDINATOR_VIEWS = [VolunteerWorkspaceView.PARISHES, VolunteerWorkspaceView.VOLUNTEERS, VolunteerWorkspaceView.REPORTS];
 export const COORDINATOR_REPORTS = [VolunteerReportType.PARISH_LIST, VolunteerReportType.VACANCIES, VolunteerReportType.ACTIVE_ROLE_HOLDERS];

@@ -82,7 +82,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
               [class.is-invalid]="!notificationConfig.senderRole || !roleExists(notificationConfig.senderRole)"
               id="sender"
               class="form-control input-sm">
-              @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
+              @for (role of mailMessagingConfig.committeeReferenceData.mailCommitteeMembers(); track role.nameAndDescription) {
                 <option
                   [ngValue]="role.type">{{ role.nameAndDescription }}{{ role.email ? " (" + role.email + ")" : "" }}
                 </option>
@@ -117,7 +117,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
                 id="reply-to"
                 class="form-control input-sm">
                 <option [ngValue]="''">Same as sender (no separate Reply-To)</option>
-                @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
+                @for (role of mailMessagingConfig.committeeReferenceData.mailCommitteeMembers(); track role.nameAndDescription) {
                   <option
                     [ngValue]="role.type">{{ role.nameAndDescription }}{{ role.email ? " (" + role.email + ")" : "" }}
                   </option>

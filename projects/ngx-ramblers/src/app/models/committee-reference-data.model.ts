@@ -3,6 +3,7 @@ import { BuiltInRole, CommitteeMember, ExpensesConfig } from "./committee.model"
 export interface CommitteeReferenceDataLike {
   createFrom(injectedCommitteeMembers: CommitteeMember[]): CommitteeReferenceDataLike;
   committeeMembers(): CommitteeMember[];
+  mailCommitteeMembers(): CommitteeMember[];
   loggedOnRole(): CommitteeMember;
   loggedOnRoles(): CommitteeMember[];
   committeeMemberForMember(memberId: string): CommitteeMember;

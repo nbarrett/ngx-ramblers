@@ -358,7 +358,8 @@ export class SystemConfigService {
       area: this.emptyOrganisation(), group: this.emptyOrganisation(), national: defaultRamblersConfig,
       header: this.headerDefaults(),
       footer: this.footerDefaults(),
-      videoMeetings: this.videoMeetingsDefaults()
+      videoMeetings: this.videoMeetingsDefaults(),
+      volunteers: {enabled: false}
     };
   };
 

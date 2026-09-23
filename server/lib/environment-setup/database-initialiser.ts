@@ -5,7 +5,8 @@ import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { BuiltInRole } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS, NOTIFICATION_CONFIG_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS, NOTIFICATION_CONFIG_DEFAULTS, PLATFORM_PROCESS_MAPPING_KEYS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { AdminUserConfig, SetupStepStatus } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { CopiedAssets, EnvironmentSetupRequest, InitialiseDatabaseResult, MongoDbConnectionParams, ProgressCallback, ReinitDatabaseParams, SeedDatabaseParams, ValidationResult } from "./types";
 import { createSystemConfig, SystemConfigTemplateParams } from "./templates/system-config-template";
@@ -373,10 +374,16 @@ export async function wireNotificationConfigsToProcesses(db: Db): Promise<{ wire
 
   const updates: Record<string, string> = {};
 
+  const platformAdmin = process.env[Environment.PLATFORM_ADMIN_ENABLED] === "true";
   for (const [processKey, subjectText] of toPairs(BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS)) {
-    const config = await notificationConfigsCollection.findOne({"subject.text": subjectText});
-    if (config?._id) {
-      updates[`value.${processKey}`] = config._id.toString();
+    const skipPlatformMapping = !platformAdmin && PLATFORM_PROCESS_MAPPING_KEYS.includes(processKey as typeof PLATFORM_PROCESS_MAPPING_KEYS[number]);
+    if (skipPlatformMapping) {
+      debugLog("Skipping platform notification mapping", processKey);
+    } else {
+      const config = await notificationConfigsCollection.findOne({"subject.text": subjectText});
+      if (config?._id) {
+        updates[`value.${processKey}`] = config._id.toString();
+      }
     }
   }
 
