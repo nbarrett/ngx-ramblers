@@ -34,8 +34,9 @@ export function routeRowIn(pageContent: PageContent | null | undefined): PageCon
 }
 
 export function pageLocation(pageContent: PageContent | null | undefined): LocationRowData | null {
-  const locationRow = pageContent?.rows?.find(row => row.type === PageContentType.LOCATION && row.location);
-  const routeRow = rowsWithin(pageContent?.rows).find(row => row.type === PageContentType.ROUTE && row.routeGuide?.start_location);
+  const rows = rowsWithin(pageContent?.rows);
+  const locationRow = rows.find(row => row.type === PageContentType.LOCATION && row.location);
+  const routeRow = rows.find(row => row.type === PageContentType.ROUTE && row.routeGuide?.start_location);
   return locationRow?.location || (routeRow ? {start: routeRow.routeGuide.start_location, renderingMode: LocationRenderingMode.HIDDEN} : null);
 }
 
