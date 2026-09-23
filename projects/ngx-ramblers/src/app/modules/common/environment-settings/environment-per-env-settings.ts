@@ -20,15 +20,18 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../mongo-uri-input/
 import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark.component";
 import { EnvironmentWebAnalyticsSites } from "./environment-web-analytics-sites";
 import { FlyMachineHistoryComponent } from "../../../pages/admin/system-settings/diagnostics/fly-machine-history";
-import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
+import { flyAppUrl } from "../../../functions/fly-app-url";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import {
   createEmptyAiConfig,
   createEmptyEnvironmentConfig,
   EnvironmentConfig,
+  EnvironmentConfigSection,
   EnvironmentsConfig
 } from "../../../models/environment-config.model";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
 import { CrossEnvironmentHealthService } from "../../../services/cross-environment-health.service";
 import { AiProviderType, EnvironmentSettingsSubTab, Image, SystemConfig, SystemSettingsTab } from "../../../models/system.model";
@@ -49,54 +52,9 @@ import { toKebabCase } from "../../../functions/strings";
     MongoUriInputComponent,
     EnvironmentWebAnalyticsSites,
     VendorBrandMarkComponent,
-    FlyMachineHistoryComponent
+    FlyMachineHistoryComponent,
+    SectionToggle
   ],
-  styles: [`
-    .btn-outline-aws
-      border: 1px solid #FF9900
-      color: #FF9900
-      background-color: transparent
-      &:hover
-        background-color: #FF9900
-        border-color: #FF9900
-        color: white
-
-    .btn-outline-mongodb
-      border: 1px solid #00684A
-      color: #00684A
-      background-color: transparent
-      &:hover
-        background-color: #00684A
-        border-color: #00684A
-        color: white
-
-    .btn-outline-flyio
-      border: 1px solid #7c3aed
-      color: #7c3aed
-      background-color: transparent
-      &:hover
-        background-color: #7c3aed
-        border-color: #7c3aed
-        color: white
-
-    .btn-outline-ramblers
-      border: 1px solid #9BC8AB
-      color: #9BC8AB
-      background-color: transparent
-      &:hover
-        background-color: #9BC8AB
-        border-color: #9BC8AB
-        color: white
-
-    .btn-outline-cloudflare
-      border: 1px solid #F6821F
-      color: #F6821F
-      background-color: transparent
-      &:hover
-        background-color: #F6821F
-        border-color: #F6821F
-        color: white
-  `],
   template: `
     @if (currentEnvironment) {
       <div class="row thumbnail-heading-frame">
@@ -146,22 +104,35 @@ import { toKebabCase } from "../../../functions/strings";
             Delete
           </button>
         </div>
+        <div class="col-sm-12 mb-3">
+          <app-section-toggle
+            [tabs]="configSectionTabs"
+            [(selectedTab)]="configSection"
+            [queryParamKey]="StoredValue.ENVIRONMENT_SECTION"
+            [fullWidth]="true"
+            [small]="true"
+            [stackOnMobile]="true"/>
+        </div>
+        @if (showConfigSection(EnvironmentConfigSection.DETAILS)) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+          <div class="thumbnail-heading with-vendor-logo">
             @if (headerLogo?.awsFileName) {
               <img [src]="urlService.resourceRelativePathForAWSFileName(headerLogo.awsFileName)"
                    [alt]="systemConfig?.group?.shortName" style="height: 39px;">
             }
             <span>Environment Details</span>
-            @if (currentEnvironment?.flyio?.appName) {
+          </div>
+          <div class="col-sm-12">
+          @if (currentEnvironment?.flyio?.appName) {
+            <div class="mb-2">
               <a [href]="'https://' + currentEnvironment.flyio.appName + '.fly.dev'"
                  target="_blank"
-                 class="btn btn-sm btn-outline-ramblers ms-auto">
+                 class="btn btn-sm btn-quiet">
                 <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
                 Open App
               </a>
-            }
-          </div>
+            </div>
+          }
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">Environment Name</label>
@@ -188,20 +159,26 @@ import { toKebabCase } from "../../../functions/strings";
               </div>
             </div>
           </div>
+          </div>
         </div>
+        }
+        @if (showConfigSection(EnvironmentConfigSection.AWS)) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+          <div class="thumbnail-heading with-vendor-logo">
             <app-vendor-brand-mark serviceId="aws" [sizePx]="26"/>
             <span>AWS S3 Configuration</span>
-            @if (currentEnvironment?.aws?.bucket) {
+          </div>
+          <div class="col-sm-12">
+          @if (currentEnvironment?.aws?.bucket) {
+            <div class="mb-2">
               <a [href]="'https://s3.console.aws.amazon.com/s3/buckets/' + currentEnvironment.aws.bucket + '?region=' + (currentEnvironment.aws.region || 'eu-west-2')"
                  target="_blank"
-                 class="btn btn-sm btn-outline-aws ms-auto">
+                 class="btn btn-sm btn-quiet">
                 <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
                 S3 Console
               </a>
-            }
-          </div>
+            </div>
+          }
           <div class="row">
             <div class="col-md-6 mb-2">
               <label class="form-label">Bucket</label>
@@ -237,20 +214,26 @@ import { toKebabCase } from "../../../functions/strings";
               </app-secret-input>
             </div>
           </div>
+          </div>
         </div>
+        }
+        @if (showConfigSection(EnvironmentConfigSection.MONGODB)) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading d-flex align-items-center gap-3">
+          <div class="thumbnail-heading with-vendor-logo">
             <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="30"/>
             <span>MongoDB Configuration</span>
-            @if (currentEnvironment?.mongo?.cluster || currentEnvironment?.mongo?.db) {
+          </div>
+          <div class="col-sm-12">
+          @if (currentEnvironment?.mongo?.cluster || currentEnvironment?.mongo?.db) {
+            <div class="mb-2">
               <a href="https://cloud.mongodb.com/"
                  target="_blank"
-                 class="btn btn-sm btn-outline-mongodb ms-auto">
+                 class="btn btn-sm btn-quiet">
                 <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
                 MongoDB Atlas
               </a>
-            }
-          </div>
+            </div>
+          }
           <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
           <div class="row">
             <div class="col-md-6 mb-2">
@@ -288,30 +271,27 @@ import { toKebabCase } from "../../../functions/strings";
               </app-secret-input>
             </div>
           </div>
+          </div>
         </div>
+        }
+        @if (showConfigSection(EnvironmentConfigSection.FLY_IO)) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading d-flex align-items-center gap-3">
+          <div class="thumbnail-heading with-vendor-logo">
             <app-vendor-brand-mark serviceId="flyIo" [sizePx]="28"/>
             <span>Fly.io Configuration</span>
-            @if (currentEnvironment?.flyio?.appName) {
-              <div class="ms-auto d-flex gap-2">
-                <a [href]="flyAppUrl(currentEnvironment.flyio.appName)"
-                   target="_blank"
-                   rel="noopener"
-                   class="btn btn-sm btn-quiet">
-                  <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-                  Fly dashboard
-                </a>
-                <a [href]="flyAppMetricsUrl(currentEnvironment.flyio.appName)"
-                   target="_blank"
-                   rel="noopener"
-                   class="btn btn-sm btn-quiet">
-                  <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-                  Fly metrics
-                </a>
-              </div>
-            }
           </div>
+          <div class="col-sm-12">
+          @if (currentEnvironment?.flyio?.appName) {
+            <div class="mb-2">
+              <a [href]="flyAppUrl(currentEnvironment.flyio.appName)"
+                 target="_blank"
+                 rel="noopener"
+                 class="btn btn-sm btn-quiet">
+                <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+                Fly dashboard
+              </a>
+            </div>
+          }
           <div class="row">
             <div class="col-md-12 mb-2">
               <label class="form-label">API Token</label>
@@ -363,23 +343,29 @@ import { toKebabCase } from "../../../functions/strings";
               </small>
             </div>
           </div>
+          </div>
         </div>
         @if (currentEnvironment.environment) {
           <app-fly-machine-history [environmentName]="currentEnvironment.environment"/>
         }
+        }
+        @if (showConfigSection(EnvironmentConfigSection.EMAIL_ROUTING)) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+          <div class="thumbnail-heading with-vendor-logo">
             <app-vendor-brand-mark serviceId="cloudflare" [sizePx]="26"/>
             <span>Email Routing (Per-Environment)</span>
-            @if (perEnvEmailRoutingUrl) {
+          </div>
+          <div class="col-sm-12">
+          @if (perEnvEmailRoutingUrl) {
+            <div class="mb-2">
               <a [href]="perEnvEmailRoutingUrl"
                  target="_blank"
-                 class="btn btn-sm btn-outline-cloudflare ms-auto">
+                 class="btn btn-sm btn-quiet">
                 <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
                 Email Routing
               </a>
-            }
-          </div>
+            </div>
+          }
           <div class="row">
             <div class="col-md-6 mb-2">
               <label class="form-label">Zone ID</label>
@@ -410,9 +396,13 @@ import { toKebabCase } from "../../../functions/strings";
             </div>
           </div>
           <small class="form-text text-muted">Zone ID for email routing. The base domain is derived from the <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="systemSettingsAreaGroupQueryParams">Web URL</a>. API credentials are inherited from the <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">global Cloudflare config</a> and encrypted during deployment.</small>
+          </div>
         </div>
+        }
+        @if (showConfigSection(EnvironmentConfigSection.SECRETS)) {
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading">Application Secrets (Overrides)</div>
+          <div class="col-sm-12">
           <small class="form-text text-muted mb-2">
             Leave empty to use global defaults. Only set values here to override the global setting for this environment.
           </small>
@@ -421,12 +411,16 @@ import { toKebabCase } from "../../../functions/strings";
             (secretsChange)="currentEnvironment.secrets = $event"
             namePrefix="env">
           </app-secrets-editor>
+          </div>
         </div>
+        }
+        @if (showConfigSection(EnvironmentConfigSection.AI)) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+          <div class="thumbnail-heading with-vendor-logo">
             <app-vendor-brand-mark systemId="aiTextGeneration" [sizePx]="22"/>
             <span>AI Text Generation (Override)</span>
           </div>
+          <div class="col-sm-12">
           <small class="form-text text-muted mb-2">
             Leave off to use the <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">global AI configuration</a>. Turn on only to point this environment at a different model.
           </small>
@@ -476,8 +470,12 @@ import { toKebabCase } from "../../../functions/strings";
               </div>
             </div>
           }
+          </div>
         </div>
+        }
+        @if (showConfigSection(EnvironmentConfigSection.WEB_ANALYTICS)) {
         <app-environment-web-analytics-sites [host]="environmentHost" [existingSiteTag]="environmentSiteTag"/>
+        }
       </div>
     } @else {
       <div class="alert alert-warning">
@@ -495,7 +493,6 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
   protected readonly flyAppUrl = flyAppUrl;
-  protected readonly flyAppMetricsUrl = flyAppMetricsUrl;
 
   private systemConfigService = inject(SystemConfigService);
   private cloudflareUrl = inject(CloudflareUrlService);
@@ -525,6 +522,24 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
 
   protected readonly AiProviderType = AiProviderType;
+  protected readonly StoredValue = StoredValue;
+  protected readonly EnvironmentConfigSection = EnvironmentConfigSection;
+  configSection: EnvironmentConfigSection = EnvironmentConfigSection.ALL;
+  protected readonly configSectionTabs: SectionToggleTab[] = [
+    {value: EnvironmentConfigSection.ALL, label: "All"},
+    {value: EnvironmentConfigSection.DETAILS, label: "Details"},
+    {value: EnvironmentConfigSection.AWS, label: "AWS"},
+    {value: EnvironmentConfigSection.MONGODB, label: "MongoDB"},
+    {value: EnvironmentConfigSection.FLY_IO, label: "Fly.io"},
+    {value: EnvironmentConfigSection.EMAIL_ROUTING, label: "Email routing"},
+    {value: EnvironmentConfigSection.SECRETS, label: "Secrets"},
+    {value: EnvironmentConfigSection.AI, label: "AI"},
+    {value: EnvironmentConfigSection.WEB_ANALYTICS, label: "Analytics"}
+  ];
+
+  showConfigSection(section: EnvironmentConfigSection): boolean {
+    return this.configSection === EnvironmentConfigSection.ALL || this.configSection === section;
+  }
 
   get flyOrgMigrateQueryParams(): Record<string, string> {
     const environment = this.currentEnvironment?.environment;

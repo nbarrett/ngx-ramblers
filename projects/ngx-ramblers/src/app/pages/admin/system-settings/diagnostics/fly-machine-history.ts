@@ -32,7 +32,7 @@ import { StoredValue } from "../../../../models/ui-actions";
   `],
   template: `
     <div class="row thumbnail-heading-frame">
-      <div class="thumbnail-heading">Fly Machine History</div>
+      <div class="thumbnail-heading">Diagnostics</div>
       <div class="col-sm-12">
         <p>{{ headingCopy }}</p>
         <div class="row mb-3">

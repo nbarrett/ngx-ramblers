@@ -34,6 +34,7 @@ jobs:
           ALLOW_OLD_IMAGE: ${{ github.event.inputs.allow_old_image }}
         run: |
           BUILD_WORKFLOW="build-push-and-deploy-ngx-ramblers-docker-image.yml"
+          REPO="${{ github.repository }}"
           if [ "$IMAGE_TAG" = "latest" ]; then
             echo "image_tag 'latest' always points at the newest successful build - OK"
             exit 0
@@ -42,21 +43,29 @@ jobs:
             echo "::error::image_tag '$IMAGE_TAG' must be 'latest' or a run number of the Docker build workflow"
             exit 1
           fi
-          NUMBERS=$(gh api "/repos/${{ github.repository }}/actions/workflows/$BUILD_WORKFLOW/runs?status=success&per_page=100" --jq '.workflow_runs[].run_number')
-          if [ -z "$NUMBERS" ]; then
-            echo "::error::could not list successful runs of the Docker build workflow - refusing to deploy an unvalidated image_tag"
-            exit 1
-          fi
-          LATEST=$(echo "$NUMBERS" | head -1)
-          if echo "$NUMBERS" | grep -qx "$IMAGE_TAG"; then
-            echo "image_tag $IMAGE_TAG is a successful Docker build run number (latest is $LATEST) - OK"
-            exit 0
-          fi
+          ATTEMPT=1
+          MAX_ATTEMPTS=18
+          while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+            RUN_JSON=$(gh api "/repos/${REPO}/actions/workflows/${BUILD_WORKFLOW}/runs?per_page=30" --jq "[.workflow_runs[] | select(.run_number == ${IMAGE_TAG}) | {conclusion,status}] | .[0] // {}")
+            RUN_CONCLUSION=$(printf '%s' "$RUN_JSON" | jq -r '.conclusion // empty')
+            RUN_STATE=$(printf '%s' "$RUN_JSON" | jq -r '.status // empty')
+            if [ "$RUN_CONCLUSION" = "success" ]; then
+              echo "image_tag $IMAGE_TAG is a successful Docker build run - OK"
+              exit 0
+            fi
+            if [ "$RUN_CONCLUSION" = "failure" ] || [ "$RUN_CONCLUSION" = "cancelled" ] || [ "$RUN_CONCLUSION" = "timed_out" ]; then
+              echo "::error::image_tag $IMAGE_TAG is Docker build run $IMAGE_TAG with conclusion $RUN_CONCLUSION - not deploying that image"
+              exit 1
+            fi
+            echo "Docker build run $IMAGE_TAG is not listed as success yet (status=${RUN_STATE:-missing} conclusion=${RUN_CONCLUSION:-missing}); waiting 10s (${ATTEMPT}/${MAX_ATTEMPTS})"
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 10
+          done
           if [ "$ALLOW_OLD_IMAGE" = "true" ]; then
-            echo "::warning::image_tag $IMAGE_TAG is not among the last 100 successful Docker builds (latest is $LATEST) - deploying anyway because allow_old_image is set"
+            echo "::warning::timed out waiting for Docker build run $IMAGE_TAG to appear as success - deploying anyway because allow_old_image is set"
             exit 0
           fi
-          echo "::error::image_tag $IMAGE_TAG is not among the last 100 successful runs of the Docker build workflow (latest is $LATEST). Run numbers from other workflows (CodeQL, deploys) are NOT image tags. Get the correct number with: gh run list --workflow=$BUILD_WORKFLOW --limit 1 --json number. For a deliberate rollback to an older image, re-run with allow_old_image=true."
+          echo "::error::timed out waiting for image_tag $IMAGE_TAG to appear as a successful run of $BUILD_WORKFLOW. Use a Docker-build run number, not CodeQL or a deploy. Or re-run with image_tag=latest."
           exit 1
 
   set-environments:

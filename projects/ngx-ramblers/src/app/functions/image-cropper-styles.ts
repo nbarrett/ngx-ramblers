@@ -40,13 +40,46 @@ export const isUsefulCropperPosition = (position: ImageCropperPosition | null | 
   return scale < 3;
 };
 
-export const cropperWrapperStyles = (heightPx: number, borderRadius: number, noBorderRadius: boolean): any => {
+export const cropperFrameAspectRatio = (
+  position: ImageCropperPosition | null | undefined,
+  naturalWidth?: number,
+  naturalHeight?: number
+): string | null => {
+  const cropWidth = position ? cropperDimension(position.x2, position.x1) : null;
+  const cropHeight = position ? cropperDimension(position.y2, position.y1) : null;
+  const hasNaturals = isNumber(naturalWidth) && naturalWidth > 0 && isNumber(naturalHeight) && naturalHeight > 0;
+  if (isUsefulCropperPosition(position) && cropWidth && cropHeight) {
+    if (hasNaturals) {
+      return `${(cropWidth / 100) * naturalWidth} / ${(cropHeight / 100) * naturalHeight}`;
+    } else {
+      return `${cropWidth} / ${cropHeight}`;
+    }
+  } else if (hasNaturals) {
+    return `${naturalWidth} / ${naturalHeight}`;
+  } else {
+    return null;
+  }
+};
+
+export const cropperWrapperStyles = (
+  heightPx: number,
+  borderRadius: number,
+  noBorderRadius: boolean,
+  position?: ImageCropperPosition,
+  naturalWidth?: number,
+  naturalHeight?: number
+): any => {
   const styles: any = {};
   styles["width"] = "100%";
   styles["overflow"] = "hidden";
   styles["position"] = "relative";
   if (isNumber(heightPx)) {
     styles["height.px"] = heightPx;
+  } else {
+    const aspectRatio = cropperFrameAspectRatio(position, naturalWidth, naturalHeight);
+    if (aspectRatio) {
+      styles["aspect-ratio"] = aspectRatio;
+    }
   }
   if (!noBorderRadius) {
     styles["border-radius.px"] = isUndefined(borderRadius) ? 6 : borderRadius;
