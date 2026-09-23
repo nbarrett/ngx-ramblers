@@ -70,10 +70,11 @@ import {
   VideoMeetingQuality,
   VideoMeetingQualityOption,
   VideoMeetingRoomPhase,
-  VideoMeetingRuntimeConfig
+  VideoMeetingRuntimeConfig,
+  JITSI_KEEP_AWAKE_INTERVAL_MS
 } from "../../models/video-meeting.model";
 import { AlertPanelVariant } from "../../models/alert-panel.model";
-import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, GUEST_MEETING_TOKEN_PARAM, guestIdentityFromQuery, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, joinVideoMeetingAsGuest, memberMeetingQueryParams, nameFromEmailAddress, shouldPromptForGuestName, tokenUserFromJwt, usableMeetingDisplayName, videoMeetingPeople } from "../../functions/video-meeting-join";
+import { applyJitsiHostPageTheme, applyJitsiIframeAllow, displayNameFromToken, duplicateOccupantIdsToKick, GUEST_MEETING_TOKEN_PARAM, guestIdentityFromQuery, JITSI_VIDEO_TYPE_DESKTOP, jitsiEmbedConfigOverwrite, jitsiHostPageUrl, jitsiJoinMode, joinVideoMeetingAsGuest, memberMeetingQueryParams, nameFromEmailAddress, remoteScreenShareParticipant, shouldPromptForGuestName, tokenUserFromJwt, usableMeetingDisplayName, videoMeetingPeople } from "../../functions/video-meeting-join";
 import { createSameRoomDetector } from "../../functions/same-room-detector";
 import {
   activeMeetingRoom,
@@ -204,6 +205,16 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
       </header>
 
       <div class="meeting-body position-relative d-flex flex-column flex-grow-1">
+        @if (remoteShareActive && inMeeting) {
+          <div class="meeting-share-hint d-flex align-items-center justify-content-between gap-2 px-3 py-2">
+            <span>Someone is sharing their screen. Use Full screen so it fills your display.</span>
+            @if (!fullscreen) {
+              <button type="button" class="btn btn-primary text-nowrap" (click)="toggleFullscreen()">
+                <fa-icon [icon]="faExpand" class="me-2"/>Full screen
+              </button>
+            }
+          </div>
+        }
         @if (showPeople) {
           <div class="meeting-panel d-flex flex-column gap-2 p-3 bg-white text-dark rounded-3 shadow">
             <div class="d-flex align-items-center justify-content-between gap-2">
@@ -727,6 +738,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   private transcriptUploadBuffer: string[] = [];
   private transcriptUploadTimer: number | null = null;
   private transcriptPullTimer: number | null = null;
+  private keepAwakeTimer: number | null = null;
 
   protected readonly roomPhase = VideoMeetingRoomPhase;
   protected readonly minutesCollectionState = MeetingMinutesCollectionState;
@@ -913,6 +925,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     } else {
       this.permissionDenied = false;
       this.showConnecting("Connecting to your meeting…");
+      this.startKeepAwake();
       this.mountMeeting(this.token);
     }
   }
@@ -1288,6 +1301,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.disposeApi();
     this.phase = VideoMeetingRoomPhase.JOINING;
     this.showConnecting("Switching to no sound…");
+    this.startKeepAwake();
     this.mountMeeting(this.token);
   }
 
@@ -1771,6 +1785,10 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     return this.sharingParticipantIds.length > 0;
   }
 
+  get remoteShareActive(): boolean {
+    return !!remoteScreenShareParticipant(this.sharingParticipantIds, this.localParticipantId);
+  }
+
   private applyMeetingLayout(): void {
     const gallery = !this.shareActive() && (this.frameIsPortrait() || this.layout === VideoMeetingLayout.GALLERY);
     if (gallery !== this.appliedGallery) {
@@ -1781,11 +1799,11 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   }
 
   private pinSharedScreen(): void {
-    const sharer = this.sharingParticipantIds.find(participantId => participantId !== this.localParticipantId) || null;
+    const sharer = remoteScreenShareParticipant(this.sharingParticipantIds, this.localParticipantId) || null;
     if (sharer !== this.pinnedSharer) {
       this.pinnedSharer = sharer;
       if (sharer) {
-        this.jitsiCommand("setLargeVideoParticipant", sharer);
+        this.jitsiCommand("setLargeVideoParticipant", sharer, JITSI_VIDEO_TYPE_DESKTOP);
       } else {
         this.jitsiCommand("setLargeVideoParticipant");
       }
@@ -2173,6 +2191,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.showPeople = false;
     this.localIsModerator = false;
     this.recordingByModerator = false;
+    this.stopKeepAwake();
     const api = this.api;
     this.api = undefined;
     if (api) {
@@ -2190,6 +2209,26 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     if (this.jitsiContainer?.nativeElement) {
       this.jitsiContainer.nativeElement.replaceChildren();
     }
+  }
+
+  private startKeepAwake(): void {
+    if (!this.config?.publicHost && !this.keepAwakeTimer && this.room) {
+      this.keepJitsiAwake();
+      this.keepAwakeTimer = window.setInterval(() => this.keepJitsiAwake(), JITSI_KEEP_AWAKE_INTERVAL_MS);
+    }
+  }
+
+  private stopKeepAwake(): void {
+    if (this.keepAwakeTimer) {
+      window.clearInterval(this.keepAwakeTimer);
+      this.keepAwakeTimer = null;
+    }
+  }
+
+  private keepJitsiAwake(): void {
+    void this.videoMeetingsService.keepAwake(this.room).catch(error => {
+      this.logger.info("could not keep the meeting host awake", error);
+    });
   }
 
   private onPageHide = (): void => {

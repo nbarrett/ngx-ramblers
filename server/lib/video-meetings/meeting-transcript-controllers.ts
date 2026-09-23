@@ -6,7 +6,7 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { meetingTranscriptLine } from "../mongo/models/meeting-transcript";
 import { meetingNote } from "../mongo/models/meeting-note";
 import committeeFile from "../mongo/models/committee-file";
-import { dedupeIncomingLines, joinTranscriptLines, transcriptTimeSpan } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
+import { dedupeIncomingLines, joinTranscriptLines, speakerLabelledLines, transcriptTimeSpan } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
 import { videoMeetingTitleFromRoom } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-join";
 import { MEETING_MINUTES_TEMPLATE_ID, MeetingTranscriptLine } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 
@@ -22,14 +22,21 @@ export async function appendMeetingTranscript(req: Request, res: Response): Prom
     res.status(400).json({message: "room is required"});
   } else {
     try {
-      const previous = await meetingTranscriptLine.findOne({room, authorName}).sort({at: -1}).lean().exec();
-      const lines = dedupeIncomingLines(previous?.text || null, incoming);
-      if (lines.length) {
+      const previous = await meetingTranscriptLine.findOne({room}).sort({at: -1}).lean().exec();
+      const labelled = speakerLabelledLines(incoming.join("\n"), authorName, [], []);
+      const lines = dedupeIncomingLines(previous?.text || null, labelled.map(line => line.text));
+      const savedLines = labelled.filter(line => lines.includes(line.text));
+      if (savedLines.length) {
         const now = dateTimeNowAsValue();
-        await meetingTranscriptLine.insertMany(lines.map((text, index) => ({room, authorName, text, at: now + index})));
+        await meetingTranscriptLine.insertMany(savedLines.map((line, index) => ({
+          room,
+          authorName: line.authorName || authorName,
+          text: line.text,
+          at: now + index
+        })));
       }
-      debug("appendMeetingTranscript:", {room, authorName, received: incoming.length, saved: lines.length});
-      res.status(200).json({saved: lines.length});
+      debug("appendMeetingTranscript:", {room, authorName, received: incoming.length, saved: savedLines.length});
+      res.status(200).json({saved: savedLines.length});
     } catch (error) {
       debug("appendMeetingTranscript failed:", error);
       res.status(502).json({message: "Failed to append transcript", error: String(error)});

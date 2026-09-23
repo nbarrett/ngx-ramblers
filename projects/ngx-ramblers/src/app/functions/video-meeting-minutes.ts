@@ -1,6 +1,7 @@
 import { isNumber, isObject, isString } from "es-toolkit/compat";
 import { toBritishEnglish } from "./british-english";
 import { siteLocale } from "../models/locale.model";
+import { namesForTranscribePrompt, shortSpeakerName, speakerAttendees } from "./meeting-speaker-names";
 
 export const AI_MEETING_NOTE_AUTHOR = "Minutes";
 
@@ -14,22 +15,29 @@ export const MEETING_TRANSCRIBE_PROMPT = [
 ].join(" ");
 
 export function meetingTranscribePrompt(recorderName: string, participants: string[], speakers: string[] = []): string {
-  const recorder = (recorderName || "").trim();
-  const others = (participants || [])
-    .map(name => (name || "").trim())
-    .filter(name => !!name && name.toLowerCase() !== recorder.toLowerCase())
-    .filter((name, index, names) => names.findIndex(candidate => candidate.toLowerCase() === name.toLowerCase()) === index);
-  const known = [recorder, ...others].filter(name => !!name);
-  const heard = (speakers || []).map(name => (name || "").trim()).filter(name => !!name);
-  const heardGuidance = heard.length
-    ? [`The meeting software detected these people speaking during this clip, the one who spoke most first: ${heard.join(", ")}. Prefer those names when deciding who said each line.`]
-    : [];
+  const recorder = shortSpeakerName((recorderName || "").trim(), speakerAttendees([recorderName, ...(participants || [])]));
+  const known = namesForTranscribePrompt([recorderName, ...(participants || [])].filter(name => !!(name || "").trim()));
+  const heard = namesForTranscribePrompt(speakers);
+  const heardOther = heard.filter(name => name.toLowerCase() !== recorder.toLowerCase());
+  const exampleName = heardOther[0] || known.find(name => name.toLowerCase() !== recorder.toLowerCase()) || recorder || "Rachel";
+  const heardGuidance = heard.length === 1 && (heardOther.length > 0 || known.length <= 1)
+    ? [`The meeting software detected only ${heard[0]} speaking in this clip. Label every line with ${heard[0]}.`]
+    : heard.length > 1
+      ? [`The meeting software detected these people speaking during this clip, the one who spoke most first: ${heard.join(", ")}. Prefer those names when deciding who said each line.`]
+      : [];
+  const recorderGuidance = heardOther.length
+    ? [`This audio was recorded on the device of ${recorder || "the host"}, but other people were speaking. Do not label their words as ${recorder || "the host"}.`]
+    : known.length > 1
+      ? [`This audio was recorded on the device of ${recorder || "the host"}. Other voices may be quieter because they arrive through the speakers. Still label each speaker correctly, and never put every line under ${recorder || "the host"} if more than one person spoke.`]
+      : recorder
+        ? [`This audio was recorded on the device of ${recorder}.`]
+        : [];
   const speakerGuidance = known.length
     ? [
-      `This audio was recorded on the device of ${recorder || "the host"}, so the loudest, closest voice is ${recorder || "the host"}; other voices arrive through the speakers and sound more distant.`,
-      `The people in the meeting are: ${known.join(", ")}.`,
+      ...recorderGuidance,
+      `The people in the meeting are: ${known.join(", ")}. Use these first names when they are unique.`,
       ...heardGuidance,
-      "Start every utterance on its own line, prefixed with the speaker's name from that list and a colon, for example \"Rachel: I can hear you now.\".",
+      `Start every utterance on its own line, prefixed with the speaker's name from that list and a colon, for example "${exampleName}: I can hear you now.".`,
       "When a voice clearly belongs to nobody on the list, label it Unknown. Never attribute one person's words to another."
     ]
     : [

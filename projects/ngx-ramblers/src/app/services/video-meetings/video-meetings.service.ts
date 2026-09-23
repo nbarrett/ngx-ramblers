@@ -44,6 +44,14 @@ export class VideoMeetingsService {
     return response?.token;
   }
 
+  async keepAwake(room: string): Promise<void> {
+    if (room) {
+      await firstValueFrom(this.http.post(`${this.apiUrl}/keep-awake`, {room}));
+    } else {
+      return Promise.resolve();
+    }
+  }
+
   async notesForRoom(room: string): Promise<MeetingNote[]> {
     const response = await firstValueFrom(this.http.get<{ response: MeetingNote[] }>(`${this.notesUrl}/room/${encodeURIComponent(room)}`));
     return response?.response || [];
