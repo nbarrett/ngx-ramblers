@@ -9,6 +9,7 @@ export enum AppPath {
 
 export const APP_NEARBY_MILES = 25;
 export const APP_NEARBY_MILES_MAX = 50;
+export const APP_NEARBY_GPS_TRUST_MILES = 100;
 
 export enum RouteWaypointKind {
   START = "start",

@@ -1,0 +1,69 @@
+:host
+  display: block
+  pointer-events: none
+
+.pull-to-refresh
+  position: fixed
+  top: 0
+  left: 0
+  right: 0
+  z-index: 5000
+  display: flex
+  align-items: flex-end
+  justify-content: center
+  overflow: hidden
+  height: 0
+  padding-top: env(safe-area-inset-top, 0px)
+  color: #3a3a3c
+  opacity: 0
+
+.pull-to-refresh-visible
+  opacity: 1
+
+.pull-sunburst
+  position: relative
+  width: 28px
+  height: 28px
+  margin-bottom: 10px
+  transform-origin: center
+
+.pull-sunburst-tick
+  position: absolute
+  left: 50%
+  top: 0
+  width: 2.5px
+  height: 8px
+  margin-left: -1.25px
+  border-radius: 1px
+  background: currentColor
+  transform-origin: center 14px
+  opacity: 0.18
+
+.pull-sunburst-tick:nth-child(1)
+  opacity: 1
+.pull-sunburst-tick:nth-child(2)
+  opacity: 0.85
+.pull-sunburst-tick:nth-child(3)
+  opacity: 0.7
+.pull-sunburst-tick:nth-child(4)
+  opacity: 0.55
+.pull-sunburst-tick:nth-child(5)
+  opacity: 0.4
+.pull-sunburst-tick:nth-child(6)
+  opacity: 0.28
+
+.pull-sunburst-busy
+  animation: pull-sunburst-spin 0.75s linear infinite
+
+@keyframes pull-sunburst-spin
+  from
+    transform: rotate(0deg)
+  to
+    transform: rotate(360deg)
+
+@media (prefers-color-scheme: dark)
+  :host-context(body:not(.app-appearance-light)) .pull-to-refresh
+    color: #d1d1d6
+
+:host-context(body.app-appearance-dark) .pull-to-refresh
+  color: #d1d1d6

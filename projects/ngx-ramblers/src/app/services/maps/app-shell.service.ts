@@ -141,6 +141,13 @@ export class AppShellService {
     return !!this.installPrompt;
   }
 
+  applyHomeScreenIdentity(shortName: string): void {
+    const name = shortName || "Ramblers";
+    this.setMetaContent("application-name", name);
+    this.setMetaContent("apple-mobile-web-app-title", name);
+    void this.replaceManifestNames(name);
+  }
+
   appearance(): AppAppearance {
     return this.appearanceSubject.value;
   }
@@ -160,11 +167,16 @@ export class AppShellService {
     this.setAppearance(nextAppAppearance(this.appearance(), systemIsDark));
   }
 
-  async promptInstall(): Promise<void> {
+  async promptInstall(): Promise<string> {
     if (this.installPrompt) {
-      await this.installPrompt.prompt();
+      const promptEvent = this.installPrompt;
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
       this.installPrompt = null;
       this.installAvailableSubject.next(false);
+      return choice?.outcome || null;
+    } else {
+      return null;
     }
   }
 
@@ -178,6 +190,33 @@ export class AppShellService {
     } catch (error) {
       this.logger.warn("could not read stored app appearance", error);
       return appAppearanceFromStored(null);
+    }
+  }
+
+  private setMetaContent(name: string, content: string): void {
+    const element = this.document.querySelector(`meta[name="${name}"]`);
+    if (element) {
+      element.setAttribute("content", content);
+    }
+  }
+
+  private async replaceManifestNames(name: string): Promise<void> {
+    const view = this.document.defaultView;
+    if (!view) {
+      return;
+    } else {
+      try {
+        const response = await view.fetch("/manifest.webmanifest", {cache: "no-store"});
+        const manifest = await response.json();
+        const next = {...manifest, name, short_name: name};
+        const url = URL.createObjectURL(new Blob([JSON.stringify(next)], {type: "application/manifest+json"}));
+        const link = this.document.querySelector("link[rel=\"manifest\"]");
+        if (link) {
+          link.setAttribute("href", url);
+        }
+      } catch (error) {
+        this.logger.warn("could not update home screen name", error);
+      }
     }
   }
 

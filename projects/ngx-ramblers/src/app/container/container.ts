@@ -12,6 +12,7 @@ import { CanonicalLinkService } from "../services/canonical-link.service";
 import { AppShellService } from "../services/maps/app-shell.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
+import { PullToRefreshComponent } from "../modules/common/pull-to-refresh/pull-to-refresh";
 import { RouterHistoryService } from "../services/router-history.service";
 import { Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -24,6 +25,8 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 @Component({
     selector: "app-root",
     template: `
+    <app-pull-to-refresh/>
+    <div class="app-page-shift">
     @if (!appShellActive) {
       @if (config?.header?.headerBar?.show) {
         <app-header-bar/>
@@ -54,9 +57,10 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
     @if (!appShellActive) {
       <app-footer/>
     }
+    </div>
     `,
     styleUrls: ["./container.sass"],
-    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, FontAwesomeModule, TooltipModule]
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, PullToRefreshComponent, FontAwesomeModule, TooltipModule]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   private routerHistory = inject(RouterHistoryService);
@@ -137,6 +141,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
+        this.appShell.applyHomeScreenIdentity(config?.group?.shortName || config?.group?.longName);
       }));
   }
 

@@ -9,6 +9,32 @@
   <meta name="application-name" content="NGX Ramblers">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Ramblers">
+  <script>
+    (function () {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/api/database/config?key=system", false);
+        xhr.send(null);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          var payload = JSON.parse(xhr.responseText);
+          var doc = payload.response || payload;
+          var group = (doc && (doc.group || (doc.value && doc.value.group))) || {};
+          var name = group.shortName || group.longName;
+          if (name) {
+            var title = document.querySelector("meta[name=\"apple-mobile-web-app-title\"]");
+            var appName = document.querySelector("meta[name=\"application-name\"]");
+            if (title) {
+              title.setAttribute("content", name);
+            }
+            if (appName) {
+              appName.setAttribute("content", name);
+            }
+          }
+        }
+      } catch (error) {
+      }
+    })();
+  </script>
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="format-detection" content="telephone=no">
