@@ -11,7 +11,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { CustomDomainEntry, CustomDomainStatus } from "../../../models/environment-config.model";
+import { CustomDomainEntry, CustomDomainStatus, SiteUrlPreference } from "../../../models/environment-config.model";
 import {
   CustomDomainEligibility,
   ENVIRONMENT_SUBDOMAIN_BASE,
@@ -25,6 +25,7 @@ import { SortDirection } from "../../../models/sort.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { StoredValue } from "../../../models/ui-actions";
 import {
+  apexHost,
   firstGroupOwnedApex,
   hostnameMayHaveWwwCompanion,
   suggestedCustomDomainHostname
@@ -101,8 +102,33 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
                  [(ngModel)]="alsoAttachWww"
                  [disabled]="operationBusy || customDomainBusy">
           <label class="form-check-label small" for="alsoAttachWww">
-            Also attach the <code>www.</code> variant so both apex and www serve the site
+            Also attach the <code>www.</code> variant so both names work
           </label>
+        </div>
+      }
+      @if (shouldShowAlsoAttachWwwOption()) {
+        <div class="mt-2">
+          <div class="small fw-bold mb-1">Visitors should see</div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" id="siteUrlApex" name="siteUrlPreference"
+                   [value]="SiteUrlPreference.APEX"
+                   [(ngModel)]="siteUrlPreference"
+                   [disabled]="operationBusy || customDomainBusy">
+            <label class="form-check-label small" for="siteUrlApex">
+              <code>https://{{ attachApexHostname() }}</code>
+              (www redirects here)
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" id="siteUrlWww" name="siteUrlPreference"
+                   [value]="SiteUrlPreference.WWW"
+                   [(ngModel)]="siteUrlPreference"
+                   [disabled]="operationBusy || customDomainBusy">
+            <label class="form-check-label small" for="siteUrlWww">
+              <code>https://www.{{ attachApexHostname() }}</code>
+              (apex redirects here)
+            </label>
+          </div>
         </div>
       }
       @if (customDomainEligibilityConfirming && customDomainEligibility) {
@@ -190,29 +216,43 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
     <div class="hostname-part mt-4 pt-3 border-top">
       <div class="fw-bold">Apex / www redirect</div>
       <p class="small text-muted mb-2">
-        Only after a custom domain is attached, and only to create a new redirect from the unused half
-        of a pair (bare apex vs <code>www.</code>) to the host that already serves the site.
-        If a row above already says <strong>Redirect not live</strong>, use <strong>Repair redirect</strong>
-        on that row rather than this form.
+        Choose which address visitors should see. The other name redirects there.
+        Default for a new attach is the apex (no www).
         @if (!canSetupApexRedirect()) {
           Available after a custom domain is attached.
         }
       </p>
-      <div class="d-flex gap-2 align-items-start flex-wrap">
-        <input type="text" class="form-control" style="max-width: 320px;"
-               [placeholder]="'Serving host e.g. ' + (suggestedCustomDomain() || customDomainExample())"
-               [(ngModel)]="apexRedirectHostname"
-               [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !canSetupApexRedirect()">
-        <button class="btn btn-primary" (click)="setupApexRedirect()"
-                [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !apexRedirectHostname || !canSetupApexRedirect()">
-          @if (apexRedirectBusy) {
-            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
-          } @else {
-            <fa-icon [icon]="faGlobe" class="me-1"></fa-icon>
-          }
-          Set up redirect
-        </button>
-      </div>
+      @if (switchableSiteHostPair(); as pair) {
+        <div class="d-flex gap-2 align-items-start flex-wrap mb-2">
+          <button type="button" class="btn btn-primary" (click)="setupApexRedirect(pair.apex)"
+                  [disabled]="operationBusy || customDomainBusy || apexRedirectBusy">
+            @if (apexRedirectBusy) {
+              <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+            }
+            Use {{ pair.apex }}
+          </button>
+          <button type="button" class="btn btn-quiet" (click)="setupApexRedirect(pair.www)"
+                  [disabled]="operationBusy || customDomainBusy || apexRedirectBusy">
+            Use {{ pair.www }}
+          </button>
+        </div>
+      } @else {
+        <div class="d-flex gap-2 align-items-start flex-wrap">
+          <input type="text" class="form-control" style="max-width: 320px;"
+                 [placeholder]="'Serving host e.g. ' + (suggestedCustomDomain() || customDomainExample())"
+                 [(ngModel)]="apexRedirectHostname"
+                 [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !canSetupApexRedirect()">
+          <button class="btn btn-primary" (click)="setupApexRedirect()"
+                  [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !apexRedirectHostname || !canSetupApexRedirect()">
+            @if (apexRedirectBusy) {
+              <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+            } @else {
+              <fa-icon [icon]="faGlobe" class="me-1"></fa-icon>
+            }
+            Set up redirect
+          </button>
+        </div>
+      }
       @if (apexRedirectError) {
         <p class="small text-danger mt-2 mb-0">{{ apexRedirectError }}</p>
       }
@@ -249,6 +289,8 @@ export class EnvironmentCustomDomains implements OnChanges {
   removingDomainHostname: string | null = null;
   checkingDomainHostname: string | null = null;
   alsoAttachWww = true;
+  siteUrlPreference: SiteUrlPreference = SiteUrlPreference.APEX;
+  protected readonly SiteUrlPreference = SiteUrlPreference;
   apexRedirectHostname = "";
   apexRedirectBusy = false;
   apexRedirectError: string | null = null;
@@ -352,6 +394,23 @@ export class EnvironmentCustomDomains implements OnChanges {
 
   shouldShowAlsoAttachWwwOption(): boolean {
     return hostnameMayHaveWwwCompanion(this.normaliseHostname(this.customDomainHostname));
+  }
+
+  attachApexHostname(): string {
+    return apexHost(this.normaliseHostname(this.customDomainHostname));
+  }
+
+  switchableSiteHostPair(): {apex: string; www: string} | null {
+    const hosts = [
+      ...this.customDomains().map(domain => domain.hostname),
+      ...this.hostnameStatuses().map(status => status.hostname)
+    ];
+    const apex = hosts.map(host => apexHost(host)).find(host => !!host && hosts.includes(host) && hosts.includes(`www.${host}`));
+    if (apex) {
+      return {apex, www: `www.${apex}`};
+    } else {
+      return null;
+    }
   }
 
   onCustomDomainSortChange(sortState: SortableTableSortState): void {
@@ -590,7 +649,7 @@ export class EnvironmentCustomDomains implements OnChanges {
           if (target !== hostname) {
             this.customDomainMessages.push(`Attaching companion domain: ${target}`);
           }
-          const response = await this.environmentSetupService.addCustomDomain(this.environment.name, target);
+          const response = await this.environmentSetupService.addCustomDomain(this.environment.name, target, this.siteUrlPreference);
           if (response.success) {
             this.appendLogs(response.logs, response.message || `Custom domain ${response.hostname} attached`);
           } else {

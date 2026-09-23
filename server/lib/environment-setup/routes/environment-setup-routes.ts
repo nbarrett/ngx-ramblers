@@ -890,7 +890,7 @@ router.post("/add-custom-domain/:environmentName", async (req: Request, res: Res
 
   try {
     const { environmentName } = req.params;
-    const { hostname } = req.body || {};
+    const { hostname, siteUrlPreference } = req.body || {};
     debugLog("Add custom domain request received for:", environmentName, hostname);
 
     if (!hostname) {
@@ -899,7 +899,7 @@ router.post("/add-custom-domain/:environmentName", async (req: Request, res: Res
     }
 
     await loadEnvironmentContext(environmentName);
-    const result = await addCustomDomainForEnvironment(environmentName, hostname);
+    const result = await addCustomDomainForEnvironment(environmentName, hostname, { siteUrlPreference });
     const pendingMessage = result.entry?.message;
 
     res.json({
@@ -1004,9 +1004,7 @@ router.post("/setup-apex-redirect/:environmentName", async (req: Request, res: R
 
     res.json({
       success: true,
-      message: result.redirectCreated
-        ? `Redirect ${result.redirectFrom} -> ${result.primaryHostname} configured`
-        : `No redirect needed: ${result.redirectFrom} is attached as its own domain`,
+      message: `Visitors will see https://${result.primaryHostname}; ${result.redirectFrom} redirects there`,
       primaryHostname: result.primaryHostname,
       redirectFrom: result.redirectFrom,
       logs: result.logs

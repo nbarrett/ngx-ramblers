@@ -7,7 +7,8 @@ import {
   customDomainEligibilityFromLookup,
   validateRedirectTargets
 } from "./hostname-health";
-import { apexWwwSibling } from "../cloudflare/hostname-siblings";
+import { apexWwwSibling, publicHostnameForSiteUrlPreference } from "../cloudflare/hostname-siblings";
+import { SiteUrlPreference } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import {
   DnsProvider,
   HostnameHealth,
@@ -239,6 +240,13 @@ describe("hostname-health", () => {
     it("should not pair a subdomain with a www variant of itself", () => {
       expect(apexWwwSibling("group.example.org.uk", zone)).toEqual("");
       expect(apexWwwSibling("www.group.example.org.uk", zone)).toEqual("");
+    });
+  });
+
+  describe("publicHostnameForSiteUrlPreference", () => {
+    it("defaults visitors to the apex", () => {
+      expect(publicHostnameForSiteUrlPreference("fhramblers.org.uk", SiteUrlPreference.APEX)).toEqual("fhramblers.org.uk");
+      expect(publicHostnameForSiteUrlPreference("fhramblers.org.uk", SiteUrlPreference.WWW)).toEqual("www.fhramblers.org.uk");
     });
   });
 
