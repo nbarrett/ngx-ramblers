@@ -107,4 +107,45 @@ describe("ContentMetadataService", () => {
     expect(await secondRequest).toEqual([{...summary, files: []}]);
     expect(notifications).toEqual([]);
   });
+  describe("loadAlbumInStages", () => {
+    const files = (count: number) => Array.from({length: count}, (_, index) => ({image: `image-${index}.jpeg`, text: `image ${index}`}));
+    const settle = () => new Promise(resolve => setTimeout(resolve));
+
+    it("shows the first slides straight away and then provides the whole album", async () => {
+      const service = TestBed.inject(ContentMetadataService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const stages: string[] = [];
+      const finished = service.loadAlbumInStages("images-home",
+        (contentMetadata, complete) => stages.push(`first ${contentMetadata.files.length} complete:${complete}`),
+        contentMetadata => stages.push(`all ${contentMetadata.files.length}`));
+
+      const firstRequest = httpTesting.expectOne(request => request.url === "api/database/content-metadata" && request.params.has("select"));
+      expect(firstRequest.request.params.get("select")).toEqual(JSON.stringify({files: {$slice: 20}}));
+      firstRequest.flush({response: {name: "images-home", rootFolder: RootFolder.carousels, files: files(20), imageTags: []}});
+      await settle();
+
+      const fullRequest = httpTesting.expectOne(request => request.url === "api/database/content-metadata" && !request.params.has("select"));
+      fullRequest.flush({response: {name: "images-home", rootFolder: RootFolder.carousels, files: files(889), imageTags: []}});
+      await finished;
+
+      expect(stages).toEqual(["first 20 complete:false", "all 889"]);
+      expect(httpTesting.match(request => request.url === "api/database/content-metadata")).toEqual([]);
+    });
+
+    it("makes one request when the album is smaller than the first batch", async () => {
+      const service = TestBed.inject(ContentMetadataService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const stages: string[] = [];
+      const finished = service.loadAlbumInStages("small-album",
+        (contentMetadata, complete) => stages.push(`first ${contentMetadata.files.length} complete:${complete}`),
+        contentMetadata => stages.push(`all ${contentMetadata.files.length}`));
+
+      httpTesting.expectOne(request => request.url === "api/database/content-metadata" && request.params.has("select"))
+        .flush({response: {name: "small-album", rootFolder: RootFolder.carousels, files: files(7), imageTags: []}});
+      await finished;
+
+      expect(stages).toEqual(["first 7 complete:true"]);
+      expect(httpTesting.match(request => request.url === "api/database/content-metadata")).toEqual([]);
+    });
+  });
 });

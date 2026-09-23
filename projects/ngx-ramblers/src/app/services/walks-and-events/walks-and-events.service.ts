@@ -84,6 +84,10 @@ export class WalksAndEventsService {
     return this.localWalksAndEventsService.queryById(walkId);
   }
 
+  async queryByIds(eventIds: string[], select: Record<string, number>): Promise<Map<string, ExtendedGroupEvent>> {
+    return this.localWalksAndEventsService.queryByIds(eventIds, select);
+  }
+
   async updateMany(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     this.logger.info("updateMany called with dataQueryOptions:", dataQueryOptions);
     try {

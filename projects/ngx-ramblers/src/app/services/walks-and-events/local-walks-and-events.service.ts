@@ -96,6 +96,15 @@ export class LocalWalksAndEventsService {
     return extendedGroupEvent;
   }
 
+  async queryByIds(eventIds: string[], select: Record<string, number>): Promise<Map<string, ExtendedGroupEvent>> {
+    const results = await this.all({ids: eventIds, inputSource: null, suppressEventLinking: true, dataQueryOptions: {select}});
+    return new Map(eventIds.map(eventId => [eventId, this.bestMatchFrom(results.filter(result => this.identifiedBy(result, eventId)), eventId)]));
+  }
+
+  private identifiedBy(extendedGroupEvent: ExtendedGroupEvent, eventId: string): boolean {
+    return [extendedGroupEvent?.id, extendedGroupEvent?.groupEvent?.id, extendedGroupEvent?.fields?.migratedFromId].includes(eventId);
+  }
+
   private bestMatchFrom(results: ExtendedGroupEvent[], slug: string): ExtendedGroupEvent {
     if (!results?.length) {
       return null;

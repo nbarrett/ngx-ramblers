@@ -217,10 +217,9 @@ export class AlbumComponent implements OnInit {
     this.initFromUrlParams();
     this.initialised = true;
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
-    this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
-      .then(contentMetadata => {
-        this.applyContentMetadata(contentMetadata);
-      });
+    this.contentMetadataService.loadAlbumInStages(this.album?.name,
+      (contentMetadata, complete) => this.applyContentMetadata(contentMetadata, complete),
+      contentMetadata => this.extendContentMetadata(contentMetadata));
 
     this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.album?.name, metadataResponses);
@@ -238,14 +237,28 @@ export class AlbumComponent implements OnInit {
     });
   }
 
-  private applyContentMetadata(contentMetadata: ContentMetadata) {
+  private applyContentMetadata(contentMetadata: ContentMetadata, complete = true) {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
     this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
     const slideCount = this.albumView === AlbumView.GRID ? this.lazyLoadingMetadata?.contentMetadata?.files?.length : 10;
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, slideCount);
-    this.noImages = !contentMetadata || !contentMetadata.files || contentMetadata.files.length === 0;
+    if (complete) {
+      this.noImages = !contentMetadata?.files?.length;
+    }
     this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
     this.logger.info("initialised with", slideCount, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
+  }
+
+  private extendContentMetadata(contentMetadata: ContentMetadata) {
+    this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
+    this.lazyLoadingMetadataService.replaceContentMetadata(this.lazyLoadingMetadata, contentMetadata, this.duplicateImages, ALL_PHOTOS);
+    const unshownSlides = this.lazyLoadingMetadata.availableSlides.length - this.lazyLoadingMetadata.selectedSlides.length;
+    if (this.albumView === AlbumView.GRID && unshownSlides > 0) {
+      this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, unshownSlides, "grid shows every image");
+    }
+    this.noImages = !contentMetadata?.files?.length;
+    this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
+    this.logger.info("extended with", contentMetadata?.files?.length, "slides in total");
   }
 
   switchToView(albumView: AlbumView) {
