@@ -122,11 +122,15 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   @Input() startingPoint: { latitude: number; longitude: number } | null = null;
   @Input() set initialVenue(venue: Partial<VenueWithUsageStats> | null) {
     if (venue?.name) {
+      this.applyingInitial = true;
       this.selectedVenue = {
         ...venue,
         usageCount: venue.usageCount || 0,
         type: venue.type || this.venueService.inferVenueType(venue.name)
       } as VenueWithDistance;
+      setTimeout(() => {
+        this.applyingInitial = false;
+      }, 0);
     }
   }
   @Output() venueSelected = new EventEmitter<VenueWithUsageStats>();
@@ -135,6 +139,7 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   venueSuggestions$!: Observable<VenueWithDistance[]>;
   venueLoading = false;
   selectedVenue: VenueWithDistance | null = null;
+  private applyingInitial = false;
 
   ngOnInit() {
     this.setupVenueSearch();
@@ -161,31 +166,59 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
               storedResults = this.venueService.searchVenues(term);
             }
             const sortedStored = this.sortByProximity(storedResults).slice(0, 15);
-
-            if (sortedStored.length >= 3 || !term || term.length < 3) {
+            const ukPostcodeRegex = /^[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}$/i;
+            if (term && ukPostcodeRegex.test(term.trim())) {
+              return from(this.addressQueryService.gridReferenceLookup(term)).pipe(
+                map(response => {
+                  const fromPostcode = this.venueFromPostcodeLookup(response, term);
+                  return fromPostcode ? [fromPostcode, ...sortedStored] : sortedStored;
+                }),
+                catchError(() => of(sortedStored))
+              );
+            } else if (sortedStored.length >= 3 || !term || term.length < 3) {
               return of(sortedStored);
+            } else {
+              const lat = this.startingPoint?.latitude;
+              const lon = this.startingPoint?.longitude;
+              return from(this.addressQueryService.venueSearch(term, lat, lon)).pipe(
+                map(googleResults => {
+                  const googleVenues = googleResults.map(r => this.mapGoogleResultToVenue(r));
+                  const deduplicatedGoogle = this.removeDuplicates(googleVenues, sortedStored);
+                  const combinedResults = [...sortedStored, ...this.sortByProximity(deduplicatedGoogle).slice(0, 10)];
+                  return combinedResults;
+                }),
+                catchError(err => {
+                  this.logger.error("Google Places search failed:", err);
+                  return of(sortedStored);
+                })
+              );
             }
-
-            const lat = this.startingPoint?.latitude;
-            const lon = this.startingPoint?.longitude;
-            return from(this.addressQueryService.venueSearch(term, lat, lon)).pipe(
-              map(googleResults => {
-                const googleVenues = googleResults.map(r => this.mapGoogleResultToVenue(r));
-                const deduplicatedGoogle = this.removeDuplicates(googleVenues, sortedStored);
-                const combinedResults = [...sortedStored, ...this.sortByProximity(deduplicatedGoogle).slice(0, 10)];
-                return combinedResults;
-              }),
-              catchError(err => {
-                this.logger.error("Google Places search failed:", err);
-                return of(sortedStored);
-              })
-            );
           }),
           tap(results => this.logger.info(`Venue search returned ${results.length} results`)),
           tap(() => this.venueLoading = false)
         );
       })
     );
+  }
+
+  private venueFromPostcodeLookup(response: { description?: string; postcode?: string; latlng?: { lat: number; lng: number }; error?: string }, term: string): VenueWithDistance | null {
+    if (response?.error || !response?.latlng) {
+      return null;
+    } else {
+      return {
+        name: response.description || term.toUpperCase(),
+        address1: null,
+        address2: null,
+        postcode: response.postcode || term.toUpperCase(),
+        lat: response.latlng.lat,
+        lon: response.latlng.lng,
+        url: null,
+        type: VenueTypeValue.LOCATION,
+        usageCount: 0,
+        source: VenueSource.STORED,
+        distance: this.calculateDistanceFromLatLon(response.latlng.lat, response.latlng.lng)
+      } as VenueWithDistance;
+    }
   }
 
   private mapGoogleResultToVenue(result: any): VenueWithDistance {
@@ -274,11 +307,10 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   }
 
   onVenueSelected(venue: VenueWithUsageStats | null) {
-    if (!venue) {
-      return;
+    if (venue && !this.applyingInitial) {
+      this.logger.info("Venue selected:", venue);
+      this.venueSelected.emit(venue);
     }
-    this.logger.info("Venue selected:", venue);
-    this.venueSelected.emit(venue);
   }
 
   clear() {

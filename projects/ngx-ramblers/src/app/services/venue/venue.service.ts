@@ -169,14 +169,14 @@ export class VenueService {
       event.fields.venue = {
         postcode: locationSource?.postcode || null,
         isMeetingPlace: false,
-        venuePublish: options.defaultVenuePublish ?? false
+        venuePublish: options.defaultVenuePublish ?? true
       };
     } else {
       if (isUndefined(event.fields.venue.isMeetingPlace)) {
         event.fields.venue.isMeetingPlace = false;
       }
       if (isUndefined(event.fields.venue.venuePublish)) {
-        event.fields.venue.venuePublish = options.defaultVenuePublish ?? false;
+        event.fields.venue.venuePublish = options.defaultVenuePublish ?? true;
       }
     }
     if (source === VenueLocationSource.LOCATION && locationSource) {

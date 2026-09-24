@@ -11,7 +11,7 @@ import { EventAscentEdit } from "./event-ascent-edit.component";
 import { Difficulty, LocationDetails } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
-import { cloneDeep, isString, values } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isNumber, isString, values } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { enumValueForKey } from "../../../functions/enums";
 import { JsonPipe } from "@angular/common";
@@ -27,6 +27,8 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
+import { VenueService } from "../../../services/venue/venue.service";
+import { VenueWithUsageStats } from "../../../models/event-venue.model";
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType, MapProvider } from "../../../models/map.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -48,6 +50,7 @@ import { firstValueFrom } from "rxjs";
 import { FileNameData } from "../../../models/aws-object.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPencil, faRightLeft, faTableColumns, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { LatLng } from "leaflet";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -144,14 +147,17 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                                           [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
                                           [disabled]="syncDisabled"
                                           [showLocationOnly]="true"
-                                          [notify]="notify"/>
+                                          [notify]="notify"
+                                          (locationDetailsChange)="onLocationDetailsChange(LocationType.STARTING, $event)"
+                                          (placeChosen)="onStartPlaceChosen($event)"/>
                 </div>
                 <div class="col-sm-6 mb-4">
                   <app-walk-location-edit [locationType]="LocationType.FINISHING"
                                           [locationDetails]="displayedWalk?.walk?.groupEvent.end_location"
                                           [disabled]="syncDisabled"
                                           [showLocationOnly]="true"
-                                          [notify]="notify"/>
+                                          [notify]="notify"
+                                          (locationDetailsChange)="onLocationDetailsChange(LocationType.FINISHING, $event)"/>
                 </div>
               } @else {
                 <div class="col-sm-12 mb-4">
@@ -159,7 +165,9 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                                           [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
                                           [disabled]="syncDisabled"
                                           [showLocationOnly]="true"
-                                          [notify]="notify"/>
+                                          [notify]="notify"
+                                          (locationDetailsChange)="onLocationDetailsChange(LocationType.STARTING, $event)"
+                                          (placeChosen)="onStartPlaceChosen($event)"/>
                 </div>
               }
             }
@@ -274,11 +282,12 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                                           [disabled]="syncDisabled"
                                           [notify]="notify"/>
                 </div>
-                @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !showCombinedMap) {
+                @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
                   <div class="col">
                     <app-walk-location-edit [locationType]="LocationType.FINISHING"
                                             [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                                             [hideLocationDropdown]="true"
+                                            [hideMap]="showCombinedMap"
                                             [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
                                             [routeColor]="displayedWalk?.walk?.fields?.routeColor"
                                             [routeWeight]="displayedWalk?.walk?.fields?.routeWeight"
@@ -323,7 +332,8 @@ import { faCircleExclamation, faCloudArrowUp, faDiamondTurnRight, faMap, faPenci
                                               [locationDetails]="displayedWalk?.walk?.groupEvent?.meeting_location"
                                               [disabled]="inputDisabled"
                                               [showLocationOnly]="true"
-                                              [notify]="notify"/>
+                                              [notify]="notify"
+                                              (locationDetailsChange)="onLocationDetailsChange(LocationType.MEETING, $event)"/>
                     </div>
                   </div>
                 </div>
@@ -449,6 +459,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   private dateUtils = inject(DateUtilsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private addressQueryService = inject(AddressQueryService);
+  private venueService = inject(VenueService);
   private gpxProposalsService = inject(GpxProposalsService);
   private routeTurns = inject(RouteTurnsService);
   private urlService = inject(UrlService);
@@ -637,6 +648,38 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     this.walkLocationEditComponents?.forEach(component => {
       component.invalidateMapSize();
     });
+  }
+
+  onLocationDetailsChange(locationType: LocationType, details: LocationDetails) {
+    if (locationType === LocationType.FINISHING || locationType === LocationType.END) {
+      this.displayedWalk.walk.groupEvent.end_location = details;
+    } else if (locationType === LocationType.MEETING) {
+      this.displayedWalk.walk.groupEvent.meeting_location = details;
+    } else {
+      this.displayedWalk.walk.groupEvent.start_location = details;
+      this.reloadGpxFilesForStartLocation();
+    }
+  }
+
+  onStartPlaceChosen(place: VenueWithUsageStats) {
+    this.venueService.ensureVenue(this.displayedWalk.walk);
+    const venue = this.displayedWalk.walk.fields.venue;
+    if (isEmpty(venue?.name) && place) {
+      venue.name = place.name;
+      venue.address1 = place.address1;
+      venue.address2 = place.address2;
+      venue.postcode = place.postcode;
+      venue.url = place.url;
+      venue.lat = place.lat;
+      venue.lon = place.lon;
+      venue.type = place.type;
+      venue.storedVenueId = place.storedVenueId;
+      venue.venuePublish = true;
+      this.notify?.success({
+        title: "Venue set from the start",
+        message: `${place.name || place.postcode} is now the venue as well as the walk start`
+      });
+    }
   }
 
   private initialiseSelectedGpxFile() {
@@ -1057,64 +1100,72 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
 
   async onVenuePostcodeChange(postcode: string) {
     this.logger.info("onVenuePostcodeChange: applying venue postcode to starting point:", postcode);
-    const venueName = this.displayedWalk?.walk?.fields?.venue?.name?.trim() || "";
-    const startLocation = this.displayedWalk?.walk?.groupEvent?.start_location;
-    if (!startLocation) {
+    const venue = this.displayedWalk?.walk?.fields?.venue;
+    const venueName = venue?.name?.trim() || "";
+    const trimmedPostcode = postcode?.toUpperCase()?.trim();
+    const hasVenueCoords = isNumber(venue?.lat) && isNumber(venue?.lon);
+    if (!this.displayedWalk.walk.groupEvent.start_location) {
       this.displayedWalk.walk.groupEvent.start_location = {
-        latitude: null,
-        longitude: null,
+        latitude: hasVenueCoords ? venue.lat : null,
+        longitude: hasVenueCoords ? venue.lon : null,
         grid_reference_6: null,
         grid_reference_8: null,
         grid_reference_10: null,
-        postcode: postcode?.toUpperCase()?.trim(),
+        postcode: trimmedPostcode,
         description: venueName || null,
         w3w: null
       };
     } else {
-      startLocation.postcode = postcode?.toUpperCase()?.trim();
-      startLocation.latitude = null;
-      startLocation.longitude = null;
+      const startLocation = this.displayedWalk.walk.groupEvent.start_location;
+      startLocation.postcode = trimmedPostcode;
       startLocation.grid_reference_6 = null;
       startLocation.grid_reference_8 = null;
       startLocation.grid_reference_10 = null;
       startLocation.description = venueName || startLocation.description;
+      startLocation.latitude = hasVenueCoords ? venue.lat : null;
+      startLocation.longitude = hasVenueCoords ? venue.lon : null;
     }
 
-    if (postcode?.length >= 5) {
-      const gridReferenceLookupResponse = await this.addressQueryService.gridReferenceLookup(postcode);
-      const location = this.displayedWalk.walk.groupEvent.start_location;
+    const location = this.displayedWalk.walk.groupEvent.start_location;
+    if (trimmedPostcode?.length >= 5) {
+      const gridReferenceLookupResponse = hasVenueCoords
+        ? (await this.addressQueryService.gridReferenceLookupFromLatLng(new LatLng(venue.lat, venue.lon)))?.[0]
+        : await this.addressQueryService.gridReferenceLookup(trimmedPostcode);
 
       if (gridReferenceLookupResponse?.error) {
         this.notify?.warning({
           title: "Invalid postcode",
           message: gridReferenceLookupResponse.error
         });
-      } else if (gridReferenceLookupResponse?.latlng) {
-        location.grid_reference_6 = gridReferenceLookupResponse.gridReference6;
-        location.grid_reference_8 = gridReferenceLookupResponse.gridReference8;
-        location.grid_reference_10 = gridReferenceLookupResponse.gridReference10;
-        location.latitude = gridReferenceLookupResponse.latlng.lat;
-        location.longitude = gridReferenceLookupResponse.latlng.lng;
-        location.description = venueName || gridReferenceLookupResponse.description || location.description;
+      } else if (gridReferenceLookupResponse?.latlng || hasVenueCoords) {
+        location.grid_reference_6 = gridReferenceLookupResponse?.gridReference6 || location.grid_reference_6;
+        location.grid_reference_8 = gridReferenceLookupResponse?.gridReference8 || location.grid_reference_8;
+        location.grid_reference_10 = gridReferenceLookupResponse?.gridReference10 || location.grid_reference_10;
+        if (gridReferenceLookupResponse?.latlng && !hasVenueCoords) {
+          location.latitude = gridReferenceLookupResponse.latlng.lat;
+          location.longitude = gridReferenceLookupResponse.latlng.lng;
+        }
+        location.description = venueName || gridReferenceLookupResponse?.description || location.description;
+        this.displayedWalk.walk.groupEvent.start_location = cloneDeep(location);
         this.reloadGpxFilesForStartLocation();
         this.notify?.success({
-          title: "Starting location updated",
-          message: `Starting location set to ${location.description || postcode} (${postcode}) and GPX routes near it listed`
+          title: "Walk start set from the venue",
+          message: `Starting location set to ${location.description || trimmedPostcode} (${trimmedPostcode})`
         });
       } else {
         this.notify?.warning({
           title: "Postcode not found",
-          message: `No location data found for postcode "${postcode}"`
+          message: `No location data found for postcode "${trimmedPostcode}"`
         });
       }
     } else {
       this.notify?.success({
-        title: "Starting location updated",
-        message: `Starting location postcode set to ${postcode}`
+        title: "Walk start set from the venue",
+        message: `Starting location postcode set to ${trimmedPostcode}`
       });
     }
 
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_START_LOCATION_CHANGED, postcode));
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_START_LOCATION_CHANGED, trimmedPostcode));
   }
 
   private reloadGpxFilesForStartLocation(): void {

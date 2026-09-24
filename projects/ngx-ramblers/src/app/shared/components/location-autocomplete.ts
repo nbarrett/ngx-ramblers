@@ -3,6 +3,7 @@ import { AsyncPipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { from, Observable, of, Subject } from "rxjs";
+import { isString } from "es-toolkit/compat";
 import { catchError, debounceTime, distinctUntilChanged, map, switchMap, tap } from "rxjs/operators";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AddressQueryService } from "../../services/walks/address-query.service";
@@ -139,20 +140,37 @@ export class LocationAutocompleteComponent implements OnInit, OnChanges {
     };
   }
 
-  onLocationSelected(location: LocationSuggestion | null) {
-    if (!location) {
-      return;
+  onLocationSelected(location: LocationSuggestion | string | null) {
+    if (isString(location)) {
+      const query = location.trim();
+      if (query) {
+        from(this.addressQueryService.placeNameLookup(query)).subscribe({
+          next: response => this.emitLookupResponse(response, query),
+          error: error => this.logger.error("Location lookup error:", error)
+        });
+      }
+    } else if (location) {
+      this.logger.info(`Location selected:`, location);
+      this.emitLookupResponse({
+        description: location.description || location.label,
+        latlng: { lat: location.lat, lng: location.lng },
+        postcode: location.postcode,
+        gridReference6: location.gridReference6,
+        gridReference8: location.gridReference8,
+        gridReference10: location.gridReference10
+      }, location.label);
     }
-    this.logger.info(`Location selected:`, location);
-    const response: GridReferenceLookupResponse = {
-      description: location.description || location.label,
-      latlng: { lat: location.lat, lng: location.lng },
-      postcode: location.postcode,
-      gridReference6: location.gridReference6,
-      gridReference8: location.gridReference8,
-      gridReference10: location.gridReference10
-    };
-    this.locationChange.emit(response);
+  }
+
+  private emitLookupResponse(response: GridReferenceLookupResponse, fallback: string) {
+    if (response?.error) {
+      this.logger.warn("Location lookup failed:", response.error);
+    } else if (response) {
+      this.locationChange.emit({
+        ...response,
+        description: response.description || fallback
+      });
+    }
   }
 
   clear() {

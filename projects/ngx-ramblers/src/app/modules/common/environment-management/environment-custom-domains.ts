@@ -10,7 +10,6 @@ import {
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { CustomDomainEntry, CustomDomainStatus, SiteUrlPreference } from "../../../models/environment-config.model";
 import {
   CustomDomainEligibility,
@@ -43,7 +42,6 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
   imports: [
     FormsModule,
     FontAwesomeModule,
-    TooltipDirective,
     SessionLogsComponent
   ],
   template: `

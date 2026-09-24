@@ -760,7 +760,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   showWalk(displayedWalk: DisplayedWalk) {
     if (displayedWalk?.walk?.fields) {
       this.logger.info("showWalk", displayedWalk.walk, "mailConfig:", this?.mailMessagingConfig?.mailConfig);
-      this.venueService.ensureVenue(displayedWalk.walk, {source: VenueLocationSource.START_LOCATION, defaultVenuePublish: false});
+      this.venueService.ensureVenue(displayedWalk.walk, {source: VenueLocationSource.START_LOCATION, defaultVenuePublish: true});
       if (!displayedWalk.walk.fields.venue.type) {
         displayedWalk.walk.fields.venue.type = this.walksReferenceService.venueTypes()[0].type;
       }
@@ -1261,6 +1261,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     const currentTabKebab = this.stringUtils.kebabCase(this.currentTab);
 
     this.logger.info("selectTab:", {tab, tabValue, newTabKebab, currentTabKebab, currentTab: this.currentTab});
+
+    if (tabValue === WalkEditTab.WALK_DETAILS) {
+      this.renderMapEdit = true;
+    }
 
     if (currentTabKebab === newTabKebab) {
       this.logger.info("Tab already selected, skipping navigation");

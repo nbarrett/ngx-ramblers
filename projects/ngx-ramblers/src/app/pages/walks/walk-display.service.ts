@@ -259,9 +259,11 @@ export class WalkDisplayService {
   }
 
   googlePlaceEmbedUrl(query: string, zoom: number): SafeResourceUrl | null {
-    return this.googleMapsConfig?.apiKey
-      ? this.sanitiser.bypassSecurityTrustResourceUrl(`https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(query)}&zoom=${zoom}&key=${this.googleMapsConfig.apiKey}`)
-      : null;
+    if (this.googleMapsConfig?.apiKey && query) {
+      return this.sanitiser.bypassSecurityTrustResourceUrl(`https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(query)}&zoom=${zoom}&key=${this.googleMapsConfig.apiKey}`);
+    } else {
+      return null;
+    }
   }
 
   googleDirectionsAvailable(): boolean {

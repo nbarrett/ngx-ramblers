@@ -155,12 +155,14 @@ export enum VenueLookupMode {
         }
         @case ("search") {
           <div class="search-mode">
-            <label class="form-label">Search by name or location</label>
+            <label class="form-label">Search by name or postcode</label>
             <app-venue-autocomplete
               [disabled]="disabled"
               [startingPoint]="startingPoint"
               [initialVenue]="initialVenue"
+              placeholder="Name, postcode or place"
               (venueSelected)="onVenueSelected($event)"/>
+            <small class="form-text text-muted">Name, address, postcode and website for the site and related links, so you do not type that into the walk description. Not sent to Ramblers. If the walk start is still empty, it is filled from this place.</small>
           </div>
         }
         @case ("map") {
