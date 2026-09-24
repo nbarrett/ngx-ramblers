@@ -8,8 +8,20 @@ import {
   roleEmailAddresses,
   roleRecipientMemberIds
 } from "../models/committee.model";
+import { KEY_NULL_VALUE_NONE } from "./enums";
 import { StoredValue } from "../models/ui-actions";
 import { normaliseEmail } from "./strings";
+
+const MEMBER_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
+
+export function assignedMemberId(memberId: string | null | undefined): string | null {
+  const value = (memberId || "").trim();
+  if (!value || value === KEY_NULL_VALUE_NONE.value || !MEMBER_ID_PATTERN.test(value)) {
+    return null;
+  } else {
+    return value;
+  }
+}
 
 export function uniqueCommitteeMembersByType(members: CommitteeMember[]): CommitteeMember[] {
   return (members || []).reduce((unique, member) => {

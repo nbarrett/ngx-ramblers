@@ -49,7 +49,7 @@ import {
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
 import { Subscription } from "rxjs";
-import { BuiltInRole, CommitteeMember, CONTACT_US_TYPE, RoleType } from "../../../models/committee.model";
+import { BuiltInRole, CommitteeMember, CONTACT_US_TYPE } from "../../../models/committee.model";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "../../../services/member/member-naming.service";
 import {
@@ -738,7 +738,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.committeeSubscription = this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
-      this.contactRoles = (data?.committeeMembers() || [])
+      this.contactRoles = (data?.mailCommitteeMembers() || [])
         .filter(member => this.contactButtonRoleAllowed(member))
         .sort((left, right) => this.contactRoleSortRank(left) - this.contactRoleSortRank(right));
       this.changeDetector.markForCheck();
@@ -1461,7 +1461,6 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       if (parsed) {
         this.contactUpdatingExisting = true;
         const roleType = parsed.role === "enquiries" ? CONTACT_US_TYPE : parsed.role;
-        this.ensureContactRoleOption(roleType);
         this.contactRoleType = roleType;
         this.previousContactRoleType = roleType;
         this.contactLabel = linkText || this.defaultLabelForRole(roleType);
@@ -1503,26 +1502,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private previousContactRoleType = "";
 
   private contactButtonRoleAllowed(member: CommitteeMember): boolean {
-    return Boolean(member?.type) && !member.vacant;
+    const label = (member.description || member.fullName || "").trim();
+    return Boolean(member?.type) && !member.vacant && !!label && label !== member.type;
   }
 
   private contactRoleSortRank(member: CommitteeMember): number {
     return member.type === CONTACT_US_TYPE || member.builtInRoleMapping === BuiltInRole.CONTACT_US ? 0 : 1;
-  }
-
-  private ensureContactRoleOption(roleType: string): void {
-    if (roleType && !this.contactRoles.some(member => member.type === roleType)) {
-      this.contactRoles = [
-        ...this.contactRoles,
-        {
-          type: roleType,
-          fullName: roleType,
-          description: roleType,
-          email: "",
-          roleType: RoleType.COMMITTEE_MEMBER
-        }
-      ];
-    }
   }
 
   contactHrefPreview(): string {
