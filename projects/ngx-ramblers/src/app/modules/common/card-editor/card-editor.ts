@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, HostListener, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
@@ -42,6 +42,7 @@ import { FileUtilsService } from "../../../file-utils.service";
     selector: "app-card-editor",
   template: `
     <div class="card shadow clickable h-100 mb-4 action-button-card-editor"
+         (click)="openCardLink($event)"
          (dragover)="onActionButtonDragOver($event)"
          (drop)="onActionButtonDrop($event)"
          (dragend)="onActionButtonDragEnd()">
@@ -305,7 +306,7 @@ import { FileUtilsService } from "../../../file-utils.service";
   `],
   imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, ContentTextEditor, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, IconExamplesComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, ColumnImageDisplaySettingsComponent]
 })
-export class CardEditorComponent implements OnInit {
+export class CardEditorComponent implements OnInit, OnChanges {
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
@@ -465,8 +466,28 @@ export class CardEditorComponent implements OnInit {
       rowIndex: this.rowIndex,
       editActive: false
     };
-    this.routerLink = this.urlService.routerLinkUrl(this.column?.href);
+    this.refreshRouterLink();
     this.logger.debug("ngOnInit:column", this.column, "this.row:", this.row, "this.imageType:", this.imageType, "pageContentEdit:", this.pageContentEdit, "content path:", this.pageContent.path);
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.column) {
+      this.refreshRouterLink();
+    }
+  }
+
+  openCardLink(event: MouseEvent): void {
+    if (this.siteEditActive()) {
+      return;
+    } else if ((event.target as HTMLElement).closest("a,button,input,select,textarea,label")) {
+      return;
+    } else if (this.routerLink) {
+      void this.urlService.navigateUnconditionallyTo(this.routerLink.split("/").filter(segment => !!segment));
+    }
+  }
+
+  private refreshRouterLink(): void {
+    this.routerLink = this.urlService.routerLinkUrl(this.column?.href);
   }
 
   generateUniqueCheckboxId(suffix: string): string {

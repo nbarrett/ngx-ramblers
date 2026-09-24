@@ -311,6 +311,15 @@ describe("UrlService", () => {
         });
     });
 
+    describe("routerLinkUrl", () => {
+        it("turns a page path into a single leading slash", () => {
+            const service = TestBed.inject(UrlService);
+            expect(service.routerLinkUrl("photos/test-gallery")).toEqual("/photos/test-gallery");
+            expect(service.routerLinkUrl("/photos/test-gallery")).toEqual("/photos/test-gallery");
+            expect(service.routerLinkUrl("")).toEqual(null);
+        });
+    });
+
     describe("pathContainsEventIdOrSlug", () => {
         let service: UrlService;
         let originalRouter: Router;
