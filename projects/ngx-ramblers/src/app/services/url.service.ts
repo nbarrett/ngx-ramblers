@@ -363,8 +363,11 @@ export class UrlService {
     if (!url) {
       this.logger.off("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
       return null;
+    } else if (this.isRemoteUrl(url)) {
+      return null;
     } else {
-      const routerLinkUrl = this.isRemoteUrl(url) ? null : "/" + url;
+      const path = url.replace(/^https?:\/\/[^/]+/i, "").replace(/^\/+/, "");
+      const routerLinkUrl = path ? "/" + path : null;
       this.logger.off("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
       return routerLinkUrl;
     }
