@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, Output, ViewChild } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges, ViewChild } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
@@ -256,6 +256,32 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
                       }
                     </button>
                   }
+                  @if (customDomainFor(row); as domain) {
+                    <button class="btn btn-quiet btn-icon"
+                            (click)="customDomainsPanel.checkCustomDomain(domain)"
+                            [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy"
+                            tooltip="Re-check this hostname"
+                            container="body"
+                            aria-label="Re-check hostname">
+                      @if (customDomainsPanel.checkingDomainHostname === row.hostname) {
+                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faRedo"></fa-icon>
+                      }
+                    </button>
+                    <button class="btn btn-danger btn-icon"
+                            (click)="customDomainsPanel.removeCustomDomain(domain)"
+                            [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy"
+                            tooltip="Remove this hostname"
+                            container="body"
+                            aria-label="Remove hostname">
+                      @if (customDomainsPanel.removingDomainHostname === row.hostname) {
+                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faTrash"></fa-icon>
+                      }
+                    </button>
+                  }
                   @if (canRemoveEnvironmentSubdomainHost(row)) {
                     <button class="btn btn-danger btn-icon"
                             (click)="requestRemoveNgxSubdomain()"
@@ -318,7 +344,7 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
     </div>
   `
 })
-export class EnvironmentHostnames {
+export class EnvironmentHostnames implements OnChanges {
   private logger = inject(LoggerFactory).createLogger("EnvironmentHostnames", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private environmentSetupService = inject(EnvironmentSetupService);
@@ -328,15 +354,8 @@ export class EnvironmentHostnames {
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   @ViewChild(EnvironmentCustomDomains) customDomainsPanel: EnvironmentCustomDomains | null = null;
 
-  environment: ExistingEnvironment | null = null;
-  @Input("environment") set environmentValue(env: ExistingEnvironment | null) {
-    this.environment = env;
-    if (env) {
-      void this.probeHostnameHealth(env.name);
-    } else {
-      this.hostnameHealthReport = null;
-    }
-  }
+  @Input() environment: ExistingEnvironment | null = null;
+  @Input() preparedHostnameHealth: HostnameHealthReport | null = null;
   @Input() environments: ExistingEnvironment[] = [];
   @Input() envStatus: EnvironmentStatus | null = null;
   @Input() operationBusy = false;
@@ -378,6 +397,19 @@ export class EnvironmentHostnames {
     this.hostnameSortDirection = params[StoredValue.HOSTNAME_SORT_ORDER] === SortDirection.DESC ? DESCENDING : ASCENDING;
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.environment) {
+      this.hostnameHealthReport = null;
+      this.loadingHostnameHealth = false;
+    } else if (this.preparedHostnameHealth) {
+      this.hostnameHealthReport = this.preparedHostnameHealth;
+      this.loadingHostnameHealth = false;
+      this.hostnameHealthError = null;
+    } else if (changes.environment && this.environment) {
+      void this.probeHostnameHealth(this.environment.name);
+    }
+  }
+
   async refresh(): Promise<void> {
     if (this.environment) {
       await this.probeHostnameHealth(this.environment.name);
@@ -399,6 +431,10 @@ export class EnvironmentHostnames {
 
   customDomains(): CustomDomainEntry[] {
     return this.environment?.customDomains || [];
+  }
+
+  customDomainFor(hostname: HostnameStatus): CustomDomainEntry | null {
+    return this.customDomains().find(domain => domain.hostname === hostname.hostname) || null;
   }
 
   customDomainsBusy(): boolean {
@@ -433,7 +469,8 @@ export class EnvironmentHostnames {
       hostname,
       this.hostnameStatuses(),
       this.environmentSubdomainHint(),
-      this.canRemoveNgxSubdomain()
+      this.canRemoveNgxSubdomain(),
+      !!this.customDomainFor(hostname)
     );
   }
 

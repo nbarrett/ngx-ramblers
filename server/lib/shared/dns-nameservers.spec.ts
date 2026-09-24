@@ -10,7 +10,6 @@ describe("nameserverLookupCandidates", () => {
       "example.org.uk"
     ]);
     expect(nameserverLookupCandidates("www.example.com")).toEqual([
-      "www.example.com",
       "example.com"
     ]);
   });

@@ -4,10 +4,18 @@ const SKIP_LABELS = new Set([
   "mail", "imap", "smtp", "pop3", "ftp", "autodiscover", "webmail", "cpanel", "webdisk"
 ]);
 
+function mailVendorCname(content: string): boolean {
+  const target = (content || "").toLowerCase();
+  return target.includes("brevosend.com")
+    || target.includes("sendinblue.com")
+    || target.includes(".brevo.com");
+}
+
 export function webFacingHostnamesFromDns(records: DnsRecordResult[], zoneName: string): string[] {
   const zone = (zoneName || "").toLowerCase();
   const names = records
     .filter(record => record.type === "A" || record.type === "AAAA" || record.type === "CNAME")
+    .filter(record => !mailVendorCname(record.content || ""))
     .map(record => (record.name || "").toLowerCase())
     .filter(name => {
       if (!name || name.startsWith("*.") || name.startsWith("_")) {

@@ -7,6 +7,8 @@ import { sortBy } from "../../../functions/arrays";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
+  faCheckCircle,
+  faCircleExclamation,
   faCog,
   faExclamationTriangle,
   faPlaneDeparture,
@@ -21,8 +23,11 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import {
   EnvironmentModifyOptions,
   EnvironmentStatus,
+  EnvironmentStatusCheck,
   ExistingEnvironment,
-  ManageAction
+  ManageAction,
+  StatusProbe,
+  StatusProbeState
 } from "../../../models/environment-setup.model";
 import { emptyModifyOptions, EnvironmentModify, modifyOptionsFromStatus } from "./environment-modify";
 import { EnvironmentModifySteps } from "./environment-modify-steps";
@@ -133,9 +138,22 @@ import { EnvironmentDestroy } from "./environment-destroy";
             </div>
 
             @if (loadingStatus) {
-              <div class="d-flex align-items-center mt-3">
-                <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
-                Detecting environment state...
+              <div class="mt-3">
+                <div class="mb-2">Detecting environment state</div>
+                <ul class="list-unstyled mb-0">
+                  @for (probe of statusProbes; track probe.id) {
+                    <li class="d-flex align-items-start mb-1">
+                      @if (probe.state === StatusProbeState.DONE) {
+                        <fa-icon [icon]="faCheckCircle" class="me-2 mt-1 text-success"></fa-icon>
+                      } @else if (probe.state === StatusProbeState.FAILED) {
+                        <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1 text-danger"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-2 mt-1"></fa-icon>
+                      }
+                      <span [class.text-muted]="probe.state !== StatusProbeState.DONE">{{ probe.label }}</span>
+                    </li>
+                  }
+                </ul>
               </div>
             } @else {
               <div class="row thumbnail-heading-frame mt-3">
@@ -243,6 +261,13 @@ export class EnvironmentManagement implements OnInit {
   manageAction: ManageAction = ManageAction.MODIFY;
   envStatus: EnvironmentStatus | null = null;
   resumeOptions: EnvironmentModifyOptions = emptyModifyOptions();
+  statusProbes: StatusProbe[] = [
+    {id: EnvironmentStatusCheck.DATABASE, label: "Database: system config, pages and mail templates", state: StatusProbeState.PENDING},
+    {id: EnvironmentStatusCheck.FLY, label: "Fly.io: whether the app is deployed and has addresses", state: StatusProbeState.PENDING},
+    {id: EnvironmentStatusCheck.HOSTNAMES, label: "Hostnames: Cloudflare zone, DNS, HTTPS and redirects", state: StatusProbeState.PENDING},
+    {id: EnvironmentStatusCheck.BREVO, label: "Brevo: sending-domain authentication", state: StatusProbeState.PENDING},
+    {id: EnvironmentStatusCheck.ASSETS, label: "File storage: whether standard assets are in S3", state: StatusProbeState.PENDING}
+  ];
 
   protected readonly ManageAction = ManageAction;
   protected readonly faCog = faCog;
@@ -250,6 +275,9 @@ export class EnvironmentManagement implements OnInit {
   protected readonly faPlaneDeparture = faPlaneDeparture;
   protected readonly faSpinner = faSpinner;
   protected readonly faTrash = faTrash;
+  protected readonly faCheckCircle = faCheckCircle;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly StatusProbeState = StatusProbeState;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -330,9 +358,34 @@ export class EnvironmentManagement implements OnInit {
     const showSpinner = this.envStatus === null;
     if (showSpinner) {
       this.loadingStatus = true;
+      this.statusProbes = this.statusProbes.map(probe => ({...probe, state: StatusProbeState.PENDING}));
     }
+    const gathered: Partial<EnvironmentStatus> = {};
     try {
-      this.envStatus = await this.environmentSetupService.environmentStatus(environmentName);
+      await Promise.all(this.statusProbes.map(async (probe) => {
+        probe.state = StatusProbeState.RUNNING;
+        try {
+          const part = await this.environmentSetupService.environmentStatus(environmentName, probe.id);
+          Object.assign(gathered, part);
+          probe.state = StatusProbeState.DONE;
+        } catch (error) {
+          this.logger.error("Failed status check", probe.id, error);
+          probe.state = StatusProbeState.FAILED;
+        }
+      }));
+      this.envStatus = {
+        databaseInitialised: false,
+        samplePagesPresent: false,
+        notificationConfigsPresent: false,
+        flyAppDeployed: false,
+        standardAssetsPresent: false,
+        subdomainConfigured: false,
+        subdomainOptional: false,
+        brevoDomainAuthenticated: false,
+        hostnameProblemCount: 0,
+        hostnameHealth: gathered.hostnameHealth || null,
+        ...gathered
+      };
       this.resumeOptions = modifyOptionsFromStatus(this.envStatus);
       this.logger.info("Environment status:", this.envStatus);
     } catch (error) {

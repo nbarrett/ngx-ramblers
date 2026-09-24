@@ -435,22 +435,17 @@ export function annotateOptionalEnvironmentSubdomain(hostnames: HostnameStatus[]
     hostname.healthy
     && hostname.health === HostnameHealth.SERVING
     && hostname.origin !== HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
-  return hostnames.map(status => {
+  return hostnames.filter(status => {
     if (status.origin !== HostnameOrigin.ENVIRONMENT_SUBDOMAIN) {
-      return status;
-    } else if (status.healthy) {
-      return status;
+      return true;
+    } else if (status.healthy && status.health !== HostnameHealth.NOT_CREATED) {
+      return true;
     } else if (!siteServedElsewhere) {
-      return status;
-    } else if (!neverCreatedStates.includes(status.health)) {
-      return status;
+      return true;
+    } else if (!neverCreatedStates.includes(status.health) && status.health !== HostnameHealth.NOT_CREATED) {
+      return true;
     } else {
-      return {
-        ...status,
-        health: HostnameHealth.NOT_CREATED,
-        healthy: true,
-        message: "Not created. Optional: the site is already served on another address."
-      };
+      return false;
     }
   });
 }

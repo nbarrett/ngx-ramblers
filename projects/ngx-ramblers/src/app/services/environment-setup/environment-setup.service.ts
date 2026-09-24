@@ -14,6 +14,7 @@ import {
   EnvironmentDetails,
   EnvironmentSetupRequest,
   EnvironmentStatus,
+  EnvironmentStatusCheck,
   ConsoleAccessDocument,
   ConsoleAccessEnvironmentsResponse,
   EstateRebuildCaptureFormat,
@@ -356,13 +357,16 @@ export class EnvironmentSetupService {
     return response as any;
   }
 
-  async environmentStatus(environmentName: string): Promise<EnvironmentStatus> {
+  async environmentStatus(environmentName: string, check?: EnvironmentStatusCheck): Promise<Partial<EnvironmentStatus>> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.get<ApiResponse>(`${this.BASE_URL}/environment-status/${environmentName}`, this.opts),
+      this.http.get<ApiResponse>(`${this.BASE_URL}/environment-status/${environmentName}`, {
+        ...this.opts,
+        params: check ? {check} : {}
+      }),
       this.notifications
     );
-    return response as unknown as EnvironmentStatus;
+    return response as unknown as Partial<EnvironmentStatus>;
   }
 
   async flyOrgMigrationStatus(
@@ -427,6 +431,29 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as CustomDomainEligibilityResponse;
+  }
+
+  async moveMailToCustomDomain(environmentName: string): Promise<{
+    success: boolean;
+    message: string;
+    oldDomain?: string;
+    newDomain?: string;
+    committeeRolesRewritten?: number;
+    logs?: string[];
+  }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/move-mail-to-custom-domain/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as {
+      success: boolean;
+      message: string;
+      oldDomain?: string;
+      newDomain?: string;
+      committeeRolesRewritten?: number;
+      logs?: string[];
+    };
   }
 
   async addCustomDomain(environmentName: string, hostname: string, siteUrlPreference?: SiteUrlPreference): Promise<CustomDomainResponse> {

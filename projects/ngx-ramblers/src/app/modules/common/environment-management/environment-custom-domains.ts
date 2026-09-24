@@ -21,25 +21,20 @@ import {
   HostnameOrigin,
   HostnameStatus
 } from "../../../models/environment-setup.model";
-import { SortDirection } from "../../../models/sort.model";
-import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
-import { StoredValue } from "../../../models/ui-actions";
+
 import {
   apexHost,
   firstGroupOwnedApex,
   hostnameMayHaveWwwCompanion,
   suggestedCustomDomainHostname
 } from "../../../functions/hosts";
-import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { mailDomainForSiteHost, ngxRamblersMailDomain } from "../../../functions/rewrite-mail-domain";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { ActivatedRoute, Router } from "@angular/router";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
-import { SortableTableCellDirective } from "../sortable-table/sortable-table-cell.directive";
-import { SortableTableComponent } from "../sortable-table/sortable-table.component";
-import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../sortable-table/sortable-table.model";
 import { domainBadgeClass, domainStatusLabel } from "./environment-hostname-display";
 import { environmentOperationErrorDetail } from "./environment-operation-error";
 
@@ -49,10 +44,7 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
     FormsModule,
     FontAwesomeModule,
     TooltipDirective,
-    SessionLogsComponent,
-    SortableTableComponent,
-    SortableTableCellDirective,
-    DisplayDateAndTimePipe
+    SessionLogsComponent
   ],
   template: `
     <div class="hostname-part mt-4 pt-3 border-top">
@@ -157,60 +149,6 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
           <app-session-logs [messages]="customDomainMessages"></app-session-logs>
         </div>
       }
-      <div class="mt-3">
-        <app-sortable-table
-          [columns]="customDomainColumns"
-          [rows]="customDomains()"
-          [defaultSortKey]="customDomainSortKey"
-          [defaultSortDirection]="customDomainSortDirection"
-          [trackBy]="trackCustomDomain"
-          (sortChange)="onCustomDomainSortChange($event)"
-          emptyMessage="No custom domains attached yet.">
-          <ng-template appSortableTableCell="hostname" let-row>
-            <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
-            <a [href]="'https://' + row.hostname" target="_blank">{{ row.hostname }}</a>
-          </ng-template>
-          <ng-template appSortableTableCell="status" let-row>
-            <div>
-              <span class="badge" [class]="domainBadge(row)">{{ domainLabel(row) }}</span>
-            </div>
-            @if (!domainRowServing(row) && row.message && row.message !== row.status) {
-              <div class="small text-muted mt-1 hostname-state-detail">{{ row.message }}</div>
-            }
-          </ng-template>
-          <ng-template appSortableTableCell="addedAt" let-row>
-            {{ row.addedAt ? (row.addedAt | displayDateAndTime) : "" }}
-          </ng-template>
-          <ng-template appSortableTableCell="actions" let-row>
-            <div class="d-inline-flex gap-1">
-              <button class="btn btn-quiet btn-icon"
-                      (click)="checkCustomDomain(row)"
-                      [disabled]="operationBusy || customDomainBusy"
-                      tooltip="Check and reconcile DNS/cert"
-                      container="body"
-                      aria-label="Check">
-                @if (checkingDomainHostname === row.hostname) {
-                  <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
-                } @else {
-                  <fa-icon [icon]="faRedo"></fa-icon>
-                }
-              </button>
-              <button class="btn btn-danger btn-icon"
-                      (click)="removeCustomDomain(row)"
-                      [disabled]="operationBusy || customDomainBusy"
-                      tooltip="Remove custom domain"
-                      container="body"
-                      aria-label="Remove">
-                @if (removingDomainHostname === row.hostname) {
-                  <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
-                } @else {
-                  <fa-icon [icon]="faTrash"></fa-icon>
-                }
-              </button>
-            </div>
-          </ng-template>
-        </app-sortable-table>
-      </div>
     </div>
 
     <div class="hostname-part mt-4 pt-3 border-top">
@@ -253,6 +191,37 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
           </button>
         </div>
       }
+      <div class="hostname-part mt-4 pt-3 border-top">
+        <div class="fw-bold">Move mail to this domain</div>
+        <p class="small text-muted mb-2">
+          Rewrites committee role mailboxes and Brevo senders from
+          <code>&#64;{{ ngxMailDomain() }}</code> to <code>&#64;{{ mailDomain() }}</code>.
+          Works after the site URL is already the group domain. Mail never uses a www address. Does not change member personal emails.
+        </p>
+        <button type="button" class="btn btn-primary"
+                (click)="moveMailToCustomDomain()"
+                [disabled]="operationBusy || customDomainBusy || mailMoveBusy || !mailDomain()">
+          @if (mailMoveBusy) {
+            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+          }
+          Move mail to {{ mailDomain() || "the group domain" }}
+        </button>
+        @if (notifyTarget.showAlert) {
+          <div class="alert {{ notifyTarget.alert.class }} mt-3 mb-0">
+            <div class="d-flex align-items-start">
+              <fa-icon [icon]="notifyTarget.alert.icon" class="me-2 mt-1"></fa-icon>
+              <div>
+                @if (notifyTarget.alertTitle) {
+                  <strong>{{ notifyTarget.alertTitle }}</strong>
+                  <div class="mt-1">{{ notifyTarget.alertMessage }}</div>
+                } @else {
+                  {{ notifyTarget.alertMessage }}
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
       @if (apexRedirectError) {
         <p class="small text-danger mt-2 mb-0">{{ apexRedirectError }}</p>
       }
@@ -268,8 +237,7 @@ export class EnvironmentCustomDomains implements OnChanges {
   private logger = inject(LoggerFactory).createLogger("EnvironmentCustomDomains", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private environmentSetupService = inject(EnvironmentSetupService);
-  private activatedRoute = inject(ActivatedRoute);
-  private router = inject(Router);
+  private stringUtils = inject(StringUtilsService);
   notifyTarget: AlertTarget = {};
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
 
@@ -291,32 +259,15 @@ export class EnvironmentCustomDomains implements OnChanges {
   alsoAttachWww = true;
   siteUrlPreference: SiteUrlPreference = SiteUrlPreference.APEX;
   protected readonly SiteUrlPreference = SiteUrlPreference;
+  mailMoveBusy = false;
   apexRedirectHostname = "";
   apexRedirectBusy = false;
   apexRedirectError: string | null = null;
   apexRedirectMessages: string[] = [];
-  customDomainSortKey = "hostname";
-  customDomainSortDirection = ASCENDING;
-  customDomainColumns: SortableTableColumn<CustomDomainEntry>[] = [
-    {key: "hostname", label: "Hostname", sortKey: "hostname", cellClass: "nowrap"},
-    {key: "status", label: "Status", sortKey: "status"},
-    {key: "addedAt", label: "Added", sortKey: "addedAt", cellClass: "nowrap"},
-    {key: "actions", label: "Actions", align: SortableTableAlignment.RIGHT}
-  ];
 
   protected readonly faExclamationTriangle = faExclamationTriangle;
-  protected readonly faGlobe = faGlobe;
   protected readonly faPlus = faPlus;
-  protected readonly faRedo = faRedo;
   protected readonly faSpinner = faSpinner;
-  protected readonly faTrash = faTrash;
-  trackCustomDomain = (_index: number, row: CustomDomainEntry): string => row.hostname;
-
-  constructor() {
-    const params = this.activatedRoute.snapshot.queryParams;
-    this.customDomainSortKey = params[StoredValue.CUSTOM_DOMAIN_SORT] || "hostname";
-    this.customDomainSortDirection = params[StoredValue.CUSTOM_DOMAIN_SORT_ORDER] === SortDirection.DESC ? DESCENDING : ASCENDING;
-  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.hostnameHealthReport && this.hostnameHealthReport) {
@@ -400,6 +351,48 @@ export class EnvironmentCustomDomains implements OnChanges {
     return apexHost(this.normaliseHostname(this.customDomainHostname));
   }
 
+  ngxMailDomain(): string {
+    return ngxRamblersMailDomain(this.environment?.name || "");
+  }
+
+  mailDomain(): string {
+    const pair = this.switchableSiteHostPair();
+    const hostname = pair?.apex
+      || this.groupOwnedApexHost()
+      || this.hostnameHealthReport?.siteUrl
+      || this.customDomains().find(domain => !!domain.hostname)?.hostname
+      || "";
+    const domain = hostname ? mailDomainForSiteHost(hostname) : "";
+    if (!domain || domain.endsWith(".ngx-ramblers.org.uk")) {
+      return "";
+    } else {
+      return domain;
+    }
+  }
+
+  async moveMailToCustomDomain(): Promise<void> {
+    if (!this.mailDomain()) {
+      return;
+    } else {
+      this.mailMoveBusy = true;
+      this.notify.hide();
+      try {
+        const response = await this.environmentSetupService.moveMailToCustomDomain(this.environment.name);
+        const rewritten = response.committeeRolesRewritten || 0;
+        this.notify.success({
+          title: "Mail moved",
+          message: `${response.message}. ${this.stringUtils.pluraliseWithCount(rewritten, "committee role mailbox")} rewritten.`
+        });
+        this.environmentChanged.emit();
+      } catch (error) {
+        const detail = environmentOperationErrorDetail(error);
+        this.notify.error({title: "Move mail failed", message: detail});
+      } finally {
+        this.mailMoveBusy = false;
+      }
+    }
+  }
+
   switchableSiteHostPair(): {apex: string; www: string} | null {
     const hosts = [
       ...this.customDomains().map(domain => domain.hostname),
@@ -411,15 +404,6 @@ export class EnvironmentCustomDomains implements OnChanges {
     } else {
       return null;
     }
-  }
-
-  onCustomDomainSortChange(sortState: SortableTableSortState): void {
-    this.customDomainSortKey = sortState.key || "hostname";
-    this.customDomainSortDirection = sortState.direction;
-    this.updateQueryParams({
-      [StoredValue.CUSTOM_DOMAIN_SORT]: this.customDomainSortKey,
-      [StoredValue.CUSTOM_DOMAIN_SORT_ORDER]: this.customDomainSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
-    });
   }
 
   onCustomDomainHostnameChange(): void {
@@ -682,7 +666,4 @@ export class EnvironmentCustomDomains implements OnChanges {
     }
   }
 
-  private updateQueryParams(queryParams: Record<string, string | null>): void {
-    this.router.navigate([], { queryParams, queryParamsHandling: "merge" });
-  }
 }
