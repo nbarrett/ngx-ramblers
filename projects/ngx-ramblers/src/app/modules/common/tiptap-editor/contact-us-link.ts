@@ -1,3 +1,4 @@
+import { isUndefined } from "es-toolkit/compat";
 import { CommitteeMember } from "../../../models/committee.model";
 import { BuiltInPath } from "../../../models/content-text.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -11,8 +12,8 @@ export function buildContactUsHref(roleType: string, redirectPath: string, subje
   const role = (roleType || "").trim();
   const redirect = (redirectPath || "").trim().replace(/^\/+/, "");
   const base = redirect && redirect !== BuiltInPath.HOME
-    ? `?contact-us&role=${role}&redirect=${redirect}`
-    : `?contact-us&role=${role}`;
+    ? `?${StoredValue.CONTACT_US}=true&role=${role}&redirect=${redirect}`
+    : `?${StoredValue.CONTACT_US}=true&role=${role}`;
   const trimmedSubject = (subject || "").trim();
   if (trimmedSubject) {
     return `${base}&subject=${encodeURIComponent(trimmedSubject)}`;
@@ -40,6 +41,15 @@ export function parseContactUsHref(href: string): ContactUsLinkParts | null {
 
 export function isContactUsHref(href: string): boolean {
   return !!parseContactUsHref(href);
+}
+
+export function contactUsRequested(params: Record<string, unknown> | null | undefined): boolean {
+  if (!params) {
+    return false;
+  } else {
+    const value = params[StoredValue.CONTACT_US];
+    return !isUndefined(value) && value !== null;
+  }
 }
 
 export function defaultContactUsLabel(member: CommitteeMember | null, firstNameFromFullName: (fullName: string) => string | null): string {

@@ -1,5 +1,6 @@
 import {
   buildContactUsHref,
+  contactUsRequested,
   contactUsRoleOptionLabel,
   defaultContactUsLabel,
   isContactUsHref,
@@ -11,26 +12,26 @@ describe("contact-us-link", () => {
 
   it("builds contact-us href with role and redirect", () => {
     expect(buildContactUsHref("treasurer", "contact-us")).toBe(
-      "?contact-us&role=treasurer&redirect=contact-us"
+      "?contact-us=true&role=treasurer&redirect=contact-us"
     );
     expect(buildContactUsHref("walks-co-ordinator", "/walks/admin")).toBe(
-      "?contact-us&role=walks-co-ordinator&redirect=walks/admin"
+      "?contact-us=true&role=walks-co-ordinator&redirect=walks/admin"
     );
   });
 
   it("omits the redirect when the link is created on the root page", () => {
-    expect(buildContactUsHref("support", "")).toBe("?contact-us&role=support");
-    expect(buildContactUsHref("support", null)).toBe("?contact-us&role=support");
-    expect(buildContactUsHref("support", "home")).toBe("?contact-us&role=support");
-    expect(buildContactUsHref("support", "/home")).toBe("?contact-us&role=support");
+    expect(buildContactUsHref("support", "")).toBe("?contact-us=true&role=support");
+    expect(buildContactUsHref("support", null)).toBe("?contact-us=true&role=support");
+    expect(buildContactUsHref("support", "home")).toBe("?contact-us=true&role=support");
+    expect(buildContactUsHref("support", "/home")).toBe("?contact-us=true&role=support");
   });
 
   it("appends a subject when one is supplied", () => {
     expect(buildContactUsHref("membership-secretary", "/admin/profile/email-subscriptions", "Mailing preferences enquiry")).toBe(
-      "?contact-us&role=membership-secretary&redirect=admin/profile/email-subscriptions&subject=Mailing%20preferences%20enquiry"
+      "?contact-us=true&role=membership-secretary&redirect=admin/profile/email-subscriptions&subject=Mailing%20preferences%20enquiry"
     );
     expect(buildContactUsHref("treasurer", "contact-us", "  ")).toBe(
-      "?contact-us&role=treasurer&redirect=contact-us"
+      "?contact-us=true&role=treasurer&redirect=contact-us"
     );
   });
 
@@ -50,6 +51,14 @@ describe("contact-us-link", () => {
   it("detects contact-us hrefs", () => {
     expect(isContactUsHref("?contact-us&role=x&redirect=y")).toBe(true);
     expect(isContactUsHref("https://example.com/page")).toBe(false);
+  });
+
+  it("treats an empty contact-us query value as a request to open the form", () => {
+    expect(contactUsRequested({"contact-us": ""})).toBe(true);
+    expect(contactUsRequested({"contact-us": true})).toBe(true);
+    expect(contactUsRequested({"contact-us": "true"})).toBe(true);
+    expect(contactUsRequested({role: "chairman"})).toBe(false);
+    expect(contactUsRequested({})).toBe(false);
   });
 
   it("defaults contact label from member name", () => {

@@ -8,6 +8,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeMember } from "../../models/committee.model";
 import { StoredValue } from "../../models/ui-actions";
 import { redirectPathFrom } from "../../functions/redirect-path";
+import { contactUsRequested } from "../../modules/common/tiptap-editor/contact-us-link";
 
 @Injectable({
   providedIn: "root"
@@ -18,27 +19,34 @@ export class ContactUsModalService {
   private route = inject(ActivatedRoute);
   private loggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("ModalService", NgxLoggerLevel.ERROR);
+  private contactModalOpen = false;
 
   constructor() {
     this.logger.info("ModalService constructed");
 
     this.route.queryParams.pipe(
-      filter(params => !!params[StoredValue.CONTACT_US])).subscribe(queryParams => {
+      filter(params => contactUsRequested(params))).subscribe(queryParams => {
       this.logger.info("queryParams detected:", queryParams);
       this.openContactModal(queryParams);
     });
   }
 
   openContactModal(queryParams: Params) {
-    const enriched = this.withCurrentPath(queryParams);
-    this.modalService.show(ContactUsModalComponent, {
-      class: "modal-lg",
-      initialState: {queryParams: enriched}
-    }).onHidden.subscribe(() => {
-      this.logger.info("Modal closed");
-    });
-    this.logger.info("Modal opened with queryParams:", enriched);
-    this.redirectBackToRoute(enriched);
+    if (this.contactModalOpen) {
+      this.logger.info("Contact modal already open");
+    } else {
+      this.contactModalOpen = true;
+      const enriched = this.withCurrentPath(queryParams);
+      this.modalService.show(ContactUsModalComponent, {
+        class: "modal-lg",
+        initialState: {queryParams: enriched}
+      }).onHidden.subscribe(() => {
+        this.contactModalOpen = false;
+        this.logger.info("Modal closed");
+      });
+      this.logger.info("Modal opened with queryParams:", enriched);
+      this.redirectBackToRoute(enriched);
+    }
   }
 
   openContactModalForMember(committeeMember: CommitteeMember, subject: string, redirect?: string) {

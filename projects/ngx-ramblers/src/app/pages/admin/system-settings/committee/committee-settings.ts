@@ -54,6 +54,7 @@ import { EnvironmentSettingsSubTab, SystemConfig } from "../../../../models/syst
 import { EnvironmentSetupTab } from "../../../../models/environment-setup.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { sortBy } from "../../../../functions/arrays";
+import { assignedMemberId } from "../../../../functions/committee-members";
 import { extractErrorMessage, toDotCase, toKebabCase } from "../../../../functions/strings";
 import { SortDirection } from "../../../../models/sort.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -410,7 +411,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                 {{ role.fullName || '\u2014' }}
                                 @if (isDuplicateMemberIdRole(role)) {
                                   <span class="badge bg-warning ms-2"
-                                        [tooltip]="duplicateMemberIdTooltip(role)">Multiple role mappings</span>
+                                        [tooltip]="duplicateMemberIdTooltip(role)">Same member</span>
                                 }
                                 @if (isDuplicateRoleType(role)) {
                                   <span class="badge bg-warning ms-2"
@@ -1177,8 +1178,14 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   isDuplicateMemberIdRole(role: CommitteeMember): boolean {
-    if (!role.memberId) return false;
-    return (this.committeeConfig?.roles ?? []).filter(r => r.memberId === role.memberId).length > 1;
+    const memberId = assignedMemberId(role.memberId);
+    if (!memberId || this.isContactUsSystemRole(role)) {
+      return false;
+    } else {
+      return (this.committeeConfig?.roles ?? [])
+        .filter(candidate => !this.isContactUsSystemRole(candidate) && assignedMemberId(candidate.memberId) === memberId)
+        .length > 1;
+    }
   }
 
   isDuplicateRoleType(role: CommitteeMember): boolean {
@@ -1196,13 +1203,16 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   duplicateMemberIdTooltip(role: CommitteeMember): string {
-    if (!role.memberId) return "";
+    const memberId = assignedMemberId(role.memberId);
     const otherRoles = (this.committeeConfig?.roles ?? [])
-      .filter(other => other !== role && other.memberId === role.memberId)
-      .map(other => other.description || this.stringUtils.asTitle(other.roleType));
-    if (otherRoles.length === 0) return "";
-    const memberLabel = role.fullName || "this member";
-    return `${memberLabel} is also assigned to: ${otherRoles.join(", ")}`;
+      .filter(other => !!memberId && other !== role && assignedMemberId(other.memberId) === memberId)
+      .map(other => other.description || other.fullName || this.stringUtils.asTitle(other.roleType))
+      .filter(Boolean);
+    if (otherRoles.length === 0) {
+      return "";
+    } else {
+      return `The same member is also mapped to ${otherRoles.join(", ")}`;
+    }
   }
 
   get workerScriptsSorted(): EmailWorkerScript[] {

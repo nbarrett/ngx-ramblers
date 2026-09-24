@@ -24,12 +24,25 @@ import {
   memberRecordId,
   outboundEmailForMember,
   outboundEmailForRecipient,
-  uniqueCommitteeMembersByType
+  uniqueCommitteeMembersByType,
+  assignedMemberId
 } from "./committee-members";
 
 function member(type: string, fullName: string, memberId?: string) {
   return {type, fullName, email: `${type}@example.com`, description: type, roleType: RoleType.COMMITTEE_MEMBER, memberId};
 }
+
+describe("assignedMemberId", () => {
+  it("treats the none placeholder and empty values as unassigned", () => {
+    expect(assignedMemberId("(none)")).toBeNull();
+    expect(assignedMemberId("")).toBeNull();
+    expect(assignedMemberId(null)).toBeNull();
+  });
+
+  it("keeps a real member id", () => {
+    expect(assignedMemberId("66eb40104a710c2e0e399d97")).toBe("66eb40104a710c2e0e399d97");
+  });
+});
 
 describe("uniqueCommitteeMembersByType", () => {
 
