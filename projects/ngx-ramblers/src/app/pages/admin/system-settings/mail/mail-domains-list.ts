@@ -40,7 +40,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                   <div class="flex-grow-1">
                     <strong>Sending domain does not match site URL.</strong>
                     Brevo is authenticated for <code>{{ baseDomain }}</code> but this site's canonical URL is <code>{{ canonicalHost }}</code>.
-                    Switching will re-authenticate <code>{{ canonicalHost }}</code> in Brevo, create the required DKIM/SPF records in Cloudflare, and rewrite every sender from <code>&#64;{{ baseDomain }}</code> to <code>&#64;{{ canonicalHost }}</code>.
+                    Switching will re-authenticate the apex domain in Brevo, rewrite senders, and rewrite committee role mailboxes from <code>&#64;{{ baseDomain }}</code> to that domain. Mail never uses www.
                   </div>
                   <button class="btn btn-danger" [disabled]="switching" (click)="switchSendingDomain()"
                           tooltip="Re-authenticate Brevo and rewrite senders">

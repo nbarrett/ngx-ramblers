@@ -8,6 +8,7 @@ import {
   validateRedirectTargets
 } from "./hostname-health";
 import { apexWwwSibling, publicHostnameForSiteUrlPreference } from "../cloudflare/hostname-siblings";
+import { candidateZoneNames } from "../cloudflare/cloudflare-dns";
 import { SiteUrlPreference } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import {
   DnsProvider,
@@ -144,7 +145,7 @@ describe("hostname-health", () => {
 
   describe("annotateOptionalEnvironmentSubdomain", () => {
 
-    it("should not treat a missing NGX host as a problem when a custom domain is already serving", () => {
+    it("should omit a missing NGX host when a custom domain is already serving", () => {
       const result = annotateOptionalEnvironmentSubdomain([
         status({
           hostname: "www.group.org.uk",
@@ -163,9 +164,7 @@ describe("hostname-health", () => {
           message: "No DNS record exists"
         })
       ]);
-      expect(result[1].health).toEqual(HostnameHealth.NOT_CREATED);
-      expect(result[1].healthy).toEqual(true);
-      expect(result[1].message).toContain("Optional");
+      expect(result.map(hostname => hostname.hostname)).toEqual(["www.group.org.uk"]);
     });
 
     it("should still flag a missing NGX host when nothing else is serving", () => {
@@ -247,6 +246,14 @@ describe("hostname-health", () => {
     it("defaults visitors to the apex", () => {
       expect(publicHostnameForSiteUrlPreference("fhramblers.org.uk", SiteUrlPreference.APEX)).toEqual("fhramblers.org.uk");
       expect(publicHostnameForSiteUrlPreference("fhramblers.org.uk", SiteUrlPreference.WWW)).toEqual("www.fhramblers.org.uk");
+    });
+  });
+
+  describe("candidateZoneNames", () => {
+
+    it("strips a site URL down to zone name candidates", () => {
+      expect(candidateZoneNames("https://fhramblers.org.uk")).toEqual(["fhramblers.org.uk", "org.uk"]);
+      expect(candidateZoneNames("www.fhramblers.org.uk")).toEqual(["fhramblers.org.uk", "org.uk"]);
     });
   });
 

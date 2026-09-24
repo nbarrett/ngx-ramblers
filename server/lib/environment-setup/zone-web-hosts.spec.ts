@@ -3,12 +3,12 @@ import { describe, it } from "mocha";
 import { unmappedHostsToOffer, webFacingHostnamesFromDns } from "./zone-web-hosts";
 import { DnsRecordResult } from "../cloudflare/cloudflare.model";
 
-function rec(type: string, name: string): DnsRecordResult {
+function rec(type: string, name: string, content = ""): DnsRecordResult {
   return {
     id: name,
     type: type as DnsRecordResult["type"],
     name,
-    content: "",
+    content,
     proxied: false,
     ttl: 1,
     created_on: "",
@@ -28,6 +28,15 @@ describe("webFacingHostnamesFromDns", () => {
       rec("MX", "stagwalkers.org.uk")
     ], "stagwalkers.org.uk");
     expect(names).toEqual(["staging.stagwalkers.org.uk", "www.stagwalkers.org.uk"]);
+  });
+
+  it("drops Brevo image and tracking CNAMEs", () => {
+    const names = webFacingHostnamesFromDns([
+      rec("A", "www.fhramblers.org.uk"),
+      rec("CNAME", "img.fhramblers.org.uk", "fhramblers-org-uk.img.brand.brevosend.com"),
+      rec("CNAME", "r.fhramblers.org.uk", "fhramblers-org-uk.r.brand.brevosend.com")
+    ], "fhramblers.org.uk");
+    expect(names).toEqual(["www.fhramblers.org.uk"]);
   });
 });
 

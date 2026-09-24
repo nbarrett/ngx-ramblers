@@ -143,14 +143,16 @@ export function hostnameHasActions(
   hostname: HostnameStatus,
   statuses: HostnameStatus[],
   environmentSubdomainHint: string,
-  canRemoveSubdomain: boolean
+  canRemoveSubdomain: boolean,
+  hasCustomDomain = false
 ): boolean {
   return canRepairRedirect(hostname)
     || shouldOfferClearSiteUrl(hostname, environmentSubdomainHint)
     || canUseAsSiteUrl(hostname, statuses)
     || canAttachUnmappedHostname(hostname)
     || (canRemoveSubdomain && isEnvironmentSubdomainHost(hostname, environmentSubdomainHint))
-    || (!!hostname.redirectRuleTarget && !canRepairRedirect(hostname));
+    || (!!hostname.redirectRuleTarget && !canRepairRedirect(hostname))
+    || hasCustomDomain;
 }
 
 export function domainBadgeClass(status: CustomDomainStatus | string | undefined): string {

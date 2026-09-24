@@ -76,6 +76,7 @@ export function modifyOptionsFromStatus(envStatus: EnvironmentStatus | null): En
       [environment]="environment"
       [environments]="environments"
       [envStatus]="envStatus"
+      [preparedHostnameHealth]="envStatus?.hostnameHealth || null"
       [operationBusy]="operationBusy"
       (environmentChanged)="onHostnamesEnvironmentChanged()"/>
     <div class="row mt-3">

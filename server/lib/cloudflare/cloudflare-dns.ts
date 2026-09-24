@@ -1,5 +1,6 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
+import { mailDomainForSiteHost } from "../../../projects/ngx-ramblers/src/app/functions/rewrite-mail-domain";
 import { cloudflareApi, CloudflareDnsConfig, CloudflareResponse, CloudflareZone, DnsRecord, DnsRecordResult } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:dns"));
@@ -130,6 +131,7 @@ export async function verifyToken(apiToken: string): Promise<boolean> {
 
 export async function listZones(apiToken: string, name?: string): Promise<CloudflareZone[]> {
   const params = new URLSearchParams();
+  params.set("per_page", "50");
   if (name) {
     params.set("name", name);
   }
@@ -153,21 +155,32 @@ export async function listZones(apiToken: string, name?: string): Promise<Cloudf
 }
 
 export function candidateZoneNames(hostname: string): string[] {
-  const labels = hostname.split(".");
+  const host = mailDomainForSiteHost(hostname);
+  const labels = host.split(".").filter(label => !!label);
   return labels
     .map((_, index) => labels.slice(index).join("."))
     .filter(candidate => candidate.includes("."));
 }
 
+function zoneMatchingHostname(zones: CloudflareZone[], hostname: string): CloudflareZone | undefined {
+  const host = mailDomainForSiteHost(hostname);
+  return zones.find(zone => zone.name === host || host.endsWith(`.${zone.name}`));
+}
+
 export async function zoneForHostname(apiToken: string, hostname: string): Promise<CloudflareZone | null> {
-  const candidates = candidateZoneNames(hostname);
-  for (const candidate of candidates) {
-    const zones = await listZones(apiToken, candidate);
-    const match = zones.find(zone => zone.name === candidate);
-    if (match) {
-      debugLog("Resolved zone for %s: %s (%s)", hostname, match.name, match.id);
-      return match;
+  const host = mailDomainForSiteHost(hostname);
+  const named = await candidateZoneNames(host).reduce(async (pending, candidate) => {
+    const previous = await pending;
+    if (previous) {
+      return previous;
+    } else {
+      const zones = await listZones(apiToken, candidate);
+      return zoneMatchingHostname(zones, host) || zones.find(zone => zone.name === candidate) || null;
     }
+  }, Promise.resolve(null as CloudflareZone | null));
+  const resolved = named || zoneMatchingHostname(await listZones(apiToken), host) || null;
+  if (resolved) {
+    debugLog("Resolved zone for %s: %s (%s)", host, resolved.name, resolved.id);
   }
-  return null;
+  return resolved;
 }

@@ -916,6 +916,27 @@ export interface FlyOrgMigrationStatus {
   summary: string;
 }
 
+export enum EnvironmentStatusCheck {
+  DATABASE = "database",
+  FLY = "fly",
+  HOSTNAMES = "hostnames",
+  BREVO = "brevo",
+  ASSETS = "assets"
+}
+
+export enum StatusProbeState {
+  PENDING = "pending",
+  RUNNING = "running",
+  DONE = "done",
+  FAILED = "failed"
+}
+
+export interface StatusProbe {
+  id: EnvironmentStatusCheck;
+  label: string;
+  state: StatusProbeState;
+}
+
 export interface EnvironmentStatus {
   databaseInitialised: boolean;
   samplePagesPresent: boolean;
@@ -926,6 +947,7 @@ export interface EnvironmentStatus {
   subdomainOptional: boolean;
   brevoDomainAuthenticated: boolean;
   hostnameProblemCount: number;
+  hostnameHealth?: HostnameHealthReport;
 }
 
 export enum HostnameHealth {
