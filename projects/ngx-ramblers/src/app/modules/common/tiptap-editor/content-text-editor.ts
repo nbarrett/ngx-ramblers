@@ -482,7 +482,7 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
     this.deleteEnabled = coerceBooleanProperty(deleteEnabled);
   }
 
-  @Input("standalone") set standaloneValue(value: boolean) {
+  @Input("standalone") set standaloneValue(value: boolean | string) {
     this.standalone = coerceBooleanProperty(value);
   }
 
