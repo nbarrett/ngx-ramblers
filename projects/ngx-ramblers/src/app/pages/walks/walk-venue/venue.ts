@@ -1,6 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { faCopy, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faCopy, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { Venue as VenueModel, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -33,7 +33,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         @if (allowEdits()) {
           <div class="col-sm-12 mb-3">
             <div class="row thumbnail-heading-frame">
-              <div class="thumbnail-heading">Find or add venue</div>
+              <div class="thumbnail-heading">Find or add a venue</div>
               <div class="col-sm-12">
                 <app-venue-lookup
                   [disabled]="disabledInput"
@@ -113,7 +113,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                        [(ngModel)]="event.fields.venue.name"
                        type="text" class="form-control input-sm"
                        id="name"
-                       placeholder="Enter name of venue or pub">
+                       placeholder="Enter the name of the venue">
               </div>
             </div>
             <div class="col-sm-4 mb-3">
@@ -158,6 +158,20 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
               </div>
             </div>
             @if (allowEdits()) {
+              @if (showPublishPrompt()) {
+                <div class="col-sm-12 mb-3">
+                  <div class="alert alert-warning d-flex align-items-start mb-0">
+                    <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+                    <div class="ms-2 flex-grow-1">
+                      <strong class="d-block">This place will not appear on the walk page</strong>
+                      Tick Show on the walk page so members see the name, website or map. You can also tick This is a meeting place if people gather here before the start.
+                      <div class="mt-2">
+                        <button type="button" class="btn btn-primary" (click)="showVenueOnSite()">Show on the walk page</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
               <div class="col-sm-6 mb-3">
                 <div class="form-check">
                   <input [(ngModel)]="event.fields.venue.venuePublish"
@@ -165,8 +179,9 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                          name="showDetail" class="form-check-input" type="checkbox"
                          id="walk-publish-venue">
                   <label class="form-check-label"
-                         for="walk-publish-venue">Publish venue on site
+                         for="walk-publish-venue">Show on the walk page
                   </label>
+                  <small class="form-text text-muted d-block">Related links: name, website or map.</small>
                 </div>
               </div>
               @if (showWalkLocationPrompts) {
@@ -179,6 +194,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                     <label class="form-check-label"
                            for="walk-is-meeting-place">This is a meeting place
                     </label>
+                    <small class="form-text text-muted d-block">Shown as Meeting place instead of Venue. Still needs Show on the walk page.</small>
                   </div>
                 </div>
               }
@@ -225,7 +241,7 @@ export class Venue implements OnInit, OnDestroy {
   @Input() showWalkLocationPrompts = true;
   @Input() helpName = "meetup-venue-help";
   @Input() helpCategory = "walks-admin";
-  @Input() helpDescription = "Walk venue or pub";
+  @Input() helpDescription = "Walk venue";
   public inputDisabled = false;
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
@@ -246,6 +262,7 @@ export class Venue implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected faMapMarkerAlt = faMapMarkerAlt;
   protected faCopy = faCopy;
+  protected faCircleExclamation = faCircleExclamation;
 
   get venueJson(): string {
     return this.event?.fields?.venue
@@ -352,20 +369,24 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private checkStartingPointPrompt(venuePostcode: string) {
-    if (!this.showWalkLocationPrompts || !this.allowEdits() || this.display.walkPopulationWalksManager()) {
-      return;
+    const canOffer = this.showWalkLocationPrompts && this.allowEdits() && !this.display.walkPopulationWalksManager();
+    if (!canOffer) {
+      this.showStartingPointPrompt = false;
+    } else {
+      const normalizedVenuePostcode = this.venueService.normalizePostcode(venuePostcode);
+      const startPostcode = this.event.groupEvent?.start_location?.postcode;
+      const normalizedStartPostcode = this.venueService.normalizePostcode(startPostcode);
+      const hasVenuePostcode = !isEmpty(normalizedVenuePostcode);
+      const startNotSet = isEmpty(normalizedStartPostcode);
+      const postcodesDiffer = normalizedVenuePostcode !== normalizedStartPostcode;
+      const wasDismissedForThisPostcode = this.dismissedForPostcode === normalizedVenuePostcode;
+      if (hasVenuePostcode && startNotSet) {
+        this.applyVenuePostcodeToStartingPoint();
+      } else {
+        this.showStartingPointPrompt = hasVenuePostcode && postcodesDiffer && !wasDismissedForThisPostcode;
+      }
+      this.logger.debug("checkStartingPointPrompt: venuePostcode:", normalizedVenuePostcode, "startPostcode:", normalizedStartPostcode, "startNotSet:", startNotSet, "showPrompt:", this.showStartingPointPrompt);
     }
-
-    const normalizedVenuePostcode = this.venueService.normalizePostcode(venuePostcode);
-    const startPostcode = this.event.groupEvent?.start_location?.postcode;
-    const normalizedStartPostcode = this.venueService.normalizePostcode(startPostcode);
-
-    const hasVenuePostcode = !isEmpty(normalizedVenuePostcode);
-    const postcodesDiffer = normalizedVenuePostcode !== normalizedStartPostcode;
-    const wasDismissedForThisPostcode = this.dismissedForPostcode === normalizedVenuePostcode;
-
-    this.showStartingPointPrompt = hasVenuePostcode && postcodesDiffer && !wasDismissedForThisPostcode;
-    this.logger.debug("checkStartingPointPrompt: venuePostcode:", normalizedVenuePostcode, "startPostcode:", normalizedStartPostcode, "showPrompt:", this.showStartingPointPrompt);
   }
 
   applyVenuePostcodeToStartingPoint() {
@@ -402,20 +423,25 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private checkVenueFromStartingPointPrompt() {
-    if (!this.showWalkLocationPrompts || !this.allowEdits() || this.display.walkPopulationWalksManager()) {
-      return;
+    const canOffer = this.showWalkLocationPrompts && this.allowEdits() && !this.display.walkPopulationWalksManager();
+    if (!canOffer) {
+      this.showVenueFromStartingPointPrompt = false;
+    } else {
+      const venuePostcode = this.venueService.normalizePostcode(this.event?.fields?.venue?.postcode);
+      const startingPostcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
+      const normalizedStartingPostcode = this.venueService.normalizePostcode(startingPostcode);
+      const hasStartingPostcode = !isEmpty(normalizedStartingPostcode);
+      const venuePostcodeEmpty = isEmpty(venuePostcode);
+      const wasDismissedForThisPostcode = this.dismissedVenueFromStartingPointForPostcode === normalizedStartingPostcode;
+      if (hasStartingPostcode && venuePostcodeEmpty && !wasDismissedForThisPostcode) {
+        this.venueService.ensureVenue(this.event);
+        this.venueService.seedVenueFromLocation(this.event.fields.venue, this.event.groupEvent?.start_location);
+        this.applyStartingPostcodeToVenue();
+      } else {
+        this.showVenueFromStartingPointPrompt = hasStartingPostcode && venuePostcodeEmpty && !wasDismissedForThisPostcode;
+      }
+      this.logger.debug("checkVenueFromStartingPointPrompt: startingPostcode:", normalizedStartingPostcode, "venuePostcode:", venuePostcode, "showPrompt:", this.showVenueFromStartingPointPrompt);
     }
-
-    const venuePostcode = this.venueService.normalizePostcode(this.event?.fields?.venue?.postcode);
-    const startingPostcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
-    const normalizedStartingPostcode = this.venueService.normalizePostcode(startingPostcode);
-
-    const hasStartingPostcode = !isEmpty(normalizedStartingPostcode);
-    const venuePostcodeEmpty = isEmpty(venuePostcode);
-    const wasDismissedForThisPostcode = this.dismissedVenueFromStartingPointForPostcode === normalizedStartingPostcode;
-
-    this.showVenueFromStartingPointPrompt = hasStartingPostcode && venuePostcodeEmpty && !wasDismissedForThisPostcode;
-    this.logger.debug("checkVenueFromStartingPointPrompt: startingPostcode:", normalizedStartingPostcode, "venuePostcode:", venuePostcode, "showPrompt:", this.showVenueFromStartingPointPrompt);
   }
 
   applyStartingPostcodeToVenue() {
@@ -435,6 +461,22 @@ export class Venue implements OnInit, OnDestroy {
 
   isMeetingPlaceChanged($event: any) {
     this.logger.info("isMeetingPlaceChanged:", $event, "venue:", this.event?.fields.venue);
+    if ($event) {
+      this.event.fields.venue.venuePublish = true;
+    }
+  }
+
+  venueHasDetails(): boolean {
+    const venue = this.event?.fields?.venue;
+    return !!(!isEmpty(venue?.name) || !isEmpty(venue?.postcode) || !isEmpty(venue?.url));
+  }
+
+  showPublishPrompt(): boolean {
+    return this.allowEdits() && this.venueHasDetails() && !this.event?.fields?.venue?.venuePublish;
+  }
+
+  showVenueOnSite() {
+    this.event.fields.venue.venuePublish = true;
   }
 
   venueLink(): string {
