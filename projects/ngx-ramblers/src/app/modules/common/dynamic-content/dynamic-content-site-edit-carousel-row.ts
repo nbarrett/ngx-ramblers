@@ -60,16 +60,16 @@ export class RowSettingsCarouselComponent implements OnInit {
   faAdd = faAdd;
   id: string;
   nameInput: boolean;
-  private defaultAlbumName: string;
   protected readonly faSearch = faSearch;
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
     this.initialiseMissingAlbumData();
-    this.defaultAlbumName = this.row?.carousel?.name;
     this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.row?.carousel?.name, metadataResponses);
-      this.nameInput = !allAndSelectedContentMetaData.contentMetadata;
+      if (this.nameInput !== true && this.nameInput !== false) {
+        this.nameInput = !allAndSelectedContentMetaData.contentMetadata;
+      }
       this.logger.info("given name:", this.row?.carousel?.name, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
       this.initialiseMissingAlbumData();
     });
@@ -101,11 +101,6 @@ export class RowSettingsCarouselComponent implements OnInit {
   toggleNameEdit(nameInput: boolean) {
     this.nameInput = nameInput;
     this.nameInputChange.emit(this.nameInput);
-    if (this.nameInput) {
-      this.row.carousel.name = this.defaultAlbumName;
-    } else {
-      this.row.carousel.name = null;
-    }
   }
 
 }

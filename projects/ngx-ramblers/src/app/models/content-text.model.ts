@@ -970,7 +970,7 @@ export const DEFAULT_GRID_OPTIONS: GridViewOptions = {
   maxColumns: 2,
   layoutMode: GridLayoutMode.MASONRY,
   imageFit: ImageFit.CONTAIN,
-  gap: 1,
+  gap: 0.25,
   borderRadius: 6
 };
 

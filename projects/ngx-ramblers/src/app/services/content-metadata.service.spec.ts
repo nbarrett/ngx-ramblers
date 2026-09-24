@@ -77,6 +77,15 @@ describe("ContentMetadataService", () => {
     expect(service.optionallyMigrate(summary, RootFolder.carousels, "imagesHome")).toEqual({...summary, files: []});
   });
 
+  it("selects an album by name and does not invent one when the name is missing", () => {
+    const service: ContentMetadataService = TestBed.inject(ContentMetadataService);
+    const homepage = {name: "homepage", files: [{}]} as ContentMetadata;
+    const items = {response: [homepage]} as any;
+    expect(service.selectMetadataBasedOn("homepage", items).contentMetadata).toEqual(homepage);
+    expect(service.selectMetadataBasedOn("", items).contentMetadata).toEqual(null);
+    expect(service.selectMetadataBasedOn("photos/test-gallery", items).contentMetadata).toEqual(null);
+  });
+
   it("should use the album's prevailing event source for new images", () => {
     const service: ContentMetadataService = TestBed.inject(ContentMetadataService);
 

@@ -32,7 +32,6 @@ import { ImageTagDataService } from "./image-tag-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { RootFolder } from "../models/system.model";
 import { StringUtilsService } from "./string-utils.service";
-import { first } from "es-toolkit/compat";
 import { MemberLoginService } from "./member/member-login.service";
 import { take } from "es-toolkit/compat";
 import { UrlService } from "./url.service";
@@ -326,8 +325,8 @@ export class ContentMetadataService {
   public selectMetadataBasedOn(name: string, item: ContentMetadataApiResponses): AllAndSelectedContentMetaData {
     this.logger.info("contentMetaDataItems:", item.response, "name:", name);
     const contentMetadataItems: ContentMetadata[] = item.response;
-    const selection = name ? ("chosen based on name:" + name) : "chosen based on it being first as no name supplied";
-    const contentMetadata: ContentMetadata = name ? contentMetadataItems.find(item => item.name === name) : first(contentMetadataItems);
+    const selection = name ? ("chosen based on name:" + name) : "none chosen as no name supplied";
+    const contentMetadata: ContentMetadata = (name ? contentMetadataItems.find(item => item.name === name) : null) || null;
     const response = {contentMetadataItems, contentMetadata};
     this.logger.info("returning:", response, selection);
     return response;

@@ -2033,7 +2033,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.logger.debug("row:", row);
     if (this.actions.isCarouselOrAlbum(row)) {
       const defaultAlbum = this.actions.defaultAlbum(this.contentPathWithIndex(row));
-      if (!row.carousel?.name) {
+      if (!row.carousel) {
         const carousel = defaultAlbum;
         this.logger.debug("initialising carousel data:", carousel);
         row.carousel = carousel;

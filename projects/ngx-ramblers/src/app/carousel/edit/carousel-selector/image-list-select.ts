@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { ContentMetadata } from "../../../models/content-metadata.model";
@@ -39,14 +39,15 @@ import { isArray } from "es-toolkit/compat";
         </div>
       } @else {
         <select class="form-control me-2 flex-grow-1"
-                [(ngModel)]="selectedContentMetadata"
+                [(ngModel)]="selectedName"
                 [id]="id"
-                (ngModelChange)="emitAndPublishMetadata($event)"
+                (ngModelChange)="onSelectedNameChange($event)"
                 [style.flex]="'1 1 auto'"
                 [style.min-width.px]="0"
                 [ngStyle]="{'max-width.px': maxWidth}">
-          @for (contentMetadata of allContentMetadata; track contentMetadata) {
-            <option [ngValue]="contentMetadata">
+          <option [ngValue]="null">Choose an album</option>
+          @for (contentMetadata of allContentMetadata; track contentMetadata.name) {
+            <option [ngValue]="contentMetadata.name">
               {{ contentMetadataService.contentMetadataName(contentMetadata) }}
               ({{ stringUtils.pluraliseWithCount(contentMetadata.files.length, "image") }})
             </option>
@@ -99,7 +100,7 @@ import { isArray } from "es-toolkit/compat";
   `],
   imports: [FormsModule, NgStyle, BadgeButtonComponent]
 })
-export class ImageListSelect implements OnInit {
+export class ImageListSelect implements OnInit, OnChanges {
   private logger: Logger = inject(LoggerFactory).createLogger("ImageListSelect", NgxLoggerLevel.ERROR);
   contentMetadataService = inject(ContentMetadataService);
   pageContentService = inject(PageContentService);
@@ -122,6 +123,7 @@ export class ImageListSelect implements OnInit {
 
   protected readonly faPlus = faPlus;
   public selectedContentMetadata: ContentMetadata | ContentMetadata[] | null;
+  public selectedName: string | null = null;
   public allContentMetadata: ContentMetadata[];
   private usageCounts: Map<string, number> = new Map();
 
@@ -135,6 +137,7 @@ export class ImageListSelect implements OnInit {
         this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : [];
       } else {
         this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata || null;
+        this.selectedName = allAndSelectedContentMetaData.contentMetadata?.name || null;
       }
       this.logger.info("contentMetadataNotifications().subscribe.allContentMetadata", this.allContentMetadata, "selectedContentMetadata:", this.selectedContentMetadata);
     });
@@ -172,6 +175,19 @@ export class ImageListSelect implements OnInit {
       this.selectedContentMetadata = [contentMetadata];
       this.emitAndPublishMetadata([contentMetadata]);
     }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.name && !this.multiple) {
+      const named = (this.allContentMetadata || []).find(item => item.name === this.name);
+      this.selectedName = named?.name || null;
+    }
+  }
+
+  onSelectedNameChange(name: string | null): void {
+    const chosen = (this.allContentMetadata || []).find(item => item.name === name) || null;
+    this.selectedContentMetadata = chosen;
+    this.emitAndPublishMetadata(chosen);
   }
 
   emitAndPublishMetadata(contentMetadata: ContentMetadata | ContentMetadata[] | null) {
