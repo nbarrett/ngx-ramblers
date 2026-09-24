@@ -474,7 +474,7 @@ function parseIndexLine(line: string): IndexEntry | null {
   const remainder = stripRedundantIssueRefs(remainderParts.join(" — "));
   const buildNumber = buildFromLabel || path.match(/-build-(\d+)/)?.[1] || null;
   const issueNumberFromLabel = remainder.match(/^#(\d+)\b/)?.[1] || null;
-  const issueNumberFromPath = path.match(/-issue-(\d+)$/)?.[1] || null;
+  const issueNumberFromPath = path.match(/-issue-(\d+)/)?.[1] || null;
   const issueNumber = issueNumberFromLabel || issueNumberFromPath;
   const isoFromPath = extractDateFromPath(path);
   const isoFromLabel = dateSegment ? formatIsoDateString(dateSegment.trim()) : null;
@@ -496,7 +496,7 @@ function parseIndexLine(line: string): IndexEntry | null {
 function formatIndexLine(entry: IndexEntry): string {
   const label = buildIndexLabel(entry);
   const suffix = entry.hasCamera ? CAMERA_SUFFIX : "";
-  return `- [${label}](${entry.path})${suffix}`;
+  return `- [${label}](/${entry.path.replace(/^\/+/, "")})${suffix}`;
 }
 
 function buildIndexLabel(entry: IndexEntry): string {

@@ -22,10 +22,15 @@ describe("release-note grouping", () => {
   it("gives every commit its own note so each keeps its own headings", () => {
     const commits = [commit("newerabc", "2026-09-22", "20"), commit("olderdef", "2026-09-21", "151")];
     expect(groupCommitsIndividually(commits)).toEqual([
-      {date: "2026-09-22", issueNumber: "20", commits: [commits[0]], pathSuffix: "-issue-20-newerab"},
-      {date: "2026-09-21", issueNumber: "151", commits: [commits[1]], pathSuffix: "-issue-151-olderde"}
+      {date: "2026-09-22", issueNumber: "20", commits: [commits[0]], pathSuffix: "-issue-20"},
+      {date: "2026-09-21", issueNumber: "151", commits: [commits[1]], pathSuffix: "-issue-151"}
     ]);
     assertEveryCommitGrouped(commits, groupCommitsIndividually(commits));
+  });
+
+  it("does not put a git hash on the slug when two notes share a date and issue", () => {
+    const commits = [commit("aaaaaaa1", "2026-09-23", "97"), commit("bbbbbbb2", "2026-09-23", "97")];
+    expect(groupCommitsIndividually(commits).map(group => group.pathSuffix)).toEqual(["-issue-97", "-issue-97-2"]);
   });
 
   it("combines commits only when their date and issue both match", () => {

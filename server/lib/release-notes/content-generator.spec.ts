@@ -88,7 +88,7 @@ describe("content-generator updateIndexPageContent", () => {
         "",
         "Welcome to the release notes page.",
         "",
-        "- [27-Jul-2026 — build 798 — #310 — separate inbox privacy (ref #310)](how-to/committee/release-notes/2026-07-27) 📸"
+        "- [27-Jul-2026 — build 798 — #310 — separate inbox privacy (ref #310)](/how-to/committee/release-notes/2026-07-27) 📸"
       ].join("\n")
     );
 
@@ -101,8 +101,8 @@ describe("content-generator updateIndexPageContent", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).toContain("- [28-Jul-2026 — build 801 — #303 — H1–H6 headings and extract TipTap/composer helpers](how-to/committee/release-notes/2026-07-28)");
-    expect(content).toContain("- [27-Jul-2026 — build 798 — #310 — separate inbox privacy](how-to/committee/release-notes/2026-07-27) 📸");
+    expect(content).toContain("- [28-Jul-2026 — build 801 — #303 — H1–H6 headings and extract TipTap/composer helpers](/how-to/committee/release-notes/2026-07-28)");
+    expect(content).toContain("- [27-Jul-2026 — build 798 — #310 — separate inbox privacy](/how-to/committee/release-notes/2026-07-27) 📸");
     expect(content).not.toContain("(ref #303)");
     expect(content).not.toContain("(ref #310)");
   });
@@ -115,8 +115,8 @@ describe("content-generator updateIndexPageContent", () => {
         "",
         "Welcome to the release notes page.",
         "",
-        "- [01-Apr-2026 — Earlier release](how-to/committee/release-notes/2026-04-01) 📸",
-        "- [31-Mar-2026 — Older release](how-to/committee/release-notes/2026-03-31)"
+        "- [01-Apr-2026 — Earlier release](/how-to/committee/release-notes/2026-04-01) 📸",
+        "- [31-Mar-2026 — Older release](/how-to/committee/release-notes/2026-03-31)"
       ].join("\n")
     );
 
@@ -128,9 +128,9 @@ describe("content-generator updateIndexPageContent", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).toContain("- [01-Apr-2026 — Earlier release](how-to/committee/release-notes/2026-04-01) 📸");
-    expect(content).toContain("- [31-Mar-2026 — Older release](how-to/committee/release-notes/2026-03-31)");
-    expect(content).toContain("- [04-Apr-2026 — New release note](how-to/committee/release-notes/2026-04-04)");
+    expect(content).toContain("- [01-Apr-2026 — Earlier release](/how-to/committee/release-notes/2026-04-01) 📸");
+    expect(content).toContain("- [31-Mar-2026 — Older release](/how-to/committee/release-notes/2026-03-31)");
+    expect(content).toContain("- [04-Apr-2026 — New release note](/how-to/committee/release-notes/2026-04-04)");
   });
 
   it("does not strip 📸 from entries that already exist when re-adding the same path", () => {
@@ -138,7 +138,7 @@ describe("content-generator updateIndexPageContent", () => {
       [
         "# Release Notes",
         "",
-        "- [04-Apr-2026 — Existing entry](how-to/committee/release-notes/2026-04-04) 📸"
+        "- [04-Apr-2026 — Existing entry](/how-to/committee/release-notes/2026-04-04) 📸"
       ].join("\n")
     );
 
@@ -150,7 +150,7 @@ describe("content-generator updateIndexPageContent", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).toContain("- [04-Apr-2026 — Existing entry](how-to/committee/release-notes/2026-04-04) 📸");
+    expect(content).toContain("- [04-Apr-2026 — Existing entry](/how-to/committee/release-notes/2026-04-04) 📸");
   });
 
   it("adds new entries without a 📸 marker by default", () => {
@@ -158,7 +158,7 @@ describe("content-generator updateIndexPageContent", () => {
       [
         "# Release Notes",
         "",
-        "- [31-Mar-2026 — Older](how-to/committee/release-notes/2026-03-31)"
+        "- [31-Mar-2026 — Older](/how-to/committee/release-notes/2026-03-31)"
       ].join("\n")
     );
 
@@ -182,10 +182,10 @@ describe("content-generator updateIndexPageContent", () => {
         "",
         "## 2026",
         "",
-        "- [08-Jan-2026 — Early 2026](how-to/committee/release-notes/2026-01-08)",
-        "- [20-Dec-2025 — Late 2025](how-to/committee/release-notes/2025-12-20)",
-        "- [07-May-2025 — Mid 2025](how-to/committee/release-notes/2025-05-07) 📸",
-        "- [19-Dec-2024 — Late 2024](how-to/committee/release-notes/2024-12-19) 📸"
+        "- [08-Jan-2026 — Early 2026](/how-to/committee/release-notes/2026-01-08)",
+        "- [20-Dec-2025 — Late 2025](/how-to/committee/release-notes/2025-12-20)",
+        "- [07-May-2025 — Mid 2025](/how-to/committee/release-notes/2025-05-07) 📸",
+        "- [19-Dec-2024 — Late 2024](/how-to/committee/release-notes/2024-12-19) 📸"
       ].join("\n")
     );
 
@@ -221,8 +221,7 @@ describe("content-generator updateIndexPageContent", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).not.toContain("](/how-to/committee/release-notes/");
-    expect(content).toContain("(how-to/committee/release-notes/2025-05-07) 📸");
+    expect(content).toContain("](/how-to/committee/release-notes/2025-05-07) 📸");
   });
 
   it("refreshIndexPageContent applies year headings without merging a new entry", () => {
@@ -230,7 +229,7 @@ describe("content-generator updateIndexPageContent", () => {
       [
         "# Release Notes",
         "",
-        "- [08-Jan-2026 — 2026 entry](how-to/committee/release-notes/2026-01-08)",
+        "- [08-Jan-2026 — 2026 entry](/how-to/committee/release-notes/2026-01-08)",
         "- [19-Dec-2024 — 2024 entry](/how-to/committee/release-notes/2024-12-19) 📸"
       ].join("\n")
     );
@@ -239,8 +238,7 @@ describe("content-generator updateIndexPageContent", () => {
     const content = extractContent(refreshed);
     expect(content).toContain("## 2026\n\n- [08-Jan-2026");
     expect(content).toContain("## 2024\n\n- [19-Dec-2024");
-    expect(content).toContain("(how-to/committee/release-notes/2024-12-19) 📸");
-    expect(content).not.toContain("](/how-to/committee/release-notes/");
+    expect(content).toContain("](/how-to/committee/release-notes/2024-12-19) 📸");
   });
 
   it("preserves 📸 across many entries when inserting in the middle", () => {
@@ -248,9 +246,9 @@ describe("content-generator updateIndexPageContent", () => {
       [
         "# Release Notes",
         "",
-        "- [05-Apr-2026 — A](how-to/committee/release-notes/2026-04-05) 📸",
-        "- [03-Apr-2026 — B](how-to/committee/release-notes/2026-04-03) 📸",
-        "- [01-Apr-2026 — C](how-to/committee/release-notes/2026-04-01)"
+        "- [05-Apr-2026 — A](/how-to/committee/release-notes/2026-04-05) 📸",
+        "- [03-Apr-2026 — B](/how-to/committee/release-notes/2026-04-03) 📸",
+        "- [01-Apr-2026 — C](/how-to/committee/release-notes/2026-04-01)"
       ].join("\n")
     );
 
@@ -262,10 +260,10 @@ describe("content-generator updateIndexPageContent", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).toContain("- [05-Apr-2026 — A](how-to/committee/release-notes/2026-04-05) 📸");
-    expect(content).toContain("- [03-Apr-2026 — B](how-to/committee/release-notes/2026-04-03) 📸");
-    expect(content).toContain("- [01-Apr-2026 — C](how-to/committee/release-notes/2026-04-01)");
-    expect(content).toContain("- [04-Apr-2026 — Inserted](how-to/committee/release-notes/2026-04-04)");
+    expect(content).toContain("- [05-Apr-2026 — A](/how-to/committee/release-notes/2026-04-05) 📸");
+    expect(content).toContain("- [03-Apr-2026 — B](/how-to/committee/release-notes/2026-04-03) 📸");
+    expect(content).toContain("- [01-Apr-2026 — C](/how-to/committee/release-notes/2026-04-01)");
+    expect(content).toContain("- [04-Apr-2026 — Inserted](/how-to/committee/release-notes/2026-04-04)");
   });
 
   it("shows the build number in the label and orders same-date entries newest build first", () => {
@@ -273,7 +271,7 @@ describe("content-generator updateIndexPageContent", () => {
       [
         "# Release Notes",
         "",
-        "- [03-Jul-2026 — build 733 — #306 — Attachments](how-to/committee/release-notes/2026-07-03-issue-306) 📸"
+        "- [03-Jul-2026 — build 733 — #306 — Attachments](/how-to/committee/release-notes/2026-07-03-issue-306) 📸"
       ].join("\n")
     );
 
@@ -288,7 +286,7 @@ describe("content-generator updateIndexPageContent", () => {
     const content = extractContent(updated);
     const entryLines = content.split("\n").filter(line => line.startsWith("- ["));
     expect(entryLines[0]).toContain("build 735");
-    expect(entryLines[0]).toContain("(how-to/committee/release-notes/2026-07-03)");
+    expect(entryLines[0]).toContain("(/how-to/committee/release-notes/2026-07-03)");
     expect(entryLines[1]).toContain("build 733");
     expect(content.indexOf("build 735")).toBeLessThan(content.indexOf("build 733"));
   });
@@ -472,8 +470,8 @@ describe("content-generator preserves unassigned entries", () => {
       [
         "# Release Notes",
         "",
-        "- [26-Jun-2026 — Unassigned commits](how-to/committee/release-notes/2026-06-26-other)",
-        "- [26-Jun-2026 — #298 — an issue note](how-to/committee/release-notes/2026-06-26-issue-298)"
+        "- [26-Jun-2026 — Unassigned commits](/how-to/committee/release-notes/2026-06-26-other)",
+        "- [26-Jun-2026 — #298 — an issue note](/how-to/committee/release-notes/2026-06-26-issue-298)"
       ].join("\n")
     );
 
@@ -485,8 +483,8 @@ describe("content-generator preserves unassigned entries", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).toContain("(how-to/committee/release-notes/2026-06-26-other)");
-    expect(content).toContain("(how-to/committee/release-notes/2026-06-26-issue-298)");
+    expect(content).toContain("(/how-to/committee/release-notes/2026-06-26-other)");
+    expect(content).toContain("(/how-to/committee/release-notes/2026-06-26-issue-298)");
   });
 
   it("treats a date page and its -other sibling as separate entries", () => {
@@ -494,7 +492,7 @@ describe("content-generator preserves unassigned entries", () => {
       [
         "# Release Notes",
         "",
-        "- [23-Jun-2026 — the day's note](how-to/committee/release-notes/2026-06-23)"
+        "- [23-Jun-2026 — the day's note](/how-to/committee/release-notes/2026-06-23)"
       ].join("\n")
     );
 
@@ -506,8 +504,8 @@ describe("content-generator preserves unassigned entries", () => {
     });
 
     const content = extractContent(updated);
-    expect(content).toContain("(how-to/committee/release-notes/2026-06-23)");
-    expect(content).toContain("(how-to/committee/release-notes/2026-06-23-other)");
+    expect(content).toContain("(/how-to/committee/release-notes/2026-06-23)");
+    expect(content).toContain("(/how-to/committee/release-notes/2026-06-23-other)");
   });
 
   it("keeps existing -other links when refreshing without adding an entry", () => {
@@ -515,11 +513,11 @@ describe("content-generator preserves unassigned entries", () => {
       [
         "# Release Notes",
         "",
-        "- [26-Jun-2026 — Unassigned commits](how-to/committee/release-notes/2026-06-26-other)"
+        "- [26-Jun-2026 — Unassigned commits](/how-to/committee/release-notes/2026-06-26-other)"
       ].join("\n")
     );
 
     expect(extractContent(refreshIndexPageContent(existing)))
-      .toContain("(how-to/committee/release-notes/2026-06-26-other)");
+      .toContain("(/how-to/committee/release-notes/2026-06-26-other)");
   });
 });
