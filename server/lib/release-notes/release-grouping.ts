@@ -40,14 +40,24 @@ export function groupCommitsByDateAndIssue(commits: ConventionalCommit[]): Relea
 }
 
 export function groupCommitsIndividually(commits: ConventionalCommit[]): ReleaseGroup[] {
-  return commits.map(commit => {
+  const groups = commits.map(commit => {
     const issueNumber = commit.issueReferences[0]?.issue || null;
     return {
       date: commit.date,
       issueNumber,
       commits: [commit],
-      pathSuffix: issueNumber ? `-issue-${issueNumber}-${commit.shortHash}` : `-${commit.shortHash}`
+      pathSuffix: ""
     };
+  });
+  const used = new Map<string, number>();
+  return groups.map(group => {
+    const sameDate = groups.filter(other => other.date === group.date);
+    const base = pathSuffixFor(group, sameDate);
+    const key = `${group.date}${base}`;
+    const count = (used.get(key) || 0) + 1;
+    used.set(key, count);
+    const pathSuffix = count === 1 ? base : `${base}-${count}`;
+    return { ...group, pathSuffix };
   });
 }
 

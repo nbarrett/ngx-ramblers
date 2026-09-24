@@ -251,6 +251,10 @@ describe("StringUtilsService", () => {
       expect(service.asPathSegmentTitle("")).toBe("");
       expect(service.asPathSegmentTitle(null as any)).toBe("");
     });
+
+    it("should drop a trailing git short hash from a release-note slug", () => {
+      expect(service.asPathSegmentTitle("2026-09-23-issue-97-68ded9e4")).toBe("Issue 97");
+    });
   });
 
   describe("asWords", () => {

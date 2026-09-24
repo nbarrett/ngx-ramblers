@@ -178,8 +178,9 @@ StringUtilsService {
   }
 
   asPathSegmentTitle(segment: string) {
-    const stripped = (segment || "").replace(/^\d{4}-\d{2}-\d{2}-/, "");
-    return this.asTitle(stripped);
+    const withoutDate = (segment || "").replace(/^\d{4}-\d{2}-\d{2}-/, "");
+    const withoutGitHash = withoutDate.replace(/-[a-f0-9]{7,8}$/i, "");
+    return this.asTitle(withoutGitHash);
   }
 
   pluraliseWithCount(count: number, singular: string, plural?: string) {
