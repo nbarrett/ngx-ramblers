@@ -4,7 +4,6 @@ import {
   JitsiJoinMode,
   JitsiTokenUser,
   MeetingGuestOccupantKind,
-  MeetingOccupantIdentity,
   VideoMeetingParticipant,
   VideoMeetingRuntimeConfig
 } from "../models/video-meeting.model";
@@ -200,19 +199,12 @@ function occupantDisplayName(person: Pick<VideoMeetingParticipant, "displayName"
   return (person.displayName || "").replace(/\s*\((me|you)\)\s*$/i, "").trim().toLowerCase();
 }
 
-function isAnonymousGuestName(name: string): boolean {
-  return !name || name === "guest" || name === "fellow jitster";
-}
-
-export function occupantIdentityKey(person: Pick<VideoMeetingParticipant, "displayName" | "email">): string {
+export function occupantIdentityKey(person: Pick<VideoMeetingParticipant, "displayName" | "email"> & { participantId?: string }): string {
   const email = (person.email || "").trim().toLowerCase();
-  const name = occupantDisplayName(person);
   if (email) {
     return `email:${email}`;
-  } else if (isAnonymousGuestName(name)) {
-    return MeetingOccupantIdentity.ANONYMOUS_GUEST;
   } else {
-    return `name:${name}`;
+    return `occupant:${person.participantId || occupantDisplayName(person)}`;
   }
 }
 

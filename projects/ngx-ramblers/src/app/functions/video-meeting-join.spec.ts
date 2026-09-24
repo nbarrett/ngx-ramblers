@@ -27,7 +27,7 @@ import {
   videoMeetingPeople,
   videoMeetingRoomSlug
 } from "./video-meeting-join";
-import { MeetingGuestOccupantKind, MeetingOccupantIdentity } from "../models/video-meeting.model";
+import { MeetingGuestOccupantKind } from "../models/video-meeting.model";
 
 function fakeJwt(user: {name?: string; id?: string; email?: string; moderator?: boolean}): string {
   const payload = Buffer.from(JSON.stringify({context: {user}})).toString("base64")
@@ -358,36 +358,35 @@ describe("occupantIdentityKey", () => {
       .toEqual("email:jane@example.org");
   });
 
-  it("treats unnamed Guest tiles as the same occupant", () => {
-    expect(occupantIdentityKey({displayName: "Guest", email: null}))
-      .toEqual(MeetingOccupantIdentity.ANONYMOUS_GUEST);
-    expect(occupantIdentityKey({displayName: "Fellow Jitster", email: null}))
-      .toEqual(MeetingOccupantIdentity.ANONYMOUS_GUEST);
-    expect(occupantIdentityKey({displayName: "Guest (me)", email: null}))
-      .toEqual(MeetingOccupantIdentity.ANONYMOUS_GUEST);
+  it("gives each guest without an email their own identity so they are not kicked", () => {
+    expect(occupantIdentityKey({participantId: "g1", displayName: "Guest", email: null}))
+      .toEqual("occupant:g1");
+    expect(occupantIdentityKey({participantId: "g2", displayName: "Chris", email: null}))
+      .toEqual("occupant:g2");
   });
 
-  it("identifies a named person without email by display name", () => {
-    expect(occupantIdentityKey({displayName: "Nick Barrett", email: null})).toEqual("name:nick barrett");
+  it("identifies a named person with an email by that email", () => {
+    expect(occupantIdentityKey({displayName: "Nick Barrett", email: "nick@example.org"})).toEqual("email:nick@example.org");
   });
 
 });
 
 describe("duplicateOccupantIdsToKick", () => {
 
-  it("keeps the newest unnamed Guest and kicks the rest", () => {
+  it("does not kick unnamed guests, even when several are labelled Guest", () => {
     expect(duplicateOccupantIdsToKick([
       {participantId: "g1", displayName: "Guest", email: null, local: false},
       {participantId: "g2", displayName: "Guest", email: null, local: false},
       {participantId: "g3", displayName: "Guest", email: null, local: false}
-    ], "me")).toEqual(["g1", "g2"]);
+    ], "me")).toEqual([]);
   });
 
-  it("keeps a newly joined occupant when one is preferred", () => {
+  it("does not kick named guests who have no email", () => {
     expect(duplicateOccupantIdsToKick([
-      {participantId: "g1", displayName: "Guest", email: null, local: false},
-      {participantId: "g2", displayName: "Guest", email: null, local: false}
-    ], "me", "g1")).toEqual(["g2"]);
+      {participantId: "c1", displayName: "Chris", email: null, local: false},
+      {participantId: "c2", displayName: "Chris", email: null, local: false},
+      {participantId: "nick", displayName: "Nick Barrett", email: "nick@example.org", local: true}
+    ], "nick")).toEqual([]);
   });
 
   it("never kicks the local occupant when they share an identity", () => {
