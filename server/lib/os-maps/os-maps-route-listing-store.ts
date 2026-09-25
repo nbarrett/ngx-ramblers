@@ -39,17 +39,19 @@ export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]>
     .filter(record => record.gpxFile?.awsFileName && !listedIds.has(record.routeId))
     .map(record => ({
       id: record.routeId,
-      title: record.url || record.routeId,
+      title: record.gpxFile?.title || record.url || record.routeId,
       url: record.url || "",
       createdAt: "",
-      createdAtValue: record.importedAt || 0,
-      distanceMetres: 0,
+      createdAtValue: record.gpxFile?.walkedAt || record.importedAt || 0,
+      distanceMetres: record.gpxFile?.distanceMetres || 0,
       source: OsMapsRouteSource.CREATED,
       importedAt: record.importedAt,
       gpxFile: record.gpxFile,
       routeColor: record.color,
       routeWeight: record.weight,
-      routeOpacity: record.opacity
+      routeOpacity: record.opacity,
+      walkedAt: record.gpxFile?.walkedAt || null,
+      walkedByName: record.gpxFile?.walkedByName || null
     }));
   return [...fromListing, ...extras].sort((left, right) => (right.importedAt || 0) - (left.importedAt || 0));
 }

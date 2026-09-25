@@ -550,6 +550,8 @@ export interface RouteFollowSummary {
   startDescription: string | null;
   startLatitude: number | null;
   startLongitude: number | null;
+  walkedAt?: number | null;
+  walkedByName?: string | null;
 }
 
 export interface RamblersLibraryRoute {

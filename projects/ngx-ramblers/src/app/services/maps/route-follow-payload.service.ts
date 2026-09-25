@@ -114,7 +114,9 @@ export class RouteFollowPayloadService {
         distanceMiles: walk.groupEvent?.distance_miles || null,
         startDescription: walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode || null,
         startLatitude: this.startLatitude(walk.fields?.gpxFile, walk.groupEvent?.start_location),
-        startLongitude: this.startLongitude(walk.fields?.gpxFile, walk.groupEvent?.start_location)
+        startLongitude: this.startLongitude(walk.fields?.gpxFile, walk.groupEvent?.start_location),
+        walkedAt: walk.fields?.gpxFile?.walkedAt || null,
+        walkedByName: walk.fields?.gpxFile?.walkedByName || null
       };
     }
   }
@@ -177,7 +179,9 @@ export class RouteFollowPayloadService {
         distanceMiles: route.distanceMetres ? route.distanceMetres / 1609.34 : null,
         startDescription: null,
         startLatitude: this.startLatitude(route.gpxFile),
-        startLongitude: this.startLongitude(route.gpxFile)
+        startLongitude: this.startLongitude(route.gpxFile),
+        walkedAt: route.walkedAt || route.gpxFile?.walkedAt || null,
+        walkedByName: route.walkedByName || route.gpxFile?.walkedByName || null
       };
     }
   }

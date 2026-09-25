@@ -24,6 +24,8 @@ export interface OsMapsListedRoute {
   routeColor?: string | null;
   routeWeight?: number | null;
   routeOpacity?: number | null;
+  walkedAt?: number | null;
+  walkedByName?: string | null;
 }
 
 export interface OsMapsRouteListing {
@@ -53,6 +55,7 @@ export interface ExportedGpxSummary {
   totalDistanceKm: number;
   startLat: number;
   startLng: number;
+  walkedAt?: number | null;
 }
 
 export enum OsMapsExportTab {

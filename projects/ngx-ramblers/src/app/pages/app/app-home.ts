@@ -1,10 +1,10 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { DecimalPipe, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Subscription } from "rxjs";
-import { faArrowLeft, faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { Subscription, take } from "rxjs";
+import { faArrowLeft, faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -54,6 +54,11 @@ import { GeoDistanceService } from "../../services/maps/geo-distance.service";
 import { DistanceRangeSlider } from "../../components/distance-range-slider/distance-range-slider";
 import { DistanceRange, DistanceUnit } from "../../models/search.model";
 import { KM_PER_MILE } from "../../models/walk.model";
+import { MemberLoginService } from "../../services/member/member-login.service";
+import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
+import { LoginModalComponent } from "../login/login-modal/login-modal.component";
+import { FileUploader, FileUploadModule } from "ng2-file-upload";
+import { AuthService } from "../../auth/auth.service";
 
 @Component({
   selector: "app-home",
@@ -116,6 +121,15 @@ import { KM_PER_MILE } from "../../models/walk.model";
             <fa-icon [icon]="faStar"/>
             Favourites
           </button>
+          <button class="btn btn-primary app-home-import" type="button" (click)="chooseGpxFile()" [disabled]="importingGpx">
+            <fa-icon [icon]="faFileImport"/>
+            {{ importingGpx ? "Importing…" : "Import GPX" }}
+          </button>
+          <input #gpxInput class="d-none" type="file" accept=".gpx,application/gpx+xml"
+                 ng2FileSelect [uploader]="gpxUploader">
+          <div ng2FileDrop [uploader]="gpxUploader" class="drop-zone app-home-import-drop">
+            Or drop a GPX here
+          </div>
         </div>
       }
       }
@@ -125,7 +139,7 @@ import { KM_PER_MILE } from "../../models/walk.model";
           <div class="app-home-customise-heading">
             <h2>What each view shows</h2>
           </div>
-          <p class="app-home-key">Nothing is created on this phone. Content comes from the group's website, then you follow it here.</p>
+          <p class="app-home-key">Maps come from the group's website. You can also import a GPX from this phone; that saves it to the group so others can follow it too.</p>
           <label class="app-home-customise-item">
             <input type="checkbox" [checked]="layout.savedRoutes" (change)="setLayout('savedRoutes', $event)">
             <span>
@@ -160,6 +174,15 @@ import { KM_PER_MILE } from "../../models/walk.model";
         }
         @if (locationError) {
           <p class="app-home-empty">{{ locationError }}</p>
+        }
+        @if (importError) {
+          <div class="alert alert-danger d-flex align-items-start" role="alert">
+            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+            <div>
+              <strong>Could not import that GPX</strong>
+              <p class="mb-0">{{ importError }}</p>
+            </div>
+          </div>
         }
       }
 
@@ -229,6 +252,17 @@ import { KM_PER_MILE } from "../../models/walk.model";
                 </p>
                 @if (route.ramblersSlug) {
                   <p class="app-home-meta">Saved from a Ramblers route link</p>
+                }
+                @if (route.walkedByName || route.walkedAt) {
+                  <p class="app-home-meta">
+                    Walked
+                    @if (route.walkedByName) {
+                      by {{ route.walkedByName }}
+                    }
+                    @if (route.walkedAt) {
+                      on {{ route.walkedAt | displayDate }}
+                    }
+                  </p>
                 }
               </div>
               </a>
@@ -353,7 +387,7 @@ import { KM_PER_MILE } from "../../models/walk.model";
     </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [RouterLink, FormsModule, FontAwesomeModule, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DecimalPipe, DistanceRangeSlider, NgTemplateOutlet]
+  imports: [RouterLink, FormsModule, FontAwesomeModule, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DecimalPipe, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule]
 })
 export class AppHomeComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("AppHomeComponent", NgxLoggerLevel.ERROR);
@@ -375,6 +409,21 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected display = inject(WalkDisplayService);
   private mediaQueryService = inject(MediaQueryService);
   protected payloadService = inject(RouteFollowPayloadService);
+  private memberLogin = inject(MemberLoginService);
+  private authService = inject(AuthService);
+  private modalService = inject(BsModalService);
+  @ViewChild("gpxInput") private gpxInput!: ElementRef<HTMLInputElement>;
+  private loginModalConfig: ModalOptions = {animated: false, initialState: {}};
+  protected importingGpx = false;
+  protected importError: string | null = null;
+  protected gpxUploader = new FileUploader({
+    url: "/api/database/walks/gpx/import",
+    itemAlias: "file",
+    disableMultipart: false,
+    autoUpload: true,
+    authTokenHeader: "Authorization",
+    authToken: `Bearer ${this.authService.authToken()}`
+  });
   protected routes: RouteFollowSummary[] = [];
   protected layout: AppHomeLayout = {savedRoutes: true, upcomingWalks: true};
   protected readonly APP_NEARBY_MILES_MAX = APP_NEARBY_MILES_MAX;
@@ -410,6 +459,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faEyeSlash = faEyeSlash;
+  protected readonly faFileImport = faFileImport;
   protected readonly faLocationDot = faLocationDot;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
   protected readonly faMap = faMap;
@@ -458,6 +508,28 @@ export class AppHomeComponent implements OnInit, OnDestroy {
       const logo = config?.logos?.images?.find(image => image.originalFileName === config?.header?.selectedLogo);
       this.logoUrl = logo?.awsFileName ? this.urlService.resourceRelativePathForAWSFileName(logo.awsFileName) : null;
     }));
+    this.gpxUploader.onBeforeUploadItem = item => {
+      this.gpxUploader.authToken = `Bearer ${this.authService.authToken()}`;
+      this.importingGpx = true;
+      this.importError = null;
+      item.withCredentials = false;
+    };
+    this.gpxUploader.onSuccessItem = () => {
+      this.importingGpx = false;
+      this.gpxUploader.clearQueue();
+      void this.load();
+    };
+    this.gpxUploader.onErrorItem = (_item, response) => {
+      this.importingGpx = false;
+      this.gpxUploader.clearQueue();
+      try {
+        const parsed = JSON.parse(response);
+        this.importError = parsed?.message || parsed?.error || "The file could not be saved. Try again after signing in.";
+      } catch (error) {
+        this.logger.error("Could not parse GPX import failure", error);
+        this.importError = response || "The file could not be saved. Try again after signing in.";
+      }
+    };
     this.activeSession = this.activeFollowSession();
     const coldLaunch = !this.router.lastSuccessfulNavigation()?.previousNavigation;
     if (!coldLaunch || !this.resumeActiveFollowSession()) {
@@ -467,6 +539,20 @@ export class AppHomeComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  chooseGpxFile(): void {
+    if (!this.memberLogin.memberLoggedIn()) {
+      this.modalService.show(LoginModalComponent, this.loginModalConfig);
+      this.subscriptions.push(this.modalService.onHidden.pipe(take(1)).subscribe(() => {
+        if (this.memberLogin.memberLoggedIn()) {
+          this.gpxInput?.nativeElement?.click();
+        }
+      }));
+    } else {
+      this.gpxUploader.authToken = `Bearer ${this.authService.authToken()}`;
+      this.gpxInput?.nativeElement?.click();
+    }
   }
 
   install(): void {

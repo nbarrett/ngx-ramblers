@@ -10,7 +10,12 @@ import debug from "debug";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-persist"));
 debugLog.enabled = true;
 
-export async function persistGpxContent(originalFileName: string, content: string, title?: string): Promise<ServerFileNameData> {
+export async function persistGpxContent(
+  originalFileName: string,
+  content: string,
+  title?: string,
+  walker?: {memberId?: string; name?: string}
+): Promise<ServerFileNameData> {
   const safeName = hasFileExtension(originalFileName, ".gpx") ? originalFileName : `${originalFileName}.gpx`;
   const awsFileName = generateAwsFileName(safeName);
   const resolvedTitle = title || safeName.replace(/\.gpx$/i, "");
@@ -19,10 +24,20 @@ export async function persistGpxContent(originalFileName: string, content: strin
     const summary = parseExportedGpx(content, safeName);
     fileNameData.startLat = summary.startLat;
     fileNameData.startLng = summary.startLng;
+    fileNameData.distanceMetres = summary.totalDistanceMetres;
+    if (summary.walkedAt) {
+      fileNameData.walkedAt = summary.walkedAt;
+    }
   } catch (error) {
     debugLog("Could not parse GPX start point:", error);
     fileNameData.startLat = 0;
     fileNameData.startLng = 0;
+  }
+  if (walker?.memberId) {
+    fileNameData.walkedByMemberId = walker.memberId;
+  }
+  if (walker?.name) {
+    fileNameData.walkedByName = walker.name;
   }
   debugLog("Uploading GPX file:", safeName, "as", awsFileName, "with start point:", fileNameData.startLat, fileNameData.startLng);
   const response = await putBufferDirect(RootFolder.gpxRoutes, awsFileName, Buffer.from(content, "utf8"), "application/gpx+xml");
