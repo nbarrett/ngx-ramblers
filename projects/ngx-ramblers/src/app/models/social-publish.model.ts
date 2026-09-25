@@ -254,7 +254,9 @@ export interface PublishableEvent {
   caption?: string;
   postStyle?: FacebookPostStyle;
   publication?: SocialPublication;
+  instagramPublication?: SocialPublication;
   captionChanged?: boolean;
+  instagramCaptionChanged?: boolean;
 }
 
 export enum PublishedState {
