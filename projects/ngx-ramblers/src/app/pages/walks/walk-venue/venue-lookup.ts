@@ -162,7 +162,7 @@ export enum VenueLookupMode {
               [initialVenue]="initialVenue"
               placeholder="Name, postcode or place"
               (venueSelected)="onVenueSelected($event)"/>
-            <small class="form-text text-muted">Name, address, postcode and website for the site and related links, so you do not type that into the walk description. Not sent to Ramblers. If the walk start is still empty, it is filled from this place.</small>
+            <small class="form-text text-muted">Name, address, postcode and website for the site and related links, so you do not type that into the walk description. Not sent to Ramblers. The walk start moves with this place.</small>
           </div>
         }
         @case ("map") {

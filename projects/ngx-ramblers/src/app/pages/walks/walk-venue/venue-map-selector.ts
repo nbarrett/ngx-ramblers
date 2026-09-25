@@ -16,6 +16,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { ResizerComponent } from "../../../modules/common/resizer/resizer";
+import { isNumber } from "es-toolkit/compat";
 
 @Component({
   selector: "app-venue-map-selector",
@@ -143,6 +144,9 @@ export class VenueMapSelectorComponent implements OnInit, OnChanges, OnDestroy {
     if (changes.selectedVenueType && !changes.selectedVenueType.firstChange) {
       this.refreshEditedVenueIcon();
     }
+    if (changes.initialVenue && !changes.initialVenue.firstChange && this.map) {
+      void this.showCurrentVenue();
+    }
   }
 
   ngOnDestroy() {
@@ -156,8 +160,12 @@ export class VenueMapSelectorComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private isEditedVenue(venue: VenueWithUsageStats): boolean {
-    return this.initialVenue?.lat != null && this.initialVenue?.lon != null
-      && venue.lat === this.initialVenue.lat && venue.lon === this.initialVenue.lon;
+    if (this.initialVenue?.storedVenueId && venue.storedVenueId) {
+      return venue.storedVenueId === this.initialVenue.storedVenueId;
+    } else {
+      return this.initialVenue?.lat != null && this.initialVenue?.lon != null
+        && venue.lat === this.initialVenue.lat && venue.lon === this.initialVenue.lon;
+    }
   }
 
   get editingExistingVenue(): boolean {
@@ -216,7 +224,33 @@ export class VenueMapSelectorComponent implements OnInit, OnChanges, OnDestroy {
         this.editedVenueMarker = marker;
       }
     });
+    await this.showCurrentVenue();
     this.refreshEditedVenueIcon();
+  }
+
+  private async showCurrentVenue(): Promise<void> {
+    const lat = this.initialVenue?.lat;
+    const lon = this.initialVenue?.lon;
+    if (!this.map || !isNumber(lat) || !isNumber(lon)) {
+      return;
+    } else {
+      const latlng = L.latLng(lat, lon);
+      this.map.setView(latlng, Math.max(this.map.getZoom() || 13, 15));
+      if (this.editedVenueMarker) {
+        this.editedVenueMarker.setLatLng(latlng);
+      } else {
+        const current = {
+          ...(this.initialVenue || {}),
+          lat,
+          lon,
+          name: this.initialVenue?.name || "Venue"
+        } as VenueWithUsageStats;
+        const marker = this.createVenueMarker(current);
+        marker.addTo(this.map);
+        this.venueMarkers.push(marker);
+        this.editedVenueMarker = marker;
+      }
+    }
   }
 
   private createVenueMarker(venue: VenueWithUsageStats): L.Marker {
