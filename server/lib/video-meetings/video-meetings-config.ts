@@ -3,8 +3,9 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { systemConfig } from "../config/system-config";
 import { configuredEnvironments } from "../environments/environments-config";
 import { JitsiConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { DEFAULT_GUEST_INSTRUCTIONS, VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
+import { DEFAULT_GUEST_INSTRUCTIONS, VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_CATEGORY, VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME, VideoMeetingRuntimeConfig, VideoMeetingsConfig } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
 import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { contentText } from "../mongo/models/content-text";
 
 const DEFAULT_PUBLIC_HOST = "https://meet.jit.si";
 
@@ -32,12 +33,35 @@ export async function resolveVideoMeetingRuntime(): Promise<VideoMeetingRuntimeC
     publicHost,
     roomPrefix: global?.roomPrefix || "ngx",
     brandName: perSite?.brandName || "Ramblers Video Meetings",
-    guestInstructions: perSite?.guestInstructions || DEFAULT_GUEST_INSTRUCTIONS,
+    guestInstructions: await resolvedGuestInstructions(perSite),
     startWithAudioMuted: global?.startWithAudioMuted ?? false,
     startWithVideoMuted: global?.startWithVideoMuted ?? false,
     enableNotes: global?.enableNotes ?? true,
     enableLobby: global?.enableLobby ?? false
   };
+}
+
+async function resolvedGuestInstructions(perSite: VideoMeetingsConfig): Promise<string> {
+  try {
+    const stored = await contentText.findOne({
+      name: VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME,
+      category: VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_CATEGORY
+    }).lean().exec();
+    const fromContent = stored?.text?.trim();
+    if (fromContent) {
+      return fromContent;
+    } else if (perSite?.guestInstructions?.trim()) {
+      return perSite.guestInstructions.trim();
+    } else {
+      return DEFAULT_GUEST_INSTRUCTIONS;
+    }
+  } catch {
+    if (perSite?.guestInstructions?.trim()) {
+      return perSite.guestInstructions.trim();
+    } else {
+      return DEFAULT_GUEST_INSTRUCTIONS;
+    }
+  }
 }
 
 async function globalJitsiConfig(): Promise<JitsiConfig> {

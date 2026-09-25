@@ -1,14 +1,19 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
+import { View } from "../../../../models/content-text.model";
 import { SystemConfig } from "../../../../models/system.model";
-import { DEFAULT_GUEST_INSTRUCTIONS } from "../../../../models/video-meeting.model";
+import {
+  VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_CATEGORY,
+  VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME
+} from "../../../../models/video-meeting.model";
+import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 
 @Component({
   selector: "app-system-video-meetings-settings",
-  imports: [FormsModule],
+  imports: [FormsModule, ContentTextEditor],
   template: `
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Video Meetings</div>
@@ -35,17 +40,17 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
           <div class="row">
             <div class="col-sm-6">
               <div class="form-group">
-                <label for="video-meetings-guest-instructions">Guest joining instructions</label>
-                <textarea [(ngModel)]="systemConfigInternal.videoMeetings.guestInstructions"
-                          id="video-meetings-guest-instructions"
-                          class="form-control input-sm" rows="3"
-                          [placeholder]="defaultGuestInstructions"></textarea>
+                <label>Guest joining instructions</label>
+                <app-content-text-editor standalone
+                                         [category]="guestInstructionsCategory"
+                                         [name]="guestInstructionsName"
+                                         description="Guest joining instructions"
+                                         [initialView]="View.EDIT"/>
               </div>
             </div>
             <div class="col-sm-6">
               <div class="form-group">
-                The joining guidance included in guest invite emails and meeting invitations. Leave blank to use
-                the standard wording shown in the box, which covers Safari, Chrome and in-app browsers.
+                Included in guest invite emails and meeting invitations. Empty fields load the standard wording. Use default to restore it, then save in the editor toolbar.
               </div>
             </div>
           </div>
@@ -56,7 +61,9 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
 export class SystemVideoMeetingsSettings implements OnInit {
 
   protected systemConfigInternal: SystemConfig;
-  protected readonly defaultGuestInstructions = DEFAULT_GUEST_INSTRUCTIONS;
+  protected readonly View = View;
+  protected readonly guestInstructionsCategory = VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_CATEGORY;
+  protected readonly guestInstructionsName = VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME;
   private systemConfigService = inject(SystemConfigService);
   private logger = inject(LoggerFactory).createLogger("SystemVideoMeetingsSettings", NgxLoggerLevel.ERROR);
 

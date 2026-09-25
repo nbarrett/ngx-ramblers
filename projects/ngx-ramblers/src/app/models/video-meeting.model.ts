@@ -4,6 +4,9 @@ import { EmailAttachment } from "./mail.model";
 
 export const DEFAULT_GUEST_INSTRUCTIONS = "Open the link in Safari on iPhone or iPad, or Chrome on Android or a computer, not inside Mail or Facebook. When asked, tap Allow for the camera and microphone. If you see a microphone with a line through it that does not change, allow camera and microphone in your browser settings and open the link again.";
 
+export const VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_CATEGORY = "admin";
+export const VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME = "video-meetings-guest-joining-instructions";
+
 export const JITSI_KEEP_AWAKE_INTERVAL_MS = 30_000;
 
 export interface VideoMeetingsConfig {
