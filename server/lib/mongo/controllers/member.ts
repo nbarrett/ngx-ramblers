@@ -49,8 +49,15 @@ function subscriptionsById(priorMembers: Map<string, Member>): Map<string, MailS
 }
 
 const controller = crudController.create<Member>(member);
-export const all = controller.all;
 export const findById = controller.findById;
+
+export async function all(req: Request, res: Response): Promise<void> {
+  const query = req.query as {limit?: string | string[]};
+  if (query.limit === "0") {
+    delete query.limit;
+  }
+  await controller.all(req, res);
+}
 
 export async function deleteOne(req: Request, res: Response) {
   const id: string = req.params.id;

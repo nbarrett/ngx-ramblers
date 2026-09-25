@@ -53,7 +53,7 @@ export class MailchimpListSubscriptionService {
   private refreshMembersIfAdmin(): Promise<Member[]> {
     if (this.memberLoginService.allowMemberAdminEdits()) {
       this.logger.info("refreshing all members");
-      return this.memberService.all();
+      return this.memberService.allPages();
     } else {
       this.logger.info("not refreshing all members as not admin");
       return Promise.resolve([]);

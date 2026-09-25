@@ -2,9 +2,9 @@ import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, Subject } from "rxjs";
-import { isString } from "es-toolkit/compat";
+import { isNumber, isString } from "es-toolkit/compat";
 import { chain } from "../../functions/chain";
-import { DataQueryOptions } from "../../models/api-request.model";
+import { DataQueryOptions, MEMBER_PAGE_SIZE, QueryPagination } from "../../models/api-request.model";
 import { Identifiable } from "../../models/api-response.model";
 import { MailchimpSubscription } from "../../models/mailchimp.model";
 import {
@@ -23,6 +23,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mongo-models";
 import { PostSendActionsResult, WorkflowAction } from "../../models/mail.model";
+import { MEMBER_TYPEAHEAD_LIMIT, mongoMemberSearchCriteria } from "../../functions/member-search";
 
 @Injectable({
   providedIn: "root"
@@ -102,17 +103,61 @@ export class MemberService {
     return apiResponse.response as Member;
   }
 
+  async search(term: string, extras: Record<string, unknown> = {}, limit = MEMBER_TYPEAHEAD_LIMIT): Promise<Member[]> {
+    return this.all({
+      criteria: mongoMemberSearchCriteria(term, extras),
+      limit,
+      select: this.publicFieldsDataQueryOptions.select,
+      sort: {lastName: 1, firstName: 1}
+    });
+  }
+
   async all(dataQueryOptions?: DataQueryOptions): Promise<Member[]> {
-    const options: DataQueryOptions = {
-      ...(dataQueryOptions || {}),
-      limit: dataQueryOptions?.limit ?? 0
-    };
+    const hasPositiveLimit = isNumber(dataQueryOptions?.limit) && dataQueryOptions.limit > 0;
+    if (hasPositiveLimit) {
+      const options: DataQueryOptions = {...dataQueryOptions};
+      const params = this.commonDataService.toHttpParams(options);
+      this.logger.debug("all:params", params.toString());
+      const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/all`, {params}), this.memberChanges);
+      const responses = response.response as Member[];
+      this.logger.debug("all:params", params.toString(), "received", responses.length, "members");
+      return responses;
+    } else {
+      const options: DataQueryOptions = dataQueryOptions ? {...dataQueryOptions} : {};
+      delete options.limit;
+      this.logger.debug("all:paging through members");
+      return this.allPages(options);
+    }
+  }
+
+  async page(dataQueryOptions?: DataQueryOptions): Promise<{members: Member[]; pagination: QueryPagination}> {
+    const page = isNumber(dataQueryOptions?.page) ? dataQueryOptions.page : 1;
+    const limit = isNumber(dataQueryOptions?.limit) && dataQueryOptions.limit > 0 ? dataQueryOptions.limit : MEMBER_PAGE_SIZE;
+    const options: DataQueryOptions = {...(dataQueryOptions || {}), page, limit};
     const params = this.commonDataService.toHttpParams(options);
-    this.logger.debug("all:params", params.toString());
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/all`, {params}), this.memberChanges);
-    const responses = response.response as Member[];
-    this.logger.debug("all:params", params.toString(), "received", responses.length, "members");
-    return responses;
+    const members = (response.response as Member[]) || [];
+    const pagination = response.pagination ?? {total: members.length, page, limit, totalPages: 1};
+    return {members, pagination};
+  }
+
+  async eachPage(visit: (members: Member[]) => Promise<void> | void, dataQueryOptions?: DataQueryOptions): Promise<void> {
+    const first = await this.page({...(dataQueryOptions || {}), page: 1});
+    await visit(first.members);
+    const remainingPages = Array.from({length: Math.max(0, first.pagination.totalPages - 1)}, (_, index) => index + 2);
+    await remainingPages.reduce(async (prior, page) => {
+      await prior;
+      const next = await this.page({...(dataQueryOptions || {}), page, limit: first.pagination.limit});
+      await visit(next.members);
+    }, Promise.resolve());
+  }
+
+  async allPages(dataQueryOptions?: DataQueryOptions): Promise<Member[]> {
+    const collected = {members: [] as Member[]};
+    await this.eachPage(chunk => {
+      collected.members = [...collected.members, ...chunk];
+    }, dataQueryOptions);
+    return collected.members;
   }
 
   async getById(memberId: string): Promise<Member> {

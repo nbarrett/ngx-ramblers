@@ -960,7 +960,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   private refreshMembers(): Promise<Member[]> {
     this.logger.info(`refreshing ${this.stringUtils.pluraliseWithCount(this.members.length, "member")}`);
-    return this.memberService.all().then(members => {
+    return this.memberService.allPages().then(members => {
       this.logger.info(`found ${this.stringUtils.pluraliseWithCount(members.length, "member")}`);
       this.members = members;
       if (this.notify && this.filters) {
@@ -1828,7 +1828,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   async sendSubscriptionUpdates(validationSuccessful: boolean) {
     if (validationSuccessful) {
-      const groupMembers = (await this.memberService.all()).filter(this.memberService.filterFor.GROUP_MEMBERS);
+      const groupMembers = (await this.memberService.allPages()).filter(this.memberService.filterFor.GROUP_MEMBERS);
       this.logger.info("about to update", this.systemConfig?.mailDefaults?.mailProvider, "mail lists for", this.stringUtils.pluraliseWithCount(groupMembers.length, "member"));
       switch (this.systemConfig?.mailDefaults?.mailProvider) {
         case MailProvider.BREVO:
