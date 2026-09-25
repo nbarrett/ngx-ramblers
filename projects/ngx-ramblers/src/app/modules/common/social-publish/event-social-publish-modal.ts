@@ -47,59 +47,47 @@ import { faTrashCan } from "@fortawesome/free-solid-svg-icons";
           </div>
         } @else {
           <div class="alert alert-warning d-flex align-items-start">
-            <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
+            <fa-icon class="me-2 mt-1" [icon]="alreadyPublished && !detailsChangedSincePosted ? faCircleCheck : faCircleExclamation"/>
             <div class="flex-grow-1">
-              <strong>This is a Page post, not a Facebook Event</strong>
-              <div>Meta's API does not allow any app to create a Facebook Event. This posts to the Page and links back
-                here.
-              </div>
-              @if (instagramEnabled && event.imageCount === 0) {
-                <strong class="d-block mt-2">Add a photo to post to Instagram</strong>
-                <div>This {{ eventTypeLabel }} has no image, so Instagram can't be posted to. Add one to unlock
-                  Instagram — Facebook will still post with a link preview.
-                </div>
-                <button type="button" class="btn btn-primary btn-sm mt-2"
-                        [disabled]="uploadingImage" (click)="chooseImage()">
-                  <fa-icon [icon]="uploadingImage ? faSpinner : faUpload" class="me-1"/>{{ uploadingImage ? "Uploading" : "Add an image" }}
-                </button>
-              }
-            </div>
-          </div>
-          @if (publishing) {
-            <div class="alert alert-warning d-flex align-items-start">
-              <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
-              <div>
-                <strong>Posting can take a minute or two</strong>
-                <div>Instagram processes the image before it will accept the post, and this page waits for that to finish. You can close this window and carry on; the post still goes out, and the result shows here next time you open it.</div>
-              </div>
-            </div>
-          }
-          @if (alreadyPublished && !event.captionChanged) {
-            <div class="alert alert-warning d-flex align-items-start">
-              <fa-icon class="me-2 mt-1" [icon]="faCircleCheck"/>
-              <div class="flex-grow-1">
-                <strong>Already posted</strong>
-                <div>Nothing has changed since, so it is left alone unless you tick Post again, which sends a fresh post as a reminder.
-                  <a [href]="event.publication.permalink" target="_blank" rel="noopener noreferrer">View the existing
-                    post</a>
+              @if (alreadyPublished && !detailsChangedSincePosted) {
+                <strong>Already posted{{ postedNetworksLabel }}</strong>
+                <div>There is already a post for this {{ eventTypeLabel }}{{ facebookPageNote }}. Nothing has changed since, so it is left alone unless you tick Post again, which sends a fresh post as a reminder.
+                  @if (event.publication?.permalink) {
+                    <a [href]="event.publication.permalink" target="_blank" rel="noopener noreferrer">View the Facebook post</a>
+                  }
+                  @if (event.instagramPublication?.permalink) {
+                    @if (event.publication?.permalink) {
+                      <span> · </span>
+                    }
+                    <a [href]="event.instagramPublication.permalink" target="_blank" rel="noopener noreferrer">View the Instagram post</a>
+                  }
                 </div>
                 <div class="form-check mt-2">
                   <input type="checkbox" class="form-check-input" id="modal-post-again" [(ngModel)]="postAgain">
                   <label class="form-check-label" for="modal-post-again">Post again as a reminder</label>
                 </div>
                 <ng-container *ngTemplateOutlet="deletePost"/>
-              </div>
-            </div>
-          } @else if (alreadyPublished) {
-            <div class="alert alert-warning d-flex align-items-start">
-              <fa-icon class="me-2 mt-1" [icon]="faCircleExclamation"/>
-              <div class="flex-grow-1">
+              } @else if (alreadyPublished) {
                 <strong>Details have changed since this was posted</strong>
-                <div>Posting again will create a second post with the updated wording.</div>
+                <div>There is already a post for this {{ eventTypeLabel }}{{ facebookPageNote }}. Posting again will create a second post with the updated wording.</div>
                 <ng-container *ngTemplateOutlet="deletePost"/>
-              </div>
+              } @else {
+                <strong>Before you post</strong>
+                <div>This is a Page post, not a Facebook Event. Meta's API does not allow any app to create a Facebook Event, so this posts to the Page and links back here.</div>
+                @if (instagramEnabled) {
+                  <div class="mt-2">Instagram can take a minute or two because it processes the image first. You can close this window and carry on; the post still goes out, and the result shows here next time you open it.</div>
+                }
+                @if (instagramEnabled && event.imageCount === 0) {
+                  <strong class="d-block mt-2">Add a photo to post to Instagram</strong>
+                  <div>This {{ eventTypeLabel }} has no image, so Instagram can't be posted to. Add one to unlock Instagram. Facebook will still post with a link preview.</div>
+                  <button type="button" class="btn btn-primary btn-sm mt-2"
+                          [disabled]="uploadingImage" (click)="chooseImage()">
+                    <fa-icon [icon]="uploadingImage ? faSpinner : faUpload" class="me-1"/>{{ uploadingImage ? "Uploading" : "Add an image" }}
+                  </button>
+                }
+              }
             </div>
-          }
+          </div>
           <ng-template #deletePost>
             @if (confirmingDelete) {
               <div class="mt-2 d-flex align-items-center gap-2">
@@ -147,7 +135,7 @@ import { faTrashCan } from "@fortawesome/free-solid-svg-icons";
                  ng2FileSelect (onFileSelected)="onImageSelected($event)" [uploader]="uploader"/>
           <div class="post-preview">
             <div class="post-preview-heading">
-              <strong>This is what will be posted</strong> — edit it if you like
+              <strong>This is what will be posted</strong> - edit it if you like
             </div>
             <div class="post-preview-body">
               @if (!separateCaptions || !separateCaptionsAvailable) {
@@ -337,7 +325,7 @@ export class EventSocialPublishModalComponent implements OnDestroy {
       this.separateCaptions = false;
       this.captionFacebook = "";
       this.captionInstagram = "";
-      this.selectedNetworks = this.facebookEnabled ? [SocialNetwork.FACEBOOK] : [];
+      this.selectedNetworks = this.defaultSelectedNetworks();
       this.logger.info("loaded publishable event", this.event);
     } catch (error) {
       this.loadError = error?.error?.error || error?.message || error;
@@ -362,12 +350,50 @@ export class EventSocialPublishModalComponent implements OnDestroy {
     return this.facebookEnabled && this.instagramAvailable;
   }
 
+  get alreadyPostedFacebook(): boolean {
+    return !!this.event?.publication?.postId;
+  }
+
+  get alreadyPostedInstagram(): boolean {
+    return !!this.event?.instagramPublication?.postId;
+  }
+
   get alreadyPublished(): boolean {
-    return !!this.event?.publication?.permalink;
+    return this.alreadyPostedFacebook || this.alreadyPostedInstagram;
+  }
+
+  get detailsChangedSincePosted(): boolean {
+    return (this.alreadyPostedFacebook && !!this.event?.captionChanged)
+      || (this.alreadyPostedInstagram && !!this.event?.instagramCaptionChanged);
   }
 
   get unchangedSincePosted(): boolean {
-    return this.alreadyPublished && !this.event?.captionChanged;
+    return this.alreadyPublished && !this.detailsChangedSincePosted;
+  }
+
+  get postedNetworksLabel(): string {
+    if (this.alreadyPostedFacebook && this.alreadyPostedInstagram) {
+      return " to Facebook and Instagram";
+    } else if (this.alreadyPostedInstagram) {
+      return " to Instagram";
+    } else {
+      return " to the Facebook Page";
+    }
+  }
+
+  get facebookPageNote(): string {
+    return this.alreadyPostedFacebook ? " (this is not a Facebook Event)" : "";
+  }
+
+  private defaultSelectedNetworks(): SocialNetwork[] {
+    const networks: SocialNetwork[] = [];
+    if (this.facebookEnabled) {
+      networks.push(SocialNetwork.FACEBOOK);
+    }
+    if (this.instagramAvailable) {
+      networks.push(SocialNetwork.INSTAGRAM);
+    }
+    return networks;
   }
 
   protected isSelected(network: SocialNetwork): boolean {

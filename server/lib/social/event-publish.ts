@@ -58,12 +58,43 @@ function eventCancelled(event: ExtendedGroupEvent): boolean {
   return event?.groupEvent?.status === WalkStatus.CANCELLED;
 }
 
+function eventPublicationQuery(eventId: string, network?: SocialNetwork): {eventId: string; network?: SocialNetwork} {
+  return network ? {eventId: String(eventId), network} : {eventId: String(eventId)};
+}
+
+function publicationForEvent(publications: SocialPublication[], eventId: string, network: SocialNetwork): SocialPublication {
+  return (publications || []).find(candidate =>
+    !!candidate?.eventId
+    && String(candidate.eventId) === String(eventId)
+    && candidate.network === network
+    && !!candidate.postId) || null;
+}
+
 async function publicationFor(eventId: string, network: SocialNetwork): Promise<SocialPublication> {
-  return await socialPublication.findOne({eventId, network}).sort({publishedAt: -1}).lean().exec() as unknown as SocialPublication;
+  return eventId
+    ? await socialPublication.findOne(eventPublicationQuery(eventId, network)).sort({publishedAt: -1}).lean().exec() as unknown as SocialPublication
+    : null;
+}
+
+async function discardGoneEventPublication(publication: SocialPublication): Promise<void> {
+  if (publication?.eventId && publication?.network && publication?.postId) {
+    debugLog("removing record of deleted event post:", publication.network, publication.postId, "event:", publication.eventId);
+    await socialPublication.deleteMany({
+      eventId: publication.eventId,
+      network: publication.network,
+      postId: publication.postId
+    });
+  }
 }
 
 async function livePublicationFor(eventId: string, network: SocialNetwork, config: SystemConfig): Promise<SocialPublication> {
-  return livePublicationOrNull(await publicationFor(eventId, network), config?.externalSystems?.facebook?.pageAccessToken);
+  const recorded = await publicationFor(eventId, network);
+  const accessToken = config?.externalSystems?.facebook?.pageAccessToken;
+  const live = await livePublicationOrNull(recorded, accessToken);
+  if (recorded && !live && (!recorded.postId || accessToken)) {
+    await discardGoneEventPublication(recorded);
+  }
+  return live;
 }
 
 export async function captionFor(event: ExtendedGroupEvent, config: SystemConfig, baseUrl: string): Promise<string> {
@@ -157,27 +188,31 @@ export async function publishEventToNetwork(
     } else {
       const images = eventImages(event, baseUrl);
       const result = await publishToNetwork(network, config, images, caption, eventUrl);
-      await socialPublication.create({
-        eventId,
-        eventTitle: event.groupEvent?.title,
-        captionFingerprint: fingerprint,
-        network,
-        postId: result.postId,
-        permalink: result.permalink,
-        imageCount: result.imageCount,
-        caption,
-        publishedAt: dateTimeNowAsValue()
-      });
-      debugLog("published event:", eventId, "to", network, "title:", event.groupEvent?.title, "postId:", result.postId);
-      return {
-        eventId,
-        eventTitle: event.groupEvent?.title,
-        network,
-        outcome: existing ? EventPublishOutcome.REPUBLISHED : EventPublishOutcome.PUBLISHED,
-        postId: result.postId,
-        permalink: result.permalink,
-        caption
-      };
+      if (!result?.postId) {
+        throw new Error(`${network} did not return a post id, so nothing was recorded as published`);
+      } else {
+        await socialPublication.create({
+          eventId: String(eventId),
+          eventTitle: event.groupEvent?.title,
+          captionFingerprint: fingerprint,
+          network,
+          postId: result.postId,
+          permalink: result.permalink,
+          imageCount: result.imageCount,
+          caption,
+          publishedAt: dateTimeNowAsValue()
+        });
+        debugLog("published event:", eventId, "to", network, "title:", event.groupEvent?.title, "postId:", result.postId);
+        return {
+          eventId,
+          eventTitle: event.groupEvent?.title,
+          network,
+          outcome: existing ? EventPublishOutcome.REPUBLISHED : EventPublishOutcome.PUBLISHED,
+          postId: result.postId,
+          permalink: result.permalink,
+          caption
+        };
+      }
     }
   }
 }
@@ -233,12 +268,16 @@ export async function publishableEventById(
   baseUrl: string,
   previewBaseUrl: string
 ): Promise<PublishableEvent> {
-  const event = await extendedGroupEvent.findById(eventId).lean().exec() as ExtendedGroupEvent;
-  if (event) {
-    const publications = await socialPublication.find({eventId}).lean().exec() as unknown as SocialPublication[];
-    return await publishableEventFrom(event, publications, config, baseUrl, previewBaseUrl);
-  } else {
+  if (!eventId) {
     return null;
+  } else {
+    const event = await extendedGroupEvent.findById(eventId).lean().exec() as ExtendedGroupEvent;
+    if (event) {
+      const publications = await socialPublication.find(eventPublicationQuery(eventId)).lean().exec() as unknown as SocialPublication[];
+      return await publishableEventFrom(event, publications, config, baseUrl, previewBaseUrl, true);
+    } else {
+      return null;
+    }
   }
 }
 
@@ -258,8 +297,9 @@ export async function publishableEventsBetween(
   if (events.length === MAXIMUM_PUBLISHABLE_EVENTS) {
     debugLog("publishable events truncated at", MAXIMUM_PUBLISHABLE_EVENTS, "- narrow the date range to see the rest");
   }
+  const eventIds = events.map(event => event.id || (event as any)._id?.toString()).filter(id => !!id);
   const publications = await socialPublication
-    .find({eventId: {$in: events.map(event => event.id || (event as any)._id?.toString())}, network: SocialNetwork.FACEBOOK})
+    .find({eventId: {$in: eventIds}})
     .lean().exec() as unknown as SocialPublication[];
   return await Promise.all(events.map(event => publishableEventFrom(event, publications, config, baseUrl, previewBaseUrl)));
 }
@@ -269,10 +309,20 @@ export async function publishableEventFrom(
   publications: SocialPublication[],
   config: SystemConfig,
   baseUrl: string,
-  previewBaseUrl: string
+  previewBaseUrl: string,
+  verifyLive = false
 ): Promise<PublishableEvent> {
   const eventId = event.id || (event as any)._id?.toString();
-  const publication = publications.find(candidate => candidate.eventId === eventId);
+  const recorded = publicationForEvent(publications, eventId, SocialNetwork.FACEBOOK);
+  const instagramRecorded = publicationForEvent(publications, eventId, SocialNetwork.INSTAGRAM);
+  const accessToken = config?.externalSystems?.facebook?.pageAccessToken;
+  const live = verifyLive
+    ? await livePublicationOrNull(recorded, accessToken)
+    : recorded;
+  if (verifyLive && recorded && !live && (!recorded.postId || accessToken)) {
+    await discardGoneEventPublication(recorded);
+  }
+  const publication = live || null;
   const caption = await captionFor(event, config, baseUrl);
   const images = eventImages(event, baseUrl);
   const previewImages = eventImages(event, previewBaseUrl || baseUrl);
@@ -289,6 +339,8 @@ export async function publishableEventFrom(
     caption,
     postStyle: effectivePostStyle(config, images.length),
     publication,
-    captionChanged: !!publication && publication.captionFingerprint !== captionFingerprint(caption)
+    instagramPublication: instagramRecorded || null,
+    captionChanged: !!publication && publication.captionFingerprint !== captionFingerprint(caption),
+    instagramCaptionChanged: !!instagramRecorded && instagramRecorded.captionFingerprint !== captionFingerprint(caption)
   };
 }

@@ -13,9 +13,12 @@ export function isPostGoneError(error: any): boolean {
 }
 
 export async function postStillExists(publication: Partial<Pick<SocialPublication, "postId" | "network">>, accessToken: string): Promise<boolean> {
-  const checkable = !!publication?.postId && !!accessToken;
-  return checkable
-    ? await graphApiRequest({
+  if (!publication?.postId) {
+    return false;
+  } else if (!accessToken) {
+    return true;
+  } else {
+    return await graphApiRequest({
       method: GraphApiMethod.GET,
       path: `/${publication.postId}`,
       params: {fields: "id", access_token: accessToken},
@@ -24,11 +27,15 @@ export async function postStillExists(publication: Partial<Pick<SocialPublicatio
       const gone = isPostGoneError(error);
       debugLog("existing post check:", publication.network, publication.postId, gone ? "no longer exists" : "check failed so assuming it still exists", error?.message);
       return !gone;
-    })
-    : true;
+    });
+  }
 }
 
 export async function livePublicationOrNull<T extends Partial<Pick<SocialPublication, "postId" | "network">>>(publication: T, accessToken: string): Promise<T> {
-  const live = publication && await postStillExists(publication, accessToken);
-  return live ? publication : null;
+  if (!publication) {
+    return null;
+  } else {
+    const live = await postStillExists(publication, accessToken);
+    return live ? publication : null;
+  }
 }
