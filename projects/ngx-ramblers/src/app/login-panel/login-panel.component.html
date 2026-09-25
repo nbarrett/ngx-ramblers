@@ -27,6 +27,9 @@
       @if (allowEdits()) {
         <app-site-edit class="d-inline-flex align-items-center flex-wrap"/>
       }
+      @if (viewAs.availableChanges | async) {
+        <app-view-as-toggle class="d-inline-flex align-items-center flex-wrap"/>
+      }
       <app-inbox-notification-badge/>
     </div>
   }

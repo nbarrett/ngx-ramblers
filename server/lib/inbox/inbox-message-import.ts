@@ -13,7 +13,7 @@ import {
   InboxThreadFolder,
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { emailDomain, escapeHtml, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { escapeHtml, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -128,30 +128,23 @@ export async function backfillStatedReplyAddress(message: InboxMessage, internal
   return storedWithoutReplyTo.length;
 }
 
-function domainsFromEmails(internalEmails: Set<string>): Set<string> {
-  return new Set(Array.from(internalEmails).map(emailDomain).filter(Boolean));
-}
-
-function addressIsInternal(address: InboxAddress | null | undefined, internalEmails: Set<string>, internalDomains: Set<string>): boolean {
+function addressIsInternal(address: InboxAddress | null | undefined, internalEmails: Set<string>): boolean {
   const email = address?.email ? normaliseEmail(address.email) : "";
-  const domain = email ? emailDomain(email) : "";
-  return Boolean(email) && (internalEmails.has(email) || (Boolean(domain) && internalDomains.has(domain)));
+  return Boolean(email) && internalEmails.has(email);
 }
 
 export function isOwnSentCopy(message: InboxMessage, internalEmails?: Set<string>): boolean {
   const emails = internalEmails ?? new Set<string>();
-  const domains = domainsFromEmails(emails);
   const recipients = [...(message.to ?? []), ...(message.cc ?? [])];
   return emails.size > 0
     && !isAutoReplyMessage(message)
-    && addressIsInternal(message.from, emails, domains)
-    && recipients.some(address => address?.email && !addressIsInternal(address, emails, domains));
+    && addressIsInternal(message.from, emails)
+    && recipients.some(address => address?.email && !addressIsInternal(address, emails));
 }
 
 export function outboundCopyFromInbound(message: InboxMessage, internalEmails?: Set<string>): InboxMessage {
   const emails = internalEmails ?? new Set<string>();
-  const domains = domainsFromEmails(emails);
-  const keepExternal = (address: InboxAddress) => Boolean(address?.email) && !addressIsInternal(address, emails, domains);
+  const keepExternal = (address: InboxAddress) => Boolean(address?.email) && !addressIsInternal(address, emails);
   const to = (message.to ?? []).filter(keepExternal);
   const cc = (message.cc ?? []).filter(keepExternal);
   return {
@@ -247,6 +240,8 @@ async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEma
   if (latest) {
     const lastDirection = latest.direction;
     const thread = await inboxThreadModel.findById(threadId).lean() as unknown as InboxThread | null;
+    const hasInboundMessage = messages.some(message => message.direction === InboxMessageDirection.INBOUND);
+    const folder = folderAfterOwnSentReclassify(thread?.folder, lastDirection, hasInboundMessage);
     const externalAddress = resolveThreadExternalAddress(latest, thread?.externalAddress, internalEmails);
     const sentFrom = lastDirection === InboxMessageDirection.OUTBOUND && latest.from?.email ? latest.from : null;
     const senderAlias = sentFrom ? await derivedAliasForEmail(sentFrom.email) : null;
@@ -255,6 +250,7 @@ async function refreshThreadAfterOwnSentReclassify(threadId: string, internalEma
     await inboxThreadModel.updateOne({_id: threadId}, {
       $set: {
         lastDirection,
+        folder,
         unread: unreadAfterReclassify(thread?.folder, lastDirection, thread?.readByMemberIds),
         externalAddress,
         sentFrom,
@@ -305,6 +301,12 @@ export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number
 export function unreadAfterReclassify(folder: InboxThreadFolder | undefined, lastDirection: InboxMessageDirection, readByMemberIds: string[] | undefined): boolean {
   const alreadyReadByMember = (readByMemberIds?.length ?? 0) > 0;
   return folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && lastDirection === InboxMessageDirection.INBOUND && !alreadyReadByMember;
+}
+
+export function folderAfterOwnSentReclassify(folder: InboxThreadFolder | undefined, lastDirection: InboxMessageDirection, hasInboundMessage: boolean): InboxThreadFolder | undefined {
+  return (folder === InboxThreadFolder.INBOX || !folder) && lastDirection === InboxMessageDirection.OUTBOUND && !hasInboundMessage
+    ? InboxThreadFolder.SENT
+    : folder;
 }
 
 async function aliasForOwnSentCopy(fallback: InboxAliasConfig, message: InboxMessage): Promise<InboxAliasConfig> {
@@ -391,6 +393,9 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
     if (message.conversationKey) {
       threadSet.conversationKey = message.conversationKey;
     }
+    if (!isJunk && existingThread?.folder === InboxThreadFolder.SENT) {
+      threadSet.folder = InboxThreadFolder.INBOX;
+    }
     await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
       ...(keys(threadSet).length > 0 ? {$set: threadSet} : {}),
       $max: {lastSeenAt: messageAt},
@@ -454,9 +459,19 @@ export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outbo
   const counterparty = resolveThreadExternalAddress(outboundMessage, undefined, internalEmails);
   const existingThread = await findExistingThread(aliasConfig, outboundMessage, InboxThreadFolder.INBOX, counterparty);
   const now = dateTimeNow().toMillis();
-  const thread = existingThread ?? await createThread(aliasConfig, outboundMessage, outboundMessage.sentAt ?? now, InboxThreadFolder.INBOX, counterparty, InboxMessageDirection.OUTBOUND, internalEmails);
+  const thread = existingThread ?? await createThread(aliasConfig, outboundMessage, outboundMessage.sentAt ?? now, InboxThreadFolder.SENT, counterparty, InboxMessageDirection.OUTBOUND, internalEmails);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
+  await keepOutboundOnlyThreadInSent(threadId, existingThread);
   return recordOutboundReply(aliasConfig, outboundMessage, threadId);
+}
+
+async function keepOutboundOnlyThreadInSent(threadId: string, existingThread: InboxThread | null): Promise<void> {
+  if (existingThread?.folder === InboxThreadFolder.INBOX) {
+    const inboundCount = await inboxMessageModel.countDocuments({threadId, direction: InboxMessageDirection.INBOUND});
+    if (inboundCount === 0) {
+      await inboxThreadModel.updateOne({_id: threadId}, {$set: {folder: InboxThreadFolder.SENT}});
+    }
+  }
 }
 
 export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMessage: InboxMessage, originalThreadId: string): Promise<InboxMessage> {
@@ -631,4 +646,3 @@ function addressLabel(address: InboxAddress): string {
 function quotedBodyHtml(originalMessage: InboxMessage): string {
   return originalMessage.bodyHtml ?? (originalMessage.bodyText ? `<pre>${escapeHtml(originalMessage.bodyText)}</pre>` : "");
 }
-

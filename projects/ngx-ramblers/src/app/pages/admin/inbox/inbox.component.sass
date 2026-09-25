@@ -197,6 +197,13 @@
   padding-left: 2.1rem
   font-size: 0.9rem
 
+.inbox-nav-roots
+  display: flex
+  flex-direction: column
+  margin-top: 0.75rem
+  padding-top: 0.5rem
+  border-top: 1px solid rgba($ramblers-colour-granite, 0.2)
+
 .inbox-layout
   display: grid
   gap: 0
@@ -587,61 +594,74 @@
     height: 100dvh
     border-radius: 0
 
-.inbox-list-compact .inbox-thread-row
+.inbox-list-compact .inbox-thread-row,
+.inbox-column-head
+  display: grid
+  grid-template-columns: 1.25rem minmax(0, var(--inbox-from, 1.1fr)) minmax(0, var(--inbox-to, 1.4fr)) minmax(0, var(--inbox-subject, 2fr)) minmax(0, var(--inbox-date, 1.5fr))
+  align-items: center
+  column-gap: 0.5rem
   padding: 0.15rem 0.75rem
 
-.inbox-list-compact .inbox-thread-row > .flex-grow-1
-  display: grid
-  grid-template-columns: 0.75rem 12rem 1fr auto
-  align-items: center
-  gap: 0.5rem
+.inbox-column-tracks
   min-width: 0
 
-.inbox-list-compact .inbox-thread-row > .flex-grow-1 > .d-flex
-  display: contents !important
+.inbox-column-head > *,
+.inbox-list-compact .inbox-thread-row > *
+  min-width: 0
 
-.inbox-list-compact .inbox-unread-dot
-  grid-column: 1
-  grid-row: 1
+.inbox-column-head
+  position: sticky
+  top: 0
+  z-index: 2
+  background: var(--bs-body-bg)
+  font-size: 0.75rem
+  font-weight: 700
+  color: var(--bs-secondary-color)
+  border-bottom: 1px solid var(--bs-border-color)
+  border-left: 4px solid transparent
 
-.inbox-list-compact .inbox-thread-from
-  grid-column: 2
-  grid-row: 1
+.inbox-column-label
+  position: relative
+
+.inbox-column-text
+  display: block
   overflow: hidden
   text-overflow: ellipsis
   white-space: nowrap
 
+.inbox-col-resize
+  position: absolute
+  top: 0
+  right: 0
+  bottom: 0
+  width: 8px
+  padding: 0
+  border: none
+  background: transparent
+  cursor: col-resize
+  z-index: 3
+
+.inbox-col-resize::before
+  content: ""
+  position: absolute
+  top: 0
+  right: 0
+  bottom: 0
+  width: 1px
+  background: rgba(31, 31, 31, 0.2)
+
+.inbox-list-compact .inbox-thread-from,
+.inbox-list-compact .inbox-thread-recipient,
 .inbox-list-compact .inbox-thread-subject
-  grid-column: 3
-  grid-row: 1
   overflow: hidden
   text-overflow: ellipsis
   white-space: nowrap
 
 .inbox-list-compact .inbox-thread-time
-  grid-column: 4
-  grid-row: 1
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+  padding-right: 0
 
-.inbox-list-compact .inbox-thread-preview,
-.inbox-list-compact .inbox-thread-recipient
+.inbox-list-compact .inbox-thread-preview
   display: none
-
-@container (min-width: 55rem)
-  .inbox-list-compact .inbox-thread-row > .flex-grow-1
-    grid-template-columns: 0.75rem 12rem 14rem 1fr auto
-
-  .inbox-list-compact .inbox-thread-recipient
-    display: block
-    grid-column: 3
-    grid-row: 1
-    overflow: hidden
-    text-overflow: ellipsis
-    white-space: nowrap
-
-  .inbox-list-compact .inbox-thread-subject
-    grid-column: 4
-    grid-row: 1
-
-  .inbox-list-compact .inbox-thread-time
-    grid-column: 5
-    grid-row: 1

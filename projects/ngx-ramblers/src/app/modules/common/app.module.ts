@@ -80,6 +80,7 @@ import { TimepickerModule } from "ngx-bootstrap/timepicker";
 import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
 import { ngxIconPack } from "../../icons/custom-icon-pack";
 import { AppShellService } from "../../services/maps/app-shell.service";
+import { ViewAsService } from "../../services/member/view-as.service";
 
 @NgModule({
   imports: [
@@ -176,6 +177,7 @@ import { AppShellService } from "../../services/maps/app-shell.service";
         : initializeCloudflareBeacon(inject(SystemConfigService), inject(LoggerFactory))();
     }),
     provideAppInitializer(checkMigrationStatus),
+    provideAppInitializer(() => inject(ViewAsService).hydrateFromLocation()),
     provideAppInitializer(() => {
       return inject(AppShellService).isAppUrl(window.location.pathname)
         ? null

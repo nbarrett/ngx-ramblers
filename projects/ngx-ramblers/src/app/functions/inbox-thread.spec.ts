@@ -7,6 +7,7 @@ import {
   inboxThreadHeaderFrom,
   inboxThreadHeaderTo,
   inboxThreadRowFrom,
+  inboxThreadRowPreview,
   inboxThreadRowTo,
   inboxThreadId,
   inboxThreadMatchingSlug,
@@ -18,7 +19,8 @@ import {
   inboxThreadSlug,
   isInboxThreadMongoId,
   newestInboxMessage,
-  replyAllRecipients
+  replyAllRecipients,
+  validatedInboxColumnShare
 } from "./inbox-thread";
 
 function thread(overrides: Partial<InboxThread> = {}): InboxThread {
@@ -30,6 +32,21 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
     ...overrides
   } as InboxThread;
 }
+
+describe("validatedInboxColumnShare", () => {
+  const fallback = {from: 1.1, to: 1.4, subject: 2, date: 1.5};
+
+  it("accepts a complete set of bounded column shares", () => {
+    const candidate = {from: 2, to: 1, subject: 3, date: 1};
+    expect(validatedInboxColumnShare(candidate, fallback)).toEqual(candidate);
+  });
+
+  it("falls back for incomplete, negative or extreme saved values", () => {
+    expect(validatedInboxColumnShare({from: 2}, fallback)).toEqual(fallback);
+    expect(validatedInboxColumnShare({from: -1, to: 1, subject: 2, date: 1}, fallback)).toEqual(fallback);
+    expect(validatedInboxColumnShare({from: 100, to: 1, subject: 2, date: 1}, fallback)).toEqual(fallback);
+  });
+});
 
 describe("inboxThreadSlug", () => {
 
@@ -72,22 +89,22 @@ describe("inboxThreadRoleLine", () => {
   it("uses the address the mail was sent from, not the mailbox the copy arrived in", () => {
     const sent = thread({
       lastDirection: InboxMessageDirection.OUTBOUND,
-      sentFrom: {name: "Nick Barrett", email: "membership@other.example.org.uk"}
+      sentFrom: {name: "Alex Member", email: "membership@other.example.org.uk"}
     });
-    expect(inboxThreadRoleLine(sent, "chairman@other.example.org.uk"))
-      .toEqual("from membership@other.example.org.uk");
+    expect(inboxThreadRoleLine(sent, {name: "Chairman", email: "chairman@other.example.org.uk"}))
+      .toEqual("from Alex Member <membership@other.example.org.uk>");
   });
 
   it("falls back to the mailbox when an older outbound thread has no sentFrom", () => {
     const sent = thread({lastDirection: InboxMessageDirection.OUTBOUND});
-    expect(inboxThreadRoleLine(sent, "chairman@other.example.org.uk"))
-      .toEqual("from chairman@other.example.org.uk");
+    expect(inboxThreadRoleLine(sent, {name: "Chairman", email: "chairman@other.example.org.uk"}))
+      .toEqual("from Chairman <chairman@other.example.org.uk>");
   });
 
   it("keeps inbound mail as delivered to the mailbox", () => {
     const incoming = thread({lastDirection: InboxMessageDirection.INBOUND});
-    expect(inboxThreadRoleLine(incoming, "chairman@other.example.org.uk"))
-      .toEqual("to chairman@other.example.org.uk");
+    expect(inboxThreadRoleLine(incoming, {name: "Chairman", email: "chairman@other.example.org.uk"}))
+      .toEqual("to Chairman <chairman@other.example.org.uk>");
   });
 
   it("uses the role address the inbound mail was sent to when the role has more than one", () => {
@@ -95,8 +112,8 @@ describe("inboxThreadRoleLine", () => {
       lastDirection: InboxMessageDirection.INBOUND,
       deliveredTo: {name: null, email: "member.one@example.org.uk"}
     });
-    expect(inboxThreadRoleLine(incoming, "system-administrator@example.org.uk"))
-      .toEqual("to member.one@example.org.uk");
+    expect(inboxThreadRoleLine(incoming, {name: "System Administrator", email: "member.one@example.org.uk"}))
+      .toEqual("to System Administrator <member.one@example.org.uk>");
   });
 
 });
@@ -220,7 +237,7 @@ describe("inboxThreadHeaderFrom and inboxThreadHeaderTo", () => {
     const welcome = {
       messageId: "welcome",
       direction: InboxMessageDirection.INBOUND,
-      from: {name: "Nick Barrett", email: "member.one@staging-lite.ngx-ramblers.org.uk"},
+      from: {name: "Alex Member", email: "member.one@staging-lite.ngx-ramblers.org.uk"},
       to: [{name: "Zoe Young", email: "zoe.young184@staging-lite.ngx-ramblers.org.uk"}],
       receivedAt: 2000,
       sentAt: null
@@ -232,7 +249,7 @@ describe("inboxThreadHeaderFrom and inboxThreadHeaderTo", () => {
   it("uses the newest message when the conversation has more than one", () => {
     const earlier = {
       messageId: "earlier",
-      from: {name: "Nick Barrett", email: "member.one@example.org"},
+      from: {name: "Alex Member", email: "member.one@example.org"},
       to: [{name: "Zoe Young", email: "zoe@example.org"}],
       receivedAt: 1000,
       sentAt: null
@@ -240,7 +257,7 @@ describe("inboxThreadHeaderFrom and inboxThreadHeaderTo", () => {
     const reply = {
       messageId: "reply",
       from: {name: "Zoe Young", email: "zoe@example.org"},
-      to: [{name: "Nick Barrett", email: "member.one@example.org"}],
+      to: [{name: "Alex Member", email: "member.one@example.org"}],
       receivedAt: 2000,
       sentAt: null
     } as InboxMessage;
@@ -325,7 +342,7 @@ describe("collapseInboxSends", () => {
   function outbound(overrides: Partial<InboxMessage>): InboxMessage {
     return {
       direction: InboxMessageDirection.OUTBOUND,
-      from: {email: "member.one@ngx-ramblers.org.uk", name: "Nick Barrett"},
+      from: {email: "member.one@ngx-ramblers.org.uk", name: "Alex Member"},
       subject: "Re: Group & Area Email Project",
       to: [{email: "ciaran.evans@ramblers.org.uk", name: "Ciaran Evans"}],
       cc: [],
@@ -404,18 +421,20 @@ describe("inboxThreadRowFrom and inboxThreadRowTo", () => {
   } as InboxThread;
 
   it("shows the correspondent as From and our address as To for an inbound thread", () => {
-    expect(inboxThreadRowFrom(inbound, "treasurer@group.org.uk")).toBe("Jane Member");
-    expect(inboxThreadRowTo(inbound, "treasurer@group.org.uk")).toBe("treasurer@group.org.uk");
+    expect(inboxThreadRowFrom(inbound)).toBe("Jane Member <jane@example.com>");
+    expect(inboxThreadRowTo(inbound, inbound.deliveredTo)).toBe("Treasurer <treasurer@group.org.uk>");
+    expect(inboxThreadRowPreview(inbound)).toBe("Latest incoming message");
   });
 
-  it("shows our address as From and the correspondent as To for an outbound thread", () => {
-    expect(inboxThreadRowFrom(outbound, null)).toBe("Treasurer");
-    expect(inboxThreadRowTo(outbound, null)).toBe("Jane Member");
+  it("keeps the correspondent as From after we reply, with You: on the preview", () => {
+    expect(inboxThreadRowFrom(outbound)).toBe("Jane Member <jane@example.com>");
+    expect(inboxThreadRowTo(outbound, outbound.sentFrom)).toBe("Treasurer <treasurer@group.org.uk>");
+    expect(inboxThreadRowPreview(outbound)).toBe("You: sent the latest message");
   });
 
-  it("falls back to the role email when the outbound sender is missing", () => {
+  it("falls back to the correspondent email when the name is missing", () => {
     const bare = {lastDirection: InboxMessageDirection.OUTBOUND, externalAddress: {name: "", email: "jane@example.com"}} as InboxThread;
-    expect(inboxThreadRowFrom(bare, "treasurer@group.org.uk")).toBe("treasurer@group.org.uk");
-    expect(inboxThreadRowTo(bare, null)).toBe("jane@example.com");
+    expect(inboxThreadRowFrom(bare)).toBe("jane@example.com");
+    expect(inboxThreadRowTo(bare, {name: null, email: "treasurer@group.org.uk"})).toBe("treasurer@group.org.uk");
   });
 });

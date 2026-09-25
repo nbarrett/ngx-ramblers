@@ -1,5 +1,5 @@
 import { DOCUMENT, Location } from "@angular/common";
-import { inject, Injectable } from "@angular/core";
+import { inject, Injectable, Injector } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
 import { first, isEmpty, isUndefined, last, tail } from "es-toolkit/compat";
 import { adminParentPath } from "../models/admin-route-paths.model";
@@ -36,16 +36,24 @@ export class UrlService {
   private router = inject(Router);
   private stringUtils = inject(StringUtilsService);
   private dateUtils = inject(DateUtilsService);
-  private systemConfigService = inject(SystemConfigService);
+  private injector = inject(Injector);
   private location = inject(Location);
   private siteEdit = inject(SiteEditService);
   private route = inject(ActivatedRoute);
   private group: Organisation;
+  private groupBound = false;
   private cacheBuster: number;
 
   constructor() {
-    this.systemConfigService.events().subscribe(item => this.group = item.group);
     this.cacheBuster = this.dateUtils.nowAsValue();
+  }
+
+  private organisation(): Organisation {
+    if (!this.groupBound) {
+      this.groupBound = true;
+      this.injector.get(SystemConfigService).events().subscribe(item => this.group = item.group);
+    }
+    return this.group;
   }
 
   public isMeetupUrl(externalUrl: string): boolean {
@@ -149,7 +157,7 @@ export class UrlService {
   ownSite(url: URL): boolean {
     const target = apexHostFromUrl(url.href);
     const current = apexHostFromUrl(this.absoluteUrl());
-    const group = apexHostFromUrl(this.group?.href);
+    const group = apexHostFromUrl(this.organisation()?.href);
     return !!target && (target === current || (!!group && target === group));
   }
 
@@ -167,15 +175,15 @@ export class UrlService {
   baseUrl(): string {
     const url = new URL(this.absoluteUrl());
     const isLocal = this.isLocal(url);
-    if (this.group?.href && !isLocal) {
-      return this.group.href;
+    if (this.organisation()?.href && !isLocal) {
+      return this.organisation().href;
     } else {
       return `${url.protocol}//${url.host}`;
     }
   }
 
   publicBaseUrl(): string {
-    return this.group?.href || this.baseUrl();
+    return this.organisation()?.href || this.baseUrl();
   }
 
   private isLocal(url: URL) {
@@ -191,7 +199,7 @@ export class UrlService {
   }
 
   baseDomain(): string {
-    const hostname = this.group?.href ? hostFromUrl(this.group.href) : window.location.hostname;
+    const hostname = this.organisation()?.href ? hostFromUrl(this.organisation().href) : window.location.hostname;
     const parts = hostname.split(".");
     return parts.length >= 3 && parts[parts.length - 2].length <= 3
       ? parts.slice(-3).join(".")

@@ -7,7 +7,7 @@ import {
   InboxReaderProvider,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
+import { autoReplyFromHeaders, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -39,7 +39,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
 }
 
 describe("resolveThreadExternalAddress", () => {
-  const internalEmails = new Set(["walks@example.co.uk", "group.inbox@gmail.com"]);
+  const internalEmails = new Set(["walks@example.co.uk", "group.inbox@provider.example"]);
 
   it("uses external From for normal inbound mail", () => {
     const result = resolveThreadExternalAddress(message(), undefined, internalEmails);
@@ -57,7 +57,7 @@ describe("resolveThreadExternalAddress", () => {
 
   it("picks first external To when From is an internal address", () => {
     const result = resolveThreadExternalAddress(message({
-      from: address("group.inbox@gmail.com", "Group Gmail"),
+      from: address("group.inbox@provider.example", "Group Inbox"),
       to: [address("walker@example.com", "Walker"), address("walks@example.co.uk")]
     }), undefined, internalEmails);
     expect(result.email).toEqual("walker@example.com");
@@ -88,10 +88,10 @@ describe("resolveThreadExternalAddress", () => {
     const result = resolveThreadExternalAddress(message({
       direction: InboxMessageDirection.OUTBOUND,
       from: address("walks@example.co.uk", "Walks"),
-      to: [address("group.inbox@gmail.com", "Nick Barrett")]
+      to: [address("group.inbox@provider.example", "Internal Member")]
     }), undefined, internalEmails);
-    expect(result.email).toEqual("group.inbox@gmail.com");
-    expect(result.name).toEqual("Nick Barrett");
+    expect(result.email).toEqual("group.inbox@provider.example");
+    expect(result.name).toEqual("Internal Member");
   });
 
   it("does not use the outbound From as counterparty when To is present", () => {
@@ -106,18 +106,18 @@ describe("resolveThreadExternalAddress", () => {
   it("prefers internal To over internal From for group mail to a committee member", () => {
     const result = resolveThreadExternalAddress(message({
       from: address("membership@example.co.uk", "Membership"),
-      to: [address("member.one@example.co.uk", "Nick Barrett")]
+      to: [address("member.one@example.co.uk", "Internal Member")]
     }), undefined, new Set(["membership@example.co.uk", "member.one@example.co.uk", "chairman@example.co.uk"]));
     expect(result.email).toEqual("member.one@example.co.uk");
-    expect(result.name).toEqual("Nick Barrett");
+    expect(result.name).toEqual("Internal Member");
   });
 
   it("falls back to internal From when there is no To address", () => {
     const result = resolveThreadExternalAddress(message({
-      from: address("group.inbox@gmail.com"),
+      from: address("group.inbox@provider.example"),
       to: []
     }), undefined, internalEmails);
-    expect(result.email).toEqual("group.inbox@gmail.com");
+    expect(result.email).toEqual("group.inbox@provider.example");
   });
 
   it("uses a placeholder when no addresses are present", () => {
@@ -133,48 +133,48 @@ describe("replyTargetExcludingViewer", () => {
 
   it("falls back to the message sender when the resolved candidate is the viewer's own address", () => {
     const result = replyTargetExcludingViewer(
-      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
-      address("chairman@canterburyramblers.org.uk", "David Reekie"),
-      "nick.barrett@canterburyramblers.org.uk"
+      address("viewer@group.example", "Viewing Member"),
+      address("sender@group.example", "Message Sender"),
+      "viewer@group.example"
     );
-    expect(result.email).toEqual("chairman@canterburyramblers.org.uk");
-    expect(result.name).toEqual("David Reekie");
+    expect(result.email).toEqual("sender@group.example");
+    expect(result.name).toEqual("Message Sender");
   });
 
   it("leaves a genuine external candidate untouched", () => {
     const result = replyTargetExcludingViewer(
       address("member@example.com", "A Member"),
-      address("chairman@canterburyramblers.org.uk", "David Reekie"),
-      "nick.barrett@canterburyramblers.org.uk"
+      address("sender@group.example", "Message Sender"),
+      "viewer@group.example"
     );
     expect(result.email).toEqual("member@example.com");
   });
 
   it("keeps the candidate when the sender is also the viewer, since there is no better option", () => {
     const result = replyTargetExcludingViewer(
-      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
-      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
-      "nick.barrett@canterburyramblers.org.uk"
+      address("viewer@group.example", "Viewing Member"),
+      address("viewer@group.example", "Viewing Member"),
+      "viewer@group.example"
     );
-    expect(result.email).toEqual("nick.barrett@canterburyramblers.org.uk");
+    expect(result.email).toEqual("viewer@group.example");
   });
 
   it("leaves the candidate untouched when no viewer email is known", () => {
     const result = replyTargetExcludingViewer(
-      address("nick.barrett@canterburyramblers.org.uk", "Nick Barrett"),
-      address("chairman@canterburyramblers.org.uk", "David Reekie"),
+      address("viewer@group.example", "Viewing Member"),
+      address("sender@group.example", "Message Sender"),
       null
     );
-    expect(result.email).toEqual("nick.barrett@canterburyramblers.org.uk");
+    expect(result.email).toEqual("viewer@group.example");
   });
 
   it("matches regardless of address case", () => {
     const result = replyTargetExcludingViewer(
-      address("Nick.Barrett@CanterburyRamblers.org.uk", "Nick Barrett"),
-      address("chairman@canterburyramblers.org.uk", "David Reekie"),
-      "nick.barrett@canterburyramblers.org.uk"
+      address("Viewer@Group.Example", "Viewing Member"),
+      address("sender@group.example", "Message Sender"),
+      "viewer@group.example"
     );
-    expect(result.email).toEqual("chairman@canterburyramblers.org.uk");
+    expect(result.email).toEqual("sender@group.example");
   });
 
 });
@@ -235,6 +235,27 @@ describe("unreadAfterReclassify", () => {
   });
 });
 
+describe("folderAfterOwnSentReclassify", () => {
+  it("moves an outbound-only Inbox thread to Sent", () => {
+    expect(folderAfterOwnSentReclassify(InboxThreadFolder.INBOX, InboxMessageDirection.OUTBOUND, false))
+      .toEqual(InboxThreadFolder.SENT);
+    expect(folderAfterOwnSentReclassify(undefined, InboxMessageDirection.OUTBOUND, false))
+      .toEqual(InboxThreadFolder.SENT);
+  });
+
+  it("keeps conversations with inbound mail in Inbox", () => {
+    expect(folderAfterOwnSentReclassify(InboxThreadFolder.INBOX, InboxMessageDirection.OUTBOUND, true))
+      .toEqual(InboxThreadFolder.INBOX);
+  });
+
+  it("does not move deleted or junk threads", () => {
+    expect(folderAfterOwnSentReclassify(InboxThreadFolder.DELETED, InboxMessageDirection.OUTBOUND, false))
+      .toEqual(InboxThreadFolder.DELETED);
+    expect(folderAfterOwnSentReclassify(InboxThreadFolder.JUNK, InboxMessageDirection.OUTBOUND, false))
+      .toEqual(InboxThreadFolder.JUNK);
+  });
+});
+
 describe("isOwnSentCopy", () => {
   const internalEmails = new Set([
     "membership@other.example.org.uk",
@@ -243,9 +264,9 @@ describe("isOwnSentCopy", () => {
 
   it("treats a BCC copy of a welcome email as mail we sent", () => {
     expect(isOwnSentCopy(message({
-      from: address("membership@other.example.org.uk", "Nick Barrett"),
+      from: address("membership@other.example.org.uk", "Internal Member"),
       to: [
-        address("kirstywilliamson2025@gmail.com", "Kirsty Williamson"),
+        address("new.member@provider.example", "New Member"),
         address("chairman@other.example.org.uk")
       ]
     }), internalEmails)).toBe(true);
@@ -260,23 +281,35 @@ describe("isOwnSentCopy", () => {
   });
 
   it("does not treat a same-domain copy with no outside recipient as mail we sent", () => {
+    const allInternalEmails = new Set([...internalEmails, "system@other.example.org.uk"]);
     expect(isOwnSentCopy(message({
-      from: address("chairman@other.example.org.uk", "David Reekie"),
+      from: address("chairman@other.example.org.uk", "Committee Member"),
       to: [address("system@other.example.org.uk")]
-    }), internalEmails)).toBe(false);
+    }), allInternalEmails)).toBe(false);
   });
 
   it("does not treat mail from a member as mail we sent", () => {
     expect(isOwnSentCopy(message({
-      from: address("kirstywilliamson2025@gmail.com", "Kirsty Williamson"),
+      from: address("external.member@provider.example", "External Member"),
       to: [address("chairman@other.example.org.uk")]
     }), internalEmails)).toBe(false);
+  });
+
+  it("does not treat an external sender sharing an internal provider domain as mail we sent", () => {
+    const providerEmails = new Set([
+      "internal.sender@shared-provider.example",
+      "role@group.example"
+    ]);
+    expect(isOwnSentCopy(message({
+      from: address("external.sender@shared-provider.example", "External Sender"),
+      to: [address("role@group.example", "Role Recipient")]
+    }), providerEmails)).toBe(false);
   });
 
   it("does not treat an automatic reply from a role address as mail we sent", () => {
     expect(isOwnSentCopy(message({
       from: address("membership@other.example.org.uk"),
-      to: [address("kirstywilliamson2025@gmail.com")],
+      to: [address("external.member@provider.example")],
       autoReply: true,
       subject: "Automatic reply: Welcome"
     }), internalEmails)).toBe(false);
@@ -285,7 +318,7 @@ describe("isOwnSentCopy", () => {
   it("does not classify without a set of internal addresses", () => {
     expect(isOwnSentCopy(message({
       from: address("membership@other.example.org.uk"),
-      to: [address("kirstywilliamson2025@gmail.com")]
+      to: [address("external.member@provider.example")]
     }))).toBe(false);
   });
 });
@@ -298,16 +331,16 @@ describe("outboundCopyFromInbound", () => {
 
   it("keeps only the outside recipient and records the message as sent", () => {
     const outbound = outboundCopyFromInbound(message({
-      from: address("membership@other.example.org.uk", "Nick Barrett"),
+      from: address("membership@other.example.org.uk", "Internal Member"),
       to: [
-        address("kirstywilliamson2025@gmail.com", "Kirsty Williamson"),
+        address("new.member@provider.example", "New Member"),
         address("chairman@other.example.org.uk")
       ],
       receivedAt: 1786269442000,
       sentAt: null
     }), internalEmails);
     expect(outbound.direction).toEqual(InboxMessageDirection.OUTBOUND);
-    expect(outbound.to).toEqual([address("kirstywilliamson2025@gmail.com", "Kirsty Williamson")]);
+    expect(outbound.to).toEqual([address("new.member@provider.example", "New Member")]);
     expect(outbound.cc).toEqual([]);
     expect(outbound.sentAt).toEqual(1786269442000);
     expect(outbound.receivedAt).toBeNull();

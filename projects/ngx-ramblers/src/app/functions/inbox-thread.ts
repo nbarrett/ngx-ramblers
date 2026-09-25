@@ -1,8 +1,14 @@
 import { kebabCase } from "es-toolkit/compat";
-import { InboxAddress, InboxAliasConfig, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, isInboxGeneralRoleType } from "../models/inbox.model";
+import { InboxAddress, InboxAliasConfig, InboxColumnShare, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, isInboxGeneralRoleType } from "../models/inbox.model";
 import { normaliseEmail } from "./strings";
 
 export const INBOX_SEND_COLLAPSE_WINDOW_MS = 5 * 60 * 1000;
+
+export function validatedInboxColumnShare(candidate: Partial<InboxColumnShare>, fallback: InboxColumnShare): InboxColumnShare {
+  const values = [candidate.from, candidate.to, candidate.subject, candidate.date];
+  const valid = values.every(value => Number.isFinite(value) && (value ?? 0) >= 0.1 && (value ?? 0) <= 20);
+  return valid ? candidate as InboxColumnShare : {...fallback};
+}
 
 export function inboxThreadId(thread: InboxThread): string {
   return (thread?.id ?? (thread as unknown as { _id: { toString(): string } })?._id ?? "").toString();
@@ -75,12 +81,12 @@ export function deliveredToFromMessage(message: InboxMessage, alias: Pick<InboxA
   }
 }
 
-export function inboxThreadRoleLine(thread: InboxThread, roleEmail: string | null): string | null {
-  const sentFromEmail = thread?.sentFrom?.email || null;
-  const deliveredToEmail = thread?.deliveredTo?.email || null;
+export function inboxThreadRoleLine(thread: InboxThread, roleAddress: InboxAddress | null): string | null {
+  const sentFrom = formatInboxAddress(thread?.sentFrom) || null;
+  const deliveredTo = formatInboxAddress(roleAddress || thread?.deliveredTo) || null;
   return thread?.lastDirection === InboxMessageDirection.OUTBOUND
-    ? ((sentFromEmail || roleEmail) ? `from ${sentFromEmail || roleEmail}` : null)
-    : ((deliveredToEmail || roleEmail) ? `to ${deliveredToEmail || roleEmail}` : null);
+    ? ((sentFrom || deliveredTo) ? `from ${sentFrom || deliveredTo}` : null)
+    : (deliveredTo ? `to ${deliveredTo}` : null);
 }
 
 export function inboxMessageAt(message: InboxMessage | null | undefined): number {
@@ -92,16 +98,28 @@ export function newestInboxMessage(messages: InboxMessage[] | null | undefined):
     !latest || inboxMessageAt(candidate) > inboxMessageAt(latest) ? candidate : latest, null);
 }
 
-export function inboxThreadRowFrom(thread: InboxThread, roleEmail: string | null): string | null {
-  return thread?.lastDirection === InboxMessageDirection.OUTBOUND
-    ? thread?.sentFrom?.name || thread?.sentFrom?.email || roleEmail
-    : thread?.externalAddress?.name || thread?.externalAddress?.email || null;
+export function inboxThreadRowFrom(thread: InboxThread): string | null {
+  return formatInboxAddress(thread?.externalAddress) || null;
 }
 
-export function inboxThreadRowTo(thread: InboxThread, roleEmail: string | null): string | null {
+export function inboxThreadRowTo(thread: InboxThread, roleAddress: InboxAddress | null): string | null {
+  return formatInboxAddress(roleAddress || thread?.deliveredTo) || null;
+}
+
+export function addressLabel(address: {name?: string | null; email?: string | null} | null | undefined): string | null {
+  return formatInboxAddress(address) || null;
+}
+
+export function formatInboxAddress(address: {name?: string | null; email?: string | null} | null | undefined): string {
+  const name = address?.name?.trim() || "";
+  const email = address?.email?.trim() || "";
+  return name && email && name.toLowerCase() !== email.toLowerCase() ? `${name} <${email}>` : email;
+}
+
+export function inboxThreadRowPreview(thread: InboxThread): string {
   return thread?.lastDirection === InboxMessageDirection.OUTBOUND
-    ? thread?.externalAddress?.name || thread?.externalAddress?.email || null
-    : thread?.deliveredTo?.email || roleEmail;
+    ? "You: sent the latest message"
+    : "Latest incoming message";
 }
 
 export function inboxThreadHeaderFrom(messages: InboxMessage[] | null | undefined): InboxAddress | null {

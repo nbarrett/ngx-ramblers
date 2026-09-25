@@ -257,6 +257,8 @@ export enum StoredValue {
   VIA = "via",
   MEETING_VIDEO_CALLS_SORT = "video-calls-sort",
   MEETING_VIDEO_CALLS_SORT_ORDER = "video-calls-sort-order",
+  VIEW_AS = "view-as",
+  VIEW_AS_ROLE = "view-as-role",
   VIEW_MODE = "view-mode",
   VOLUNTEER_SUMMARY_COLLAPSED = "volunteer-summary-collapsed",
   VOLUNTEER_TABLE_HEIGHT = "volunteer-table-height",

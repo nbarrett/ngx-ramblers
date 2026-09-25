@@ -9,7 +9,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { StringUtilsService } from "./string-utils.service";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { SystemConfigService } from "./system/system-config.service";
-import { Subject } from "rxjs";
+import { ReplaySubject } from "rxjs";
 
 describe("UrlService", () => {
 
@@ -22,9 +22,9 @@ describe("UrlService", () => {
         },
         querySelectorAll: () => []
     };
-    let systemConfigEvents: Subject<any>;
+    let systemConfigEvents: ReplaySubject<any>;
     beforeEach(() => {
-        systemConfigEvents = new Subject<any>();
+        systemConfigEvents = new ReplaySubject<any>(1);
         LOCATION_VALUE.location.href = URL_PATH;
         const path = "/path-part-1/path-part-2/path-part-3";
         return TestBed.configureTestingModule({

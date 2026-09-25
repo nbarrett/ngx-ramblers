@@ -8,6 +8,7 @@ import passportJwt from "passport-jwt";
 import { DateTime } from "luxon";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { applyLocalViewAs } from "./local-view-as";
 
 let passportInitialised = false;
 
@@ -60,7 +61,18 @@ export function compareValue(inputValue: string, storedValue: string) {
 
 export function authenticate() {
   initialisePassport();
-  return passport.authenticate("jwt", {session: false});
+  return (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate("jwt", {session: false}, (error: Error | null, user: unknown) => {
+      if (error) {
+        next(error);
+      } else if (!user) {
+        res.status(401).json({error: "Unauthorized"});
+      } else {
+        req.user = user;
+        applyLocalViewAs(req).then(() => next()).catch(next);
+      }
+    })(req, res, next);
+  };
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {

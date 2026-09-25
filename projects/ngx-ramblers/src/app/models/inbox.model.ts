@@ -99,6 +99,19 @@ export enum InboxGroupingMode {
   CONVERSATIONS = "conversations"
 }
 
+export interface InboxColumnShare {
+  from: number;
+  to: number;
+  subject: number;
+  date: number;
+}
+
+export enum InboxColumnResizeEdge {
+  FROM = "from",
+  TO = "to",
+  SUBJECT = "subject"
+}
+
 export const INBOX_DELETED_RETENTION_DAYS = 30;
 
 export function hiddenInboxFolders(): InboxThreadFolder[] {

@@ -27,6 +27,15 @@ const CHANGELOG_SIMULATION_COLLECTION = "changelogSimulation";
 
 const normaliseMigrationFileName = (fileName: string) => fileName?.replace(/\.ts$/, ".js");
 
+export function isMigrationSourceFile(fileName: string): boolean {
+  return (fileName.endsWith(".js") || fileName.endsWith(".ts"))
+    && !fileName.endsWith(".d.ts")
+    && !fileName.endsWith(".d.js")
+    && !fileName.endsWith(".spec.ts")
+    && !fileName.endsWith(".spec.js")
+    && /^\d{14}-.+/.test(fileName.replace(/\.(js|ts)$/, ""));
+}
+
 const MANUAL_FLAG_PATTERN = /(?:export\s+const\s+manual|exports\.manual)\s*(?::[^=]+)?=\s*(?:true|!0)\b/;
 
 const RETIRED_BREVO_TEMPLATE_MIGRATIONS = new Set([
@@ -321,8 +330,7 @@ export class MigrationRunner {
 
       if (fs.existsSync(config.migrationsDir)) {
         const filesOnDisk = fs.readdirSync(config.migrationsDir)
-          .filter(f => (f.endsWith(".js") || f.endsWith(".ts")) && !f.endsWith(".d.ts") && !f.endsWith(".d.js"))
-          .filter(f => /^\d{14}-.+/.test(f.replace(/\.(js|ts)$/, "")))
+          .filter(isMigrationSourceFile)
           .sort();
 
         for (const file of filesOnDisk) {
@@ -380,7 +388,7 @@ export class MigrationRunner {
 
       for (const m of appliedMigrations) {
         const normalisedFileName = m.fileName.replace(/\.ts$/, ".js");
-        if (!allFiles.includes(normalisedFileName) && m.error) {
+        if (isMigrationSourceFile(normalisedFileName) && !allFiles.includes(normalisedFileName) && m.error) {
           const manual = await this.isManualMigration(normalisedFileName);
           files.push({
             fileName: normalisedFileName,
