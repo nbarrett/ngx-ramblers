@@ -23,12 +23,16 @@ function internalEmailsFrom(committee: Record<string, unknown> | null, connectio
 
 export function misclassifiedInboundMessage(message: InboxMessage, internalEmails: Set<string>): boolean {
   const sender = normaliseEmail(message.from?.email ?? "");
+  const recipients = [...(message.to ?? []), ...(message.cc ?? [])]
+    .map(address => normaliseEmail(address.email))
+    .filter(Boolean);
   return message.direction === InboxMessageDirection.OUTBOUND
     && message.externalSource !== InboxReaderProvider.EMAIL_COMPOSER
     && message.externalSource !== InboxReaderProvider.NONE
     && Boolean(message.externalId)
     && Boolean(sender)
-    && !internalEmails.has(sender);
+    && !internalEmails.has(sender)
+    && recipients.some(recipient => internalEmails.has(recipient));
 }
 
 async function repairMisclassifiedInboundMessages(db: Db): Promise<void> {

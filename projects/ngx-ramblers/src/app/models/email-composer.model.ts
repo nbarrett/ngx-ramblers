@@ -1,5 +1,5 @@
 import { Member, MemberFilterSelection } from "./member.model";
-import { BrandingMode, EmailAttachment, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
+import { BrandingMode, EmailAddress, EmailAttachment, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { VolunteerAudienceCriteria } from "./volunteer-management.model";
 import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
@@ -245,7 +245,7 @@ export interface RecipientPreFilter {
 }
 
 export const RECIPIENT_PRE_FILTERS: RecipientPreFilter[] = [
-  { key: null, label: "All with email" },
+  { key: null, label: "Everyone with an email address" },
   { key: MemberSelection.RECENTLY_ADDED, label: "Recently added" },
   { key: MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS, label: "Added in last bulk load" },
   { key: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS, label: "Missing from bulk load" },
@@ -453,7 +453,10 @@ export interface ComposerExternalRecipient {
   email: string;
   name?: string;
   existingId?: string;
+  memberId?: string;
   saveForReuse?: boolean;
+  listId?: number;
+  listCount?: number;
 }
 
 export interface ParsedMailbox {
@@ -512,7 +515,21 @@ export interface BatchTransactionalSendRequest {
   senderEmailOverride?: string;
   senderNameOverride?: string;
   useCommitteeRoleAddresses?: boolean;
+  sharedToRecipients?: boolean;
+  sharedMemberRecipientsAsBcc?: boolean;
   inboxReplyContext?: InboxReplyOutboundContextLike;
+}
+
+export interface SharedRecipientHeaderOptions {
+  memberRecipients: EmailAddress[];
+  externalToRecipients: EmailAddress[];
+  existingBccRecipients: EmailAddress[];
+  memberRecipientsAsBcc: boolean;
+}
+
+export interface SharedRecipientHeaders {
+  to: EmailAddress[];
+  bcc: EmailAddress[];
 }
 
 export interface InboxReplyOutboundContextLike {
