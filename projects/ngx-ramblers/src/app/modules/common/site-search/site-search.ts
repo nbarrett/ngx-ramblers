@@ -16,7 +16,7 @@ import { StoredValue } from "../../../models/ui-actions";
 
 const MIN_QUERY_LENGTH = 2;
 const INDEXING_POLL_MS = 1000;
-const INDEXING_POLL_LIMIT = 20;
+const INDEXING_POLL_LIMIT = 120;
 const PANEL_MARGIN = 16;
 
 @Component({
@@ -193,17 +193,18 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
         this.siteSearchService.indexStatus().then(status => {
           if (status.indexed) {
             this.siteSearchService.search(this.query, this.currentScope(), this.phraseMode).then(outcome => this.applyOutcome(outcome));
-          } else if (status.failed || !status.building) {
+          } else if (status.failed) {
+            this.indexing = false;
+            this.indexFailed = true;
+          } else if (status.building) {
+            this.indexingPolls += 1;
+            this.scheduleIndexingPoll();
+          } else if (this.indexingPolls >= INDEXING_POLL_LIMIT) {
             this.indexing = false;
             this.indexFailed = true;
           } else {
             this.indexingPolls += 1;
-            if (this.indexingPolls >= INDEXING_POLL_LIMIT) {
-              this.indexing = false;
-              this.indexFailed = true;
-            } else {
-              this.scheduleIndexingPoll();
-            }
+            this.scheduleIndexingPoll();
           }
         }).catch(() => {
           this.indexing = false;
