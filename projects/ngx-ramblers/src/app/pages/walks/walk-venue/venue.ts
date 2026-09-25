@@ -359,7 +359,7 @@ export class Venue implements OnInit, OnDestroy {
       this.selectedVenueType = this.venueTypes.find(venueType => venueType.type === venue.type) || this.selectedVenueType;
     }
     if (venue.postcode) {
-      this.checkStartingPointPrompt(venue.postcode);
+      this.applyVenuePostcodeToStartingPoint();
     }
   }
 
