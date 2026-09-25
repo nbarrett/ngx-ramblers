@@ -57,7 +57,7 @@ import { AppShellService } from "../../../services/maps/app-shell.service";
 import { nativeShareSupported } from "../../../functions/native-share";
 import { GroupEventDisplayService } from "../../group-events/group-event-display.service";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
+
 import { AlbumEditRole } from "../../../models/content-metadata.model";
 import { eventAccessPermitted } from "../../../functions/event-access-level";
 import { socialPublishingEnabled } from "../../../functions/social-publishing";
@@ -517,7 +517,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private walkShareService = inject(WalkShareService);
   private createWalkAlbumService = inject(CreateWalkAlbumService);
-  private siteEditService = inject(SiteEditService);
+
   protected creatingAlbum = false;
   protected walkAlbumPath: string | null = null;
   protected walkAlbumName: string | null = null;
@@ -694,7 +694,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   showAlbumAction(): boolean {
-    return !!this.albumRole && this.eventHasStarted() && (this.memberLoginService.memberLoggedIn() || !!this.walkAlbumPath);
+    return this.createWalkAlbumService.showAlbumAction(this.displayedWalk?.walk, this.walkAlbumPath, this.eventHasStarted());
   }
 
   albumCurator(): boolean {
@@ -702,17 +702,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   albumActionCaption(): string {
-    if (this.creatingAlbum) {
-      return "Creating…";
-    } else if (!this.albumCurator()) {
-      return "Add photos";
-    } else if (!this.walkAlbumPath) {
-      return "Create album";
-    } else if (this.walkAlbumDraftCount > 0) {
-      return `Review ${this.stringUtils.pluraliseWithCount(this.walkAlbumDraftCount, "new photo")}`;
-    } else {
-      return "Edit album";
-    }
+    return this.createWalkAlbumService.albumActionCaption(this.creatingAlbum, this.albumRole, this.walkAlbumPath, this.walkAlbumDraftCount);
   }
 
   eventHasStarted(walk: ExtendedGroupEvent = this.displayedWalk?.walk): boolean {
@@ -720,15 +710,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   albumActionTooltip(): string {
-    if (!this.albumCurator()) {
-      return "Add your photos from this walk. They will appear once the walk leader or an administrator approves them";
-    } else if (this.walkAlbumDraftCount > 0) {
-      return "Members have added photos that are waiting for your approval";
-    } else if (this.walkAlbumPath) {
-      return "Open the walk report and photo upload for this album";
-    } else {
-      return "Create a photo album for this walk, then edit the walk report and upload photos";
-    }
+    return this.createWalkAlbumService.albumActionTooltip(this.albumRole, this.walkAlbumPath, this.walkAlbumDraftCount, this.displayedWalk?.walk);
   }
 
   async createPhotoAlbum() {
@@ -760,9 +742,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       }
       if (this.albumCurator()) {
         this.createWalkAlbumService.markAlbumForAutoCover(this.walkAlbumName || albumPath);
-      }
-      if (this.memberLoginService.allowContentEdits() && !this.siteEditService.active()) {
-        this.siteEditService.toggle(true);
       }
       await this.urlService.navigateUnconditionallyTo(
         albumPath.split("/").filter(Boolean),

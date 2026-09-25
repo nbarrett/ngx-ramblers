@@ -16,6 +16,12 @@ import { AiService } from "../ai/ai.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { memberLeadsWalk, walkLeaderFirstNameForAlbumThanks } from "../../functions/walks/walk-leader-fields";
+import {
+  albumRowReferencesEvent,
+  normalisedAlbumBasePaths,
+  preferredWalkAlbumPage,
+  walkAlbumEventIds
+} from "../../functions/walks/walk-album-lookup";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberResourcesReferenceDataService } from "../member/member-resources-reference-data.service";
 import { WalksConfigService } from "../system/walks-config.service";
@@ -60,7 +66,48 @@ export class CreateWalkAlbumService {
   }
 
   private curator(): boolean {
-    return this.memberLoginService.memberLoggedIn() && (this.memberLoginService.allowContentEdits() || this.memberLoginService.allowWalkAdminEdits());
+    return this.memberLoginService.memberLoggedIn() && (this.memberLoginService.allowContentEdits()
+      || this.memberLoginService.allowWalkAdminEdits()
+      || this.memberLoginService.allowSocialAdminEdits());
+  }
+
+  eventKindLabel(event: ExtendedGroupEvent | null): string {
+    if (event?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
+      return "event";
+    } else {
+      return "walk";
+    }
+  }
+
+  showAlbumAction(event: ExtendedGroupEvent | null, albumPath: string | null, eventHasStarted: boolean): boolean {
+    return !!this.albumEditRoleForWalk(event) && eventHasStarted && (this.memberLoginService.memberLoggedIn() || !!albumPath);
+  }
+
+  albumActionCaption(creating: boolean, role: AlbumEditRole | null, albumPath: string | null, draftCount: number): string {
+    if (creating) {
+      return "Creating…";
+    } else if (role !== AlbumEditRole.CURATOR) {
+      return "Add photos";
+    } else if (!albumPath) {
+      return "Create album";
+    } else if (draftCount > 0) {
+      return `Review ${draftCount} new photo${draftCount === 1 ? "" : "s"}`;
+    } else {
+      return "Edit album";
+    }
+  }
+
+  albumActionTooltip(role: AlbumEditRole | null, albumPath: string | null, draftCount: number, event: ExtendedGroupEvent | null): string {
+    const kind = this.eventKindLabel(event);
+    if (role !== AlbumEditRole.CURATOR) {
+      return `Add your photos from this ${kind}. They will appear once the ${kind} leader or an administrator approves them`;
+    } else if (draftCount > 0) {
+      return "Members have added photos that are waiting for your approval";
+    } else if (albumPath) {
+      return `Open the ${kind} report and photo upload for this album`;
+    } else {
+      return `Create a photo album for this ${kind}, then edit the report and upload photos`;
+    }
   }
 
   albumEditRoleForWalk(walk: ExtendedGroupEvent | null): AlbumEditRole | null {
@@ -111,15 +158,28 @@ export class CreateWalkAlbumService {
   }
 
   photoAlbumBasePath(eventType: RamblersEventType = RamblersEventType.GROUP_WALK): string {
+    const prefixes = this.photoAlbumLookupPrefixes(eventType);
+    if (prefixes.length > 0) {
+      return prefixes[0];
+    } else {
+      return `${this.navAreaFor(eventType)}/photos`;
+    }
+  }
+
+  photoAlbumLookupPrefixes(eventType: RamblersEventType = RamblersEventType.GROUP_WALK): string[] {
     const group = this.config?.group;
-    const configuredRaw = eventType === RamblersEventType.GROUP_EVENT
+    const primary = eventType === RamblersEventType.GROUP_EVENT
       ? group?.socialPhotoAlbumBasePath
       : group?.walkPhotoAlbumBasePath;
-    const configured = (configuredRaw || "").trim().replace(/^\/+|\/+$/g, "");
-    if (configured) {
+    const extras = eventType === RamblersEventType.GROUP_EVENT
+      ? group?.socialPhotoAlbumExtraBasePaths
+      : group?.walkPhotoAlbumExtraBasePaths;
+    const configured = normalisedAlbumBasePaths([primary, ...(extras || [])]);
+    if (configured.length > 0) {
       return configured;
+    } else {
+      return [`${this.navAreaFor(eventType)}/photos`];
     }
-    return `${this.navAreaFor(eventType)}/photos`;
   }
 
   private slugFor(walk: ExtendedGroupEvent): string {
@@ -139,10 +199,7 @@ export class CreateWalkAlbumService {
   }
 
   private eventIdsFor(walk: ExtendedGroupEvent): string[] {
-    return [walk?.id, walk?.groupEvent?.id, walk?.ramblersId]
-      .filter(Boolean)
-      .map(id => String(id))
-      .filter((id, index, all) => all.indexOf(id) === index);
+    return walkAlbumEventIds(walk);
   }
 
   async existingAlbumPathFor(walk: ExtendedGroupEvent): Promise<string | null> {
@@ -152,54 +209,28 @@ export class CreateWalkAlbumService {
 
   async existingAlbumLinkFor(walk: ExtendedGroupEvent): Promise<WalkAlbumLink | null> {
     const eventIds = this.eventIdsFor(walk);
-    if (eventIds.length === 0) {
-      return null;
-    }
-    const pages = await this.pageContentService.findByCarouselEventIds(eventIds).catch(() => []);
-    const page = this.preferredPageReferencingEvent(pages, eventIds);
-    if (!page?.path) {
-      return null;
-    }
-    return this.albumLinkFromPage(page, page.path, eventIds);
-  }
-
-  private preferredPageReferencingEvent(pages: PageContent[], eventIds: string[]): PageContent | null {
-    const withPath = (pages || []).filter(page => !!page?.path);
-    if (withPath.length === 0) {
-      return null;
-    }
-    const scored = withPath.map(page => {
-      const path = page.path || "";
-      const segments = path.split("/").filter(Boolean).length;
-      const matchingRows = (page.rows || []).filter(row => this.rowReferencesEvent(row, eventIds));
-      const albumRows = matchingRows.filter(row => row?.type === PageContentType.ALBUM || !!row?.carousel?.name);
-      const carouselNameLooksLikeAlbum = albumRows.some(row => {
-        const name = row?.carousel?.name || "";
-        return name.includes("/");
-      });
-      return {
-        page,
-        score: (albumRows.length > 0 ? 200 : 0)
-          + (carouselNameLooksLikeAlbum ? 50 : 0)
-          + segments
-          + matchingRows.length
-      };
-    });
-    return scored.reduce((best, candidate) => {
-      if (!best || candidate.score > best.score) {
-        return candidate;
+    const startIso = walk?.groupEvent?.start_date_time;
+    const eventDateMs = startIso ? this.dateUtils.asValueNoTime(startIso) : null;
+    const byEvent = eventIds.length === 0
+      ? []
+      : await this.pageContentService.findByCarouselEventIds(eventIds).catch(() => []);
+    const eventPage = preferredWalkAlbumPage(byEvent, eventIds, eventDateMs);
+    if (eventPage?.path) {
+      return this.albumLinkFromPage(eventPage, eventPage.path, eventIds);
+    } else {
+      const prefixes = this.photoAlbumLookupPrefixes(this.eventTypeFor(walk));
+      const byPath = await this.pageContentService.findByPathPrefixes(prefixes).catch(() => []);
+      const pathPage = preferredWalkAlbumPage(byPath, eventIds, eventDateMs);
+      if (pathPage?.path) {
+        return this.albumLinkFromPage(pathPage, pathPage.path, eventIds);
+      } else {
+        return null;
       }
-      return best;
-    }, null as { page: PageContent; score: number } | null)?.page || null;
-  }
-
-  private rowReferencesEvent(row: PageContentRow, eventIds: string[]): boolean {
-    const eventId = row?.carousel?.eventId;
-    return eventId != null && eventIds.includes(String(eventId));
+    }
   }
 
   private async albumLinkFromPage(page: PageContent, path: string, eventIds: string[]): Promise<WalkAlbumLink | null> {
-    const matchingRow = (page.rows || []).find(row => this.rowReferencesEvent(row, eventIds));
+    const matchingRow = (page.rows || []).find(row => albumRowReferencesEvent(row, eventIds));
     const albumRow = matchingRow
       || (page.rows || []).find(row => row?.carousel?.name || row?.type === PageContentType.ALBUM);
     const albumName = albumRow?.carousel?.name || path;

@@ -156,6 +156,11 @@ export enum AlbumEditRole {
   CONTRIBUTOR = "contributor"
 }
 
+export enum AlbumPanelPresentation {
+  CONFIGURED = "configured",
+  HERO = "hero"
+}
+
 export enum WalkAlbumWorkflowStage {
   PHOTOS = "photos",
   SHARE = "share"

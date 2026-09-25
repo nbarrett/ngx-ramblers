@@ -10,7 +10,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { MemberLoginService } from "./member/member-login.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { sortBy } from "../functions/arrays";
-import { fieldContainsValue } from "../functions/mongo";
+import { fieldContainsValue, fieldStartsWithPath } from "../functions/mongo";
 import { firstValueFrom } from "rxjs";
 
 @Injectable({
@@ -107,6 +107,21 @@ export class PageContentService {
     const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
     this.logger.debug("findByCarouselEventIds:", ids, "- received", apiResponse?.response?.length);
     return apiResponse?.response || [];
+  }
+
+  async findByPathPrefixes(prefixes: string[]): Promise<PageContent[]> {
+    const paths = (prefixes || []).map(prefix => (prefix || "").trim().replace(/^\/+|\/+$/g, "")).filter(Boolean);
+    if (paths.length === 0) {
+      return [];
+    } else {
+      const dataQueryOptions: DataQueryOptions = {
+        criteria: {$or: paths.map(path => ({path: fieldStartsWithPath(path)}))}
+      };
+      const params = this.commonDataService.toHttpParams(dataQueryOptions);
+      const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
+      this.logger.debug("findByPathPrefixes:", paths, "- received", apiResponse?.response?.length);
+      return apiResponse?.response || [];
+    }
   }
 
   async findById(id: string): Promise<PageContent> {
