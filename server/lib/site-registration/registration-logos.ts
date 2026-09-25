@@ -1,6 +1,7 @@
 import debug from "debug";
 import path from "path";
-import { CopyObjectCommand, HeadObjectCommand, S3 } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, HeadObjectCommand, PutObjectCommand, S3 } from "@aws-sdk/client-s3";
+import { readFile } from "fs/promises";
 import { kebabCase } from "es-toolkit/compat";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -44,13 +45,20 @@ export function parseRamblersDirectoryLogoFileName(fileName: string): RamblersDi
   }
 }
 
+function directoryNameVariants(name: string, trailing: RegExp): string[] {
+  const trimmed = (name || "").trim();
+  const shortened = trimmed.replace(trailing, "").trim();
+  return [trimmed, shortened].filter((item, index, items) => item && items.indexOf(item) === index);
+}
+
 export function ramblersDirectoryLogoCandidates(groupName: string, areaName: string): RamblersDirectoryLogo[] {
-  const groupNames = [groupName, (groupName || "").replace(/\s+group$/i, "").trim()].filter((name, index, names) => name && names.indexOf(name) === index);
+  const groupNames = directoryNameVariants(groupName, /\s+group$/i);
+  const areaNames = directoryNameVariants(areaName || groupName, /\s+area$/i);
   const names = [
     ...groupNames.map(name => ({kind: RamblersDirectoryLogoKind.GROUP_HORIZONTAL, name})),
-    {kind: RamblersDirectoryLogoKind.AREA_HORIZONTAL, name: areaName},
+    ...areaNames.map(name => ({kind: RamblersDirectoryLogoKind.AREA_HORIZONTAL, name})),
     ...groupNames.map(name => ({kind: RamblersDirectoryLogoKind.GROUP_VERTICAL, name})),
-    {kind: RamblersDirectoryLogoKind.AREA_VERTICAL, name: areaName}
+    ...areaNames.map(name => ({kind: RamblersDirectoryLogoKind.AREA_VERTICAL, name}))
   ];
   const extensions = [".jpg", ".png"];
   return names.flatMap(item => {
@@ -83,6 +91,19 @@ async function objectExists(client: S3, bucket: string, key: string): Promise<bo
   } catch (error) {
     debugLog("head %s/%s: %s", bucket, key, error.message);
     return false;
+  }
+}
+
+export async function ingestRamblersDirectoryLogoFile(localPath: string): Promise<RamblersDirectoryLogo | null> {
+  const parsed = parseRamblersDirectoryLogoFileName(path.basename(localPath));
+  if (!parsed) {
+    return null;
+  } else {
+    const {client, bucket} = platformS3();
+    const body = await readFile(localPath);
+    const contentType = parsed.awsFileName.endsWith(".png") ? "image/png" : "image/jpeg";
+    await client.send(new PutObjectCommand({Bucket: bucket, Key: parsed.awsFileName, Body: body, ContentType: contentType}));
+    return parsed;
   }
 }
 

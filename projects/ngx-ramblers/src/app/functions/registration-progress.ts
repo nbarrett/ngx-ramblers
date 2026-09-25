@@ -21,10 +21,12 @@ export function registrationProgressLineFailed(message: string): boolean {
 
 export function registrationProgressStatus(item: SetupProgress, inFlight: boolean, latest = true): SetupStepStatus {
   const message = item.message || "";
-  if (item.status === SetupStepStatus.Failed || registrationProgressLineFailed(message)) {
+  if (item.status === SetupStepStatus.Failed) {
     return SetupStepStatus.Failed;
   } else if (item.status === SetupStepStatus.Completed || COMPLETED_LINE.test(message)) {
     return SetupStepStatus.Completed;
+  } else if (registrationProgressLineFailed(message)) {
+    return SetupStepStatus.Failed;
   } else if (item.status === SetupStepStatus.Running && inFlight && latest) {
     return SetupStepStatus.Running;
   } else {
@@ -49,4 +51,11 @@ function registrationLineText(item: SetupProgress): string {
 
 export function registrationFailureMessage(stage: string, message: string): string {
   return `Failed while ${stage}: ${message}`;
+}
+
+export function registrationElapsedLabel(startedAt: number, now: number): string {
+  const totalSeconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds < 10 ? `0${seconds}` : seconds}`;
 }

@@ -230,7 +230,12 @@ async function loadWalksFromWalksManager(registration: StoredSiteRegistration): 
     const reviewSite = mongoose.createConnection(uri);
     try {
       await reviewSite.asPromise();
-      const result = await syncWalksManagerData(config, {fullSync: true}, null, walksManagerSyncModelsFor(reviewSite));
+      const result = await syncWalksManagerData(config, {
+        fullSync: true,
+        onProgress: (percent, message) => {
+          void pushProgress(registration, "Walks Manager", SetupStepStatus.Running, `${percent}% ${message}`);
+        }
+      }, null, walksManagerSyncModelsFor(reviewSite));
       if (result.errors.length) {
         throw new Error(`Walks Manager load finished with errors: ${result.errors.join("; ")}`);
       } else {

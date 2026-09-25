@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { registrationFailureMessage, registrationProgressLineFailed, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
+import { registrationElapsedLabel, registrationFailureMessage, registrationProgressLineFailed, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
 import { SetupProgress, SetupStepStatus } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 
 const PLAYWRIGHT_DUMP = "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell\nPlease run npx playwright install";
@@ -42,6 +42,10 @@ describe("registrationProgressStatus", () => {
     expect(registrationProgressStatus(line("Importing /about"), false)).toBe(SetupStepStatus.Completed);
     expect(registrationProgressStatus(line("Importing /about"), true, false)).toBe(SetupStepStatus.Completed);
   });
+
+  it("keeps a completed OS Maps skip as completed even when the message mentions a failed upload", () => {
+    expect(registrationProgressStatus(line("OS Maps API key not generated: Upload failed for key.json after 2m 1s. Generate a key by hand.", SetupStepStatus.Completed), true)).toBe(SetupStepStatus.Completed);
+  });
 });
 
 describe("registrationProgressLines", () => {
@@ -64,5 +68,13 @@ describe("registrationProgressLines", () => {
   it("names the stage a build failed in", () => {
     expect(registrationFailureMessage("importing pages from the current website", "Operation timed out"))
       .toEqual("Failed while importing pages from the current website: Operation timed out");
+  });
+});
+
+describe("registrationElapsedLabel", () => {
+  it("formats minutes and zero-padded seconds from a start time", () => {
+    expect(registrationElapsedLabel(1_000, 1_000)).toEqual("0:00");
+    expect(registrationElapsedLabel(1_000, 3_000)).toEqual("0:02");
+    expect(registrationElapsedLabel(1_000, 125_000)).toEqual("2:04");
   });
 });

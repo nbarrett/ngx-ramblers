@@ -1,10 +1,10 @@
-import { Component, inject, Input } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleCheck, faCircleXmark, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { SetupProgress, SetupStepStatus } from "../../../models/environment-setup.model";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../functions/registration-progress";
+import { registrationElapsedLabel, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../functions/registration-progress";
 import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
@@ -27,7 +27,7 @@ import { MarkdownComponent } from "ngx-markdown";
 
     .registration-progress-row
       display: grid
-      grid-template-columns: 1.25rem 4.5rem minmax(0, 1fr)
+      grid-template-columns: 1.25rem 7.5rem minmax(0, 1fr)
       column-gap: 0.5rem
       align-items: start
       margin-bottom: 0.35rem
@@ -57,7 +57,7 @@ import { MarkdownComponent } from "ngx-markdown";
       @for (item of lines(); track $index) {
         <div class="registration-progress-row">
           <fa-icon [icon]="icon(item, $index)" [class.text-success]="status(item, $index) === StepStatus.Completed" [class.text-danger]="status(item, $index) === StepStatus.Failed" [animation]="status(item, $index) === StepStatus.Running ? 'spin' : undefined"/>
-          <span class="text-muted registration-progress-time">{{time(item)}}</span>
+          <span class="text-muted registration-progress-time">{{time(item, $index)}}</span>
           <div class="registration-progress-message" markdown [data]="sanitise(item.message || item.step)"></div>
         </div>
       }
@@ -74,7 +74,7 @@ import { MarkdownComponent } from "ngx-markdown";
     </div>
   `
 })
-export class RegistrationProgressLogComponent {
+export class RegistrationProgressLogComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   @Input() progress: SetupProgress[] = [];
   @Input() error = "";
@@ -83,6 +83,21 @@ export class RegistrationProgressLogComponent {
   success = faCircleCheck;
   failed = faCircleXmark;
   running = faSpinner;
+  now = 0;
+  private elapsedTimer = {id: null as ReturnType<typeof setInterval> | null};
+
+  ngOnInit(): void {
+    this.now = this.dateUtils.dateTimeNowAsValue();
+    this.elapsedTimer.id = setInterval(() => {
+      this.now = this.dateUtils.dateTimeNowAsValue();
+    }, 1000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.elapsedTimer.id) {
+      clearInterval(this.elapsedTimer.id);
+    }
+  }
 
   lines(): SetupProgress[] {
     return registrationProgressLines(this.progress);
@@ -103,8 +118,13 @@ export class RegistrationProgressLogComponent {
     }
   }
 
-  time(item: SetupProgress): string {
-    return item.timestamp ? this.dateUtils.asString(item.timestamp, undefined, UIDateFormat.RAMBLERS_TIME) : "";
+  time(item: SetupProgress, index = 0): string {
+    const clock = item.timestamp ? this.dateUtils.asString(item.timestamp, undefined, UIDateFormat.RAMBLERS_TIME) : "";
+    if (this.status(item, index) === SetupStepStatus.Running && item.timestamp) {
+      return `${clock} · ${registrationElapsedLabel(item.timestamp, this.now)}`;
+    } else {
+      return clock;
+    }
   }
 
   sanitise(message: string): string {

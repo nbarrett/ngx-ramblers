@@ -71,7 +71,7 @@ import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
                      type="checkbox" class="form-check-input"
                      [id]="id +'-view-selector'">
               <label class="form-check-label"
-                     [for]="id +'-view-selector'">Full Mode (Cards/Table/Map with Search)
+                     [for]="id +'-view-selector'">{{viewSelectorLabel()}}
               </label>
             </div>
           </div>
@@ -398,10 +398,31 @@ export class DynamicContentSiteEditEvents implements OnInit {
       }
       this.logger.info("initialiseRowForEvents:row already has events:", this.row.events);
     }
+    this.applyGroupEventsViewSelector();
+  }
+
+  groupEventsMode(): boolean {
+    const types = this.row?.events?.eventTypes || [];
+    return types.length > 0 && types.every(type => type === RamblersEventType.GROUP_EVENT);
+  }
+
+  viewSelectorLabel(): string {
+    if (this.groupEventsMode()) {
+      return "Group events mode";
+    } else {
+      return "Group walks mode";
+    }
+  }
+
+  applyGroupEventsViewSelector(): void {
+    if (this.groupEventsMode() && this.row?.events?.allow) {
+      this.row.events.allow.viewSelector = false;
+    }
   }
 
   modelChange(eventTypes: RamblersEventType[]) {
     this.row.events.eventTypes = eventTypes;
+    this.applyGroupEventsViewSelector();
     this.logger.info("modelChange:eventTypes:", eventTypes, "row.events:", this.row.events);
     this.broadcastChange();
   }

@@ -11,7 +11,7 @@ import {ConfigKey} from "../../../projects/ngx-ramblers/src/app/models/config.mo
 import {dateTimeNowAsValue} from "../shared/dates";
 import {generateUid} from "../shared/string-utils";
 
-const COMMITTEE_ROLE_PATTERN = "chair(?:man|person)?|secretary|treasurer|membership secretary|walks? co-ordinator|walks? coordinator|social secretary|publicity officer|webmaster|committee member|footpath secretary|programme secretary|social media editor";
+const COMMITTEE_ROLE_PATTERN = "chair(?:man|person)?|secretary|treasurer|membership secretary|walks? co-ordinator|walks? coordinator|social secretary|publicity officer|webmaster|committee member|footpath secretary|footpath officer|access officer|digital officer|walking environment officer|programme secretary|social media editor";
 const ROLE_HEADING = new RegExp(`^(${COMMITTEE_ROLE_PATTERN})$`, "i");
 const PHONE_PATTERN = /(?:Call|Phone|Tel)?\s*:?\s*(\+?\d[\d\s]{8,15}\d)/i;
 const COMMITTEE_EXTRACTION_PROMPT = [
@@ -57,6 +57,10 @@ function cleanMarkdown(value: string): string {
   return value.replace(/[*_#`]/g, "").replace(/\[([^\]]+)]\([^)]+\)/g, "$1").trim();
 }
 
+function personDisplayName(value: string): string {
+  return value.replace(/\s*\([^)]*\)\s*$/g, "").replace(/\s+/g, " ").trim();
+}
+
 function lineEmail(line: string): string {
   return line.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "";
 }
@@ -72,22 +76,22 @@ function heuristicCandidates(source: string): RegistrationCommitteeCandidate[] {
   return source.split("\n").reduce<{candidates: RegistrationCommitteeCandidate[]; pendingRole: string | null}>((state, raw) => {
     const email = lineEmail(raw);
     const phone = linePhone(raw);
-    const withoutEmail = cleanMarkdown(raw).replace(email, "").replace(/[()<>]/g, "").trim();
+    const withoutEmail = cleanMarkdown(raw).replace(email, "").replace(/[<>]/g, "").trim();
     const first = withoutEmail.match(roleFirst);
     const second = withoutEmail.match(nameFirst);
     const heading = withoutEmail.match(ROLE_HEADING);
     const last = state.candidates[state.candidates.length - 1];
     const withPhone = (candidate: RegistrationCommitteeCandidate) => phone ? {...candidate, phone} : candidate;
     if (first) {
-      return {candidates: state.candidates.concat([withPhone({role: first[1].trim(), name: first[2].trim(), email})]), pendingRole: null};
+      return {candidates: state.candidates.concat([withPhone({role: first[1].trim(), name: personDisplayName(first[2]), email})]), pendingRole: null};
     } else if (second) {
-      return {candidates: state.candidates.concat([withPhone({role: second[2].trim(), name: second[1].trim(), email})]), pendingRole: null};
+      return {candidates: state.candidates.concat([withPhone({role: second[2].trim(), name: personDisplayName(second[1]), email})]), pendingRole: null};
     } else if (heading) {
       return {candidates: state.candidates, pendingRole: heading[1].trim()};
     } else if (phone && last && !last.phone) {
       return {candidates: state.candidates.slice(0, -1).concat([{...last, phone}]), pendingRole: state.pendingRole};
     } else if (state.pendingRole && withoutEmail && !/^note:/i.test(withoutEmail) && !/^please do not/i.test(withoutEmail)) {
-      return {candidates: state.candidates.concat([withPhone({role: state.pendingRole, name: withoutEmail, email})]), pendingRole: null};
+      return {candidates: state.candidates.concat([withPhone({role: state.pendingRole, name: personDisplayName(withoutEmail), email})]), pendingRole: null};
     } else {
       return state;
     }

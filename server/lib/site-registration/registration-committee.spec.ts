@@ -16,6 +16,14 @@ describe("registration committee import", () => {
     ]);
   });
 
+  it("keeps the person name when a role line ends with a town in brackets", async () => {
+    const pages = [{path: "contact", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "**Chair:** [Jane Doe](mailto:chair@group.example) (Winchester)\n\n**Footpath Officer:** [Sam Jordan](mailto:footpath@group.example) (Winchester)"}]}]}];
+    expect(await registrationCommitteeCandidates(pages, {enabled: false} as any)).toEqual([
+      {role: "Chair", name: "Jane Doe", email: "chair@group.example"},
+      {role: "Footpath Officer", name: "Sam Jordan", email: "footpath@group.example"}
+    ]);
+  });
+
   it("ignores role labels, placeholders and names that are not a person", async () => {
     const pages = [{path: "contact-us", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "Webmaster\n\nWebmaster\n\nWalks Coordinator\n\n[Walk Leader Name]\n\nSecretary\n\nSam Jordan"}]}]}];
     expect(await registrationCommitteeCandidates(pages, {enabled: false} as any)).toEqual([

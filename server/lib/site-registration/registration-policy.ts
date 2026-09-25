@@ -7,6 +7,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { approvalCode, approvalEmailAddresses, validRegistrationEmail as sharedValidRegistrationEmail, registrationSettingsProblem as sharedRegistrationSettingsProblem, validRegistrationSettings as sharedValidRegistrationSettings } from "../../../projects/ngx-ramblers/src/app/functions/registration-settings";
 import { registrationStages } from "../../../projects/ngx-ramblers/src/app/functions/registration-history";
+import { registrationProgressStatus } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
 
 export const validRegistrationEmail = sharedValidRegistrationEmail;
 export const registrationSettingsProblem = sharedRegistrationSettingsProblem;
@@ -48,7 +49,7 @@ export const PUBLIC_REGISTRATION_RETURNED_MESSAGE = "The platform reviewer has r
 export const PUBLIC_REGISTRATION_STEP_FAILURE_MESSAGE = "This step did not complete.";
 
 function failedProgress(entry: SetupProgress): boolean {
-  return entry.status === SetupStepStatus.Failed || /error|failed|❌/i.test(entry.message || "");
+  return registrationProgressStatus(entry, false) === SetupStepStatus.Failed;
 }
 
 export function publicRegistrationProgress(progress: SetupProgress[]): SetupProgress[] {
