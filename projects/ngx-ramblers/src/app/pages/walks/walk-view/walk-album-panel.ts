@@ -5,7 +5,7 @@ import { faImages } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
+import { AlbumPanelPresentation, ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
 import { RootFolder } from "../../../models/system.model";
 import { WalkAlbumPanelStyle } from "../../../models/walks-config.model";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
@@ -18,6 +18,9 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
 
 @Component({
   selector: "app-walk-album-panel",
+  host: {
+    "[class.hero]": "presentation === AlbumPanelPresentation.HERO"
+  },
   styles: [`
     :host
       display: flex
@@ -164,10 +167,86 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
       min-width: 0
       border-radius: 6px
       overflow: hidden
+
+    :host.hero
+      display: block
+      position: absolute
+      inset: 0
+      height: 100%
+      margin: 0
+
+    .walk-album-hero
+      position: absolute
+      inset: 0
+      overflow: hidden
+      background: #1d3557
+
+    .walk-album-hero img
+      width: 100%
+      height: 100%
+      object-fit: cover
+      display: block
+
+    .walk-album-hero-caption
+      position: absolute
+      left: 0
+      right: 0
+      bottom: 0
+      padding: 10px 14px
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.55))
+      color: #fff
+      display: flex
+      align-items: baseline
+      justify-content: space-between
+      gap: 12px
+      pointer-events: none
+
+    .walk-album-hero-title
+      font-weight: bold
+      margin: 0
+      font-size: 1rem
+
+    .walk-album-hero-meta
+      margin: 0
+      font-size: 0.9rem
+      opacity: 0.9
   `],
   template: `
-    @if (albumPath && (imageUrls.length > 0 || panelStyle === WalkAlbumPanelStyle.CARD)) {
-      @if (panelStyle === WalkAlbumPanelStyle.MATCH_WALK_IMAGES) {
+    @if (albumPath && (imageUrls.length > 0 || panelStyle === WalkAlbumPanelStyle.CARD || presentation === AlbumPanelPresentation.HERO)) {
+      @if (presentation === AlbumPanelPresentation.HERO) {
+        <div class="walk-album-hero pointer" (click)="openAlbum()" [tooltip]="currentImageTooltip()">
+          @if (imageUrls.length > 1) {
+            <div class="swiper-viewport"
+                 [class.dragging]="dragging"
+                 appSwipeable
+                 (draggingChange)="dragging = $event"
+                 (swipeOffset)="dragOffsetX = $event"
+                 (swipeDelta)="onSwipeDelta($event)">
+              <div class="swiper-strip"
+                   [style.transform]="stripTransform"
+                   [style.transition]="dragTransition">
+                @for (imageUrl of imageUrls; track imageUrl; let slideIndex = $index) {
+                  <div class="swiper-slide">
+                    <img [src]="imageUrl" [alt]="'Photo ' + (slideIndex + 1) + ' from this ' + eventNoun"/>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else if (currentImageUrl) {
+            <img [src]="currentImageUrl" [alt]="'Photo album for this ' + eventNoun"/>
+          }
+          <div class="walk-album-hero-caption">
+            <p class="walk-album-hero-title">View photo album</p>
+            <p class="walk-album-hero-meta">
+              @if (imageUrls.length > 1) {
+                {{ imageIndex + 1 }} / {{ imageUrls.length }} · swipe or tap
+              } @else {
+                Tap to open
+              }
+            </p>
+          </div>
+        </div>
+      } @else if (panelStyle === WalkAlbumPanelStyle.MATCH_WALK_IMAGES) {
         <div class="walk-album-match pointer"
              [tooltip]="currentImageTooltip()"
              [placement]="'bottom'">
@@ -231,7 +310,7 @@ import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.dire
                      [style.transition]="dragTransition">
                   @for (imageUrl of imageUrls; track imageUrl; let slideIndex = $index) {
                     <div class="swiper-slide">
-                      <img [src]="imageUrl" [alt]="'Walk photo ' + (slideIndex + 1)"/>
+                      <img [src]="imageUrl" [alt]="'Photo ' + (slideIndex + 1) + ' from this ' + eventNoun"/>
                     </div>
                   }
                 </div>
@@ -299,6 +378,7 @@ export class WalkAlbumPanelComponent implements OnInit, OnDestroy {
   protected readonly faImages = faImages;
   protected readonly navColour = "var(--ramblers-colour-mintcake)";
   protected readonly WalkAlbumPanelStyle = WalkAlbumPanelStyle;
+  protected readonly AlbumPanelPresentation = AlbumPanelPresentation;
   protected panelStyle: WalkAlbumPanelStyle = WalkAlbumPanelStyle.CARD;
   protected panelHeight = 240;
   protected imageUrls: string[] = [];
@@ -309,6 +389,9 @@ export class WalkAlbumPanelComponent implements OnInit, OnDestroy {
   private currentAlbumPath: string | null = null;
   private currentAlbumName: string | null = null;
   private currentCoverImageUrl: string | null = null;
+
+  @Input() presentation: AlbumPanelPresentation = AlbumPanelPresentation.CONFIGURED;
+  @Input() eventNoun = "walk";
 
   @Input() set albumPath(path: string | null) {
     this.currentAlbumPath = path;
@@ -356,8 +439,8 @@ export class WalkAlbumPanelComponent implements OnInit, OnDestroy {
 
   albumLinkTooltip(): string {
     return this.imageUrls.length > 1
-      ? `Open the album page to see all ${this.imageUrls.length} photos from this walk`
-      : "Open the album page to see the photos from this walk";
+      ? `Open the album page to see all ${this.imageUrls.length} photos from this ${this.eventNoun}`
+      : `Open the album page to see the photos from this ${this.eventNoun}`;
   }
 
   openAlbum(): void {

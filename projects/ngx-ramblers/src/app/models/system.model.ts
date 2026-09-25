@@ -206,6 +206,7 @@ export interface Organisation extends Group {
   showWalkOnRamblersLink: boolean;
   showWalkRelatedLinks?: boolean;
   walkPhotoAlbumBasePath?: string;
+  walkPhotoAlbumExtraBasePaths?: string[];
   allowSwitchWalkView: boolean;
   socialContactNameAccessLevel?: AccessLevel;
   socialContactPhoneAccessLevel?: AccessLevel;
@@ -216,6 +217,7 @@ export interface Organisation extends Group {
   showSocialOnRamblersLink: boolean;
   showSocialRelatedLinks?: boolean;
   socialPhotoAlbumBasePath?: string;
+  socialPhotoAlbumExtraBasePaths?: string[];
   walkLeaderContactMethod?: EventLeaderContactMethod;
   walkLeaderContactDirect?: boolean;
   walkLeaderContactRole?: string;

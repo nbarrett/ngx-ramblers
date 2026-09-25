@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { isString } from "es-toolkit/compat";
+import { isArray, isString } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
 import { NotificationConfig } from "../../../../models/mail.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
@@ -29,6 +29,7 @@ interface EventTypeFieldMapping {
   showOnRamblersLink: keyof Organisation;
   showRelatedLinks: keyof Organisation;
   photoAlbumBasePath: keyof Organisation;
+  photoAlbumExtraBasePaths: keyof Organisation;
   contactMethod: keyof Organisation;
   contactDirect: keyof Organisation;
   contactRole: keyof Organisation;
@@ -46,6 +47,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     showOnRamblersLink: "showWalkOnRamblersLink",
     showRelatedLinks: "showWalkRelatedLinks",
     photoAlbumBasePath: "walkPhotoAlbumBasePath",
+    photoAlbumExtraBasePaths: "walkPhotoAlbumExtraBasePaths",
     contactMethod: "groupWalkContactMethod",
     contactDirect: "groupWalkContactDirect",
     contactRole: "groupWalkContactRole",
@@ -61,6 +63,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     showOnRamblersLink: "showSocialOnRamblersLink",
     showRelatedLinks: "showSocialRelatedLinks",
     photoAlbumBasePath: "socialPhotoAlbumBasePath",
+    photoAlbumExtraBasePaths: "socialPhotoAlbumExtraBasePaths",
     contactMethod: "groupEventContactMethod",
     contactDirect: "groupEventContactDirect",
     contactRole: "groupEventContactRole",
@@ -186,19 +189,21 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
       </div>
     }
     <div class="form-group">
-      <label [for]="idFor('photo-album-base-path')">{{ eventTypeTitle }} Photo Album Base Path</label>
-      <input [(ngModel)]="group[fields.photoAlbumBasePath]"
-             type="text"
-             class="form-control input-sm"
-             [name]="idFor('photo-album-base-path')"
-             [id]="idFor('photo-album-base-path')"
-             [placeholder]="photoAlbumBasePathPlaceholder"
-             autocomplete="off">
+      <label [for]="idFor('photo-album-base-path')">{{ eventTypeTitle }} Photo Album Paths</label>
+      <textarea [(ngModel)]="photoAlbumPathsText"
+                class="form-control input-sm"
+                rows="3"
+                [name]="idFor('photo-album-base-path')"
+                [id]="idFor('photo-album-base-path')"
+                [placeholder]="photoAlbumBasePathPlaceholder"
+                (ngModelChange)="onPhotoAlbumPathsChange($event)"
+                autocomplete="off"></textarea>
       <small class="form-text text-muted d-block">
-        Albums created from a {{ eventTypeTitle.toLowerCase() }} use
+        One path per line. New albums from a {{ eventTypeTitle.toLowerCase() }} are created under the first path as
         <code>&lt;base&gt;/&lt;year&gt;/&lt;slug&gt;</code>.
+        Extra lines are also searched when linking an existing album, for example
+        <code>walks/weekends-away</code>.
         Leave blank for <code>{{ photoAlbumBasePathPlaceholder }}</code> (from the site nav).
-        A site whose photo pages sit under <code>/photos/2026/…</code> rather than the nav's own name should set <code>photos</code>.
       </small>
     </div>`,
   imports: [FormsModule]
@@ -235,6 +240,7 @@ export class EventTypeSettingsComponent implements OnInit, OnDestroy {
   group: Organisation;
   eventTypeTitle: string;
   photoAlbumBasePathPlaceholder = "walks/photos";
+  photoAlbumPathsText = "";
 
   ngOnInit() {
     this.fields = FIELD_MAPPINGS[this.eventType];
@@ -286,5 +292,30 @@ export class EventTypeSettingsComponent implements OnInit, OnDestroy {
       const normalised = currentBasePath.trim().replace(/^\/+|\/+$/g, "");
       (this.group as any)[this.fields.photoAlbumBasePath] = normalised || null;
     }
+    const extraPaths = this.group[this.fields.photoAlbumExtraBasePaths];
+    if (!isArray(extraPaths)) {
+      (this.group as any)[this.fields.photoAlbumExtraBasePaths] = [];
+    }
+    this.photoAlbumPathsText = this.photoAlbumPathsFromGroup();
+  }
+
+  onPhotoAlbumPathsChange(value: string) {
+    this.photoAlbumPathsText = value || "";
+    const lines = (value || "")
+      .split(/\n/)
+      .map(line => line.trim().replace(/^\/+|\/+$/g, ""))
+      .filter(Boolean);
+    (this.group as any)[this.fields.photoAlbumBasePath] = lines[0] || null;
+    (this.group as any)[this.fields.photoAlbumExtraBasePaths] = lines.slice(1);
+  }
+
+  private photoAlbumPathsFromGroup(): string {
+    const primary = this.group[this.fields.photoAlbumBasePath];
+    const extras = this.group[this.fields.photoAlbumExtraBasePaths];
+    const extraLines = isArray(extras) ? extras.filter(isString) : [];
+    const lines = [isString(primary) ? primary : "", ...extraLines]
+      .map(line => line.trim())
+      .filter(Boolean);
+    return lines.join("\n");
   }
 }

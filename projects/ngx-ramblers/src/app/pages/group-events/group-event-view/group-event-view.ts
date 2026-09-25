@@ -1,6 +1,6 @@
 import { WalkDisplayService } from "../../walks/walk-display.service";
 import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
-import { faFile, faHouse, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
+import { faFile, faHouse, faImages, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { PathSegment } from "../../../models/content-text.model";
@@ -35,6 +35,11 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
 import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
+import { WalkAlbumPanelComponent } from "../../walks/walk-view/walk-album-panel";
+import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
+
+import { AlbumEditRole, AlbumPanelPresentation } from "../../../models/content-metadata.model";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-group-event-view",
@@ -42,14 +47,30 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
     <app-event-social-publish-modal #socialPublish/>
     <div class="card mb-3">
       <div class="wrapper w-100 position-relative">
-        <img class="h-100 w-100 position-absolute" (error)="imageError($event)" (load)="imageLoad($event)"
-             role="presentation" src="{{image.url}}"
-             alt="{{image.alt}}"/>
+        @if (eventAlbumPath) {
+          <app-walk-album-panel class="event-album-hero"
+                                [presentation]="AlbumPanelPresentation.HERO"
+                                eventNoun="event"
+                                [albumPath]="eventAlbumPath"
+                                [albumName]="eventAlbumName"
+                                [coverImageUrl]="eventAlbumCoverUrl || image?.url"/>
+        } @else {
+          <img class="h-100 w-100 position-absolute" (error)="imageError($event)" (load)="imageLoad($event)"
+               role="presentation" src="{{image.url}}"
+               alt="{{image.alt}}"/>
+        }
       </div>
       <div class="card-body">
         <div class="position-relative">
           @if (display.allow.edits || showSocialPublishing() || showEmailNotification()) {
             <div class="float-end d-flex gap-2">
+              @if (showAlbumAction()) {
+                <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
+                        [tooltip]="albumActionTooltip()"
+                        class="btn btn-quiet">
+                  <fa-icon [icon]="faImages" class="me-2"/>{{ albumActionCaption() }}
+                </button>
+              }
               @if (showSocialPublishing() || showEmailNotification()) {
                 <div class="btn-group" dropdown container="body">
                   <button type="button" dropdownToggle class="btn btn-primary dropdown-toggle"
@@ -208,7 +229,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, AddToCalendarLinkComponent]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, AddToCalendarLinkComponent, WalkAlbumPanelComponent]
 })
 export class GroupEventView implements OnInit {
 
@@ -227,7 +248,17 @@ export class GroupEventView implements OnInit {
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faEnvelope = faEnvelope;
   private walksAndEventsService = inject(WalksAndEventsService);
+  private createWalkAlbumService = inject(CreateWalkAlbumService);
+
   protected mediaQueryService = inject(MediaQueryService);
+  protected readonly faImages = faImages;
+  protected readonly AlbumPanelPresentation = AlbumPanelPresentation;
+  protected eventAlbumPath: string | null = null;
+  protected eventAlbumName: string | null = null;
+  protected eventAlbumCoverUrl: string | null = null;
+  protected eventAlbumDraftCount = 0;
+  protected albumRole: AlbumEditRole | null = null;
+  protected creatingAlbum = false;
   @Input()
   public groupEvent: ExtendedGroupEvent;
   public notifyTarget: AlertTarget = {};
@@ -246,6 +277,7 @@ export class GroupEventView implements OnInit {
       if (this.groupEvent) {
         this.logger.info("groupEvent from input:", this.groupEvent);
         this.notifyGroupEventDisplayed();
+        this.resolveEventAlbum(this.groupEvent);
       } else if (this.urlService.pathContainsEventIdOrSlug()) {
         const groupEventId = this.urlService.lastPathSegment();
         this.logger.info("finding groupEvent from groupEventId:", groupEventId);
@@ -254,6 +286,7 @@ export class GroupEventView implements OnInit {
         this.image = this.mediaQueryService.imageSourceWithFallback(this.groupEvent);
         this.logger.info("found group event:", data);
         this.notifyGroupEventDisplayed();
+        this.resolveEventAlbum(this.groupEvent);
       } else if (this.display.inNewEventMode()) {
         this.editGroupEvent();
       }
@@ -319,5 +352,76 @@ export class GroupEventView implements OnInit {
     return false;
   }
 
+  showAlbumAction(): boolean {
+    return this.createWalkAlbumService.showAlbumAction(this.groupEvent, this.eventAlbumPath, this.walkDisplay.eventHasStarted(this.groupEvent));
+  }
+
+  albumActionCaption(): string {
+    return this.createWalkAlbumService.albumActionCaption(this.creatingAlbum, this.albumRole, this.eventAlbumPath, this.eventAlbumDraftCount);
+  }
+
+  albumActionTooltip(): string {
+    return this.createWalkAlbumService.albumActionTooltip(this.albumRole, this.eventAlbumPath, this.eventAlbumDraftCount, this.groupEvent);
+  }
+
+  async createPhotoAlbum() {
+    if (!this.showAlbumAction()) {
+      this.logger.info("createPhotoAlbum: not available for this member or event");
+    } else if (this.eventAlbumPath) {
+      await this.openAlbumWorkflow(this.eventAlbumPath);
+    } else {
+      this.creatingAlbum = true;
+      this.notify.progress({title: "Photo album", message: "Creating the album page and writing the event report"});
+      try {
+        const albumPath = await this.createWalkAlbumService.createFromWalk(this.groupEvent);
+        this.eventAlbumPath = albumPath;
+        this.resolveEventAlbum(this.groupEvent);
+        await this.openAlbumWorkflow(albumPath);
+        this.creatingAlbum = false;
+      } catch (error) {
+        this.notify.error({title: "Could not create the photo album", message: error});
+        this.creatingAlbum = false;
+      }
+    }
+  }
+
+  private async openAlbumWorkflow(albumPath: string): Promise<void> {
+    if (albumPath) {
+      const currentSegments = this.urlService.pathSegments().filter(Boolean);
+      if (currentSegments.length > 0) {
+        this.createWalkAlbumService.rememberReturnToWalk(currentSegments);
+      }
+      if (this.albumRole === AlbumEditRole.CURATOR) {
+        this.createWalkAlbumService.markAlbumForAutoCover(this.eventAlbumName || albumPath);
+      }
+      await this.urlService.navigateUnconditionallyTo(
+        albumPath.split("/").filter(Boolean),
+        {[StoredValue.ALBUM_WORKFLOW]: "1"},
+        ""
+      );
+    } else {
+      this.logger.info("openAlbumWorkflow: no album path");
+    }
+  }
+
+  private resolveEventAlbum(event: ExtendedGroupEvent) {
+    this.eventAlbumPath = null;
+    this.eventAlbumName = null;
+    this.eventAlbumCoverUrl = null;
+    this.eventAlbumDraftCount = 0;
+    this.albumRole = this.createWalkAlbumService.albumEditRoleForWalk(event);
+    if (event) {
+      this.createWalkAlbumService.existingAlbumLinkFor(event)
+        .then(link => {
+          if (this.groupEvent?.id === event.id || this.groupEvent === event) {
+            this.eventAlbumPath = link?.path || null;
+            this.eventAlbumName = link?.albumName || link?.path || null;
+            this.eventAlbumCoverUrl = link?.coverImageUrl || null;
+            this.eventAlbumDraftCount = link?.draftCount || 0;
+          }
+        })
+        .catch(error => this.logger.warn("resolveEventAlbum failed", error));
+    }
+  }
 
 }
