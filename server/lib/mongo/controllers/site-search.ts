@@ -38,9 +38,10 @@ const MAX_RESULTS = 100;
 const PAGE_INDEX_LIMIT = 3000;
 const EVENT_INDEX_LIMIT = 6000;
 const INDEX_TTL_MS = 30 * 60 * 1000;
-const INDEX_BUILD_WAIT_MS = 25000;
-const INDEX_QUERY_MAX_TIME_MS = 20000;
+const INDEX_BUILD_WAIT_MS = 90000;
+const INDEX_QUERY_MAX_TIME_MS = 30000;
 const INDEX_RETRY_COOLDOWN_MS = 15000;
+const INDEX_LOAD_BATCH_SIZE = 200;
 
 const LOCAL_ACTIVE_FILTER = {
   $or: [
@@ -140,14 +141,37 @@ async function timed<T>(label: string, action: () => Promise<T>): Promise<T> {
   }
 }
 
+async function loadInBatches<T>(label: string, limit: number, loadBatch: (skip: number, size: number) => Promise<T[]>): Promise<T[]> {
+  const loaded: T[] = [];
+  const progress = {skip: 0};
+  const next = async (): Promise<T[]> => {
+    const remaining = limit - loaded.length;
+    if (remaining <= 0) {
+      return loaded;
+    } else {
+      const batch = await timed(`${label} batch ${progress.skip}`, () => loadBatch(progress.skip, Math.min(INDEX_LOAD_BATCH_SIZE, remaining)));
+      loaded.push(...batch);
+      progress.skip += batch.length;
+      if (batch.length === 0 || batch.length < INDEX_LOAD_BATCH_SIZE) {
+        return loaded;
+      } else {
+        return next();
+      }
+    }
+  };
+  return next();
+}
+
 async function buildSearchIndex(): Promise<SearchIndex> {
   const startedAt = dateTimeNowAsValue();
   searchLog("buildSearchIndex: starting full index build from database");
   const [pages, events, config, albums] = await Promise.all([
-    timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<PageContent[]>),
-    timed("events load", () => extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
-      .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.status groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
-      .limit(EVENT_INDEX_LIMIT).maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<ExtendedGroupEvent[]>),
+    loadInBatches<PageContent>("page-content load", PAGE_INDEX_LIMIT, (skip, size) =>
+      pageContent.find({}).select("path rows migrationTemplate").skip(skip).limit(size).maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<PageContent[]>),
+    loadInBatches<ExtendedGroupEvent>("events load", EVENT_INDEX_LIMIT, (skip, size) =>
+      extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
+        .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.status groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
+        .skip(skip).limit(size).maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<ExtendedGroupEvent[]>),
     timed("system-config load", () => systemConfig()),
     timed("album captions load", () => contentMetadata.find({})
       .select("name files.text files.draft").maxTimeMS(INDEX_QUERY_MAX_TIME_MS).lean().exec() as Promise<ContentMetadata[]>)
