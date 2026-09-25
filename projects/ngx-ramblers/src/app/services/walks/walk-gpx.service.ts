@@ -20,6 +20,15 @@ export class WalkGpxService {
     );
   }
 
+  importGpxFile(file: File): Observable<{ gpxFile: ServerFileNameData; routeId?: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this.http.post<{ gpxFile: ServerFileNameData; routeId?: string }>(
+      `${this.BASE_URL}/import`,
+      formData
+    );
+  }
+
   listGpxFiles(): Observable<GpxFileListItem[]> {
     return this.http.get<GpxFileListItem[]>(
       `${this.BASE_URL}/list`

@@ -1,5 +1,6 @@
 import { DOMParser } from "@xmldom/xmldom";
 import { ExportedGpxSummary } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { dateTimeFromIso } from "../shared/dates";
 
 interface GpxPoint {
   latitude: number;
@@ -69,6 +70,13 @@ function totalDistanceMetres(points: GpxPoint[]): number {
   }
 }
 
+function firstTimeMillis(doc: Document): number | null {
+  const times = elementsNamed(doc, "time")
+    .map(element => dateTimeFromIso((element.textContent || "").trim()))
+    .filter(dateTime => dateTime.isValid);
+  return times.length > 0 ? times[0].toMillis() : null;
+}
+
 function parseNonEmptyGpx(content: string, fileName: string): ExportedGpxSummary {
   const doc = new DOMParser().parseFromString(content, "text/xml");
   const parseErrors = elementsNamed(doc, "parsererror");
@@ -93,7 +101,8 @@ function parseNonEmptyGpx(content: string, fileName: string): ExportedGpxSummary
       totalDistanceMetres: metres,
       totalDistanceKm: metres / 1000,
       startLat: firstPoint ? firstPoint.latitude : 0,
-      startLng: firstPoint ? firstPoint.longitude : 0
+      startLng: firstPoint ? firstPoint.longitude : 0,
+      walkedAt: firstTimeMillis(doc)
     };
   }
 }

@@ -6,19 +6,16 @@ import { bulkDeleteEvents, bulkUpdateEvents, eventStats, agmStats, earliestDate,
 import { agmStatsExcel } from "../controllers/agm-stats-excel";
 import { queryWalkLeaders } from "../controllers/extended-group-event";
 import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
-import { uploadWalkGpx } from "../../walks/walk-gpx-upload";
+import { importWalkGpx, receiveWalkGpx, uploadWalkGpx } from "../../walks/walk-gpx-upload";
 import { listWalkGpxFiles } from "../../walks/walk-gpx-list";
 import { notifyWalkPhotosAdded } from "../../walks/walk-album-photos-added";
 import { requirePhotoContributionAccess } from "../../walks/photo-contribution-access";
 import { syncWalksManagerData, getLastSyncTimestamp } from "../../walks/walks-manager-sync";
 import { handleWalkLeaderRematch } from "../controllers/walk-leader-rematch";
 import { systemConfig } from "../../config/system-config";
-import multer from "multer";
-import { envConfig } from "../../env-config/env-config";
 import { Request, Response } from "express";
 
 const controller = crudController.create<Walk>(walk, false);
-const upload = multer({ dest: envConfig.server.uploadDir });
 const router = express.Router();
 
 router.post("/sync/walks-manager", authConfig.authenticate(), async (req: Request, res: Response) => {
@@ -44,7 +41,8 @@ router.get("/sync/status", async (req: Request, res: Response) => {
 
 router.post("/leader-rematch", authConfig.authenticate(), handleWalkLeaderRematch);
 
-router.post("/gpx/upload", authConfig.authenticate(), upload.single("file"), uploadWalkGpx);
+router.post("/gpx/upload", authConfig.authenticate(), receiveWalkGpx, uploadWalkGpx);
+router.post("/gpx/import", authConfig.authenticate(), receiveWalkGpx, importWalkGpx);
 router.get("/gpx/list", listWalkGpxFiles);
 router.post("/album-photos-added", authConfig.optionalAuthenticate(), requirePhotoContributionAccess, notifyWalkPhotosAdded);
 router.get("/event-stats", authConfig.authenticate(), eventStats);

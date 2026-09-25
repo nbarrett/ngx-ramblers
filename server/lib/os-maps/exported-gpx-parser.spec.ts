@@ -51,6 +51,24 @@ describe("exported-gpx-parser", () => {
     expect(() => parseExportedGpx("<not-gpx></not-gpx>")).toThrow("Invalid GPX file format");
   });
 
+  it("reads the walk date from the first GPX time stamp", () => {
+    const timed = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="StravaGPX" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Evening walk</name>
+    <time>2026-09-25T18:12:00Z</time>
+  </metadata>
+  <trk>
+    <trkseg>
+      <trkpt lat="51.22000" lon="1.15000"><time>2026-09-25T18:12:00Z</time></trkpt>
+      <trkpt lat="51.23000" lon="1.16000"><time>2026-09-25T18:40:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`;
+    const summary = parseExportedGpx(timed, "strava.gpx");
+    expect(summary.walkedAt).toEqual(Date.parse("2026-09-25T18:12:00Z"));
+  });
+
   it("uses route points when the file has no track points", () => {
     const routeOnly = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="OS Maps - Web" xmlns="http://www.topografix.com/GPX/1/1">

@@ -20,6 +20,10 @@ export interface FileNameData {
   title?: string;
   startLat?: number;
   startLng?: number;
+  distanceMetres?: number;
+  walkedAt?: number;
+  walkedByMemberId?: string;
+  walkedByName?: string;
 }
 
 export function isAwsGeneratedFileName(fileName: string): boolean {
@@ -44,6 +48,10 @@ export interface ServerFileNameData {
   title?: string;
   startLat?: number;
   startLng?: number;
+  distanceMetres?: number;
+  walkedAt?: number;
+  walkedByMemberId?: string;
+  walkedByName?: string;
 }
 
 export interface UploadedFile {

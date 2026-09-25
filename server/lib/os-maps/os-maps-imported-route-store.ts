@@ -31,6 +31,26 @@ export async function osMapsImportedRouteById(routeId: string): Promise<OsMapsIm
   return mongooseClient.execute(() => osMapsImportedRoute.findOne({routeId}).lean());
 }
 
+export async function saveFileImportedGpx(gpxFile: FileNameData): Promise<OsMapsImportedRouteRecord> {
+  const awsFileName = gpxFile.awsFileName || "";
+  const routeId = `gpx-${awsFileName.replace(/\.gpx$/i, "")}`;
+  const importedAt = dateTimeNowAsValue();
+  const record = {
+    routeId,
+    url: gpxFile.title || gpxFile.originalFileName || routeId,
+    importedAt,
+    gpxFile,
+    color: PaletteColor.COBALT,
+    weight: 8,
+    opacity: 1
+  };
+  return mongooseClient.execute(() => osMapsImportedRoute.findOneAndUpdate(
+    {routeId},
+    record,
+    {upsert: true, new: true, lean: true}
+  ));
+}
+
 export async function saveOsMapsImportedRoute(routeId: string, update: {
   gpxFile?: FileNameData | null;
   color?: string | null;
@@ -53,7 +73,9 @@ export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record
       gpxFile: imported?.gpxFile || null,
       routeColor: imported?.color || null,
       routeWeight: imported?.weight || null,
-      routeOpacity: imported?.opacity || null
+      routeOpacity: imported?.opacity || null,
+      walkedAt: imported?.gpxFile?.walkedAt || null,
+      walkedByName: imported?.gpxFile?.walkedByName || null
     };
   });
 }
