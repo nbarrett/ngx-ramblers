@@ -339,6 +339,21 @@ describe("site registration migration config", () => {
     expect(sourceFidelityGaps(source, target)).toEqual([]);
   });
 
+  it("treats an area contact list with towns in brackets as role cards", () => {
+    const source = {path: "https://www.group.example/contact/", title: "Contact", segments: [
+      {text: "The following officers were elected at the AGM on 14 February. To send an email, simply click on the officer’s name."},
+      {text: "**Chair:** [Jane Doe](mailto:chair@group.example) (Winchester)"},
+      {text: "**Secretary:** [Sam Jordan](mailto:secretary@group.example) (Andover)"}
+    ]};
+    const target = {path: "contact-us", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [
+      {columns: 12, contentText: "# Contact Us"}
+    ]}, {type: PageContentType.TEXT, maxColumns: 2, showSwiper: false, columns: [
+      {columns: 6, contentText: "## Jane Doe\n### Chair\n\n[Contact Jane](?contact-us&role=chairman&redirect=contact-us)"},
+      {columns: 6, contentText: "## Sam Jordan\n### Secretary\n\n[Contact Sam](?contact-us&role=secretary&redirect=contact-us)"}
+    ]}]};
+    expect(sourceFidelityGaps(source, target)).toEqual([]);
+  });
+
   it("supplies built-in selectors for recognised WordPress sites", () => {
     const saved = registration();
     saved.flavour = RegistrationSiteFlavour.WORDPRESS;

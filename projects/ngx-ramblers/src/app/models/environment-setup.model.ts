@@ -1150,7 +1150,7 @@ export function flySafeResourceName(environmentName: string): string {
 }
 
 export function environmentNameForGroup(groupName: string): string {
-  return groupName.toLowerCase().replace(/ramblers?/gi, "").replace(/group/gi, "")
+  return groupName.toLowerCase().replace(/ramblers?/gi, "").replace(/\b(group|area)\b/gi, "")
     .replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 45);
 }
 

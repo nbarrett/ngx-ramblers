@@ -40,6 +40,12 @@ describe("registration-logos", () => {
     ]);
   });
 
+  it("tries the area name with and without a trailing Area for area logos", () => {
+    const files = ramblersDirectoryLogoCandidates("Example Area", "Example Area").map(item => item.awsFileName);
+    expect(files).toContain("logos/area-horizontal-example-area.jpg");
+    expect(files).toContain("logos/area-horizontal-example.jpg");
+  });
+
   it("parses the plural Group Logos filename used on a few groups", () => {
     const parsed = parseRamblersDirectoryLogoFileName("Ramblers Group Logos Horizontal RGB West Kent Walking Group.jpg");
     expect(parsed.slug).toBe("west-kent-walking-group");

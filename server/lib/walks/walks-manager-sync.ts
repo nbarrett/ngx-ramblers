@@ -31,7 +31,10 @@ const CHUNK_RETRY_BACKOFF_MS = 2000;
 
 debugLog.enabled = false;
 
-function sendProgress(ws: WebSocket | null, percent: number, message: string): void {
+function sendProgress(ws: WebSocket | null, percent: number, message: string, onProgress?: (percent: number, message: string) => void): void {
+  if (onProgress) {
+    onProgress(percent, message);
+  }
   if (ws && ws.readyState === WebSocket.OPEN) {
     try {
       ws.send(JSON.stringify({
@@ -77,6 +80,7 @@ export interface SyncOptions {
   fullSync?: boolean;
   dateFrom?: DateTime;
   dateTo?: DateTime;
+  onProgress?: (percent: number, message: string) => void;
 }
 
 export interface SyncResult {
@@ -102,23 +106,23 @@ export async function syncWalksManagerData(
     lastSyncedAt: dateTimeNowAsValue(),
     totalProcessed: 0
   };
+  const reportProgress = (percent: number, message: string) => sendProgress(ws, percent, message, options.onProgress);
 
   try {
     debugLog("Starting WALKS_MANAGER sync with options:", options);
-    sendProgress(ws, 0, "Starting sync...");
+    reportProgress(0, "Starting sync...");
 
     const eventTypes = walksManagerSyncEventTypes(config);
     if (eventTypes.length === 0) {
       debugLog("Walk and group event populations are LOCAL, skipping sync");
-      sendProgress(ws, 100, "Sync skipped: no event types use Walks Manager");
+      reportProgress(100, "Sync skipped: no event types use Walks Manager");
       sendComplete(ws, {
         ...result,
         percent: 100,
         message: "Sync skipped: no event types use Walks Manager"
       });
       return result;
-    }
-
+    } else {
     const dateFrom = options.dateFrom || (options.fullSync
       ? dateTimeNow().minus({ years: 3 })
       : dateTimeNow().minus({ days: 7 }));
@@ -139,7 +143,7 @@ export async function syncWalksManagerData(
     }
     debugLog("Syncing for group code:", groupCode);
 
-    sendProgress(ws, 2, "Cleaning up duplicates...");
+    reportProgress(2, "Cleaning up duplicates...");
     const cleanupStats = await cleanupDuplicatesByRamblersId(models);
     if (cleanupStats.duplicatesRemoved > 0) {
       debugLog(`Cleanup removed ${cleanupStats.duplicatesRemoved} duplicate walks across ${cleanupStats.ramblersIdsProcessed} groupEvent.id values`);
@@ -149,7 +153,7 @@ export async function syncWalksManagerData(
       result.deleted = cleanupStats.duplicatesRemoved;
     }
 
-    sendProgress(ws, 5, "Sync starting");
+    reportProgress(5, "Sync starting");
     const defaultOptions = requestDefaults.createApiRequestOptions(config);
     const totalMonths = Math.ceil(dateTo.diff(dateFrom, "months").months);
     const chunkSizeMonths = options.fullSync ? 1 : Math.ceil(totalMonths);
@@ -181,7 +185,7 @@ export async function syncWalksManagerData(
         : progressMessage;
 
       debugLog(`Fetching page at offset ${offset} with limit ${limit}`);
-      sendProgress(ws, progressPercent, pageProgressMessage);
+      reportProgress(progressPercent, pageProgressMessage);
 
       const apiResponse: RamblersEventsApiResponse = await httpRequest({
         apiRequest: {
@@ -217,7 +221,7 @@ export async function syncWalksManagerData(
 
       const progressPercent = 5 + Math.round((processedMonths / totalMonths) * 85);
       const progressMessage = `Syncing ${currentDate.toFormat(UIDateFormat.MONTH_YEAR_ABBREVIATED)}`;
-      sendProgress(ws, progressPercent, progressMessage);
+      reportProgress(progressPercent, progressMessage);
 
       try {
         await runWithRetries(async () => {
@@ -237,7 +241,7 @@ export async function syncWalksManagerData(
           }
 
           if (uniqueEvents.length > 0) {
-            sendProgress(ws, progressPercent, `${progressMessage} - caching ${uniqueEvents.length} unique events...`);
+            reportProgress(progressPercent, `${progressMessage} - caching ${uniqueEvents.length} unique events...`);
 
             const {added, updated} = await cacheEventsWithStats(config, uniqueEvents, InputSource.WALKS_MANAGER_CACHE, models);
             result.added += added;
@@ -262,7 +266,7 @@ export async function syncWalksManagerData(
     await processChunk(dateFrom, 0);
 
     debugLog(`Sync completed: ${result.added} added, ${result.updated} updated from ${result.totalProcessed} total events`);
-    sendProgress(ws, 100, "Sync complete");
+    reportProgress(100, "Sync complete");
     sendComplete(ws, {
       ...result,
       percent: 100,
@@ -270,6 +274,7 @@ export async function syncWalksManagerData(
     });
 
     return result;
+    }
   } catch (error) {
     debugLog("Sync error:", error);
     const errorMessage = `Sync failed: ${error.message}`;

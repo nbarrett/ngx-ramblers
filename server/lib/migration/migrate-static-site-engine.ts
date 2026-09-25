@@ -203,8 +203,9 @@ function contentColumns(rows: PageContentRow[]): PageContentColumn[] {
 }
 
 function isContactUsPage(target: PageContent): boolean {
-  const path = (target.path || "").replace(/^\/+|\/+$/g, "");
-  return path === RegistrationNavbarPath.CONTACT_US || path.endsWith(`/${RegistrationNavbarPath.CONTACT_US}`);
+  const path = (target.path || "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  const last = path.split("/").pop();
+  return last === RegistrationNavbarPath.CONTACT_US || last === "contact";
 }
 
 export function sourceFidelityGaps(source: ScrapedPage, target: PageContent, imageMappings: Map<string, string> = new Map()): string[] {
