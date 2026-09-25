@@ -1,11 +1,14 @@
 import { BrandingMode } from "../models/mail.model";
-import { CommitteeMember } from "../models/committee.model";
+import { CommitteeMember, roleEmailAddresses } from "../models/committee.model";
+import { Member } from "../models/member.model";
 import { committeeAssignedEmailsForMemberId } from "./committee-members";
+import { memberDisambiguatedLabel } from "./member-names";
 import {
   AddresseeType,
   ArticleBlock,
   ArticleBlockImageAlignment,
   ArticleBlockPosition,
+  ComposerExternalRecipient,
   ComposerFragment,
   ComposerFragmentKind,
   ComposerSenderIdentity,
@@ -395,6 +398,79 @@ export function syncedRecipientAddressMode(options: {
   } else {
     return options.current;
   }
+}
+
+export function unbrandedCommitteeSharedTo(options: {
+  brandingMode: BrandingMode;
+  recipientMode: RecipientMode;
+  allMembersHoldCommitteeRoles: boolean;
+  memberCount: number;
+  externalToCount: number;
+}): boolean {
+  if (options.brandingMode !== BrandingMode.UNBRANDED) {
+    return false;
+  } else if (options.recipientMode === RecipientMode.ENTIRE_LIST) {
+    return false;
+  } else if (options.memberCount === 0 || !options.allMembersHoldCommitteeRoles) {
+    return false;
+  } else {
+    return options.memberCount + options.externalToCount > 1;
+  }
+}
+
+export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 20;
+
+export function composerRecipientCount(recipients: ComposerExternalRecipient[]): number {
+  return recipients.reduce((count, recipient) => count + (recipient.listCount ?? 1), 0);
+}
+
+export function composerListToken(listId: number, listName: string, count: number): ComposerExternalRecipient {
+  return {
+    email: `list-${listId}@list.internal`,
+    name: `${listName} (${count})`,
+    saveForReuse: false,
+    listId,
+    listCount: count
+  };
+}
+
+export function composerRecipientFromMember(member: Member): ComposerExternalRecipient | null {
+  const email = (member.email || "").trim();
+  if (!email) {
+    return null;
+  } else {
+    return {email, name: memberDisambiguatedLabel(member) || undefined, saveForReuse: false};
+  }
+}
+
+export function composerCommitteeRecipients(roles: CommitteeMember[]): ComposerExternalRecipient[] {
+  return (roles ?? []).reduce((list: ComposerExternalRecipient[], role) => {
+    return roleEmailAddresses(role).reduce((acc, address) => {
+      const email = (address || "").trim();
+      if (!email || acc.some(item => item.email.toLowerCase() === email.toLowerCase())) {
+        return acc;
+      } else {
+        return [...acc, {email, name: role.description || role.fullName || email, saveForReuse: false, memberId: role.memberId || undefined}];
+      }
+    }, list);
+  }, []);
+}
+
+export function appendUniqueRecipients(list: ComposerExternalRecipient[], additions: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
+  const existing = new Set((list ?? []).map(item => item.email.toLowerCase()));
+  return (additions ?? []).reduce((acc, item) => {
+    const email = (item.email || "").trim().toLowerCase();
+    if (!email || existing.has(email)) {
+      return acc;
+    } else {
+      existing.add(email);
+      return [...acc, item];
+    }
+  }, list ?? []);
+}
+
+export function recipientsWithoutEmails(list: ComposerExternalRecipient[], emails: Set<string>): ComposerExternalRecipient[] {
+  return (list ?? []).filter(item => !emails.has(item.email.toLowerCase()));
 }
 
 export function defaultEmailComposerState(): EmailComposerState {

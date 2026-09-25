@@ -60,9 +60,9 @@ import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } fro
   template: `
     @if (!lockedSelection) {
       <div class="mb-2">
-        <label class="me-2">Pre-filter:</label>
+        <div class="fw-semibold mb-1">Refine audience</div>
         @for (filter of preFilters; track filter.key) {
-          <div class="form-check form-check-inline">
+          <div class="form-check">
             <input class="form-check-input"
                    type="radio"
                    [id]="'pre-filter-' + (filter.key ?? 'all-with-email')"
@@ -72,20 +72,21 @@ import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } fro
             <label class="form-check-label" [for]="'pre-filter-' + (filter.key ?? 'all-with-email')">{{ labelFor(filter) }}</label>
           </div>
         }
-        <div class="form-check form-check-inline">
+        <div class="form-check">
           <input class="form-check-input"
                  type="radio"
                  id="pre-filter-clear-manual"
                  name="member-pre-filter"
                  [checked]="manualMode"
                  (click)="clear()">
-          <label class="form-check-label" for="pre-filter-clear-manual">Clear and choose manually{{ EM_DASH_WITH_SPACES }}<strong>{{ selectedCount() }} of {{ selectableMembers.length }} selected</strong></label>
+          <label class="form-check-label" for="pre-filter-clear-manual">Choose individually{{ EM_DASH_WITH_SPACES }}<strong>{{ selectedCount() }} of {{ selectableMembers.length }} selected</strong></label>
         </div>
       </div>
     }
-    <div class="row">
-      <div class="col-sm-12">
-        <ng-select [items]="visibleMembers"
+    @if (showMemberPicker) {
+      <div class="row">
+        <div class="col-sm-12">
+          <ng-select [items]="visibleMembers"
                    bindLabel="memberInformation"
                    bindValue="id"
                    placeholder="Select one or more members"
@@ -106,10 +107,11 @@ import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } fro
             <span class="group-header">{{ groupLabel(item.name) }}</span>
             <span class="ms-1 badge bg-secondary badge-group">{{ item.total }}</span>
           </ng-template>
-          <ng-template ng-label-tmp let-item="item" let-clear="clear"><span class="member-chip-name">{{ item.memberName }}</span>@if (item.memberQualifier) {<span class="member-chip-qualifier">{{ item.memberQualifier }}</span>}<span class="member-chip-remove" role="button" aria-label="Remove" (click)="clear(item)">×</span></ng-template>
-        </ng-select>
+          <ng-template ng-label-tmp let-item="item" let-clear="clear">@if (item?.memberName) {<span class="member-chip-name">{{ item.memberName }}</span>@if (item.memberQualifier) {<span class="member-chip-qualifier">{{ item.memberQualifier }}</span>}}<span class="member-chip-remove" role="button" aria-label="Remove" (click)="clear(item)">×</span></ng-template>
+          </ng-select>
+        </div>
       </div>
-    </div>`
+    }`
 })
 export class MemberMultiSelect implements OnChanges, OnDestroy {
 
@@ -130,6 +132,7 @@ export class MemberMultiSelect implements OnChanges, OnDestroy {
   @Input() autoFill: boolean = true;
   @Input() lockedSelection: boolean = false;
   @Input() includeAlreadySent: boolean = false;
+  @Input() showMemberPicker: boolean = true;
   @Output() selectedIdsChange = new EventEmitter<string[]>();
   @Output() preFilterKeyChange = new EventEmitter<MemberSelection | null>();
   @Output() priorSendExclusionsChange = new EventEmitter<PriorSendExclusion[]>();

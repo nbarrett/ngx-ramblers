@@ -1,7 +1,9 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { InboxMessage, InboxMessageDirection, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { misclassifiedInboundMessage } from "../mongo/migrations/database/20260925190000-repair-inbox-and-email-defaults";
+import {
+  misclassifiedInboundMessage
+} from "../mongo/migrations/database/20260925190000-repair-inbox-and-email-defaults";
 
 describe("repair inbox and email defaults migration", () => {
   const internalEmails = new Set(["internal.sender@shared-provider.example", "role@group.example"]);
@@ -24,11 +26,11 @@ describe("repair inbox and email defaults migration", () => {
     )).toBe(true);
   });
 
-  it("restores an external sender after the internal recipient was removed", () => {
+  it("leaves an ambiguous message alone when no current internal address received it", () => {
     expect(misclassifiedInboundMessage(
       message("external.sender@shared-provider.example", "other.recipient@another-group.example"),
       internalEmails
-    )).toBe(true);
+    )).toBe(false);
   });
 
   it("leaves a genuine sent message alone", () => {
@@ -45,4 +47,5 @@ describe("repair inbox and email defaults migration", () => {
     };
     expect(misclassifiedInboundMessage(composition, internalEmails)).toBe(false);
   });
+
 });

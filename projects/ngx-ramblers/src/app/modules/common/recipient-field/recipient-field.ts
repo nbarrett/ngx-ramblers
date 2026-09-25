@@ -1,9 +1,9 @@
-import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges, ViewChild } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faUserPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
 import {
   ComposerExternalRecipient,
   ParsedMailbox,
@@ -16,17 +16,20 @@ import { Member } from "../../../models/member.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { memberDisambiguatedLabel } from "../../../functions/member-names";
+import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
 
 @Component({
   selector: "app-recipient-field",
   imports: [FormsModule, FontAwesomeModule, TooltipDirective],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./recipient-field.sass",
   template: `
-    <div class="recipient-field" [class.is-plain]="plain">
+    <div class="recipient-field" [class.is-plain]="plain" [class.is-unframed]="unframed">
       @for (field of fields; track field.key) {
         @if (isVisible(field.key)) {
           <div class="recipient-line"
                [class.is-active]="activeField === field.key"
+               [class.has-chips]="valueFor(field.key).length > 0"
                (dragover)="onDragOver($event)"
                (drop)="onDrop(field.key, $event)">
             @if (!plain) {
@@ -39,9 +42,16 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
                       draggable="true"
                       (dragstart)="onDragStart(field.key, recipient)"
                       (dragend)="onDragEnd()"
-                      [tooltip]="recipient.email"
+                      [tooltip]="chipTooltip(recipient)"
                       placement="bottom">
-                  <button type="button" class="recipient-chip-label" (click)="openEditor(field.key, idx)">{{ recipient.name || recipient.email }}</button>
+                  <button type="button" class="recipient-chip-label" (click)="recipient.listId ? expandList.emit({field: field.key, recipient}) : openEditor(field.key, idx)">
+                    <span class="recipient-chip-name">{{ recipient.name || recipient.email }}</span>
+                    @if (recipient.listId) {
+                      <span class="recipient-chip-qualifier">everyone on this list</span>
+                    } @else if (chipQualifier(recipient); as qualifier) {
+                      <span class="recipient-chip-qualifier">{{ qualifier }}</span>
+                    }
+                  </button>
                   <button type="button" class="recipient-chip-remove"
                           (click)="remove(field.key, idx); $event.stopPropagation()"
                           [attr.aria-label]="'Remove ' + recipient.email">
@@ -71,11 +81,13 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
                      (ngModelChange)="onDraftChange(field.key, $event)"
                      (paste)="onPaste(field.key, $event)"
                      (keydown.enter)="onEnter(field.key, $event)"
+                     (keydown.backspace)="onBackspace(field.key, $event)"
+                     (keydown.delete)="onBackspace(field.key, $event)"
                      (keydown.arrowdown)="onSuggestionNav(field.key, 1, $event)"
                      (keydown.arrowup)="onSuggestionNav(field.key, -1, $event)"
                      (keydown.escape)="onSuggestionEscape()"
                      (focus)="onFocus(field.key)"
-                     (blur)="onBlur(field.key)"
+                     (blur)="onBlur(field.key, $event)"
                      [placeholder]="valueFor(field.key).length ? 'Add…' : 'Add people…'">
             </div>
             @if (editorField() === field.key && editorSubject(); as edited) {
@@ -128,6 +140,11 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
                     Save this address for re-use
                   </label>
                 }
+                @if (!pending && edited.email) {
+                  <button type="button" class="recipient-editor-open" (click)="openRecord(edited)">
+                    {{ memberFor(edited) ? "Open member" : "Edit saved address" }}
+                  </button>
+                }
                 <button type="button" class="recipient-editor-remove" (click)="removeEditing()">
                   <fa-icon [icon]="faXmark"/> {{ pending ? "Cancel" : "Remove from this email" }}
                 </button>
@@ -145,13 +162,13 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
             }
             @if (showSuggestions(field.key)) {
               <ul class="recipient-suggestions" [class.is-above]="suggestionsAbove" (mousedown)="$event.preventDefault()">
-                @if (memberSuggestions(field.key).length) {
+                @if (visibleMemberSuggestions.length) {
                   <li class="recipient-suggestions-heading">Group members</li>
-                  @for (suggestion of memberSuggestions(field.key); track suggestion.email) {
+                  @for (suggestion of visibleMemberSuggestions; track suggestion.email; let i = $index) {
                     <li>
                       <button type="button" class="recipient-suggestion"
-                              [class.is-active]="activeSuggestionIndex === suggestionIndex(field.key, suggestion.email)"
-                              (mouseenter)="activeSuggestionIndex = suggestionIndex(field.key, suggestion.email)"
+                              [class.is-active]="activeSuggestionIndex === i"
+                              (mouseenter)="activeSuggestionIndex = i"
                               (click)="chooseSuggestion(field.key, suggestion)">
                         <span class="recipient-suggestion-main">
                           <strong>{{ suggestion.name || suggestion.email }}</strong>
@@ -161,13 +178,13 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
                     </li>
                   }
                 }
-                @if (savedSuggestions(field.key).length) {
+                @if (!knownOnly && visibleSavedSuggestions.length) {
                   <li class="recipient-suggestions-heading">Previously saved</li>
-                  @for (suggestion of savedSuggestions(field.key); track suggestion.id || suggestion.email) {
+                  @for (suggestion of visibleSavedSuggestions; track suggestion.id || suggestion.email; let i = $index) {
                     <li>
                       <button type="button" class="recipient-suggestion"
-                              [class.is-active]="activeSuggestionIndex === suggestionIndex(field.key, suggestion.email)"
-                              (mouseenter)="activeSuggestionIndex = suggestionIndex(field.key, suggestion.email)"
+                              [class.is-active]="activeSuggestionIndex === visibleMemberSuggestions.length + i"
+                              (mouseenter)="activeSuggestionIndex = visibleMemberSuggestions.length + i"
                               (click)="chooseSuggestion(field.key, suggestion)">
                         <span class="recipient-suggestion-main">
                           <strong>{{ suggestion.name || suggestion.email }}</strong>
@@ -182,16 +199,38 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
                 }
               </ul>
             }
-            @if (field.hint) {
-              <span class="recipient-line-hint">{{ field.hint }}</span>
-            }
+            <div class="recipient-line-end">
+              <div class="recipient-line-actions">
+                @if (valueFor(field.key).length > 0) {
+                  <button type="button" class="recipient-line-clear"
+                          (click)="clearField(field.key)"
+                          tooltip="Remove all"
+                          placement="bottom"
+                          [attr.aria-label]="'Remove all from ' + field.label">
+                    <fa-icon [icon]="faXmark"/>
+                  </button>
+                }
+                @if (bulkSourceName) {
+                  <button type="button" class="recipient-line-clear"
+                          (click)="addAll.emit(field.key)"
+                          [tooltip]="'Add all from ' + bulkSourceName"
+                          placement="bottom"
+                          [attr.aria-label]="'Add all from ' + bulkSourceName">
+                    <fa-icon [icon]="faUserPlus"/>
+                  </button>
+                }
+              </div>
+              @if (field.hint) {
+                <span class="recipient-line-hint">{{ field.hint }}</span>
+              }
+            </div>
           </div>
           @if (error[field.key]) {
             <p class="recipient-error">{{ error[field.key] }}</p>
           }
         }
       }
-      @if (!plain) {
+      @if (!plain && !knownOnly) {
         <label class="recipient-save">
           <input type="checkbox" class="form-check-input"
                  [ngModel]="saveForReuse"
@@ -202,9 +241,10 @@ import { memberDisambiguatedLabel } from "../../../functions/member-names";
     </div>
   `
 })
-export class RecipientFieldComponent {
+export class RecipientFieldComponent implements OnChanges {
 
   private dateUtils = inject(DateUtilsService);
+  private changeDetector = inject(ChangeDetectorRef);
   private host = inject(ElementRef);
   @ViewChild("editorEmailInput") private editorEmailInput: ElementRef<HTMLInputElement>;
 
@@ -213,20 +253,38 @@ export class RecipientFieldComponent {
   @Input() bcc: ComposerExternalRecipient[] = [];
   @Input() savedRecipients: ExternalRecipient[] = [];
   @Input() members: Member[] = [];
+  @Input() committeeAddresses: ComposerExternalRecipient[] = [];
   @Input() saveForReuse = true;
   plain = false;
+  unframed = false;
+  knownOnly = false;
 
   @Input("plain") set plainValue(value: boolean) {
     this.plain = coerceBooleanProperty(value);
+  }
+
+  @Input("unframed") set unframedValue(value: boolean) {
+    this.unframed = coerceBooleanProperty(value);
+  }
+
+  @Input("knownOnly") set knownOnlyValue(value: boolean) {
+    this.knownOnly = coerceBooleanProperty(value);
   }
 
   @Output() toChange = new EventEmitter<ComposerExternalRecipient[]>();
   @Output() ccChange = new EventEmitter<ComposerExternalRecipient[]>();
   @Output() bccChange = new EventEmitter<ComposerExternalRecipient[]>();
   @Output() saveForReuseChange = new EventEmitter<boolean>();
+  @Output() openMember = new EventEmitter<Member>();
+  @Output() openSavedAddress = new EventEmitter<ComposerExternalRecipient>();
+  @Output() activeFieldChange = new EventEmitter<RecipientField | null>();
+  @Input() bulkSourceName: string | null = null;
+  @Output() addAll = new EventEmitter<RecipientField>();
+  @Output() expandList = new EventEmitter<{field: RecipientField; recipient: ComposerExternalRecipient}>();
 
   protected readonly RecipientField = RecipientField;
   protected readonly faXmark = faXmark;
+  protected readonly faUserPlus = faUserPlus;
   protected readonly faCheck = faCheck;
 
   protected readonly fields: RecipientFieldConfig[] = [
@@ -235,8 +293,8 @@ export class RecipientFieldComponent {
     { key: RecipientField.BCC, label: "Bcc", hint: "hidden from other recipients" }
   ];
 
-  protected showCc = false;
-  protected showBcc = false;
+  protected showCc = true;
+  protected showBcc = true;
   protected draft: Record<RecipientField, string> = { to: "", cc: "", bcc: "" };
   protected error: Record<RecipientField, string | null> = { to: null, cc: null, bcc: null };
   protected activeField: RecipientField | null = null;
@@ -248,12 +306,26 @@ export class RecipientFieldComponent {
   protected editorError: string | null = null;
   private dragItem: ComposerExternalRecipient | null = null;
   private dragFrom: RecipientField | null = null;
+  private memberByEmail = new Map<string, Member>();
+  private qualifierByEmail = new Map<string, string>();
+  private cachedMemberEntries: ComposerExternalRecipient[] = [];
+  protected visibleMemberSuggestions: ComposerExternalRecipient[] = [];
+  protected visibleSavedSuggestions: ExternalRecipient[] = [];
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["members"] || changes["committeeAddresses"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"]) {
+      if (changes["members"] || changes["committeeAddresses"]) {
+        this.rebuildMemberIndex();
+      }
+      this.refreshVisibleSuggestions();
+    }
+  }
 
   protected isVisible(field: RecipientField): boolean {
     switch (field) {
       case RecipientField.TO: return true;
-      case RecipientField.CC: return this.showCc || this.cc.length > 0;
-      case RecipientField.BCC: return this.showBcc || this.bcc.length > 0;
+      case RecipientField.CC: return this.cc.length > 0 || (!this.plain && this.showCc);
+      case RecipientField.BCC: return this.bcc.length > 0 || (!this.plain && this.showBcc);
     }
   }
 
@@ -288,12 +360,16 @@ export class RecipientFieldComponent {
     } else if (outcome.kind === RecipientDraftOutcomeKind.INVALID) {
       this.error[field] = "Enter a valid email address";
     } else if (outcome.kind === RecipientDraftOutcomeKind.PENDING_NAME) {
-      this.openPendingEditor(field, outcome.name, outcome.email);
+      if (this.knownOnly) {
+        this.error[field] = "Choose a group member or a committee address";
+      } else {
+        this.openPendingEditor(field, outcome.name, outcome.email);
+      }
     } else {
       const existing = new Set(this.valueFor(field).map(item => item.email.toLowerCase()));
       const additions = outcome.mailboxes.reduce<ComposerExternalRecipient[]>((acc, item) => {
         const email = item.email.toLowerCase();
-        if (existing.has(email)) {
+        if (existing.has(email) || (this.knownOnly && !this.isKnownAddress(email))) {
           return acc;
         } else {
           existing.add(email);
@@ -301,7 +377,9 @@ export class RecipientFieldComponent {
         }
       }, []);
       if (additions.length === 0) {
-        this.error[field] = "This address is already in the list";
+        this.error[field] = this.knownOnly
+          ? "Choose a group member or a committee address"
+          : "This address is already in the list";
       } else {
         this.emit(field, [...this.valueFor(field), ...additions]);
         this.draft[field] = "";
@@ -408,7 +486,7 @@ export class RecipientFieldComponent {
 
   private commitPending(): void {
     const pending = this.pending;
-    if (pending && isValidEmailAddress(pending.email)) {
+    if (pending && isValidEmailAddress(pending.email) && (!this.knownOnly || this.isKnownAddress(pending.email))) {
       const email = pending.email.toLowerCase();
       const alreadyPresent = this.valueFor(pending.field).some(item => item.email.toLowerCase() === email);
       if (!alreadyPresent) {
@@ -417,6 +495,8 @@ export class RecipientFieldComponent {
       this.pending = null;
       this.editorError = null;
       this.error[pending.field] = null;
+    } else if (pending && this.knownOnly) {
+      this.editorError = "Choose a group member or a committee address";
     } else if (pending) {
       this.editorError = "Enter a valid email address";
     }
@@ -464,6 +544,37 @@ export class RecipientFieldComponent {
     }
   }
 
+  protected chipTooltip(recipient: ComposerExternalRecipient): string {
+    if (recipient.listId) {
+      return "Click to show each member so you can remove individuals";
+    } else {
+      return recipient.email;
+    }
+  }
+
+  protected chipQualifier(recipient: ComposerExternalRecipient): string {
+    if (recipient.listId) {
+      return "";
+    } else {
+      return this.qualifierByEmail.get((recipient.email || "").trim().toLowerCase()) ?? "external";
+    }
+  }
+
+  protected memberFor(recipient: ComposerExternalRecipient): Member | null {
+    return this.memberByEmail.get((recipient.email || "").trim().toLowerCase()) ?? null;
+  }
+
+  protected openRecord(recipient: ComposerExternalRecipient): void {
+    if (!recipient.listId) {
+      const member = this.memberFor(recipient);
+      if (member) {
+        this.openMember.emit(member);
+      } else {
+        this.openSavedAddress.emit(recipient);
+      }
+    }
+  }
+
   protected isSavedContact(recipient: ComposerExternalRecipient): boolean {
     return !!recipient.email && (!!recipient.existingId
       || this.savedRecipients.some(item => item.email.toLowerCase() === recipient.email.toLowerCase()));
@@ -476,12 +587,16 @@ export class RecipientFieldComponent {
     if (this.error[field]) {
       this.error[field] = null;
     }
+    this.refreshVisibleSuggestions();
   }
 
   protected onFocus(field: RecipientField): void {
     this.activeField = field;
     this.activeSuggestionIndex = -1;
     this.suggestionsSuppressed = false;
+    this.refreshVisibleSuggestions();
+    this.activeFieldChange.emit(field);
+    this.changeDetector.markForCheck();
     setTimeout(() => this.placeSuggestions());
   }
 
@@ -501,8 +616,10 @@ export class RecipientFieldComponent {
     }
   }
 
-  protected onBlur(field: RecipientField): void {
-    if (this.activeField === field) {
+  protected onBlur(field: RecipientField, event: FocusEvent): void {
+    const next = event.relatedTarget as HTMLElement | null;
+    const stayingInField = next && this.host.nativeElement.contains(next) && next.classList.contains("recipient-input");
+    if (!stayingInField && this.activeField === field) {
       this.activeField = null;
     }
   }
@@ -522,6 +639,23 @@ export class RecipientFieldComponent {
     this.activeSuggestionIndex = next < 0 ? -1 : Math.min(next, list.length - 1);
   }
 
+  protected onBackspace(field: RecipientField, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const draftEmpty = !(this.draft[field] || "").trim();
+    const cursorAtStart = (input.selectionStart ?? 0) === 0 && (input.selectionEnd ?? 0) === 0;
+    const chips = this.valueFor(field);
+    if (draftEmpty && cursorAtStart && chips.length > 0) {
+      event.preventDefault();
+      this.remove(field, chips.length - 1);
+    }
+  }
+
+  protected clearField(field: RecipientField): void {
+    this.emit(field, []);
+    this.draft[field] = "";
+    this.error[field] = null;
+  }
+
   protected onEnter(field: RecipientField, event: Event): void {
     const list = this.suggestions(field);
     if (!this.suggestionsSuppressed && this.activeSuggestionIndex >= 0 && this.activeSuggestionIndex < list.length) {
@@ -538,16 +672,15 @@ export class RecipientFieldComponent {
   }
 
   protected memberSuggestions(field: RecipientField): ComposerExternalRecipient[] {
-    return this.matchingSuggestions(field, this.memberEntries());
+    return this.activeField === field ? this.visibleMemberSuggestions : [];
   }
 
   protected savedSuggestions(field: RecipientField): ExternalRecipient[] {
-    const memberEmails = new Set(this.memberEntries().map(item => item.email.toLowerCase()));
-    return this.matchingSuggestions(field, this.savedRecipients.filter(item => !memberEmails.has(item.email.toLowerCase())));
+    return this.activeField === field ? this.visibleSavedSuggestions : [];
   }
 
   protected suggestions(field: RecipientField): ComposerExternalRecipient[] {
-    return [...this.memberSuggestions(field), ...this.savedSuggestions(field)];
+    return this.activeField === field ? [...this.visibleMemberSuggestions, ...this.visibleSavedSuggestions] : [];
   }
 
   protected suggestionIndex(field: RecipientField, email: string): number {
@@ -567,7 +700,12 @@ export class RecipientFieldComponent {
     }
     this.draft[field] = "";
     this.error[field] = null;
-    this.activeSuggestionIndex = -1;
+    this.activeField = field;
+    this.suggestionsSuppressed = false;
+    this.refreshVisibleSuggestions();
+    this.activeSuggestionIndex = this.suggestions(field).length > 0 ? 0 : -1;
+    this.changeDetector.markForCheck();
+    setTimeout(() => this.placeSuggestions());
   }
 
   protected onSaveForReuseChange(value: boolean): void {
@@ -587,18 +725,63 @@ export class RecipientFieldComponent {
       .filter(item => !query
         || item.email.toLowerCase().includes(query)
         || (item.name || "").toLowerCase().includes(query))
-      .slice(0, 6);
+      .slice(0, 50);
   }
 
-  private memberEntries(): ComposerExternalRecipient[] {
-    return (this.members || []).reduce((list: ComposerExternalRecipient[], member) => {
+  private refreshVisibleSuggestions(): void {
+    const field = this.activeField;
+    if (!field) {
+      this.visibleMemberSuggestions = [];
+      this.visibleSavedSuggestions = [];
+    } else {
+      this.visibleMemberSuggestions = this.matchingSuggestions(field, this.cachedMemberEntries);
+      const memberEmails = new Set(this.cachedMemberEntries.map(item => item.email.toLowerCase()));
+      this.visibleSavedSuggestions = this.knownOnly
+        ? []
+        : this.matchingSuggestions(field, this.savedRecipients.filter(item => !memberEmails.has(item.email.toLowerCase())));
+    }
+  }
+
+  private rebuildMemberIndex(): void {
+    const now = this.dateUtils.dateTimeNowNoTime().toMillis();
+    const membersById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
+    this.memberByEmail = new Map((this.members || [])
+      .filter(member => (member.email || "").trim())
+      .map(member => [(member.email || "").trim().toLowerCase(), member]));
+    this.qualifierByEmail = new Map([...this.memberByEmail.entries()].map(([email, member]) => [email, memberChipQualifier(member, now)]));
+    (this.committeeAddresses || []).forEach(address => {
+      const email = (address.email || "").trim().toLowerCase();
+      const holder = (address.memberId && membersById.get(address.memberId)) || this.memberByEmail.get(email);
+      if (email && holder) {
+        this.memberByEmail.set(email, holder);
+        this.qualifierByEmail.set(email, memberChipQualifier(holder, now));
+      }
+    });
+    this.cachedMemberEntries = [...this.memberByEmail.values()].reduce((list: ComposerExternalRecipient[], member) => {
       const email = (member.email || "").trim();
-      if (!email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
+      if (list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
         return list;
       } else {
         return [...list, {email, name: memberDisambiguatedLabel(member)}];
       }
     }, []);
+    this.cachedMemberEntries = (this.committeeAddresses || []).reduce((list, address) => {
+      const email = (address.email || "").trim();
+      if (!email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
+        return list;
+      } else {
+        return [...list, {email, name: address.name, saveForReuse: false, memberId: address.memberId}];
+      }
+    }, this.cachedMemberEntries);
+  }
+
+  private isKnownAddress(email: string): boolean {
+    const wanted = (email || "").trim().toLowerCase();
+    return !!wanted && this.cachedMemberEntries.some(item => item.email.toLowerCase() === wanted);
+  }
+
+  private memberEntries(): ComposerExternalRecipient[] {
+    return this.cachedMemberEntries;
   }
 
   private nameDirectory(): {name?: string; email: string}[] {

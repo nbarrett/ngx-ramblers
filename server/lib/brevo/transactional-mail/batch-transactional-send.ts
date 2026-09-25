@@ -68,6 +68,7 @@ import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-me
 import { compositionSenderEmail } from "../../inbox/inbox-composition-sender";
 import { normaliseEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { protectedEmailSendError } from "../../salesforce/salesforce-permissions";
+import { sharedRecipientHeaders } from "./shared-recipient-headers";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 
 interface AuthenticatedRequest extends Request {
@@ -241,6 +242,47 @@ function keepPersonalAddress(notifConfig: NotificationConfig | null): boolean {
 
 function recipientEmailForMember(member: Member, committeeRoles: CommitteeMember[], notifConfig: NotificationConfig | null, useCommitteeRoleAddresses: boolean): string {
   return keepPersonalAddress(notifConfig) || !useCommitteeRoleAddresses ? (member.email ?? "") : outboundEmailForMember(member, committeeRoles);
+}
+
+function applyMemberSendEligibility(
+  entry: BatchSendProgressEntry,
+  memberRecord: Member | undefined,
+  committeeRoles: CommitteeMember[],
+  notifConfig: NotificationConfig | null,
+  useCommitteeRoleAddresses: boolean,
+  referenceListId: number | null,
+  respectEmailBlocks: boolean,
+  respectHeadOfficeConsent: boolean,
+  progress: BatchSendProgress
+): boolean {
+  if (!memberRecord) {
+    entry.status = BatchSendEntryStatus.Failed;
+    entry.errorMessage = "Member not found";
+    progress.failedCount += 1;
+    return false;
+  } else {
+    const memberRecipientEmail = recipientEmailForMember(memberRecord, committeeRoles, notifConfig, useCommitteeRoleAddresses);
+    if (!memberRecipientEmail) {
+      entry.status = BatchSendEntryStatus.Skipped;
+      entry.errorMessage = "No email address";
+      entry.notEmailable = true;
+      progress.skippedCount += 1;
+      return false;
+    } else {
+      const suppressionReason = memberSkipReason(memberRecord, referenceListId, respectEmailBlocks, respectHeadOfficeConsent);
+      if (suppressionReason) {
+        entry.status = BatchSendEntryStatus.Skipped;
+        entry.errorMessage = suppressionReason;
+        if (memberRecord.emailBlock) {
+          entry.notEmailable = true;
+        }
+        progress.skippedCount += 1;
+        return false;
+      } else {
+        return true;
+      }
+    }
+  }
 }
 
 function memberSkipReason(member: Member, referenceListId: number | null, respectEmailBlocks: boolean, respectHeadOfficeConsent: boolean): string | null {
@@ -459,9 +501,14 @@ function buildRfc822(emailRequest: SendSmtpEmailRequest, renderedHtmlContent: st
   const toHeader = recipients.length
     ? `To: ${recipients.map(recipient => recipient.name ? `${escapeHeaderName(recipient.name)} <${recipient.email}>` : recipient.email).join(", ")}`
     : "";
+  const ccRecipients = emailRequest.cc ?? [];
+  const ccHeader = ccRecipients.length
+    ? `Cc: ${ccRecipients.map(recipient => recipient.name ? `${escapeHeaderName(recipient.name)} <${recipient.email}>` : recipient.email).join(", ")}`
+    : "";
   const lines = [
     fromHeader,
     toHeader,
+    ccHeader,
     `Subject: ${emailRequest.subject}`,
     `Date: ${dateTimeFromMillis(sentAt).toUTC().toRFC2822()}`,
     `Message-ID: ${messageId}`,
@@ -589,7 +636,112 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
 
     progress.entries = [...memberEntries, ...externalEntries];
     progress.startedAt = dateTimeNow().toMillis();
+    const referenceListId = request.narrowListId ?? notifConfig?.defaultListId ?? null;
+    const shareTo = request.sharedToRecipients === true;
 
+    if (shareTo) {
+      const eligibleMemberAddresses: EmailAddress[] = [];
+      memberEntries.forEach(entry => {
+        const memberRecord = membersById.get(entry.memberId);
+        if (applyMemberSendEligibility(entry, memberRecord, committeeRoles, notifConfig, useCommitteeRoleAddresses, referenceListId, respectEmailBlocks, respectHeadOfficeConsent, progress) && memberRecord) {
+          eligibleMemberAddresses.push({
+            email: recipientEmailForMember(memberRecord, committeeRoles, notifConfig, useCommitteeRoleAddresses),
+            name: entry.fullName
+          });
+        }
+      });
+      const validExternalAddresses: EmailAddress[] = [];
+      externalRecipients.forEach((recipient, idx) => {
+        const entry = externalEntries[idx];
+        if (!recipient.email) {
+          entry.status = BatchSendEntryStatus.Failed;
+          entry.errorMessage = "Recipient missing email";
+          progress.failedCount += 1;
+        } else {
+          validExternalAddresses.push({ email: recipient.email, name: entry.fullName });
+        }
+      });
+      const sharedHeaders = sharedRecipientHeaders({
+        memberRecipients: eligibleMemberAddresses,
+        externalToRecipients: validExternalAddresses,
+        existingBccRecipients: combinedBcc,
+        memberRecipientsAsBcc: request.sharedMemberRecipientsAsBcc === true
+      });
+      const sharedTo = sharedHeaders.to;
+      if (sharedTo.length === 0) {
+        progress.completedAt = dateTimeNow().toMillis();
+        progress.status = progress.failedCount === 0 ? BatchSendStatus.COMPLETED : BatchSendStatus.COMPLETED_WITH_ERRORS;
+      } else {
+        try {
+          const sharedParams: SendSmtpEmailParams = {
+            messageMergeFields: {
+              subject: null as unknown as string,
+              BANNER_IMAGE_SOURCE: bannerImageSrc,
+              ADDRESS_LINE: addressLineFor(request.addresseeType),
+              BODY_CONTENT: request.htmlBody,
+              BODY_CONTENT_TOP: request.htmlBodyTop ?? "",
+              BODY_CONTENT_BOTTOM: request.htmlBodyBottom ?? "",
+              ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor)
+            },
+            memberMergeFields: externalMemberMergeFields({ email: "", name: "" } as ComposerExternalRecipient),
+            systemMergeFields: systemMergeFields(systemCfg, groupHref, ""),
+            accountMergeFields: accountFields
+          };
+          const sharedSubject = notifConfig ? buildSubject(notifConfig, request.subject, sharedParams) : request.subject;
+          sharedParams.messageMergeFields.subject = sharedSubject;
+          const sharedReplyHeaders = request.inboxReplyContext
+            ? {"In-Reply-To": request.inboxReplyContext.inReplyTo, "References": request.inboxReplyContext.references.join(" ")}
+            : undefined;
+          const sharedEmailRequest: SendSmtpEmailRequest = {
+            subject: sharedSubject,
+            sender,
+            to: sharedTo,
+            replyTo: replyTo || undefined,
+            cc: ccAddresses.length > 0 ? ccAddresses : undefined,
+            bcc: sharedHeaders.bcc.length > 0 ? sharedHeaders.bcc : undefined,
+            listId: notifConfig?.defaultListId,
+            params: sharedParams,
+            headers: sharedReplyHeaders,
+            attachments: request.attachments,
+            brandingMode: request.brandingMode,
+            showTitle: request.showTitle,
+            htmlContent: request.htmlBody
+          };
+          const sharedSendResult = await sendTransactionalEmailRequest(sharedEmailRequest, debugLog, baseUrl, SendPurpose.BATCH);
+          const sentAt = dateTimeNow().toMillis();
+          memberEntries.filter(entry => entry.status === BatchSendEntryStatus.Pending).forEach(entry => {
+            entry.status = BatchSendEntryStatus.Sent;
+            entry.sentAt = sentAt;
+          });
+          externalEntries.filter(entry => entry.status === BatchSendEntryStatus.Pending).forEach(entry => {
+            entry.status = BatchSendEntryStatus.Sent;
+            entry.sentAt = sentAt;
+          });
+          progress.sentCount += sharedTo.length;
+          await performInboxWriteback(request, sharedEmailRequest, sharedSendResult.renderedHtmlContent, sharedSendResult?.body?.messageId ?? null, senderRoleType, currentMemberId);
+          if (currentMemberId) {
+            await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
+              await acc;
+              if (recipient.email) {
+                await recordSendUsage({ email: recipient.email, name: recipient.name, createdBy: currentMemberId, saveForReuse: recipient.saveForReuse !== false });
+              }
+            }, Promise.resolve());
+          }
+        } catch (error: any) {
+          const failureMessage = describeBrevoError(error);
+          memberEntries.filter(entry => entry.status === BatchSendEntryStatus.Pending).forEach(entry => {
+            entry.status = BatchSendEntryStatus.Failed;
+            entry.errorMessage = failureMessage;
+          });
+          externalEntries.filter(entry => entry.status === BatchSendEntryStatus.Pending).forEach(entry => {
+            entry.status = BatchSendEntryStatus.Failed;
+            entry.errorMessage = failureMessage;
+          });
+          progress.failedCount += sharedTo.length;
+          debugLog("shared To send failed:", failureMessage, "raw:", error);
+        }
+      }
+    } else {
     for (const item of workItems) {
       if (cancelled.has(jobId)) {
         progress.status = BatchSendStatus.CANCELLED;
@@ -600,29 +752,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       const entry = item.entry;
       if (item.kind === "member") {
         const memberRecord = membersById.get(entry.memberId);
-        if (!memberRecord) {
-          entry.status = BatchSendEntryStatus.Failed;
-          entry.errorMessage = "Member not found";
-          progress.failedCount += 1;
-          continue;
-        }
-        const memberRecipientEmail = recipientEmailForMember(memberRecord, committeeRoles, notifConfig, useCommitteeRoleAddresses);
-        if (!memberRecipientEmail) {
-          entry.status = BatchSendEntryStatus.Skipped;
-          entry.errorMessage = "No email address";
-          entry.notEmailable = true;
-          progress.skippedCount += 1;
-          continue;
-        }
-        const referenceListId = request.narrowListId ?? notifConfig?.defaultListId ?? null;
-        const suppressionReason = memberSkipReason(memberRecord, referenceListId, respectEmailBlocks, respectHeadOfficeConsent);
-        if (suppressionReason) {
-          entry.status = BatchSendEntryStatus.Skipped;
-          entry.errorMessage = suppressionReason;
-          if (memberRecord.emailBlock) {
-            entry.notEmailable = true;
-          }
-          progress.skippedCount += 1;
+        if (!applyMemberSendEligibility(entry, memberRecord, committeeRoles, notifConfig, useCommitteeRoleAddresses, referenceListId, respectEmailBlocks, respectHeadOfficeConsent, progress)) {
           continue;
         }
       } else if (!item.recipient.email) {
@@ -698,8 +828,9 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       }
       await delay(SEND_DELAY_MS);
     }
+    }
 
-    if (!personalised && !cancelled.has(jobId) && externalRecipients.length > 0) {
+    if (!shareTo && !personalised && !cancelled.has(jobId) && externalRecipients.length > 0) {
       try {
         const externalParams: SendSmtpEmailParams = {
           messageMergeFields: {

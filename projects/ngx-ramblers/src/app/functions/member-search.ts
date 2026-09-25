@@ -2,7 +2,6 @@ import { Member } from "../models/member.model";
 import { memberDisambiguatedLabel, memberFullName } from "./member-names";
 
 export const MEMBER_TYPEAHEAD_LIMIT = 40;
-export const MEMBER_CHIP_RENDER_LIMIT = 80;
 
 export function memberSearchHaystack(member: Member): string {
   return [
@@ -33,7 +32,7 @@ export function limitedMemberMatches<T extends {id?: string}>(
   const selected = new Set(selectedIds);
   const chosen = members.filter(item => item.id && selected.has(item.id));
   const hits = members.filter(item => (!item.id || !selected.has(item.id)) && matches(item)).slice(0, limit);
-  return [...chosen.slice(0, MEMBER_CHIP_RENDER_LIMIT), ...hits];
+  return [...chosen, ...hits];
 }
 
 export function mongoMemberSearchCriteria(term: string, extras: Record<string, unknown> = {}): Record<string, unknown> {
