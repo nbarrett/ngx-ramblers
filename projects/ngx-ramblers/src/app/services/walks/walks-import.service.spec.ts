@@ -144,9 +144,10 @@ describe("WalksImportService Walks Manager matching", () => {
 
     const memberService = {
         all: vi.fn().mockName("MemberService.all"),
+        allPages: vi.fn().mockName("MemberService.allPages"),
         createOrUpdate: vi.fn().mockName("MemberService.createOrUpdate")
     };
-    memberService.all.mockResolvedValue([matchingMember, unmatchedMember, sarahMitchell]);
+    memberService.allPages.mockResolvedValue([matchingMember, unmatchedMember, sarahMitchell]);
     memberService.createOrUpdate.mockResolvedValue(null);
 
     const memberNamingService = {

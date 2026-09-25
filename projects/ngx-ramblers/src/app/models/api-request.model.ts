@@ -8,6 +8,9 @@ export interface MongoCriteria {
   [field: string]: any;
 }
 
+export const UNPAGINATED_RESULT_CAP = 1000;
+export const MEMBER_PAGE_SIZE = 200;
+
 export interface DataQueryOptions {
   limit?: number;
   page?: number;
@@ -15,6 +18,13 @@ export interface DataQueryOptions {
   select?: any;
   sort?: any;
   update?: any;
+}
+
+export interface QueryPagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface MongoId {

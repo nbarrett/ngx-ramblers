@@ -166,7 +166,7 @@ export class WalksImportService {
   }
 
   public async prepareImportOfEvents(importData: ImportData, walksToImport: ExtendedGroupEvent[]): Promise<ImportData> {
-    const members = await this.memberService.all();
+    const members = await this.memberService.allPages();
     const priorMatches: PriorContactMemberMatch[] = importData.inputSource === InputSource.WALKS_MANAGER_CACHE
       ? await this.priorMatchesForWalksManager()
       : [];

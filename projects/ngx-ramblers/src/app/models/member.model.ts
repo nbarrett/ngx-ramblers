@@ -1,3 +1,4 @@
+import { QueryPagination } from "./api-request.model";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 import { EmailAddress, MailIdentifiers, MailSubscription, SendSmtpEmailRequest } from "./mail.model";
@@ -461,6 +462,7 @@ export interface LoginResponse {
 export interface MemberApiResponse extends ApiResponse {
   request: any;
   response?: Member | Member[];
+  pagination?: QueryPagination;
 }
 
 export interface MemberAuthAuditApiResponse extends ApiResponse {

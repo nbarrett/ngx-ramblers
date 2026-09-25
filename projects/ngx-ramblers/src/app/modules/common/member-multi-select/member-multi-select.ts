@@ -1,4 +1,6 @@
-import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges } from "@angular/core";
+import { Subject } from "rxjs";
+import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { NgLabelTemplateDirective, NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -14,6 +16,7 @@ import { DurationLike } from "luxon";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientPreFilter } from "../../../models/email-composer.model";
 import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
+import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } from "../../../functions/member-search";
 
 @Component({
   selector: "app-member-multi-select",
@@ -82,7 +85,7 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
     }
     <div class="row">
       <div class="col-sm-12">
-        <ng-select [items]="selectableMembers"
+        <ng-select [items]="visibleMembers"
                    bindLabel="memberInformation"
                    bindValue="id"
                    placeholder="Select one or more members"
@@ -90,8 +93,13 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
                    [groupBy]="groupBy"
                    [groupValue]="groupValue"
                    [multiple]="true"
+                   [virtualScroll]="true"
+                   [loading]="false"
+                   [typeahead]="searchInput$"
+                   [minTermLength]="0"
                    [closeOnSelect]="false"
                    [clearSearchOnAdd]="false"
+                   (open)="onPickerOpen()"
                    (change)="onChange()"
                    [(ngModel)]="selectedIds">
           <ng-template ng-optgroup-tmp let-item="item">
@@ -103,7 +111,7 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
       </div>
     </div>`
 })
-export class MemberMultiSelect implements OnChanges {
+export class MemberMultiSelect implements OnChanges, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MemberMultiSelect", NgxLoggerLevel.ERROR);
   protected fullNameWithAlias = inject(FullNameWithAliasPipe);
@@ -127,6 +135,13 @@ export class MemberMultiSelect implements OnChanges {
   @Output() priorSendExclusionsChange = new EventEmitter<PriorSendExclusion[]>();
 
   protected selectableMembers: MemberFilterSelection[] = [];
+  protected visibleMembers: MemberFilterSelection[] = [];
+  protected searchInput$ = new Subject<string>();
+  private searchTerm = "";
+  private searchSubscription = this.searchInput$.pipe(debounceTime(200), distinctUntilChanged()).subscribe(term => {
+    this.searchTerm = term || "";
+    this.refreshVisibleMembers();
+  });
   protected priorSendExclusions: PriorSendExclusion[] = [];
   protected activePreFilterKey: MemberSelection | null = null;
   protected manualMode: boolean = false;
@@ -134,6 +149,10 @@ export class MemberMultiSelect implements OnChanges {
   private priorSendFetchToken: number = 0;
   protected readonly preFilters: RecipientPreFilter[] = RECIPIENT_PRE_FILTERS;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+
+  ngOnDestroy(): void {
+    this.searchSubscription.unsubscribe();
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["respectBlocks"] || changes["unsubscribedDates"] || changes["notificationConfig"] || changes["memberBulkLoadDateMap"]) {
@@ -231,6 +250,21 @@ export class MemberMultiSelect implements OnChanges {
     this.selectableMembers = this.members
       .map(member => this.toFilterSelection(member, this.activePreFilterKey))
       .sort(SORT_BY_NAME);
+    this.refreshVisibleMembers();
+  }
+
+  protected onPickerOpen(): void {
+    this.searchInput$.next(this.searchTerm);
+  }
+
+  private refreshVisibleMembers(): void {
+    this.visibleMembers = limitedMemberMatches(
+      this.selectableMembers,
+      this.searchTerm,
+      this.selectedIds ?? [],
+      item => memberMatchesSearch(item.member ?? {} as Member, this.searchTerm),
+      MEMBER_TYPEAHEAD_LIMIT
+    );
   }
 
   private applyAutoSelection(): void {
@@ -472,6 +506,7 @@ export class MemberMultiSelect implements OnChanges {
   onChange(): void {
     this.logger.info("selection changed:", this.stringUtils.pluraliseWithCount(this.selectedIds.length, "member"));
     this.selectedIdsChange.emit(this.selectedIds);
+    this.refreshVisibleMembers();
   }
 
   selectedCount(): number {
