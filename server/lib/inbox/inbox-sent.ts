@@ -29,6 +29,7 @@ function sentRowFor(thread: InboxThread, message: InboxMessage): InboxThread {
     ...thread,
     subject: message.subject || thread.subject,
     externalAddress: sentRecipientAddress(message) ?? thread.externalAddress,
+    sentFrom: message.from?.email ? message.from : thread.sentFrom,
     lastDirection: InboxMessageDirection.OUTBOUND,
     lastOutboundAt: message.sentAt ?? message.receivedAt ?? 0,
     sentMessageId: message.messageId

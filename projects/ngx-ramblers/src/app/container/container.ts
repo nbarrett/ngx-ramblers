@@ -13,6 +13,7 @@ import { AppShellService } from "../services/maps/app-shell.service";
 import { UrlService } from "../services/url.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
+import { ViewAsBar } from "../modules/common/view-as-bar/view-as-bar";
 import { PullToRefreshComponent } from "../modules/common/pull-to-refresh/pull-to-refresh";
 import { RouterHistoryService } from "../services/router-history.service";
 import { Router } from "@angular/router";
@@ -36,6 +37,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
     <div [class.app-shell]="appShellActive" [class.container]="!appShellActive">
       @if (!appShellActive) {
         <app-navbar/>
+        <app-view-as-bar/>
         <app-rejoin-meeting-banner/>
         <app-new-version-banner/>
       }
@@ -61,7 +63,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
     </div>
     `,
     styleUrls: ["./container.sass"],
-    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, PullToRefreshComponent, FontAwesomeModule, TooltipModule]
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent, RejoinMeetingBannerComponent, NewVersionBannerComponent, PullToRefreshComponent, FontAwesomeModule, TooltipModule, ViewAsBar]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   private routerHistory = inject(RouterHistoryService);

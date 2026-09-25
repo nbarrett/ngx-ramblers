@@ -1,0 +1,6 @@
+<div (click)="toggle()" class="view-as-toggle" [textContent]="caption()"></div>
+<ui-switch [checked]="viewAs.optedIn()"
+           (change)="onChange($event)"
+           [uncheckedTextColor]="'var(--pink)'"
+           [defaultBgColor]="'$ramblers-colour-granite'"
+           class="view-as-toggle" size="small" checkedLabel="on" uncheckedLabel="off"/>

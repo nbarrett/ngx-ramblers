@@ -993,7 +993,7 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
             ? {direction: InboxMessageDirection.OUTBOUND, autoReply: {$ne: true}, $or: messageSearchOr({$regex: escapeSearchRegex(sentSearchTermRaw), $options: "i"})}
             : {direction: InboxMessageDirection.OUTBOUND, autoReply: {$ne: true}};
           const outboundMessages = await inboxMessageModel.find(outboundFilter)
-            .select("threadId messageId subject to sentAt receivedAt direction").lean();
+            .select("threadId messageId subject from to sentAt receivedAt direction").lean();
           const sentThreadIds = Array.from(new Set(outboundMessages.map(message => String(message.threadId))));
           const sentFilter: Record<string, unknown> = {
             tenantSlug: defaultTenantSlug(),

@@ -10,7 +10,12 @@ describe("inbox-sent", () => {
   }
 
   function createMessage(fields: Partial<InboxMessage>): InboxMessage {
-    return {direction: InboxMessageDirection.OUTBOUND, to: [{name: "Jane Member", email: "jane@example.com"}], ...fields} as InboxMessage;
+    return {
+      direction: InboxMessageDirection.OUTBOUND,
+      from: {name: "Committee Sender", email: "committee@example.com"},
+      to: [{name: "Jane Member", email: "jane@example.com"}],
+      ...fields
+    } as InboxMessage;
   }
 
   describe("sentMessageRows", () => {
@@ -54,6 +59,22 @@ describe("inbox-sent", () => {
       const {rows} = sentMessageRows([createThread("a")], messages, 0, 50);
       expect(rows[0].externalAddress).toEqual({name: "Jane Member +1", email: "jane@example.com"});
       expect(rows[0].lastDirection).toBe(InboxMessageDirection.OUTBOUND);
+    });
+
+    it("should use the individual sent message sender instead of the conversation sender", () => {
+      const thread = {
+        ...createThread("a"),
+        sentFrom: {name: "Jane Member", email: "jane@example.com"}
+      };
+      const messages = [createMessage({
+        threadId: "a",
+        messageId: "<m1>",
+        sentAt: 100,
+        from: {name: "Committee Sender", email: "committee@example.com"}
+      })];
+      const {rows} = sentMessageRows([thread], messages, 0, 50);
+      expect(rows[0].sentFrom).toEqual({name: "Committee Sender", email: "committee@example.com"});
+      expect(rows[0].externalAddress).toEqual({name: "Jane Member", email: "jane@example.com"});
     });
 
     it("should apply offset and limit after ordering", () => {

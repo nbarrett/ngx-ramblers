@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
 import { MemberCookie } from "../../models/member.model";
 import { volunteerAdminAllowed } from "../../functions/volunteer-management";
+import { ViewAsService } from "./view-as.service";
 
 @Injectable({
   providedIn: "root"
@@ -16,9 +17,11 @@ export class MemberLoginService {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberLoginService", NgxLoggerLevel.ERROR);
   private authService = inject(AuthService);
   private urlService = inject(UrlService);
+  private viewAsService = inject(ViewAsService);
 
   loggedInMember(): MemberCookie {
-    const loggedInMember = this.authService.parseAuthToken() as MemberCookie;
+    const viewed = this.viewAsService.viewedCookie();
+    const loggedInMember = viewed ?? this.authService.parseAuthToken() as MemberCookie;
     this.logger.debug("loggedInMember", loggedInMember);
     return loggedInMember;
   }

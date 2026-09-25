@@ -9,6 +9,7 @@ import {
   MemberAuthAudit,
   MemberCookie
 } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
+import { toMemberCookie as sharedToMemberCookie } from "../../../../projects/ngx-ramblers/src/app/functions/member-cookie";
 import { AuthResponse } from "../../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { Response } from "express";
 import * as transforms from "./transforms";
@@ -142,24 +143,7 @@ export function toMemberCookie(member: Member): MemberCookie {
   if (!member?.id) {
     throw new Error("toMemberCookie:member must have an id but member provided only contained:" + JSON.stringify(member));
   }
-  const memberCookie = {
-    memberId: member?.id,
-    walkAdmin: member?.walkAdmin,
-    volunteerAdmin: member?.volunteerAdmin,
-    socialAdmin: member?.socialAdmin,
-    socialMember: member?.socialMember,
-    contentAdmin: member?.contentAdmin,
-    memberAdmin: member?.memberAdmin,
-    financeAdmin: member?.financeAdmin,
-    committee: member?.committee,
-    treasuryAdmin: member?.treasuryAdmin,
-    fileAdmin: member?.fileAdmin,
-    firstName: member?.firstName,
-    lastName: member?.lastName,
-    postcode: member?.postcode,
-    userName: member?.userName,
-    profileSettingsConfirmed: member?.profileSettingsConfirmed
-  };
+  const memberCookie = sharedToMemberCookie(member);
   debugLog("toMemberCookie:member cookie: ", memberCookie);
   return memberCookie;
 }

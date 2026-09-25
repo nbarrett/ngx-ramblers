@@ -42,6 +42,10 @@ export class MemberResourcesReferenceDataService {
     return this.platformAdminEnabledSubject.asObservable();
   }
 
+  platformAdminOn(): boolean {
+    return this.platformAdminEnabled;
+  }
+
   private loadPlatformAdminStatus() {
     this.http.get<{ platformAdminEnabled: boolean }>("/api/environment-setup/status")
       .subscribe({

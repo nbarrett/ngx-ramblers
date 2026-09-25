@@ -13,7 +13,7 @@ import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowTo, inboxThreadSlug, replyAllRecipients } from "../../../functions/inbox-thread";
+import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, inboxThreadSlug, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -34,6 +34,7 @@ import {
   InboxGroupingMode,
   InboxReadFilter,
   InboxReaderProvider,
+  InboxColumnResizeEdge,
   hiddenInboxFolders,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
@@ -294,50 +295,48 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
                 (selectedTabChange)="onMailboxLabelModeChange($event)"/>
             </div>
             <div class="inbox-nav-tree">
-              <div class="inbox-nav-row">
-                <button class="inbox-nav-twisty" type="button" (click)="inboxNodeExpanded = !inboxNodeExpanded"
-                        [attr.aria-expanded]="inboxNodeExpanded" aria-label="Expand inbox mailboxes">
-                  <fa-icon [icon]="inboxNodeExpanded ? faChevronDown : faChevronRight"/>
-                </button>
-                <button class="inbox-nav-node" type="button" [class.active]="inboxNodeActive"
-                        (click)="selectMailboxView(InboxViewScope.ALL_ACCESSIBLE)">
-                  <fa-icon [icon]="faInbox" class="me-2"/><span class="inbox-nav-label">Inbox</span>
-                  @if (unreadTotal > 0) {
-                    <span class="inbox-nav-count">{{ unreadTotal }}</span>
-                  }
-                </button>
-              </div>
-              @if (inboxNodeExpanded) {
-                @if (aliases.length > 1) {
-                  <button class="inbox-nav-node inbox-nav-child" type="button"
-                          [class.active]="selectedMailboxView === InboxViewScope.ASSIGNED_ROLES"
-                          (click)="selectMailboxView(InboxViewScope.ASSIGNED_ROLES)">
-                    <fa-icon [icon]="faUser" class="inbox-nav-node-icon"/>
-                    <span class="inbox-nav-label">My mailboxes</span>
+              <div class="inbox-nav-group">
+                <div class="inbox-nav-row">
+                  <button class="inbox-nav-twisty" type="button" (click)="inboxNodeExpanded = !inboxNodeExpanded"
+                          [attr.aria-expanded]="inboxNodeExpanded" aria-label="Expand inbox mailboxes">
+                    <fa-icon [icon]="inboxNodeExpanded ? faChevronDown : faChevronRight"/>
                   </button>
-                }
-                @for (alias of aliases; track alias.id || alias.roleEmail) {
-                  <button class="inbox-nav-node inbox-nav-child" type="button"
-                          [class.active]="selectedMailboxView === alias.roleType"
-                          [tooltip]="aliasLabel(alias)" [placement]="panel.maximised ? 'right' : 'left'" container="body"
-                          (click)="selectMailboxView(alias.roleType)">
-                    <fa-icon [icon]="faEnvelope" class="inbox-nav-node-icon"/>
-                    <span class="inbox-nav-label">{{ aliasDisplayLabel(alias) }}</span>
-                    @if (unreadForRole(alias.roleType) > 0) {
-                      <span class="inbox-nav-count">{{ unreadForRole(alias.roleType) }}</span>
+                  <button class="inbox-nav-node" type="button" [class.active]="inboxNodeActive"
+                          (click)="selectMailboxView(InboxViewScope.ALL_ACCESSIBLE)">
+                    <fa-icon [icon]="faInbox" class="me-2"/><span class="inbox-nav-label">Inbox</span>
+                    @if (unreadTotal > 0) {
+                      <span class="inbox-nav-count">{{ unreadTotal }}</span>
                     }
                   </button>
+                </div>
+                @if (inboxNodeExpanded) {
+                  @if (aliases.length > 1) {
+                    <button class="inbox-nav-node inbox-nav-child" type="button"
+                            [class.active]="selectedMailboxView === InboxViewScope.ASSIGNED_ROLES"
+                            (click)="selectMailboxView(InboxViewScope.ASSIGNED_ROLES)">
+                      <fa-icon [icon]="faUser" class="inbox-nav-node-icon"/>
+                      <span class="inbox-nav-label">My mailboxes</span>
+                    </button>
+                  }
+                  @for (alias of aliases; track alias.id || alias.roleEmail) {
+                    <button class="inbox-nav-node inbox-nav-child" type="button"
+                            [class.active]="selectedMailboxView === alias.roleType"
+                            [tooltip]="aliasLabel(alias)" [placement]="panel.maximised ? 'right' : 'left'" container="body"
+                            (click)="selectMailboxView(alias.roleType)">
+                      <fa-icon [icon]="faEnvelope" class="inbox-nav-node-icon"/>
+                      <span class="inbox-nav-label">{{ aliasDisplayLabel(alias) }}</span>
+                      @if (unreadForRole(alias.roleType) > 0) {
+                        <span class="inbox-nav-count">{{ unreadForRole(alias.roleType) }}</span>
+                      }
+                    </button>
+                  }
                 }
-              }
-              <div class="inbox-nav-row">
-                <span class="inbox-nav-twisty"></span>
+              </div>
+              <div class="inbox-nav-roots">
                 <button class="inbox-nav-node" type="button" [class.active]="viewingSent"
                         (click)="selectMailboxView(InboxThreadFolder.SENT)">
                   <fa-icon [icon]="faPaperPlane" class="me-2"/><span class="inbox-nav-label">Sent</span>
                 </button>
-              </div>
-              <div class="inbox-nav-row">
-                <span class="inbox-nav-twisty"></span>
                 <button class="inbox-nav-node" type="button" [class.active]="viewingDrafts"
                         (click)="selectMailboxView(InboxThreadFolder.DRAFTS)">
                   <fa-icon [icon]="faFileLines" class="me-2"/><span class="inbox-nav-label">Drafts</span>
@@ -345,18 +344,12 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
                     <span class="inbox-nav-count">{{ drafts.length }}</span>
                   }
                 </button>
-              </div>
-              @if (canReadJunk) {
-                <div class="inbox-nav-row">
-                  <span class="inbox-nav-twisty"></span>
+                @if (canReadJunk) {
                   <button class="inbox-nav-node" type="button" [class.active]="viewingJunk"
                           (click)="selectMailboxView(InboxThreadFolder.JUNK)">
                     <fa-icon [icon]="faBan" class="me-2"/><span class="inbox-nav-label">Junk</span>
                   </button>
-                </div>
-              }
-              <div class="inbox-nav-row">
-                <span class="inbox-nav-twisty"></span>
+                }
                 <button class="inbox-nav-node" type="button" [class.active]="viewingDeleted"
                         (click)="selectMailboxView(InboxThreadFolder.DELETED)">
                   <fa-icon [icon]="faTrash" class="me-2"/><span class="inbox-nav-label">Deleted</span>
@@ -430,12 +423,16 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
               </div>
             }
           }
-          @if (!viewingDrafts && threads.length > 0) {
+          @if (!viewingDrafts && threads.length > 0 && (!compactList || selectedConversationCount > 0)) {
             <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
-              <input type="checkbox" class="form-check-input mt-0" id="inbox-select-all"
-                     [checked]="allSelected()"
-                     [indeterminate]="selectedConversationCount > 0 && !allSelected()"
-                     (change)="toggleSelectAll()">
+              @if (!compactList) {
+                <input type="checkbox" class="form-check-input mt-0"
+                       aria-label="Select all visible conversations"
+                       tooltip="Select all visible conversations"
+                       [checked]="allSelected()"
+                       [indeterminate]="selectedConversationCount > 0 && !allSelected()"
+                       (change)="toggleSelectAll()">
+              }
               @if (selectedConversationCount > 0) {
                 <div class="btn-group" dropdown container="body" placement="bottom left" [isDisabled]="busy">
                   <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
@@ -458,8 +455,6 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
                     <li role="menuitem"><button class="dropdown-item text-danger" type="button" (click)="deleteSelected()"><fa-icon [icon]="faTrash" class="me-2"/>Delete</button></li>
                   </ul>
                 </div>
-              } @else {
-                <label class="text-muted small mb-0" for="inbox-select-all">Select all</label>
               }
             </div>
           }
@@ -493,7 +488,25 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
               }
             </div>
           }
-          <div class="inbox-thread-list" [class.inbox-list-compact]="compactList" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)">
+          <div class="inbox-thread-list" [class.inbox-list-compact]="compactList" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)"
+               [style.--inbox-from]="columnShare.from + 'fr'"
+               [style.--inbox-to]="columnShare.to + 'fr'"
+               [style.--inbox-subject]="columnShare.subject + 'fr'"
+               [style.--inbox-date]="columnShare.date + 'fr'">
+          @if (compactList && !viewingDrafts) {
+            <div class="inbox-column-head inbox-column-tracks">
+              <input type="checkbox" class="form-check-input m-0"
+                     aria-label="Select all visible conversations"
+                     tooltip="Select all visible conversations"
+                     [checked]="allSelected()"
+                     [indeterminate]="selectedConversationCount > 0 && !allSelected()"
+                     (change)="toggleSelectAll()">
+              <span class="inbox-column-label"><span class="inbox-column-text">From</span><button type="button" class="inbox-col-resize" aria-label="Resize From" (pointerdown)="startColumnResize($event, InboxColumnResizeEdge.FROM)"></button></span>
+              <span class="inbox-column-label"><span class="inbox-column-text">To</span><button type="button" class="inbox-col-resize" aria-label="Resize To" (pointerdown)="startColumnResize($event, InboxColumnResizeEdge.TO)"></button></span>
+              <span class="inbox-column-label"><span class="inbox-column-text">Subject</span><button type="button" class="inbox-col-resize" aria-label="Resize Subject" (pointerdown)="startColumnResize($event, InboxColumnResizeEdge.SUBJECT)"></button></span>
+              <span class="inbox-column-label">Date</span>
+            </div>
+          }
           @if (viewingDrafts) {
             @if (filteredDrafts.length === 0) {
               <div class="p-3 text-muted">{{ conversationSearchTerm ? 'No drafts match "' + conversationSearchTerm + '".' : "No drafts yet. Anything you save in the email composer, and drafts other committee members have shared, will appear here." }}</div>
@@ -529,30 +542,44 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
             }
           }
           @for (thread of filteredThreads; track threadRowKey(thread)) {
-            <div class="inbox-thread-row d-flex align-items-center gap-2"
+            <div class="inbox-thread-row"
+                 [class.inbox-column-tracks]="compactList"
+                 [class.d-flex]="!compactList"
+                 [class.align-items-center]="!compactList"
+                 [class.gap-2]="!compactList"
                  [class.active]="threadRowActive(thread)"
                  [class.unread]="conversationUnread(thread)"
                  [attr.data-thread-id]="threadIdOf(thread)"
                  (touchstart)="startThreadSwipe($event)"
                  (touchend)="finishThreadSwipe($event, thread)"
                  (click)="selectThread(thread)">
-              <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
-                     [checked]="conversationSelected(thread)"
-                     (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
-              <div class="flex-grow-1 min-w-0">
-                <div class="d-flex align-items-center gap-2">
-                  @if (conversationUnread(thread)) {
-                    <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
+              @if (compactList) {
+                <input type="checkbox" class="form-check-input m-0"
+                       [checked]="conversationSelected(thread)"
+                       (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
+                <div class="inbox-thread-from text-truncate">{{ viewingSent ? sentPartyLabel(thread, true) : (threadRowFrom(thread) || 'No external address') }}</div>
+                <div class="inbox-thread-recipient text-truncate">{{ viewingSent ? sentPartyLabel(thread, false) : (threadRowTo(thread) || '') }}</div>
+                <div class="inbox-thread-subject text-truncate">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
+                <div class="inbox-thread-time">{{(viewingSent ? thread.lastOutboundAt || thread.lastSeenAt : thread.lastSeenAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
+              } @else {
+                <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
+                       [checked]="conversationSelected(thread)"
+                       (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center gap-2">
+                    @if (conversationUnread(thread)) {
+                      <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
+                    }
+                    <div class="inbox-thread-from flex-grow-1 text-truncate">{{ viewingSent ? sentPartyLabel(thread, true) : (threadRowFrom(thread) || 'No external address') }}</div>
+                    <div class="inbox-thread-time flex-shrink-0">{{(viewingSent ? thread.lastOutboundAt || thread.lastSeenAt : thread.lastSeenAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
+                  </div>
+                  <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
+                  <div class="inbox-thread-preview">{{inboxThreadRowPreview(thread)}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
+                  @if (viewingSent ? sentPartyLabel(thread, false) : threadRowTo(thread); as toLabel) {
+                    <div class="inbox-thread-recipient text-truncate">to {{ toLabel }}</div>
                   }
-                  <div class="inbox-thread-from flex-grow-1 text-truncate">{{ viewingSent ? sentFromLabel(thread) : (threadRowFrom(thread) || 'No external address') }}</div>
-                  <div class="inbox-thread-time flex-shrink-0">{{(viewingSent ? thread.lastOutboundAt || thread.lastSeenAt : thread.lastSeenAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
                 </div>
-                <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
-                <div class="inbox-thread-preview">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? 'Last message sent by you' : 'Latest incoming message'}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
-                @if (threadRowTo(thread); as toLabel) {
-                  <div class="inbox-thread-recipient text-truncate">to {{ toLabel }}</div>
-                }
-              </div>
+              }
             </div>
           }
           @if (canLoadMoreConversations && !conversationSearchTerm.trim()) {
@@ -801,6 +828,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly InboxViewScope = InboxViewScope;
   protected readonly InboxMailboxLabelMode = InboxMailboxLabelMode;
   protected readonly InboxGroupingMode = InboxGroupingMode;
+  protected readonly InboxColumnResizeEdge = InboxColumnResizeEdge;
   protected readonly StoredValue = StoredValue;
   protected readonly mailboxLabelTabs: SectionToggleTab[] = [
     {value: InboxMailboxLabelMode.ROLE, label: "Role", icon: faIdBadge},
@@ -893,14 +921,18 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         try {
           const response = await this.inboxService.getThread(requestedSlug);
           const requested = response.thread;
-          if (!this.threadBelongsToCurrentView(requested)) {
-            this.selectedMailboxView = this.viewForThread(requested);
-            this.filteredThreadsDirty = true;
+          if (!this.threadBelongsToCurrentView(requested) && this.route.snapshot.queryParams[StoredValue.MAILBOX_VIEW]) {
+            return null;
+          } else {
+            if (!this.threadBelongsToCurrentView(requested)) {
+              this.selectedMailboxView = this.viewForThread(requested);
+              this.filteredThreadsDirty = true;
+            }
+            if (this.threadBelongsToCurrentView(requested) && !this.matchingThread(this.threads, this.threadIdOf(requested))) {
+              this.threads = [requested, ...this.threads];
+            }
+            return this.threadBelongsToCurrentView(requested) ? requested : null;
           }
-          if (!this.matchingThread(this.threads, this.threadIdOf(requested))) {
-            this.threads = [requested, ...this.threads];
-          }
-          return requested;
         } catch (error) {
           this.logger.error("Failed to open thread from URL:", error);
           return null;
@@ -923,18 +955,36 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private viewForThread(thread: InboxThread): string {
     const folder = thread?.folder;
-    return folder === InboxThreadFolder.DELETED || folder === InboxThreadFolder.JUNK || folder === InboxThreadFolder.SENT || folder === InboxThreadFolder.DRAFTS
-      ? folder
-      : InboxViewScope.ALL_ACCESSIBLE;
+    if (folder === InboxThreadFolder.DELETED || folder === InboxThreadFolder.JUNK || folder === InboxThreadFolder.SENT || folder === InboxThreadFolder.DRAFTS) {
+      return folder;
+    } else {
+      const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
+      return alias ? alias.roleType : InboxViewScope.ALL_ACCESSIBLE;
+    }
   }
 
   private threadBelongsToCurrentView(thread: InboxThread): boolean {
     const folder = thread?.folder;
-    return folder === InboxThreadFolder.DELETED ? this.viewingDeleted
-      : folder === InboxThreadFolder.JUNK ? this.viewingJunk
-      : folder === InboxThreadFolder.SENT ? this.viewingSent
-      : folder === InboxThreadFolder.DRAFTS ? this.selectedMailboxView === InboxThreadFolder.DRAFTS
-      : !this.viewingDeleted && !this.viewingJunk && !this.viewingSent;
+    if (folder === InboxThreadFolder.DELETED) {
+      return this.viewingDeleted;
+    } else if (folder === InboxThreadFolder.JUNK) {
+      return this.viewingJunk;
+    } else if (folder === InboxThreadFolder.SENT) {
+      return this.viewingSent;
+    } else if (folder === InboxThreadFolder.DRAFTS) {
+      return this.viewingDrafts;
+    } else if (this.viewingDeleted || this.viewingJunk || this.viewingSent || this.viewingDrafts) {
+      return false;
+    } else {
+      const roleType = this.selectedRoleType();
+      if (roleType) {
+        return thread.roleType === roleType;
+      } else if (this.selectedMailboxView === InboxViewScope.ASSIGNED_ROLES) {
+        return this.aliases.some(alias => alias.roleType === thread.roleType && !isInboxGeneralRoleType(alias.roleType));
+      } else {
+        return true;
+      }
+    }
   }
 
   get viewingSent(): boolean {
@@ -1120,6 +1170,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly GROUPING_KEY = "inbox-grouping-mode";
   private static readonly DENSITY_KEY = "inbox-list-density";
   public compactList = false;
+  public columnShare = {from: 1.1, to: 1.4, subject: 2, date: 1.5};
   public mailboxLabelMode: InboxMailboxLabelMode = InboxMailboxLabelMode.ROLE;
   public groupingMode: InboxGroupingMode = InboxGroupingMode.CONVERSATIONS;
   public mobileNavOpen = false;
@@ -1459,6 +1510,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const storedGrouping = window.localStorage.getItem(InboxComponent.GROUPING_KEY);
     this.groupingMode = values(InboxGroupingMode).includes(storedGrouping as InboxGroupingMode) ? storedGrouping as InboxGroupingMode : InboxGroupingMode.CONVERSATIONS;
     this.compactList = window.localStorage.getItem(InboxComponent.DENSITY_KEY) === "compact";
+    const storedColumns = window.localStorage.getItem("inbox-column-share");
+    if (storedColumns) {
+      try {
+        this.columnShare = validatedInboxColumnShare(JSON.parse(storedColumns), this.columnShare);
+      } catch (error) {
+        this.logger.warn("Ignoring invalid saved inbox column widths", error);
+      }
+    }
     const storedNavSize = Number(window.localStorage.getItem(InboxComponent.NAV_SIZE_KEY));
     this.navSize = Number.isFinite(storedNavSize) && storedNavSize >= this.minNavSize ? Math.min(storedNavSize, this.maxNavSize) : this.navSize;
   }
@@ -1571,15 +1630,20 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async reloadVisibleConversation(fallback: InboxThread | null): Promise<void> {
     const selectedId = this.selectedThreadId;
-    if (selectedId) {
-      const updated = this.matchingThread(this.threads, selectedId);
-      if (updated) {
-        await this.openThread(updated, false);
-      } else if (this.selectedThread) {
-        await this.openThread({...this.selectedThread, id: selectedId} as InboxThread, false);
-      }
-    } else if (fallback || this.threads.length > 0) {
-      await this.openThread(fallback ?? this.threads[0], false);
+    const updated = selectedId ? this.matchingThread(this.threads, selectedId) : null;
+    const fallbackInView = fallback && this.matchingThread(this.threads, this.threadIdOf(fallback))
+      ? this.matchingThread(this.threads, this.threadIdOf(fallback))
+      : null;
+    if (updated) {
+      await this.openThread(updated, false);
+    } else if (fallbackInView) {
+      await this.openThread(fallbackInView, false);
+    } else if (this.threads.length > 0) {
+      await this.openThread(this.threads[0], false);
+    } else {
+      this.selectedThread = null;
+      this.selectedThreadId = null;
+      this.clearSelectedMessages();
     }
   }
 
@@ -1680,7 +1744,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadingThread = false;
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.MAILBOX_VIEW]: this.mailboxViewParam()},
+      queryParams: {
+        [StoredValue.MAILBOX_VIEW]: this.mailboxViewParam(),
+        [StoredValue.THREAD]: null
+      },
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -2184,10 +2251,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private scrollMessageIntoView(messageId: string): void {
-    setTimeout(() => document.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`)?.scrollIntoView({block: "start"}), 0);
-  }
-
   private scrollThreadRowIntoView(listElement: HTMLElement, threadId: string): void {
     listElement.querySelector(`[data-thread-id="${threadId}"]`)?.scrollIntoView({block: "nearest"});
   }
@@ -2270,9 +2333,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.expandedMessageIds = new Set(focusMessage ? [focusMessage.messageId] : []);
       this.openedMessageIds = new Set(focusMessage ? [focusMessage.messageId] : []);
       this.loadingThread = false;
-      if (this.viewingSent && focusMessage) {
-        this.scrollMessageIntoView(focusMessage.messageId);
-      }
       this.markThreadsRead(markRead ? siblings : []);
     } catch (error) {
       if (requestId !== this.openThreadRequestId) {
@@ -2378,11 +2438,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   formatAddress(address: InboxAddress): string {
-    if (address?.name && address.name.trim() && address.name.trim().toLowerCase() !== address.email?.toLowerCase()) {
-      return `${address.name.trim()} <${address.email}>`;
-    } else {
-      return address?.email ?? "";
-    }
+    return formatInboxAddress(address);
   }
 
   isMessageExpanded(message: InboxMessage): boolean {
@@ -2463,12 +2519,17 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return cleaned.replace(/\s+/g, " ").trim().slice(0, 500);
   }
 
-  recipientForThread(thread: InboxThread): string | null {
+  recipientForThread(thread: InboxThread): InboxAddress | null {
     const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
-    if (!alias || isInboxGeneralRoleType(alias.roleType)) {
-      return null;
+    if (alias && !isInboxGeneralRoleType(alias.roleType)) {
+      return {
+        name: thread.deliveredTo?.name || alias.assignedMemberName || this.roleLabel(alias.roleType),
+        email: thread.deliveredTo?.email || alias.roleEmail
+      };
+    } else if (thread.deliveredTo?.email) {
+      return thread.deliveredTo;
     } else {
-      return thread.deliveredTo?.email || alias.roleEmail;
+      return null;
     }
   }
 
@@ -2477,7 +2538,51 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   threadRowFrom(thread: InboxThread): string | null {
-    return inboxThreadRowFrom(thread, this.recipientForThread(thread));
+    return inboxThreadRowFrom(thread);
+  }
+
+  inboxThreadRowPreview = inboxThreadRowPreview;
+
+  startColumnResize(event: PointerEvent, edge: InboxColumnResizeEdge): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const left = (event.currentTarget as HTMLElement).parentElement as HTMLElement;
+    const right = left.nextElementSibling as HTMLElement | null;
+    const leftBox = left.getBoundingClientRect();
+    const rightBox = right?.getBoundingClientRect();
+    const pairWidth = Math.max((rightBox ? rightBox.right : leftBox.right) - leftBox.left, 1);
+    const startShare = {...this.columnShare};
+    const move = (pointer: PointerEvent) => {
+      const leftPx = Math.min(Math.max(pointer.clientX - leftBox.left, 48), pairWidth - 48);
+      const rightPx = pairWidth - leftPx;
+      const next = {...startShare};
+      if (edge === InboxColumnResizeEdge.FROM) {
+        const scale = (startShare.from + startShare.to) / pairWidth;
+        next.from = leftPx * scale;
+        next.to = rightPx * scale;
+      } else if (edge === InboxColumnResizeEdge.TO) {
+        const scale = (startShare.to + startShare.subject) / pairWidth;
+        next.to = leftPx * scale;
+        next.subject = rightPx * scale;
+      } else {
+        const scale = (startShare.subject + startShare.date) / pairWidth;
+        next.subject = leftPx * scale;
+        next.date = rightPx * scale;
+      }
+      this.columnShare = next;
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.localStorage.setItem("inbox-column-share", JSON.stringify(this.columnShare));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  }
+
+  sentPartyLabel(thread: InboxThread, from: boolean): string {
+    const address = from ? thread.sentFrom : thread.externalAddress;
+    return addressLabel(address) || (from ? this.sentFromLabel(thread) : "Unknown recipient");
   }
 
   sentFromLabel(thread: InboxThread): string {
@@ -2532,14 +2637,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     if (deliveredTo) {
       return deliveredTo;
     }
-    const aliasEmail = this.recipientForThread(this.selectedThread);
-    if (aliasEmail) {
-      return aliasEmail;
-    }
-    if (isInboxGeneralRoleType(this.selectedThread.roleType)) {
-      return "Other inbox mail";
-    }
-    return null;
+    const aliasAddress = this.recipientForThread(this.selectedThread);
+    return aliasAddress
+      ? this.formatAddress(aliasAddress)
+      : isInboxGeneralRoleType(this.selectedThread.roleType) ? "Other inbox mail" : null;
   }
 
   renderableBody(message: InboxMessage): string {

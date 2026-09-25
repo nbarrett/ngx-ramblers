@@ -12,17 +12,21 @@ import { RouterHistoryService } from "../services/router-history.service";
 import { SystemConfigService } from "../services/system/system-config.service";
 import { SiteEditComponent } from "../site-edit/site-edit.component";
 import { InboxNotificationBadgeComponent } from "../modules/common/inbox-notification-badge/inbox-notification-badge.component";
+import { AsyncPipe } from "@angular/common";
+import { ViewAsToggle } from "../modules/common/view-as-toggle/view-as-toggle";
+import { ViewAsService } from "../services/member/view-as.service";
 
 @Component({
     selector: "app-login-panel",
     templateUrl: "./login-panel.component.html",
     styleUrls: ["./login-panel.component.sass"],
-    imports: [SiteEditComponent, InboxNotificationBadgeComponent]
+    imports: [SiteEditComponent, InboxNotificationBadgeComponent, ViewAsToggle, AsyncPipe]
 })
 export class LoginPanelComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("LoginPanelComponent", NgxLoggerLevel.ERROR);
   private memberLoginService = inject(MemberLoginService);
+  protected viewAs = inject(ViewAsService);
   private authService = inject(AuthService);
   private modalService = inject(BsModalService);
   private systemConfigService = inject(SystemConfigService);

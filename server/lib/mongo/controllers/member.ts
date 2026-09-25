@@ -6,7 +6,6 @@ import { envConfig } from "../../env-config/env-config";
 import { member } from "../models/member";
 import * as crudController from "./crud-controller";
 import * as transforms from "./transforms";
-import * as querystring from "querystring";
 import * as authConfig from "../../auth/auth-config";
 import { DeleteDocumentsRequest, Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
@@ -232,7 +231,8 @@ export function findByPasswordResetId(req: Request, res: Response) {
 }
 
 export function findOne(req: Request, res: Response) {
-  const conditions = querystring.parse(req.query as any);
-  debugLog("find - by conditions", req.query, "conditions:", conditions);
-  findByConditions(req.query, undefined, res, req);
+  const raw = req.query?.criteria;
+  const criteria = isString(raw) ? JSON.parse(raw) : req.query;
+  debugLog("find - by conditions", req.query, "criteria:", criteria);
+  findByConditions(criteria, undefined, res, req);
 }
