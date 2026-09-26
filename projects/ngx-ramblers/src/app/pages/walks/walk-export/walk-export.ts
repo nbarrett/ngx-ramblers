@@ -943,7 +943,10 @@ export class WalkExport implements OnInit, OnDestroy {
         suppressEventLinking: true,
         types: [RamblersEventType.GROUP_WALK],
         dataQueryOptions: {
-          criteria: {[GroupEventField.START_DATE]: {$gte: this.dateUtils.isoDateTimeNow()}},
+          criteria: {
+            [GroupEventField.START_DATE]: {$gte: this.dateUtils.isoDateTimeNow()},
+            ...this.extendedGroupEventQueryService.excludingDeletedEventsCriteria()
+          },
           sort: {[GroupEventField.START_DATE]: -1}
         }
       });
