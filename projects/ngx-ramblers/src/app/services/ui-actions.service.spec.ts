@@ -61,6 +61,14 @@ describe("UiActionsService", () => {
         expect(service.initialBooleanValueFor("missing-bool", "false")).toBe(false);
     });
 
+    it("names query parameters like story: first unindexed, later rows numbered", () => {
+        expect(service.queryParameterName(StoredValue.STORY)).toEqual("story");
+        expect(service.queryParameterName(StoredValue.STORY, 0)).toEqual("story");
+        expect(service.queryParameterName(StoredValue.STORY, 1)).toEqual("story-1");
+        expect(service.queryParameterName(StoredValue.SEARCH, 1)).toEqual("search-1");
+        expect(service.queryParameterName(StoredValue.WALK_SELECT_TYPE, 2)).toEqual("walk-select-type-2");
+    });
+
     it("saves values and removes them", () => {
         service.saveValueFor(StoredValue.SEARCH, "needle");
         expect(storage[StoredValue.SEARCH]).toEqual("needle");

@@ -25,7 +25,6 @@ import { move } from "../functions/arrays";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
-import { KeyValue } from "../functions/enums";
 import { UrlService } from "./url.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../models/map.model";
 import { MapDefaultsService } from "./maps/map-defaults.service";
@@ -855,14 +854,21 @@ export class PageContentActionsService {
     return this.firstRowOfTypeHrefs(pageContent, pageContentType).indexOf(href);
   }
 
+  rowIndexAmong(row: PageContentRow, viewablePageContent: PageContent, include: (item: PageContentRow) => boolean, keyOf?: (item: PageContentRow) => string): number {
+    const matches = (viewablePageContent?.rows || []).filter(include);
+    if (keyOf) {
+      return matches.findIndex(item => keyOf(item) === keyOf(row));
+    } else {
+      return matches.indexOf(row);
+    }
+  }
+
   carouselOrAlbumIndex(row: PageContentRow, viewablePageContent: PageContent): number {
-    this.logger.debug("carouselOrAlbumIndex:for:", row);
-    const carouselNameIndexes: KeyValue<number>[] = viewablePageContent?.rows
-      .filter(item => this.isCarouselOrAlbum(item))
-      .map((row, index) => ({key: row?.carousel?.name, value: index}));
-    const numberKeyValue: KeyValue<number> = carouselNameIndexes?.find(item => item.key === row.carousel?.name);
-    this.logger.debug("carouselIndex:for:", row?.carousel?.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
-    return numberKeyValue?.value;
+    return this.rowIndexAmong(row, viewablePageContent, item => this.isCarouselOrAlbum(item), item => item?.carousel?.name);
+  }
+
+  eventsRowIndex(row: PageContentRow, viewablePageContent: PageContent): number {
+    return this.rowIndexAmong(row, viewablePageContent, item => this.isEvents(item));
   }
 
   public editActive(rowIndex: number) {

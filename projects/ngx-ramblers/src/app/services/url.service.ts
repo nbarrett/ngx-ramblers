@@ -106,6 +106,21 @@ export class UrlService {
     }
   }
 
+  rememberListUrl(): void {
+    window.sessionStorage.setItem("ngx-list-return-url", this.location.path());
+  }
+
+  backToRememberedList(area: string): void {
+    const returnUrl = window.sessionStorage.getItem("ngx-list-return-url");
+    if (returnUrl) {
+      this.router.navigateByUrl(returnUrl);
+    } else if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      this.navigateTo([area]);
+    }
+  }
+
   navigateToUrl(url: string, $event: MouseEvent) {
     if (!this.siteEdit.active()) {
       const controlOrMetaKey: boolean = $event.ctrlKey || $event.metaKey;

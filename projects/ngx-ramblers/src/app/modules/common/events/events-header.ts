@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -10,7 +10,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
-import { NgClass, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { DateFilterParameters } from "../../../models/search.model";
@@ -19,6 +19,8 @@ import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination"
 import { EventsData } from "../../../models/group-events.model";
 import { ExtendedGroupEvent, HasStartAndEndTime } from "../../../models/group-event.model";
 import { UrlService } from "../../../services/url.service";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-events-header",
@@ -26,13 +28,13 @@ import { UrlService } from "../../../services/url.service";
   @if (showSearchAndFilter()) {
     <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
   }
-  <div class="d-flex flex-column flex-md-row events-header-full-width">
+  <div class="d-flex flex-column flex-md-row align-items-md-center gap-2 events-header-full-width mb-2">
     @if (showPagination && (!eventsData || eventsData?.allow?.pagination)) {
-      <pagination class="rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
+      <pagination class="rounded mb-0" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
                   [totalItems]="totalItems" [itemsPerPage]="itemsPerPage" [(ngModel)]="pageNumber"
                   (pageChanged)="pageChanged.emit($event)"/>
     }
-    <div class="form-group mb-0 flex-grow-1 mt-md-0">
+    <div class="flex-grow-1 min-w-0">
       <ng-container *ngTemplateOutlet="alert"/>
     </div>
   </div>
@@ -40,7 +42,7 @@ import { UrlService } from "../../../services/url.service";
   <div class="row">
     <div class="col-sm-10">
       @if (!eventsData || eventsData?.allow?.autoTitle) {
-        <h2>{{ display.groupEventsTitle(eventsData?.filterCriteria, fromAndTo()) }}</h2>
+        <h2>{{ display.groupEventsTitle(filterParameters?.selectType || eventsData?.filterCriteria, fromAndTo()) }}</h2>
       }
     </div>
     @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew) && display.eventTypesPopulatedLocally(eventsData)) {
@@ -63,19 +65,23 @@ import { UrlService } from "../../../services/url.service";
     }
   </div>
   <ng-template #alert>
-    @if ((!eventsData || eventsData?.allow?.alert) && notifyTarget.showAlert) {
-      <div class="alert {{notifyTarget.alertClass}}">
-        <fa-icon [icon]="notifyTarget.alert.icon"/>
-        <strong>{{ notifyTarget.alertTitle }}</strong>
-        {{ notifyTarget.alertMessage }}
+    @if (notifyTarget.showAlert) {
+      <div class="alert {{notifyTarget.alertClass}} d-flex align-items-center gap-2 mb-0">
+        <fa-icon class="flex-shrink-0" [icon]="notifyTarget.busy ? faSpinner : notifyTarget.alert.icon" [animation]="notifyTarget.busy ? 'spin' : undefined"/>
+        <div class="d-flex flex-wrap align-items-baseline gap-2 min-w-0">
+          @if (notifyTarget.alertTitle) {
+            <strong>{{ notifyTarget.alertTitle }}</strong>
+          }
+          <span>{{ notifyTarget.alertMessage }}</span>
+        </div>
       </div>
     }
   </ng-template>
 
   <ng-template #searchAndFilterActions>
-    <div class="d-lg-flex">
+    <div class="d-flex flex-column flex-lg-row gap-2 mb-2">
       @if (!eventsData || eventsData?.allow?.quickSearch) {
-        <div class="form-group flex-grow-1" [ngClass]="{'me-lg-3 ':configureFilterCriteria()||configureSortOrder()}">
+        <div class="form-group mb-0 flex-grow-1">
           <div class="input-group">
             <span class="input-group-text rounded" (click)="setFocusTo(input)"><fa-icon [icon]="faSearch"/></span>
             <input #input [(ngModel)]="filterParameters.quickSearch"
@@ -87,10 +93,11 @@ import { UrlService } from "../../../services/url.service";
         </div>
       }
       @if (configureFilterCriteria()) {
-        <div class="form-group me-lg-3">
+        <div class="form-group mb-0">
           <select [(ngModel)]="filterParameters.selectType"
+                  [disabled]="notifyTarget.busy"
                   (ngModelChange)="refreshEvents('change filterParameters.selectType')" name="selectType"
-                  class="form-control rounded me-3">
+                  class="form-control rounded">
             @for (dateCriteria of display.filterCriteriaOptionsFor(BASIC_FILTER_OPTIONS); track dateCriteria.value) {
               <option
                 [ngValue]="dateCriteria.key">{{ dateCriteria.value }}
@@ -100,8 +107,9 @@ import { UrlService } from "../../../services/url.service";
         </div>
       }
       @if (configureSortOrder()) {
-        <div class="form-group">
+        <div class="form-group mb-0">
           <select [(ngModel)]="filterParameters.fieldSort"
+                  [disabled]="notifyTarget.busy"
                   (ngModelChange)="refreshEvents('change filterParameters.fieldSort')" name="sortOrder"
                   class="form-control rounded">
             <option value="-1">Date Descending</option>
@@ -117,7 +125,7 @@ import { UrlService } from "../../../services/url.service";
       padding-left: 20px
       margin-right: 8px
   `,
-  imports: [NgTemplateOutlet, FontAwesomeModule, FormsModule, PaginationComponent, NgClass]
+  imports: [NgTemplateOutlet, FontAwesomeModule, FormsModule, PaginationComponent]
 })
 export class EventsHeader implements OnInit, OnDestroy {
 
@@ -127,8 +135,10 @@ export class EventsHeader implements OnInit, OnDestroy {
   display = inject(GroupEventDisplayService);
   walkDisplay = inject(WalkDisplayService);
   private urlService: UrlService = inject(UrlService);
+  private uiActionsService = inject(UiActionsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   faSearch = faSearch;
+  faSpinner = faSpinner;
   private subscriptions: Subscription[] = [];
   public showPagination = false;
   private searchChangeObservable: Subject<string> = new Subject<string>();
@@ -140,6 +150,7 @@ export class EventsHeader implements OnInit, OnDestroy {
   @Input() public pageNumber!: number;
   @Input() totalItems!: number;
   @Input() itemsPerPage = 10;
+  @Input() queryIndex = 0;
 
   showSearchAndFilter(): boolean {
     return !this.eventsData || this.eventsData?.allow?.advancedSearch;
@@ -152,9 +163,14 @@ export class EventsHeader implements OnInit, OnDestroy {
         this.showPagination = show.data;
       })
     );
-    this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(1000))
+    this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
-      .subscribe(searchTerm => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm))));
+      .subscribe(searchTerm => {
+        const term = (searchTerm || "").trim();
+        this.uiActionsService.saveValueFor(StoredValue.SEARCH, term, this.queryIndex);
+        this.uiActionsService.updateQueryParameter(StoredValue.SEARCH, term || null, true, this.queryIndex);
+        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm));
+      }));
   }
 
   fromAndTo(): HasStartAndEndTime {

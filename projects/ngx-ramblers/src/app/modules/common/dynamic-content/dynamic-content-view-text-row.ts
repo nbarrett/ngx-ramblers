@@ -68,7 +68,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                     [index]="actions.carouselOrAlbumIndex(nestedRow, {rows: column.rows})"/>
                 }
                 @if (actions.isEvents(nestedRow)) {
-                  <app-events-row [row]="nestedRow" [rowIndex]="innerRowIndex"/>
+                  <app-events-row [row]="nestedRow" [rowIndex]="innerRowIndex" [queryIndex]="actions.eventsRowIndex(nestedRow, {rows: column.rows})"/>
                 }
                 @if (actions.isAreaMap(nestedRow)) {
                   <app-area-map [row]="nestedRow" [pageContent]="{rows: column.rows}"/>
@@ -109,7 +109,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                         [index]="actions.carouselOrAlbumIndex(fragmentRow, fragmentContentFor(nestedRow))"/>
                     }
                     @if (actions.isEvents(fragmentRow)) {
-                      <app-events-row [row]="fragmentRow" [rowIndex]="fragmentRowIndex"/>
+                      <app-events-row [row]="fragmentRow" [rowIndex]="fragmentRowIndex" [queryIndex]="actions.eventsRowIndex(fragmentRow, fragmentContentFor(nestedRow))"/>
                     }
                     @if (actions.isAreaMap(fragmentRow)) {
                       <app-area-map [row]="fragmentRow" [pageContent]="fragmentContentFor(nestedRow)"/>

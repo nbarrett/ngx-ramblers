@@ -16,7 +16,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 @Component({
   selector: "app-event-cards-list",
   template: `
-    <div class="row">
+    <div class="row" [class.opacity-50]="notifyTarget?.busy" [class.pe-none]="notifyTarget?.busy">
       @for (extendedGroupEvent of currentPageFilteredEvents; track eventKey(extendedGroupEvent); let index = $index) {
         <div [ngClass]="slideClasses()">
           @if (extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT) {

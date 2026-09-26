@@ -64,7 +64,7 @@ import { DynamicContentViewMigrationNote } from "./dynamic-content-view-migratio
             <app-committee-documents-row [row]="row" [rowIndex]="rowIndex"/>
           }
           @if (actions.isEvents(row)) {
-            <app-events-row [row]="row" [rowIndex]="rowIndex"/>
+            <app-events-row [row]="row" [rowIndex]="rowIndex" [queryIndex]="actions.eventsRowIndex(row, viewablePageContent)"/>
           }
           @if (actions.isAreaMap(row)) {
             <app-area-map [row]="row" [pageContent]="viewablePageContent"/>

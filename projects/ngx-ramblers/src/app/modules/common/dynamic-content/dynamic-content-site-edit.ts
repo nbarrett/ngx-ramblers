@@ -677,7 +677,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                   <app-dynamic-content-site-edit-committee-documents [row]="row" [rowIndex]="rowIndex"/>
                 }
                 @if (actions.isEvents(row)) {
-                  <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
+                  <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex" [queryIndex]="actions.eventsRowIndex(row, pageContent)"/>
                 }
                 @if (actions.isAreaMap(row)) {
                   <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"

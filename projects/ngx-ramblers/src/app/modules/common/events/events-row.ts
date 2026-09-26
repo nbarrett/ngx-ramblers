@@ -15,7 +15,7 @@ import { Events } from "./events";
     template: `
     <div [class]="actions.rowClasses(row)">
       <div class="col-sm-12">
-        <app-events [eventsData]="row.events"/>
+        <app-events [eventsData]="row.events" [queryIndex]="queryIndex"/>
       </div>
     </div>`,
     imports: [Events]
@@ -36,6 +36,7 @@ export class EventsRow implements OnInit {
   @Input()
   public row: PageContentRow;
   @Input() rowIndex: number;
+  @Input() queryIndex = 0;
 
   ngOnInit() {
     this.logger.debug("row:", this.row);

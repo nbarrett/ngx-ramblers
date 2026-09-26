@@ -220,8 +220,9 @@ import { StoredValue } from "../../../models/ui-actions";
                 <fa-icon [icon]="notifyTarget.alert.icon"/>
                 <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
                 {{ notifyTarget.alertMessage }}
-                <a [routerLink]="'/' + display.groupEventArea()" type="button"
-                   class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
+                <a [href]="'/' + display.groupEventArea()" type="button"
+                   class="rams-text-decoration-pink"
+                   (click)="backToList($event)">Back to {{ pageService.areaTitle() }}</a>
               </div>
             }
           </div>
@@ -268,6 +269,11 @@ export class GroupEventView implements OnInit {
   faFile = faFile;
   public links: Links = null;
   public image: BasicMedia;
+
+  backToList($event: Event): void {
+    $event.preventDefault();
+    this.urlService.backToRememberedList(this.display.groupEventArea());
+  }
 
   ngOnInit() {
     this.logger.info("ngOnInit:groupEvent:", this.groupEvent);
