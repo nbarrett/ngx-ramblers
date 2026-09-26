@@ -208,7 +208,17 @@ export class AppShellService {
       try {
         const response = await view.fetch("/manifest.webmanifest", {cache: "no-store"});
         const manifest = await response.json();
-        const next = {...manifest, name, short_name: name};
+        const icons = (manifest.icons ?? []).map(icon => ({
+          ...icon,
+          src: new URL(icon.src, view.location.origin).href
+        }));
+        const next = {
+          ...manifest,
+          name,
+          short_name: name,
+          start_url: new URL(manifest.start_url, view.location.origin).href,
+          icons
+        };
         const url = URL.createObjectURL(new Blob([JSON.stringify(next)], {type: "application/manifest+json"}));
         const link = this.document.querySelector("link[rel=\"manifest\"]");
         if (link) {
