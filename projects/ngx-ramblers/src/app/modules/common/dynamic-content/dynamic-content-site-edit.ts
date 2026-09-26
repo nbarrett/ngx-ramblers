@@ -51,6 +51,7 @@ import {
 } from "../../../models/content-text.model";
 import { SortDirection } from "../../../models/sort.model";
 import { TextMatchPattern } from "../../../models/page-transformation.model";
+import { AccessLevel } from "../../../models/member-resource.model";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -361,12 +362,17 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                   </div>
                 </div>
               }
-              <div class="thumbnail-site-edit-top-bottom-margins" (dragover)="onRowDragOver(rowIndex, $event)"
+              <div class="thumbnail-site-edit-top-bottom-margins"
+                   [class.row-hidden-in-edit]="rowAccessLevel(row) === AccessLevel.HIDDEN"
+                   (dragover)="onRowDragOver(rowIndex, $event)"
                    (drop)="onRowDrop(rowIndex)">
                 <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)"
                      (dragend)="onRowDragEnd()" [tooltip]="rowDragTooltip(rowIndex)"
                      [isOpen]="!!rowDragTooltip(rowIndex)" container="body" triggers="">
                   {{ actions.rowHeading(rowIndex, row?.columns.length) }}
+                  @if (rowAccessLevel(row) === AccessLevel.HIDDEN) {
+                    <span class="badge bg-warning text-dark ms-2">Hidden</span>
+                  }
                   @if (isMigrationTemplateSelected()) {
                     @let mappingSummary = templateMappingSummary(row, rowIndex);
                     @if (mappingSummary) {
@@ -402,6 +408,18 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                         <div app-margin-select label="Column gap" [data]="row" field="gutter"
                              noneLabel="default" [minValue]="0" [maxValue]="5"></div>
                       }
+                      <div class="form-group mb-0">
+                        <label [for]="'row-access-' + rowIndex">Access</label>
+                        <select class="form-control input-sm"
+                                [id]="'row-access-' + rowIndex"
+                                [name]="'row-access-' + rowIndex"
+                                [ngModel]="rowAccessLevel(row)"
+                                (ngModelChange)="onRowAccessLevelChange(row, $event)">
+                          @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
+                            <option [textContent]="accessLevel.description" [ngValue]="accessLevel.id"></option>
+                          }
+                        </select>
+                      </div>
                     </div>
                     <div class="d-inline-flex align-items-end flex-wrap gap-3 ms-auto"
                          [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
@@ -902,6 +920,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected siteEditService = inject(SiteEditService);
   private indexService = inject(IndexService);
   protected memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  protected readonly AccessLevel = AccessLevel;
   protected urlService = inject(UrlService);
   public albumWorkflow = false;
   public routeWorkflow = true;
@@ -1523,6 +1542,21 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       }
     }
     return "";
+  }
+
+  rowAccessLevel(row: PageContentRow): AccessLevel {
+    if (row?.accessLevel) {
+      return row.accessLevel;
+    } else if (row?.hidden) {
+      return AccessLevel.HIDDEN;
+    } else {
+      return AccessLevel.PUBLIC;
+    }
+  }
+
+  onRowAccessLevelChange(row: PageContentRow, accessLevel: AccessLevel) {
+    row.accessLevel = accessLevel;
+    row.hidden = null;
   }
 
   isConfigurationOnlyMapping(rowIndex: number): boolean {

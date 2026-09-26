@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
+import { AccessLevel } from "../../../models/member-resource.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { AlertInstance } from "../../../services/notifier.service";
@@ -193,7 +194,13 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   }
 
   private rowIsVisible(row: PageContentRow): boolean {
-    return (row.columns || []).length === 0 || this.columnsFilteredForAccessLevel(row.columns).length > 0;
+    const accessLevel = row.accessLevel || (row.hidden ? AccessLevel.HIDDEN : null);
+    const accessLevelData = accessLevel ? this.memberResourcesReferenceData.accessLevelFor(accessLevel) : null;
+    if (accessLevelData && !accessLevelData.filter()) {
+      return false;
+    } else {
+      return (row.columns || []).length === 0 || this.columnsFilteredForAccessLevel(row.columns).length > 0;
+    }
   }
 
   private async loadSharedFragments(pageContent: PageContent) {
