@@ -96,6 +96,18 @@ describe("WalkDisplayService", () => {
                 .toEqual(WalksReferenceService.walkAccessModes.edit);
         });
 
+        it("should return edit for an admin when a local walk is awaiting a leader", () => {
+            spy = vi.spyOn(memberLoginService, "memberLoggedIn").mockReturnValue(true);
+            spy = vi.spyOn(memberLoginService, "allowWalkAdminEdits").mockReturnValue(true);
+            spy = vi.spyOn(memberLoginService, "loggedInMember").mockReturnValue({ memberId: "admin-member-id" } as any);
+            const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
+            const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+            const awaitingLeaderEvent: any = { eventType: EventType.AWAITING_LEADER };
+            service.group = { walkPopulation: EventPopulation.LOCAL } as Organisation;
+            expect(service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, awaitingLeaderEvent, walkLeaderMemberId)))
+                .toEqual(WalksReferenceService.walkAccessModes.edit);
+        });
+
         it("should return edit if user is logged in and not admin but is leader", () => {
             spy = vi.spyOn(memberLoginService, "memberLoggedIn").mockReturnValue(true);
             spy = vi.spyOn(memberLoginService, "allowWalkAdminEdits").mockReturnValue(false);
@@ -107,7 +119,7 @@ describe("WalkDisplayService", () => {
                 .toEqual(WalksReferenceService.walkAccessModes.edit);
         });
 
-        it("should return lead if user is logged in and not admin and walk doest have a leader", () => {
+        it("should return lead if user is logged in and not admin and walk does not have a leader", () => {
             spy = vi.spyOn(memberLoginService, "memberLoggedIn").mockReturnValue(true);
             spy = vi.spyOn(memberLoginService, "allowWalkAdminEdits").mockReturnValue(false);
             spy = vi.spyOn(memberLoginService, "loggedInMember").mockReturnValue({ memberId: "leader-id" } as any);
@@ -151,7 +163,7 @@ describe("WalkDisplayService", () => {
     describe("contactEmailHref", () => {
         it("returns mailto for plain email addresses", () => {
             const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-            expect(service.contactEmailHref("oliver.parkes@hotmail.co.uk")).toEqual("mailto:oliver.parkes@hotmail.co.uk");
+            expect(service.contactEmailHref("alex.member@example.org")).toEqual("mailto:alex.member@example.org");
         });
 
         it("returns http links unchanged", () => {
@@ -162,7 +174,7 @@ describe("WalkDisplayService", () => {
 
         it("normalises existing mailto values", () => {
             const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-            expect(service.contactEmailHref("mailto:oliver.parkes@hotmail.co.uk")).toEqual("mailto:oliver.parkes@hotmail.co.uk");
+            expect(service.contactEmailHref("mailto:alex.member@example.org")).toEqual("mailto:alex.member@example.org");
         });
 
         it("returns null for non-email non-url values", () => {

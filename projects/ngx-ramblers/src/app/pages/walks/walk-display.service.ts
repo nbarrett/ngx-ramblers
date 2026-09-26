@@ -448,13 +448,13 @@ export class WalkDisplayService {
       return WalksReferenceService.walkAccessModes.view;
     }
     const eventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
-    if (eventType === EventType.AWAITING_LEADER && this.walkPopulationLocal()) {
-      return {...WalksReferenceService.walkAccessModes.lead, walkWritable: true};
-    }
-    if (this.loggedInMemberIsLeadingWalk(walk) || this.memberLoginService.allowWalkAdminEdits()) {
+    if (this.memberLoginService.allowWalkAdminEdits() || this.loggedInMemberIsLeadingWalk(walk)) {
       return {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
+    } else if (eventType === EventType.AWAITING_LEADER && this.walkPopulationLocal()) {
+      return {...WalksReferenceService.walkAccessModes.lead, walkWritable: true};
+    } else {
+      return WalksReferenceService.walkAccessModes.view;
     }
-    return WalksReferenceService.walkAccessModes.view;
   }
 
   toDisplayedWalk(extendedGroupEvent: ExtendedGroupEvent): DisplayedWalk {
