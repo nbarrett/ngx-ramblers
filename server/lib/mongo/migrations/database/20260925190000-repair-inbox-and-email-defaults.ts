@@ -3,7 +3,7 @@ import { InboxMessage, InboxMessageDirection, InboxReaderProvider, InboxThreadFo
 import { normaliseEmail } from "../../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { dateTimeNow } from "../../../shared/dates";
 import createMigrationLogger from "../migrations-logger";
-import { INBOX_MESSAGES_COLLECTION, INBOX_THREADS_COLLECTION } from "../shared/collection-names";
+import { INBOX_MESSAGES_COLLECTION, INBOX_THREADS_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
 
 const debugLog = createMigrationLogger("repair-inbox-and-email-defaults");
 
@@ -94,11 +94,31 @@ async function moveOutboundOnlyThreadsToSent(db: Db): Promise<void> {
   debugLog("Moved %s outbound-only conversation(s) from Inbox to Sent", result.modifiedCount);
 }
 
+async function setNewsletterAsDefaultEmailType(db: Db): Promise<void> {
+  const collection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
+  const newsletterCriteria = {"subject.text": /^Newsletter$/i};
+  const newsletterCount = await collection.countDocuments(newsletterCriteria);
+  if (newsletterCount > 0) {
+    const cleared = await collection.updateMany(
+      {defaultListing: true, "subject.text": {$not: /^Newsletter$/i}},
+      {$set: {defaultListing: false}}
+    );
+    const set = await collection.updateMany(
+      newsletterCriteria,
+      {$set: {defaultListing: true}}
+    );
+    debugLog("Set Newsletter as default email type on %s configuration(s); cleared %s other default(s)", set.modifiedCount, cleared.modifiedCount);
+  } else {
+    debugLog("No Newsletter configuration found; existing default email type left unchanged");
+  }
+}
+
 export async function up(db: Db, _client: MongoClient): Promise<void> {
   await repairMisclassifiedInboundMessages(db);
   await moveOutboundOnlyThreadsToSent(db);
+  await setNewsletterAsDefaultEmailType(db);
 }
 
 export async function down(_db: Db, _client: MongoClient): Promise<void> {
-  debugLog("Repaired inbox folders are left as they are");
+  debugLog("Repaired inbox folders and Newsletter default email type are left as they are");
 }
