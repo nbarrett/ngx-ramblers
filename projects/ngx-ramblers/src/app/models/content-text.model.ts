@@ -316,6 +316,7 @@ export interface PageContentRow extends HasColumnRange {
   migrationPlaceholder?: boolean;
   migrationNote?: MigrationNoteData;
   hidden?: boolean;
+  accessLevel?: AccessLevel;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
