@@ -181,7 +181,7 @@ import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
             <div class="col-md-4">
               <div class="form-group">
                 <label for="from-date-{{id}}">Select Events From</label>
-                <app-date-picker startOfDay
+                <app-date-picker    startOfDay
                                  [disabled]="row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
                                  id="from-date-{{id}}"
                                  [size]="'md round'"
@@ -289,7 +289,7 @@ import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
         }
       }
     }
-    <app-events-row [row]="row" [rowIndex]="rowIndex"/>`,
+    <app-events-row [row]="row" [rowIndex]="rowIndex" [queryIndex]="queryIndex"/>`,
   imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent, GroupEventSelectorComponent, DateRangeSlider, TagEditorComponent]
 })
 export class DynamicContentSiteEditEvents implements OnInit {
@@ -311,6 +311,7 @@ export class DynamicContentSiteEditEvents implements OnInit {
   @Input()
   public row: PageContentRow;
   @Input() rowIndex: number;
+  @Input() queryIndex = 0;
   faPencil = faPencil;
   faAdd = faAdd;
   id: string;

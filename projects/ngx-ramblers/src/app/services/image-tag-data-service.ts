@@ -6,7 +6,7 @@ import { ALL_PHOTOS, ImageTag, RECENT_PHOTOS } from "../models/content-metadata.
 import { findTag, tagsSorted } from "../functions/tags";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StoredValue } from "../models/ui-actions";
-import { StringUtilsService } from "./string-utils.service";
+import { UiActionsService } from "./ui-actions.service";
 
 @Injectable({
   providedIn: "root"
@@ -14,7 +14,7 @@ import { StringUtilsService } from "./string-utils.service";
 export class ImageTagDataService {
   private logger: Logger = inject(LoggerFactory).createLogger("ImageTagDataService", NgxLoggerLevel.ERROR);
   private router = inject(Router);
-  private stringUtils = inject(StringUtilsService);
+  private uiActions = inject(UiActionsService);
 
   recentPhotosPlusImageTagsPlusAll(imageTags: ImageTag[]): ImageTag[] {
     return [RECENT_PHOTOS].concat(tagsSorted(imageTags)).concat(ALL_PHOTOS);
@@ -65,6 +65,6 @@ export class ImageTagDataService {
   }
 
   public storyParameterName(index: number): string {
-    return this.stringUtils.kebabCase(StoredValue.STORY, index > 0 ? index : null);
+    return this.uiActions.queryParameterName(StoredValue.STORY, index);
   }
 }

@@ -18,6 +18,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { UrlService } from "../../../services/url.service";
 import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { EventsHeader } from "./events-header";
@@ -36,6 +37,8 @@ import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { enumValues } from "../../../functions/enums";
 import {groupEventIdsCriteria} from "../../../functions/group-event-id-criteria";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
 
 @Component({
     selector: "app-events",
@@ -43,9 +46,9 @@ import {groupEventIdsCriteria} from "../../../functions/group-event-id-criteria"
       @if (eventsData?.allow?.viewSelector) {
         <app-events-full [eventsData]="eventsData"/>
       } @else {
-        <app-events-header [totalItems]="extendedGroupEvents?.length" [filterParameters]="filterParameters" [currentPageFilteredEvents]="currentPageFilteredEvents"
+        <app-events-header [totalItems]="filteredExtendedGroupEvents?.length" [filterParameters]="filterParameters" [currentPageFilteredEvents]="currentPageFilteredEvents"
                            [notifyTarget]="notifyTarget" [eventsData]="eventsData" [pageNumber]="pageNumber"
-                           [itemsPerPage]="pageSize"
+                           [itemsPerPage]="pageSize" [queryIndex]="queryIndex"
                            (pageChanged)="pageChanged($event)"/>
         <app-event-cards-list [eventsData]="eventsData"
                               [notifyTarget]="notifyTarget"
@@ -68,6 +71,8 @@ export class Events implements OnInit, OnDestroy {
   walkDisplayService = inject(WalkDisplayService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private route = inject(ActivatedRoute);
+  private uiActionsService = inject(UiActionsService);
+  private urlService = inject(UrlService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
   protected dateUtils = inject(DateUtilsService);
@@ -89,12 +94,15 @@ export class Events implements OnInit, OnDestroy {
   public currentPageFilteredEvents: ExtendedGroupEvent[] = this.filteredExtendedGroupEvents;
   public walksConfig: WalksConfig;
   @Input() rowIndex: number;
+  @Input() queryIndex = 0;
   public eventsData: EventsData;
   private appliedEventsDataKey: string = null;
   private eventsInitialised = false;
 
   @Input("eventsData") set acceptEventsData(eventsData: EventsData) {
     this.eventsData = eventsData;
+    this.applyEventsDataToFilters(eventsData);
+    this.applyFilterQueryParams(this.route.snapshot.queryParamMap);
     const nextKey = this.eventsDataKey(eventsData);
     if (nextKey !== this.appliedEventsDataKey) {
       this.appliedEventsDataKey = nextKey;
@@ -120,13 +128,14 @@ export class Events implements OnInit, OnDestroy {
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
     this.subscriptions.push(this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents()));
     this.subscriptions.push(this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToGroupEvents(searchTerm)));
+    this.subscriptions.push(this.route.queryParamMap.subscribe(params => this.applyFilterQueryParams(params)));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const groupEventId = paramMap.get("relativePath");
       this.logger.info("groupEventId from route params:", paramMap, groupEventId);
       if (groupEventId) {
         this.groupEventId = groupEventId;
       }
-      this.pageService.setTitle("Home");
+      this.applyPageTitle();
     }));
     this.eventsInitialised = true;
   }
@@ -156,7 +165,8 @@ export class Events implements OnInit, OnDestroy {
   }
 
   public refreshEvents() {
-    this.notify.setBusy();
+    this.persistFilterQueryParams();
+    this.notify.progress({title: "Events", message: "Querying events"}, true);
     const dataQueryOptions: DataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
     this.logger.info("refreshEvents:dataQueryOptions", dataQueryOptions, "eventIds:", this?.eventsData?.eventIds);
     this.queryAndReturnEvents(dataQueryOptions)
@@ -210,8 +220,79 @@ export class Events implements OnInit, OnDestroy {
     return {$and: clauses};
   }
 
+  private applyFilterQueryParams(params: ParamMap): void {
+    const type = params.get(this.uiActionsService.queryParameterName(StoredValue.WALK_SELECT_TYPE, this.queryIndex));
+    const sort = params.get(this.uiActionsService.queryParameterName(StoredValue.WALK_SORT_ASC, this.queryIndex));
+    const search = params.get(this.uiActionsService.queryParameterName(StoredValue.SEARCH, this.queryIndex));
+    if (type) {
+      this.filterParameters.selectType = type.replace(/-/g, "_").toUpperCase() as FilterCriteria;
+    }
+    if (sort !== null) {
+      this.filterParameters.fieldSort = sort === "false" ? MongoSort.DESCENDING : MongoSort.ASCENDING;
+    }
+    if (search !== null) {
+      this.filterParameters.quickSearch = search;
+    }
+  }
+
+  private persistFilterQueryParams(): void {
+    const defaultSelect = this.eventsData?.filterCriteria || FilterCriteria.FUTURE_EVENTS;
+    const defaultAscending = this.normalizedSortOrder(this.eventsData?.sortOrder) !== SortOrder.DATE_DESCENDING;
+    const selectType = this.filterParameters.selectType;
+    const ascending = Number(this.filterParameters.fieldSort) !== MongoSort.DESCENDING;
+    this.uiActionsService.saveValueFor(StoredValue.WALK_SELECT_TYPE, selectType, this.queryIndex);
+    this.uiActionsService.saveValueFor(StoredValue.WALK_SORT_ASC, ascending, this.queryIndex);
+    this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.filterParameters.quickSearch || "", this.queryIndex);
+    const queryParams: StoredValueQueryParameters = {};
+    if (this.eventsData?.allow?.allowFilterChange) {
+      queryParams[StoredValue.WALK_SELECT_TYPE] = selectType === defaultSelect ? null : this.stringUtils.kebabCase(selectType);
+    }
+    if (this.eventsData?.allow?.allowSortChange) {
+      queryParams[StoredValue.WALK_SORT_ASC] = ascending === defaultAscending ? null : (ascending ? "true" : "false");
+    }
+    const term = (this.filterParameters.quickSearch || "").trim();
+    queryParams[StoredValue.SEARCH] = term ? term : null;
+    if (keys(queryParams).length > 0) {
+      this.uiActionsService.updateQueryParameters(queryParams, true, this.queryIndex).then(() => this.urlService.rememberListUrl());
+    } else {
+      this.urlService.rememberListUrl();
+    }
+    this.applyPageTitle();
+  }
+
+  private applyPageTitle(): void {
+    const defaultSelect = this.eventsData?.filterCriteria || FilterCriteria.FUTURE_EVENTS;
+    const defaultAscending = this.normalizedSortOrder(this.eventsData?.sortOrder) !== SortOrder.DATE_DESCENDING;
+    const ascending = Number(this.filterParameters.fieldSort) !== MongoSort.DESCENDING;
+    const extras = [
+      this.filterParameters.selectType && this.filterParameters.selectType !== defaultSelect ? this.stringUtils.asTitle(this.filterParameters.selectType) : null,
+      (this.filterParameters.quickSearch || "").trim() || null,
+      ascending === defaultAscending ? null : this.stringUtils.asTitle(this.resolvedSortOrder())
+    ].filter(part => !!part);
+    this.pageService.setTitle(this.pageService.areaTitle(), ...extras);
+  }
+
+  private applyEventsDataToFilters(eventsData: EventsData): void {
+    if (eventsData?.filterCriteria) {
+      this.filterParameters.selectType = eventsData.filterCriteria;
+    }
+    const configuredSort = this.normalizedSortOrder(eventsData?.sortOrder);
+    if (configuredSort) {
+      this.filterParameters.fieldSort = configuredSort === SortOrder.DATE_DESCENDING ? MongoSort.DESCENDING : MongoSort.ASCENDING;
+    }
+  }
+
+  private resolvedFilterCriteria(): FilterCriteria {
+    if (this.eventsData?.allow?.allowFilterChange && this.filterParameters.selectType) {
+      return this.filterParameters.selectType;
+    } else {
+      return this.eventsData?.filterCriteria || this.filterParameters.selectType;
+    }
+  }
+
   private dateOrEventIdsCriteria() {
-    const {filterCriteria, fromDate, toDate, eventIds, savedCriteria} = this?.eventsData || {};
+    const {fromDate, toDate, eventIds, savedCriteria} = this?.eventsData || {};
+    const filterCriteria = this.resolvedFilterCriteria();
     const today = this.dateUtils.isoDateTimeStartOfDay();
     const hasEventIds = eventIds?.length > 0;
     switch (filterCriteria) {
@@ -278,15 +359,13 @@ export class Events implements OnInit, OnDestroy {
 
   private resolvedSortOrder(): SortOrder {
     const configuredSortOrder = this.normalizedSortOrder(this.eventsData?.sortOrder);
-    if (configuredSortOrder) {
-      if (!this.eventsData?.allow?.allowSortChange) {
-        return configuredSortOrder;
-      }
-    }
-    if (this.filterParameters.fieldSort === MongoSort.DESCENDING) {
+    if (configuredSortOrder && !this.eventsData?.allow?.allowSortChange) {
+      return configuredSortOrder;
+    } else if (Number(this.filterParameters.fieldSort) === MongoSort.DESCENDING) {
       return SortOrder.DATE_DESCENDING;
+    } else {
+      return SortOrder.DATE_ASCENDING;
     }
-    return SortOrder.DATE_ASCENDING;
   }
 
   private normalizedSortOrder(sortOrder: SortOrder | string): SortOrder {
@@ -304,11 +383,10 @@ export class Events implements OnInit, OnDestroy {
 
   applyFilterToGroupEvents(searchTerm?: NamedEvent<string>) {
     this.logger.info("applyFilterToGroupEvents:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.filterParameters.quickSearch);
+    this.persistFilterQueryParams();
     this.notify.setBusy();
     this.filteredExtendedGroupEvents = this.searchFilterPipe.transform(this.extendedGroupEvents, this.filterParameters.quickSearch);
-    const filteredCount = (this.filteredExtendedGroupEvents?.length) || 0;
-    const eventCount = (this.filteredExtendedGroupEvents?.length) || 0;
-    this.notify.progress(`${filteredCount} of ${this.stringUtils.pluraliseWithCount(eventCount, "event")} shown`);
+    this.pageNumber = 1;
     this.applyPagination();
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pages.length > 1));
     this.notify.clearBusy();
@@ -337,7 +415,10 @@ export class Events implements OnInit, OnDestroy {
   }
 
   private applyPagination() {
-    this.pageCount = Math.ceil(this.filteredExtendedGroupEvents.length / this.pageSize);
+    this.pageCount = Math.max(1, Math.ceil((this.filteredExtendedGroupEvents?.length || 0) / this.pageSize));
+    if (this.pageNumber > this.pageCount) {
+      this.pageNumber = 1;
+    }
     this.currentPageFilteredEvents = this.paginate(this.filteredExtendedGroupEvents, this.pageSize, this.pageNumber);
     this.pages = range(1, this.pageCount + 1);
     this.logger.info("applyPagination: current page events:", this.currentPageFilteredEvents);
@@ -345,11 +426,16 @@ export class Events implements OnInit, OnDestroy {
       this.notify.progress("No events found");
     } else {
       const offset = (this.pageNumber - 1) * this.pageSize + 1;
-      const pageIndicator = this.pageCount > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : `page ${this.pageNumber}`;
       const toEventNumber = Math.min(this.currentPageFilteredEvents?.length + offset - 1, this.filteredExtendedGroupEvents?.length || 0);
       this.logger.info("applyPagination: filtered event count", this.filteredExtendedGroupEvents.length, "current page event count", this.currentPageFilteredEvents.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages, "currentPageFilteredEvents:", this.currentPageFilteredEvents, "toEventNumber:", toEventNumber, "offset:", offset);
-      const sortIndicator = this.stringUtils.asTitle(this.resolvedSortOrder());
-      this.notify.progress(`${offset} to ${toEventNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredExtendedGroupEvents.length, "event")}${EM_DASH_WITH_SPACES}${sortIndicator}${EM_DASH_WITH_SPACES}${pageIndicator}`);
+      const totalOnly = this.stringUtils.pluraliseWithCount(this.filteredExtendedGroupEvents.length, "event");
+      const count = this.pageCount <= 1 ? totalOnly : `${offset} to ${toEventNumber} of ${totalOnly}`;
+      const defaultSort = this.normalizedSortOrder(this.eventsData?.sortOrder) || SortOrder.DATE_ASCENDING;
+      const extras = [
+        this.resolvedSortOrder() === defaultSort ? null : this.stringUtils.asTitle(this.resolvedSortOrder()),
+        this.pageCount > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : null
+      ].filter(part => !!part);
+      this.notify.progress(extras.length === 0 ? count : `${count}${EM_DASH_WITH_SPACES}${extras.join(EM_DASH_WITH_SPACES)}`);
     }
   }
 }

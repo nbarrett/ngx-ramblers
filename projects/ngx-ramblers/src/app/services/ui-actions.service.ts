@@ -1,10 +1,10 @@
 import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isObject, isString, kebabCase } from "es-toolkit/compat";
+import { isNumber, isObject, isString, kebabCase, toPairs } from "es-toolkit/compat";
 import { StoredValue, StoredValueQueryParameters } from "../models/ui-actions";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { booleanOf as sharedBooleanOf } from "../functions/strings";
+import { booleanOf as sharedBooleanOf, toKebabCase } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -14,21 +14,29 @@ export class UiActionsService {
   private logger: Logger = inject(LoggerFactory).createLogger("UiActionsService", NgxLoggerLevel.ERROR);
   private router = inject(Router);
 
-  queryParameter(parameter: StoredValue): string | null {
-    return this.router.routerState.snapshot.root.queryParamMap.get(parameter);
+  queryParameterName(parameter: StoredValue, index?: number): string {
+    return toKebabCase(parameter, isNumber(index) && index > 0 ? index : null);
   }
 
-  updateQueryParameter(parameter: StoredValue, value: string | number | boolean | null, replaceUrl = true): Promise<boolean> {
-    return this.updateQueryParameters({[parameter]: value}, replaceUrl);
+  queryParameter(parameter: StoredValue, index?: number): string | null {
+    return this.router.routerState.snapshot.root.queryParamMap.get(this.queryParameterName(parameter, index));
+  }
+
+  updateQueryParameter(parameter: StoredValue, value: string | number | boolean | null, replaceUrl = true, index?: number): Promise<boolean> {
+    return this.updateQueryParameters({[parameter]: value}, replaceUrl, index);
   }
 
   private queryParameterNavigation: Promise<boolean> = Promise.resolve(true);
 
-  updateQueryParameters(parameters: StoredValueQueryParameters, replaceUrl = true): Promise<boolean> {
-    this.logger.debug("updateQueryParameters:", parameters, "replaceUrl:", replaceUrl);
+  updateQueryParameters(parameters: StoredValueQueryParameters, replaceUrl = true, index?: number): Promise<boolean> {
+    const queryParams = toPairs(parameters).reduce((acc, [parameter, value]) => {
+      acc[this.queryParameterName(parameter as StoredValue, index)] = value;
+      return acc;
+    }, {} as Record<string, string | number | boolean | null>);
+    this.logger.debug("updateQueryParameters:", queryParams, "replaceUrl:", replaceUrl, "index:", index);
     this.queryParameterNavigation = this.queryParameterNavigation
       .catch(() => false)
-      .then(() => this.router.navigate([], {queryParams: parameters, queryParamsHandling: "merge", replaceUrl}));
+      .then(() => this.router.navigate([], {queryParams, queryParamsHandling: "merge", replaceUrl}));
     return this.queryParameterNavigation;
   }
 
@@ -66,12 +74,13 @@ export class UiActionsService {
     return this.booleanOf(this.initialValueFor(parameter, defaultValue));
   }
 
-  saveValueFor(parameter: StoredValue, value?: any) {
+  saveValueFor(parameter: StoredValue, value?: any, index?: number) {
     if (parameter) {
       const storedValue: string = isObject(value) ? JSON.stringify(value) : value?.toString();
-      this.logger.debug("saving value for:", parameter, "as:", storedValue);
+      const key = this.queryParameterName(parameter, index);
+      this.logger.debug("saving value for:", key, "as:", storedValue);
       try {
-        localStorage.setItem(parameter, storedValue);
+        localStorage.setItem(key, storedValue);
       } catch (error) {
         this.logger.warn("local storage unavailable when saving", parameter, error);
       }
