@@ -7,7 +7,7 @@ import {
   InboxReaderProvider,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
+import { autoReplyFromHeaders, buildQuotedForwardHtml, buildQuotedReplyHtml, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -126,6 +126,15 @@ describe("resolveThreadExternalAddress", () => {
       to: []
     }), undefined, internalEmails);
     expect(result.email).toEqual("unknown@local");
+  });
+});
+
+describe("quoted message dates", () => {
+  it("uses the sent date when an outbound message has no received date", () => {
+    const outboundMessage = message({receivedAt: null, sentAt: 1786269442000, direction: InboxMessageDirection.OUTBOUND});
+
+    expect(buildQuotedReplyHtml(outboundMessage)).toContain("On Sun, 09 Aug 2026 09:57:22 +0000, External");
+    expect(buildQuotedForwardHtml(outboundMessage)).toContain("Date: Sun, 09 Aug 2026 09:57:22 +0000");
   });
 });
 
