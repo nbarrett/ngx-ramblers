@@ -318,6 +318,9 @@
   white-space: nowrap
 
 .composer-workspace-actions
+  display: grid !important
+  grid-auto-flow: column
+  grid-auto-columns: minmax(0, 1fr)
   align-items: stretch
   width: 100%
   margin-bottom: 1.5rem
@@ -329,9 +332,9 @@
 
 .composer-workspace-actions .btn-group,
 .composer-workspace-actions .btn
-  flex: 1 1 0
   min-width: 0
-  width: auto
+  max-width: none
+  width: 100%
 
 .composer-workspace-actions .btn-group > .btn
   width: 100%
@@ -351,6 +354,7 @@
   box-shadow: none
 
 .composer-workspace-actions.is-maximised
+  display: flex !important
   .composer-workspace-doc-tools,
   .composer-flow-tools,
   .composer-workspace-window-tools
@@ -731,14 +735,26 @@
     width: 100%
 
   .composer-workspace-actions
-    display: flex
+    display: flex !important
+    flex-direction: column
     flex-wrap: wrap
     width: 100%
     margin-left: 0
 
+  .composer-workspace-actions .composer-workspace-doc-tools,
+  .composer-workspace-actions .composer-flow-tools,
+  .composer-workspace-actions .composer-workspace-window-tools
+    display: grid
+    grid-auto-flow: column
+    grid-auto-columns: minmax(0, 1fr)
+    gap: 8px
+    width: 100%
+
+  .composer-workspace-actions .btn-group,
   .composer-workspace-actions .btn
-    width: auto
-    flex: 1 1 8rem
+    width: 100%
+    min-width: 0
+    flex: none
     margin-left: 0
 
   .email-composer-toolbar .btn

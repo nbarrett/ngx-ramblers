@@ -350,17 +350,33 @@ export function composerSenderIdentities(options: {
   contactName: string;
   roles: CommitteeMember[];
   memberId: string | null;
+  allCommitteeMembers?: boolean;
 }): ComposerSenderIdentity[] {
   const contact = (options.contactEmail ?? "").trim();
-  const committee = committeeAssignedEmailsForMemberId(options.roles, options.memberId).map(entry => ({
+  const assignedCommitteeEmails = options.allCommitteeMembers
+    ? (options.roles ?? [])
+      .filter(role => !role.vacant && !!role.email)
+      .map(role => ({
+        email: role.email,
+        roleDescription: role.description || role.type,
+        roleType: role.type,
+        fullName: role.fullName || "",
+        senderName: role.fullName || ""
+      }))
+    : committeeAssignedEmailsForMemberId(options.roles, options.memberId)
+      .map(entry => ({...entry, fullName: "", senderName: options.contactName}));
+  const committee = assignedCommitteeEmails.map(entry => ({
     kind: ComposerSenderKind.COMMITTEE_ROLE,
     email: entry.email,
-    name: options.contactName,
-    label: `${entry.roleDescription} <${entry.email}>`,
+    name: entry.senderName,
+    label: `${entry.roleDescription}${entry.fullName ? ` - ${entry.fullName}` : ""} <${entry.email}>`,
     roleType: entry.roleType
-  }));
+  })).reduce<ComposerSenderIdentity[]>((identities, identity) =>
+    identities.some(existing => existing.email.toLowerCase() === identity.email.toLowerCase())
+      ? identities
+      : identities.concat(identity), []);
   const contactAlreadyListed = contact && committee.some(identity => identity.email.toLowerCase() === contact.toLowerCase());
-  const personal: ComposerSenderIdentity[] = contact && !contactAlreadyListed
+  const personal: ComposerSenderIdentity[] = !options.allCommitteeMembers && contact && !contactAlreadyListed
     ? [{
       kind: ComposerSenderKind.CONTACT,
       email: contact,
@@ -416,6 +432,10 @@ export function unbrandedCommitteeSharedTo(options: {
   } else {
     return options.memberCount + options.externalToCount > 1;
   }
+}
+
+export function composerSendsAsCampaign(recipientMode: RecipientMode, brandingMode: BrandingMode): boolean {
+  return recipientMode === RecipientMode.ENTIRE_LIST && brandingMode !== BrandingMode.UNBRANDED;
 }
 
 export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 20;

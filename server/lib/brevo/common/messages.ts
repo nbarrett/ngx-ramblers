@@ -214,6 +214,18 @@ function templateOverrideImageReplacement(override: TemplateOverride | undefined
 }
 
 const DEV_IMAGE_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i;
+const DEV_CONTENT_ORIGIN = /https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/gi;
+
+export function normaliseEmailContentUrls(html: string, baseHref: string): string {
+  if (!html || !baseHref) {
+    return html;
+  } else {
+    const base = stripTrailingSlash(baseHref);
+    const withoutDevelopmentOrigins = html.replace(DEV_CONTENT_ORIGIN, base);
+    return withoutDevelopmentOrigins.replace(/(\s(?:href|src)=)(["'])(\/(?!\/)[^"']*)\2/gi,
+      (_match, attribute, quote, path) => `${attribute}${quote}${base}${path}${quote}`);
+  }
+}
 
 export function normaliseOverrideImageHost(imageUrl: string | undefined, baseHref: string): string | undefined {
   if (!imageUrl || !baseHref) {
@@ -360,7 +372,10 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       sendSmtpEmail.htmlContent = emailRequest.htmlContent;
     }
     if (isString(sendSmtpEmail.htmlContent)) {
-      sendSmtpEmail.htmlContent = escapeUnknownTemplateExpressions(sendSmtpEmail.htmlContent);
+      sendSmtpEmail.htmlContent = normaliseEmailContentUrls(
+        escapeUnknownTemplateExpressions(sendSmtpEmail.htmlContent),
+        emailRequest.params?.systemMergeFields?.APP_URL
+      );
     }
   } catch (error) {
     debugLog(`Error occurred`, error);

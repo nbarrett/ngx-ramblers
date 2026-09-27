@@ -9,6 +9,7 @@ import {
   escapeUnknownTemplateExpressions,
   extractContentBlockKeys,
   httpStatusForBrevoError,
+  normaliseEmailContentUrls,
   renderBrandedTemplate,
   renderLocalBrandedTemplate,
   renderTemplateMarkdownToHtml,
@@ -39,6 +40,27 @@ function omittedOverride(type: TemplateOverrideType): TemplateOverride {
 }
 
 describe("brevo messages", () => {
+
+  describe("normaliseEmailContentUrls", () => {
+
+    it("replaces local development origins throughout outgoing email content", () => {
+      const html = `<a href="http://localhost:4200/walks/autumn-walk">Walk</a><img src="http://127.0.0.1:4200/api/aws/s3/site-content/walk.jpg"><div style="background-image:url(http://localhost:4200/assets/arrow.png)"></div>`;
+      const output = normaliseEmailContentUrls(html, "https://canterburyramblers.org.uk");
+      expect(output).toContain(`href="https://canterburyramblers.org.uk/walks/autumn-walk"`);
+      expect(output).toContain(`src="https://canterburyramblers.org.uk/api/aws/s3/site-content/walk.jpg"`);
+      expect(output).toContain(`url(https://canterburyramblers.org.uk/assets/arrow.png)`);
+      expect(output).not.toContain("localhost");
+      expect(output).not.toContain("127.0.0.1");
+    });
+
+    it("makes root-relative links and images public without changing external URLs", () => {
+      const html = `<a href="/events/autumn-events">Events</a><img src='/api/aws/s3/site-content/events.jpg'><a href="https://www.ramblers.org.uk">Ramblers</a>`;
+      const output = normaliseEmailContentUrls(html, "https://canterburyramblers.org.uk/");
+      expect(output).toContain(`href="https://canterburyramblers.org.uk/events/autumn-events"`);
+      expect(output).toContain(`src='https://canterburyramblers.org.uk/api/aws/s3/site-content/events.jpg'`);
+      expect(output).toContain(`href="https://www.ramblers.org.uk"`);
+    });
+  });
 
   describe("httpStatusForBrevoError", () => {
 
