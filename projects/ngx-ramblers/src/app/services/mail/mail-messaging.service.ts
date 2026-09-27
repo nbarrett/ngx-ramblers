@@ -150,7 +150,7 @@ export class MailMessagingService {
     await Promise.all([this.refreshBanners(), this.refreshNotificationConfigs()]);
   }
 
-  private async refreshNotificationConfigs() {
+  async refreshNotificationConfigs(): Promise<void> {
     const configType = "Notification Configs";
     try {
       const notificationConfigs = await this.notificationConfigService.all();
@@ -162,10 +162,10 @@ export class MailMessagingService {
         return (a.subject?.text ?? "").localeCompare(b.subject?.text ?? "");
       });
       const message = `Found ${this.stringUtilsService.pluraliseWithCount(notificationConfigs.length, "Notification config")}`;
-      return this.broadcastSuccess(configType, message);
+      this.broadcastSuccess(configType, message);
     } catch (error) {
       this.mailMessagingConfig.notificationConfigs = [];
-      return this.broadcastError(error, configType);
+      this.broadcastError(error, configType);
     }
   }
 
@@ -344,7 +344,9 @@ export class MailMessagingService {
     const replyToRole = notificationConfig?.replyToRole?.trim() || "";
     const composerRoleDefaults = notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER
       ? ComposerRoleDefaults.CURRENT_USER
-      : ComposerRoleDefaults.EMAIL_TYPE;
+      : notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.EMAIL_TYPE
+        ? ComposerRoleDefaults.EMAIL_TYPE
+        : ComposerRoleDefaults.SELECT_AT_SEND;
     return {
       ...notificationConfig,
       bccRoles,

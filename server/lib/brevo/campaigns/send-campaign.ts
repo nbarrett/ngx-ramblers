@@ -19,6 +19,9 @@ debugLog.enabled = false;
 export async function sendCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const sendCampaignRequest: SendCampaignRequest = req.body;
+    if (!Number.isFinite(sendCampaignRequest.campaignId)) {
+      throw new Error("A valid Brevo campaign id is required");
+    }
     await assertSendAllowed(SendPurpose.CAMPAIGN_SEND, {subject: `Campaign ${sendCampaignRequest.campaignId}`});
     const client = await brevoClient();
     debugLog(`About to send email campaign with  supplied sendCampaignRequest: ${sendCampaignRequest}`);

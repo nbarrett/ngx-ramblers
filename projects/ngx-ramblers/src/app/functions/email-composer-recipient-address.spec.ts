@@ -6,6 +6,7 @@ import {
   composerCommitteeRecipients,
   composerRecipientCount,
   composerRecipientFromMember,
+  composerSendsAsCampaign,
   recipientsWithoutEmails,
   syncedRecipientAddressMode,
   unbrandedCommitteeSharedTo
@@ -106,6 +107,21 @@ describe("unbrandedCommitteeSharedTo", () => {
       memberCount: 1,
       externalToCount: 0
     })).toEqual(false);
+  });
+});
+
+describe("composerSendsAsCampaign", () => {
+
+  it("always sends a branded whole mailing list as a campaign", () => {
+    expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.BRANDED)).toEqual(true);
+  });
+
+  it("does not apply campaign sending to selected recipients", () => {
+    expect(composerSendsAsCampaign(RecipientMode.SELECTED_MEMBERS, BrandingMode.BRANDED)).toEqual(false);
+  });
+
+  it("does not apply campaign sending to unbranded mail", () => {
+    expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.UNBRANDED)).toEqual(false);
   });
 });
 

@@ -129,6 +129,20 @@ describe("composerSenderIdentities", () => {
     });
     expect(identities.filter(identity => identity.email.toLowerCase() === "chairman@example.com")).toHaveLength(1);
   });
+
+  it("offers every mapped committee member when selection is deferred until composing", () => {
+    const chairman = member("chairman", "Liz Chair", "liz-id");
+    const walks = member("walks", "Sam Walks", "sam-id");
+    const identities = composerSenderIdentities({
+      contactEmail: "liz@gmail.com",
+      contactName: "Liz Chair",
+      roles: [chairman, walks],
+      memberId: "liz-id",
+      allCommitteeMembers: true
+    });
+    expect(identities.map(identity => identity.email)).toEqual(["chairman@example.com", "walks@example.com"]);
+    expect(identities.map(identity => identity.name)).toEqual(["Liz Chair", "Sam Walks"]);
+  });
 });
 
 describe("committeeMemberTrackKey", () => {

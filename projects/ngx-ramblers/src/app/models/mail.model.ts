@@ -77,7 +77,8 @@ export function defaultComposerDrafting(): ComposerDrafting {
 
 export enum ComposerRoleDefaults {
   EMAIL_TYPE = "email-type",
-  CURRENT_USER = "current-user"
+  CURRENT_USER = "current-user",
+  SELECT_AT_SEND = "select-at-send"
 }
 
 export interface NotificationConfig extends Auditable, Identifiable {

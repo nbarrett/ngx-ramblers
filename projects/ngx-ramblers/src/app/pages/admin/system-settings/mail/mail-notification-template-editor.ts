@@ -289,9 +289,10 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                             (ngModelChange)="refreshCachedState()">
                       <option [ngValue]="composerRoleDefaults.EMAIL_TYPE">Use the Sender and Sign-off roles saved below</option>
                       <option [ngValue]="composerRoleDefaults.CURRENT_USER">Default Sender and Sign-off to the current user</option>
+                      <option [ngValue]="composerRoleDefaults.SELECT_AT_SEND">Choose from all committee members when composing</option>
                     </select>
                     <small class="text-muted d-block mt-1">
-                      Saved roles still apply to automated and workflow sends. Current-user defaults only affect the Email Composer; Reply-To starts blank so replies go to the From address unless the sender sets one.
+                      Saved roles still apply to automated and workflow sends. Composer choices only affect emails created interactively; Reply-To can remain blank so replies go to the selected From address.
                     </small>
                   </div>
                 </div>
@@ -711,7 +712,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       senderRole: "membership",
       replyToRole: "membership",
       signOffRoles: ["membership"],
-      composerRoleDefaults: ComposerRoleDefaults.EMAIL_TYPE,
+      composerRoleDefaults: ComposerRoleDefaults.SELECT_AT_SEND,
     };
     this.mailMessagingConfig.notificationConfigs.push(this.notificationConfig);
   }
