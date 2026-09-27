@@ -621,7 +621,7 @@ export function buildReplyHeaders(originalMessage: InboxMessage, forward = false
 }
 
 export function buildQuotedReplyHtml(originalMessage: InboxMessage): string {
-  const dateLabel = originalMessage.receivedAt ? dateTimeFromMillis(originalMessage.receivedAt).toUTC().toRFC2822() : "";
+  const dateLabel = quotedMessageDateLabel(originalMessage);
   const senderLabel = originalMessage.from.name
     ? `${originalMessage.from.name} &lt;${originalMessage.from.email}&gt;`
     : originalMessage.from.email;
@@ -629,7 +629,7 @@ export function buildQuotedReplyHtml(originalMessage: InboxMessage): string {
 }
 
 export function buildQuotedForwardHtml(originalMessage: InboxMessage): string {
-  const dateLabel = originalMessage.receivedAt ? dateTimeFromMillis(originalMessage.receivedAt).toUTC().toRFC2822() : "";
+  const dateLabel = quotedMessageDateLabel(originalMessage);
   const headerLines = [
     `From: ${escapeHtml(addressLabel(originalMessage.from))}`,
     dateLabel ? `Date: ${dateLabel}` : null,
@@ -637,6 +637,11 @@ export function buildQuotedForwardHtml(originalMessage: InboxMessage): string {
     originalMessage.to?.length ? `To: ${originalMessage.to.map(address => escapeHtml(addressLabel(address))).join(", ")}` : null
   ].filter((line): line is string => Boolean(line));
   return `<p></p><p>---------- Forwarded message ---------</p><p>${headerLines.join("<br/>")}</p>${quotedBodyHtml(originalMessage)}`;
+}
+
+function quotedMessageDateLabel(originalMessage: InboxMessage): string {
+  const messageAt = originalMessage.receivedAt ?? originalMessage.sentAt;
+  return messageAt ? dateTimeFromMillis(messageAt).toUTC().toRFC2822() : "";
 }
 
 function addressLabel(address: InboxAddress): string {
