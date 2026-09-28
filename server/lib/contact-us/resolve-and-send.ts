@@ -10,6 +10,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import {
   CommitteeConfig,
   CommitteeMember,
+  BuiltInRole,
   ForwardEmailTarget,
   committeeRoleMatchingEmail,
   roleEmailAddresses,
@@ -93,8 +94,8 @@ function nameFor(role: CommitteeMember): string {
   return role.contactUsLabel || role.fullName;
 }
 
-async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[], connectedEmails: Set<string>): Promise<EmailAddress[]> {
-  const role = findRoleByEmail(roles, recipient.email);
+async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[], connectedEmails: Set<string>, selectedRole: CommitteeMember | null = null): Promise<EmailAddress[]> {
+  const role = selectedRole || findRoleByEmail(roles, recipient.email);
   if (!role) {
     return [recipient];
   }
@@ -145,6 +146,12 @@ async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[], con
       return [{ name: label, email: linkedEmail }];
     }
   }
+}
+
+async function resolveRoleRecipients(role: CommitteeMember | null, roles: CommitteeMember[], connectedEmails: Set<string>): Promise<EmailAddress[]> {
+  const recipient = role ? {name: nameFor(role), email: role.email || ""} : null;
+  const resolved = recipient ? await resolveOne(recipient, roles, connectedEmails, role) : [];
+  return resolved.filter(address => Boolean(normaliseEmail(address.email)));
 }
 
 export async function resolveContactRecipients(to: EmailAddress[], roles: CommitteeMember[], connectedEmails: Set<string>): Promise<EmailAddress[]> {
@@ -336,7 +343,15 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
     const roles: CommitteeMember[] = committeeCfg?.roles || [];
     const connectedEmails = new Set(await connectedInboxEmails(defaultTenantSlug()));
     const originalTo = [...(emailRequest.to || [])];
-    emailRequest.to = await resolveContactRecipients(emailRequest.to || [], roles, connectedEmails);
+    const requestedRole = roleForContactRequest(emailRequest, originalTo, roles);
+    const requestedRecipients = requestedRole
+      ? await resolveRoleRecipients(requestedRole, roles, connectedEmails)
+      : await resolveContactRecipients(emailRequest.to || [], roles, connectedEmails);
+    const fallbackRole = roles.find(role => role.builtInRoleMapping === BuiltInRole.CONTACT_US) || null;
+    const fallbackRecipients = requestedRecipients.length === 0 && fallbackRole?.type !== requestedRole?.type
+      ? await resolveRoleRecipients(fallbackRole, roles, connectedEmails)
+      : [];
+    emailRequest.to = requestedRecipients.length > 0 ? requestedRecipients : fallbackRecipients;
     if (!emailRequest.to?.length) {
       res.status(400).json({
         error: "No contact recipient is configured for this role. Ask the site admin to set where contact-us messages should go."
@@ -345,7 +360,7 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
       if (emailRequest.params) {
         emailRequest.params.accountMergeFields = ramblersAccountMergeFields();
       }
-      const role = roleForContactRequest(emailRequest, originalTo, roles);
+      const role = requestedRecipients.length > 0 ? requestedRole : fallbackRole;
       const inboxEligible = role && deliversViaSiteInbox(role, connectedEmails);
       const storedToInbox = inboxEligible ? await storeContactUsInInbox(emailRequest, role) : false;
       const externalTo = externalSmtpRecipients(emailRequest.to, role);
