@@ -6,7 +6,7 @@ import { Params } from "@angular/router";
 import { Subscription } from "rxjs";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
-import { CommitteeMember, ContactFormDetails, ValidateTokenRequest } from "../../models/committee.model";
+import { BuiltInRole, CommitteeMember, ContactFormDetails, ForwardEmailTarget, ValidateTokenRequest } from "../../models/committee.model";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { SystemConfig } from "../../models/system.model";
 import { ContactUsService } from "./contact-us.service";
@@ -29,7 +29,7 @@ import { ContactInteractionService } from "../../services/contact-interaction.se
 import { ContactInteractionStatus } from "../../models/booking.model";
 import { StoredValue } from "../../models/ui-actions";
 import { redirectPathFrom } from "../../functions/redirect-path";
-import { contactUsDeliveryProblem } from "../../functions/contact-us-delivery";
+import { contactUsDeliveryProblem, effectiveContactUsTarget } from "../../functions/contact-us-delivery";
 
 @Component({
     selector: "app-contact-modal",
@@ -240,6 +240,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   private loggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("ContactUsModalComponent", NgxLoggerLevel.ERROR);
   protected committeeMember: CommitteeMember;
+  private committeeReferenceData: CommitteeReferenceData;
   protected validateTokenRequest: ValidateTokenRequest = {captchaToken: null};
   protected contactFormDetails: ContactFormDetails = {
     timestamp: this.dateUtils.dateTimeNowAsValue(),
@@ -273,8 +274,9 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
             message: "Recaptcha site key not configured"
           });
         }
-      }));
+    }));
     this.subscriptions.push(this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
+      this.committeeReferenceData = data;
       if (this.committeeMemberOverride) {
         this.committeeMember = this.committeeMemberOverride;
       } else {
@@ -299,7 +301,9 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
         ? this.mailMessagingService.createBrevoAddress(this.notificationConfig.senderRole)
         : null;
       const problem = contactUsDeliveryProblem(this.committeeMember, sender?.email);
-      if (problem) {
+      const fallbackRole = this.committeeReferenceData?.committeeMemberForBuiltInRole(BuiltInRole.CONTACT_US);
+      const fallbackAvailable = fallbackRole && effectiveContactUsTarget(fallbackRole) !== ForwardEmailTarget.NONE;
+      if (problem && !fallbackAvailable) {
         this.notify.error({
           title: "Contact form unavailable",
           message: problem
@@ -381,9 +385,6 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     const email = this.contactFormDetails.anonymous ? `noreply@${this.urlService.baseDomain()}` : this.contactFormDetails.email;
     const replyTo = {email, name: this.contactFormDetails.name};
     const to: EmailAddress[] = this.mailMessagingService.resolveContactRecipients(this.committeeMember);
-    if (to.length === 0) {
-      return Promise.reject(`No contact recipient is configured for ${this.contactDisplayName()}. Please get in touch via a different committee role.`);
-    }
     const formBodyHtml = this.inboundBodyContent();
     const emailRequest: SendSmtpEmailRequest = this.mailMessagingService.createEmailRequest({
       member: {email, firstName: visitorName?.firstName || null, lastName: visitorName?.lastName || null},
