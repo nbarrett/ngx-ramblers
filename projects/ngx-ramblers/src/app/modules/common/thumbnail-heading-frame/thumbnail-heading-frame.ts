@@ -23,14 +23,17 @@ import { booleanAttribute, Component, Input } from "@angular/core";
       flex-direction: column
       min-height: 0
       height: 100%
+      overflow: visible
     :host.fill .thumbnail-heading-frame
       flex: 1 1 auto
-      min-height: 0
+      align-self: stretch
+      min-height: 100%
+      height: 100%
+      margin: 0
       display: flex
       flex-direction: column
-      margin: 0
-      background: #fff
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45)
+    :host.fill .thumbnail-heading-frame > .thumbnail-heading
+      align-self: flex-start
     :host.fill .thumbnail-heading-frame > :not(.thumbnail-heading)
       flex: 1 1 auto
       min-height: 0

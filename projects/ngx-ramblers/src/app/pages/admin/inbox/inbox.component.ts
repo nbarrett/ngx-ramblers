@@ -63,10 +63,11 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
 import { UIDateFormat } from "../../../models/date-format.model";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
+import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent, CommitteeUnassignedRolesComponent, SectionToggle],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent, CommitteeUnassignedRolesComponent, SectionToggle, ThumbnailHeadingFrameComponent],
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Mail" [showTitle]="false" [showBreadcrumb]="!mobile">
@@ -242,7 +243,7 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
       }
       <app-inbox-orphaned-threads (remapped)="refresh()"/>
       @if (selectedAlias(); as alias) {
-        @if (mailboxAlertVisible) {
+        @if (loadedOnce && mailboxAlertVisible) {
           <div class="alert alert-success py-2 inbox-alert d-flex align-items-start">
             <fa-icon [icon]="faEnvelope" class="me-2 mt-1"/>
             <div class="flex-grow-1">
@@ -262,10 +263,11 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
       }
       <div #inboxShell class="inbox-shell">
         @if (!mobile && !navCollapsed && aliases.length > 0) {
-          <div class="thumbnail-heading-frame-compact inbox-pane inbox-nav" [style.flex]="'0 0 ' + navSize + 'px'">
-            <div class="thumbnail-heading">Folders</div>
+          <app-thumbnail-heading-frame class="inbox-pane inbox-nav" heading="Folders" [fill]="true" [compact]="true" [style.flex]="'0 0 ' + navSize + 'px'">
+            <div class="inbox-nav-body">
             <ng-container [ngTemplateOutlet]="folderNavContent"/>
-          </div>
+            </div>
+          </app-thumbnail-heading-frame>
           <app-resizer [variant]="ResizerVariant.BAR"
                        [orientation]="ResizerOrientation.HORIZONTAL"
                        [size]="navSize"
@@ -361,8 +363,8 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
            [style.grid-template-columns]="gridTemplateColumns"
            [style.grid-template-rows]="gridTemplateRows">
         @if (!mobile || !mobileShowDetail) {
-        <div class="thumbnail-heading-frame-compact inbox-pane" [class.inbox-list-flush]="mobile">
-          <div class="thumbnail-heading">{{ conversationCountCaption }}</div>
+        <app-thumbnail-heading-frame class="inbox-pane" [heading]="conversationCountCaption" [fill]="true" [compact]="true" [class.inbox-list-flush]="mobile">
+          <div class="inbox-pane-body">
           @if (threadListTotalCount > 0 || conversationSearchTerm) {
             <div class="p-2">
               <div class="d-flex align-items-center gap-2">
@@ -590,7 +592,8 @@ import { CommitteeReferenceData } from "../../../services/committee/committee-re
             </div>
           }
           </div>
-        </div>
+          </div>
+        </app-thumbnail-heading-frame>
         }
         @if (!mobile) {
           <app-resizer [variant]="ResizerVariant.BAR"
@@ -1099,8 +1102,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.mailboxAlertTimer = setTimeout(() => {
         this.mailboxAlertVisible = false;
         this.mailboxAlertTimer = null;
+        this.scheduleFitShellToWindow();
       }, 4000);
     }
+    this.scheduleFitShellToWindow();
   }
 
   dismissMailboxAlert(): void {
@@ -1109,6 +1114,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.mailboxAlertTimer);
       this.mailboxAlertTimer = null;
     }
+    this.scheduleFitShellToWindow();
   }
 
   toggleNavCollapsed(): void {
@@ -1199,7 +1205,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild("inboxShell") set inboxShell(ref: ElementRef<HTMLElement> | null) {
     this.inboxShellRef = ref;
     this.observeLayoutSize();
+    this.scheduleFitShellToWindow();
   }
+
+  @ViewChild("panel") panel: MaximisablePanelComponent | null = null;
 
   private inboxLayoutRef: ElementRef<HTMLElement> | null = null;
   private inboxShellRef: ElementRef<HTMLElement> | null = null;
@@ -1223,6 +1232,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener("window:resize")
   onResize(): void {
     this.updateMobile();
+    this.fitShellToWindow();
   }
 
   private updateMobile(): void {
@@ -1445,6 +1455,24 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.observeLayoutSize();
+    this.scheduleFitShellToWindow();
+  }
+
+  private scheduleFitShellToWindow(): void {
+    requestAnimationFrame(() => this.fitShellToWindow());
+  }
+
+  private fitShellToWindow(): void {
+    const el = this.inboxShellRef?.nativeElement ?? null;
+    if (el && !isUndefined(window)) {
+      if (this.mobile || this.panel?.maximised) {
+        el.style.height = "";
+      } else {
+        const top = el.getBoundingClientRect().top;
+        const height = Math.max(240, window.innerHeight - top - 16);
+        el.style.height = `${height}px`;
+      }
+    }
   }
 
   private observeLayoutSize(): void {
