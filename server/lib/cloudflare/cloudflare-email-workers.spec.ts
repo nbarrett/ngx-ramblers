@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { EmailForwardingMode } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
-import { generateRouterWorkerScript, generateWorkerScript } from "./cloudflare-email-workers";
+import { generateRouterWorkerScript, generateWorkerScript, transpileWorkerTemplate } from "./cloudflare-email-workers";
 
 const webhookHelperNames = ["hmacSign", "encodeRawMimeBase64", "signAndPostWebhook"];
 
@@ -21,6 +21,13 @@ describe("cloudflare email workers", () => {
     expectSelfContainedWebhookWorker(generateWorkerScript([], EmailForwardingMode.NGX_INBOX, {
       webhookUrl: "https://example.com/api/cloudflare/email-routing/inbound-inbox"
     }));
+  });
+
+  it("generates a self-contained public site fetch worker", () => {
+    const script = transpileWorkerTemplate("public-site-fetch");
+    expect(script).not.toMatch(/^\s*import\s/m);
+    expect(script).toContain("X-Public-Site-Status");
+    expect(script).toContain("PUBLIC_SITE_FETCH_SECRET");
   });
 
   it("generates a self-contained Brevo resend worker", () => {

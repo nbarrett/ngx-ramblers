@@ -7,6 +7,7 @@ import { brotliDecompressSync, gunzipSync, inflateSync } from "zlib";
 import { HttpError } from "../shared/http-error";
 import { sourceSiteLimiter } from "./source-site-limiter";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { publicSiteFetchRelay } from "../cloudflare/public-site-fetch-worker";
 
 const excludedNetworks = new BlockList();
 ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4"].forEach(network => {
@@ -43,7 +44,7 @@ export function retryAfterSeconds(header: string | string[] | undefined): number
 export function publicSiteHttpErrorMessage(url: string, status: number): string {
   const location = withoutQuery(url);
   if (status === 401 || status === 403) {
-    return `The current website at ${location} refused to send its pages. Check the address is publicly readable, then try Find pages again.`;
+    return `The current website at ${location} refused to send its pages to our servers. The address is readable in a browser; its protection is blocking the import. Try Find pages again, or ask the webmaster to pause bot protection while the pages are copied.`;
   } else if (status === 404) {
     return `The current website at ${location} could not be found. Check the address and try again.`;
   } else if (status >= 500) {
@@ -103,8 +104,65 @@ export function publicSiteUrl(value: string): URL {
   }
 }
 
+export function shouldRelayPublicSiteFetch(error: unknown): boolean {
+  return error instanceof HttpError && (error.status === 401 || error.status === 403);
+}
+
 function fetchPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
-  return sourceSiteLimiter.request(value, () => requestPublicSiteBody(value, redirects, accept, expectedContentType, maximumBytes));
+  return sourceSiteLimiter.request(value, async () => {
+    try {
+      return await requestPublicSiteBody(value, redirects, accept, expectedContentType, maximumBytes);
+    } catch (error) {
+      if (!shouldRelayPublicSiteFetch(error)) {
+        throw error;
+      } else {
+        try {
+          return await requestPublicSiteBodyViaRelay(value, accept, expectedContentType, maximumBytes);
+        } catch (relayError) {
+          throw shouldRelayPublicSiteFetch(relayError) ? relayError : error;
+        }
+      }
+    }
+  });
+}
+
+async function requestPublicSiteBodyViaRelay(value: string, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
+  const url = publicSiteUrl(value);
+  const relay = await publicSiteFetchRelay();
+  const response = await fetch(relay.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${relay.secret}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      url: url.href,
+      accept,
+      userAgent: PUBLIC_SITE_USER_AGENT,
+      acceptLanguage: PUBLIC_SITE_ACCEPT_LANGUAGE,
+      maximumBytes
+    }),
+    signal: AbortSignal.timeout(25000)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text() || `The import relay returned HTTP ${response.status}.`);
+  } else {
+    const originStatus = Number(response.headers.get("X-Public-Site-Status") || "0");
+    const originUrl = response.headers.get("X-Public-Site-Url") || url.href;
+    const contentType = response.headers.get("content-type") || "";
+    if (originStatus !== 200) {
+      throw Object.assign(new HttpError(originStatus, publicSiteHttpErrorMessage(originUrl, originStatus)), {retryAfterSeconds: 0});
+    } else if (expectedContentType && contentType && !contentType.includes(expectedContentType) && !contentType.includes("octet-stream") && !contentType.includes("binary")) {
+      throw new Error(publicSiteHttpErrorMessage(originUrl, originStatus));
+    } else {
+      const body = Buffer.from(await response.arrayBuffer());
+      if (body.length > maximumBytes) {
+        throw new Error(`The source resource exceeds the ${Math.round(maximumBytes / 1000000)} MB migration limit.`);
+      } else {
+        return {body, url: originUrl};
+      }
+    }
+  }
 }
 
 async function requestPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
