@@ -2,9 +2,13 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import { gzipSync } from "zlib";
 import { HttpError } from "../shared/http-error";
-import { decodedPublicSiteBody, publicSiteHttpErrorMessage, sourceUnavailable, withoutQuery } from "./public-site-fetch";
+import { decodedPublicSiteBody, PUBLIC_SITE_USER_AGENT, publicSiteHttpErrorMessage, sourceUnavailable, withoutQuery } from "./public-site-fetch";
 
 describe("public-site-fetch", () => {
+  it("uses a browser user agent for sites that reject migration crawlers", () => {
+    expect(PUBLIC_SITE_USER_AGENT).toContain("Chrome/");
+  });
+
   it("treats a client error from the current website as a link that no longer works", () => {
     expect(sourceUnavailable(new HttpError(403, "expired signed link"))).toBe(true);
     expect(sourceUnavailable(new HttpError(404, "missing document"))).toBe(true);

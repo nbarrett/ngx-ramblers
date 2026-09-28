@@ -4,6 +4,8 @@ import { FilterCriteria, SortOrder } from "../../../../../projects/ngx-ramblers/
 import { RamblersEventType } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { liteHomePageContent } from "../../../../../projects/ngx-ramblers/src/app/models/home-content.model";
 import { dateTimeNow } from "../../../shared/dates";
+import { DateRangeMode } from "../../../../../projects/ngx-ramblers/src/app/models/group-events.model";
+import { RegistrationNavbarPath } from "../../../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 
 export interface PageContentTemplateParams {
   groupName: string;
@@ -35,7 +37,7 @@ export function createHomeContent(params: PageContentTemplateParams): PageConten
   };
 }
 
-function createEventsRow(): PageContentRow {
+function createEventsRow(eventType: RamblersEventType, viewSelector: boolean): PageContentRow {
   return {
     type: PageContentType.EVENTS,
     showSwiper: false,
@@ -51,13 +53,16 @@ function createEventsRow(): PageContentRow {
         alert: true,
         autoTitle: true,
         advancedSearch: true,
-        viewSelector: true
+        viewSelector,
+        allowFilterChange: true,
+        allowSortChange: true
       },
-      eventTypes: [RamblersEventType.GROUP_WALK],
+      eventTypes: [eventType],
       fromDate: dateTimeNow().toMillis(),
       toDate: dateTimeNow().plus({years: 1}).toMillis(),
       filterCriteria: FilterCriteria.FUTURE_EVENTS,
-      sortOrder: SortOrder.DATE_ASCENDING
+      sortOrder: SortOrder.DATE_ASCENDING,
+      dateRangeMode: DateRangeMode.DATE_PICKERS
     }
   };
 }
@@ -67,7 +72,7 @@ export function createWalksPage(params: PageContentTemplateParams): PageContent 
     path: "walks",
     rows: [
       createTextRow("# Walks Programme"),
-      createEventsRow(),
+      createEventsRow(RamblersEventType.GROUP_WALK, true),
       {
         type: PageContentType.ACTION_BUTTONS,
         showSwiper: false,
@@ -91,6 +96,16 @@ export function createWalksPage(params: PageContentTemplateParams): PageContent 
           }
         ]
       }
+    ]
+  };
+}
+
+export function createGroupEventsPage(): PageContent {
+  return {
+    path: RegistrationNavbarPath.EVENTS,
+    rows: [
+      createTextRow("# Social Events"),
+      createEventsRow(RamblersEventType.GROUP_EVENT, false)
     ]
   };
 }
@@ -216,6 +231,7 @@ export function createAllSamplePageContent(params: PageContentTemplateParams): P
   return [
     createHomeContent(params),
     createWalksPage(params),
+    createGroupEventsPage(),
     createWalksInformation(params),
     createContactUsPageContent(params),
     createAboutUsPageContent(params),

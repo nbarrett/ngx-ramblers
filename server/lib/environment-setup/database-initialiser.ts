@@ -27,6 +27,7 @@ import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-b
 import { BannerPictureStore } from "./banner-picture.model";
 import { values } from "es-toolkit/compat";
 import { NEW_ENVIRONMENT_MEMBER_SYNC_POLICY } from "../../../projects/ngx-ramblers/src/app/models/member-sync-policy.model";
+import { recaptchaKeys } from "../config/recaptcha-keys";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
@@ -164,6 +165,7 @@ export async function initialiseDatabase(
     reportProgress("Creating collections", SetupStepStatus.Completed);
 
     reportProgress("Creating SystemConfig", SetupStepStatus.Running);
+    const recaptcha = await recaptchaKeys();
     const systemConfigParams: SystemConfigTemplateParams = {
       groupData: request.ramblersInfo.groupData,
       siteUrl: await environmentSiteUrl(request.environmentBasics.environmentName, request.environmentBasics.appName),
@@ -172,8 +174,8 @@ export async function initialiseDatabase(
       ramblersApiConfig: request.serviceConfigs.ramblers,
       googleMapsApiKey: request.serviceConfigs.googleMaps?.apiKey,
       osMapsApiKey: request.serviceConfigs.osMaps?.apiKey,
-      recaptchaSiteKey: request.serviceConfigs.recaptcha?.siteKey,
-      recaptchaSecretKey: request.serviceConfigs.recaptcha?.secretKey,
+      recaptchaSiteKey: request.serviceConfigs.recaptcha?.siteKey || recaptcha.siteKey,
+      recaptchaSecretKey: request.serviceConfigs.recaptcha?.secretKey || recaptcha.secretKey,
       copiedAssets
     };
     const systemConfig = createSystemConfig(systemConfigParams);

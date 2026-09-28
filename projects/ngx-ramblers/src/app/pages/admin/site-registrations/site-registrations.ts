@@ -110,7 +110,7 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                   <label class="mb-0"><input type="checkbox" [(ngModel)]="settings.enabled"/> Enable public registration</label>
                   <button class="btn btn-primary" [disabled]="busy" (click)="saveSettings()"><fa-icon [icon]="icons.save"/> Save</button>
                 </div>
-                <label class="d-block"><input type="checkbox" [(ngModel)]="settings.committeeEmailValidationEnabled"/> Require the email address to be on the group's approved committee list</label>
+                <label class="d-block"><input type="checkbox" [(ngModel)]="settings.committeeEmailValidationEnabled"/> Require an approved committee address or an address on the group's website domain</label>
                 <label class="d-block"><input type="checkbox" [(ngModel)]="settings.sourceFidelityValidationEnabled"/> Stop a Full migration when source content is missing from the result</label>
                 <p class="guidance">This check allows formatting cleanup and grammar corrections. Turn it off only when diagnosing a source site that cannot pass the completeness check.</p>
                 @if (!settings.committeeEmailValidationEnabled) {
@@ -172,7 +172,7 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
                         <li role="menuitem"><a class="dropdown-item registration-action-item" (click)="rediscover(row)"><fa-icon [icon]="icons.findPages" [fixedWidth]="true"/>Find pages again, then rebuild</a></li>
                       }
                       @if (openSiteUrl(row)) {
-                        <li role="menuitem"><a class="dropdown-item registration-action-item" [ngClass]="{'disabled': inFlight(row)}" [href]="openSiteUrl(row)" target="_blank" rel="noopener noreferrer"><fa-icon [icon]="icons.open" [fixedWidth]="true"/>{{siteUnreachable(row) ? "Open working Fly site" : "Open site"}}</a></li>
+                        <li role="menuitem"><a class="dropdown-item registration-action-item" [ngClass]="{'disabled': inFlight(row)}" [href]="openSiteUrl(row)" target="_blank" rel="noopener noreferrer"><fa-icon [icon]="icons.open" [fixedWidth]="true"/>Open site</a></li>
                       }
                       @if (siteUnreachable(row)) {
                         <li role="menuitem"><a class="dropdown-item registration-action-item" [ngClass]="{'disabled': inFlight(row)}" [routerLink]="'/' + setupPath" [queryParams]="setupQuery(row)" [tooltip]="siteHealthTooltip(row)"><fa-icon [icon]="icons.setup" [fixedWidth]="true"/>Environment setup</a></li>
@@ -241,7 +241,7 @@ import { RegistrationStepperComponent } from "../../../modules/common/registrati
         <tab [active]="tabActive(AdminTab.APPROVED_EMAILS)" (selectTab)="selectTab(AdminTab.APPROVED_EMAILS)" [heading]="AdminTab.APPROVED_EMAILS">
           @if (settings && tabActive(AdminTab.APPROVED_EMAILS)) {
             <div class="thumbnail-heading-frame mt-3"><div class="thumbnail-heading">Approved committee email addresses</div>
-              <p>When committee email validation is on, only these addresses can start registration for that group.</p>
+              <p>When committee email validation is on, these addresses and any address on the group's website domain can start registration for that group.</p>
               <app-area-selector id="approval-area" label="Area" [areaCode]="approvalArea" (areaChanged)="approvalAreaChanged($event)"/>
               <app-group-selector label="Group (leave empty to approve for the area site)" [areaCode]="approvalArea" [groupCode]="approvalGroup" (groupChanged)="approvalGroupChanged($event)"/>
               <label class="mt-2">Approved email addresses</label>
@@ -364,7 +364,7 @@ export class SiteRegistrationsComponent implements OnInit, OnDestroy {
     }
   }
   siteUnreachable = (row: SiteRegistration) => row.siteHealth?.advertisedReachable === false;
-  openSiteUrl = (row: SiteRegistration) => row.siteHealth?.workingUrl || row.siteUrl;
+  openSiteUrl = (row: SiteRegistration) => row.siteHealth?.advertisedUrl || row.siteUrl || row.siteHealth?.workingUrl;
   setupQuery = (row: SiteRegistration) => ({
     [StoredValue.TAB]: kebabCase(EnvironmentSetupTab.CREATE),
     [StoredValue.SETUP_MODE]: SetupMode.MANAGE,

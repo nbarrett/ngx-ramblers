@@ -59,3 +59,11 @@ export function registrationElapsedLabel(startedAt: number, now: number): string
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds < 10 ? `0${seconds}` : seconds}`;
 }
+
+export function registrationProgressDurationLabel(lines: SetupProgress[], index: number, now: number, running: boolean): string {
+  const item = lines[index];
+  const previous = lines[index + 1];
+  const startedAt = running ? item?.timestamp || now : previous?.timestamp || item?.timestamp || now;
+  const endedAt = running ? now : item?.timestamp || startedAt;
+  return registrationElapsedLabel(startedAt, endedAt);
+}

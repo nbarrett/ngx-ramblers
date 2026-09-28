@@ -141,7 +141,7 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
         { title: "Home", href: "", accessLevel: AccessLevel.PUBLIC },
         { title: "About Us", href: "about-us", accessLevel: AccessLevel.PUBLIC },
         { title: "Walks", href: "walks", accessLevel: AccessLevel.PUBLIC },
-        { title: "Social Events", href: "social-events", accessLevel: AccessLevel.PUBLIC },
+        { title: "Social Events", href: "social", accessLevel: AccessLevel.PUBLIC },
         { title: "News", href: "news", accessLevel: AccessLevel.PUBLIC },
         { title: "Committee", href: "committee", accessLevel: AccessLevel.PUBLIC },
         { title: "Contact Us", href: "contact-us", accessLevel: AccessLevel.PUBLIC },

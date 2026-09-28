@@ -1,0 +1,1290 @@
+import { environmentDetailsRequest } from "../environment-details";
+import { environmentDefaults } from "../environment-defaults";
+import debug from "debug";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
+import { NextFunction, Request, Response } from "express";
+import { envConfig } from "../../env-config/env-config";
+import { hasAdminPrivilege, memberFromRequest } from "../../auth/request-member";
+import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
+import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
+import {
+  assignAdminToCommitteeRoles,
+  seedNotificationConfigs,
+  seedSamplePages,
+  toGroupShortName,
+  validateMongoConnection,
+  wireNotificationConfigsToProcesses
+} from "../database-initialiser";
+import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredentials } from "../aws-setup";
+import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
+import { EnvironmentStatusCheck, HostnameHealth, HostnameOrigin } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
+import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
+import { extendedGroupEvent } from "../../mongo/models/extended-group-event";
+import { pageContent as pageContentModel } from "../../mongo/models/page-content";
+import { liteHomeTemplatePageContent, LITE_HOME_TEMPLATE_PATH } from "../../../../projects/ngx-ramblers/src/app/models/home-content.model";
+import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { GroupEventField, DocumentField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventSource } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { buildMongoUri, parseMongoUri } from "../../shared/mongodb-uri";
+import { resumeEnvironment } from "../../cli/commands/environment";
+import { destroyEnvironment } from "../../cli/commands/destroy";
+import {
+  addCustomDomainForEnvironment,
+  checkCustomDomainStatus,
+  removeCustomDomainForEnvironment,
+  removeSubdomainForEnvironment,
+  removeApexRedirectForEnvironment,
+  setupApexRedirectForEnvironment,
+  setupSubdomainForEnvironment
+} from "../../cli/commands/subdomain";
+import { configuredBrevo } from "../../brevo/brevo-config";
+import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
+import { findDomainByName } from "../../brevo/domains/domain-management";
+import { hostnameHealth, probeCustomDomain } from "../hostname-health-controllers";
+import { environmentSendControl, updateEnvironmentSendControl } from "../environment-send-control";
+import { environmentHostnameHealth, updateEnvironmentSiteUrl } from "../hostname-health";
+import { moveMailToCustomDomainForEnvironment } from "../rewrite-mail-domain-for-environment";
+import { appIpAddresses, queryCertificates } from "../../fly/fly-certificates";
+import { probeFlyOrgMigrationStatus } from "../../fly/fly-org-migration";
+import { booleanOf } from "../../shared/string-utils";
+import * as systemConfig from "../../config/system-config";
+import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ADMIN_SET_PASSWORD_PATH } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
+import { isString, keys } from "es-toolkit/compat";
+import {
+  baseDomainFrom,
+  connectToEnvironmentMongo,
+  EnvironmentNotFoundError,
+  loadEnvironmentContext,
+  withBrevoApiKey
+} from "../environment-context";
+import AdmZip from "adm-zip";
+import { buildContributorBundle } from "../../contributor-environment/contributor-bundle";
+import { cloneDatabase, databaseHasCollections } from "../../contributor-environment/clone-database";
+import {
+  downloadEstateRebuildCapture,
+  estateRebuildCaptureInventory,
+  estateRebuildCaptureSummary
+} from "../../ops/estate-rebuild-capture-controllers";
+import {
+  getConsoleAccess,
+  listConsoleAccessEnvironments,
+  saveConsoleAccess
+} from "../../ops/console-access-controllers";
+
+const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
+debugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("environment-setup:routes");
+
+const isSetupEnabled = (): boolean => {
+  const enabled = booleanOf(process.env[Environment.PLATFORM_ADMIN_ENABLED]);
+  debugLog("Setup enabled check:", {enabled, envVar: process.env[Environment.PLATFORM_ADMIN_ENABLED]});
+  return enabled;
+};
+
+const validateSetupAccess = (req: Request, res: Response): boolean => {
+  const setupApiKey = process.env[Environment.ENVIRONMENT_SETUP_API_KEY];
+  const providedKey = req.headers["x-setup-api-key"] as string;
+  if (!isSetupEnabled()) {
+    res.status(403).json({ error: "Environment setup is not enabled on this environment" });
+    return false;
+  } else if (!setupApiKey) {
+    res.status(403).json({ error: `${Environment.ENVIRONMENT_SETUP_API_KEY} is not configured on this environment` });
+    return false;
+  } else if (providedKey === setupApiKey || hasAdminPrivilege(memberFromRequest(req))) {
+    return true;
+  } else {
+    res.status(401).json({ error: "Invalid or missing setup API key" });
+    return false;
+  }
+};
+
+export const requireSetupAccess = (req: Request, res: Response, next: NextFunction): void => {
+  if (validateSetupAccess(req, res)) {
+    next();
+  }
+};
+
+async function localSocialEventsExist(): Promise<boolean> {
+  try {
+    const count = await extendedGroupEvent.countDocuments({
+      [DocumentField.SOURCE]: EventSource.LOCAL,
+      [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_EVENT
+    });
+    return count > 0;
+  } catch (error) {
+    debugLog("Failed to determine local social events:", error);
+    return false;
+  }
+}
+
+async function resolveNgxLite(): Promise<boolean> {
+  if (process.env[Environment.NGX_LITE] !== undefined) {
+    return booleanOf(process.env[Environment.NGX_LITE]);
+  }
+  try {
+    const mongoUri = envConfig.mongo().uri;
+    const parsedMongo = parseMongoUri(mongoUri);
+    const currentEnvironment = (parsedMongo?.database || "").replace(/^ngx-ramblers-/, "");
+    if (currentEnvironment) {
+      const environmentsConfig = await configuredEnvironments();
+      const currentEnvConfig = environmentsConfig.environments?.find(
+        env => env.environment === currentEnvironment
+      );
+      return currentEnvConfig?.ngxLite === true;
+    }
+  } catch (error) {
+    debugLog("Failed to determine ngxLite status:", error);
+  }
+  return false;
+}
+
+async function liteHomeTemplate(): Promise<PageContent> {
+  const stored = await pageContentModel.findOne({ path: LITE_HOME_TEMPLATE_PATH }).lean<PageContent>();
+  return stored?.rows?.length ? stored : liteHomeTemplatePageContent();
+}
+
+async function applyLiteTemplateToEnvironment(environment: string, template: PageContent): Promise<void> {
+  const context = await loadEnvironmentContext(environment);
+  const connection = await connectToEnvironmentMongo(context.envConfigData);
+  try {
+    await connection.db.collection("pageContent").updateOne(
+      { path: LITE_HOME_TEMPLATE_PATH },
+      { $set: { path: LITE_HOME_TEMPLATE_PATH, rows: template.rows } },
+      { upsert: true }
+    );
+  } finally {
+    await connection.client.close();
+  }
+}
+
+export async function groupsByArea(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const lookup: RamblersAreaLookup = req.body;
+    if (!lookup.areaCode || !lookup.apiKey) {
+      res.status(400).json({ error: "areaCode and apiKey are required" });
+      return;
+    }
+
+    const groups = await listGroupsByAreaCode(lookup);
+    res.json({ success: true, groups });
+  } catch (error) {
+    errorDebugLog("Error fetching groups by area:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function groupDetailsRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const lookup: RamblersGroupLookup = req.body;
+    if (!lookup.groupCode || !lookup.apiKey) {
+      res.status(400).json({ error: "groupCode and apiKey are required" });
+      return;
+    }
+
+    const group = await groupDetails(lookup);
+    if (!group) {
+      res.status(404).json({ error: `Group not found: ${lookup.groupCode}` });
+      return;
+    }
+
+    res.json({ success: true, group });
+  } catch (error) {
+    errorDebugLog("Error fetching group details:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function validateRamblersApiKeyRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { apiKey } = req.body;
+    if (!apiKey) {
+      res.status(400).json({ error: "apiKey is required" });
+      return;
+    }
+
+    const result = await validateRamblersApiKey(apiKey);
+    res.json(result);
+  } catch (error) {
+    errorDebugLog("Error validating Ramblers API key:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function validateMongoDb(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { cluster, username, password, database } = req.body;
+    if (!cluster || !username || !password || !database) {
+      res.status(400).json({ error: "cluster, username, password, and database are required" });
+      return;
+    }
+
+    const uri = buildMongoUri({ cluster, username, password, database });
+    const result = await validateMongoConnection({ uri, database });
+    res.json(result);
+  } catch (error) {
+    errorDebugLog("Error validating MongoDB connection:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function validateAwsAdmin(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const adminConfig = adminConfigFromEnvironment();
+    if (!adminConfig) {
+      res.json({
+        valid: false,
+        message: "AWS admin credentials not configured (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or SETUP_AWS_ACCESS_KEY_ID/SETUP_AWS_SECRET_ACCESS_KEY)"
+      });
+      return;
+    }
+
+    const result = await validateAwsAdminCredentials(adminConfig);
+    res.json(result);
+  } catch (error) {
+    errorDebugLog("Error validating AWS admin credentials:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function validateEnvironmentRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const request: EnvironmentSetupRequest = req.body;
+    const results = await validateSetupRequest(request);
+    const allValid = results.every(r => r.valid);
+    res.json({ valid: allValid, results });
+  } catch (error) {
+    errorDebugLog("Error validating setup request:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function createEnvironmentRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const request: EnvironmentSetupRequest = req.body;
+
+    const validationResults = await validateSetupRequest(request);
+    const failedValidations = validationResults.filter(r => !r.valid);
+    if (failedValidations.length > 0) {
+      res.status(400).json({
+        error: "Validation failed",
+        validationResults
+      });
+      return;
+    }
+
+    const result = await createEnvironment(request);
+    res.json({ success: true, result });
+  } catch (error) {
+    errorDebugLog("Error creating environment:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export function sessionDetails(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  const session = sessionStatus(req.params.sessionId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  res.json(session);
+}
+
+export function sessionsDetails(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  const sessions = listSessions();
+  res.json(sessions);
+}
+
+export async function setupStatus(_req: Request, res: Response) {
+  const setupEnabled = isSetupEnabled();
+  const ngxLite = await resolveNgxLite();
+  const platformAdminEnabled = setupEnabled && !ngxLite;
+  const hasLocalSocialEvents = await localSocialEventsExist();
+  res.json({
+    enabled: platformAdminEnabled,
+    platformAdminEnabled,
+    requiresApiKey: Boolean(process.env[Environment.ENVIRONMENT_SETUP_API_KEY]),
+    awsAdminConfigured: Boolean(adminConfigFromEnvironment()),
+    ngxLite,
+    hasLocalSocialEvents
+  });
+}
+
+export async function syncNgxLite(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+  try {
+    const liteEnvironments = ((await configuredEnvironments()).environments || []).filter(env => env.ngxLite === true);
+    const template = await liteHomeTemplate();
+    const outcomes = await Promise.allSettled(liteEnvironments.map(env =>
+      applyLiteTemplateToEnvironment(env.environment, template)));
+    const zipped = liteEnvironments.map((env, index) => ({ env, status: outcomes[index].status }));
+    const applied = zipped
+      .filter(item => item.status === "fulfilled")
+      .map(item => ({ environment: item.env.environment, ngxLite: true }));
+    const failed = zipped
+      .filter(item => item.status === "rejected")
+      .map(item => item.env.environment);
+    debugLog("sync-ngx-lite template applied to %d lite environments, %d unreachable", applied.length, failed.length);
+    res.json({ applied, failed });
+  } catch (error) {
+    debugLog("Failed to sync NGX-Lite template:", error.message);
+    res.status(500).json({ error: `Failed to sync NGX-Lite template: ${error.message}` });
+  }
+}
+
+export async function environmentStatus(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Environment status request for:", environmentName);
+
+    const { environmentsConfig, envConfigData, appName, secrets } = await loadEnvironmentContext(environmentName);
+    const brevoConfig = await configuredBrevo();
+    const probeDatabase = async () => {
+      const { client, db } = await connectToEnvironmentMongo(envConfigData);
+      try {
+        const configCollection = db.collection("config");
+        const systemConfigDoc = await configCollection.findOne({ key: "system" });
+        const pageCount = await db.collection("pageContent").countDocuments();
+        const notifCount = await db.collection("notificationConfigs").countDocuments();
+        return { databaseInitialised: systemConfigDoc !== null, samplePagesPresent: pageCount > 0, notificationConfigsPresent: notifCount > 0 };
+      } finally {
+        await client.close();
+      }
+    };
+    const probeFly = async () => {
+      const flyToken = envConfigData.flyio?.apiKey || "";
+      if (!flyToken) {
+        return { flyAppDeployed: false };
+      } else {
+        const ips = await appIpAddresses({ apiToken: flyToken, appName });
+        return { flyAppDeployed: !!(ips.ipv4 || ips.ipv6) };
+      }
+    };
+    const probeHostnames = async () => {
+      const baseDomain = baseDomainFrom(environmentsConfig);
+      const environmentHostname = `${environmentName}.${baseDomain}`;
+      const report = await environmentHostnameHealth(environmentName);
+      const envHostStatus = report.hostnames.find(hostname => hostname.hostname === environmentHostname);
+      const envHostOptional = envHostStatus?.health === HostnameHealth.NOT_CREATED || !envHostStatus;
+      const envHostHealthy = envHostStatus?.healthy === true && envHostStatus?.health !== HostnameHealth.NOT_CREATED;
+      const envHostHasDns = !!(envHostStatus?.dnsRecordType);
+      const flyToken = envConfigData.flyio?.apiKey || "";
+      const flyCertPresent = flyToken
+        ? (await queryCertificates({ apiToken: flyToken, appName })).some(cert => cert.hostname === environmentHostname)
+        : false;
+      const customDomainLive = report.hostnames.some(hostname =>
+        hostname.healthy
+        && hostname.hostname !== environmentHostname
+        && (hostname.origin === HostnameOrigin.SITE_URL || hostname.origin === HostnameOrigin.CUSTOM_DOMAIN || hostname.health === HostnameHealth.SERVING || hostname.health === HostnameHealth.REDIRECTING));
+      return {
+        subdomainConfigured: envHostHealthy || envHostHasDns || flyCertPresent,
+        subdomainOptional: envHostOptional || customDomainLive,
+        hostnameProblemCount: report.problemCount,
+        hostnameHealth: report
+      };
+    };
+    const probeBrevo = async () => {
+      const brevoKey = brevoConfig?.apiKey || "";
+      if (!brevoKey) {
+        return {brevoDomainAuthenticated: false};
+      } else {
+        return withBrevoApiKey(brevoKey, async () => {
+          const baseDomain = baseDomainFrom(environmentsConfig);
+          const domain = await findDomainByName(baseDomain);
+          return {
+            brevoDomainAuthenticated: domain?.authenticated === true
+          };
+        });
+      }
+    };
+    const probeAssets = async () => {
+      const awsBucket = envConfigData.aws?.bucket || secrets.secrets.AWS_BUCKET || "";
+      if (!awsBucket) {
+        return { standardAssetsPresent: false };
+      } else {
+        const { S3Client, ListObjectsV2Command } = await import("@aws-sdk/client-s3");
+        const s3 = new S3Client({
+          region: envConfigData.aws?.region || secrets.secrets.AWS_REGION || "eu-west-2",
+          credentials: {
+            accessKeyId: envConfigData.aws?.accessKeyId || secrets.secrets.AWS_ACCESS_KEY_ID || "",
+            secretAccessKey: envConfigData.aws?.secretAccessKey || secrets.secrets.AWS_SECRET_ACCESS_KEY || ""
+          }
+        });
+        const result = await s3.send(new ListObjectsV2Command({ Bucket: awsBucket, Prefix: "icons/", MaxKeys: 1 }));
+        return { standardAssetsPresent: (result.KeyCount || 0) > 0 };
+      }
+    };
+    const probes = {
+      [EnvironmentStatusCheck.DATABASE]: probeDatabase,
+      [EnvironmentStatusCheck.FLY]: probeFly,
+      [EnvironmentStatusCheck.HOSTNAMES]: probeHostnames,
+      [EnvironmentStatusCheck.BREVO]: probeBrevo,
+      [EnvironmentStatusCheck.ASSETS]: probeAssets
+    };
+    const requested = isString(req.query.check) ? req.query.check : "";
+    const single = requested && probes[requested as EnvironmentStatusCheck];
+    if (single) {
+      const value = await single();
+      debugLog("Environment status check %s for %s:", requested, environmentName, value);
+      res.json(value);
+    } else {
+    const checks = await Promise.allSettled([
+      probeDatabase(),
+      probeFly(),
+      probeHostnames(),
+      probeBrevo(),
+      probeAssets()
+    ]);
+
+    const status = {
+      databaseInitialised: false,
+      samplePagesPresent: false,
+      notificationConfigsPresent: false,
+      flyAppDeployed: false,
+      standardAssetsPresent: false,
+      subdomainConfigured: false,
+      subdomainOptional: false,
+      brevoDomainAuthenticated: false,
+      hostnameProblemCount: 0
+    };
+
+    checks.forEach(result => {
+      if (result.status === "fulfilled") {
+        Object.assign(status, result.value);
+      }
+    });
+
+    debugLog("Environment status for %s:", environmentName, status);
+    res.json(status);
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error checking environment status:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function updateSiteUrl(req: Request, res: Response) {
+  if (validateSetupAccess(req, res)) {
+    try {
+      const { environmentName } = req.params;
+      const siteUrl = req.body?.siteUrl === undefined || req.body?.siteUrl === null
+        ? null
+        : String(req.body.siteUrl);
+      debugLog("Update site URL for:", environmentName, siteUrl);
+      const result = await updateEnvironmentSiteUrl(environmentName, siteUrl);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof EnvironmentNotFoundError) {
+        res.status(404).json({ success: false, message: error.message });
+      } else {
+        errorDebugLog("Error updating site URL:", error.message);
+        res.status(error.message?.includes("must be") ? 400 : 500).json({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  }
+}
+
+export async function existingEnvironments(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const environmentsConfig = await configuredEnvironments();
+    const environments = (environmentsConfig.environments || []).map(env => ({
+      name: env.environment,
+      appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
+      memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
+      scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
+      organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION,
+      hasApiKey: Boolean(env.flyio?.apiKey),
+      hasPreviousFlyCredentials: Boolean(env.flyio?.previous?.apiKey),
+      previousOrganisation: env.flyio?.previous?.organisation || null,
+      previousAppName: env.flyio?.previous?.appName || null,
+      customDomains: env.customDomains || []
+    }));
+    debugLog("Returning existing environments from MongoDB:", environments.length);
+    res.json({ environments });
+  } catch (error) {
+    errorDebugLog("Error listing existing environments:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function flyOrganisationMigrationStatus(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) {
+    return;
+  } else {
+    try {
+      const { environmentName } = req.params;
+      debugLog("Fly org migration status for:", environmentName);
+      const status = await probeFlyOrgMigrationStatus({
+        environmentName,
+        previousApiKey: req.body?.previousApiKey,
+        previousOrganisation: req.body?.previousOrganisation,
+        previousAppName: req.body?.previousAppName,
+        newApiKey: req.body?.newApiKey,
+        newOrganisation: req.body?.newOrganisation,
+        newAppName: req.body?.newAppName
+      });
+      res.json(status);
+    } catch (error) {
+      errorDebugLog("Error probing Fly org migration status:", error.message);
+      res.status(error.message?.includes("not found") ? 404 : 500).json({ error: error.message });
+    }
+  }
+}
+
+export async function mongoClusters(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const environmentsConfig = await configuredEnvironments();
+    const environments = environmentsConfig.environments || [];
+    const clusterMap = new Map<string, { cluster: string; username: string; password: string; databases: string[] }>();
+
+    environments.forEach(env => {
+      const cluster = env.mongo?.cluster;
+      if (cluster) {
+        const existing = clusterMap.get(cluster);
+        if (existing) {
+          if (env.mongo?.db && !existing.databases.includes(env.mongo.db)) {
+            existing.databases.push(env.mongo.db);
+          }
+        } else {
+          clusterMap.set(cluster, {
+            cluster,
+            username: env.mongo?.username || "",
+            password: env.mongo?.password || "",
+            databases: env.mongo?.db ? [env.mongo.db] : []
+          });
+        }
+      }
+    });
+
+    const clusters = Array.from(clusterMap.values());
+    debugLog("Returning MongoDB clusters:", clusters.length);
+    res.json({ clusters });
+  } catch (error) {
+    errorDebugLog("Error listing MongoDB clusters:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function resumeEnvironmentRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName, runDbInit, runFlyDeployment } = req.body;
+    debugLog("Resume request received:", { environmentName, runDbInit, runFlyDeployment });
+
+    if (!environmentName) {
+      debugLog("Missing environmentName in request");
+      res.status(400).json({ error: "environmentName is required" });
+      return;
+    }
+
+    const envConfig = await findEnvironmentFromDatabase(environmentName);
+    if (!envConfig) {
+      debugLog(`Environment ${environmentName} not found in database`);
+      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
+      return;
+    }
+
+    debugLog("Found environment config:", { name: envConfig.name, appName: envConfig.appName });
+
+    const result = await resumeEnvironment(
+      environmentName,
+      {
+        runDbInit: runDbInit || false,
+        runFlyDeployment: runFlyDeployment || false
+      }, progress => debugLog(`Resume: ${progress.step} - ${progress.status}`)
+    );
+
+    debugLog("Resume completed successfully for:", environmentName);
+    res.json({
+      success: true,
+      result: {
+        environmentName: result.environmentName,
+        appName: result.appName,
+        appUrl: result.appUrl
+      }
+    });
+
+  } catch (error) {
+    errorDebugLog("Error resuming setup:", error.message);
+    errorDebugLog("Error stack:", error.stack);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function destroyEnvironmentRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { skipFly, skipS3, skipDatabase } = req.query;
+    debugLog("Destroy request received:", { environmentName, skipFly, skipS3, skipDatabase });
+
+    const envConfigData = await findEnvironmentFromDatabase(environmentName);
+    if (!envConfigData) {
+      debugLog(`Environment ${environmentName} not found in database`);
+      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
+      return;
+    }
+
+    debugLog("Found environment config:", { name: envConfigData.name, appName: envConfigData.appName });
+
+    const database = envConfigData.mongo?.db;
+    const mongoUri = envConfigData.mongo ? buildMongoUri({
+      cluster: envConfigData.mongo.cluster,
+      username: envConfigData.mongo.username,
+      password: envConfigData.mongo.password,
+      database
+    }) : undefined;
+
+    const result = await destroyEnvironment(
+      {
+        name: environmentName,
+        appName: envConfigData.appName,
+        apiKey: envConfigData.apiKey,
+        mongoUri,
+        database,
+        skipFly: booleanOf(skipFly),
+        skipS3: booleanOf(skipS3),
+        skipDatabase: booleanOf(skipDatabase)
+      }, progress => debugLog(`Destroy: ${progress.step} - ${progress.status}: ${progress.message}`)
+    );
+
+    const failedSteps = result.steps.filter(s => !s.success);
+    const successSteps = result.steps.filter(s => s.success && !s.skipped);
+    const skippedSteps = result.steps.filter(s => s.skipped);
+
+    debugLog("Destroy completed for:", environmentName, "Success:", result.success);
+    debugLog("Successful steps:", successSteps.map(s => s.step).join(", "));
+    if (failedSteps.length > 0) {
+      debugLog("Failed steps:", failedSteps.map(s => `${s.step}: ${s.message}`).join("; "));
+    }
+
+    const skippedSummary = skippedSteps.length > 0 ? ` (skipped: ${skippedSteps.map(s => s.step).join(", ")})` : "";
+    const message = result.success
+      ? `Environment ${environmentName} destroyed successfully${skippedSummary}`
+      : `Environment ${environmentName} partially destroyed. Failed: ${failedSteps.map(s => s.step).join(", ")}`;
+
+    res.json({
+      success: result.success,
+      message,
+      steps: result.steps
+    });
+
+  } catch (error) {
+    errorDebugLog("Error destroying environment:", error.message);
+    errorDebugLog("Error stack:", error.stack);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function copyAssetsRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Copy assets request received for:", environmentName);
+
+    const { envConfigData } = await loadEnvironmentContext(environmentName);
+
+    const bucket = envConfigData.aws?.bucket;
+    if (!bucket) {
+      res.status(400).json({ error: `No S3 bucket configured for environment ${environmentName}` });
+      return;
+    }
+
+    const awsAdminConfig = adminConfigFromEnvironment();
+    if (!awsAdminConfig) {
+      res.status(400).json({ error: "AWS admin credentials not configured on this server" });
+      return;
+    }
+
+    debugLog("Copying standard assets to bucket:", bucket);
+    const copyResult = await copyStandardAssets(awsAdminConfig, bucket);
+    const totalCopied = copyResult.icons.length + copyResult.logos.length + copyResult.backgrounds.length;
+    const totalFailed = copyResult.failures.length;
+
+    debugLog("Copied assets:", { totalCopied, totalFailed, failures: copyResult.failures });
+
+    if (totalCopied > 0) {
+      const { client, db } = await connectToEnvironmentMongo(envConfigData);
+      try {
+        const configCollection = db.collection("config");
+        const systemConfigDoc = await configCollection.findOne({ key: "system" });
+
+        if (systemConfigDoc?.value) {
+          const updates: any = {};
+          const existingConfig = systemConfigDoc.value;
+
+          const mergeImages = (existing: any[] = [], copied: any[]) => {
+            const existingKeys = new Set(existing.map(img => img.awsFileName));
+            const newImages = copied.filter(img => !existingKeys.has(img.awsFileName));
+            return [...existing, ...newImages];
+          };
+
+          if (copyResult.icons.length > 0) {
+            updates["value.icons.images"] = mergeImages(existingConfig.icons?.images, copyResult.icons);
+          }
+          if (copyResult.logos.length > 0) {
+            updates["value.logos.images"] = mergeImages(existingConfig.logos?.images, copyResult.logos);
+          }
+          if (copyResult.backgrounds.length > 0) {
+            updates["value.backgrounds.images"] = mergeImages(existingConfig.backgrounds?.images, copyResult.backgrounds);
+          }
+
+          if (keys(updates).length > 0) {
+            await configCollection.updateOne({ key: "system" }, { $set: updates });
+            debugLog("Updated system config with merged assets");
+          }
+        }
+      } finally {
+        await client.close();
+      }
+    }
+
+    const hasFailures = totalFailed > 0;
+    const message = hasFailures
+      ? `Copied ${totalCopied} assets but ${totalFailed} failed: ${copyResult.failures.map(f => f.file).join(", ")}`
+      : `Copied ${totalCopied} assets to ${bucket} and updated system config`;
+
+    res.json({
+      success: !hasFailures,
+      message,
+      copiedAssets: {
+        icons: copyResult.icons,
+        logos: copyResult.logos,
+        backgrounds: copyResult.backgrounds
+      },
+      failures: copyResult.failures
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error copying assets:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function setupSubdomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Setup subdomain request received for:", environmentName);
+
+    const { environmentsConfig } = await loadEnvironmentContext(environmentName);
+
+    await setupSubdomainForEnvironment(environmentName);
+
+    const baseDomain = baseDomainFrom(environmentsConfig);
+    const hostname = `${environmentName}.${baseDomain}`;
+
+    res.json({
+      success: true,
+      message: `Subdomain configured successfully`,
+      hostname
+    });
+  } catch (error) {
+    errorDebugLog("Error setting up subdomain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function removeSubdomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Remove NGX subdomain request received for:", environmentName);
+
+    await loadEnvironmentContext(environmentName);
+    const result = await removeSubdomainForEnvironment(environmentName);
+
+    res.json({
+      success: true,
+      message: `NGX subdomain ${result.hostname} removed`,
+      hostname: result.hostname,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error removing NGX subdomain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function addCustomDomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname, siteUrlPreference } = req.body || {};
+    debugLog("Add custom domain request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await addCustomDomainForEnvironment(environmentName, hostname, { siteUrlPreference });
+    const pendingMessage = result.entry?.message;
+
+    res.json({
+      success: true,
+      message: pendingMessage
+        ? `Custom domain ${result.hostname}: ${pendingMessage}`
+        : `Custom domain ${result.hostname} attached`,
+      hostname: result.hostname,
+      entry: result.entry,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error adding custom domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function removeCustomDomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Remove custom domain request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await removeCustomDomainForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: `Custom domain ${result.hostname} removed`,
+      hostname: result.hostname,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error removing custom domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function checkCustomDomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Check custom domain request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await checkCustomDomainStatus(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: result.entry?.message || "Status checked",
+      hostname: result.hostname,
+      entry: result.entry,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error checking custom domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function setupApexRedirectRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Setup apex redirect request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await setupApexRedirectForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: `Visitors will see https://${result.primaryHostname}; ${result.redirectFrom} redirects there`,
+      primaryHostname: result.primaryHostname,
+      redirectFrom: result.redirectFrom,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error setting up apex redirect:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function removeApexRedirectRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Remove apex redirect request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await removeApexRedirectForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: result.redirectRemoved
+        ? `Redirect removed: ${result.redirectFrom} now serves directly`
+        : `No redirect rule existed for ${result.redirectFrom}`,
+      redirectFrom: result.redirectFrom,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error removing apex redirect:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function authenticateBrevoDomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Authenticate Brevo domain request received for:", environmentName);
+
+    const { environmentsConfig } = await loadEnvironmentContext(environmentName);
+    const baseDomain = baseDomainFrom(environmentsConfig);
+    const hostname = `${environmentName}.${baseDomain}`;
+
+    debugLog("Authenticating Brevo sending domain:", hostname);
+    const result = await authenticateSendingDomain(hostname);
+
+    res.json({
+      success: true,
+      authenticated: result.authenticated,
+      message: result.message,
+      hostname: result.domainName || hostname,
+      brevoDomainsUrl: result.brevoDomainsUrl || null
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+    } else {
+      errorDebugLog("Error authenticating Brevo domain:", error.message);
+      res.json({
+        success: true,
+        authenticated: false,
+        message: `Brevo domain authentication could not complete: ${error.message}. Finish authentication in the Brevo UI if DNS was partially configured, then re-run this step later.`,
+        hostname: null,
+        brevoDomainsUrl: "https://app.brevo.com/senders/domain/list"
+      });
+    }
+  }
+}
+
+export async function moveMailToCustomDomainRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Move mail to custom domain for:", environmentName);
+    await loadEnvironmentContext(environmentName);
+    const result = await moveMailToCustomDomainForEnvironment(environmentName);
+    res.json({
+      success: true,
+      message: `Moved mail from @${result.oldDomain} to @${result.newDomain}`,
+      oldDomain: result.oldDomain,
+      newDomain: result.newDomain,
+      committeeRolesRewritten: result.committeeRolesRewritten,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+    } else {
+      errorDebugLog("Error moving mail to custom domain:", error.message);
+      res.status(500).json({ success: false, message: error.message, logs: error.logs || [] });
+    }
+  }
+}
+
+export async function seedSamplePagesRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Seed sample pages request received for:", environmentName);
+
+    const { envConfigData } = await loadEnvironmentContext(environmentName);
+    const { client, db } = await connectToEnvironmentMongo(envConfigData);
+    try {
+      const configCollection = db.collection("config");
+      const systemConfigDoc = await configCollection.findOne({ key: "system" });
+      const groupName = systemConfigDoc?.value?.group?.longName || environmentName;
+      const groupShortName = toGroupShortName(groupName);
+
+      const { upsertedCount, totalCount } = await seedSamplePages(db, groupName, groupShortName);
+
+      debugLog(`Seeded ${upsertedCount} new sample pages, updated ${totalCount - upsertedCount} existing`);
+      res.json({
+        success: true,
+        message: `Upserted ${totalCount} sample pages (${upsertedCount} new)`,
+        upsertedCount
+      });
+    } finally {
+      await client.close();
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error seeding sample pages:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function seedNotificationConfigsRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Seed notification configs request received for:", environmentName);
+
+    const { envConfigData } = await loadEnvironmentContext(environmentName);
+    const { client, db } = await connectToEnvironmentMongo(envConfigData);
+    try {
+      const { seededCount, skippedCount } = await seedNotificationConfigs(db);
+      const { wiredCount } = await wireNotificationConfigsToProcesses(db);
+
+      const membersCollection = db.collection("members");
+      const adminMember = await membersCollection.findOne({ memberAdmin: true });
+      const rolesAssigned = adminMember?.firstName && adminMember?.lastName && adminMember?.email
+        ? (await assignAdminToCommitteeRoles(db, {
+            firstName: adminMember.firstName,
+            lastName: adminMember.lastName,
+            email: adminMember.email
+          })).assignedCount
+        : 0;
+
+      debugLog(`Notification configs: seeded ${seededCount}, skipped ${skippedCount}, wired ${wiredCount}, roles assigned ${rolesAssigned}`);
+      res.json({
+        success: true,
+        message: `Seeded ${seededCount} notification configs, skipped ${skippedCount} existing, wired ${wiredCount} to built-in processes, assigned admin to ${rolesAssigned} committee roles`,
+        seededCount,
+        skippedCount,
+        wiredCount,
+        rolesAssigned
+      });
+    } finally {
+      await client.close();
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error seeding notification configs:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function adminPasswordResetRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Admin password reset request received for:", environmentName);
+
+    const { environmentsConfig, envConfigData } = await loadEnvironmentContext(environmentName);
+    const { client, db } = await connectToEnvironmentMongo(envConfigData);
+    try {
+      const membersCollection = db.collection("members");
+      const adminMember = await membersCollection.findOne({ memberAdmin: true });
+      if (!adminMember) {
+        res.status(404).json({ success: false, message: "No admin member found in target environment" });
+        return;
+      }
+
+      const { generateUid } = await import("../../shared/string-utils");
+      const passwordResetId = generateUid();
+      await membersCollection.updateOne(
+        { _id: adminMember._id },
+        { $set: { passwordResetId, expiredPassword: true } }
+      );
+
+      const baseDomain = baseDomainFrom(environmentsConfig);
+      const appName = envConfigData.flyio?.appName || `ngx-ramblers-${environmentName}`;
+      const appUrl = `https://${environmentName}.${baseDomain}`;
+      const flyUrl = `https://${appName}.fly.dev`;
+      const resetPath = `/${ADMIN_SET_PASSWORD_PATH}/${passwordResetId}`;
+
+      res.json({
+        success: true,
+        message: `Password reset generated for ${adminMember.userName || adminMember.email}`,
+        resetUrl: appUrl + resetPath,
+        flyResetUrl: flyUrl + resetPath,
+        userName: adminMember.userName,
+        email: adminMember.email
+      });
+    } finally {
+      await client.close();
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error generating admin password reset:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function schemaExists(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const name = String(req.query?.name || "").trim();
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+    } else {
+      const exists = await databaseHasCollections(name);
+      res.json({ exists });
+    }
+  } catch (error) {
+    errorDebugLog("schema-exists check failed:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function contributorBundleRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const environmentName: string = req.body?.environmentName;
+    const requestedSchema: string = req.body?.schema;
+    const clone: boolean = req.body?.clone === true;
+    const parsedMongo = parseMongoUri(envConfig.mongo().uri);
+    const schema: string = clone ? requestedSchema : parsedMongo?.database;
+    if (!environmentName) {
+      res.status(400).json({ error: "environmentName is required" });
+    } else if (!parsedMongo) {
+      res.status(500).json({ error: "Could not read the current database connection" });
+    } else if (!schema) {
+      res.status(400).json({ error: clone ? "A schema name is required to clone the database" : "Could not determine the current database" });
+    } else if (clone && schema === parsedMongo.database) {
+      res.status(400).json({ error: "Choose a schema name different from the current database for a clone" });
+    } else if (clone && await databaseHasCollections(schema)) {
+      res.status(409).json({ error: `Schema ${schema} already exists - choose a new name` });
+    } else {
+      if (clone) {
+        await cloneDatabase(parsedMongo.database, schema);
+      }
+      const bundleMongoUri = buildMongoUri({
+        cluster: parsedMongo.cluster,
+        username: parsedMongo.username,
+        password: parsedMongo.password,
+        database: schema
+      });
+      const environmentConfig = await findEnvironmentFromDatabase(environmentName).catch(() => null);
+      const appName = environmentConfig?.appName || `ngx-ramblers-${environmentName}`;
+      const bundleFiles = buildContributorBundle({
+        environment: environmentName,
+        appName,
+        mongoUri: bundleMongoUri,
+        aws: {
+          region: envConfig.value(Environment.AWS_REGION) || "",
+          bucket: envConfig.value(Environment.AWS_BUCKET) || "",
+          accessKeyId: envConfig.value(Environment.AWS_ACCESS_KEY_ID) || "",
+          secretAccessKey: envConfig.value(Environment.AWS_SECRET_ACCESS_KEY) || ""
+        }
+      });
+      const zip = new AdmZip();
+      bundleFiles.forEach(file => zip.addFile(file.path, Buffer.from(file.content, "utf-8")));
+      debugLog("Generated contributor bundle for environment %s, schema %s, clone %s", environmentName, schema, clone);
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="contributor-environment-${environmentName}.zip"`);
+      res.send(zip.toBuffer());
+    }
+  } catch (error) {
+    errorDebugLog("contributor-bundle generation failed:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export { environmentDefaults, environmentDetailsRequest, hostnameHealth, environmentSendControl, updateEnvironmentSendControl, probeCustomDomain, estateRebuildCaptureInventory, estateRebuildCaptureSummary, downloadEstateRebuildCapture, listConsoleAccessEnvironments, getConsoleAccess, saveConsoleAccess };

@@ -28,6 +28,11 @@ describe("site registration policy", () => {
     expect(registrationEmailAllowed(settings, "CD02", "committee@example.com")).toBe(false);
   });
 
+  it("allows any valid address on the selected group's website domain", () => {
+    expect(registrationEmailAllowed(settings, "AB01", "chair@group.example", "https://www.group.example/about")).toBe(true);
+    expect(registrationEmailAllowed(settings, "AB01", "chair@other.example", "https://www.group.example/about")).toBe(false);
+  });
+
   it("matches an area-only approval for the area itself and never for its groups", () => {
     const areaSettings = {...settings, approvedEmails: [{areaCode: "AB", groupCode: "", recipients: [{email: "area@example.com"}]}]};
     expect(registrationEmailAllowed(areaSettings, "AB", "area@example.com")).toBe(true);

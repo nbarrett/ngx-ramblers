@@ -102,7 +102,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
                   }
                 }
                 @case (Step.EMAIL) {
-                  <p class="guidance">Use an email address approved by the platform administrator for your committee. Follow the email link to unlock the remaining steps.</p>
+                  <p class="guidance">Use an approved committee email address or any address on the group's website domain. Follow the email link to unlock the remaining steps.</p>
                   <label for="registration-email">Committee email</label>
                   <input id="registration-email" type="email" class="form-control" [(ngModel)]="email" [disabled]="!!registration"/>
                   <button class="btn btn-primary mt-2" [disabled]="busy || !email || !areaCode" (click)="start()"><fa-icon [icon]="icons.email" class="me-2"/>Send confirmation email</button>

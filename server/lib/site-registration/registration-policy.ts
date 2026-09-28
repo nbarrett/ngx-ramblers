@@ -8,6 +8,8 @@ import {
 import { approvalCode, approvalEmailAddresses, validRegistrationEmail as sharedValidRegistrationEmail, registrationSettingsProblem as sharedRegistrationSettingsProblem, validRegistrationSettings as sharedValidRegistrationSettings } from "../../../projects/ngx-ramblers/src/app/functions/registration-settings";
 import { registrationStages } from "../../../projects/ngx-ramblers/src/app/functions/registration-history";
 import { registrationProgressStatus } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
+import { emailIsOnDomain } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { apexHostFromUrl } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 
 export const validRegistrationEmail = sharedValidRegistrationEmail;
 export const registrationSettingsProblem = sharedRegistrationSettingsProblem;
@@ -25,11 +27,12 @@ export function normalisedRegistrationEmail(value: unknown): string {
   return isString(value) ? value.trim().toLowerCase() : "";
 }
 
-export function registrationEmailAllowed(settings: RegistrationSettings, code: string, email: string): boolean {
+export function registrationEmailAllowed(settings: RegistrationSettings, code: string, email: string, website: string | null = null): boolean {
   const normalisedCode = code.trim().toUpperCase();
   const normalisedEmail = normalisedRegistrationEmail(email);
+  const websiteDomain = apexHostFromUrl(website);
   return validRegistrationEmail(normalisedEmail) && (settings.committeeEmailValidationEnabled === false || settings.approvedEmails.some(entry => approvalCode(entry) === normalisedCode &&
-    approvalEmailAddresses(entry).some(approved => normalisedRegistrationEmail(approved) === normalisedEmail)));
+    approvalEmailAddresses(entry).some(approved => normalisedRegistrationEmail(approved) === normalisedEmail)) || emailIsOnDomain(normalisedEmail, websiteDomain));
 }
 
 export function assertRegistrationEditable(registration: SiteRegistration): void {

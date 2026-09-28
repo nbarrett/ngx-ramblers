@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { registrationElapsedLabel, registrationFailureMessage, registrationProgressLineFailed, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
+import { registrationElapsedLabel, registrationFailureMessage, registrationProgressDurationLabel, registrationProgressLineFailed, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
 import { SetupProgress, SetupStepStatus } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 
 const PLAYWRIGHT_DUMP = "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell\nPlease run npx playwright install";
@@ -76,5 +76,23 @@ describe("registrationElapsedLabel", () => {
     expect(registrationElapsedLabel(1_000, 1_000)).toEqual("0:00");
     expect(registrationElapsedLabel(1_000, 3_000)).toEqual("0:02");
     expect(registrationElapsedLabel(1_000, 125_000)).toEqual("2:04");
+  });
+});
+
+describe("registrationProgressDurationLabel", () => {
+  it("shows the interval since the preceding progress line for every completed row", () => {
+    const lines = [
+      line("Completed", SetupStepStatus.Completed, 9_000),
+      line("Running", SetupStepStatus.Running, 3_000),
+      line("Started", SetupStepStatus.Completed, 1_000)
+    ];
+    expect(registrationProgressDurationLabel(lines, 0, 20_000, false)).toEqual("0:06");
+    expect(registrationProgressDurationLabel(lines, 1, 20_000, false)).toEqual("0:02");
+    expect(registrationProgressDurationLabel(lines, 2, 20_000, false)).toEqual("0:00");
+  });
+
+  it("keeps the newest running row ticking from the preceding progress line", () => {
+    const lines = [line("Running", SetupStepStatus.Running, 9_000), line("Started", SetupStepStatus.Completed, 3_000)];
+    expect(registrationProgressDurationLabel(lines, 0, 12_000, true)).toEqual("0:03");
   });
 });
