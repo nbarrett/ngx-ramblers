@@ -2,7 +2,7 @@ import expect from "expect";
 import sinon from "sinon";
 import { afterEach, beforeEach, describe, it } from "mocha";
 import {
-  RegistrationPlan, RegistrationSettings, RegistrationState, RegistrationStep, StoredSiteRegistration
+  RegistrationNavbarPath, RegistrationPlan, RegistrationSettings, RegistrationState, RegistrationStep, StoredSiteRegistration
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import * as registrationStore from "./registration-store";
 import * as groupsApi from "../ramblers/list-groups";
@@ -156,7 +156,7 @@ describe("site registration lifecycle", () => {
     sandboxState.sandbox.stub(MongoClient.prototype, "db").returns({
       collection: () => ({updateOne: sandboxState.sandbox.stub().resolves()})
     } as any);
-    sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {}} as any);
+    sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {}, environmentsConfig: {environments: []}} as any);
     sandboxState.sandbox.stub(environmentContext, "connectToEnvironmentMongo").resolves({
       db: {collection: () => membersCollection}, client: {close: sinon.stub().resolves()}
     } as any);
@@ -203,7 +203,7 @@ describe("site registration lifecycle", () => {
     const initial = {
       id: "registration-full", group, email: "committee@example.com", plan: RegistrationPlan.FULL,
       currentStep: RegistrationStep.PROGRESS, website: "https://group.example", pages,
-      proposedNavigation: [{path: "about", title: "About"}], state: RegistrationState.QUEUED,
+      proposedNavigation: [{path: "about", title: "About"}, {path: RegistrationNavbarPath.EVENTS, title: "Events"}], state: RegistrationState.QUEUED,
       verifiedAt: 1, createdAt: 1, updatedAt: 1, environmentName: "example-ramblers",
       siteUrl: "https://example-ramblers.ngx-ramblers.org.uk", flavour: "generic", progress: [], error: null,
       resumeTokenHash: "resume", verificationTokenHash: "verify", verificationExpiresAt: 0, lastEmailAt: 1,
@@ -239,6 +239,8 @@ describe("site registration lifecycle", () => {
           target.landingVisual = openingRow?.showSwiper && openingRow.columns.some((column: any) => column.imageSource || column.showPlaceholderImage || column.rows?.length);
           target.landingVisualImages = (openingRow?.showSwiper ? openingRow.columns : []).map((column: any) => column.imageSource).filter(Boolean);
           target.landingVisualHeights = (openingRow?.showSwiper ? openingRow.columns : []).map((column: any) => column.imageHeight).filter(Boolean);
+        } else if (name === "pageContent" && update.$setOnInsert?.path) {
+          target.pagePaths.push(update.$setOnInsert.path);
         } else if (name === "pageContent" && update.$push?.rows) {
           target.homeVisual = update.$push.rows.$each[0].showSwiper;
         }
@@ -247,7 +249,7 @@ describe("site registration lifecycle", () => {
     sandboxState.sandbox.stub(registrationStore, "registrations").returns(registrations);
     sandboxState.sandbox.stub(registrationStore, "recordRegistrationHistory").resolves();
     sandboxState.sandbox.stub(registrationStore, "registrationSettings").resolves(settings);
-    sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {aws: {bucket: "review-site"}}} as any);
+    sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {aws: {bucket: "review-site"}}, environmentsConfig: {environments: []}} as any);
     sandboxState.sandbox.stub(environmentContext, "connectToEnvironmentMongo").resolves({db: targetDb, client: {close: sinon.stub().resolves()}} as any);
     sandboxState.sandbox.stub(osMapsProvision, "ensureOsMapsApiKey").resolves({apiKey: "os-key", message: "OS Maps API key already configured"});
     sandboxState.sandbox.stub(environmentsConfig, "setEnvironmentEstateDeploy").resolves();
@@ -269,15 +271,17 @@ describe("site registration lifecycle", () => {
     expect(state.registration.importedAt).not.toBe(null);
     expect(target.migrationConfig.sites[0].parentPages[0].templateFragmentId).toContain("fragments/templates/self-service/");
     expect(target.pagePaths).toContain("about-us");
+    expect(target.pagePaths).toContain(RegistrationNavbarPath.EVENTS);
     expect(target.earlierImportQueries.length).toBe(2);
     expect(target.navigation).toEqual([
       {title: "Current Site", href: "https://group.example"},
       {title: "National Ramblers", href: "https://ramblers.org.uk"}
     ]);
-    expect(target.groupPages.map(page => page.href)).toEqual(["about-us", "admin"]);
+    expect(target.groupPages.map(page => page.href)).toEqual(["about-us", RegistrationNavbarPath.EVENTS, "admin"]);
     expect(target.deletedPaths).toContain("walks/information");
     expect(target.deletedPaths).not.toContain("about-us");
-    expect(target.deletedPaths).not.toContain("contact-us");
+    expect(target.deletedPaths).not.toContain(RegistrationNavbarPath.EVENTS);
+    expect(target.deletedPaths).toContain("contact-us");
     expect(uploads.callCount).toBe(0);
     expect(target.landingVisualImages).toEqual(["https://group.example/one.jpg", "https://group.example/two.jpg", "https://group.example/three.jpg"]);
     expect(target.landingVisualHeights).toEqual([400, 400, 400]);

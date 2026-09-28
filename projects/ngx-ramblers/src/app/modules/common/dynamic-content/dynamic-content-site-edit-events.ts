@@ -71,7 +71,7 @@ import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
                      type="checkbox" class="form-check-input"
                      [id]="id +'-view-selector'">
               <label class="form-check-label"
-                     [for]="id +'-view-selector'">{{viewSelectorLabel()}}
+                     [for]="id +'-view-selector'">Full mode
               </label>
             </div>
           </div>
@@ -362,9 +362,15 @@ export class DynamicContentSiteEditEvents implements OnInit {
   private initialiseRowForEvents(row: PageContentRow) {
     if (!row?.events) {
       const allow: EventsDataAllows = {
-        addNew: false,
-        pagination: false,
-        quickSearch: false
+        addNew: true,
+        advancedSearch: true,
+        alert: true,
+        allowFilterChange: true,
+        allowSortChange: true,
+        autoTitle: true,
+        pagination: true,
+        quickSearch: true,
+        viewSelector: false
       };
       const events: EventsData = {
         minColumns: 2,
@@ -372,8 +378,8 @@ export class DynamicContentSiteEditEvents implements OnInit {
         allow,
         eventTypes: [RamblersEventType.GROUP_EVENT],
         fromDate: this.dateUtils.dateTimeNow().toMillis(),
-        toDate: this.dateUtils.dateTimeNow().plus({weeks: 2}).toMillis(),
-        filterCriteria: FilterCriteria.DATE_RANGE,
+        toDate: this.dateUtils.dateTimeNow().plus({years: 1}).toMillis(),
+        filterCriteria: FilterCriteria.FUTURE_EVENTS,
         sortOrder: SortOrder.DATE_ASCENDING,
         dateRangeMode: DateRangeMode.DATE_PICKERS
       };
@@ -405,14 +411,6 @@ export class DynamicContentSiteEditEvents implements OnInit {
   groupEventsMode(): boolean {
     const types = this.row?.events?.eventTypes || [];
     return types.length > 0 && types.every(type => type === RamblersEventType.GROUP_EVENT);
-  }
-
-  viewSelectorLabel(): string {
-    if (this.groupEventsMode()) {
-      return "Group events mode";
-    } else {
-      return "Group walks mode";
-    }
   }
 
   applyGroupEventsViewSelector(): void {

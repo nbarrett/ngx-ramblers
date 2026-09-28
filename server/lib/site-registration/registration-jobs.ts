@@ -52,12 +52,13 @@ import {importRegistrationCommittee} from "./registration-committee";
 import {createAllSamplePageContent, PRIVACY_POLICY_PATH} from "../environment-setup/templates/sample-data/page-content-templates";
 import {COMMITTEE_ROOT_PATH} from "../environment-setup/templates/sample-data/committee-page-template";
 import {toGroupShortName} from "../environment-setup/database-initialiser";
-import { EnvironmentConfig, FLYIO_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { EnvironmentConfig, EnvironmentsConfig, FLYIO_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { albumsLinkedToWalks, homeContentRows, photosByYear, registrationKeyAreas } from "./registration-photos";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
+import { recaptchaFromEnvironmentsConfig } from "../config/recaptcha-keys";
 
 const debugLog = debug(envConfig.logNamespace("site-registration:jobs"));
 const workerId = randomUUID();
@@ -202,13 +203,21 @@ async function provisionRegistration(registration: StoredSiteRegistration): Prom
   }], $slice: -100}}});
 }
 
-async function reviewSiteSystemConfig(connection: EnvironmentMongoConnection, wantsEvents: boolean): Promise<SystemConfig> {
+async function reviewSiteSystemConfig(connection: EnvironmentMongoConnection, wantsEvents: boolean, environmentsConfig: EnvironmentsConfig): Promise<SystemConfig> {
   try {
-    if (wantsEvents) {
-      await connection.db.collection("config").updateOne({key: ConfigKey.SYSTEM}, {$set: {"value.group.socialEventPopulation": EventPopulation.WALKS_MANAGER}});
-    }
+    const recaptcha = recaptchaFromEnvironmentsConfig(environmentsConfig);
     const system = await connection.db.collection("config").findOne({key: ConfigKey.SYSTEM});
-    return system?.value;
+    const updates = {
+      ...(wantsEvents ? {"value.group.socialEventPopulation": EventPopulation.WALKS_MANAGER} : {}),
+      ...(!system?.value?.recaptcha?.siteKey && recaptcha.siteKey ? {"value.recaptcha.siteKey": recaptcha.siteKey} : {}),
+      ...(!system?.value?.recaptcha?.secretKey && recaptcha.secretKey ? {"value.recaptcha.secretKey": recaptcha.secretKey} : {})
+    };
+    await connection.db.collection("config").updateOne({key: ConfigKey.SYSTEM}, {$set: updates});
+    return {...system?.value, recaptcha: {
+      ...system?.value?.recaptcha,
+      siteKey: system?.value?.recaptcha?.siteKey || recaptcha.siteKey,
+      secretKey: system?.value?.recaptcha?.secretKey || recaptcha.secretKey
+    }};
   } finally {
     await connection.client.close();
   }
@@ -217,7 +226,7 @@ async function reviewSiteSystemConfig(connection: EnvironmentMongoConnection, wa
 async function loadWalksFromWalksManager(registration: StoredSiteRegistration): Promise<void> {
   const context = await loadEnvironmentContext(registration.environmentName);
   const wantsEvents = (registration.proposedNavigation || []).some(item => item.path === RegistrationNavbarPath.EVENTS);
-  const config = await reviewSiteSystemConfig(await connectToEnvironmentMongo(context.envConfigData), wantsEvents);
+  const config = await reviewSiteSystemConfig(await connectToEnvironmentMongo(context.envConfigData), wantsEvents, context.environmentsConfig);
   if (!walksManagerSyncEnabled(config) || !context.envConfigData?.mongo?.cluster) {
     await registrations().updateOne({id: registration.id, leaseOwner: workerId}, {
       $push: {progress: {$each: [{step: "Walks Manager", status: SetupStepStatus.Completed, message: "Skipped - this site does not load walks from Walks Manager", timestamp: dateTimeNowAsValue()}], $slice: -100}},
@@ -291,7 +300,8 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     const targetPath = importedPagePath(page.path, registration.pages || [], assembled);
     const title = targetPath === RegistrationNavbarPath.HOME ? registration.group.name : assembled.find(item => item.path === targetPath)?.title;
     const titledPage = withPageHeading({...page, path: targetPath}, title);
-    const pageWithNavigation = assembled.some(sourcePage => sourcePage.parentPath === targetPath) ? withChildNavigation(titledPage) : titledPage;
+    const childCount = assembled.filter(sourcePage => sourcePage.parentPath === targetPath).length;
+    const pageWithNavigation = childCount > 0 ? withChildNavigation(titledPage, childCount) : titledPage;
     const hasAlbum = result.albums.some(album => album.sourcePagePath === page.path);
     const flattenedPage = {...pageWithNavigation, rows: pairedImageRows(cleanPageRows(pageWithNavigation.rows, targetPath))};
     const landingPage = !hasAlbum && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(flattenedPage) : flattenedPage;
@@ -310,7 +320,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
   const informationPages = assembled.some(page => page.parentPath === RegistrationNavbarPath.INFORMATION) ? [withChildNavigation({
     path: RegistrationNavbarPath.INFORMATION,
     rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "## Information"}]}]
-  })] : [];
+  }, assembled.filter(page => page.parentPath === RegistrationNavbarPath.INFORMATION).length)] : [];
   const sourcePages = withSourcePageAlbums(migrated.pages.map(page => ({...page, rows: withoutEmptyRows(page.rows)})), migrated.albums).filter(page => !informationPages.some(information => information.path === page.path));
   const groupCentre: [number, number] | null = registration.group.latitude && registration.group.longitude ? [registration.group.latitude, registration.group.longitude] : null;
   const migratedPages = photosByYear(withIntroductionPhotos([...sourcePages, ...informationPages], migrated.albums), registration.pages || [], photoTemplates, groupCentre);
@@ -329,15 +339,15 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     }));
     await importRegistrationCommittee(connection.db, migratedPages, registration, aiConfigFromEnvironment());
     const migratedPaths = new Set(migratedPages.map(page => page.path));
-    const retainedBuiltInPaths = new Set(["#home-content", "admin#action-buttons", RegistrationNavbarPath.WALKS, PRIVACY_POLICY_PATH]);
-    const samplePaths = createAllSamplePageContent({groupName: registration.group.name, groupShortName: toGroupShortName(registration.group.name)})
-      .map(page => page.path).concat(COMMITTEE_ROOT_PATH);
-    const navigationPaths = new Set(assembled.map(page => page.path));
-    const unusedSamplePaths = samplePaths.filter(path => !migratedPaths.has(path) && !retainedBuiltInPaths.has(path) && !navigationPaths.has(path));
-    const samplePagesForNavigation = createAllSamplePageContent({groupName: registration.group.name, groupShortName: toGroupShortName(registration.group.name)})
-      .filter(page => navigationPaths.has(page.path) && !migratedPaths.has(page.path));
-    await Promise.all(samplePagesForNavigation.map(page => connection.db.collection("pageContent")
+    const eventsSelected = registration.proposedNavigation.some(page => page.path === RegistrationNavbarPath.EVENTS);
+    const retainedBuiltInPaths = new Set(["#home-content", "admin#action-buttons", RegistrationNavbarPath.WALKS, PRIVACY_POLICY_PATH,
+      ...(eventsSelected ? [RegistrationNavbarPath.EVENTS] : [])]);
+    const samplePages = createAllSamplePageContent({groupName: registration.group.name, groupShortName: toGroupShortName(registration.group.name)});
+    const retainedSamplePages = samplePages.filter(page => retainedBuiltInPaths.has(page.path) && !migratedPaths.has(page.path));
+    await Promise.all(retainedSamplePages.map(page => connection.db.collection("pageContent")
       .updateOne({path: page.path}, {$setOnInsert: page}, {upsert: true})));
+    const samplePaths = samplePages.map(page => page.path).concat(COMMITTEE_ROOT_PATH);
+    const unusedSamplePaths = samplePaths.filter(path => !migratedPaths.has(path) && !retainedBuiltInPaths.has(path));
     if (unusedSamplePaths.length > 0) {
       await connection.db.collection("pageContent").deleteMany({path: {$in: unusedSamplePaths}});
       const linkingPages = await connection.db.collection<PageContent>("pageContent")
@@ -447,12 +457,13 @@ function registrationNavigationPages(registration: StoredSiteRegistration): Regi
   return assembleRegistrationPages(registration.pages || [], hasWalks, hasSocialEvents);
 }
 
-function withChildNavigation(page: PageContent): PageContent {
+function withChildNavigation(page: PageContent, childCount: number): PageContent {
   if (page.rows?.some(row => row.type === PageContentType.ALBUM_INDEX)) {
     return page;
   } else {
+    const columnCount = Math.min(4, Math.max(2, childCount));
     const indexRow: PageContentRow = {
-      type: PageContentType.ALBUM_INDEX, maxColumns: 4, minColumns: 2, showSwiper: false, columns: [],
+      type: PageContentType.ALBUM_INDEX, maxColumns: columnCount, minColumns: 2, showSwiper: false, columns: [],
       albumIndex: {
         contentPaths: [{contentPath: page.path, stringMatch: StringMatch.STARTS_WITH, maxPathSegments: 1}],
         excludePaths: [], columnOverrides: [], contentTypes: [IndexContentType.PAGES, IndexContentType.INDEX_PAGES],

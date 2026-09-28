@@ -4,7 +4,7 @@ import { faCircleCheck, faCircleXmark, faSpinner } from "@fortawesome/free-solid
 import { SetupProgress, SetupStepStatus } from "../../../models/environment-setup.model";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { registrationElapsedLabel, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../functions/registration-progress";
+import { registrationProgressDurationLabel, registrationProgressLines, registrationProgressStatus, sanitiseRegistrationMessage } from "../../../functions/registration-progress";
 import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
@@ -120,8 +120,9 @@ export class RegistrationProgressLogComponent implements OnInit, OnDestroy {
 
   time(item: SetupProgress, index = 0): string {
     const clock = item.timestamp ? this.dateUtils.asString(item.timestamp, undefined, UIDateFormat.RAMBLERS_TIME) : "";
-    if (this.status(item, index) === SetupStepStatus.Running && item.timestamp) {
-      return `${clock} · ${registrationElapsedLabel(item.timestamp, this.now)}`;
+    if (item.timestamp) {
+      const running = this.status(item, index) === SetupStepStatus.Running;
+      return `${clock} · ${registrationProgressDurationLabel(this.lines(), index, this.now, running)}`;
     } else {
       return clock;
     }

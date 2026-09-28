@@ -37,13 +37,13 @@ async function createRegistration(request: RegistrationStartRequest, confirmedBy
     throw new Error("Choose your Ramblers area, and your group if you are registering one, before continuing.");
   } else if (!confirmedByAdmin && (!normalisedRegistrationEmail(request?.email) || !validRegistrationEmail(email))) {
     throw new Error("Enter a valid committee email address, such as secretary@yourgroup.org.uk.");
-  } else if (!confirmedByAdmin && !registrationEmailAllowed(settings, code, email)) {
-    throw new Error(`That email address is not on the approved list for this group or area. Try another committee email address or ${REGISTRATION_ADMIN_HELP_PROMPT}.`);
   }
   const entries = await fetchRamblersGroupsFromApi([code]);
   const group = entries.find(candidate => candidate.group_code === code && candidate.scope === scope);
   if (!group) {
     throw new Error(`The selected ${groupCode ? "group" : "area"} could not be found in the Ramblers directory.`);
+  } else if (!confirmedByAdmin && !registrationEmailAllowed(settings, code, email, group.external_url)) {
+    throw new Error(`That email address is not approved for this group or area and does not use its website domain. Try another committee email address or ${REGISTRATION_ADMIN_HELP_PROMPT}.`);
   }
   await ensureRegistrationIndexes();
   const now = dateTimeNowAsValue();

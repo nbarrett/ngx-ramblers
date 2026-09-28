@@ -19,6 +19,7 @@ import { isArray, isNull, isObject, isString, isUndefined, keys } from "es-toolk
 import { broadcast } from "../../websockets/websocket-broadcaster";
 import { MessageType } from "../../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import { recaptchaFromGlobalConfig } from "../../config/recaptcha-keys";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
@@ -276,8 +277,20 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
     const criteria = criteriaForKey(configKey);
     const projection = configKey === ConfigKey.SYSTEM ? SYSTEM_GEOMETRY_EXCLUSION : {};
     return config.findOne(criteria, projection)
-      .then(response => {
+      .then(async response => {
         const configDocument: ConfigDocument = decryptedDocument(configKey, toObjectWithId(response));
+        if (configKey === ConfigKey.SYSTEM && configDocument?.value) {
+          const fromGlobal = await recaptchaFromGlobalConfig();
+          const recaptcha = configDocument.value.recaptcha || {};
+          configDocument.value = {
+            ...configDocument.value,
+            recaptcha: {
+              ...recaptcha,
+              siteKey: recaptcha.siteKey || fromGlobal.siteKey || "",
+              secretKey: recaptcha.secretKey || fromGlobal.secretKey || ""
+            }
+          };
+        }
         const redactedValue = isAdmin ? configDocument?.value : redactSensitive(configDocument?.value);
         if (isAdmin && configKey === ConfigKey.ENVIRONMENTS) {
           secretsAccessLog("Environments document with secret values returned to %s", memberDescription(memberFromRequest(req)));
