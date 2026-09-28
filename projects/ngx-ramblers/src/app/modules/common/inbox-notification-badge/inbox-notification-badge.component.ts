@@ -8,6 +8,8 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { InboxUnreadRole } from "../../../models/inbox.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
   selector: "app-inbox-notification-badge",
@@ -15,7 +17,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
   template: `
     @if ((inboxNotificationService.total$ | async); as total) {
       @if (total > 0) {
-        <a class="inbox-notification-badge" [routerLink]="'/' + adminInboxPath"
+        <a class="inbox-notification-badge" [routerLink]="'/' + adminInboxPath" (click)="closeMenu()"
            [attr.aria-label]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
            [tooltip]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
            containerClass="inbox-unread-tooltip"
@@ -76,7 +78,12 @@ export class InboxNotificationBadgeComponent {
 
   protected inboxNotificationService = inject(InboxNotificationService);
   protected stringUtils = inject(StringUtilsService);
+  private broadcastService = inject<BroadcastService<boolean>>(BroadcastService);
   protected readonly faInbox = faInbox;
+
+  closeMenu(): void {
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MENU_TOGGLE, false));
+  }
 
   tooltipFor(total: number, breakdown: InboxUnreadRole[] | null): string {
     const heading = `${this.stringUtils.pluraliseWithCount(total, "unread conversation")} in your inbox`;

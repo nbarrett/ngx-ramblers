@@ -214,11 +214,20 @@
   min-height: 0
   display: flex
   flex-direction: column
-  overflow: hidden
-  padding-top: 2.25rem
+  overflow: visible
+  padding-top: 0
+
+.inbox-pane > .thumbnail-heading
+  align-self: flex-start
+  top: -12px
+  margin-left: 12px
+  margin-right: 0
+  margin-bottom: -8px
+  z-index: 2
 
 .inbox-list-flush
-  padding-top: 1rem
+  padding-top: 0
+  overflow: visible
 
 .inbox-pane-messages
   padding-top: 1rem
@@ -436,8 +445,29 @@
   background-color: #f7f7f7
   text-decoration: none
 
+:host(.inbox-reading)
+  display: flex
+  flex-direction: column
+  overflow: hidden
+  height: 100dvh
+  overscroll-behavior: none
+
+:host(.inbox-reading) .inbox-layout
+  flex: 1 1 auto
+  min-height: 0
+  overflow: hidden
+  overscroll-behavior: contain
+
+:host(.inbox-reading) .inbox-pane-messages
+  overscroll-behavior: contain
+
 .inbox-sticky-actions
   display: none
+  flex: 0 0 auto
+  position: sticky
+  bottom: 0
+  z-index: 6
+  background: #fff
 
 .inbox-mobile-filters
   display: grid
@@ -521,8 +551,8 @@
   .inbox-toolbar-actions.inbox-reading-actions .inbox-next-unread
     grid-column: 1 / -1
   .inbox-toolbar
-    max-height: 22rem
-    overflow: hidden
+    max-height: none
+    overflow: visible
   .inbox-layout
     height: calc(100dvh - var(--inbox-chrome, 188px))
     min-height: 440px
