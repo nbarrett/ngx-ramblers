@@ -7,6 +7,7 @@ import { ContentMetadata, ContentMetadataItem, ContentMetadataResizeRequest } fr
 import { ApiAction } from "./api-response.model";
 import { ExportedGpxSummary, OsMapsListedRoute } from "./os-maps-export.model";
 import { OsDataHubApiKey } from "./os-data-hub-api-key.model";
+import { SystemConfig } from "./system.model";
 
 export enum IntegrationWorkerEventType {
   STANDARD_OUT = "standard-out",
@@ -125,6 +126,36 @@ export interface IntegrationWorkerMigrationResultCallback {
   jobId: string;
   status: IntegrationWorkerResultStatus;
   result?: MigrationResult;
+  errorMessage?: string;
+}
+
+export interface IntegrationWorkerWalksManagerSyncJobRequest {
+  jobId: string;
+  environmentName: string;
+  mongoUri: string;
+  systemConfig: SystemConfig;
+  fullSync: boolean;
+  callback: IntegrationWorkerCallbackConfig;
+}
+
+export interface IntegrationWorkerWalksManagerSyncProgressCallback {
+  jobId: string;
+  percent: number;
+  message: string;
+}
+
+export interface IntegrationWorkerWalksManagerSyncResult {
+  added: number;
+  updated: number;
+  deleted: number;
+  totalProcessed: number;
+  errors: string[];
+}
+
+export interface IntegrationWorkerWalksManagerSyncResultCallback {
+  jobId: string;
+  status: IntegrationWorkerResultStatus;
+  result?: IntegrationWorkerWalksManagerSyncResult;
   errorMessage?: string;
 }
 
