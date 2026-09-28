@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -28,8 +28,10 @@ import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
       @for (field of fields; track field.key) {
         @if (isVisible(field.key)) {
           <div class="recipient-line"
+               [attr.data-recipient-field]="field.key"
                [class.is-active]="activeField === field.key"
                [class.has-chips]="valueFor(field.key).length > 0"
+               [class.is-drop-target]="dropTarget === field.key"
                (dragover)="onDragOver($event)"
                (drop)="onDrop(field.key, $event)">
             @if (!plain) {
@@ -40,6 +42,7 @@ import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
                 <span class="recipient-chip"
                       [class.is-editing]="isEditing(field.key, idx)"
                       draggable="true"
+                      (pointerdown)="onChipPointerDown($event, field.key, recipient)"
                       (dragstart)="onDragStart(field.key, recipient)"
                       (dragend)="onDragEnd()"
                       [tooltip]="chipTooltip(recipient)"
@@ -88,7 +91,7 @@ import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
                      (keydown.escape)="onSuggestionEscape()"
                      (focus)="onFocus(field.key)"
                      (blur)="onBlur(field.key, $event)"
-                     [placeholder]="valueFor(field.key).length ? 'Add…' : 'Add people…'">
+                     [placeholder]="valueFor(field.key).length ? 'Add…' : listRecipients.length ? 'Add people or committee lists…' : 'Add people…'">
             </div>
             @if (editorField() === field.key && editorSubject(); as edited) {
               <div class="recipient-editor-backdrop" (click)="closeEditor()"></div>
@@ -163,7 +166,7 @@ import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
             @if (showSuggestions(field.key)) {
               <ul class="recipient-suggestions" [class.is-above]="suggestionsAbove" (mousedown)="$event.preventDefault()">
                 @if (visibleMemberSuggestions.length) {
-                  <li class="recipient-suggestions-heading">Group members</li>
+                  <li class="recipient-suggestions-heading">{{ listRecipients.length ? "People and committee lists" : "Group members" }}</li>
                   @for (suggestion of visibleMemberSuggestions; track suggestion.email; let i = $index) {
                     <li>
                       <button type="button" class="recipient-suggestion"
@@ -172,7 +175,11 @@ import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
                               (click)="chooseSuggestion(field.key, suggestion)">
                         <span class="recipient-suggestion-main">
                           <strong>{{ suggestion.name || suggestion.email }}</strong>
-                          @if (suggestion.name) { <span class="recipient-suggestion-email">{{ suggestion.email }}</span> }
+                          @if (suggestion.listId) {
+                            <span class="recipient-suggestion-email">{{ suggestion.listCount }} people</span>
+                          } @else if (suggestion.name) {
+                            <span class="recipient-suggestion-email">{{ suggestion.email }}</span>
+                          }
                         </span>
                       </button>
                     </li>
@@ -241,7 +248,7 @@ import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
     </div>
   `
 })
-export class RecipientFieldComponent implements OnChanges {
+export class RecipientFieldComponent implements OnChanges, OnDestroy {
 
   private dateUtils = inject(DateUtilsService);
   private changeDetector = inject(ChangeDetectorRef);
@@ -254,6 +261,7 @@ export class RecipientFieldComponent implements OnChanges {
   @Input() savedRecipients: ExternalRecipient[] = [];
   @Input() members: Member[] = [];
   @Input() committeeAddresses: ComposerExternalRecipient[] = [];
+  @Input() listRecipients: ComposerExternalRecipient[] = [];
   @Input() saveForReuse = true;
   plain = false;
   unframed = false;
@@ -305,6 +313,16 @@ export class RecipientFieldComponent implements OnChanges {
   protected pending: { field: RecipientField; name: string; email: string; saveForReuse: boolean } | null = null;
   protected editorError: string | null = null;
   private dragItem: ComposerExternalRecipient | null = null;
+  protected dropTarget: RecipientField | null = null;
+  private touchDrag: {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    field: RecipientField;
+    recipient: ComposerExternalRecipient;
+    dragging: boolean;
+  } | null = null;
+  private suppressChipClick = false;
   private dragFrom: RecipientField | null = null;
   private memberByEmail = new Map<string, Member>();
   private qualifierByEmail = new Map<string, string>();
@@ -312,9 +330,13 @@ export class RecipientFieldComponent implements OnChanges {
   protected visibleMemberSuggestions: ComposerExternalRecipient[] = [];
   protected visibleSavedSuggestions: ExternalRecipient[] = [];
 
+  ngOnDestroy(): void {
+    this.clearTouchDrag();
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["committeeAddresses"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"]) {
-      if (changes["members"] || changes["committeeAddresses"]) {
+    if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"]) {
+      if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"]) {
         this.rebuildMemberIndex();
       }
       this.refreshVisibleSuggestions();
@@ -423,9 +445,13 @@ export class RecipientFieldComponent implements OnChanges {
   }
 
   protected openEditor(field: RecipientField, index: number): void {
-    this.pending = null;
-    this.editorError = null;
-    this.editing = this.isEditing(field, index) ? null : { field, index };
+    if (this.suppressChipClick) {
+      this.suppressChipClick = false;
+    } else {
+      this.pending = null;
+      this.editorError = null;
+      this.editing = this.isEditing(field, index) ? null : { field, index };
+    }
   }
 
   protected closeEditor(): void {
@@ -693,7 +719,10 @@ export class RecipientFieldComponent implements OnChanges {
       email: recipient.email,
       name: recipient.name,
       existingId: saved?.id,
-      saveForReuse: false
+      saveForReuse: false,
+      memberId: recipient.memberId,
+      listId: recipient.listId,
+      listCount: recipient.listCount
     };
     if (!this.valueFor(field).some(item => item.email.toLowerCase() === entry.email.toLowerCase())) {
       this.emit(field, [...this.valueFor(field), entry]);
@@ -757,6 +786,13 @@ export class RecipientFieldComponent implements OnChanges {
         this.qualifierByEmail.set(email, memberChipQualifier(holder, now));
       }
     });
+    this.cachedMemberEntries = (this.listRecipients || []).reduce((list, recipient) => {
+      if (list.some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) {
+        return list;
+      } else {
+        return [...list, recipient];
+      }
+    }, [] as ComposerExternalRecipient[]);
     this.cachedMemberEntries = [...this.memberByEmail.values()].reduce((list: ComposerExternalRecipient[], member) => {
       const email = (member.email || "").trim();
       if (list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
@@ -764,7 +800,7 @@ export class RecipientFieldComponent implements OnChanges {
       } else {
         return [...list, {email, name: memberDisambiguatedLabel(member)}];
       }
-    }, []);
+    }, this.cachedMemberEntries);
     this.cachedMemberEntries = (this.committeeAddresses || []).reduce((list, address) => {
       const email = (address.email || "").trim();
       if (!email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
@@ -813,16 +849,83 @@ export class RecipientFieldComponent implements OnChanges {
     if (!recipient || from === null || from === field) {
       return;
     }
-    if (field === RecipientField.CC) {
-      this.showCc = true;
+    this.moveRecipient(from, field, recipient);
+  }
+
+  protected onChipPointerDown(event: PointerEvent, field: RecipientField, recipient: ComposerExternalRecipient): void {
+    const target = event.target as HTMLElement;
+    if (event.pointerType === "mouse" || event.button !== 0 || target.closest(".recipient-chip-remove")) {
+    } else {
+      this.touchDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        field,
+        recipient,
+        dragging: false
+      };
+      window.addEventListener("pointermove", this.onChipPointerMove, {passive: false});
+      window.addEventListener("pointerup", this.onChipPointerUp);
+      window.addEventListener("pointercancel", this.onChipPointerUp);
     }
-    if (field === RecipientField.BCC) {
-      this.showBcc = true;
+  }
+
+  private onChipPointerMove = (event: PointerEvent): void => {
+    if (!this.touchDrag || event.pointerId !== this.touchDrag.pointerId) {
+    } else {
+      const dx = event.clientX - this.touchDrag.startX;
+      const dy = event.clientY - this.touchDrag.startY;
+      if (!this.touchDrag.dragging && (dx * dx + dy * dy) > 100) {
+        this.touchDrag.dragging = true;
+        this.dragItem = this.touchDrag.recipient;
+        this.dragFrom = this.touchDrag.field;
+      }
+      if (this.touchDrag.dragging) {
+        event.preventDefault();
+        const under = document.elementFromPoint(event.clientX, event.clientY);
+        const line = under?.closest("[data-recipient-field]");
+        this.dropTarget = line ? line.getAttribute("data-recipient-field") as RecipientField : null;
+        this.changeDetector.markForCheck();
+      }
     }
-    this.emit(from, this.valueFor(from).filter(item => item.email.toLowerCase() !== recipient.email.toLowerCase()));
-    if (!this.valueFor(field).some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) {
-      this.emit(field, [...this.valueFor(field), recipient]);
+  };
+
+  private onChipPointerUp = (event: PointerEvent): void => {
+    if (!this.touchDrag || event.pointerId !== this.touchDrag.pointerId) {
+    } else {
+      if (this.touchDrag.dragging && this.dropTarget) {
+        this.suppressChipClick = true;
+        this.moveRecipient(this.touchDrag.field, this.dropTarget, this.touchDrag.recipient);
+      }
+      this.clearTouchDrag();
     }
+  };
+
+  private moveRecipient(from: RecipientField, field: RecipientField, recipient: ComposerExternalRecipient): void {
+    if (from === field) {
+    } else {
+      if (field === RecipientField.CC) {
+        this.showCc = true;
+      }
+      if (field === RecipientField.BCC) {
+        this.showBcc = true;
+      }
+      this.emit(from, this.valueFor(from).filter(item => item.email.toLowerCase() !== recipient.email.toLowerCase()));
+      if (!this.valueFor(field).some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) {
+        this.emit(field, [...this.valueFor(field), recipient]);
+      }
+    }
+  }
+
+  private clearTouchDrag(): void {
+    window.removeEventListener("pointermove", this.onChipPointerMove);
+    window.removeEventListener("pointerup", this.onChipPointerUp);
+    window.removeEventListener("pointercancel", this.onChipPointerUp);
+    this.touchDrag = null;
+    this.dragItem = null;
+    this.dragFrom = null;
+    this.dropTarget = null;
+    this.changeDetector.markForCheck();
   }
 
   private reuseNewAddresses(): boolean {

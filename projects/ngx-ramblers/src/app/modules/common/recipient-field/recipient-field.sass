@@ -36,6 +36,8 @@
   border-bottom: 1px solid #f0f1f3
   &.is-active
     border-bottom-color: #f29401
+  &.is-drop-target
+    background: #fff8eb
 
 .recipient-line-label
   flex: 0 0 auto
@@ -71,8 +73,10 @@
     cursor: grabbing
 
 .recipient-chip-label
-  max-width: 360px
+  max-width: 100%
+  min-width: 0
   display: inline-flex
+  flex-wrap: wrap
   align-items: baseline
   gap: 7px
   padding: 0
@@ -81,9 +85,8 @@
   font-size: 13px
   font-weight: 600
   color: #9b2c2c
-  overflow: hidden
-  text-overflow: ellipsis
-  white-space: nowrap
+  overflow: visible
+  white-space: normal
   cursor: pointer
 
 .recipient-chip-name
@@ -147,7 +150,7 @@
   align-items: flex-end
   gap: 2px
   padding-top: 2px
-  min-width: 7.5rem
+  min-width: 0
 
 .recipient-line-actions
   display: flex
@@ -180,7 +183,7 @@
 
 .recipient-suggestions
   position: absolute
-  left: 34px
+  left: 0
   right: 0
   top: 100%
   z-index: 50
@@ -215,7 +218,13 @@
   border: none
   background: transparent
   text-align: left
+  color: #212529
+  -webkit-text-fill-color: #212529
   cursor: pointer
+  strong
+    color: inherit
+    -webkit-text-fill-color: inherit
+    font-weight: 600
   &:hover,
   &.is-active
     background: #fff8eb
@@ -377,9 +386,25 @@
     text-decoration: underline
 
 @media (max-width: 767.98px)
+  .recipient-line
+    flex-wrap: wrap
+  .recipient-line-tokens
+    flex: 1 1 100%
+    padding-right: 0
+  .recipient-line-end
+    width: 100%
+    flex-direction: row
+    justify-content: flex-end
+    align-items: center
+  .recipient-line-hint
+    white-space: normal
+    text-align: left
   .recipient-chip
+    max-width: 100%
     padding: 5px 6px 5px 14px
     font-size: 14px
+  .recipient-chip-label
+    max-width: calc(100% - 28px)
   .recipient-chip-remove
     width: 24px
     height: 24px

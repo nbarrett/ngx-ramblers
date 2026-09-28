@@ -31,6 +31,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faBold,
   faBolt,
+  faChevronUp,
   faCircleExclamation,
   faCode,
   faEnvelope,
@@ -41,6 +42,7 @@ import {
   faLink,
   faListOl,
   faListUl,
+  faPaintbrush,
   faQuoteRight,
   faRedo,
   faRemoveFormat,
@@ -90,7 +92,7 @@ import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
-import { isString } from "es-toolkit/compat";
+import { isString, isUndefined } from "es-toolkit/compat";
 import { dataImagesFromHtml, htmlHasRichFormatting, htmlReferencesLocalImages, imagesFromRtf, isInternalPaste, isWordClipboardHtml, sanitiseHtmlForPaste, sanitiseMarkdownForPaste, shouldPastePlainTextAsMarkdown, stripIncompatibleTextMarks } from "./tiptap-paste";
 import { EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
@@ -114,9 +116,22 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
          [style.top.px]="clickToEditHintY">Click to edit</div>
   }
   <div class="tiptap-sticky-region" [class.tiptap-sticky-region-active]="stickyToolbar">
+  @if (editable && phoneLayout() && !toolbarExpanded && !sourceMode) {
+    <button type="button" class="btn btn-quiet btn-icon tiptap-show-formatting"
+            (click)="showFormattingToolbar()"
+            tooltip="Formatting" placement="bottom" container="body" aria-label="Formatting">
+      <fa-icon [icon]="faPaintbrush"/>
+    </button>
+  }
   @if (editable && (toolbarExpanded || sourceMode)) {
   <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
        role="toolbar" (mousedown)="onToolbarMousedown($event)">
+    @if (phoneLayout() && !sourceMode) {
+      <button type="button" tooltip="Hide formatting" container="body" delay=500 (click)="hideFormattingToolbar()" aria-label="Hide formatting">
+        <fa-icon [icon]="faChevronUp"/>
+      </button>
+      <span class="toolbar-divider"></span>
+    }
     @if (!sourceMode) {
     <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
       <fa-icon [icon]="faBold"/>
@@ -553,7 +568,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     if (!editor) {
       return;
     }
-    editor.commands.focus(position);
+    editor.commands.focus(position, {scrollIntoView: false});
     if (!editor.isFocused && attempt < 12) {
       requestAnimationFrame(() => this.attemptFocus(position, attempt + 1));
     }
@@ -713,6 +728,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly TiptapMark = TiptapMark;
   protected readonly TiptapTableCommand = TiptapTableCommand;
   protected readonly faBold = faBold;
+  protected readonly faPaintbrush = faPaintbrush;
+  protected readonly faChevronUp = faChevronUp;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faBolt = faBolt;
   protected readonly faCode = faCode;
@@ -865,7 +882,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.clearEditorHistory();
     this.queueMermaidPreviewRefresh();
     this.editor.on("focus", () => {
-      this.zone.run(() => this.enterDetailMode());
+      this.zone.run(() => {
+        if (this.phoneLayout()) {
+        } else {
+          this.enterDetailMode();
+        }
+      });
     });
     this.editor.on("blur", () => {
       this.zone.run(() => {
@@ -950,9 +972,21 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   protected onShellPointerDown(): void {
-    if (this.editable) {
+    if (this.editable && !this.phoneLayout()) {
       this.enterDetailMode();
     }
+  }
+
+  protected phoneLayout(): boolean {
+    return !isUndefined(window) && window.matchMedia("(max-width: 767.98px)").matches;
+  }
+
+  protected showFormattingToolbar(): void {
+    this.enterDetailMode();
+  }
+
+  protected hideFormattingToolbar(): void {
+    this.exitDetailMode();
   }
 
   protected onCalmPointerEnter(event: PointerEvent): void {

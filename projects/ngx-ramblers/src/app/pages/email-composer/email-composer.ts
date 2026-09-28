@@ -299,6 +299,7 @@ import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/bre
 import { ScheduledTaskId } from "../../models/scheduled-task.model";
 import { ScheduledTaskService } from "../../services/scheduled-task.service";
 import { stripTrailingSlash } from "../../functions/strings";
+import { StickyControlsDirective } from "../../modules/common/tiptap-editor/sticky-controls.directive";
 
 const HIDDEN_STYLE_PATTERN = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|max-height\s*:\s*0/i;
 const TRACKING_PIXEL_MAX_DIMENSION = 2;
@@ -306,6 +307,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
 @Component({
   selector: "app-email-composer",
   styleUrls: ["./email-composer.sass"],
+  host: {
+    "[attr.data-sticky-offset-root]": "''"
+  },
   imports: [
     PageComponent,
     AlertPanelComponent,
@@ -328,6 +332,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     SiteLinkInputComponent,
     CommitteeFileMultiSelectComponent,
     TiptapMarkdownEditor,
+    StickyControlsDirective,
     MaximisablePanelComponent,
     SectionDividerSelectComponent,
     MemberMultiSelect,
@@ -366,130 +371,14 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </div>
           }
         </div>
+      </div>
       @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
       @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
       @let composeValidationVisible = stepperActiveTab === EmailComposerStepKey.COMPOSE && (composeUnbrandedNoRecipients || composeStepErrors().length > 0);
       @let unbrandedSenderOnTemplateStep = state.brandingMode === BrandingMode.UNBRANDED && stepperActiveTab === EmailComposerStepKey.TEMPLATE;
-      @let unbrandedSenderReady = unbrandedSenderOnTemplateStep && !!unbrandedSenderInfo().email;
+      @let unbrandedSenderReady = unbrandedSenderOnTemplateStep && !!unbrandedSenderInfo().email && !unbrandedSenderAlertDismissed;
       @let unbrandedSenderLoading = unbrandedSenderOnTemplateStep && !unbrandedSenderInfo().email && !unbrandedSenderCheckReady();
       @let recipientsChosenVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && recipientsStepErrors().length === 0 && totalRecipientCount() > 0;
-      <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
-      <div class="composer-workspace-actions d-flex gap-2 w-100 align-items-center"
-           [class.is-maximised]="composerPanel.maximised">
-          <div class="composer-workspace-doc-tools">
-          <button type="button" class="btn btn-quiet" (click)="newComposition()" [disabled]="!hasContentToDraft()">
-            <fa-icon [icon]="faFile" class="me-1"/>New
-          </button>
-          @if (!sendComplete()) {
-            <button type="button" class="btn btn-quiet"
-                    (click)="saveDraft()"
-                    [disabled]="!hasContentToDraft()"
-                    tooltip="Save as draft"
-                    placement="bottom">
-              <fa-icon [icon]="faFloppyDisk" class="me-1"/>Save
-            </button>
-            @if (currentDraftId) {
-              <button type="button" class="btn btn-quiet"
-                      (click)="revertToSavedDraft()"
-                      tooltip="Discard unsaved changes and reload the last saved version"
-                      placement="bottom">
-                <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
-              </button>
-            }
-            <div class="btn-group" dropdown [container]="'body'">
-              <button type="button" class="btn btn-quiet dropdown-toggle" dropdownToggle>
-                <fa-icon [icon]="faFolderOpen" class="me-1"/>Show
-              </button>
-              <ul *dropdownMenu class="dropdown-menu" role="menu">
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="toggleDraftsPanel()">
-                    <fa-icon [icon]="faFolderOpen" class="me-1"/>{{ draftsPanelOpen ? "Hide drafts" : "Drafts" }} ({{ drafts.length }})
-                  </button>
-                </li>
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="toggleSentEmailsPanel()">
-                    <fa-icon [icon]="faPaperPlane" class="me-1"/>{{ sentEmailsPanelOpen ? "Hide sent" : "Sent" }} ({{ sentEmails.length }})
-                  </button>
-                </li>
-              </ul>
-            </div>
-          }
-          </div>
-          <div class="composer-flow-tools">
-            @switch (stepperActiveTab) {
-              @case (EmailComposerStepKey.TEMPLATE) {
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
-                  Next <fa-icon [icon]="faArrowRight"/>
-                </button>
-              }
-              @case (EmailComposerStepKey.RECIPIENTS) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!recipientsStepValid() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="recipientsStepValid() ? '' : recipientsStepValidationMessage()">
-                  Next <fa-icon [icon]="faArrowRight"/>
-                </button>
-              }
-              @case (EmailComposerStepKey.COMPOSE) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!composeStepValid() || !recipientsStepValid()" [title]="composeStepNextDisabledMessage()">
-                  Next <fa-icon [icon]="faArrowRight"/>
-                </button>
-              }
-              @case (EmailComposerStepKey.EVENTS) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
-              }
-              @case (EmailComposerStepKey.REVIEW) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
-              }
-              @case (EmailComposerStepKey.SEND) {
-                @if (sendComplete()) {
-                  @if (nextConfigAfterSend) {
-                    <button type="button" class="btn btn-primary" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
-                  }
-                  <button type="button" class="btn btn-primary" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
-                  <button type="button" class="btn btn-quiet" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
-                } @else {
-                  <button type="button" class="btn btn-primary" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                  @if (sendConfirm.notificationsOutstanding()) {
-                    <button type="button" class="btn btn-sunset"
-                            (click)="confirmAndSend()"
-                            [disabled]="sendInProgress">
-                      <fa-icon [icon]="faPaperPlane"/> Confirm send
-                    </button>
-                    <button type="button" class="btn btn-quiet"
-                            (click)="cancelSendConfirm()"
-                            [disabled]="sendInProgress">
-                      <fa-icon [icon]="faXmark"/> Cancel
-                    </button>
-                  } @else {
-                    <button type="button" class="btn btn-primary text-nowrap"
-                            (click)="confirmAndSend()"
-                            [disabled]="sendInProgress || sendDisabled() || hasSendBlockers()"
-                            [title]="sendDisabledReason() || ('Send ' + sendingChannelLabel())">
-                      <fa-icon [icon]="faPaperPlane"/> Send
-                    </button>
-                  }
-                }
-              }
-            }
-            @if (stepperActiveTab !== EmailComposerStepKey.SEND && !sendDisabled() && !hasSendBlockers()) {
-              <button type="button" class="btn btn-sunset text-nowrap" (click)="goToSendAndConfirm()" [title]="'Send ' + sendingChannelLabel()">
-                <fa-icon [icon]="faPaperPlane"/> Send
-              </button>
-            }
-          </div>
-          <div class="composer-workspace-window-tools">
-          <button type="button" class="btn btn-quiet" (click)="composerPanel.toggle()"
-                  [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
-            <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand" class="me-1"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
-          </button>
-          <button type="button" class="btn btn-quiet" (click)="exitComposer()">
-            <fa-icon [icon]="faXmark" class="me-1"/>Exit
-          </button>
-          </div>
-        </div>
-      </div>
       <ng-template #composerStatusAlerts>
       @if (inboxReplyLoading || creatingReleaseNoteUpdate || notifyTarget.showAlert || postSendActionWarningVisible() || precedingConfig() || recipientsValidationVisible || composeValidationVisible || unbrandedSenderReady || unbrandedSenderLoading || recipientsChosenVisible) {
         <div class="email-composer-validation-summary" [attr.role]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'status' : null" [attr.aria-live]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'polite' : null">
@@ -505,7 +394,15 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </ul>
           } @else {
             @if (notifyTarget.showAlert || unbrandedSenderReady || unbrandedSenderLoading || recipientsChosenVisible) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ composerStatusTitle(unbrandedSenderReady, unbrandedSenderLoading, recipientsChosenVisible) }}</h5>
+              <h5>
+                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ composerStatusTitle(unbrandedSenderReady, unbrandedSenderLoading, recipientsChosenVisible) }}
+                @if (unbrandedSenderReady) {
+                  <button type="button" class="email-composer-alert-dismiss" (click)="dismissUnbrandedSenderAlert()"
+                          tooltip="Dismiss" placement="bottom" container="body" aria-label="Dismiss">
+                    <fa-icon [icon]="faXmark"/>
+                  </button>
+                }
+              </h5>
               <ul class="list-arrow">
                 @if (notifyTarget.showAlert) {
                   <li>{{ notifyTarget.alertMessage }}</li>
@@ -604,6 +501,123 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       <div class="row mb-3">
         <div class="col-sm-12">
           <p-stepper class="mt-3" [value]="$any(stepperActiveTab)" (valueChange)="onStepperValueChange($event)" [linear]="false">
+            <div class="composer-sticky-chrome" appStickyControls>
+      <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
+      <div class="composer-workspace-actions d-flex gap-2 w-100 align-items-center"
+           [class.is-maximised]="composerPanel.maximised">
+          <div class="composer-workspace-doc-tools">
+          <button type="button" class="btn btn-quiet" (click)="newComposition()" [disabled]="!hasContentToDraft()">
+            <fa-icon [icon]="faFile" class="me-1"/>New
+          </button>
+          @if (!sendComplete()) {
+            <button type="button" class="btn btn-quiet"
+                    (click)="saveDraft()"
+                    [disabled]="!hasContentToDraft()"
+                    tooltip="Save as draft"
+                    placement="bottom">
+              <fa-icon [icon]="faFloppyDisk" class="me-1"/>Save
+            </button>
+            @if (currentDraftId) {
+              <button type="button" class="btn btn-quiet"
+                      (click)="revertToSavedDraft()"
+                      tooltip="Discard unsaved changes and reload the last saved version"
+                      placement="bottom">
+                <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
+              </button>
+            }
+            <div class="btn-group" dropdown [container]="'body'">
+              <button type="button" class="btn btn-quiet dropdown-toggle" dropdownToggle>
+                <fa-icon [icon]="faFolderOpen" class="me-1"/>Show
+              </button>
+              <ul *dropdownMenu class="dropdown-menu" role="menu">
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" (click)="toggleDraftsPanel()">
+                    <fa-icon [icon]="faFolderOpen" class="me-1"/>{{ draftsPanelOpen ? "Hide drafts" : "Drafts" }} ({{ drafts.length }})
+                  </button>
+                </li>
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" (click)="toggleSentEmailsPanel()">
+                    <fa-icon [icon]="faPaperPlane" class="me-1"/>{{ sentEmailsPanelOpen ? "Hide sent" : "Sent" }} ({{ sentEmails.length }})
+                  </button>
+                </li>
+              </ul>
+            </div>
+          }
+          </div>
+          <div class="composer-flow-tools">
+            @switch (stepperActiveTab) {
+              @case (EmailComposerStepKey.TEMPLATE) {
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
+                  Next <fa-icon [icon]="faArrowRight"/>
+                </button>
+              }
+              @case (EmailComposerStepKey.RECIPIENTS) {
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!recipientsStepValid() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="recipientsStepValid() ? '' : recipientsStepValidationMessage()">
+                  Next <fa-icon [icon]="faArrowRight"/>
+                </button>
+              }
+              @case (EmailComposerStepKey.COMPOSE) {
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!composeStepValid() || !recipientsStepValid()" [title]="composeStepNextDisabledMessage()">
+                  Next <fa-icon [icon]="faArrowRight"/>
+                </button>
+              }
+              @case (EmailComposerStepKey.EVENTS) {
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
+              }
+              @case (EmailComposerStepKey.REVIEW) {
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
+              }
+              @case (EmailComposerStepKey.SEND) {
+                @if (sendComplete()) {
+                  @if (nextConfigAfterSend) {
+                    <button type="button" class="btn btn-primary" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
+                  }
+                  <button type="button" class="btn btn-primary" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
+                  <button type="button" class="btn btn-quiet" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
+                } @else {
+                  <button type="button" class="btn btn-primary" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                  @if (sendConfirm.notificationsOutstanding()) {
+                    <button type="button" class="btn btn-sunset text-nowrap"
+                            (click)="confirmAndSend()"
+                            [disabled]="sendInProgress">
+                      <fa-icon [icon]="faPaperPlane"/> Confirm send
+                    </button>
+                    <button type="button" class="btn btn-quiet"
+                            (click)="cancelSendConfirm()"
+                            [disabled]="sendInProgress">
+                      <fa-icon [icon]="faXmark"/> Cancel
+                    </button>
+                  } @else {
+                    <button type="button" class="btn btn-primary text-nowrap"
+                            (click)="confirmAndSend()"
+                            [disabled]="sendInProgress || sendDisabled() || hasSendBlockers()"
+                            [title]="sendDisabledReason() || ('Send ' + sendingChannelLabel())">
+                      <fa-icon [icon]="faPaperPlane"/> Send
+                    </button>
+                  }
+                }
+              }
+            }
+            @if (stepperActiveTab !== EmailComposerStepKey.SEND && !sendDisabled() && !hasSendBlockers()) {
+              <button type="button" class="btn btn-sunset text-nowrap" (click)="goToSendAndConfirm()" [title]="'Send ' + sendingChannelLabel()">
+                <fa-icon [icon]="faPaperPlane"/> Send
+              </button>
+            }
+          </div>
+          <div class="composer-workspace-window-tools">
+          <button type="button" class="btn btn-quiet composer-maximise-toggle" (click)="composerPanel.toggle()"
+                  [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
+            <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand" class="me-1"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
+          </button>
+          <button type="button" class="btn btn-quiet" (click)="exitComposer()">
+            <fa-icon [icon]="faXmark" class="me-1"/>Exit
+          </button>
+          </div>
+        </div>
             <p-step-list>
               @for (step of visibleStepperSteps(); let idx = $index; track step.key) {
                 <p-step [value]="$any(step.key)" [disabled]="!canAccessStep(step.key)">
@@ -617,6 +631,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 </p-step>
               }
             </p-step-list>
+            <div class="email-composer-step-caption">
+              <div class="email-composer-step-label">{{ currentStepTitle() }}</div>
+              <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
+            </div>
+            </div>
             <h3 class="email-composer-step-title">{{ currentStepTitle() }}</h3>
             <p-step-panels>
               <p-step-panel [value]="$any(EmailComposerStepKey.RECIPIENTS)">
@@ -748,7 +767,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </div>
           </div>
         } @else {
-          <fieldset class="email-composer-fieldset">
+          @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+            <fieldset class="email-composer-fieldset">
             <legend>
               <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
                       (click)="narrowMembersExpanded = !narrowMembersExpanded"
@@ -847,7 +867,29 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 </div>
               }
             }
-          </fieldset>
+            </fieldset>
+          }
+          @if (state.brandingMode === BrandingMode.UNBRANDED && unbrandedCommitteeListRecipients().length > 0) {
+            <fieldset class="email-composer-fieldset">
+              <legend>Choose recipients</legend>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="unbranded-recipient-list"
+                       id="unbranded-recipient-list-individual"
+                       [checked]="unbrandedSelectedListId() === null"
+                       (change)="selectUnbrandedCommitteeList(null)">
+                <label class="form-check-label" for="unbranded-recipient-list-individual">Select individual members</label>
+              </div>
+              @for (list of unbrandedCommitteeListRecipients(); track list.listId) {
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="unbranded-recipient-list"
+                         [id]="'unbranded-recipient-list-' + list.listId"
+                         [checked]="unbrandedSelectedListId() === list.listId"
+                         (change)="selectUnbrandedCommitteeList(list)">
+                  <label class="form-check-label" [for]="'unbranded-recipient-list-' + list.listId">{{ list.name }}</label>
+                </div>
+              }
+            </fieldset>
+          }
           <fieldset class="email-composer-fieldset mt-3">
               <legend>This email is going to</legend>
               @if (sendingAsCampaign()) {
@@ -861,9 +903,10 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   [to]="state.externalRecipients" (toChange)="onUnbrandedToChange($event)"
                   [cc]="state.ccRecipients" (ccChange)="onUnbrandedCcChange($event)"
                   [bcc]="state.bccRecipients" (bccChange)="onUnbrandedBccChange($event)"
-                  [members]="candidateMembers()"
-                  [committeeAddresses]="committeeRecipientAddresses()"
-                  [savedRecipients]="state.brandingMode === BrandingMode.UNBRANDED ? savedExternalRecipients : []"
+                  [members]="unbrandedSuggestionMembers()"
+                  [committeeAddresses]="unbrandedSelectedListId() ? [] : committeeRecipientAddresses()"
+                  [listRecipients]="unbrandedSelectedListId() ? [] : unbrandedCommitteeListRecipients()"
+                  [savedRecipients]="unbrandedSuggestionSavedRecipients()"
                   [bulkSourceName]="recipientBulkSourceName()"
                   [(saveForReuse)]="newExternalSaveForReuse"
                   (openMember)="openMemberRecord($event)"
@@ -2370,6 +2413,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private postSendRefresh: Promise<void> = Promise.resolve();
   private automaticCampaignReleaseTaskEnabled: boolean | null = null;
   protected unbrandedListSendWarningDismissed = false;
+  protected unbrandedSenderAlertDismissed = false;
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
   protected batchProgress: BatchSendProgress | null = null;
   protected batchSendJobId: string | null = null;
@@ -2502,7 +2546,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       };
       this.autoSelectNotificationConfig();
       this.applyDefaultListIfNeeded();
-      this.applyDefaultUnbrandedAudience();
       this.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
@@ -2518,7 +2561,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     await this.applyVolunteerAudience();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.applyDefaultListIfNeeded();
-    this.applyDefaultUnbrandedAudience();
     this.syncRecipientAddressMode();
     this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
     await this.refreshDrafts();
@@ -3979,14 +4021,27 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private applyDefaultListIfNeeded(): void {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.members.length > 0) {
       this.state.preFilterKey = null;
-      const lists = this.nonEmptyLists();
+      const unbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
+      const lists = unbranded ? this.unbrandedCommitteeLists() : this.nonEmptyLists();
       const selectionStillValid = this.state.selectedListId != null
         && lists.some(list => list.id === this.state.selectedListId);
-      if (!selectionStillValid && lists.length > 0) {
-        this.state.selectedListId = lists[0].id;
-        this.recipientAddressModeTouched = false;
+      if (!selectionStillValid) {
+        if (unbranded) {
+          this.state.selectedListId = null;
+          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+          this.state.externalRecipients = (this.state.externalRecipients ?? [])
+            .filter(recipient => !recipient.listId || lists.some(list => list.id === recipient.listId));
+          this.syncStateToUrl({
+            [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
+            [StoredValue.LIST_ID]: null
+          });
+        } else if (lists.length > 0) {
+          this.state.selectedListId = lists[0].id;
+          this.recipientAddressModeTouched = false;
+        }
       }
       this.ensureSelectedListIsOnTo();
     }
@@ -4003,7 +4058,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     } else if (listId !== null && this.members.length > 0) {
       const alreadyPresent = (this.state.externalRecipients ?? []).some(item => item.listId === listId);
       if (!alreadyPresent) {
-        this.addAllFromSelectedList(RecipientField.TO, true);
+        const list = this.nonEmptyLists().find(item => item.id === listId);
+        if (this.state.brandingMode === BrandingMode.UNBRANDED && this.state.recipientMode === RecipientMode.ENTIRE_LIST && list
+          && this.unbrandedCommitteeLists().some(item => item.id === list.id)) {
+          this.onUnbrandedToChange([composerListToken(list.id, list.name, this.subscribedMemberCount(list))]);
+        } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+          this.state.externalRecipients = (this.state.externalRecipients ?? []).filter(recipient => !recipient.listId
+            || this.unbrandedCommitteeLists().some(item => item.id === recipient.listId));
+        } else {
+          this.addAllFromSelectedList(RecipientField.TO, true);
+        }
       }
     }
   }
@@ -4016,6 +4080,94 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return this.availableLists()
       .filter(list => list.name !== COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME)
       .filter(list => this.subscribedMemberCount(list) > 0);
+  }
+
+  private unbrandedCommitteeLists(): ListInfo[] {
+    return this.nonEmptyLists().filter(list => {
+      const members = this.allMembers.filter(member => this.mailListUpdaterService.memberSubscribed(member, list.id));
+      return members.length > 0 && members.every(member => member.committee);
+    });
+  }
+
+  protected unbrandedCommitteeListRecipients(): ComposerExternalRecipient[] {
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      return this.unbrandedCommitteeLists()
+        .map(list => composerListToken(list.id, list.name, this.unbrandedListDisplayCount(list)));
+    } else {
+      return [];
+    }
+  }
+
+  private headerRecipients(): ComposerExternalRecipient[] {
+    return [
+      ...(this.state.externalRecipients ?? []),
+      ...(this.state.ccRecipients ?? []),
+      ...(this.state.bccRecipients ?? [])
+    ];
+  }
+
+  private selectedListTokenPresent(): boolean {
+    const listId = this.state.selectedListId;
+    return listId !== null && this.headerRecipients().some(recipient => recipient.listId === listId);
+  }
+
+  private unbrandedListExpanded(): boolean {
+    return this.state.brandingMode === BrandingMode.UNBRANDED
+      && this.state.recipientMode === RecipientMode.ENTIRE_LIST
+      && this.state.selectedListId !== null
+      && !this.selectedListTokenPresent();
+  }
+
+  private unbrandedListDisplayCount(list: ListInfo): number {
+    if (this.state.selectedListId === list.id && this.unbrandedListExpanded()) {
+      return new Set(this.headerRecipients().map(recipient => recipient.email.toLowerCase())).size;
+    } else {
+      return this.subscribedMemberCount(list);
+    }
+  }
+
+  protected unbrandedSuggestionMembers(): Member[] {
+    const listId = this.unbrandedSelectedListId();
+    if (this.state.brandingMode === BrandingMode.UNBRANDED && listId !== null) {
+      return this.members.filter(member => this.mailListUpdaterService.memberSubscribed(member, listId));
+    } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      return this.members;
+    } else {
+      return this.candidateMembers();
+    }
+  }
+
+  protected unbrandedSuggestionSavedRecipients(): ExternalRecipient[] {
+    if (this.state.brandingMode !== BrandingMode.UNBRANDED || this.unbrandedSelectedListId() !== null) {
+      return [];
+    } else {
+      return this.savedExternalRecipients;
+    }
+  }
+
+  protected unbrandedSelectedListId(): number | null {
+    const recipientListId = (this.state.externalRecipients ?? []).find(recipient => isNumber(recipient.listId))?.listId;
+    return recipientListId ?? (this.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.state.selectedListId : null);
+  }
+
+  protected selectUnbrandedCommitteeList(list: ComposerExternalRecipient | null): void {
+    if (list?.listId) {
+      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
+      this.state.selectedListId = list.listId;
+      this.onUnbrandedToChange([list]);
+      this.syncStateToUrl({
+        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.ENTIRE_LIST),
+        [StoredValue.LIST_ID]: list.listId.toString()
+      });
+    } else {
+      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      this.state.selectedListId = null;
+      this.onUnbrandedToChange((this.state.externalRecipients ?? []).filter(recipient => !recipient.listId));
+      this.syncStateToUrl({
+        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
+        [StoredValue.LIST_ID]: null
+      });
+    }
   }
 
   private campaignRoleAddressMembers(): Member[] {
@@ -4045,7 +4197,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected narrowMembersExpanded: boolean = false;
   protected recipientsPanelExpanded: boolean = true;
   private syncingUnbrandedRecipients = false;
-  private unbrandedListDefaultApplied = false;
   protected unbrandedPopulateField: RecipientField = RecipientField.TO;
   private cachedCommitteeAddresses: ComposerExternalRecipient[] = [];
   private readonly unbrandedAutoFillLimit = 20;
@@ -4097,16 +4248,20 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected recipientBulkSourceName(): string | null {
-    const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
-      ? this.state.selectedListId
-      : this.state.narrowListId;
-    const list = this.nonEmptyLists().find(item => item.id === listId);
-    if (list) {
-      return list.name;
-    } else if (this.candidateMembers().length > 0) {
-      return "members";
-    } else {
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
       return null;
+    } else {
+      const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
+        ? this.state.selectedListId
+        : this.state.narrowListId;
+      const list = this.nonEmptyLists().find(item => item.id === listId);
+      if (list) {
+        return list.name;
+      } else if (this.candidateMembers().length > 0) {
+        return "members";
+      } else {
+        return null;
+      }
     }
   }
 
@@ -4243,27 +4398,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.state.selectedMemberIds = this.cachedCandidateMembers
         .map(member => member.id)
         .filter((id): id is string => !!id);
-    }
-  }
-
-  private applyDefaultUnbrandedAudience(): void {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED && !this.unbrandedListDefaultApplied) {
-      if (this.inboxReplyContext || this.headerEmailSet().size > 0) {
-        this.unbrandedListDefaultApplied = true;
-      } else {
-        const lists = this.nonEmptyLists();
-        if (lists.length > 0 && this.members.length > 0) {
-          this.unbrandedListDefaultApplied = true;
-          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-          this.state.narrowListId = lists[0].id;
-          this.addAllFromSelectedList(this.unbrandedPopulateField);
-          this.syncStateToUrl({
-            [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-            [StoredValue.LIST_ID]: lists[0].id.toString()
-          });
-        }
-      }
     }
   }
 
@@ -4681,15 +4815,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return configId ? candidates.find(candidate => candidate.id === configId) : undefined;
   }
 
-  setBrandingMode(mode: BrandingMode): void {
+  setBrandingMode(mode: BrandingMode, preserveRecipientMode = false): void {
     const previousMode = this.state.brandingMode;
     this.state.brandingMode = mode;
     if (previousMode !== mode) {
       this.unbrandedListSendWarningDismissed = false;
+      this.unbrandedSenderAlertDismissed = false;
     }
     if (mode === BrandingMode.UNBRANDED) {
       this.recipientsPanelExpanded = true;
-      if (this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
+      if (!preserveRecipientMode && this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
         this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
       }
       if (this.stepperActiveTab === EmailComposerStepKey.EVENTS) {
@@ -4706,8 +4841,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         this.state.bannerId = null;
         this.forcedConfigId = null;
         this.forcedConfigSlug = null;
-        this.unbrandedListDefaultApplied = false;
-        this.applyDefaultUnbrandedAudience();
       }
     } else {
       if (this.state.externalRecipients?.length) {
@@ -5004,9 +5137,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private applyUrlStateToComposer(queryParams: ParamMap): void {
     const branding = queryParams.get(StoredValue.BRANDING);
     if (branding === BrandingMode.UNBRANDED && this.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.setBrandingMode(BrandingMode.UNBRANDED);
+      this.setBrandingMode(BrandingMode.UNBRANDED, true);
     } else if (branding === BrandingMode.BRANDED && this.state.brandingMode !== BrandingMode.BRANDED) {
-      this.setBrandingMode(BrandingMode.BRANDED);
+      this.setBrandingMode(BrandingMode.BRANDED, true);
     }
     const emailType = queryParams.get(StoredValue.EMAIL_TYPE);
     if (emailType === kebabCase(RecipientMode.ENTIRE_LIST) && this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
@@ -5026,7 +5159,19 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     if (listId) {
       const numeric = Number(listId);
       if (!Number.isNaN(numeric)) {
-        if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+        const unbrandedListAllowed = this.state.brandingMode !== BrandingMode.UNBRANDED
+          || this.allMembers.length === 0
+          || this.unbrandedCommitteeLists().some(list => list.id === numeric);
+        if (!unbrandedListAllowed) {
+          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+          this.state.selectedListId = null;
+          this.state.narrowListId = null;
+          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+          this.syncStateToUrl({
+            [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
+            [StoredValue.LIST_ID]: null
+          });
+        } else if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
           this.state.selectedListId = numeric;
         } else if (this.state.narrowListId !== numeric) {
           this.state.narrowListId = numeric;
@@ -5302,23 +5447,39 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   onFilteredMemberIdsChange(ids: string[]): void {
     const recipients = this.memberRecipientsForIds(ids);
-    const list = this.nonEmptyLists().find(item => item.id === this.state.narrowListId);
-    const compactListSelected = this.state.preFilterKey === null
+    const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
+      ? this.state.selectedListId
+      : this.state.narrowListId;
+    const list = this.nonEmptyLists().find(item => item.id === listId);
+    const unbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
+    const listAllowed = !unbranded || (!!list && this.unbrandedCommitteeLists().some(item => item.id === list.id));
+    const existingHasAllowedToken = (this.state.externalRecipients ?? [])
+      .some(recipient => !!recipient.listId && this.unbrandedCommitteeLists().some(item => item.id === recipient.listId));
+    const compactListSelected = listAllowed
+      && this.state.preFilterKey === null
       && !!list
       && recipients.length > COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT
       && !this.expandedRecipientListIds.has(list.id);
-    const displayedRecipients = compactListSelected && list
-      ? [composerListToken(list.id, list.name, recipients.length)]
-      : recipients;
-    if (this.unbrandedPopulateField === RecipientField.TO) {
-      this.onUnbrandedToChange(displayedRecipients);
-    } else if (this.unbrandedPopulateField === RecipientField.CC) {
-      this.onUnbrandedCcChange(displayedRecipients);
+    if (unbranded && !listAllowed) {
+      this.state.selectedMemberIds = ids;
+      this.syncRecipientAddressMode();
+    } else if (unbranded && existingHasAllowedToken && !compactListSelected) {
+      this.state.selectedMemberIds = ids;
+      this.syncRecipientAddressMode();
     } else {
-      this.onUnbrandedBccChange(displayedRecipients);
+      const displayedRecipients = compactListSelected && list
+        ? [composerListToken(list.id, list.name, recipients.length)]
+        : recipients;
+      if (this.unbrandedPopulateField === RecipientField.TO) {
+        this.onUnbrandedToChange(displayedRecipients);
+      } else if (this.unbrandedPopulateField === RecipientField.CC) {
+        this.onUnbrandedCcChange(displayedRecipients);
+      } else {
+        this.onUnbrandedBccChange(displayedRecipients);
+      }
+      this.state.selectedMemberIds = ids;
+      this.syncRecipientAddressMode();
     }
-    this.state.selectedMemberIds = ids;
-    this.syncRecipientAddressMode();
   }
 
   protected priorSendExclusions: PriorSendExclusion[] = [];
@@ -5997,7 +6158,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   recipientCountSummary(includeChannel = true): string {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.unbrandedListExpanded()) {
       const list = this.availableLists().find(item => item.id === this.state.selectedListId);
       const campaign = includeChannel && this.sendingAsCampaign();
       if (!list) {
@@ -6028,7 +6189,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   totalRecipientCount(): number {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.unbrandedListExpanded()) {
       const list = this.availableLists().find(item => item.id === this.state.selectedListId);
       return list ? this.subscribedMemberCount(list) : 0;
     } else {
@@ -6448,13 +6609,19 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   onStepperValueChange(value: unknown): void {
     const key = value as EmailComposerStepKey;
-    if (!key) return;
-    this.setActiveStepperTab(key);
-    if (key === EmailComposerStepKey.COMPOSE) {
-      this.focusComposeEditor();
-    }
-    if (key === EmailComposerStepKey.REVIEW) {
-      this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
+    if (!key) {
+    } else {
+      const scrollY = window.scrollY;
+      this.setActiveStepperTab(key);
+      if (key === EmailComposerStepKey.COMPOSE) {
+        this.focusComposeEditor();
+      }
+      if (key === EmailComposerStepKey.REVIEW) {
+        this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
+      }
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
     }
   }
 
@@ -6832,6 +6999,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected newComposition(): void {
     this.forcedMemberId = null;
     this.routeCompositionKey = null;
+    this.unbrandedSenderAlertDismissed = false;
     this.state = defaultEmailComposerState();
     this.narrowMembersExpanded = true;
     this.recipientAddressModeTouched = false;
@@ -7271,6 +7439,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.unbrandedListSendWarningDismissed = true;
   }
 
+  protected dismissUnbrandedSenderAlert(): void {
+    this.unbrandedSenderAlertDismissed = true;
+  }
+
   protected switchToBrandedFromWarning(): void {
     this.setBrandingMode(BrandingMode.BRANDED);
   }
@@ -7291,6 +7463,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   protected goToSendAndConfirm(): void {
     this.goToStepKey(EmailComposerStepKey.SEND);
+    this.armSend();
   }
 
   async confirmAndSend(): Promise<void> {
@@ -7494,7 +7667,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private sendMemberIds(): string[] {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null) {
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null && !this.unbrandedListExpanded()) {
       return this.members
         .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!) && !!member.id && !!(member.email || "").trim())
         .map(member => member.id as string);

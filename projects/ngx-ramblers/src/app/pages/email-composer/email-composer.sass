@@ -4,6 +4,10 @@
 :host ::ng-deep .maximisable-bar-controls
   width: 100%
   max-width: 100%
+  min-height: 0
+  height: auto
+  margin-bottom: 0
+  align-items: flex-start
 
 .email-composer-fieldset
   border: 1px solid #dee2e6
@@ -103,6 +107,13 @@
 :host ::ng-deep .p-stepper
   padding: 0
   margin: 0
+  overflow: visible
+
+:host ::ng-deep .p-stepper .p-steppanels,
+:host ::ng-deep .p-stepper .p-steppanel,
+:host ::ng-deep .p-stepper .p-steppanel-content,
+:host ::ng-deep .p-stepper .p-steppanel-content-wrapper
+  overflow: visible
 
 :host ::ng-deep .p-stepper .p-steppanels
   padding: 0
@@ -195,13 +206,34 @@
   border: 1px solid $ramblers-colour-sunset
   border-radius: 6px
   padding: 12px 16px
-  margin-bottom: 16px
+  margin: 0 0 8px
 
 .email-composer-validation-summary h5
+  display: flex
+  align-items: center
+  gap: 8px
   margin: 0 0 8px 0
   color: #9b2c2c
   font-size: 14px
   font-weight: 700
+
+.email-composer-alert-dismiss
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 28px
+  height: 28px
+  margin-left: auto
+  padding: 0
+  border: none
+  border-radius: 50%
+  background: transparent
+  color: #9b2c2c
+  cursor: pointer
+  &:hover,
+  &:focus
+    background: rgba(155, 44, 44, 0.1)
+    color: #7a1f1f
 
 .email-composer-validation-summary ul
   margin: 0
@@ -289,7 +321,7 @@
   flex-direction: column
   align-items: stretch
   gap: 12px
-  flex: 1 1 100%
+  flex: 0 0 auto
   width: 100%
   min-width: 0
 
@@ -307,7 +339,11 @@
 
 .composer-workspace-title
   margin: 0
-  line-height: 1.1
+  line-height: 1.25
+  overflow: visible
+
+.email-composer-step-caption
+  display: none
 
 .composer-workspace-status
   color: #6c757d
@@ -317,13 +353,47 @@
   text-overflow: ellipsis
   white-space: nowrap
 
+.composer-sticky-chrome
+  position: -webkit-sticky
+  position: sticky
+  top: env(safe-area-inset-top, 0px)
+  z-index: 50
+  background: #fff
+  padding: 8px 0
+  margin: 0 0 8px
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12)
+  &::before
+    content: ""
+    position: absolute
+    left: 0
+    right: 0
+    bottom: 100%
+    height: env(safe-area-inset-top, 0px)
+    background: #fff
+
+:host ::ng-deep .tiptap-sticky-region-active
+  top: var(--tiptap-toolbar-offset, 0px)
+  padding-top: 8px
+  background: #f8f9fa
+
+:host ::ng-deep .tiptap-toolbar.tiptap-toolbar-sticky
+  background-color: #f8f9fa
+
+@media (min-width: 769px)
+  :host ::ng-deep .composer-sticky-chrome .p-steplist
+    position: relative
+    top: auto
+    padding: 8px 8px 10px 12px
+    margin: 0
+    box-shadow: none
+
 .composer-workspace-actions
   display: grid !important
   grid-auto-flow: column
-  grid-auto-columns: minmax(0, 1fr)
+  grid-auto-columns: minmax(max-content, 1fr)
   align-items: stretch
   width: 100%
-  margin-bottom: 1.5rem
+  margin-bottom: 12px
 
 .composer-workspace-actions .composer-workspace-doc-tools,
 .composer-workspace-actions .composer-flow-tools,
@@ -332,7 +402,7 @@
 
 .composer-workspace-actions .btn-group,
 .composer-workspace-actions .btn
-  min-width: 0
+  min-width: max-content
   max-width: none
   width: 100%
 
@@ -647,8 +717,15 @@
 // Mobile responsive adjustments ============================================
 
 @media (max-width: 768px)
+  .composer-maximise-toggle
+    display: none !important
+
+  :host ::ng-deep .p-stepper
+    margin-top: 0
+    padding-top: 0
+
   .email-composer-step-title
-    margin-top: 1.25rem
+    margin-top: 1.75rem
     font-size: 1.1rem
 
   .email-composer-section h3
@@ -660,12 +737,17 @@
 
   :host ::ng-deep .p-stepper .p-steplist
     position: relative
+    top: auto
+    z-index: auto
+    background: transparent
     overflow: visible
     flex-wrap: nowrap
     justify-content: space-between
     align-items: flex-start
     gap: 0
-    padding-bottom: 60px
+    padding-bottom: 8px
+    margin-top: 4px
+    box-shadow: none
 
   :host ::ng-deep .p-stepper .p-steplist::before
     content: ''
@@ -676,11 +758,17 @@
     height: 2px
     background: var(--stepper-border, #dfe7f3)
     z-index: 0
+    pointer-events: none
 
   :host ::ng-deep .p-stepper .p-steplist .p-step
     position: static
     flex: 0 0 auto
     min-width: 0
+
+  :host ::ng-deep .p-stepper .p-steplist .email-composer-step-number
+    position: relative
+    z-index: 1
+    background-color: #e9ecef
 
   :host ::ng-deep .p-stepper .p-steplist .p-step::after
     display: none
@@ -691,18 +779,36 @@
   :host ::ng-deep .p-stepper .p-steplist .email-composer-step-header
     position: static
 
-  :host ::ng-deep .p-stepper .p-steplist .p-step:not(.p-step-active) .email-composer-step-text
-    display: none
+  :host ::ng-deep .p-stepper .p-steplist .email-composer-step-text
+    display: none !important
 
-  :host ::ng-deep .p-stepper .p-steplist .p-step.p-step-active .email-composer-step-text
-    position: absolute
-    left: 0
-    right: 0
-    top: 46px
-    gap: 2px
+  .email-composer-step-caption
+    display: flex
+    flex-direction: column
     align-items: flex-start
+    gap: 2px
+    width: auto
+    max-width: calc(100% - 24px)
+    margin: 8px 12px 0
+    padding: 0 8px
+    background: #fff
+    position: relative
+    top: auto
+    z-index: auto
     text-align: left
-    max-width: none
+
+  .email-composer-step-caption .email-composer-step-label
+    color: var(--stepper-active)
+    font-weight: 600
+
+  .email-composer-step-caption .email-composer-step-hint
+    color: #6c757d
+    font-size: 13px
+    font-weight: 400
+    white-space: normal
+
+  .email-composer-step-title
+    display: none
 
   :host ::ng-deep .p-stepper .p-steplist .email-composer-step-text > *
     background: transparent
@@ -736,22 +842,39 @@
 
   .composer-workspace-actions
     display: flex !important
-    flex-direction: column
+    flex-direction: row
     flex-wrap: wrap
+    gap: 8px
     width: 100%
     margin-left: 0
 
-  .composer-workspace-actions .composer-workspace-doc-tools,
-  .composer-workspace-actions .composer-flow-tools,
-  .composer-workspace-actions .composer-workspace-window-tools
+  .composer-workspace-actions .composer-workspace-doc-tools
+    flex: 1 1 100%
     display: grid
     grid-auto-flow: column
     grid-auto-columns: minmax(0, 1fr)
     gap: 8px
     width: 100%
 
-  .composer-workspace-actions .btn-group,
-  .composer-workspace-actions .btn
+  .composer-workspace-actions .composer-flow-tools,
+  .composer-workspace-actions .composer-workspace-window-tools
+    display: contents
+
+  .composer-workspace-actions .composer-flow-tools .btn,
+  .composer-workspace-actions .composer-flow-tools .btn-group,
+  .composer-workspace-actions .composer-workspace-window-tools .btn
+    flex: 1 1 auto
+    width: auto
+    min-width: max-content
+    max-width: none
+    margin-left: 0
+    white-space: nowrap
+    overflow: visible
+    padding-left: 10px
+    padding-right: 10px
+
+  .composer-workspace-actions .composer-workspace-doc-tools .btn-group,
+  .composer-workspace-actions .composer-workspace-doc-tools .btn
     width: 100%
     min-width: 0
     flex: none
