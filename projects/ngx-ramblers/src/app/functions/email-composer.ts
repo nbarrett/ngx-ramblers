@@ -434,8 +434,30 @@ export function unbrandedCommitteeSharedTo(options: {
   }
 }
 
-export function composerSendsAsCampaign(recipientMode: RecipientMode, brandingMode: BrandingMode): boolean {
-  return recipientMode === RecipientMode.ENTIRE_LIST && brandingMode !== BrandingMode.UNBRANDED;
+export function composerContentHasPersonalisation(
+  parts: (string | null | undefined)[],
+  addresseeType?: AddresseeType | null
+): boolean {
+  if (addresseeType === AddresseeType.FIRST_NAME) {
+    return true;
+  } else {
+    return parts.filter(Boolean).some(value => {
+      const text = String(value);
+      return text.includes("memberMergeFields") || text.includes("volunteerMergeFields");
+    });
+  }
+}
+
+export function composerSendsAsCampaign(
+  recipientMode: RecipientMode,
+  brandingMode: BrandingMode,
+  committeeOnlyAudience = false
+): boolean {
+  if (brandingMode === BrandingMode.UNBRANDED || committeeOnlyAudience) {
+    return false;
+  } else {
+    return recipientMode === RecipientMode.ENTIRE_LIST;
+  }
 }
 
 export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 20;
@@ -452,6 +474,24 @@ export function composerListToken(listId: number, listName: string, count: numbe
     listId,
     listCount: count
   };
+}
+
+export function memberIsCoveredByComposerHeaders(
+  member: Member,
+  headers: ComposerExternalRecipient[],
+  roles: CommitteeMember[]
+): boolean {
+  const emails = new Set((headers ?? []).map(header => (header.email || "").toLowerCase()).filter(Boolean));
+  const memberIds = new Set((headers ?? []).map(header => header.memberId).filter((id): id is string => !!id));
+  if (member.id && memberIds.has(member.id)) {
+    return true;
+  } else if (member.email && emails.has(member.email.toLowerCase())) {
+    return true;
+  } else {
+    return (roles ?? [])
+      .filter(role => role.memberId === member.id)
+      .some(role => roleEmailAddresses(role).some(address => emails.has(address.toLowerCase())));
+  }
 }
 
 export function composerRecipientFromMember(member: Member): ComposerExternalRecipient | null {
