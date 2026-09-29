@@ -353,7 +353,6 @@ export function composerSenderIdentities(options: {
   memberId: string | null;
   allCommitteeMembers?: boolean;
 }): ComposerSenderIdentity[] {
-  const contact = (options.contactEmail ?? "").trim();
   const assignedCommitteeEmails = options.allCommitteeMembers
     ? (options.roles ?? [])
       .filter(role => !role.vacant && !!role.email)
@@ -366,7 +365,7 @@ export function composerSenderIdentities(options: {
       }))
     : committeeAssignedEmailsForMemberId(options.roles, options.memberId)
       .map(entry => ({...entry, fullName: "", senderName: options.contactName}));
-  const committee = assignedCommitteeEmails.map(entry => ({
+  return assignedCommitteeEmails.map(entry => ({
     kind: ComposerSenderKind.COMMITTEE_ROLE,
     email: entry.email,
     name: entry.senderName,
@@ -376,31 +375,20 @@ export function composerSenderIdentities(options: {
     identities.some(existing => existing.email.toLowerCase() === identity.email.toLowerCase())
       ? identities
       : identities.concat(identity), []);
-  const contactAlreadyListed = contact && committee.some(identity => identity.email.toLowerCase() === contact.toLowerCase());
-  const personal: ComposerSenderIdentity[] = !options.allCommitteeMembers && contact && !contactAlreadyListed
-    ? [{
-      kind: ComposerSenderKind.CONTACT,
-      email: contact,
-      name: options.contactName,
-      label: `Contact email <${contact}>`,
-      roleType: null
-    }]
-    : [];
-  return personal.concat(committee);
 }
 
 export function defaultBrandedSenderEmail(
   identities: ComposerSenderIdentity[],
   options: { chosenEmail?: string | null; preferredRoleType?: string | null } = {}
 ): string {
+  const committeeIdentities = identities.filter(identity => identity.kind === ComposerSenderKind.COMMITTEE_ROLE);
   const chosen = (options.chosenEmail ?? "").trim().toLowerCase();
-  const matchedChosen = chosen ? identities.find(identity => identity.email.toLowerCase() === chosen) : undefined;
+  const matchedChosen = chosen ? committeeIdentities.find(identity => identity.email.toLowerCase() === chosen) : undefined;
   const roleType = (options.preferredRoleType ?? "").trim().toLowerCase();
   const byRole = roleType
-    ? identities.find(identity => (identity.roleType ?? "").toLowerCase() === roleType)
+    ? committeeIdentities.find(identity => (identity.roleType ?? "").toLowerCase() === roleType)
     : undefined;
-  const committee = identities.find(identity => identity.kind === ComposerSenderKind.COMMITTEE_ROLE);
-  return matchedChosen?.email ?? byRole?.email ?? committee?.email ?? identities[0]?.email ?? "";
+  return matchedChosen?.email ?? byRole?.email ?? committeeIdentities[0]?.email ?? "";
 }
 
 export function syncedRecipientAddressMode(options: {

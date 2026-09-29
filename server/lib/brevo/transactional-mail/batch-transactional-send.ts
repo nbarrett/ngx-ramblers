@@ -345,24 +345,33 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
       const fromAddress: EmailAddress = { name: role.fullName ?? "", email: resolveUnbrandedSenderEmail(request, role) };
       return { sender: fromAddress, replyTo: fromAddress, bcc: [], senderRoleType: role.type ?? null };
     }
+  } else {
+    const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
+    const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole || null;
+    const bccRoles = request.bccRolesOverride?.length
+      ? request.bccRolesOverride
+      : (notifConfig!.bccRoles?.length > 0 ? notifConfig!.bccRoles : notifConfig!.ccRoles ?? []);
+    const replyToAddress = replyToRole ? emailAddressForRole(committeeRoles, replyToRole) : null;
+    const overrideEmail = (request.senderEmailOverride ?? "").trim();
+    const overrideRole = overrideEmail ? committeeRoleMatchingEmail(committeeRoles, overrideEmail) : null;
+    if (overrideEmail && !overrideRole?.email) {
+      return { error: "Cannot send from a personal email address. Mail must go from a committee role address on this site." };
+    } else {
+      const sender = overrideRole?.email
+        ? {email: overrideRole.email, name: (request.senderNameOverride ?? "").trim() || overrideRole.fullName || emailAddressForRole(committeeRoles, senderRole).name}
+        : emailAddressForRole(committeeRoles, senderRole);
+      if (!sender?.email) {
+        return { error: "Cannot send email - no committee role address is available as the sender." };
+      } else {
+        return {
+          sender,
+          replyTo: replyToAddress?.email ? replyToAddress : null,
+          bcc: emailAddressesForRoles(committeeRoles, bccRoles),
+          senderRoleType: overrideRole?.type ?? senderRole ?? null
+        };
+      }
+    }
   }
-  const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
-  const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole || null;
-  const bccRoles = request.bccRolesOverride?.length
-    ? request.bccRolesOverride
-    : (notifConfig!.bccRoles?.length > 0 ? notifConfig!.bccRoles : notifConfig!.ccRoles ?? []);
-  const replyToAddress = replyToRole ? emailAddressForRole(committeeRoles, replyToRole) : null;
-  const overrideEmail = (request.senderEmailOverride ?? "").trim();
-  const overrideRole = overrideEmail ? committeeRoleMatchingEmail(committeeRoles, overrideEmail) : null;
-  const sender = overrideEmail
-    ? {email: overrideEmail, name: (request.senderNameOverride ?? "").trim() || overrideRole?.fullName || emailAddressForRole(committeeRoles, senderRole).name}
-    : emailAddressForRole(committeeRoles, senderRole);
-  return {
-    sender,
-    replyTo: replyToAddress?.email ? replyToAddress : null,
-    bcc: emailAddressesForRoles(committeeRoles, bccRoles),
-    senderRoleType: overrideRole?.type ?? senderRole ?? null
-  };
 }
 
 function externalMemberMergeFields(recipient: ComposerExternalRecipient): SendSmtpEmailParams["memberMergeFields"] {
