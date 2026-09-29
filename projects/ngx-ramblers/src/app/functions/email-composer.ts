@@ -1,4 +1,5 @@
-import { BrandingMode, MemberSelection } from "../models/mail.model";
+import { uniq } from "es-toolkit/compat";
+import { BrandingMode, MemberSelection, MergeFieldParamsGroup } from "../models/mail.model";
 import { CommitteeMember, roleEmailAddresses } from "../models/committee.model";
 import { Member } from "../models/member.model";
 import { committeeAssignedEmailsForMemberId } from "./committee-members";
@@ -443,7 +444,7 @@ export function composerContentHasPersonalisation(
   } else {
     return parts.filter(Boolean).some(value => {
       const text = String(value);
-      return text.includes("memberMergeFields") || text.includes("volunteerMergeFields");
+      return text.includes(MergeFieldParamsGroup.MEMBER) || text.includes(MergeFieldParamsGroup.VOLUNTEER);
     });
   }
 }
@@ -530,8 +531,15 @@ export function composerRecipientFromMember(member: Member): ComposerExternalRec
   if (!email) {
     return null;
   } else {
-    return {email, name: memberDisambiguatedLabel(member) || undefined, saveForReuse: false};
+    return {email, name: memberDisambiguatedLabel(member) || undefined, saveForReuse: false, memberId: member.id || undefined};
   }
+}
+
+export function batchSendRecipientSplit(toRecipients: ComposerExternalRecipient[]): {memberIds: string[]; externalRecipients: ComposerExternalRecipient[]} {
+  return {
+    memberIds: uniq((toRecipients ?? []).map(recipient => recipient.memberId).filter((id): id is string => !!id)),
+    externalRecipients: (toRecipients ?? []).filter(recipient => !recipient.memberId)
+  };
 }
 
 export function composerCommitteeRecipients(roles: CommitteeMember[]): ComposerExternalRecipient[] {

@@ -293,16 +293,60 @@ export interface MessageMergeFields {
   ACCENT_COLOR?: string;
 }
 
-export const EMAIL_COMPOSER_BODY_PLACEHOLDER = "{{params.messageMergeFields.BODY_CONTENT}}";
+export enum MergeFieldParamsGroup {
+  ACCOUNT = "accountMergeFields",
+  BOOKING = "bookingMergeFields",
+  MEMBER = "memberMergeFields",
+  MESSAGE = "messageMergeFields",
+  SYSTEM = "systemMergeFields",
+  VOLUNTEER = "volunteerMergeFields",
+}
+
+export enum SystemMergeField {
+  APP_LONGNAME = "APP_LONGNAME",
+  APP_SHORTNAME = "APP_SHORTNAME",
+  APP_URL = "APP_URL",
+  FACEBOOK_URL = "FACEBOOK_URL",
+  INSTAGRAM_URL = "INSTAGRAM_URL",
+  PW_RESET_LINK = "PW_RESET_LINK",
+  TWITTER_URL = "TWITTER_URL",
+}
+
+export enum MemberMergeField {
+  EMAIL = "EMAIL",
+  FNAME = "FNAME",
+  FULL_NAME = "FULL_NAME",
+  LNAME = "LNAME",
+  MEMBER_EXP = "MEMBER_EXP",
+  MEMBER_NUM = "MEMBER_NUM",
+  PW_RESET = "PW_RESET",
+  USERNAME = "USERNAME",
+}
+
+export enum MessageMergeField {
+  ACCENT_COLOR = "ACCENT_COLOR",
+  ADDRESS_LINE = "ADDRESS_LINE",
+  BANNER_IMAGE_SOURCE = "BANNER_IMAGE_SOURCE",
+  BODY_CONTENT = "BODY_CONTENT",
+  BODY_CONTENT_BOTTOM = "BODY_CONTENT_BOTTOM",
+  BODY_CONTENT_TOP = "BODY_CONTENT_TOP",
+  SUBJECT = "subject",
+}
+
+export function mergeFieldToken(group: MergeFieldParamsGroup, field: string): string {
+  return `{{params.${group}.${field}}}`;
+}
+
+export const EMAIL_COMPOSER_BODY_PLACEHOLDER = mergeFieldToken(MergeFieldParamsGroup.MESSAGE, MessageMergeField.BODY_CONTENT);
 
 export interface SystemMergeFields {
-  APP_URL: string;
-  APP_SHORTNAME: string;
-  APP_LONGNAME: string;
-  PW_RESET_LINK: string;
-  FACEBOOK_URL: string;
-  TWITTER_URL: string;
-  INSTAGRAM_URL: string;
+  [SystemMergeField.APP_URL]: string;
+  [SystemMergeField.APP_SHORTNAME]: string;
+  [SystemMergeField.APP_LONGNAME]: string;
+  [SystemMergeField.PW_RESET_LINK]: string;
+  [SystemMergeField.FACEBOOK_URL]: string;
+  [SystemMergeField.TWITTER_URL]: string;
+  [SystemMergeField.INSTAGRAM_URL]: string;
 }
 
 export interface AccountMergeFields {
@@ -313,17 +357,17 @@ export interface AccountMergeFields {
 }
 
 export interface MemberMergeFields extends MergeFields {
-  FULL_NAME: string;
+  [MemberMergeField.FULL_NAME]: string;
   UNSUBSCRIBE_URL?: string;
 }
 export interface MergeFields {
-  EMAIL: string;
-  FNAME: string;
-  LNAME: string;
-  MEMBER_NUM: string;
-  USERNAME: string;
-  PW_RESET: string;
-  MEMBER_EXP: string;
+  [MemberMergeField.EMAIL]: string;
+  [MemberMergeField.FNAME]: string;
+  [MemberMergeField.LNAME]: string;
+  [MemberMergeField.MEMBER_NUM]: string;
+  [MemberMergeField.USERNAME]: string;
+  [MemberMergeField.PW_RESET]: string;
+  [MemberMergeField.MEMBER_EXP]: string;
 }
 
 export const BREVO_DEFAULTS = {
@@ -580,8 +624,8 @@ export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
     banners: null
   };
 }
-export const APP_SHORT_NAME_PREFIX_PARAMETER = "systemMergeFields.APP_SHORTNAME";
-export const FULL_NAME_SUFFIX_PARAMETER = "memberMergeFields.FULL_NAME";
+export const APP_SHORT_NAME_PREFIX_PARAMETER = `${MergeFieldParamsGroup.SYSTEM}.${SystemMergeField.APP_SHORTNAME}`;
+export const FULL_NAME_SUFFIX_PARAMETER = `${MergeFieldParamsGroup.MEMBER}.${MemberMergeField.FULL_NAME}`;
 export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
   {
     subject: {

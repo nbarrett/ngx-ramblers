@@ -1,5 +1,18 @@
 import { Member, MemberFilterSelection } from "./member.model";
-import { BrandingMode, EmailAddress, EmailAttachment, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
+import {
+  BrandingMode,
+  EmailAddress,
+  EmailAttachment,
+  ListInfo,
+  MemberMergeField,
+  MemberSelection,
+  MergeFieldParamsGroup,
+  mergeFieldToken,
+  NotificationConfig,
+  NotificationConfigListing,
+  SendSmtpEmailParams,
+  SystemMergeField
+} from "./mail.model";
 import { VolunteerAudienceCriteria } from "./volunteer-management.model";
 import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
@@ -617,13 +630,13 @@ export interface MemberMergeFieldHint {
 }
 
 export const MERGE_FIELD_HINTS: MemberMergeFieldHint[] = [
-  { token: "{{params.memberMergeFields.FNAME}}", label: "First name" },
-  { token: "{{params.memberMergeFields.LNAME}}", label: "Last name" },
-  { token: "{{params.memberMergeFields.FULL_NAME}}", label: "Full name" },
-  { token: "{{params.memberMergeFields.EMAIL}}", label: "Email" },
-  { token: "{{params.memberMergeFields.MEMBER_NUM}}", label: "Membership number" },
-  { token: "{{params.systemMergeFields.APP_SHORTNAME}}", label: "Group short name" },
-  { token: "{{params.systemMergeFields.APP_LONGNAME}}", label: "Group long name" }
+  { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.FNAME), label: "First name" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.LNAME), label: "Last name" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.FULL_NAME), label: "Full name" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.EMAIL), label: "Email" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.MEMBER_NUM), label: "Membership number" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.APP_SHORTNAME), label: "Group short name" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.APP_LONGNAME), label: "Group long name" }
 ];
 
 export interface MergeFieldGroup {
@@ -632,24 +645,24 @@ export interface MergeFieldGroup {
 }
 
 export const LINK_DESTINATIONS: MemberMergeFieldHint[] = [
-  { token: "{{params.systemMergeFields.APP_URL}}", label: "Website home" },
-  { token: "{{params.systemMergeFields.PW_RESET_LINK}}", label: "Account activation link" },
-  { token: "{{params.systemMergeFields.FACEBOOK_URL}}", label: "Facebook page" },
-  { token: "{{params.systemMergeFields.TWITTER_URL}}", label: "Twitter / X page" },
-  { token: "{{params.systemMergeFields.INSTAGRAM_URL}}", label: "Instagram page" }
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.APP_URL), label: "Website home" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.PW_RESET_LINK), label: "Account activation link" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.FACEBOOK_URL), label: "Facebook page" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.TWITTER_URL), label: "Twitter / X page" },
+  { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.INSTAGRAM_URL), label: "Instagram page" }
 ];
 
 export const MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
   {
     group: "Member details",
     fields: [
-      { token: "{{params.memberMergeFields.FNAME}}", label: "First name" },
-      { token: "{{params.memberMergeFields.LNAME}}", label: "Last name" },
-      { token: "{{params.memberMergeFields.FULL_NAME}}", label: "Full name" },
-      { token: "{{params.memberMergeFields.EMAIL}}", label: "Email address" },
-      { token: "{{params.memberMergeFields.MEMBER_NUM}}", label: "Membership number" },
-      { token: "{{params.memberMergeFields.USERNAME}}", label: "Username" },
-      { token: "{{params.memberMergeFields.MEMBER_EXP}}", label: "Membership expiry date" }
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.FNAME), label: "First name" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.LNAME), label: "Last name" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.FULL_NAME), label: "Full name" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.EMAIL), label: "Email address" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.MEMBER_NUM), label: "Membership number" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.USERNAME), label: "Username" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.MEMBER_EXP), label: "Membership expiry date" }
     ]
   },
   {
@@ -664,13 +677,13 @@ export const MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
   {
     group: "Group & website",
     fields: [
-      { token: "{{params.systemMergeFields.APP_SHORTNAME}}", label: "Group short name" },
-      { token: "{{params.systemMergeFields.APP_LONGNAME}}", label: "Group long name" },
-      { token: "{{params.systemMergeFields.APP_URL}}", label: "Website address" },
-      { token: "{{params.systemMergeFields.PW_RESET_LINK}}", label: "Account activation link" },
-      { token: "{{params.systemMergeFields.FACEBOOK_URL}}", label: "Facebook page" },
-      { token: "{{params.systemMergeFields.TWITTER_URL}}", label: "Twitter / X page" },
-      { token: "{{params.systemMergeFields.INSTAGRAM_URL}}", label: "Instagram page" }
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.APP_SHORTNAME), label: "Group short name" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.APP_LONGNAME), label: "Group long name" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.APP_URL), label: "Website address" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.PW_RESET_LINK), label: "Account activation link" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.FACEBOOK_URL), label: "Facebook page" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.TWITTER_URL), label: "Twitter / X page" },
+      { token: mergeFieldToken(MergeFieldParamsGroup.SYSTEM, SystemMergeField.INSTAGRAM_URL), label: "Instagram page" }
     ]
   }
 ];
