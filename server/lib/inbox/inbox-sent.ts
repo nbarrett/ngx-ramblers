@@ -1,9 +1,16 @@
+import { Types } from "mongoose";
 import { InboxAddress, InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { inboxThreadId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 
 export interface SentMessageRowsResult {
   rows: InboxThread[];
   totalCount: number;
+}
+
+export function sentThreadObjectIds(threadIds: string[]): Types.ObjectId[] {
+  return threadIds
+    .filter(threadId => Types.ObjectId.isValid(threadId) && String(new Types.ObjectId(threadId)) === threadId)
+    .map(threadId => new Types.ObjectId(threadId));
 }
 
 export function sentMessageRows(threads: InboxThread[], messages: InboxMessage[], offset: number, limit: number): SentMessageRowsResult {

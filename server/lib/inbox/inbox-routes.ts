@@ -29,6 +29,7 @@ import {
   InboxReplyComposeResponse,
   InboxSyncMode,
   InboxThread,
+  foldersExcludedFromInboxList,
   InboxThreadFolder,
   InboxThreadIdsRequest,
   InboxThreadListResponse,
@@ -55,7 +56,7 @@ import { assignedMembersByMemberId, clearDerivedAliasCache, derivedAliasForRoleT
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import { folderlessThreadIds, orphanedInboxThreads, remapCandidatesFrom, remapInboxThreads, restoreThreadsToInbox } from "./inbox-orphaned-threads";
 import { handleUnassignedCommitteeRoles } from "./inbox-unassigned-roles-controller";
-import { sentMessageRows } from "./inbox-sent";
+import { sentMessageRows, sentThreadObjectIds } from "./inbox-sent";
 import {
   conversationCount,
   conversationCountsByRole,
@@ -997,7 +998,7 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
           const sentThreadIds = Array.from(new Set(outboundMessages.map(message => String(message.threadId))));
           const sentFilter: Record<string, unknown> = {
             tenantSlug: defaultTenantSlug(),
-            _id: {$in: sentThreadIds},
+            _id: {$in: sentThreadObjectIds(sentThreadIds)},
             roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
             folder: {$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]}
           };
@@ -1018,7 +1019,7 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
             roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
             folder: req.query.folder === InboxThreadFolder.DELETED
               ? InboxThreadFolder.DELETED
-              : {$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]}
+              : {$nin: foldersExcludedFromInboxList()}
           };
           const scopeFilter = await threadSearchFilter(roleScopeFilter, req.query.search);
           const filter = req.query.unreadOnly === "true"

@@ -1,6 +1,6 @@
 import { isArray } from "es-toolkit/compat";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { foldersExcludedFromInboxList, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { defaultTenantSlug } from "./inbox-aliases";
 
 const conversationGroupId = {$ifNull: ["$conversationKey", {$toString: "$_id"}]};
@@ -44,7 +44,7 @@ export function unreadConversationFilter(roleTypes: string[] | string, memberId:
   return {
     tenantSlug: defaultTenantSlug(),
     roleType: isArray(roleTypes) ? {$in: roleTypes} : roleTypes,
-    folder: {$nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]},
+    folder: {$nin: foldersExcludedFromInboxList()},
     ...unreadConditionForMember(memberId)
   };
 }
