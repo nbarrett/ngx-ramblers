@@ -13,10 +13,11 @@ import {
 } from "../../../models/email-composer.model";
 import { ExternalRecipient } from "../../../models/external-recipient.model";
 import { Member } from "../../../models/member.model";
+import { MemberSelection } from "../../../models/mail.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { memberDisambiguatedLabel } from "../../../functions/member-names";
-import { memberChipQualifier } from "../../../functions/member-chip-qualifier";
+import { committeeChipQualifier, memberChipQualifier } from "../../../functions/member-chip-qualifier";
 
 @Component({
   selector: "app-recipient-field",
@@ -262,6 +263,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   @Input() members: Member[] = [];
   @Input() committeeAddresses: ComposerExternalRecipient[] = [];
   @Input() listRecipients: ComposerExternalRecipient[] = [];
+  @Input() ccAllowedEmails: string[] | null = null;
+  @Input() audienceFilter: MemberSelection | null = null;
   @Input() saveForReuse = true;
   plain = false;
   unframed = false;
@@ -335,8 +338,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"]) {
-      if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"]) {
+    if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"]) {
+      if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["audienceFilter"]) {
         this.rebuildMemberIndex();
       }
       this.refreshVisibleSuggestions();
@@ -364,6 +367,26 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       case RecipientField.TO: return this.to;
       case RecipientField.CC: return this.cc;
       case RecipientField.BCC: return this.bcc;
+    }
+  }
+
+  private canPlaceOnCc(recipient: ComposerExternalRecipient): boolean {
+    if (this.ccAllowedEmails === null) {
+      return true;
+    } else {
+      const email = (recipient.email || "").toLowerCase();
+      return this.ccAllowedEmails.some(allowed => allowed.toLowerCase() === email);
+    }
+  }
+
+  private rejectNonCommitteeCc(field: RecipientField, recipient: ComposerExternalRecipient): boolean {
+    if (field === RecipientField.CC && !this.canPlaceOnCc(recipient)) {
+      this.error[RecipientField.CC] = "Only committee members can be copied. Other recipients would see their address.";
+      this.showCc = true;
+      this.changeDetector.markForCheck();
+      return true;
+    } else {
+      return false;
     }
   }
 
@@ -398,12 +421,17 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
           return [...acc, this.entryFor(item)];
         }
       }, []);
-      if (additions.length === 0) {
-        this.error[field] = this.knownOnly
-          ? "Choose a group member or a committee address"
-          : "This address is already in the list";
+      const allowedAdditions = field === RecipientField.CC
+        ? additions.filter(item => this.canPlaceOnCc(item))
+        : additions;
+      if (allowedAdditions.length === 0) {
+        this.error[field] = field === RecipientField.CC && additions.length > 0
+          ? "Only committee members can be copied. Other recipients would see their address."
+          : this.knownOnly
+            ? "Choose a group member or a committee address"
+            : "This address is already in the list";
       } else {
-        this.emit(field, [...this.valueFor(field), ...additions]);
+        this.emit(field, [...this.valueFor(field), ...allowedAdditions]);
         this.draft[field] = "";
         this.error[field] = null;
       }
@@ -548,7 +576,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       } else if (this.editing) {
         const recipient = this.editorSubject();
         const { field: from, index } = this.editing;
-        if (recipient) {
+        if (recipient && this.rejectNonCommitteeCc(target, recipient)) {
+        } else if (recipient) {
           this.emit(from, this.valueFor(from).filter((_, idx) => idx !== index));
           const alreadyPresent = this.valueFor(target).some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
           if (alreadyPresent) {
@@ -582,7 +611,16 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     if (recipient.listId) {
       return "";
     } else {
-      return this.qualifierByEmail.get((recipient.email || "").trim().toLowerCase()) ?? "external";
+      const email = (recipient.email || "").trim().toLowerCase();
+      const mapped = this.qualifierByEmail.get(email);
+      if (mapped) {
+        return mapped;
+      } else if ((this.committeeAddresses || []).some(address => (address.email || "").toLowerCase() === email)) {
+        const holder = (recipient.memberId && this.memberByEmail.get(email)) || this.memberFor(recipient);
+        return committeeChipQualifier(holder, this.dateUtils.dateTimeNowNoTime().toMillis(), this.includeExpiredQualifier());
+      } else {
+        return "external";
+      }
     }
   }
 
@@ -724,7 +762,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       listId: recipient.listId,
       listCount: recipient.listCount
     };
-    if (!this.valueFor(field).some(item => item.email.toLowerCase() === entry.email.toLowerCase())) {
+    if (this.rejectNonCommitteeCc(field, entry)) {
+    } else if (!this.valueFor(field).some(item => item.email.toLowerCase() === entry.email.toLowerCase())) {
       this.emit(field, [...this.valueFor(field), entry]);
     }
     this.draft[field] = "";
@@ -771,19 +810,26 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private includeExpiredQualifier(): boolean {
+    return this.audienceFilter === MemberSelection.EXPIRED_MEMBERS;
+  }
+
   private rebuildMemberIndex(): void {
     const now = this.dateUtils.dateTimeNowNoTime().toMillis();
+    const includeExpired = this.includeExpiredQualifier();
     const membersById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
     this.memberByEmail = new Map((this.members || [])
       .filter(member => (member.email || "").trim())
       .map(member => [(member.email || "").trim().toLowerCase(), member]));
-    this.qualifierByEmail = new Map([...this.memberByEmail.entries()].map(([email, member]) => [email, memberChipQualifier(member, now)]));
+    this.qualifierByEmail = new Map([...this.memberByEmail.entries()].map(([email, member]) => [email, memberChipQualifier(member, now, includeExpired)]));
     (this.committeeAddresses || []).forEach(address => {
       const email = (address.email || "").trim().toLowerCase();
       const holder = (address.memberId && membersById.get(address.memberId)) || this.memberByEmail.get(email);
-      if (email && holder) {
-        this.memberByEmail.set(email, holder);
-        this.qualifierByEmail.set(email, memberChipQualifier(holder, now));
+      if (email) {
+        this.qualifierByEmail.set(email, committeeChipQualifier(holder, now, includeExpired));
+        if (holder) {
+          this.memberByEmail.set(email, holder);
+        }
       }
     });
     this.cachedMemberEntries = (this.listRecipients || []).reduce((list, recipient) => {
@@ -836,7 +882,13 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
 
   protected onDragOver(event: DragEvent): void {
     if (this.dragItem) {
-      event.preventDefault();
+      const field = (event.currentTarget as HTMLElement).getAttribute("data-recipient-field") as RecipientField;
+      if (field === RecipientField.CC && !this.canPlaceOnCc(this.dragItem)) {
+        this.error[RecipientField.CC] = "Only committee members can be copied. Other recipients would see their address.";
+        this.showCc = true;
+      } else {
+        event.preventDefault();
+      }
     }
   }
 
@@ -847,9 +899,10 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     this.dragItem = null;
     this.dragFrom = null;
     if (!recipient || from === null || from === field) {
-      return;
+    } else if (this.rejectNonCommitteeCc(field, recipient)) {
+    } else {
+      this.moveRecipient(from, field, recipient);
     }
-    this.moveRecipient(from, field, recipient);
   }
 
   protected onChipPointerDown(event: PointerEvent, field: RecipientField, recipient: ComposerExternalRecipient): void {
@@ -884,7 +937,10 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
         event.preventDefault();
         const under = document.elementFromPoint(event.clientX, event.clientY);
         const line = under?.closest("[data-recipient-field]");
-        this.dropTarget = line ? line.getAttribute("data-recipient-field") as RecipientField : null;
+        const target = line ? line.getAttribute("data-recipient-field") as RecipientField : null;
+        this.dropTarget = target === RecipientField.CC && this.dragItem && !this.canPlaceOnCc(this.dragItem)
+          ? null
+          : target;
         this.changeDetector.markForCheck();
       }
     }
@@ -895,7 +951,9 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     } else {
       if (this.touchDrag.dragging && this.dropTarget) {
         this.suppressChipClick = true;
-        this.moveRecipient(this.touchDrag.field, this.dropTarget, this.touchDrag.recipient);
+        if (!this.rejectNonCommitteeCc(this.dropTarget, this.touchDrag.recipient)) {
+          this.moveRecipient(this.touchDrag.field, this.dropTarget, this.touchDrag.recipient);
+        }
       }
       this.clearTouchDrag();
     }

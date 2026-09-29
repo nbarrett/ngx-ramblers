@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { RecipientAddressMode, RecipientMode } from "../models/email-composer.model";
+import { AddresseeType, RecipientAddressMode, RecipientMode } from "../models/email-composer.model";
 import { BrandingMode } from "../models/mail.model";
 import {
   appendUniqueRecipients,
   composerCommitteeRecipients,
+  composerContentHasPersonalisation,
+  composerRecipientAddressesArePrivate,
   composerRecipientCount,
   composerRecipientFromMember,
   composerSendsAsCampaign,
+  memberIsCoveredByComposerHeaders,
   recipientsWithoutEmails,
   syncedRecipientAddressMode,
   unbrandedCommitteeSharedTo
@@ -110,10 +113,33 @@ describe("unbrandedCommitteeSharedTo", () => {
   });
 });
 
+describe("composerContentHasPersonalisation", () => {
+
+  it("treats a first-name greeting as personalised", () => {
+    expect(composerContentHasPersonalisation(["Hello everyone"], AddresseeType.FIRST_NAME)).toEqual(true);
+  });
+
+  it("treats member merge fields in the body as personalised", () => {
+    expect(composerContentHasPersonalisation(["Hi {{params.memberMergeFields.FNAME}}"], AddresseeType.NONE)).toEqual(true);
+  });
+
+  it("treats volunteer merge fields as personalised", () => {
+    expect(composerContentHasPersonalisation(["Parish: {{params.volunteerMergeFields.PARISH}}"], AddresseeType.HI_ALL)).toEqual(true);
+  });
+
+  it("leaves a shared committee message without merge fields unpersonalised", () => {
+    expect(composerContentHasPersonalisation(["Committee update for everyone"], AddresseeType.HI_ALL)).toEqual(false);
+  });
+});
+
 describe("composerSendsAsCampaign", () => {
 
-  it("always sends a branded whole mailing list as a campaign", () => {
-    expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.BRANDED)).toEqual(true);
+  it("sends a branded whole mailing list as a campaign when the list is not committee-only", () => {
+    expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.BRANDED, false)).toEqual(true);
+  });
+
+  it("does not send a committee-only list as a campaign", () => {
+    expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.BRANDED, true)).toEqual(false);
   });
 
   it("does not apply campaign sending to selected recipients", () => {
@@ -122,6 +148,21 @@ describe("composerSendsAsCampaign", () => {
 
   it("does not apply campaign sending to unbranded mail", () => {
     expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.UNBRANDED)).toEqual(false);
+  });
+});
+
+describe("composerRecipientAddressesArePrivate", () => {
+
+  it("keeps addresses private when more than one recipient is not committee-only", () => {
+    expect(composerRecipientAddressesArePrivate(12, false)).toEqual(true);
+  });
+
+  it("allows shared To when the audience is committee-only", () => {
+    expect(composerRecipientAddressesArePrivate(7, true)).toEqual(false);
+  });
+
+  it("does not apply when there is only one recipient", () => {
+    expect(composerRecipientAddressesArePrivate(1, false)).toEqual(false);
   });
 });
 
@@ -145,6 +186,24 @@ describe("composer recipient lists", () => {
 
   it("skips members without email", () => {
     expect(composerRecipientFromMember({id: "1", firstName: "Ada"} as Member)).toEqual(null);
+  });
+
+  it("treats a committee role address on To as covering that member", () => {
+    const member = {id: "m1", firstName: "Pat", lastName: "Chair", email: "pat@example.org"} as Member;
+    expect(memberIsCoveredByComposerHeaders(
+      member,
+      [{email: "membership@group.org", memberId: "m1"}],
+      [{type: "membership", memberId: "m1", email: "membership@group.org"}] as any
+    )).toEqual(true);
+  });
+
+  it("does not treat another person's To chip as covering a selected member", () => {
+    const member = {id: "m2", firstName: "Sam", lastName: "Walker", email: "sam@example.org"} as Member;
+    expect(memberIsCoveredByComposerHeaders(
+      member,
+      [{email: "membership@group.org", memberId: "m1"}],
+      [{type: "membership", memberId: "m1", email: "membership@group.org"}] as any
+    )).toEqual(false);
   });
 
   it("collects unique committee addresses", () => {

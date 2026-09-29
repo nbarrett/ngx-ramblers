@@ -30,6 +30,7 @@ import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/
 import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
 import { CommitteeConfig, CommitteeMember, committeeRoleMatchingEmail, roleEmailAddresses, roleRecipientMemberIds } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { outboundEmailForMember } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
+import { composerContentHasPersonalisation } from "../../../../projects/ngx-ramblers/src/app/functions/email-composer";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -376,9 +377,10 @@ function externalMemberMergeFields(recipient: ComposerExternalRecipient): SendSm
 }
 
 function contentHasMemberMergeFields(request: BatchTransactionalSendRequest): boolean {
-  return [request.subject, request.htmlBody, request.htmlBodyTop, request.htmlBodyBottom]
-    .filter(Boolean)
-    .some(value => String(value).includes("memberMergeFields"));
+  return composerContentHasPersonalisation(
+    [request.subject, request.htmlBody, request.htmlBodyTop, request.htmlBodyBottom],
+    request.addresseeType
+  );
 }
 
 function contentHasVolunteerMergeFields(request: BatchTransactionalSendRequest): boolean {
@@ -637,7 +639,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     progress.entries = [...memberEntries, ...externalEntries];
     progress.startedAt = dateTimeNow().toMillis();
     const referenceListId = request.narrowListId ?? notifConfig?.defaultListId ?? null;
-    const shareTo = request.sharedToRecipients === true;
+    const shareTo = request.sharedToRecipients === true && !personalised && !contentHasVolunteerMergeFields(request);
 
     if (shareTo) {
       const eligibleMemberAddresses: EmailAddress[] = [];

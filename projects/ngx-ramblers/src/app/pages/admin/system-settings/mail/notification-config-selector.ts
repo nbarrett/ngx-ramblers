@@ -62,7 +62,8 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
               <div class="input-group">
                 <select class="form-control input-sm"
                   id="banner-lookup"
-                  [(ngModel)]="notificationConfig.bannerId">
+                  [ngModel]="notificationConfig.bannerId"
+                  (ngModelChange)="onBannerIdChange($event)">
                   @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner.id) {
                     <option
                       [ngValue]="banner.id">{{ toBannerInformation(banner) }}
@@ -181,6 +182,12 @@ export class NotificationConfigSelectorComponent implements OnInit {
 
   bannerQueryParams(): Record<string, string> {
     return { [StoredValue.BANNER]: this.selectedBannerSlug() ?? "" };
+  }
+
+  onBannerIdChange(bannerId: string): void {
+    if (bannerId) {
+      this.notificationConfig.bannerId = bannerId;
+    }
   }
 
   selectedBannerSlug(): string | null {
