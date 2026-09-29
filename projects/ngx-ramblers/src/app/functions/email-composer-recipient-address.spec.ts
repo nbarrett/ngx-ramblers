@@ -11,6 +11,7 @@ import {
   composerRecipientCount,
   composerRecipientIsExpandableSet,
   composerRecipientFromMember,
+  batchSendRecipientSplit,
   composerSendsAsCampaign,
   memberIsCoveredByComposerHeaders,
   recipientsWithoutEmails,
@@ -198,7 +199,18 @@ describe("composer recipient lists", () => {
     expect(composerRecipientFromMember(member)).toEqual({
       email: "ada@example.org",
       name: "Ada Lovelace",
-      saveForReuse: false
+      saveForReuse: false,
+      memberId: "1"
+    });
+  });
+
+  it("keeps member ids on To chips for the batch send, and leaves unknown addresses as external", () => {
+    expect(batchSendRecipientSplit([
+      {email: "ada@example.org", name: "Ada Lovelace", memberId: "1", saveForReuse: false},
+      {email: "guest@example.org", name: "Guest"}
+    ])).toEqual({
+      memberIds: ["1"],
+      externalRecipients: [{email: "guest@example.org", name: "Guest"}]
     });
   });
 

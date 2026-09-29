@@ -72,7 +72,6 @@ import {
   ComposerFragment,
   ComposerFragmentKind,
   ComposerSenderIdentity,
-  ComposerSenderKind,
   DateInputMode,
   DEFAULT_COLUMN_GAP_PX,
   DragHoverPosition,
@@ -132,6 +131,7 @@ import {
   composerListToken,
   composerRecipientCount,
   composerRecipientFromMember,
+  batchSendRecipientSplit,
   composerContentHasPersonalisation,
   composerRecipientAddressesArePrivate,
   composerSendsAsCampaign,
@@ -6566,11 +6566,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     } else {
       if (!this.state.notificationConfig.templateName) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
       if (this.brandedSenderIdentities().length === 0) {
-        errors.push("You need a contact email or a committee role address before you can send.");
+        errors.push("You need a committee role address before you can send.");
       }
-      const usingContactSender = this.resolvedBrandedSenderIdentity()?.kind === ComposerSenderKind.CONTACT;
-      if (!usingContactSender && !this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender address is not registered in Brevo - configure it in ", "Mail Settings"));
-      if (!usingContactSender && !this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
+      if (!this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender address is not registered in Brevo - configure it in ", "Mail Settings"));
+      if (!this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
       const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
       const roleExists = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role);
       const roleHasEmail = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role && !!member.email);
@@ -6580,9 +6579,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       };
       const senderLabel = roleDescription(this.state.notificationConfig.senderRole);
       const replyToLabel = roleDescription(this.state.notificationConfig.replyToRole);
-      if (!usingContactSender && this.state.notificationConfig.senderRole && !roleExists(this.state.notificationConfig.senderRole)) {
+      if (this.state.notificationConfig.senderRole && !roleExists(this.state.notificationConfig.senderRole)) {
         errors.push(this.errorWithMailSettingsLink(`Sender role "${senderLabel}" is not a committee member - pick a different role below, or assign someone to it in `, "Mail Settings"));
-      } else if (!usingContactSender && this.state.notificationConfig.senderRole && !roleHasEmail(this.state.notificationConfig.senderRole)) {
+      } else if (this.state.notificationConfig.senderRole && !roleHasEmail(this.state.notificationConfig.senderRole)) {
         errors.push(this.errorWithMailSettingsLink(`Sender role "${senderLabel}" has no email address - pick a different role below, or set an email for it in `, "Mail Settings"));
       }
       if (this.state.notificationConfig.replyToRole && !roleExists(this.state.notificationConfig.replyToRole)) {
@@ -8039,6 +8038,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         : []);
     const ccRecipients = this.expandedHeaderRecipients(this.state.ccRecipients ?? []);
     const bccRecipients = this.expandedHeaderRecipients(this.state.bccRecipients ?? []);
+    const splitTo = batchSendRecipientSplit(toRecipients);
+    const headerRouting = toRecipients.length > 0 || ccRecipients.length > 0 || bccRecipients.length > 0;
+    const brandedMemberIds = splitTo.memberIds.length > 0
+      ? splitTo.memberIds
+      : (headerRouting ? [] : memberIds);
+    const brandedExternal = splitTo.externalRecipients;
     const request: BatchTransactionalSendRequest = {
       notificationConfigId: isUnbranded ? undefined : this.state.notificationConfig!.id!,
       bannerId: isUnbranded ? null : this.state.bannerId,
@@ -8049,9 +8054,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       htmlBody: combined,
       htmlBodyTop: top,
       htmlBodyBottom: bottom,
-      memberIds: (isUnbranded || toRecipients.length > 0 || ccRecipients.length > 0 || bccRecipients.length > 0) ? [] : memberIds,
+      memberIds: isUnbranded ? [] : brandedMemberIds,
       narrowListId: this.state.narrowListId,
-      externalRecipients: toRecipients.length ? toRecipients : undefined,
+      externalRecipients: (isUnbranded ? toRecipients : brandedExternal).length
+        ? (isUnbranded ? toRecipients : brandedExternal)
+        : undefined,
       ccRecipients: ccRecipients.length ? ccRecipients : undefined,
       bccRecipients: bccRecipients.length ? bccRecipients : undefined,
       senderRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.senderRole,

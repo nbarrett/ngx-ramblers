@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import debug from "debug";
-import { isString } from "es-toolkit/compat";
+import { isString, uniq } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
@@ -10,9 +10,12 @@ import { assertSendAllowed, SendRefusedError } from "../send-permission";
 import {
   BLOCKED_CONTACT_REASON_LABELS,
   EmailAddress,
+  MemberMergeField,
+  MergeFieldParamsGroup,
   NotificationConfig,
   SendSmtpEmailParams,
-  SendSmtpEmailRequest
+  SendSmtpEmailRequest,
+  SystemMergeField
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import {
   BatchSendProgress,
@@ -167,26 +170,26 @@ function memberFullName(member: Member | undefined): string {
 
 function memberMergeFields(member: Member, memberExpiry: string): SendSmtpEmailParams["memberMergeFields"] {
   return {
-    FULL_NAME: memberFullName(member),
-    EMAIL: member.email ?? "",
-    FNAME: member.firstName ?? "",
-    LNAME: member.lastName ?? "",
-    MEMBER_NUM: member.membershipNumber ?? "",
-    USERNAME: member.userName ?? "",
-    PW_RESET: member.passwordResetId ?? "",
-    MEMBER_EXP: memberExpiry
+    [MemberMergeField.FULL_NAME]: memberFullName(member),
+    [MemberMergeField.EMAIL]: member.email ?? "",
+    [MemberMergeField.FNAME]: member.firstName ?? "",
+    [MemberMergeField.LNAME]: member.lastName ?? "",
+    [MemberMergeField.MEMBER_NUM]: member.membershipNumber ?? "",
+    [MemberMergeField.USERNAME]: member.userName ?? "",
+    [MemberMergeField.PW_RESET]: member.passwordResetId ?? "",
+    [MemberMergeField.MEMBER_EXP]: memberExpiry
   };
 }
 
 function systemMergeFields(systemCfg: SystemConfig, groupHref: string, passwordResetLink: string = ""): SendSmtpEmailParams["systemMergeFields"] {
   return {
-    APP_SHORTNAME: systemCfg?.group?.shortName ?? "",
-    APP_LONGNAME: systemCfg?.group?.longName ?? "",
-    APP_URL: groupHref,
-    PW_RESET_LINK: passwordResetLink,
-    FACEBOOK_URL: systemCfg?.externalSystems?.facebook?.groupUrl ?? "",
-    TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl ?? "",
-    INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl ?? ""
+    [SystemMergeField.APP_SHORTNAME]: systemCfg?.group?.shortName ?? "",
+    [SystemMergeField.APP_LONGNAME]: systemCfg?.group?.longName ?? "",
+    [SystemMergeField.APP_URL]: groupHref,
+    [SystemMergeField.PW_RESET_LINK]: passwordResetLink,
+    [SystemMergeField.FACEBOOK_URL]: systemCfg?.externalSystems?.facebook?.groupUrl ?? "",
+    [SystemMergeField.TWITTER_URL]: systemCfg?.externalSystems?.twitter?.groupUrl ?? "",
+    [SystemMergeField.INSTAGRAM_URL]: systemCfg?.externalSystems?.instagram?.groupUrl ?? ""
   };
 }
 
@@ -365,14 +368,14 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
 function externalMemberMergeFields(recipient: ComposerExternalRecipient): SendSmtpEmailParams["memberMergeFields"] {
   const names = externalRecipientName(recipient);
   return {
-    FULL_NAME: names.full,
-    EMAIL: recipient.email,
-    FNAME: names.first,
-    LNAME: names.last,
-    MEMBER_NUM: "",
-    USERNAME: "",
-    PW_RESET: "",
-    MEMBER_EXP: ""
+    [MemberMergeField.FULL_NAME]: names.full,
+    [MemberMergeField.EMAIL]: recipient.email,
+    [MemberMergeField.FNAME]: names.first,
+    [MemberMergeField.LNAME]: names.last,
+    [MemberMergeField.MEMBER_NUM]: "",
+    [MemberMergeField.USERNAME]: "",
+    [MemberMergeField.PW_RESET]: "",
+    [MemberMergeField.MEMBER_EXP]: ""
   };
 }
 
@@ -386,7 +389,7 @@ function contentHasMemberMergeFields(request: BatchTransactionalSendRequest): bo
 function contentHasVolunteerMergeFields(request: BatchTransactionalSendRequest): boolean {
   return [request.subject, request.htmlBody, request.htmlBodyTop, request.htmlBodyBottom]
     .filter(Boolean)
-    .some(value => String(value).includes("volunteerMergeFields"));
+    .some(value => String(value).includes(MergeFieldParamsGroup.VOLUNTEER));
 }
 
 async function volunteerMergeFieldSource(request: BatchTransactionalSendRequest): Promise<{assignments: VolunteerAssignment[]; parishes: VolunteerParish[]; supporters: VolunteerSupporterIdentity[]} | null> {
@@ -563,6 +566,55 @@ function annotateWorkflowActionNotes(entries: BatchSendProgressEntry[], notifCon
   });
 }
 
+function contentNeedsPasswordResetLink(request: BatchTransactionalSendRequest): boolean {
+  return [request.subject, request.htmlBody, request.htmlBodyTop, request.htmlBodyBottom]
+    .some(value => String(value || "").includes(SystemMergeField.PW_RESET_LINK));
+}
+
+function uniqueMembers(members: Member[]): Member[] {
+  return members.reduce((acc: Member[], member) => {
+    if (!member.id || acc.some(item => item.id === member.id)) {
+      return acc;
+    } else {
+      return [...acc, member];
+    }
+  }, []);
+}
+
+async function resolveMembersForBatchSend(request: BatchTransactionalSendRequest): Promise<{
+  memberIds: string[];
+  members: Member[];
+  externalRecipients: ComposerExternalRecipient[];
+}> {
+  const suppliedExternal = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
+  const idsFromHeaders = suppliedExternal.map(item => item.memberId).filter((id): id is string => !!id);
+  const memberIds = uniq([...(request.memberIds ?? []), ...idsFromHeaders].filter(Boolean));
+  const emailsToMatch = request.brandingMode === BrandingMode.UNBRANDED
+    ? []
+    : suppliedExternal.filter(item => !item.memberId).map(item => item.email.trim());
+  const [byId, byEmail] = await Promise.all([
+    memberIds.length ? memberModel.find({_id: {$in: memberIds}}).lean() : Promise.resolve([]),
+    emailsToMatch.length ? memberModel.find({email: {$in: emailsToMatch}}).lean() : Promise.resolve([])
+  ]);
+  const members = uniqueMembers([...(byId as any[]), ...(byEmail as any[])].map(transforms.toObjectWithId) as Member[]);
+  const matchedIds = new Set(members.map(member => member.id).filter(Boolean));
+  const matchedEmails = new Set(members.map(member => (member.email || "").trim().toLowerCase()).filter(Boolean));
+  const externalRecipients = suppliedExternal.filter(item => {
+    if (item.memberId && matchedIds.has(item.memberId)) {
+      return false;
+    } else if (matchedEmails.has(item.email.trim().toLowerCase())) {
+      return false;
+    } else {
+      return true;
+    }
+  });
+  return {
+    memberIds: members.map(member => member.id).filter((id): id is string => !!id),
+    members,
+    externalRecipients
+  };
+}
+
 async function processBatch(jobId: string, request: BatchTransactionalSendRequest, baseUrl: string, currentMemberId: string | null): Promise<void> {
   const progress = jobs.get(jobId);
   if (!progress) return;
@@ -591,11 +643,12 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const groupHref = systemCfg?.group?.href ?? baseUrl;
     const committeeRoles = committeeCfg?.roles ?? [];
     const isUnbranded = request.brandingMode === BrandingMode.UNBRANDED;
-    const rawMemberDocs = await memberModel.find({ _id: { $in: request.memberIds } }).lean().then((docs: any[]) => docs.map(transforms.toObjectWithId) as Member[]);
-    const generatePasswordResetIds = !!notifConfig?.preSendActions?.includes(WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID);
+    const resolvedRecipients = await resolveMembersForBatchSend(request);
+    const generatePasswordResetIds = !!notifConfig?.preSendActions?.includes(WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID)
+      || contentNeedsPasswordResetLink(request);
     const memberDocs: Member[] = generatePasswordResetIds
-      ? await Promise.all(rawMemberDocs.map(async doc => (doc.id ? (await generatePasswordResetIdForMemberId(doc.id)) ?? doc : doc)))
-      : rawMemberDocs;
+      ? await Promise.all(resolvedRecipients.members.map(async doc => (doc.id ? (await generatePasswordResetIdForMemberId(doc.id)) ?? doc : doc)))
+      : resolvedRecipients.members;
     const membersById = new Map(memberDocs.map(item => [item.id ?? "", item]));
     const addresses = resolveSenderAddresses(request, committeeRoles, notifConfig, currentMemberId);
     if ("error" in addresses) {
@@ -609,12 +662,12 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const bannerImageSrc = bannerSourceFor(allBanners, request.bannerId, groupHref);
     const accountFields = ramblersAccountMergeFields();
     const volunteerSource = await volunteerMergeFieldSource(request);
-    const externalRecipients = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
+    const externalRecipients = resolvedRecipients.externalRecipients.filter(item => !!item?.email?.trim());
     const ccAddresses: EmailAddress[] = (request.ccRecipients ?? []).filter(item => !!item?.email?.trim())
       .map(item => ({email: item.email, name: externalRecipientName(item).full}));
     const combinedBcc: EmailAddress[] = [...bcc, ...(request.bccRecipients ?? []).filter(item => !!item?.email?.trim())
       .map(item => ({email: item.email, name: externalRecipientName(item).full}))];
-    const memberEntries: BatchSendProgressEntry[] = request.memberIds.map(id => {
+    const memberEntries: BatchSendProgressEntry[] = resolvedRecipients.memberIds.map(id => {
       const memberRecord = membersById.get(id);
       return {
         memberId: id,
