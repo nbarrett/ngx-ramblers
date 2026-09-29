@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { AddresseeType, RecipientAddressMode, RecipientMode } from "../models/email-composer.model";
-import { BrandingMode } from "../models/mail.model";
+import { BrandingMode, MemberSelection } from "../models/mail.model";
 import {
   appendUniqueRecipients,
   composerCommitteeRecipients,
   composerContentHasPersonalisation,
+  composerEveryoneFilterToken,
+  composerFilterToken,
   composerRecipientAddressesArePrivate,
   composerRecipientCount,
+  composerRecipientIsExpandableSet,
   composerRecipientFromMember,
   composerSendsAsCampaign,
   memberIsCoveredByComposerHeaders,
@@ -163,6 +166,21 @@ describe("composerRecipientAddressesArePrivate", () => {
 
   it("does not apply when there is only one recipient", () => {
     expect(composerRecipientAddressesArePrivate(1, false)).toEqual(false);
+  });
+});
+
+describe("composerFilterToken", () => {
+
+  it("marks a refine-audience set as one expandable chip", () => {
+    const token = composerFilterToken(MemberSelection.RECENTLY_ADDED, "Added in last 1 month", 4);
+    expect(token.listCount).toEqual(4);
+    expect(composerRecipientIsExpandableSet(token)).toEqual(true);
+  });
+
+  it("marks everyone-with-email as one expandable chip", () => {
+    const token = composerEveryoneFilterToken("Everyone with an email address", 149);
+    expect(token.listCount).toEqual(149);
+    expect(composerRecipientIsExpandableSet(token)).toEqual(true);
   });
 });
 

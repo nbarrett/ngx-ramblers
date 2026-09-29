@@ -17,7 +17,9 @@ import { MemberSelection } from "../../../models/mail.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { memberDisambiguatedLabel } from "../../../functions/member-names";
-import { committeeChipQualifier, memberChipQualifier } from "../../../functions/member-chip-qualifier";
+import { committeeAudienceChipQualifier, combinedMemberChipQualifier } from "../../../functions/member-chip-qualifier";
+import { MemberBulkLoadDateMap } from "../../../models/member.model";
+import { composerRecipientIsExpandableSet } from "../../../functions/email-composer";
 
 @Component({
   selector: "app-recipient-field",
@@ -48,10 +50,12 @@ import { committeeChipQualifier, memberChipQualifier } from "../../../functions/
                       (dragend)="onDragEnd()"
                       [tooltip]="chipTooltip(recipient)"
                       placement="bottom">
-                  <button type="button" class="recipient-chip-label" (click)="recipient.listId ? expandList.emit({field: field.key, recipient}) : openEditor(field.key, idx)">
+                  <button type="button" class="recipient-chip-label" (click)="expandableSet(recipient) ? expandList.emit({field: field.key, recipient}) : openEditor(field.key, idx)">
                     <span class="recipient-chip-name">{{ recipient.name || recipient.email }}</span>
                     @if (recipient.listId) {
                       <span class="recipient-chip-qualifier">everyone on this list</span>
+                    } @else if (expandableSet(recipient)) {
+                      <span class="recipient-chip-qualifier">everyone in this set</span>
                     } @else if (chipQualifier(recipient); as qualifier) {
                       <span class="recipient-chip-qualifier">{{ qualifier }}</span>
                     }
@@ -265,6 +269,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   @Input() listRecipients: ComposerExternalRecipient[] = [];
   @Input() ccAllowedEmails: string[] | null = null;
   @Input() audienceFilter: MemberSelection | null = null;
+  @Input() memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   @Input() saveForReuse = true;
   plain = false;
   unframed = false;
@@ -338,8 +343,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"]) {
-      if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["audienceFilter"]) {
+    if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
+      if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
         this.rebuildMemberIndex();
       }
       this.refreshVisibleSuggestions();
@@ -599,8 +604,12 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     }
   }
 
+  protected expandableSet(recipient: ComposerExternalRecipient): boolean {
+    return composerRecipientIsExpandableSet(recipient);
+  }
+
   protected chipTooltip(recipient: ComposerExternalRecipient): string {
-    if (recipient.listId) {
+    if (this.expandableSet(recipient)) {
       return "Click to show each member so you can remove individuals";
     } else {
       return recipient.email;
@@ -608,7 +617,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   protected chipQualifier(recipient: ComposerExternalRecipient): string {
-    if (recipient.listId) {
+    if (recipient.listId || this.expandableSet(recipient)) {
       return "";
     } else {
       const email = (recipient.email || "").trim().toLowerCase();
@@ -617,7 +626,13 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
         return mapped;
       } else if ((this.committeeAddresses || []).some(address => (address.email || "").toLowerCase() === email)) {
         const holder = (recipient.memberId && this.memberByEmail.get(email)) || this.memberFor(recipient);
-        return committeeChipQualifier(holder, this.dateUtils.dateTimeNowNoTime().toMillis(), this.includeExpiredQualifier());
+        return committeeAudienceChipQualifier(
+          holder,
+          this.dateUtils.dateTimeNowNoTime().toMillis(),
+          millis => this.dateUtils.displayDate(millis),
+          this.audienceFilter,
+          holder?.membershipNumber ? this.memberBulkLoadDateMap?.[holder.membershipNumber] ?? null : null
+        );
       } else {
         return "external";
       }
@@ -629,7 +644,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   protected openRecord(recipient: ComposerExternalRecipient): void {
-    if (!recipient.listId) {
+    if (!this.expandableSet(recipient)) {
       const member = this.memberFor(recipient);
       if (member) {
         this.openMember.emit(member);
@@ -810,23 +825,38 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private includeExpiredQualifier(): boolean {
-    return this.audienceFilter === MemberSelection.EXPIRED_MEMBERS;
+  private bulkLoadDateFor(member: Member | null | undefined): number | null {
+    const membershipNumber = member?.membershipNumber;
+    if (!membershipNumber) {
+      return null;
+    } else {
+      return this.memberBulkLoadDateMap?.[membershipNumber] ?? null;
+    }
+  }
+
+  private qualifierForMember(member: Member): string {
+    return combinedMemberChipQualifier(
+      member,
+      this.dateUtils.dateTimeNowNoTime().toMillis(),
+      millis => this.dateUtils.displayDate(millis),
+      this.audienceFilter,
+      this.bulkLoadDateFor(member)
+    );
   }
 
   private rebuildMemberIndex(): void {
     const now = this.dateUtils.dateTimeNowNoTime().toMillis();
-    const includeExpired = this.includeExpiredQualifier();
+    const displayDate = (millis: number) => this.dateUtils.displayDate(millis);
     const membersById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
     this.memberByEmail = new Map((this.members || [])
       .filter(member => (member.email || "").trim())
       .map(member => [(member.email || "").trim().toLowerCase(), member]));
-    this.qualifierByEmail = new Map([...this.memberByEmail.entries()].map(([email, member]) => [email, memberChipQualifier(member, now, includeExpired)]));
+    this.qualifierByEmail = new Map([...this.memberByEmail.entries()].map(([email, member]) => [email, this.qualifierForMember(member)]));
     (this.committeeAddresses || []).forEach(address => {
       const email = (address.email || "").trim().toLowerCase();
       const holder = (address.memberId && membersById.get(address.memberId)) || this.memberByEmail.get(email);
       if (email) {
-        this.qualifierByEmail.set(email, committeeChipQualifier(holder, now, includeExpired));
+        this.qualifierByEmail.set(email, committeeAudienceChipQualifier(holder, now, displayDate, this.audienceFilter, this.bulkLoadDateFor(holder)));
         if (holder) {
           this.memberByEmail.set(email, holder);
         }

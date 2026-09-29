@@ -1,4 +1,4 @@
-import { BrandingMode } from "../models/mail.model";
+import { BrandingMode, MemberSelection } from "../models/mail.model";
 import { CommitteeMember, roleEmailAddresses } from "../models/committee.model";
 import { Member } from "../models/member.model";
 import { committeeAssignedEmailsForMemberId } from "./committee-members";
@@ -467,7 +467,8 @@ export function composerRecipientAddressesArePrivate(
   return recipientCount > 1 && !committeeOnlyAudience;
 }
 
-export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 20;
+export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 10;
+export const COMPOSER_EVERYONE_FILTER_EMAIL = "filter-everyone-with-email@list.internal";
 
 export function composerRecipientCount(recipients: ComposerExternalRecipient[]): number {
   return recipients.reduce((count, recipient) => count + (recipient.listCount ?? 1), 0);
@@ -481,6 +482,29 @@ export function composerListToken(listId: number, listName: string, count: numbe
     listId,
     listCount: count
   };
+}
+
+export function composerFilterToken(filterKey: MemberSelection, label: string, count: number): ComposerExternalRecipient {
+  return {
+    email: `filter-${filterKey}@list.internal`,
+    name: `${label} (${count})`,
+    saveForReuse: false,
+    filterKey,
+    listCount: count
+  };
+}
+
+export function composerEveryoneFilterToken(label: string, count: number): ComposerExternalRecipient {
+  return {
+    email: COMPOSER_EVERYONE_FILTER_EMAIL,
+    name: `${label} (${count})`,
+    saveForReuse: false,
+    listCount: count
+  };
+}
+
+export function composerRecipientIsExpandableSet(recipient: ComposerExternalRecipient): boolean {
+  return !!recipient.listId || !!recipient.filterKey || recipient.email === COMPOSER_EVERYONE_FILTER_EMAIL;
 }
 
 export function memberIsCoveredByComposerHeaders(
