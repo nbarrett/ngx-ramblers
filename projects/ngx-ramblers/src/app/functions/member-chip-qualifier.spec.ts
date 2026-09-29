@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Member } from "../models/member.model";
-import { committeeChipQualifier, memberChipQualifier, recipientChipQualifier } from "./member-chip-qualifier";
+import { MemberSelection } from "../models/mail.model";
+import { committeeChipQualifier, combinedMemberChipQualifier, memberAudienceQualifier, memberChipQualifier, recipientChipQualifier } from "./member-chip-qualifier";
 
 function member(overrides: Partial<Member>): Member {
   return {id: "1", email: "a@example.org", ...overrides} as Member;
@@ -49,5 +50,40 @@ describe("recipientChipQualifier", () => {
   it("adds Head Office consent next to committee when the holder is known", () => {
     expect(committeeChipQualifier(member({emailMarketingConsent: false}), now))
       .toEqual("committee · without Head Office consent");
+  });
+});
+
+describe("memberAudienceQualifier", () => {
+  const now = 1_000_000;
+  const displayDate = () => "2 September 2026";
+
+  it("tags missing-from-bulk-load with the last bulk load date", () => {
+    expect(memberAudienceQualifier(
+      member({membershipNumber: "123"}),
+      MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS,
+      now,
+      displayDate,
+      800_000
+    )).toEqual("last bulk load 2 September 2026");
+  });
+
+  it("keeps Head Office consent next to the last bulk load date", () => {
+    expect(combinedMemberChipQualifier(
+      member({emailMarketingConsent: true, membershipNumber: "123"}),
+      now,
+      displayDate,
+      MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS,
+      800_000
+    )).toEqual("with Head Office consent, last bulk load 2 September 2026");
+  });
+
+  it("keeps Head Office consent next to the created date", () => {
+    expect(combinedMemberChipQualifier(
+      member({emailMarketingConsent: true, createdDate: 800_000}),
+      now,
+      displayDate,
+      MemberSelection.RECENTLY_ADDED,
+      null
+    )).toEqual("with Head Office consent, created 2 September 2026");
   });
 });

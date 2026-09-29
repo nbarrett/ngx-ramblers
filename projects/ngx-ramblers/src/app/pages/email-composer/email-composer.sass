@@ -206,7 +206,7 @@
   border: 1px solid $ramblers-colour-sunset
   border-radius: 6px
   padding: 12px 16px
-  margin: 0 0 8px
+  margin: 8px 0 4px
 
 .email-composer-validation-summary h5
   display: flex
@@ -362,6 +362,10 @@
   padding: 4px 0 6px
   margin: 0 0 4px
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12)
+  overflow: visible
+  display: flex
+  flex-direction: column
+  align-items: stretch
   &::before
     content: ""
     position: absolute
@@ -393,9 +397,10 @@
   grid-auto-columns: minmax(max-content, 1fr)
   align-items: stretch
   width: 100%
-  margin-bottom: 6px
-  padding-bottom: 6px
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12)
+  margin: 4px 0 0
+  padding: 8px 0 0
+  border-top: 1px solid rgba(0, 0, 0, 0.12)
+  border-bottom: none
 
 .composer-workspace-actions .composer-workspace-doc-tools,
 .composer-workspace-actions .composer-flow-tools,

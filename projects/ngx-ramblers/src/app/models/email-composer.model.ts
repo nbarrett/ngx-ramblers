@@ -457,6 +457,7 @@ export interface ComposerExternalRecipient {
   saveForReuse?: boolean;
   listId?: number;
   listCount?: number;
+  filterKey?: MemberSelection;
 }
 
 export interface ParsedMailbox {

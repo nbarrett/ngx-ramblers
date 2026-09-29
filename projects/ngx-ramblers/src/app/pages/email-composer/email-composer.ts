@@ -54,7 +54,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { AlertTarget } from "../../models/alert-target.model";
 import { PageComponent } from "../../page/page.component";
-import { Member, MemberBulkLoadDateMap } from "../../models/member.model";
+import { Member, MemberBulkLoadDateMap, MemberTerm } from "../../models/member.model";
 import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
 import {
   ADDRESSEE_OPTIONS,
@@ -106,6 +106,7 @@ import {
   RecipientAddressMode,
   RecipientField,
   RecipientMode,
+  RECIPIENT_PRE_FILTERS,
   REPLY_OR_FORWARD_SUBJECT_PATTERN,
   SECTION_DIVIDER_OPTIONS,
   SectionDividerStyle,
@@ -125,6 +126,9 @@ import {
   defaultBrandedSenderEmail,
   COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT,
   composerCommitteeRecipients,
+  composerEveryoneFilterToken,
+  composerFilterToken,
+  COMPOSER_EVERYONE_FILTER_EMAIL,
   composerListToken,
   composerRecipientCount,
   composerRecipientFromMember,
@@ -294,6 +298,8 @@ import {
   createAllTimePreset,
   createFuturePreset,
   createPastPreset,
+  DateRangeUnit,
+  NO_DATE_FILTER,
   RANGE_UNIT_OPTIONS
 } from "../../models/search.model";
 import { DateTime } from "luxon";
@@ -539,7 +545,23 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         <div class="col-sm-12">
           <p-stepper class="mt-3" [value]="$any(stepperActiveTab)" (valueChange)="onStepperValueChange($event)" [linear]="false">
             <div class="composer-sticky-chrome" appStickyControls>
-      <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
+            <p-step-list>
+              @for (step of visibleStepperSteps(); let idx = $index; track step.key) {
+                <p-step [value]="$any(step.key)" [disabled]="!canAccessStep(step.key)">
+                  <div class="email-composer-step-header">
+                    <span class="email-composer-step-number">{{ idx + 1 }}</span>
+                    <div class="email-composer-step-text">
+                      <div class="email-composer-step-label">{{ step.label }}</div>
+                      <div class="email-composer-step-hint">{{ stepHint(step.key) }}</div>
+                    </div>
+                  </div>
+                </p-step>
+              }
+            </p-step-list>
+            <div class="email-composer-step-caption">
+              <div class="email-composer-step-label">{{ currentStepTitle() }}</div>
+              <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
+            </div>
       <div class="composer-workspace-actions d-flex gap-2 w-100 align-items-center"
            [class.is-maximised]="composerPanel.maximised">
           <div class="composer-workspace-doc-tools">
@@ -652,23 +674,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           </button>
           </div>
         </div>
-            <p-step-list>
-              @for (step of visibleStepperSteps(); let idx = $index; track step.key) {
-                <p-step [value]="$any(step.key)" [disabled]="!canAccessStep(step.key)">
-                  <div class="email-composer-step-header">
-                    <span class="email-composer-step-number">{{ idx + 1 }}</span>
-                    <div class="email-composer-step-text">
-                      <div class="email-composer-step-label">{{ step.label }}</div>
-                      <div class="email-composer-step-hint">{{ stepHint(step.key) }}</div>
-                    </div>
-                  </div>
-                </p-step>
-              }
-            </p-step-list>
-            <div class="email-composer-step-caption">
-              <div class="email-composer-step-label">{{ currentStepTitle() }}</div>
-              <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
-            </div>
+            <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
             </div>
             <h3 class="email-composer-step-title">{{ currentStepTitle() }}</h3>
             <p-step-panels>
@@ -817,7 +823,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 {{ recipientSelectionSummary() }}
               </button>
             }
-            @if (narrowMembersExpanded) {
+            <div [class.d-none]="!narrowMembersExpanded">
               @if (showRecipientSourceRadios()) {
                 <div class="row mb-3">
                   <div class="col-sm-12">
@@ -900,7 +906,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   </div>
                 </div>
               }
-            }
+            </div>
             </fieldset>
           }
           @if (state.brandingMode === BrandingMode.UNBRANDED && unbrandedCommitteeListRecipients().length > 0) {
@@ -946,6 +952,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 [listRecipients]="unbrandedSelectedListId() ? [] : unbrandedCommitteeListRecipients()"
                 [ccAllowedEmails]="committeeCcEmails()"
                 [audienceFilter]="state.preFilterKey"
+                [memberBulkLoadDateMap]="memberBulkLoadDateMap"
                 [savedRecipients]="unbrandedSuggestionSavedRecipients()"
                 [bulkSourceName]="recipientBulkSourceName()"
                 [(saveForReuse)]="newExternalSaveForReuse"
@@ -2582,8 +2589,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     await this.applyVolunteerAudience();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.applyDefaultListIfNeeded();
+    this.applyPreFilterAudienceToTo();
     this.syncRecipientAddressMode();
     this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
+    this.applyPreFilterAudienceToTo();
     await this.refreshDrafts();
   }
 
@@ -4268,16 +4277,27 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
       const list = this.nonEmptyLists().find(item => item.id === this.state.selectedListId);
       if (list) {
-        return `Whole list: ${this.listNameAndCount(list)} \u2014 Expand to change.`;
+        return `Whole list: ${this.listNameAndCount(list)}. Expand to change.`;
       } else {
-        return "No mailing list chosen \u2014 Expand to pick one.";
+        return "No mailing list chosen. Expand to pick one.";
       }
     } else {
       const list = this.nonEmptyLists().find(item => item.id === this.state.narrowListId);
-      if (list) {
-        return `To, Cc and Bcc offer from ${this.listNameAndCount(list)} \u2014 Expand to change.`;
+      const selected = this.state.selectedMemberIds?.length ?? 0;
+      const pool = this.candidateMembers().length;
+      const selectedPhrase = `${selected} of ${pool} selected`;
+      const key = this.state.preFilterKey;
+      if (key) {
+        const filterLabel = this.memberSelectionChipLabel(key);
+        if (list) {
+          return `${filterLabel} from ${this.listNameAndCount(list)}. ${selectedPhrase}. Expand to change.`;
+        } else {
+          return `${filterLabel}. ${selectedPhrase}. Expand to change.`;
+        }
+      } else if (list) {
+        return `From ${this.listNameAndCount(list)}. ${selectedPhrase}. Expand to change.`;
       } else {
-        return "To, Cc and Bcc offer any member \u2014 Expand to limit to a list.";
+        return `${selectedPhrase}. Expand to limit to a list.`;
       }
     }
   }
@@ -4312,13 +4332,17 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       .map(member => composerRecipientFromMember(member))
       .filter((recipient): recipient is ComposerExternalRecipient => !!recipient);
     if (people.length > 0) {
-      const addition = list && (this.state.recipientMode === RecipientMode.ENTIRE_LIST
-        || people.length > COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT)
-        ? [composerListToken(list.id, list.name, people.length)]
-        : people;
+      const filterIds = this.state.preFilterKey ? this.state.selectedMemberIds : [];
+      const filterToken = this.filterTokenForIds(filterIds);
+      const addition = filterToken
+        ? [filterToken]
+        : (list && (this.state.recipientMode === RecipientMode.ENTIRE_LIST
+          || people.length >= COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT)
+          ? [composerListToken(list.id, list.name, people.length)]
+          : people);
       const existingRecipients = (recipients: ComposerExternalRecipient[]) => replaceExisting
         ? []
-        : recipients.filter(item => !item.listId);
+        : recipients.filter(item => !item.listId && !item.filterKey);
       if (field === RecipientField.TO) {
         this.onUnbrandedToChange(this.mergeRecipients(existingRecipients(this.state.externalRecipients ?? []), addition));
       } else if (field === RecipientField.CC) {
@@ -4342,7 +4366,25 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected expandListToken(field: RecipientField, token: ComposerExternalRecipient): void {
-    if (token.listId) {
+    if (token.filterKey || token.email === COMPOSER_EVERYONE_FILTER_EMAIL) {
+      if (token.filterKey) {
+        this.expandedRecipientFilterKeys.add(token.filterKey);
+      } else {
+        this.expandedEveryoneSet = true;
+      }
+      const people = this.memberRecipientsForIds(this.state.selectedMemberIds);
+      const replace = (list: ComposerExternalRecipient[]) => this.mergeRecipients(
+        list.filter(item => item.email.toLowerCase() !== token.email.toLowerCase()),
+        people
+      );
+      if (field === RecipientField.TO) {
+        this.onUnbrandedToChange(replace(this.state.externalRecipients ?? []));
+      } else if (field === RecipientField.CC) {
+        this.onUnbrandedCcChange(replace(this.state.ccRecipients ?? []));
+      } else {
+        this.onUnbrandedBccChange(replace(this.state.bccRecipients ?? []));
+      }
+    } else if (token.listId) {
       this.expandedRecipientListIds.add(token.listId);
       const people = this.members
         .filter(member => this.mailListUpdaterService.memberSubscribed(member, token.listId!) && !!(member.email || "").trim())
@@ -4445,6 +4487,84 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     ]).map(recipient => recipient.email.toLowerCase()));
   }
 
+  private filterTokenForIds(ids: string[]): ComposerExternalRecipient | null {
+    const key = this.state.preFilterKey;
+    if (ids.length === 0 || ids.length < COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT) {
+      return null;
+    } else if (key) {
+      if (this.expandedRecipientFilterKeys.has(key)) {
+        return null;
+      } else {
+        return composerFilterToken(key, this.memberSelectionChipLabel(key), ids.length);
+      }
+    } else if (this.expandedEveryoneSet) {
+      return null;
+    } else {
+      return composerEveryoneFilterToken("Everyone with an email address", ids.length);
+    }
+  }
+
+  private applyPreFilterAudienceToTo(): void {
+    const key = this.state.preFilterKey;
+    const ids = this.candidateMembers()
+      .filter(member => (!key || this.memberMatchesPreFilter(member, key)) && !!member.id && !!(member.email || "").trim())
+      .map(member => member.id as string);
+    if (key) {
+      this.expandedRecipientFilterKeys.delete(key);
+    } else {
+      this.expandedEveryoneSet = false;
+    }
+    this.onFilteredMemberIdsChange(ids);
+  }
+
+  private memberMatchesPreFilter(member: Member, key: MemberSelection): boolean {
+    const amount = this.state.notificationConfig?.monthsInPast;
+    const months = isNumber(amount) ? amount : 1;
+    const timeUnit = this.state.notificationConfig?.timeUnit ?? DateRangeUnit.MONTHS;
+    const noDateFilter = timeUnit === NO_DATE_FILTER;
+    const windowStart = noDateFilter
+      ? 0
+      : this.dateUtils.dateTimeNowNoTime().minus({[timeUnit]: months} as {[unit: string]: number}).toMillis();
+    if (key === MemberSelection.RECENTLY_ADDED) {
+      return !!(member.groupMember && member.createdDate && (noDateFilter || member.createdDate >= windowStart));
+    } else if (key === MemberSelection.EXPIRED_MEMBERS) {
+      const memberStatus = member.memberStatus?.toLowerCase();
+      const lifeMember = member.memberTerm === MemberTerm.LIFE;
+      if (!member.groupMember || !member.membershipExpiryDate || memberStatus === "payment pending" || lifeMember) {
+        return false;
+      } else if (noDateFilter) {
+        return member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis();
+      } else {
+        const recentlyLoaded = !!member.createdDate && member.createdDate >= windowStart;
+        const recentlyUpdated = !!member.updatedDate && member.updatedDate >= windowStart;
+        return member.membershipExpiryDate < windowStart && !recentlyLoaded && !recentlyUpdated;
+      }
+    } else if (key === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS) {
+      const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
+      return !!(member.groupMember && member.membershipNumber && lastBulkLoadDate && (noDateFilter || lastBulkLoadDate < windowStart));
+    } else if (key === MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS) {
+      const dates = values(this.memberBulkLoadDateMap ?? {});
+      const latestBulkLoadDate = dates.length ? Math.max(...dates) : undefined;
+      const memberBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : undefined;
+      return !!(member.groupMember && member.membershipNumber && latestBulkLoadDate && memberBulkLoadDate === latestBulkLoadDate
+        && member.createdDate && member.createdDate >= latestBulkLoadDate);
+    } else {
+      return false;
+    }
+  }
+
+  private memberSelectionChipLabel(key: MemberSelection): string {
+    const amount = this.state.notificationConfig?.monthsInPast;
+    const months = isNumber(amount) ? amount : 1;
+    if (key === MemberSelection.RECENTLY_ADDED) {
+      return `Added in last ${this.stringUtils.pluraliseWithCount(months, "month")}`;
+    } else if (key === MemberSelection.EXPIRED_MEMBERS) {
+      return `Expired (${this.stringUtils.pluraliseWithCount(months, "month")} past expiry)`;
+    } else {
+      return RECIPIENT_PRE_FILTERS.find(filter => filter.key === key)?.label ?? key;
+    }
+  }
+
   private memberRecipientsForIds(ids: string[]): ComposerExternalRecipient[] {
     const idSet = new Set(ids);
     return this.allMembers
@@ -4539,6 +4659,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private cachedReferenceListId: number | null | undefined = undefined;
   private cachedRemovesRecipients: boolean | undefined = undefined;
   private expandedRecipientListIds = new Set<number>();
+  private expandedRecipientFilterKeys = new Set<MemberSelection>();
+  private expandedEveryoneSet = false;
 
   private unsubscribeReferenceListId(): number | null {
     const narrowListId = this.state.narrowListId;
@@ -5566,8 +5688,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const compactListSelected = listAllowed
       && this.state.preFilterKey === null
       && !!list
-      && recipients.length > COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT
+      && recipients.length >= COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT
       && !this.expandedRecipientListIds.has(list.id);
+    const filterToken = this.filterTokenForIds(ids);
     if (unbranded && !listAllowed) {
       this.state.selectedMemberIds = ids;
       this.syncRecipientAddressMode();
@@ -5575,9 +5698,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.state.selectedMemberIds = ids;
       this.syncRecipientAddressMode();
     } else {
-      const displayedRecipients = compactListSelected && list
-        ? [composerListToken(list.id, list.name, recipients.length)]
-        : recipients;
+      const displayedRecipients = filterToken
+        ? [filterToken]
+        : (compactListSelected && list
+          ? [composerListToken(list.id, list.name, recipients.length)]
+          : recipients);
       if (this.unbrandedPopulateField === RecipientField.TO) {
         this.onUnbrandedToChange(displayedRecipients);
       } else if (this.unbrandedPopulateField === RecipientField.CC) {
@@ -5988,6 +6113,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   onPreFilterKeyChange(key: MemberSelection | null): void {
     this.state.preFilterKey = key;
+    this.expandedRecipientFilterKeys.clear();
+    this.expandedEveryoneSet = false;
+    this.applyPreFilterAudienceToTo();
     this.syncStateToUrl({ [StoredValue.PRE_FILTER]: key ?? null });
   }
 
@@ -6049,6 +6177,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           ? null
           : config.defaultMemberSelection ?? null;
         this.state.selectedMemberIds = [];
+        this.expandedRecipientFilterKeys.clear();
+        this.expandedEveryoneSet = false;
+        this.applyPreFilterAudienceToTo();
       } else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
         this.state.recipientMode = RecipientMode.ENTIRE_LIST;
         this.state.sendingChannel = SendingChannel.CAMPAIGN;
@@ -6063,6 +6194,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
         this.state.preFilterKey = config.defaultMemberSelection ?? null;
         this.state.selectedMemberIds = [];
+        this.state.narrowListId = null;
+        this.expandedRecipientFilterKeys.clear();
+        this.expandedEveryoneSet = false;
+        this.applyPreFilterAudienceToTo();
       }
       this.applyForcedMemberSelection();
       this.syncRecipientAddressMode();
@@ -7875,7 +8010,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   private expandedHeaderRecipients(list: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
     return (list ?? []).flatMap(recipient => {
-      if (!recipient.listId) {
+      if (recipient.filterKey) {
+        return this.memberRecipientsForIds(this.state.selectedMemberIds);
+      } else if (!recipient.listId) {
         return [recipient];
       } else {
         return this.members

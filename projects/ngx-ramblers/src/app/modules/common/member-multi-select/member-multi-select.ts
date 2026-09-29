@@ -16,6 +16,7 @@ import { DurationLike } from "luxon";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientPreFilter } from "../../../models/email-composer.model";
 import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
+import { memberAudienceQualifier } from "../../../functions/member-chip-qualifier";
 import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } from "../../../functions/member-search";
 
 @Component({
@@ -465,33 +466,14 @@ export class MemberMultiSelect implements OnChanges, OnDestroy {
     if (priorSendDate) {
       return `already sent ${this.dateUtils.displayDate(priorSendDate)}`;
     }
-    switch (preFilterKey) {
-      case MemberSelection.RECENTLY_ADDED:
-        return member.createdDate
-          ? `created ${this.dateUtils.displayDate(member.createdDate)}`
-          : memberGrouping;
-      case MemberSelection.EXPIRED_MEMBERS:
-        if (!member.membershipExpiryDate) {
-          return memberGrouping;
-        }
-        return member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis()
-          ? `expired ${this.dateUtils.displayDate(member.membershipExpiryDate)}`
-          : `expires ${this.dateUtils.displayDate(member.membershipExpiryDate)}`;
-      case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS: {
-        const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
-        return lastBulkLoadDate
-          ? `last bulk load ${this.dateUtils.displayDate(lastBulkLoadDate)}`
-          : memberGrouping;
-      }
-      case MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS: {
-        const memberBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
-        return memberBulkLoadDate
-          ? `added in bulk load ${this.dateUtils.displayDate(memberBulkLoadDate)}`
-          : memberGrouping;
-      }
-      default:
-        return memberGrouping;
-    }
+    const bulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] ?? null : null;
+    return memberAudienceQualifier(
+      member,
+      preFilterKey,
+      this.dateUtils.dateTimeNowNoTime().toMillis(),
+      millis => this.dateUtils.displayDate(millis),
+      bulkLoadDate
+    ) ?? memberGrouping;
   }
 
   groupBy(member: MemberFilterSelection): string {
