@@ -10,6 +10,23 @@ import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/funct
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-browser-client"));
 debugLog.enabled = true;
+const WORKER_KEEP_ALIVE_MS = 30000;
+
+export function startIntegrationWorkerKeepAlive(): () => void {
+  const workerUrl = envConfig.value(Environment.INTEGRATION_WORKER_URL);
+  if (!workerUrl) {
+    return () => undefined;
+  } else {
+    const ping = () => {
+      void fetch(`${stripTrailingSlash(workerUrl)}/api/health`, {signal: AbortSignal.timeout(8000)}).catch(error => {
+        debugLog("worker keep-alive failed:", (error as Error).message);
+      });
+    };
+    ping();
+    const timer = setInterval(ping, WORKER_KEEP_ALIVE_MS);
+    return () => clearInterval(timer);
+  }
+}
 
 export async function fetchHtmlViaIntegrationWorker(url: string, waitUntil: PlaywrightWaitUntil = PlaywrightWaitUntil.DomContentLoaded, timeoutMs = 60000): Promise<HtmlFetchResult> {
   return requestBrowserOperation<HtmlFetchResult>("html-fetch", { url, waitUntil, timeoutMs });

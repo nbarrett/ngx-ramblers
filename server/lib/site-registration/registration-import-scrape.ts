@@ -7,7 +7,7 @@ import { MigrationResult } from "../../../projects/ngx-ramblers/src/app/models/m
 import { IntegrationWorkerResultStatus } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { sanitiseRegistrationMessage } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { cancelMigrationJobOnIntegrationWorker, submitMigrationJobToIntegrationWorker } from "../ramblers/integration-worker-browser-client";
+import { cancelMigrationJobOnIntegrationWorker, startIntegrationWorkerKeepAlive, submitMigrationJobToIntegrationWorker } from "../ramblers/integration-worker-browser-client";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { completeMigrationSession, registerMigrationSession } from "../migration/migration-session-registry";
@@ -69,11 +69,12 @@ export async function scrapeRegistrationSite(
   const jobId = randomUUID();
   const templatePages = await loadTemplatePages(migration);
   return new Promise<MigrationResult>((resolve, reject) => {
+    const stopKeepAlive = startIntegrationWorkerKeepAlive();
     const timer = setTimeout(() => {
-      completeMigrationSession(jobId);
-      reject(new Error("The integration worker did not finish importing the current website in time."));
+      finish(new Error("The integration worker did not finish importing the current website in time."));
     }, IMPORT_TIMEOUT_MS);
     const finish = (error: Error | null, result?: MigrationResult) => {
+      stopKeepAlive();
       clearTimeout(timer);
       completeMigrationSession(jobId);
       if (registrationId) {

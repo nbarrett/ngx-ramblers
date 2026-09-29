@@ -18,7 +18,7 @@ import { findEnvironmentFromDatabase, setEnvironmentEstateDeploy } from "../envi
 import { createAdminMember } from "../environment-setup/templates/sample-data/admin-member-template";
 import { systemConfig } from "../config/system-config";
 import { registrationPhotoTemplates, scrapeRegistrationSite } from "./registration-import-scrape";
-import { submitWalksManagerSyncJobToIntegrationWorker } from "../ramblers/integration-worker-browser-client";
+import { startIntegrationWorkerKeepAlive, submitWalksManagerSyncJobToIntegrationWorker } from "../ramblers/integration-worker-browser-client";
 import { integrationWorkerConfigured } from "../ramblers/dispatch-integration-worker-job";
 import { completeWalksManagerSyncSession, registerWalksManagerSyncSession } from "../walks/walks-manager-sync-session";
 import { IntegrationWorkerResultStatus } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
@@ -276,11 +276,12 @@ async function loadWalksFromWalksManagerOnWorker(registration: StoredSiteRegistr
   const jobId = randomUUID();
   await pushProgress(registration, "Walks Manager", SetupStepStatus.Running, "Asked the integration worker to load the Walks Manager programme");
   await new Promise<void>((resolve, reject) => {
+    const stopKeepAlive = startIntegrationWorkerKeepAlive();
     const timer = setTimeout(() => {
-      completeWalksManagerSyncSession(jobId);
-      reject(new Error("The integration worker did not finish loading walks in time."));
+      finish(new Error("The integration worker did not finish loading walks in time."));
     }, WALKS_MANAGER_SYNC_TIMEOUT_MS);
     const finish = (error: Error | null) => {
+      stopKeepAlive();
       clearTimeout(timer);
       completeWalksManagerSyncSession(jobId);
       if (error) {

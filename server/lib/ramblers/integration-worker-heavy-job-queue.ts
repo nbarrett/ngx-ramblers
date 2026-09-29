@@ -83,12 +83,11 @@ export class IntegrationWorkerHeavyJobQueue {
 
     if (!nextItem) {
       debugLog("queue empty");
-      return;
+    } else {
+      this.activeItem = nextItem;
+      debugLog("dequeued jobId:", nextItem.jobId, "type:", nextItem.type, "remainingQueueDepth:", this.items.length);
+      await this.runActiveItem();
     }
-
-    this.activeItem = nextItem;
-    debugLog("dequeued jobId:", nextItem.jobId, "type:", nextItem.type, "remainingQueueDepth:", this.items.length);
-    await this.runActiveItem();
   }
 }
 
