@@ -22,17 +22,17 @@
 .inbox-toolbar-actions > .btn
   flex: 1 1 auto
 
-.inbox-alert
-  margin-bottom: 0.5rem
+:host .alert.inbox-alert
+  margin-top: 0
+  margin-bottom: 0 !important
 
-.maximised .inbox-alert
-  display: none
+.maximised .alert.inbox-alert
+  display: none !important
 
 .maximised .inbox-layout
   height: auto
   flex: 1 1 auto
   min-height: 0
-  margin-top: 0.5rem
 
 .maximised .inbox-shell
   flex: 1 1 auto
@@ -40,32 +40,38 @@
 
 .maximised .inbox-nav
   height: auto
-  margin-top: 0.5rem
+  align-self: stretch
+  min-height: 0
 
 .inbox-shell
   display: flex
   gap: 0
   align-items: stretch
   min-height: 0
+  overflow: visible
+  padding-top: 15px
 
 .inbox-shell .inbox-layout
   flex: 1 1 auto
   min-width: 0
+  align-self: stretch
 
 .inbox-nav
   flex: 0 0 220px
-  height: 72vh
-  overflow-y: auto
+  overflow: visible
+  align-self: stretch
+  height: 100%
+  min-height: 0
 
 .inbox-shell > app-resizer
   flex: 0 0 8px
   width: 8px
-  height: 72vh
+  height: auto
+  align-self: stretch
 
 .maximised .inbox-shell > app-resizer
   height: auto
   align-self: stretch
-  margin-top: 0.5rem
 
 .inbox-toolbar-title
   font-weight: 700
@@ -92,7 +98,7 @@
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2)
 
 .inbox-nav-mode
-  margin: 0 0 0.75rem
+  margin: 0.5rem 0 0.75rem
   align-self: flex-start
 
 .inbox-drawer-backdrop
@@ -207,7 +213,8 @@
 .inbox-layout
   display: grid
   gap: 0
-  height: 72vh
+  height: 100%
+  overflow: visible
 
 .inbox-pane
   min-width: 0
@@ -217,26 +224,31 @@
   overflow: visible
   padding-top: 0
 
-.inbox-pane > .thumbnail-heading
-  align-self: flex-start
-  top: -12px
-  margin-left: 12px
-  margin-right: 0
-  margin-bottom: -8px
-  z-index: 2
-
 .inbox-list-flush
   padding-top: 0
   overflow: visible
 
 .inbox-pane-messages
   padding-top: 1rem
+  overflow-y: auto
 
 .inbox-layout .inbox-pane
   margin: 0
 
 .inbox-nav
   margin-bottom: 0
+
+.inbox-nav-body,
+.inbox-pane-body
+  flex: 1 1 auto
+  min-height: 0
+  min-width: 0
+  display: flex
+  flex-direction: column
+  overflow: hidden
+
+.inbox-nav-body
+  overflow-y: auto
 
 .inbox-thread-list
   flex: 1 1 auto
@@ -455,7 +467,7 @@
 :host(.inbox-reading) .inbox-layout
   flex: 1 1 auto
   min-height: 0
-  overflow: hidden
+  overflow: visible
   overscroll-behavior: contain
 
 :host(.inbox-reading) .inbox-pane-messages
@@ -554,9 +566,9 @@
     max-height: none
     overflow: visible
   .inbox-layout
-    height: calc(100dvh - var(--inbox-chrome, 188px))
+    --inbox-chrome: 188px
+    height: calc(100dvh - var(--inbox-chrome))
     min-height: 440px
-    margin-top: 0.5rem
   :host(.inbox-reading) .inbox-layout
     --inbox-chrome: 96px
     min-height: 0

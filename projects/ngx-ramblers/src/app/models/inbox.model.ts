@@ -118,6 +118,10 @@ export function hiddenInboxFolders(): InboxThreadFolder[] {
   return [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED];
 }
 
+export function foldersExcludedFromInboxList(): InboxThreadFolder[] {
+  return [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED, InboxThreadFolder.SENT, InboxThreadFolder.DRAFTS];
+}
+
 export interface InboxMailboxConnection extends Identifiable {
   tenantSlug: string;
   provider: InboxReaderProvider;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hiddenInboxFolders, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxThreadFolder } from "../models/inbox.model";
+import { foldersExcludedFromInboxList, hiddenInboxFolders, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxThreadFolder } from "../models/inbox.model";
 import {
   collapseInboxSends,
   inboxMessageAt,
@@ -404,6 +404,15 @@ describe("hiddenInboxFolders", () => {
 
   it("keeps junk and deleted out of the live inbox", () => {
     expect(hiddenInboxFolders()).toEqual([InboxThreadFolder.JUNK, InboxThreadFolder.DELETED]);
+  });
+
+  it("keeps sent and drafts out of the Inbox folder list", () => {
+    expect(foldersExcludedFromInboxList()).toEqual([
+      InboxThreadFolder.JUNK,
+      InboxThreadFolder.DELETED,
+      InboxThreadFolder.SENT,
+      InboxThreadFolder.DRAFTS
+    ]);
   });
 
 });

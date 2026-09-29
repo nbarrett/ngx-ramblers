@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { sentMessageRows } from "./inbox-sent";
+import { sentMessageRows, sentThreadObjectIds } from "./inbox-sent";
 
 describe("inbox-sent", () => {
 
@@ -88,6 +88,14 @@ describe("inbox-sent", () => {
       const {rows, totalCount} = sentMessageRows(threads, messages, 1, 2);
       expect(totalCount).toBe(4);
       expect(rows.map(row => row.sentMessageId)).toEqual(["<m2>", "<m3>"]);
+    });
+  });
+
+  describe("sentThreadObjectIds", () => {
+
+    it("keeps 24-character hex ids and drops anything else", () => {
+      const ids = sentThreadObjectIds(["6abb05d2d7a000b428ab045b", "not-an-id", "6abb05d2d7a000b428ab045b"]);
+      expect(ids.map(id => String(id))).toEqual(["6abb05d2d7a000b428ab045b", "6abb05d2d7a000b428ab045b"]);
     });
   });
 });
