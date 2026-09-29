@@ -323,7 +323,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                   @for (alias of aliases; track alias.id || alias.roleEmail) {
                     <button class="inbox-nav-node inbox-nav-child" type="button"
                             [class.active]="selectedMailboxView === alias.roleType"
-                            [tooltip]="aliasLabel(alias)" [placement]="panel.maximised ? 'right' : 'left'" container="body"
+                            [tooltip]="aliasLabel(alias)" placement="left" container="body" [adaptivePosition]="false"
                             (click)="selectMailboxView(alias.roleType)">
                       <fa-icon [icon]="faEnvelope" class="inbox-nav-node-icon"/>
                       <span class="inbox-nav-label">{{ aliasDisplayLabel(alias) }}</span>
