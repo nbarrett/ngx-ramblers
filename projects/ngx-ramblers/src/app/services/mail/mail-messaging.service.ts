@@ -266,19 +266,23 @@ export class MailMessagingService {
   }
 
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
-    const mailConfig = configListing.mailMessagingConfig?.mailConfig;
-    const workflowIds: string[] = this.workflowIdsFor(mailConfig);
-    const forceInclude = (item: NotificationConfig): boolean => {
-      const ids = configListing.forceIncludeConfigIds;
-      return !!ids && ids.length > 0 && ids.includes(item.id);
-    };
-    const notificationConfigs = this.visibleNotificationConfigs(this.mailMessagingConfig.notificationConfigs)
-      .filter(item => forceInclude(item) || configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id))
-      .filter(item => forceInclude(item) || !configListing.excludeConfigsWithPreSendActions || !item.preSendActions || item.preSendActions.length === 0)
-      .filter(item => forceInclude(item) || !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
-      .filter(item => forceInclude(item) || !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
-    this.logger.info("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "excludeConfigsWithPreSendActions:", configListing.excludeConfigsWithPreSendActions, "forceIncludeConfigIds:", configListing.forceIncludeConfigIds, "-> notificationConfigs:", notificationConfigs);
-    return notificationConfigs;
+    if (!configListing) {
+      return [];
+    } else {
+      const mailConfig = configListing.mailMessagingConfig?.mailConfig;
+      const workflowIds: string[] = mailConfig ? this.workflowIdsFor(mailConfig) : [];
+      const forceInclude = (item: NotificationConfig): boolean => {
+        const ids = configListing.forceIncludeConfigIds;
+        return !!ids && ids.length > 0 && ids.includes(item.id);
+      };
+      const notificationConfigs = this.visibleNotificationConfigs(this.mailMessagingConfig.notificationConfigs)
+        .filter(item => forceInclude(item) || configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id))
+        .filter(item => forceInclude(item) || !configListing.excludeConfigsWithPreSendActions || !item.preSendActions || item.preSendActions.length === 0)
+        .filter(item => forceInclude(item) || !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
+        .filter(item => forceInclude(item) || !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
+      this.logger.info("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "excludeConfigsWithPreSendActions:", configListing.excludeConfigsWithPreSendActions, "forceIncludeConfigIds:", configListing.forceIncludeConfigIds, "-> notificationConfigs:", notificationConfigs);
+      return notificationConfigs;
+    }
   }
 
   public workflowIdsFor(mailConfig: MailConfig) {
