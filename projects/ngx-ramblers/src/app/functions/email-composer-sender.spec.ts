@@ -7,7 +7,7 @@ import { notificationConfigIdFor } from "./event-type-notification-config";
 
 function identity(partial: Partial<ComposerSenderIdentity> & Pick<ComposerSenderIdentity, "email" | "kind">): ComposerSenderIdentity {
   return {
-    name: "Andrew Goh",
+    name: "Alex Reed",
     label: partial.label ?? partial.email,
     roleType: partial.roleType ?? null,
     ...partial
@@ -18,8 +18,8 @@ describe("defaultBrandedSenderEmail", () => {
 
   const contact = identity({
     kind: ComposerSenderKind.CONTACT,
-    email: "andrew.goh4@googlemail.com",
-    label: "Contact email <andrew.goh4@googlemail.com>"
+    email: "alex.reed@example.com",
+    label: "Contact email <alex.reed@example.com>"
   });
   const social = identity({
     kind: ComposerSenderKind.COMMITTEE_ROLE,
@@ -33,11 +33,11 @@ describe("defaultBrandedSenderEmail", () => {
       .toEqual("social@ekwg.co.uk");
   });
 
-  it("keeps an explicit Send from choice", () => {
-    expect(defaultBrandedSenderEmail([contact, social], {
-      chosenEmail: "andrew.goh4@googlemail.com",
+  it("ignores an explicit personal Send from choice", () => {
+    expect(defaultBrandedSenderEmail([social], {
+      chosenEmail: "alex.reed@example.com",
       preferredRoleType: "social-co-ordinator"
-    })).toEqual("andrew.goh4@googlemail.com");
+    })).toEqual("social@ekwg.co.uk");
   });
 
   it("falls back to the first committee address when the email type has no matching role", () => {
@@ -45,8 +45,8 @@ describe("defaultBrandedSenderEmail", () => {
       .toEqual("social@ekwg.co.uk");
   });
 
-  it("falls back to contact email when the member has no committee address", () => {
-    expect(defaultBrandedSenderEmail([contact])).toEqual("andrew.goh4@googlemail.com");
+  it("does not fall back to a personal contact email", () => {
+    expect(defaultBrandedSenderEmail([contact])).toEqual("");
   });
 });
 

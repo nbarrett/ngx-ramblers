@@ -101,7 +101,7 @@ describe("additionalEmailsFromMailboxList", () => {
 
 describe("composerSenderIdentities", () => {
 
-  it("lists contact email then each committee address assigned to the member", () => {
+  it("lists only committee addresses assigned to the member", () => {
     const chairman = member("chairman", "Liz Chair", "liz-id");
     const identities = composerSenderIdentities({
       contactEmail: "liz@gmail.com",
@@ -109,14 +109,8 @@ describe("composerSenderIdentities", () => {
       roles: [chairman],
       memberId: "liz-id"
     });
-    expect(identities[0]).toEqual({
-      kind: ComposerSenderKind.CONTACT,
-      email: "liz@gmail.com",
-      name: "Liz Chair",
-      label: "Contact email <liz@gmail.com>",
-      roleType: null
-    });
-    expect(identities.some(identity => identity.email === "chairman@example.com" && identity.kind === ComposerSenderKind.COMMITTEE_ROLE)).toEqual(true);
+    expect(identities.map(identity => identity.email)).toEqual(["chairman@example.com", "liz.chair@example.com"]);
+    expect(identities[0].kind).toEqual(ComposerSenderKind.COMMITTEE_ROLE);
   });
 
   it("does not duplicate the contact email when it is already a committee address", () => {
