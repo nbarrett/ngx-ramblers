@@ -59,6 +59,7 @@ import { configuredEnvironments } from "../environments/environments-config";
 import { baseDomainFrom } from "./environment-context";
 import { registerBrevoSender } from "../brevo/senders/create-sender";
 import { configuredChromeVersion } from "../shared/chrome-version";
+import { flySecretsForEnvironment } from "../shared/secrets";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:service"));
 debugLog.enabled = true;
@@ -446,6 +447,13 @@ export async function createEnvironment(
     await updateEnvironmentsConfig(request, awsCredentials, secrets);
     reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, SetupStepStatus.Completed, "Environment configuration and secrets saved");
 
+    const environmentsAfterSave = await configuredEnvironments();
+    const savedEnvironment = environmentsAfterSave.environments.find(env => env.environment === request.environmentBasics.environmentName);
+    if (!savedEnvironment) {
+      throw new Error(`Environment ${request.environmentBasics.environmentName} was not found after saving configuration`);
+    }
+    const flySecrets = flySecretsForEnvironment(savedEnvironment, environmentsAfterSave);
+
     const adminAccess = { passwordResetId: null as string | null };
     if (fullDuplicate && sourceEnvironment) {
       reportProgress(SetupStep.CLONE_SOURCE_DATABASE, SetupStepStatus.Running, `Copying database from ${sourceEnvironment.environment}`);
@@ -521,7 +529,7 @@ export async function createEnvironment(
           memory: normaliseMemory(request.environmentBasics.memory),
           scaleCount: request.environmentBasics.scaleCount,
           organisation: request.environmentBasics.organisation || "personal",
-          secrets,
+          secrets: flySecrets,
           apiKey: request.serviceConfigs.flyio?.personalAccessToken
         }, {
           onProgress: progress => debugLog(`[${sessionId}] Fly.io: ${progress.step} - ${progress.status}`),

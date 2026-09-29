@@ -155,6 +155,7 @@ import { AreaSelector } from "../../walks/walk-edit/area-selector";
                                                    [(ngModel)]="cloneSourceEnv"
                                                    (ngModelChange)="onCloneSourceSelected($event)"
                                                    [loading]="loadingCloneDetails"
+                                                   dropdownPosition="bottom"
                                                    placeholder="Select an environment to clone from">
                                         </ng-select>
                                       </div>
@@ -521,6 +522,7 @@ import { AreaSelector } from "../../walks/walk-edit/area-selector";
                                                  [items]="mongoClusters"
                                                  bindLabel="label"
                                                  [clearable]="true"
+                                                 dropdownPosition="bottom"
                                                  placeholder="Select an existing cluster or enter details manually"
                                                  (change)="onClusterSelected($event)">
                                       </ng-select>

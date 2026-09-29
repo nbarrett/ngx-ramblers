@@ -150,6 +150,15 @@ export function buildSecretsFromDatabaseConfig(
   return filterSecretsForSiteFlyDeploy(secrets);
 }
 
+export function flySecretsForEnvironment(envConfig: EnvironmentConfig, globalConfig: EnvironmentsConfig): Record<string, string> {
+  const secrets = buildSecretsFromDatabaseConfig(envConfig, globalConfig);
+  if (globalConfig.cloudflare && !secrets.CLOUDFLARE_CONFIG) {
+    throw new Error(`Cannot deploy ${envConfig.environment}: platform Cloudflare is configured but CLOUDFLARE_CONFIG was not produced. Set ENVIRONMENT_SETUP_API_KEY on the platform secrets so the new app can manage DNS and mail domains.`);
+  } else {
+    return secrets;
+  }
+}
+
 export function loadSecretsForEnvironment(appName: string): SecretsFile {
   const filePath = secretsPath(appName);
   const secrets = filterSecretsForSiteFlyDeploy(parseSecretsFile(filePath));

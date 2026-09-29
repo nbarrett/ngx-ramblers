@@ -16,3 +16,7 @@ export interface NgxInboxEnv {
 }
 
 export type CloudflareForwardEnv = Record<string, never>;
+
+export interface PublicSiteFetchEnv {
+  PUBLIC_SITE_FETCH_SECRET: string;
+}
