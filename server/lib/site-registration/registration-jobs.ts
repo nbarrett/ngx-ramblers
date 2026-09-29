@@ -154,7 +154,7 @@ async function provisionRegistration(registration: StoredSiteRegistration): Prom
       brevo: {apiKey: ""},
       osMaps: {apiKey: ""}},
     adminUser: settings.reviewer,
-    options: {...defaults.options, setupSubdomain: true, ngxLite: registration.plan === RegistrationPlan.LITE, estateDeploy: false, copyStandardAssets: false}
+    options: {...defaults.options, setupSubdomain: true, ngxLite: registration.plan === RegistrationPlan.LITE, estateDeploy: true, copyStandardAssets: false}
   };
   const existing = await findEnvironmentFromDatabase(name);
   const mongoUri = envConfig.mongo().uri.replace(/^"|"$/g, "");
