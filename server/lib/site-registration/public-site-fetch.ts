@@ -1,13 +1,16 @@
 import { lookup } from "dns/promises";
+import debug from "debug";
 import { isArray } from "es-toolkit/compat";
 import { request as httpRequest } from "http";
 import { request as httpsRequest } from "https";
 import { BlockList, isIP, LookupFunction } from "net";
 import { brotliDecompressSync, gunzipSync, inflateSync } from "zlib";
+import { envConfig } from "../env-config/env-config";
 import { HttpError } from "../shared/http-error";
 import { sourceSiteLimiter } from "./source-site-limiter";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { publicSiteFetchRelay } from "../cloudflare/public-site-fetch-worker";
+import { PublicSitePage, PublicSiteResponse } from "./public-site-fetch.model";
 
 const excludedNetworks = new BlockList();
 ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4"].forEach(network => {
@@ -15,7 +18,8 @@ const excludedNetworks = new BlockList();
   excludedNetworks.addSubnet(address, Number(prefix), "ipv4");
 });
 
-import { PublicSitePage, PublicSiteResponse } from "./public-site-fetch.model";
+const debugLog = debug(envConfig.logNamespace("public-site-fetch"));
+debugLog.enabled = true;
 
 const UNRESOLVABLE_HOST_CODES = ["ENOTFOUND", "ENODATA"];
 
@@ -117,9 +121,11 @@ function fetchPublicSiteBody(value: string, redirects: number, accept: string, e
         throw error;
       } else {
         try {
+          debugLog("origin refused %s, retrying through Cloudflare relay", withoutQuery(value));
           return await requestPublicSiteBodyViaRelay(value, accept, expectedContentType, maximumBytes);
         } catch (relayError) {
-          throw shouldRelayPublicSiteFetch(relayError) ? relayError : error;
+          debugLog("Cloudflare relay failed for %s: %s", withoutQuery(value), (relayError as Error).message);
+          throw relayError;
         }
       }
     }
@@ -129,11 +135,14 @@ function fetchPublicSiteBody(value: string, redirects: number, accept: string, e
 async function requestPublicSiteBodyViaRelay(value: string, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
   const url = publicSiteUrl(value);
   const relay = await publicSiteFetchRelay();
+  debugLog("POST public site fetch relay %s for %s", relay.url, url.href);
   const response = await fetch(relay.url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${relay.secret}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "User-Agent": PUBLIC_SITE_USER_AGENT,
+      Accept: "application/octet-stream, */*"
     },
     body: JSON.stringify({
       url: url.href,

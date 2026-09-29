@@ -1,8 +1,10 @@
+import { AsyncLocalStorage } from "async_hooks";
 import { randomBytes } from "crypto";
 import debug from "debug";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CloudflareConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
+import { PublicSiteFetchRelay } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { config as configModel } from "../mongo/models/config";
@@ -12,15 +14,13 @@ import { transpileWorkerTemplate, uploadWorkerScript, uploadWorkerSecret } from 
 import { cloudflareApi, CloudflareResponse } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("public-site-fetch-worker"));
+debugLog.enabled = true;
 
 export const PUBLIC_SITE_FETCH_WORKER_NAME = "ngx-public-site-fetch";
-
-export interface PublicSiteFetchRelay {
-  url: string;
-  secret: string;
-}
+export type { PublicSiteFetchRelay };
 
 const ensureState: {promise: Promise<PublicSiteFetchRelay> | null} = {promise: null};
+const jobRelay = new AsyncLocalStorage<PublicSiteFetchRelay>();
 
 function cloudflareHeaders(apiToken: string): Record<string, string> {
   return {
@@ -112,12 +112,29 @@ export function resetPublicSiteFetchRelay(): void {
   ensureState.promise = null;
 }
 
-export async function publicSiteFetchRelay(): Promise<PublicSiteFetchRelay> {
-  if (!ensureState.promise) {
-    ensureState.promise = createPublicSiteFetchRelay().catch(error => {
-      ensureState.promise = null;
-      throw error;
-    });
+export function runWithPublicSiteFetchRelay<T>(relay: PublicSiteFetchRelay | null, work: () => Promise<T>): Promise<T> {
+  if (relay?.url && relay?.secret) {
+    return jobRelay.run(relay, work);
+  } else {
+    return work();
   }
-  return ensureState.promise;
+}
+
+export async function publicSiteFetchRelay(): Promise<PublicSiteFetchRelay> {
+  const fromJob = jobRelay.getStore();
+  const fromEnvUrl = envConfig.value(Environment.PUBLIC_SITE_FETCH_URL)?.trim();
+  const fromEnvSecret = envConfig.value(Environment.PUBLIC_SITE_FETCH_SECRET)?.trim();
+  if (fromJob?.url && fromJob?.secret) {
+    return fromJob;
+  } else if (fromEnvUrl && fromEnvSecret) {
+    return {url: fromEnvUrl, secret: fromEnvSecret};
+  } else {
+    if (!ensureState.promise) {
+      ensureState.promise = createPublicSiteFetchRelay().catch(error => {
+        ensureState.promise = null;
+        throw error;
+      });
+    }
+    return ensureState.promise;
+  }
 }

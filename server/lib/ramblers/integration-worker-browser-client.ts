@@ -4,6 +4,7 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { signRamblersUploadBody } from "./integration-worker-crypto";
 import { FlickrScrapedUserAlbumsData } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { HtmlFetchResult, IntegrationWorkerCallbackConfig, IntegrationWorkerMigrationJobRequest, IntegrationWorkerWalksManagerSyncJobRequest, PlaywrightWaitUntil } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
+import { publicSiteFetchRelay } from "../cloudflare/public-site-fetch-worker";
 import { SiteMigrationConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
@@ -93,7 +94,14 @@ export async function submitMigrationJobToIntegrationWorker(jobId: string, siteC
     progressPath: "/api/integration-worker/migration/progress",
     resultPath: "/api/integration-worker/migration/result"
   };
-  const request: IntegrationWorkerMigrationJobRequest = { jobId, siteConfig, persistData, uploadTos3, callback };
+  const request: IntegrationWorkerMigrationJobRequest = {
+    jobId,
+    siteConfig,
+    persistData,
+    uploadTos3,
+    callback,
+    publicSiteFetchRelay: await publicSiteFetchRelay()
+  };
   const body = JSON.stringify(request);
   const signature = signRamblersUploadBody(body, sharedSecret);
   const endpoint = `${stripTrailingSlash(workerUrl)}/api/integration-worker/migration/jobs`;

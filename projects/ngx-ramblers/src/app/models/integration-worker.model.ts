@@ -98,12 +98,18 @@ export interface IntegrationWorkerAuditEnvelope {
   audits: RamblersUploadAudit[];
 }
 
+export interface PublicSiteFetchRelay {
+  url: string;
+  secret: string;
+}
+
 export interface IntegrationWorkerMigrationJobRequest {
   jobId: string;
   siteConfig: SiteMigrationConfig;
   persistData: boolean;
   uploadTos3: boolean;
   callback: IntegrationWorkerCallbackConfig;
+  publicSiteFetchRelay?: PublicSiteFetchRelay;
 }
 
 export enum IntegrationWorkerLogLevel {
