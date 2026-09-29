@@ -99,6 +99,7 @@ import { EnvironmentDestroy } from "./environment-destroy";
                          [(ngModel)]="selectedExistingEnv"
                          (ngModelChange)="onExistingEnvironmentSelected($event)"
                          [loading]="loading"
+                         dropdownPosition="bottom"
                          placeholder="Select an environment">
               </ng-select>
             </div>

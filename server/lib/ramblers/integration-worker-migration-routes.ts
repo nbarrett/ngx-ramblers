@@ -14,6 +14,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { MigrationResult } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { migrateStaticSite } from "../migration/migrate-static-site-engine";
+import { runWithPublicSiteFetchRelay } from "../cloudflare/public-site-fetch-worker";
 import { cancelMigration, resetMigrationCancellation, setErrorSender, setProgressSender } from "../migration/migration-progress";
 import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
 import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
@@ -82,7 +83,7 @@ async function runMigration(request: IntegrationWorkerMigrationJobRequest): Prom
   let result: MigrationResult | null = null;
   let errorMessage: string | null = null;
   try {
-    result = await migrateStaticSite({ ...siteConfig, persistData, uploadTos3 });
+    result = await runWithPublicSiteFetchRelay(request.publicSiteFetchRelay || null, () => migrateStaticSite({ ...siteConfig, persistData, uploadTos3 }));
   } catch (error) {
     errorMessage = (error as Error)?.message || "Migration failed";
     debugLog("migration job failed jobId:", jobId, "error:", errorMessage);

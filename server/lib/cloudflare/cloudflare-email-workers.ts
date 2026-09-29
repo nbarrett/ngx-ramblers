@@ -35,6 +35,10 @@ const MODE_MARKER_PREFIX = "// ngx-forwarding-mode:";
 
 const TEMPLATE_DIR = path.join(__dirname, "worker-templates");
 
+export function transpileWorkerTemplate(templateBaseName: string): string {
+  return loadTranspiledTemplate(templateBaseName);
+}
+
 function loadTranspiledTemplate(templateBaseName: string): string {
   const tsPath = path.join(TEMPLATE_DIR, `${templateBaseName}.template.ts`);
   const tsSource = fs.readFileSync(tsPath, "utf-8");

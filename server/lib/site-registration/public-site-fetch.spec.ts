@@ -2,7 +2,7 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import { gzipSync } from "zlib";
 import { HttpError } from "../shared/http-error";
-import { decodedPublicSiteBody, PUBLIC_SITE_USER_AGENT, publicSiteHttpErrorMessage, sourceUnavailable, withoutQuery } from "./public-site-fetch";
+import { decodedPublicSiteBody, PUBLIC_SITE_USER_AGENT, publicSiteHttpErrorMessage, shouldRelayPublicSiteFetch, sourceUnavailable, withoutQuery } from "./public-site-fetch";
 
 describe("public-site-fetch", () => {
   it("uses a browser user agent for sites that reject migration crawlers", () => {
@@ -16,7 +16,7 @@ describe("public-site-fetch", () => {
 
   it("explains a refused home page without HTTP status wording", () => {
     expect(publicSiteHttpErrorMessage("https://www.group.example/", 403))
-      .toEqual("The current website at https://www.group.example/ refused to send its pages. Check the address is publicly readable, then try Find pages again.");
+      .toEqual("The current website at https://www.group.example/ refused to send its pages to our servers. The address is readable in a browser; its protection is blocking the import. Try Find pages again, or ask the webmaster to pause bot protection while the pages are copied.");
     expect(publicSiteHttpErrorMessage("https://www.group.example/?q=1", 403)).not.toMatch(/returned HTTP|HTTP 403|charset=/i);
   });
 
@@ -32,6 +32,13 @@ describe("public-site-fetch", () => {
   it("does not treat server errors, timeouts or conversion failures as dead links", () => {
     expect(sourceUnavailable(new HttpError(503, "unavailable"))).toBe(false);
     expect(sourceUnavailable(new Error("The website did not respond in time."))).toBe(false);
+  });
+
+  it("relays a refused home page through Cloudflare", () => {
+    expect(shouldRelayPublicSiteFetch(new HttpError(403, "refused"))).toBe(true);
+    expect(shouldRelayPublicSiteFetch(new HttpError(401, "auth"))).toBe(true);
+    expect(shouldRelayPublicSiteFetch(new HttpError(404, "missing"))).toBe(false);
+    expect(shouldRelayPublicSiteFetch(new Error("timeout"))).toBe(false);
   });
 
   it("drops the query string so signed parameters never appear in messages", () => {

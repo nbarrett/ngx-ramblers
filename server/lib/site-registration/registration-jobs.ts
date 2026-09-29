@@ -18,6 +18,10 @@ import { findEnvironmentFromDatabase, setEnvironmentEstateDeploy } from "../envi
 import { createAdminMember } from "../environment-setup/templates/sample-data/admin-member-template";
 import { systemConfig } from "../config/system-config";
 import { registrationPhotoTemplates, scrapeRegistrationSite } from "./registration-import-scrape";
+import { startIntegrationWorkerKeepAlive, submitWalksManagerSyncJobToIntegrationWorker } from "../ramblers/integration-worker-browser-client";
+import { integrationWorkerConfigured } from "../ramblers/dispatch-integration-worker-job";
+import { completeWalksManagerSyncSession, registerWalksManagerSyncSession } from "../walks/walks-manager-sync-session";
+import { IntegrationWorkerResultStatus } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { registrationFailureMessage, registrationProgressLineFailed, sanitiseRegistrationMessage } from "../../../projects/ngx-ramblers/src/app/functions/registration-progress";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { sendRegistrationEmail } from "../brevo/transactional-mail/send-site-registration-email";
@@ -65,6 +69,7 @@ const workerId = randomUUID();
 const running = {active: false, registrationId: null as string | null};
 export const REGISTRATION_STOPPED_MESSAGE = "Stopped by the platform reviewer.";
 const LANDING_IMAGE_MAX_HEIGHT = 400;
+const WALKS_MANAGER_SYNC_TIMEOUT_MS = 25 * 60 * 1000;
 
 async function leasedByThisWorker(id: string): Promise<boolean> {
   const current = await registrations().findOne({id}, {projection: {leaseOwner: 1}});
@@ -236,27 +241,72 @@ async function loadWalksFromWalksManager(registration: StoredSiteRegistration): 
     const mongo = context.envConfigData.mongo;
     const uri = buildMongoUri({cluster: mongo.cluster, username: mongo.username || "", password: mongo.password || "", database: mongo.db});
     await pushProgress(registration, "Walks Manager", SetupStepStatus.Running, "Loading the full Walks Manager programme");
-    const reviewSite = mongoose.createConnection(uri);
-    try {
-      await reviewSite.asPromise();
-      const result = await syncWalksManagerData(config, {
-        fullSync: true,
-        onProgress: (percent, message) => {
-          void pushProgress(registration, "Walks Manager", SetupStepStatus.Running, `${percent}% ${message}`);
-        }
-      }, null, walksManagerSyncModelsFor(reviewSite));
-      if (result.errors.length) {
-        throw new Error(`Walks Manager load finished with errors: ${result.errors.join("; ")}`);
-      } else {
-        await registrations().updateOne({id: registration.id, leaseOwner: workerId}, {
-          $push: {progress: {$each: [{step: "Walks Manager", status: SetupStepStatus.Completed, message: `Loaded ${result.totalProcessed} items from Walks Manager (${result.added} new)`, timestamp: dateTimeNowAsValue()}], $slice: -100}},
-          $set: {walksLoadedAt: dateTimeNowAsValue(), updatedAt: dateTimeNowAsValue()}
-        });
+    if (integrationWorkerConfigured()) {
+      await loadWalksFromWalksManagerOnWorker(registration, config, uri);
+    } else {
+      const reviewSite = mongoose.createConnection(uri);
+      try {
+        await reviewSite.asPromise();
+        const result = await syncWalksManagerData(config, {
+          fullSync: true,
+          onProgress: (percent, message) => {
+            void pushProgress(registration, "Walks Manager", SetupStepStatus.Running, `${percent}% ${message}`);
+          }
+        }, null, walksManagerSyncModelsFor(reviewSite));
+        await finishWalksManagerLoad(registration, result);
+      } finally {
+        await reviewSite.close();
       }
-    } finally {
-      await reviewSite.close();
     }
   }
+}
+
+async function finishWalksManagerLoad(registration: StoredSiteRegistration, result: {errors: string[]; totalProcessed: number; added: number}): Promise<void> {
+  if (result.errors.length) {
+    throw new Error(`Walks Manager load finished with errors: ${result.errors.join("; ")}`);
+  } else {
+    await registrations().updateOne({id: registration.id, leaseOwner: workerId}, {
+      $push: {progress: {$each: [{step: "Walks Manager", status: SetupStepStatus.Completed, message: `Loaded ${result.totalProcessed} items from Walks Manager (${result.added} new)`, timestamp: dateTimeNowAsValue()}], $slice: -100}},
+      $set: {walksLoadedAt: dateTimeNowAsValue(), updatedAt: dateTimeNowAsValue()}
+    });
+  }
+}
+
+async function loadWalksFromWalksManagerOnWorker(registration: StoredSiteRegistration, config: Awaited<ReturnType<typeof reviewSiteSystemConfig>>, uri: string): Promise<void> {
+  const jobId = randomUUID();
+  await pushProgress(registration, "Walks Manager", SetupStepStatus.Running, "Asked the integration worker to load the Walks Manager programme");
+  await new Promise<void>((resolve, reject) => {
+    const stopKeepAlive = startIntegrationWorkerKeepAlive();
+    const timer = setTimeout(() => {
+      finish(new Error("The integration worker did not finish loading walks in time."));
+    }, WALKS_MANAGER_SYNC_TIMEOUT_MS);
+    const finish = (error: Error | null) => {
+      stopKeepAlive();
+      clearTimeout(timer);
+      completeWalksManagerSyncSession(jobId);
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    };
+    registerWalksManagerSyncSession({
+      jobId,
+      onProgress: body => {
+        void pushProgress(registration, "Walks Manager", SetupStepStatus.Running, `${body.percent}% ${body.message}`);
+      },
+      onResult: body => {
+        if (body.status === IntegrationWorkerResultStatus.Error || !body.result) {
+          finish(new Error(body.errorMessage || "The integration worker could not load walks."));
+        } else {
+          finishWalksManagerLoad(registration, body.result).then(() => finish(null)).catch(error => finish(error));
+        }
+      }
+    });
+    submitWalksManagerSyncJobToIntegrationWorker(jobId, registration.environmentName, uri, config, true).catch(error => {
+      finish(error instanceof Error ? error : new Error(String(error)));
+    });
+  });
 }
 
 async function importRegistration(savedRegistration: StoredSiteRegistration): Promise<void> {
