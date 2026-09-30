@@ -2,7 +2,7 @@ import { uniq } from "es-toolkit/compat";
 import { BrandingMode, MemberSelection, MergeFieldParamsGroup } from "../models/mail.model";
 import { CommitteeMember, roleEmailAddresses } from "../models/committee.model";
 import { Member } from "../models/member.model";
-import { committeeAssignedEmailsForMemberId } from "./committee-members";
+import { committeeAssignedEmailsForMemberId, outboundEmailForMember } from "./committee-members";
 import { memberDisambiguatedLabel } from "./member-names";
 import {
   AddresseeType,
@@ -533,6 +533,35 @@ export function composerRecipientFromMember(member: Member): ComposerExternalRec
   } else {
     return {email, name: memberDisambiguatedLabel(member) || undefined, saveForReuse: false, memberId: member.id || undefined};
   }
+}
+
+export function composerRecipientsForAddressMode(
+  recipients: ComposerExternalRecipient[],
+  members: Member[],
+  roles: CommitteeMember[],
+  mode: RecipientAddressMode
+): ComposerExternalRecipient[] {
+  const byId = new Map((members ?? []).filter(member => member.id).map(member => [member.id as string, member]));
+  return (recipients ?? []).map(recipient => {
+    if (recipient.committeeRoleType || composerRecipientIsExpandableSet(recipient)) {
+      return recipient;
+    } else {
+      const member = (recipient.memberId && byId.get(recipient.memberId))
+        || (members ?? []).find(item => (item.email || "").toLowerCase() === (recipient.email || "").toLowerCase());
+      if (!member) {
+        return recipient;
+      } else {
+        const email = mode === RecipientAddressMode.COMMITTEE_ROLE
+          ? (outboundEmailForMember(member, roles) || member.email || recipient.email)
+          : (member.email || recipient.email);
+        if ((email || "").toLowerCase() === (recipient.email || "").toLowerCase()) {
+          return recipient;
+        } else {
+          return {...recipient, email, memberId: member.id || recipient.memberId};
+        }
+      }
+    }
+  });
 }
 
 export function composerRecipientKeepsRoleMailbox(recipient: ComposerExternalRecipient): boolean {

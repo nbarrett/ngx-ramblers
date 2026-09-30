@@ -230,6 +230,16 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                           <input [(ngModel)]="notificationConfig.subject.text"
                                  type="text" id="title"
                                  class="form-control input-sm">
+                          <div class="form-check mt-2">
+                            <input type="checkbox"
+                                   class="form-check-input"
+                                   id="{{heading | kebabCase}-subject-placeholder"
+                                   [(ngModel)]="notificationConfig.subject.placeholder">
+                            <label class="form-check-label"
+                                   for="{{heading | kebabCase}-subject-placeholder">
+                              Starting title - the composer will not send until this subject has been changed.
+                            </label>
+                          </div>
                         </div>
                       </div>
                       <div class="col">

@@ -169,7 +169,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
               </div>
             }
             @if (showSuggestions(field.key)) {
-              <ul class="recipient-suggestions" [class.is-above]="suggestionsAbove" (mousedown)="$event.preventDefault()">
+              <ul class="recipient-suggestions" (mousedown)="$event.preventDefault()">
                 @if (visibleMemberSuggestions.length) {
                   <li class="recipient-suggestions-heading">{{ listRecipients.length ? "People and committee lists" : "Group members" }}</li>
                   @for (suggestion of visibleMemberSuggestions; track suggestion.email; let i = $index) {
@@ -315,7 +315,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   protected error: Record<RecipientField, string | null> = { to: null, cc: null, bcc: null };
   protected activeField: RecipientField | null = null;
   protected activeSuggestionIndex = -1;
-  protected suggestionsAbove = false;
+
   private suggestionsSuppressed = false;
   protected editing: { field: RecipientField; index: number } | null = null;
   protected pending: { field: RecipientField; name: string; email: string; saveForReuse: boolean } | null = null;
@@ -333,6 +333,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   private suppressChipClick = false;
   private dragFrom: RecipientField | null = null;
   private memberByEmail = new Map<string, Member>();
+  private memberById = new Map<string, Member>();
   private qualifierByEmail = new Map<string, string>();
   private cachedMemberEntries: ComposerExternalRecipient[] = [];
   protected visibleMemberSuggestions: ComposerExternalRecipient[] = [];
@@ -640,7 +641,11 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   protected memberFor(recipient: ComposerExternalRecipient): Member | null {
-    return this.memberByEmail.get((recipient.email || "").trim().toLowerCase()) ?? null;
+    if (recipient.memberId && this.memberById.get(recipient.memberId)) {
+      return this.memberById.get(recipient.memberId) ?? null;
+    } else {
+      return this.memberByEmail.get((recipient.email || "").trim().toLowerCase()) ?? null;
+    }
   }
 
   protected openRecord(recipient: ComposerExternalRecipient): void {
@@ -667,6 +672,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       this.error[field] = null;
     }
     this.refreshVisibleSuggestions();
+    setTimeout(() => this.fitSuggestionsToViewport());
   }
 
   protected onFocus(field: RecipientField): void {
@@ -676,22 +682,16 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     this.refreshVisibleSuggestions();
     this.activeFieldChange.emit(field);
     this.changeDetector.markForCheck();
-    setTimeout(() => this.placeSuggestions());
+    setTimeout(() => this.fitSuggestionsToViewport());
   }
 
-  private placeSuggestions(): void {
+  private fitSuggestionsToViewport(): void {
     const list = this.host.nativeElement.querySelector(".recipient-suggestions") as HTMLElement | null;
     const line = this.host.nativeElement.querySelector(".recipient-line.is-active") as HTMLElement | null;
-    const clip = line?.closest(".draggable-modal-body, .modal-body, .meeting-dialog") as HTMLElement | null;
-    if (!list || !line) {
-      this.suggestionsAbove = false;
-    } else {
-      const lineBox = line.getBoundingClientRect();
-      const footer = clip?.parentElement?.querySelector(".modal-footer") as HTMLElement | null;
-      const bottomLimit = footer
-        ? footer.getBoundingClientRect().top
-        : (clip ? clip.getBoundingClientRect().bottom : window.innerHeight);
-      this.suggestionsAbove = (bottomLimit - lineBox.bottom) < Math.max(list.offsetHeight, 160);
+    if (list && line) {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const spaceBelow = Math.floor(viewportHeight - line.getBoundingClientRect().bottom - 12);
+      list.style.maxHeight = `${Math.max(120, spaceBelow)}px`;
     }
   }
 
@@ -788,7 +788,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     this.refreshVisibleSuggestions();
     this.activeSuggestionIndex = this.suggestions(field).length > 0 ? 0 : -1;
     this.changeDetector.markForCheck();
-    setTimeout(() => this.placeSuggestions());
+    setTimeout(() => this.fitSuggestionsToViewport());
   }
 
   protected onSaveForReuseChange(value: boolean): void {
@@ -848,6 +848,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     const now = this.dateUtils.dateTimeNowNoTime().toMillis();
     const displayDate = (millis: number) => this.dateUtils.displayDate(millis);
     const membersById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
+    this.memberById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
     this.memberByEmail = new Map((this.members || [])
       .filter(member => (member.email || "").trim())
       .map(member => [(member.email || "").trim().toLowerCase(), member]));
