@@ -190,6 +190,11 @@ export function firstLinkText(text: string): string {
   return match ? match[1].trim() : null;
 }
 
+export function isNullText(value: string | null | undefined): boolean {
+  const text = (value ?? "").trim();
+  return !text || text.toLowerCase() === "null";
+}
+
 export function booleanOf(value: any, fallback: boolean = false): boolean {
   const normalized = (value == null ? "" : value.toString()).trim().toLowerCase();
   if (isBoolean(value)) {

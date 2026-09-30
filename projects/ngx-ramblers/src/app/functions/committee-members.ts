@@ -2,15 +2,14 @@ import { kebabCase } from "es-toolkit/compat";
 import {
   CommitteeAssignedEmail,
   CommitteeAssignedMailboxGroup,
+  committeeMailboxAddresses,
   CommitteeMember,
   CommitteeMemberTab,
-  committeeMailboxAddresses,
-  roleEmailAddresses,
   roleRecipientMemberIds
 } from "../models/committee.model";
 import { KEY_NULL_VALUE_NONE } from "./enums";
 import { StoredValue } from "../models/ui-actions";
-import { normaliseEmail } from "./strings";
+import { isNullText, normaliseEmail } from "./strings";
 
 const MEMBER_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
@@ -91,6 +90,25 @@ export function committeeAssignedEmailsForMemberId(roles: CommitteeMember[] | nu
       const seen = unique.some(existing => existing.email.toLowerCase() === entry.email.toLowerCase());
       return seen ? unique : unique.concat(entry);
     }, []);
+}
+
+export function committeeMemberGivenName(member: { fullName?: string | null } | null | undefined): string {
+  const name = (member?.fullName || "").trim();
+  if (isNullText(name)) {
+    return "";
+  } else {
+    return name;
+  }
+}
+
+export function committeeMemberNameAndRole(member: CommitteeMember | null | undefined): string {
+  const name = committeeMemberGivenName(member);
+  const role = (member?.description || "").trim();
+  if (name && role && role !== name) {
+    return `${name} - ${role}`;
+  } else {
+    return name || role;
+  }
 }
 
 export function outboundEmailForMember(member: {id?: string | null; memberId?: string | null; email?: string | null}, roles: CommitteeMember[] | null | undefined): string {

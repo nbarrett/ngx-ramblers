@@ -173,11 +173,40 @@ export enum RoleType {
   SYSTEM_ROLE = "SYSTEM_ROLE"
 }
 
+export const ROLE_TYPE_LABEL: Record<RoleType, string> = {
+  [RoleType.COMMITTEE_MEMBER]: "Committee Member",
+  [RoleType.GROUP_MEMBER]: "Group Member",
+  [RoleType.SYSTEM_ROLE]: "System Role"
+};
+
+export function roleTypeLabel(roleType: RoleType | string | null | undefined): string {
+  if (!roleType) {
+    return "";
+  } else {
+    return ROLE_TYPE_LABEL[roleType as RoleType] || String(roleType);
+  }
+}
+
 export enum BuiltInRole {
   WALKS_CO_ORDINATOR = "WALKS_CO_ORDINATOR",
   SOCIAL_CO_ORDINATOR = "SOCIAL_CO_ORDINATOR",
   TREASURER = "TREASURER",
   CONTACT_US = "CONTACT_US"
+}
+
+export const BUILT_IN_ROLE_LABEL: Record<BuiltInRole, string> = {
+  [BuiltInRole.WALKS_CO_ORDINATOR]: "Walks Co-ordinator",
+  [BuiltInRole.SOCIAL_CO_ORDINATOR]: "Social Co-ordinator",
+  [BuiltInRole.TREASURER]: "Treasurer",
+  [BuiltInRole.CONTACT_US]: "Contact Us"
+};
+
+export function builtInRoleLabel(role: BuiltInRole | string | null | undefined): string {
+  if (!role) {
+    return "";
+  } else {
+    return BUILT_IN_ROLE_LABEL[role as BuiltInRole] || String(role);
+  }
 }
 
 export const CONTACT_US_TYPE = "contact-us";

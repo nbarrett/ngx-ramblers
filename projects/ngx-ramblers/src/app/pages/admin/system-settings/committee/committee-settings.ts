@@ -33,7 +33,8 @@ import {
   roleEmailAddresses,
   roleMailboxExtras,
   uniqueCommitteeRoleType,
-  uniqueCommitteeRoleTypes
+  uniqueCommitteeRoleTypes,
+  roleTypeLabel
 } from "../../../../models/committee.model";
 import { RANGE_UNIT_OPTIONS } from "../../../../models/search.model";
 import { Member } from "../../../../models/member.model";
@@ -424,7 +425,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                                   <div class="text-muted" [tooltip]="roleExtraMailboxTooltip(role)" container="body">+ {{ extraCount }} more</div>
                                 }
                               </td>
-                              <td>{{ stringUtils.asTitle(role.roleType) }}</td>
+                              <td>{{ roleTypeLabel(role.roleType) }}</td>
                               <td>{{ role.description }}</td>
                               <td class="text-center">
                                 @if (role.vacant) {
@@ -931,6 +932,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   protected readonly meetingFrequencyUnitOptions = RANGE_UNIT_OPTIONS;
   protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
   protected readonly ALERT_ERROR = ALERT_ERROR;
+  protected readonly roleTypeLabel = roleTypeLabel;
   protected readonly EmailForwardStatus = EmailForwardStatus;
   protected readonly CatchAllAction = CatchAllAction;
   protected readonly CommitteeFileMeetingRole = CommitteeFileMeetingRole;
@@ -1206,7 +1208,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     const memberId = assignedMemberId(role.memberId);
     const otherRoles = (this.committeeConfig?.roles ?? [])
       .filter(other => !!memberId && other !== role && assignedMemberId(other.memberId) === memberId)
-      .map(other => other.description || other.fullName || this.stringUtils.asTitle(other.roleType))
+      .map(other => other.description || other.fullName || roleTypeLabel(other.roleType))
       .filter(Boolean);
     if (otherRoles.length === 0) {
       return "";
@@ -1872,14 +1874,13 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   editingRoleHeading(): string {
     if (!this.editingRoleDraft) {
       return "New Role";
-    }
-    if (this.isContactUsSystemRole(this.editingRoleDraft)) {
+    } else if (this.isContactUsSystemRole(this.editingRoleDraft)) {
       return `${this.editingRoleDraft.description || "Contact Us"} system role`;
+    } else if (this.editingRoleDraft.fullName && this.editingRoleDraft.roleType) {
+      return `${this.editingRoleDraft.fullName}'s ${roleTypeLabel(this.editingRoleDraft.roleType)} role`;
+    } else {
+      return this.editingRoleDraft.fullName || "New Role";
     }
-    if (this.editingRoleDraft.fullName && this.editingRoleDraft.roleType) {
-      return `${this.editingRoleDraft.fullName}'s ${this.stringUtils.asTitle(this.editingRoleDraft.roleType)} role`;
-    }
-    return this.editingRoleDraft.fullName || "New Role";
   }
 
   editingRoleIndex(): number {

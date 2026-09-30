@@ -17,6 +17,7 @@ import {
   committeeMembersSettingsQueryParams,
   committeeMemberTrackKey,
   committeeOutboundEmailQueryParams,
+  committeeMemberNameAndRole,
   committeeRoleEmailDiffersFromPersonal,
   committeeRoleForMemberId,
   committeeRoleList,
@@ -145,6 +146,21 @@ describe("committeeMemberTrackKey", () => {
     const tom = member("support", "Tom", "tom-id");
     const nick = member("support", "Nick", "nick-id");
     expect(committeeMemberTrackKey(tom)).not.toEqual(committeeMemberTrackKey(nick));
+  });
+});
+
+describe("committeeMemberNameAndRole", () => {
+
+  it("joins a person and their role", () => {
+    expect(committeeMemberNameAndRole(member("chair", "Alex Reed"))).toEqual("Alex Reed - chair");
+  });
+
+  it("uses only the role title when the name is missing", () => {
+    expect(committeeMemberNameAndRole({
+      ...member("walks", ""),
+      fullName: null as unknown as string,
+      description: "Walks Coordinator"
+    })).toEqual("Walks Coordinator");
   });
 });
 

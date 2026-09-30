@@ -19,7 +19,7 @@ import {
   ALBUM_INDEX_PAGE_SELECT
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
-import { booleanOf, indexCardDescription, stripTrailingSlash } from "../functions/strings";
+import { booleanOf, indexCardDescription, isNullText, stripTrailingSlash } from "../functions/strings";
 import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
@@ -214,14 +214,14 @@ export class IndexService {
           {image: selectedImage},
           contentMetadata
         );
-        if ((!imageSource || imageSource === "null") && firstFileYoutubeId) {
+        if (isNullText(imageSource) && firstFileYoutubeId) {
           imageSource = this.youtubeService.thumbnailUrl(firstFileYoutubeId);
           this.logger.info("Using YouTube thumbnail for:", firstFileYoutubeId);
         }
         const childIndexRow = (pageContentToRowsItem.pageContent.rows || []).find(r =>
           r.type === PageContentType.ALBUM_INDEX && r.albumIndex?.contentPaths?.length > 0
         );
-        if (!imageSource || imageSource === "null") {
+        if (isNullText(imageSource)) {
           if (childIndexRow && this.withinPreviewImageSearchDepth(depth)) {
             this.logger.info("No metadata image found, deferring to batch resolution for:", href);
           } else {
@@ -251,7 +251,7 @@ export class IndexService {
         const override = entryOverrides?.[href];
         if (override?.coverImage && contentMetadata) {
           const overriddenSource = this.urlService.imageSourceFor({image: override.coverImage}, contentMetadata);
-          if (overriddenSource && overriddenSource !== "null") {
+          if (!isNullText(overriddenSource)) {
             imageSource = this.optimiseIndexImageSource(overriddenSource);
           }
         }
@@ -276,7 +276,7 @@ export class IndexService {
           eventDate: row.carousel?.eventDate,
           albumName: row.carousel?.name
         });
-        if (childIndexRow && this.withinPreviewImageSearchDepth(depth) && (!imageSource || imageSource === "null")) {
+        if (childIndexRow && this.withinPreviewImageSearchDepth(depth) && isNullText(imageSource)) {
           pendingImageResolution.push({columnIndex, pageContent: pageContentToRowsItem.pageContent, indexRow: childIndexRow});
         }
       }
@@ -322,7 +322,7 @@ export class IndexService {
             const selectedImage = metadata.coverImage || first(metadata.files)?.image;
             if (selectedImage) {
               const resolved = this.urlService.imageSourceFor({image: selectedImage}, metadata);
-              if (resolved && resolved !== "null") {
+              if (!isNullText(resolved)) {
                 resolvedImage = this.optimiseIndexImageSource(resolved);
                 break;
               }
@@ -343,7 +343,7 @@ export class IndexService {
 
   private withPlaceholderImages(columns: PageContentColumn[]): PageContentColumn[] {
     return columns.map(column => {
-      const hasImage = (!!column.imageSource && column.imageSource !== "null") || !!column.youtubeId;
+      const hasImage = !isNullText(column.imageSource) || !!column.youtubeId;
       return hasImage ? column : {...column, imageSource: null, showPlaceholderImage: true};
     });
   }
@@ -466,7 +466,7 @@ export class IndexService {
             const selectedImage = metadata.coverImage || first(metadata.files)?.image;
             if (selectedImage) {
               const resolved = this.urlService.imageSourceFor({image: selectedImage}, metadata);
-              if (resolved && resolved !== "null") {
+              if (!isNullText(resolved)) {
                 imageSource = this.optimiseIndexImageSource(resolved);
                 const focalPointTarget = carouselRow.carousel?.coverImageFocalPointTarget || FocalPointTarget.BOTH;
                 const applyToIndex = [FocalPointTarget.INDEX_PREVIEW, FocalPointTarget.BOTH].includes(focalPointTarget);
@@ -484,7 +484,7 @@ export class IndexService {
       if (!imageSource) {
         for (const childPage of sortedChildPages) {
           const pageImage = this.findFirstImageInPage(childPage);
-          if (pageImage && pageImage !== "null") {
+          if (!isNullText(pageImage)) {
             imageSource = this.optimiseIndexImageSource(pageImage);
             break;
           }
@@ -497,7 +497,7 @@ export class IndexService {
           const overrideMetadata = allMetadata.find(m => m.name === albumName);
           if (overrideMetadata) {
             const overriddenSource = this.urlService.imageSourceFor({image: override.coverImage}, overrideMetadata);
-            if (overriddenSource && overriddenSource !== "null") {
+            if (!isNullText(overriddenSource)) {
               imageSource = this.optimiseIndexImageSource(overriddenSource);
             }
           }
@@ -700,7 +700,7 @@ export class IndexService {
 
   private calculateDataCompletenessScore(column: PageContentColumn): number {
     let score = 0;
-    if (column.imageSource && column.imageSource !== "null") {
+    if (!isNullText(column.imageSource)) {
       score += 3;
     }
     if (column.contentText && column.contentText !== "No description available") {

@@ -23,6 +23,7 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronRight, faImage, faStar, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { CmsPageImageService } from "../../../services/cms-page-image.service";
+import { isNullText } from "../../../functions/strings";
 
 interface ExpandedEntry {
   column: PageContentColumn;
@@ -359,7 +360,7 @@ export class IndexEntryOverrideEditor {
             image: file.image,
             imageSource: this.urlService.imageSourceFor({image: file.image}, m)
           }))
-          .filter(img => img.imageSource && img.imageSource !== "null")
+          .filter(img => !isNullText(img.imageSource))
       );
       let fromPageContent = false;
       if (images.length === 0 && column.href) {

@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommitteeMember } from "../../models/committee.model";
-import { committeeMemberTrackKey } from "../../functions/committee-members";
+import { committeeMemberNameAndRole, committeeMemberTrackKey } from "../../functions/committee-members";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -12,6 +12,7 @@ import { ContactUsModalService } from "../../pages/contact-us/contact-us-modal.s
 import { buildContactUsHref } from "../../modules/common/tiptap-editor/contact-us-link";
 
 export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-us";
+
 
 @Component({
     selector: "app-contact-us",
@@ -28,7 +29,7 @@ export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-
           'background-repeat': 'no-repeat',
           'background-position': '0px 7px',
           'background-size': '18px'}">
-            {{ nameAndRole(committeeMember) }} -
+            {{ committeeMemberNameAndRole(committeeMember) }} -
             <a [href]="'mailto:' + committeeMember.email"
               [ngStyle]="emailStyle?{'color': '#c05711', 'font-weight': 'normal', 'text-decoration': 'underline'}:null">
               {{ committeeMember.email }}
@@ -48,6 +49,7 @@ export const MEMBERSHIP_CONTACT_ROLE_PREFERENCE = "membership,secretary,contact-
 export class ContactUsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ContactUsComponent", NgxLoggerLevel.ERROR);
   protected readonly committeeMemberTrackKey = committeeMemberTrackKey;
+  protected readonly committeeMemberNameAndRole = committeeMemberNameAndRole;
   urlService = inject(UrlService);
   private committeeConfig = inject(CommitteeConfigService);
   private contactUsModalService = inject(ContactUsModalService);
@@ -74,12 +76,6 @@ export class ContactUsComponent implements OnInit, OnDestroy {
 
   committeeReferenceDataSource() {
     return this.committeeReferenceDataOverride || this.committeeReferenceData;
-  }
-
-  nameAndRole(committeeMember: CommitteeMember): string {
-    return committeeMember.description && committeeMember.description !== committeeMember.fullName
-      ? `${committeeMember.fullName} - ${committeeMember.description}`
-      : committeeMember.fullName;
   }
 
   committeeMembers(): CommitteeMember[] {
