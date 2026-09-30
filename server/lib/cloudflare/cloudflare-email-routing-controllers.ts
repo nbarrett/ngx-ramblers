@@ -13,7 +13,8 @@ import {
   updateEmailRoutingRule
 } from "./cloudflare-email-routing";
 import { createDnsRecord, deleteDnsRecord, listDnsRecords, zoneForHostname } from "./cloudflare-dns";
-import { DnsRecordResult, DnsRecordType, MxRecordStatus } from "./cloudflare.model";
+import { DnsRecordType } from "./cloudflare.model";
+import { buildMxRecordStatus, CLOUDFLARE_INBOUND_MX } from "../../../projects/ngx-ramblers/src/app/functions/mx-record-status";
 import {
   ensureEmailAuthRecords,
   queryEmailAuthStatus
@@ -70,13 +71,7 @@ const errorDebugLog = createErrorDebugLog(messageType);
 
 const BREVO_SMTP_REQUIRED_MESSAGE = "Brevo re-send (authenticated) needs SMTP credentials before it can deliver messages. Open Mail Settings > Mail API Settings and set both SMTP Login and SMTP Key, then come back and deploy the worker.";
 
-const REQUIRED_MX_RECORDS = [
-  {content: "route1.mx.cloudflare.net", priority: 16},
-  {content: "route2.mx.cloudflare.net", priority: 99},
-  {content: "route3.mx.cloudflare.net", priority: 2}
-];
-
-const requiredContents = new Set(REQUIRED_MX_RECORDS.map(mx => mx.content));
+const requiredContents = new Set(CLOUDFLARE_INBOUND_MX.map(mx => mx.content));
 
 async function brevoSmtpCredentialsMissing(): Promise<boolean> {
   try {
@@ -238,22 +233,6 @@ async function assertCatchAllOwnedByThisSite(cloudflareConfig: CloudflareConfig,
 function literalMatcherValue(rule: { matchers?: { type: EmailRoutingMatcherType; field?: EmailRoutingMatcherField; value?: string }[] }): string | undefined {
   return rule.matchers?.find(m => m.type === EmailRoutingMatcherType.LITERAL)?.value;
 }
-
-const buildMxStatus = (subdomain: string, existingRecords: DnsRecordResult[]): MxRecordStatus => {
-  const expectedRecords = REQUIRED_MX_RECORDS.map(mx => ({
-    content: mx.content,
-    priority: mx.priority,
-    exists: existingRecords.some(r => r.content === mx.content)
-  }));
-  const extraRecords = existingRecords.filter(r => !requiredContents.has(r.content));
-  return {
-    subdomain,
-    allPresent: expectedRecords.every(r => r.exists),
-    expectedRecords,
-    existingRecords,
-    extraRecords
-  };
-};
 
 export async function getConfig(req: Request, res: Response): Promise<void> {
   const config = await nonSensitiveCloudflareConfig();
@@ -633,7 +612,7 @@ export async function getMxRecords(req: Request, res: Response): Promise<void> {
     throw new HttpError(400, `No Cloudflare zone found for ${subdomain}. Add the zone in Cloudflare first.`);
   }
   const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, subdomain, DnsRecordType.MX);
-  res.json({request: {messageType}, response: buildMxStatus(subdomain, existingRecords)});
+  res.json({request: {messageType}, response: buildMxRecordStatus(subdomain, existingRecords)});
 }
 
 export async function postMxRecords(req: Request, res: Response): Promise<void> {
@@ -651,14 +630,14 @@ export async function postMxRecords(req: Request, res: Response): Promise<void> 
   const dnsConfig = {apiToken: cloudflareConfig.apiToken, zoneId: zone.id};
   const existingRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
 
-  for (const mx of REQUIRED_MX_RECORDS) {
+  for (const mx of CLOUDFLARE_INBOUND_MX) {
     if (!existingRecords.some(r => r.content === mx.content)) {
       await createDnsRecord(dnsConfig, {type: DnsRecordType.MX, name: subdomain, content: mx.content, priority: mx.priority});
     }
   }
 
   const updatedRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
-  res.json({request: {messageType}, response: buildMxStatus(subdomain, updatedRecords)});
+  res.json({request: {messageType}, response: buildMxRecordStatus(subdomain, updatedRecords)});
 }
 
 export async function deleteMxRecord(req: Request, res: Response): Promise<void> {
@@ -685,7 +664,7 @@ export async function deleteMxRecord(req: Request, res: Response): Promise<void>
   }
   await deleteDnsRecord(dnsConfig, recordId);
   const updatedRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
-  res.json({request: {messageType}, response: buildMxStatus(subdomain, updatedRecords)});
+  res.json({request: {messageType}, response: buildMxRecordStatus(subdomain, updatedRecords)});
 }
 
 export async function getAuthRecords(req: Request, res: Response): Promise<void> {

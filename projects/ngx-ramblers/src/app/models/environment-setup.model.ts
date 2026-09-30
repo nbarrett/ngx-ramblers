@@ -3,6 +3,7 @@ import { ApiResponse } from "./api-response.model";
 import { RamblersGroupsApiResponse } from "./ramblers-walks-manager";
 import { AWS_DEFAULTS, CustomDomainEntry, FLYIO_DEFAULTS } from "./environment-config.model";
 import { RootFolder } from "./system.model";
+import { MxRecordStatus } from "./cloudflare-email-routing.model";
 
 export interface EnvironmentSetupRequest {
   ramblersInfo: RamblersInfo;
@@ -1059,6 +1060,7 @@ export enum HostnameEmailRoutingHealth {
 export interface HostnameEmailRoutingStatus {
   zone: string;
   cloudflareMx: boolean;
+  mxRecordStatus: MxRecordStatus;
   routingEnabled: boolean;
   inboundReady: boolean;
   repairable: boolean;

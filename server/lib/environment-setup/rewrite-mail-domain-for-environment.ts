@@ -93,7 +93,7 @@ export async function moveMailToCustomDomainForEnvironment(environmentName: stri
   }
 
   try {
-    const inbound = await enableInboundMailForEnvironment(environmentName);
+    const inbound = await enableInboundMailForEnvironment(environmentName, {replaceForeignMx: true});
     logs.push(...inbound.logs);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

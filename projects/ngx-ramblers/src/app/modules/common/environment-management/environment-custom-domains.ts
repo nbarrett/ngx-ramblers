@@ -194,7 +194,8 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
         <p class="small text-muted mb-2">
           Rewrites committee role mailboxes and Brevo senders from
           <code>&#64;{{ ngxMailDomain() }}</code> to <code>&#64;{{ mailDomain() }}</code>.
-          Works after the site URL is already the group domain. Mail never uses a www address. Does not change member personal emails.
+          Moves inbound MX onto the NGX estate (replaces StackMail or other non-Cloudflare MX with Cloudflare Email Routing).
+          Leaves an existing Gmail inbox or Direct to inbox setup as it is. Works after the site URL is already the group domain. Mail never uses a www address. Does not change member personal emails.
         </p>
         <button type="button" class="btn btn-primary"
                 (click)="moveMailToCustomDomain()"

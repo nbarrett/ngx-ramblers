@@ -169,6 +169,34 @@ export interface MxRecordStatus {
   extraRecords: MxExistingRecord[];
 }
 
+export interface MailMxTableRow {
+  content: string;
+  priority: number | null;
+  present: boolean;
+  extra: boolean;
+  id: string | null;
+}
+
+export enum MailAuthRecordType {
+  SPF = "SPF",
+  DMARC = "DMARC"
+}
+
+export interface MailAuthTableRow {
+  type: MailAuthRecordType;
+  detail: string;
+  note: string | null;
+  noteTone: MailAuthNoteTone;
+  ok: boolean;
+}
+
+export enum MailAuthNoteTone {
+  NONE = "none",
+  DANGER = "danger",
+  WARNING = "warning",
+  MUTED = "muted"
+}
+
 export interface SpfRecordStatus {
   domain: string;
   present: boolean;

@@ -21,6 +21,8 @@ import {
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { hostnameNeedsAction } from "../../../projects/ngx-ramblers/src/app/functions/hostname-situation";
+import { buildMxRecordStatus } from "../../../projects/ngx-ramblers/src/app/functions/mx-record-status";
+import { mailDomainForSiteHost } from "../../../projects/ngx-ramblers/src/app/functions/rewrite-mail-domain";
 import { CustomDomainEntry, EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { apexHost, dnsProviderFromNameservers, hostFromUrl, ramblersNationalUrl, registrableApex } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { unmappedHostsToOffer, webFacingHostnamesFromDns } from "./zone-web-hosts";
@@ -492,16 +494,17 @@ function mailSettingsHost(siteHostname: string, relatedGroupSiteUrl: string, zon
 }
 
 async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHostname: string, relatedGroupSiteUrl: string): Promise<HostnameEmailRoutingStatus | undefined> {
-  if (!siteHostname) {
+  const mailDomain = mailDomainForSiteHost(relatedGroupSiteUrl || siteHostname || "");
+  if (!mailDomain) {
     return undefined;
   } else {
-    const zone = await zoneForHostname(apiToken, siteHostname);
-    const underZone = !!zone && (apexHost(siteHostname) === zone.name || siteHostname.endsWith(`.${zone.name}`));
-    if (!zone || !underZone) {
+    const zone = await zoneForHostname(apiToken, mailDomain);
+    if (!zone) {
       return undefined;
     } else {
-      const mx = await listDnsRecords({ apiToken, zoneId: zone.id }, zone.name, DnsRecordType.MX);
-      const cloudflareMx = mx.length > 0 && mx.every(record => (record.content || "").includes("mx.cloudflare.net"));
+      const existingRecords = await listDnsRecords({ apiToken, zoneId: zone.id }, zone.name, DnsRecordType.MX);
+      const mxRecordStatus = buildMxRecordStatus(zone.name, existingRecords);
+      const cloudflareMx = mxRecordStatus.allPresent && mxRecordStatus.extraRecords.length === 0;
       const mailHost = mailSettingsHost(siteHostname, relatedGroupSiteUrl, zone.name);
       const mailSettingsUrl = mailHost ? `https://${mailHost}/admin/mail-settings` : "";
       const tokenUrls = {
@@ -528,6 +531,7 @@ async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHo
         return {
           zone: zone.name,
           cloudflareMx,
+          mxRecordStatus,
           routingEnabled: false,
           inboundReady: false,
           repairable: true,
@@ -540,6 +544,7 @@ async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHo
         return {
           zone: zone.name,
           cloudflareMx,
+          mxRecordStatus,
           routingEnabled: false,
           inboundReady: false,
           repairable: true,
@@ -548,10 +553,11 @@ async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHo
           mailSettingsUrl: mailSettingsUrl || undefined,
           ...tokenUrls
         };
-      } else if (!cloudflareMx) {
+      } else if (!mxRecordStatus.allPresent && mxRecordStatus.extraRecords.length === 0) {
         return {
           zone: zone.name,
           cloudflareMx: false,
+          mxRecordStatus,
           routingEnabled: true,
           inboundReady: false,
           repairable: true,
@@ -563,12 +569,15 @@ async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHo
       } else {
         return {
           zone: zone.name,
-          cloudflareMx: true,
+          cloudflareMx,
+          mxRecordStatus,
           routingEnabled: true,
-          inboundReady: true,
+          inboundReady: cloudflareMx,
           repairable: false,
-          health: HostnameEmailRoutingHealth.READY,
-          message: `Incoming mail for ${zone.name} is accepted by Cloudflare Email Routing.`,
+          health: cloudflareMx ? HostnameEmailRoutingHealth.READY : HostnameEmailRoutingHealth.MX_MISSING,
+          message: cloudflareMx
+            ? `Incoming mail for ${zone.name} is accepted by Cloudflare Email Routing.`
+            : `Email Routing is on for ${zone.name}, but MX is not on the NGX estate.`,
           mailSettingsUrl: mailSettingsUrl || undefined,
           ...tokenUrls
         };

@@ -58,6 +58,7 @@ import {
 import { analyseHostnameSituation } from "../../../functions/hostname-situation";
 import { environmentOperationErrorDetail } from "./environment-operation-error";
 import { EnvironmentCustomDomains } from "./environment-custom-domains";
+import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx-records";
 
 @Component({
   selector: "app-environment-hostnames",
@@ -66,7 +67,8 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
     TooltipDirective,
     SortableTableComponent,
     SortableTableCellDirective,
-    EnvironmentCustomDomains
+    EnvironmentCustomDomains,
+    MailMxRecords
   ],
   styles: [`
     :host
@@ -111,14 +113,35 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
             Re-check
           </button>
         </div>
-        @if (hostnameHealthReport?.emailRouting && !hostnameHealthReport.emailRouting.inboundReady) {
+        @if (hostnameHealthReport?.emailRouting?.mxRecordStatus; as mxStatus) {
+          <app-mail-mx-records
+            [domain]="mxStatus.subdomain"
+            [status]="mxStatus"
+            [loading]="loadingHostnameHealth"/>
+          @if (environment && mxStatus.extraRecords?.length) {
+            <div class="mb-3">
+              <button type="button" class="btn btn-primary"
+                      (click)="moveInboundToEstate()"
+                      [disabled]="inboundMailBusy || operationBusy || customDomainsBusy()">
+                @if (inboundMailBusy) {
+                  <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                }
+                Move inbound onto the NGX estate
+              </button>
+              <div class="small text-muted mt-1">
+                Replaces StackMail or other non-Cloudflare MX with Cloudflare Email Routing. Leaves Gmail inbox and Direct to inbox as they are.
+              </div>
+            </div>
+          }
+        }
+        @if (hostnameHealthReport?.emailRouting && !hostnameHealthReport.emailRouting.inboundReady && hostnameHealthReport.emailRouting.repairable) {
           <div class="alert alert-warning d-flex align-items-start mb-3">
             <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"></fa-icon>
             <div>
               <strong>Incoming mail</strong>
               <div class="mt-1">{{ hostnameHealthReport.emailRouting.message }}</div>
               <div class="d-flex flex-wrap gap-2 mt-2">
-                @if (hostnameHealthReport.emailRouting.repairable && environment) {
+                @if (environment) {
                   <button type="button" class="btn btn-primary"
                           (click)="enableInboundMail()"
                           [disabled]="inboundMailBusy || operationBusy || customDomainsBusy()">
@@ -434,6 +457,24 @@ export class EnvironmentHostnames implements OnChanges {
   async refresh(): Promise<void> {
     if (this.environment) {
       await this.probeHostnameHealth(this.environment.name);
+    }
+  }
+
+  async moveInboundToEstate(): Promise<void> {
+    if (!this.environment) {
+      return;
+    } else {
+      this.inboundMailBusy = true;
+      this.notify.hide();
+      try {
+        const response = await this.environmentSetupService.moveInboundToEstate(this.environment.name);
+        this.notify.success({title: "Inbound mail is on the NGX estate", message: response.message});
+        await this.refresh();
+      } catch (error) {
+        this.notify.error({title: "Inbound mail was not moved onto the NGX estate", message: environmentOperationErrorDetail(error)});
+      } finally {
+        this.inboundMailBusy = false;
+      }
     }
   }
 
