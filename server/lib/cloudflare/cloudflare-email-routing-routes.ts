@@ -40,5 +40,6 @@ router.post("/inbound-inbox", controller.handleInboundInbox);
 
 router.get("/auth-records", authConfig.authenticate(), asyncRoute(messageType, controller.getAuthRecords));
 router.post("/auth-records", authConfig.authenticate(), asyncRoute(messageType, controller.postAuthRecords));
+router.post("/auth-records/trim-spf", authConfig.authenticate(), asyncRoute(messageType, controller.postAuthRecordsTrimSpf));
 
 export const cloudflareEmailRoutingRoutes = router;

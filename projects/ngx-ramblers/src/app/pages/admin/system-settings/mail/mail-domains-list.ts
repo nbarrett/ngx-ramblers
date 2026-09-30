@@ -160,17 +160,29 @@ import { MailMxRecords } from "./mail-mx-records";
                     }
                   }
                 </div>
-                @if (authRecordsStatus && authRecordsFixable()) {
-                  <button class="btn btn-primary text-nowrap flex-shrink-0" [disabled]="authRecordsCreating || authRecordsStatus.spf.multiple"
-                          [tooltip]="authRecordsStatus.spf.multiple ? 'Consolidate multiple SPF records in Cloudflare first' : ''"
-                          (click)="ensureAuthRecords()">
-                    @if (authRecordsCreating) {
-                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Updating...
-                    } @else {
-                      <fa-icon [icon]="faPlus" class="me-1"></fa-icon>Fix Auth Records
-                    }
-                  </button>
-                }
+                <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                  @if (authRecordsStatus && authRecordsFixable()) {
+                    <button class="btn btn-primary text-nowrap" [disabled]="authRecordsCreating || authRecordsTrimming || authRecordsStatus.spf.multiple"
+                            [tooltip]="authRecordsStatus.spf.multiple ? 'Consolidate multiple SPF records in Cloudflare first' : ''"
+                            (click)="ensureAuthRecords()">
+                      @if (authRecordsCreating) {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Updating...
+                      } @else {
+                        <fa-icon [icon]="faPlus" class="me-1"></fa-icon>Fix Auth Records
+                      }
+                    </button>
+                  }
+                  @if (authRecordsStatus?.spf?.extraIncludes?.length) {
+                    <button class="btn btn-quiet text-nowrap" [disabled]="authRecordsCreating || authRecordsTrimming || authRecordsStatus.spf.multiple"
+                            (click)="trimLeftoverSpfIncludes()">
+                      @if (authRecordsTrimming) {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Removing leftover includes...
+                      } @else {
+                        Remove leftover SPF includes
+                      }
+                    </button>
+                  }
+                </div>
               </div>
               @if (authRecordsStatus) {
                 <div class="mt-2">
@@ -249,6 +261,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
   public authRecordsStatus: EmailAuthRecordsStatus | null = null;
   public authRecordsLoading = false;
   public authRecordsCreating = false;
+  public authRecordsTrimming = false;
   public authRecordsError: string | null = null;
   public canonicalHost: string;
   public switching = false;
@@ -482,8 +495,12 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
       return {
         type: MailAuthRecordType.SPF,
         detail: status.spf.rawContent || "",
-        note: status.spf.missingIncludes.length ? `Missing includes: ${status.spf.missingIncludes.join(", ")}` : null,
-        noteTone: status.spf.missingIncludes.length ? MailAuthNoteTone.DANGER : MailAuthNoteTone.NONE,
+        note: status.spf.missingIncludes.length
+          ? `Missing includes: ${status.spf.missingIncludes.join(", ")}`
+          : (status.spf.extraIncludes.length ? `Leftover includes: ${status.spf.extraIncludes.join(", ")}` : null),
+        noteTone: status.spf.missingIncludes.length
+          ? MailAuthNoteTone.DANGER
+          : (status.spf.extraIncludes.length ? MailAuthNoteTone.WARNING : MailAuthNoteTone.NONE),
         ok: status.spf.allPresent
       };
     } else {
@@ -532,6 +549,20 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
       this.authRecordsError = this.stringUtilsService.stringify(err);
     } finally {
       this.authRecordsCreating = false;
+    }
+  }
+
+  async trimLeftoverSpfIncludes(): Promise<void> {
+    this.authRecordsTrimming = true;
+    this.authRecordsError = null;
+    try {
+      this.authRecordsStatus = await this.cloudflareEmailRoutingService.trimLeftoverSpfIncludes();
+      this.logger.info("Leftover SPF includes removed, status:", this.authRecordsStatus);
+    } catch (err) {
+      this.logger.error("Failed to remove leftover SPF includes:", err);
+      this.authRecordsError = this.stringUtilsService.stringify(err);
+    } finally {
+      this.authRecordsTrimming = false;
     }
   }
 }

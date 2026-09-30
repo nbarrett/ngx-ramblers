@@ -17,6 +17,7 @@ import { DnsRecordType } from "./cloudflare.model";
 import { buildMxRecordStatus, CLOUDFLARE_INBOUND_MX } from "../../../projects/ngx-ramblers/src/app/functions/mx-record-status";
 import {
   ensureEmailAuthRecords,
+  stripLeftoverSpfIncludes,
   queryEmailAuthStatus
 } from "./cloudflare-email-auth-records";
 import {
@@ -694,6 +695,21 @@ export async function postAuthRecords(req: Request, res: Response): Promise<void
     throw new HttpError(400, `No Cloudflare zone found for ${domain}. Add the zone in Cloudflare first.`);
   }
   const status = await ensureEmailAuthRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain, zone.name);
+  res.json({request: {messageType}, response: status});
+}
+
+export async function postAuthRecordsTrimSpf(req: Request, res: Response): Promise<void> {
+  const nsConfig = await nonSensitiveCloudflareConfig();
+  if (!nsConfig.configured || !nsConfig.baseDomain) {
+    throw new HttpError(400, "Cloudflare not configured or baseDomain not available");
+  }
+  const cloudflareConfig = await configuredCloudflare();
+  const domain = nsConfig.baseDomain;
+  const zone = await zoneForHostname(cloudflareConfig.apiToken, domain);
+  if (!zone) {
+    throw new HttpError(400, `No Cloudflare zone found for ${domain}. Add the zone in Cloudflare first.`);
+  }
+  const status = await stripLeftoverSpfIncludes({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain);
   res.json({request: {messageType}, response: status});
 }
 

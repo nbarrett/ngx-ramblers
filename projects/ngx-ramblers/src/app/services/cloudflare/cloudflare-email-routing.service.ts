@@ -270,6 +270,10 @@ export class CloudflareEmailRoutingService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/auth-records`, {}))).response;
   }
 
+  async trimLeftoverSpfIncludes(): Promise<EmailAuthRecordsStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/auth-records/trim-spf`, {}))).response;
+  }
+
   invalidateCache() {
     this.rulesLoaded = false;
     this.catchAllLoaded = false;

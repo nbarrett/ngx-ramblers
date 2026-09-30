@@ -72,25 +72,30 @@ export async function querySpfStatus(dnsConfig: CloudflareDnsConfig, domain: str
       rawContent: null,
       existingIncludes: [],
       missingIncludes: [...REQUIRED_SPF_INCLUDES],
+      extraIncludes: [],
       allPresent: false,
       recordId: null
     };
+  } else {
+    const chosen = spfRecords[0];
+    const content = unquoteTxtContent(chosen.content);
+    const existingIncludes = extractIncludes(content);
+    const normalisedExisting = new Set(existingIncludes.map(i => i.toLowerCase()));
+    const missingIncludes = REQUIRED_SPF_INCLUDES.filter(required => !normalisedExisting.has(required.toLowerCase()));
+    const required = new Set(REQUIRED_SPF_INCLUDES.map(include => include.toLowerCase()));
+    const extraIncludes = existingIncludes.filter(include => !required.has(include.toLowerCase()));
+    return {
+      domain,
+      present: true,
+      multiple,
+      rawContent: content,
+      existingIncludes,
+      missingIncludes,
+      extraIncludes,
+      allPresent: !multiple && missingIncludes.length === 0,
+      recordId: chosen.id
+    };
   }
-  const chosen = spfRecords[0];
-  const content = unquoteTxtContent(chosen.content);
-  const existingIncludes = extractIncludes(content);
-  const normalisedExisting = new Set(existingIncludes.map(i => i.toLowerCase()));
-  const missingIncludes = REQUIRED_SPF_INCLUDES.filter(required => !normalisedExisting.has(required.toLowerCase()));
-  return {
-    domain,
-    present: true,
-    multiple,
-    rawContent: content,
-    existingIncludes,
-    missingIncludes,
-    allPresent: !multiple && missingIncludes.length === 0,
-    recordId: chosen.id
-  };
 }
 
 async function queryDmarcStatusForPolicyDomain(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string): Promise<DmarcRecordStatus> {
@@ -160,6 +165,22 @@ export async function ensureSpfRecord(dnsConfig: CloudflareDnsConfig, domain: st
   debugLog("Updating SPF record %s for %s: %s -> %s", current.recordId, domain, current.rawContent, updated);
   await updateDnsRecord(dnsConfig, current.recordId, { type: DnsRecordType.TXT, name: domain, content: updated, ttl: 1, proxied: false });
   return querySpfStatus(dnsConfig, domain);
+}
+
+export async function stripLeftoverSpfIncludes(dnsConfig: CloudflareDnsConfig, domain: string): Promise<SpfRecordStatus> {
+  const current = await querySpfStatus(dnsConfig, domain);
+  if (current.multiple) {
+    throw new Error(`Multiple SPF (v=spf1) records found on ${domain}. RFC 7208 requires exactly one — consolidate manually in Cloudflare before retrying.`);
+  } else if (!current.present || current.extraIncludes.length === 0 || !current.recordId) {
+    return current;
+  } else {
+    const qualifier = extractAllQualifier(current.rawContent || "");
+    const otherMechanisms = otherMechanismsIn(current.rawContent || "");
+    const updated = buildSpfContent([], qualifier, otherMechanisms);
+    debugLog("Stripping leftover SPF includes for %s: %s -> %s", domain, current.rawContent, updated);
+    await updateDnsRecord(dnsConfig, current.recordId, { type: DnsRecordType.TXT, name: domain, content: updated, ttl: 1, proxied: false });
+    return querySpfStatus(dnsConfig, domain);
+  }
 }
 
 export async function ensureDmarcRecord(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string = domain): Promise<DmarcRecordStatus> {
