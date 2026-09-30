@@ -67,6 +67,35 @@ describe("LocationExtractionService", () => {
     expect(columns[0].imageSource).toBe("site-content/banner.jpg");
   });
 
+  it("truncates a long route summary on the index card", () => {
+    const start = {latitude: 51.5, longitude: -1.0, description: "Hillside Park"};
+    const page = {
+      path: "walks/routes/recommended/hillside-loop",
+      rows: [
+        {
+          type: PageContentType.TEXT,
+          columns: [{
+            contentText: "# Sample group: Walk 12\n## Hillside Park loop\n\nStart from the free car park in Hillside Park then follow the river path south through woodland and fields to the village church before looping back across fields to the park."
+          }]
+        },
+        {
+          type: PageContentType.ROUTE,
+          columns: [],
+          routeGuide: {
+            title: "Hillside Park loop",
+            summary: "Start from the free car park in Hillside Park then follow the river path south through woodland and fields to the village church before looping back across fields to the park.",
+            start_location: start
+          }
+        }
+      ]
+    } as PageContent;
+
+    const columns = service.extractLocationsFromPages([page]);
+    expect(columns[0].title).toBe("Hillside Park loop");
+    expect(columns[0].contentText.endsWith("…")).toBe(true);
+    expect(columns[0].contentText.length).toBeLessThan(160);
+  });
+
   it("cannot pin a route page when nested route data is omitted from the query", () => {
     const page = {
       path: "walks/routes/recommended/barham-and-four-churches-walk",

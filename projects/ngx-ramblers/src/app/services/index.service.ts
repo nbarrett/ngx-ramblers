@@ -19,7 +19,7 @@ import {
   ALBUM_INDEX_PAGE_SELECT
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
-import { booleanOf, stripTrailingSlash } from "../functions/strings";
+import { booleanOf, indexCardDescription, stripTrailingSlash } from "../functions/strings";
 import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
@@ -246,7 +246,7 @@ export class IndexService {
           const firstPageText = this.findFirstTextInPage(pageContentToRowsItem.pageContent);
           contentText = firstPageText || "No description available";
         }
-        contentText = this.stringUtils.stripMarkdown(contentText);
+        contentText = indexCardDescription(this.stringUtils.stripMarkdown(contentText)) || "No description available";
 
         const override = entryOverrides?.[href];
         if (override?.coverImage && contentMetadata) {

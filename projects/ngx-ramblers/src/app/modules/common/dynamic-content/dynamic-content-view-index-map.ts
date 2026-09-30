@@ -158,12 +158,12 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   @Input() mapHeight = 500;
   @Input() clusteringEnabled = true;
   @Input() clusteringThreshold = 10;
-  @Input() provider: MapProvider = MapProvider.OSM;
+  @Input() provider: MapProvider = MapProvider.OS;
   @Input() osStyle = DEFAULT_OS_STYLE;
   @Input() mapCenter: [number, number];
   @Input() mapZoom: number;
-  @Input() showControlsDefault = true;
-  @Input() allowControlsToggle = true;
+  @Input() showControlsDefault = false;
+  @Input() allowControlsToggle = false;
   @Input() autoFitBounds = true;
   @Input() editing = false;
   @Output() mapProviderChange = new EventEmitter<MapProvider>();
@@ -194,7 +194,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   };
 
   public mapControlsState: MapControlsState = {
-    provider: MapProvider.OSM,
+    provider: MapProvider.OS,
     osStyle: DEFAULT_OS_STYLE,
     mapHeight: 500,
     smoothScroll: false,
@@ -217,8 +217,8 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
     this.mapControlsState.provider = this.provider;
     this.mapControlsState.osStyle = this.osStyle;
     this.mapControlsState.mapHeight = this.mapHeight;
-    this.showControls = this.uiActions.booleanOf(this.showControlsDefault, true);
-    this.allowControlsToggle = this.uiActions.booleanOf(this.allowControlsToggle, true);
+    this.showControls = this.uiActions.booleanOf(this.showControlsDefault, false);
+    this.allowControlsToggle = this.uiActions.booleanOf(this.allowControlsToggle, false);
     this.initializeMap();
   }
 
@@ -248,10 +248,10 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
       this.fitMapToBounds();
     }
     if (changes["showControlsDefault"] && !changes["showControlsDefault"].firstChange) {
-      this.showControls = this.uiActions.booleanOf(this.showControlsDefault, true);
+      this.showControls = this.uiActions.booleanOf(this.showControlsDefault, false);
     }
     if (changes["allowControlsToggle"] && !changes["allowControlsToggle"].firstChange) {
-      this.allowControlsToggle = this.uiActions.booleanOf(this.allowControlsToggle, true);
+      this.allowControlsToggle = this.uiActions.booleanOf(this.allowControlsToggle, false);
     }
   }
 

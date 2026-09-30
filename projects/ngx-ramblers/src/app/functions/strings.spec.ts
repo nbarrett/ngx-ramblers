@@ -1,4 +1,4 @@
-import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, isQuoted, matchesAllowingTruncation, plainText, stripTrailingSlash, toKebabCase, toSlug, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
+import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, indexCardDescription, isQuoted, matchesAllowingTruncation, plainText, stripTrailingSlash, toKebabCase, toSlug, truncateAtWordBoundary, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
 
 describe("strings", () => {
 
@@ -339,6 +339,36 @@ describe("strings", () => {
 
     it("treats a missing value as empty text", () => {
       expect(stripTrailingSlash(null)).toEqual("");
+    });
+  });
+
+  describe("truncateAtWordBoundary", () => {
+    it("leaves short text unchanged", () => {
+      expect(truncateAtWordBoundary("a short card caption", 90)).toEqual("a short card caption");
+    });
+
+    it("cuts at the last whole word that still fits", () => {
+      expect(truncateAtWordBoundary("Start from the free car park in Hillside Park then follow the river path", 40))
+        .toEqual("Start from the free car park in Hillside");
+    });
+  });
+
+  describe("indexCardDescription", () => {
+    it("returns null for empty text", () => {
+      expect(indexCardDescription("   ")).toBe(null);
+      expect(indexCardDescription(null)).toBe(null);
+    });
+
+    it("leaves a short description unchanged", () => {
+      expect(indexCardDescription("Start from the free car park.")).toEqual("Start from the free car park.");
+    });
+
+    it("truncates a long description at a word boundary and adds an ellipsis", () => {
+      const long = "Start from the free car park in Hillside Park then follow the river path south through woodland and fields to the village church before looping back.";
+      const result = indexCardDescription(long);
+      expect(result.endsWith("…")).toBe(true);
+      expect(result.length).toBeLessThan(long.length);
+      expect(result.includes(" ")).toBe(true);
     });
   });
 });

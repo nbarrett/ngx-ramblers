@@ -509,10 +509,10 @@ export class PageContentActionsService {
         mapCenter: this.mapDefaults.center(),
         mapZoom: this.mapDefaults.zoom(),
         mapHeight: 500,
-        provider: MapProvider.OSM,
+        provider: MapProvider.OS,
         osStyle: DEFAULT_OS_STYLE,
-        showControlsDefault: true,
-        allowControlsToggle: true,
+        showControlsDefault: false,
+        allowControlsToggle: false,
         routes: []
       };
       this.logger.debug("ensureMapData: initialised map for row:", row);
