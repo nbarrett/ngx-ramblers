@@ -456,6 +456,15 @@ export function composerRecipientAddressesArePrivate(
   return recipientCount > 1 && !committeeOnlyAudience;
 }
 
+export function composerSelectedMembersAreCommitteeAudience(
+  members: {committee?: boolean}[],
+  totalRecipientCount: number
+): boolean {
+  return members.length > 0
+    && members.length === totalRecipientCount
+    && members.every(member => !!member.committee);
+}
+
 export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 10;
 export const COMPOSER_EVERYONE_FILTER_EMAIL = "filter-everyone-with-email@list.internal";
 
