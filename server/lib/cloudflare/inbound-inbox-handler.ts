@@ -3,7 +3,8 @@ import { pluraliseWithCount } from "../shared/string-utils";
 import debug from "debug";
 import { Request, Response } from "express";
 import { AddressObject, Attachment, ParsedMail, simpleParser } from "mailparser";
-import { isArray, isString } from "es-toolkit/compat";
+import { isArray, isString, uniq } from "es-toolkit/compat";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
@@ -152,17 +153,24 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
     if (provider !== InboxReaderProvider.CLOUDFLARE_INGRESS) {
       const roleRecipients = await legacyRoleForwardingRecipients(payload.envelopeTo ?? "");
       const catchAll = inboxSettings?.catchAll;
-      if (roleRecipients?.length === 0) {
+      const connectedGmail = provider === InboxReaderProvider.GMAIL_API
+        ? await generalInboxForwardAddress(defaultTenantSlug())
+        : null;
+      if (roleRecipients?.length === 0 && !connectedGmail) {
         debugLog("inbound-inbox: role forwarding is disabled for %s; instructing router to drop", payload.envelopeTo);
         res.status(200).json({request: {messageType}, response: {action: "drop", provider: provider ?? null}});
       } else if (roleRecipients && roleRecipients.length > 0) {
-        debugLog("inbound-inbox: this site's inbox provider is %s; forwarding %s to configured role recipients %o", provider ?? "unset", payload.envelopeTo, roleRecipients);
-        res.status(200).json({request: {messageType}, response: {action: "forward", to: roleRecipients, provider: provider ?? null}});
+        const destinations = uniq([connectedGmail, ...roleRecipients].map(normaliseEmail).filter(Boolean));
+        debugLog("inbound-inbox: this site's inbox provider is %s; forwarding %s to %o", provider ?? "unset", payload.envelopeTo, destinations);
+        res.status(200).json({request: {messageType}, response: {action: "forward", to: destinations, provider: provider ?? null}});
+      } else if (connectedGmail && roleRecipients?.length === 0) {
+        debugLog("inbound-inbox: role forwarding is disabled for %s; still delivering to the connected Gmail inbox %s", payload.envelopeTo, connectedGmail);
+        res.status(200).json({request: {messageType}, response: {action: "forward", to: connectedGmail, provider: provider ?? null}});
       } else if (catchAll?.mode === InboxCatchAllMode.DROP) {
         debugLog("inbound-inbox: this site's catch-all is set to drop; instructing router to drop");
         res.status(200).json({request: {messageType}, response: {action: "drop", provider: provider ?? null}});
       } else if (catchAll?.mode === InboxCatchAllMode.INBOX) {
-        const inboxAddress = await generalInboxForwardAddress(defaultTenantSlug());
+        const inboxAddress = connectedGmail || await generalInboxForwardAddress(defaultTenantSlug());
         debugLog("inbound-inbox: catch-all set to deliver to this site's inbox; forwarding to the site's inbox account %s", inboxAddress ?? "(none found - using shared fallback)");
         res.status(200).json({request: {messageType}, response: {action: "forward", to: inboxAddress, provider: provider ?? null}});
       } else {
