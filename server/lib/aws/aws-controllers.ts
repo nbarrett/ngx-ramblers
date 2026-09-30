@@ -1,6 +1,6 @@
 import * as AWS from "@aws-sdk/client-s3";
 import AdmZip from "adm-zip";
-import { GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
 import { Upload, Progress } from "@aws-sdk/lib-storage";
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command";
 import { ListObjectsCommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsCommand";
@@ -236,6 +236,25 @@ export async function putObjectDirect(
     return { responseData: data, information };
   } catch (error) {
     const errorMessage = `Failed to upload object to ${bucket}/${objectKey}`;
+    debugLog(errorMessage, "->", error);
+    return { responseData: error, error: errorMessage };
+  }
+}
+
+export async function copyObjectDirect(sourceKey: string, destinationKey: string): Promise<AwsInfo | AwsUploadErrorResponse> {
+  const config = s3Config();
+  const bucket = config.bucket;
+  try {
+    const data = await s3().send(new CopyObjectCommand({
+      Bucket: bucket,
+      CopySource: encodeURIComponent(`${bucket}/${sourceKey}`).replace(/%2F/g, "/"),
+      Key: destinationKey
+    }));
+    const information = `Copied ${sourceKey} to ${destinationKey}`;
+    debugLog(information);
+    return { responseData: data, information };
+  } catch (error) {
+    const errorMessage = `Failed to copy ${sourceKey} to ${destinationKey}`;
     debugLog(errorMessage, "->", error);
     return { responseData: error, error: errorMessage };
   }
