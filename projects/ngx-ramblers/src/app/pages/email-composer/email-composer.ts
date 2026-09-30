@@ -4137,10 +4137,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null) {
       return this.committeeOnlyLists().some(list => list.id === this.state.selectedListId);
     } else {
+      const headers = this.expandedHeaderRecipients(this.headerRecipients());
       const members = this.recipientsForAddressMode();
-      const headerCount = this.expandedHeaderRecipients(this.headerRecipients()).length;
-      const recipientCount = headerCount > 0 ? headerCount : members.length;
-      return composerSelectedMembersAreCommitteeAudience(members, recipientCount);
+      const memberChips = headers.filter(header => header.memberId && !header.committeeRoleType);
+      const people = memberChips.length > 0
+        ? members.filter(member => memberChips.some(chip => chip.memberId === member.id))
+        : members;
+      const roleChipCount = headers.filter(header => !!header.committeeRoleType).length;
+      const headerCount = headers.length;
+      const recipientCount = headerCount > 0 ? headerCount : people.length;
+      return composerSelectedMembersAreCommitteeAudience(people, recipientCount, roleChipCount);
     }
   }
 

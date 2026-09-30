@@ -239,6 +239,16 @@ describe("composer recipient lists", () => {
     });
   });
 
+  it("sends a committee role chip to the role mailbox, not the member contact", () => {
+    expect(batchSendRecipientSplit([
+      {email: "chair@group.org", name: "Chair", memberId: "1", committeeRoleType: "chair"},
+      {email: "alex@home.example", name: "Alex Reed", memberId: "1"}
+    ])).toEqual({
+      memberIds: ["1"],
+      externalRecipients: [{email: "chair@group.org", name: "Chair", memberId: "1", committeeRoleType: "chair"}]
+    });
+  });
+
   it("skips members without email", () => {
     expect(composerRecipientFromMember({id: "1", firstName: "Ada"} as Member)).toEqual(null);
   });
@@ -270,6 +280,30 @@ describe("composer recipient lists", () => {
     expect(emails).toContain("pat.chair@group.org");
     expect(emails).toContain("secretary@group.org");
     expect(new Set(emails).size).toEqual(emails.length);
+  });
+
+  it("marks committee typeahead chips with the role type so send keeps the role mailbox", () => {
+    const recipients = composerCommitteeRecipients([
+      {type: "chair", description: "Chair", fullName: "Alex Reed", email: "chair@group.org", memberId: "1"}
+    ] as any);
+    expect(recipients[0].committeeRoleType).toEqual("chair");
+    expect(recipients[0].memberId).toEqual("1");
+  });
+
+  it("treats committee role chips plus committee people as a committee audience", () => {
+    expect(composerSelectedMembersAreCommitteeAudience(
+      [{committee: true}],
+      3,
+      2
+    )).toEqual(true);
+  });
+
+  it("does not treat mixed committee and non-committee people as a committee audience", () => {
+    expect(composerSelectedMembersAreCommitteeAudience(
+      [{committee: true}, {committee: false}],
+      2,
+      0
+    )).toEqual(false);
   });
 
   it("appends unique recipients and removes by email", () => {
