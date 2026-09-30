@@ -33,6 +33,7 @@ export class MailConfigService {
       respectHeadOfficeConsent: true,
       respectEmailBlocks: false,
       allowSystemEmailsWhenTransactionalOff: true,
+      showUnbrandedBroadcastWarning: false,
       editorUrl: BREVO_DEFAULTS.EDITOR_URL,
       baseUrl: BREVO_DEFAULTS.BASE_URL,
       myBaseUrl: BREVO_DEFAULTS.MY_BASE_URL,

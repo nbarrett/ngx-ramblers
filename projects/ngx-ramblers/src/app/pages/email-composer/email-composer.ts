@@ -7717,16 +7717,17 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected unbrandedListSendSignals(): { pulledFromList: boolean; notAReply: boolean; longBody: boolean; promotionalLanguage: boolean } {
-    const pulledFromList = (this.state.selectedMemberIds?.length ?? 0) > 0
+    const pulledFromListRuleEnabled = false;
+    const notAReplyRuleEnabled = false;
+    const longBodyRuleEnabled = false;
+    const pulledFromList = pulledFromListRuleEnabled && ((this.state.selectedMemberIds?.length ?? 0) > 0
       || !!this.state.preFilterKey
-      || !!this.state.narrowListId;
+      || !!this.state.narrowListId);
     const subject = this.state.subject ?? "";
     const subjectIsAReplyOrForward = subject.trim().length > 0 && REPLY_OR_FORWARD_SUBJECT_PATTERN.test(subject);
     const bodyText = `${this.state.introMarkdown ?? ""}\n${this.state.signoffTextMarkdown ?? ""}`;
     const bodyIsLong = bodyText.length >= UNBRANDED_LONG_BODY_CHAR_THRESHOLD;
     const promotionalLanguage = PROMOTIONAL_LANGUAGE_PATTERN.test(bodyText);
-    const notAReplyRuleEnabled = false;
-    const longBodyRuleEnabled = false;
     const notAReply = notAReplyRuleEnabled && !subjectIsAReplyOrForward;
     const longBody = longBodyRuleEnabled && bodyIsLong;
     return { pulledFromList, notAReply, longBody, promotionalLanguage };
@@ -7735,18 +7736,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected unbrandedListSendWarningReasons(): string[] {
     const signals = this.unbrandedListSendSignals();
     const reasons: string[] = [];
-    if (signals.pulledFromList) {
-      if ((this.state.selectedMemberIds?.length ?? 0) > 0) {
-        reasons.push(`${this.stringUtils.pluraliseWithCount(this.state.selectedMemberIds.length, "recipient")} picked from the member list rather than typed in by hand`);
-      } else if (this.state.preFilterKey) {
-        reasons.push(`Recipients filtered via "${this.state.preFilterKey}" rather than typed in by hand`);
-      } else if (this.state.narrowListId) {
-        reasons.push("Recipients narrowed to a mailing list rather than typed in by hand");
-      }
+    if (signals.notAReply) {
+      reasons.push("Subject does not start with \"Re:\" or \"Fwd:\", so this is not a reply or forward");
     }
-    if (signals.notAReply) reasons.push("Subject does not start with \"Re:\" or \"Fwd:\", so this is not a reply or forward");
-    if (signals.longBody) reasons.push(`Body is ${this.unbrandedBodyTextLength()} characters - longer than the ${UNBRANDED_LONG_BODY_CHAR_THRESHOLD}-character threshold for a short reply`);
-    if (signals.promotionalLanguage) reasons.push("Body contains marketing-style language (e.g. donate, fundraise, charity, appeal, sponsor, volunteer, register)");
+    if (signals.longBody) {
+      reasons.push(`Body is ${this.unbrandedBodyTextLength()} characters - longer than the ${UNBRANDED_LONG_BODY_CHAR_THRESHOLD}-character threshold for a short reply`);
+    }
+    if (signals.promotionalLanguage) {
+      reasons.push("Body contains marketing-style language (e.g. donate, fundraise, charity, appeal, sponsor, volunteer, register)");
+    }
     return reasons;
   }
 
@@ -7755,14 +7753,24 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected showUnbrandedListSendWarning(): boolean {
-    if (this.state.brandingMode !== BrandingMode.UNBRANDED) return false;
-    if (this.unbrandedListSendBlocked()) return false;
-    if (this.unbrandedListSendWarningDismissed) return false;
-    const trimmedBody = (this.state.introMarkdown ?? "").trim();
-    if (trimmedBody.length < 50) return false;
-    const signals = this.unbrandedListSendSignals();
-    const triggered = [signals.pulledFromList, signals.notAReply, signals.longBody, signals.promotionalLanguage].filter(Boolean).length;
-    return triggered >= 2;
+    if (this.mailMessagingConfig?.mailConfig?.showUnbrandedBroadcastWarning !== true) {
+      return false;
+    } else if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
+      return false;
+    } else if (this.unbrandedListSendBlocked()) {
+      return false;
+    } else if (this.unbrandedListSendWarningDismissed) {
+      return false;
+    } else {
+      const trimmedBody = (this.state.introMarkdown ?? "").trim();
+      if (trimmedBody.length < 50) {
+        return false;
+      } else {
+        const signals = this.unbrandedListSendSignals();
+        const triggered = [signals.pulledFromList, signals.notAReply, signals.longBody, signals.promotionalLanguage].filter(Boolean).length;
+        return triggered >= 2;
+      }
+    }
   }
 
   protected dismissUnbrandedListSendWarning(): void {

@@ -16,6 +16,7 @@ export function createBrevoConfig(params: BrevoConfigTemplateParams): MailConfig
     respectHeadOfficeConsent: true,
     respectEmailBlocks: false,
     allowSystemEmailsWhenTransactionalOff: true,
+    showUnbrandedBroadcastWarning: false,
     listSettings: [],
     expenseNotificationConfigId: "",
     forgotPasswordNotificationConfigId: "",

@@ -389,6 +389,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   respectHeadOfficeConsent?: boolean;
   respectEmailBlocks?: boolean;
   allowSystemEmailsWhenTransactionalOff?: boolean;
+  showUnbrandedBroadcastWarning?: boolean;
   listSettings: ListSetting[];
   smtpServer?: string;
   smtpPort?: number;
