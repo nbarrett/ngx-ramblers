@@ -8,6 +8,7 @@ import {
   composerEveryoneFilterToken,
   composerFilterToken,
   composerRecipientAddressesArePrivate,
+  composerSelectedMembersAreCommitteeAudience,
   composerRecipientCount,
   composerRecipientIsExpandableSet,
   composerRecipientFromMember,
@@ -167,6 +168,30 @@ describe("composerRecipientAddressesArePrivate", () => {
 
   it("does not apply when there is only one recipient", () => {
     expect(composerRecipientAddressesArePrivate(1, false)).toEqual(false);
+  });
+});
+
+describe("composerSelectedMembersAreCommitteeAudience", () => {
+
+  it("is true when every recipient is a committee member", () => {
+    expect(composerSelectedMembersAreCommitteeAudience(
+      [{committee: true}, {committee: true}, {committee: true}],
+      3
+    )).toEqual(true);
+  });
+
+  it("is false when any recipient is not a committee member", () => {
+    expect(composerSelectedMembersAreCommitteeAudience(
+      [{committee: true}, {committee: false}],
+      2
+    )).toEqual(false);
+  });
+
+  it("is false when extra non-member recipients are on the send", () => {
+    expect(composerSelectedMembersAreCommitteeAudience(
+      [{committee: true}, {committee: true}],
+      3
+    )).toEqual(false);
   });
 });
 

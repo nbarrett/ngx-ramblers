@@ -131,6 +131,8 @@ import {
   composerListToken,
   composerRecipientCount,
   composerRecipientFromMember,
+  composerRecipientIsExpandableSet,
+  composerSelectedMembersAreCommitteeAudience,
   batchSendRecipientSplit,
   composerContentHasPersonalisation,
   composerRecipientAddressesArePrivate,
@@ -2589,10 +2591,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     await this.applyVolunteerAudience();
     this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.applyDefaultListIfNeeded();
-    this.applyPreFilterAudienceToTo();
+    if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
+      this.applyPreFilterAudienceToTo();
+    } else {
+      this.clearUnbrandedBulkRecipients();
+    }
     this.syncRecipientAddressMode();
     this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
-    this.applyPreFilterAudienceToTo();
+    if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
+      this.applyPreFilterAudienceToTo();
+    }
     await this.refreshDrafts();
   }
 
@@ -4129,7 +4137,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null) {
       return this.committeeOnlyLists().some(list => list.id === this.state.selectedListId);
     } else {
-      return this.allSelectedMembersHoldCommitteeRoles();
+      const members = this.recipientsForAddressMode();
+      const headerCount = this.expandedHeaderRecipients(this.headerRecipients()).length;
+      const recipientCount = headerCount > 0 ? headerCount : members.length;
+      return composerSelectedMembersAreCommitteeAudience(members, recipientCount);
     }
   }
 
@@ -4488,33 +4499,49 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private filterTokenForIds(ids: string[]): ComposerExternalRecipient | null {
-    const key = this.state.preFilterKey;
-    if (ids.length === 0 || ids.length < COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT) {
-      return null;
-    } else if (key) {
-      if (this.expandedRecipientFilterKeys.has(key)) {
-        return null;
-      } else {
-        return composerFilterToken(key, this.memberSelectionChipLabel(key), ids.length);
-      }
-    } else if (this.expandedEveryoneSet) {
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
       return null;
     } else {
-      return composerEveryoneFilterToken("Everyone with an email address", ids.length);
+      const key = this.state.preFilterKey;
+      if (ids.length === 0 || ids.length < COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT) {
+        return null;
+      } else if (key) {
+        if (this.expandedRecipientFilterKeys.has(key)) {
+          return null;
+        } else {
+          return composerFilterToken(key, this.memberSelectionChipLabel(key), ids.length);
+        }
+      } else if (this.expandedEveryoneSet) {
+        return null;
+      } else {
+        return composerEveryoneFilterToken("Everyone with an email address", ids.length);
+      }
     }
   }
 
   private applyPreFilterAudienceToTo(): void {
-    const key = this.state.preFilterKey;
-    const ids = this.candidateMembers()
-      .filter(member => (!key || this.memberMatchesPreFilter(member, key)) && !!member.id && !!(member.email || "").trim())
-      .map(member => member.id as string);
-    if (key) {
-      this.expandedRecipientFilterKeys.delete(key);
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      this.clearUnbrandedBulkRecipients();
     } else {
-      this.expandedEveryoneSet = false;
+      const key = this.state.preFilterKey;
+      const ids = this.candidateMembers()
+        .filter(member => (!key || this.memberMatchesPreFilter(member, key)) && !!member.id && !!(member.email || "").trim())
+        .map(member => member.id as string);
+      if (key) {
+        this.expandedRecipientFilterKeys.delete(key);
+      } else {
+        this.expandedEveryoneSet = false;
+      }
+      this.onFilteredMemberIdsChange(ids);
     }
-    this.onFilteredMemberIdsChange(ids);
+  }
+
+  private clearUnbrandedBulkRecipients(): void {
+    const strip = (list: ComposerExternalRecipient[] | null): ComposerExternalRecipient[] =>
+      (list ?? []).filter(recipient => !composerRecipientIsExpandableSet(recipient));
+    this.state.externalRecipients = strip(this.state.externalRecipients);
+    this.state.ccRecipients = strip(this.state.ccRecipients);
+    this.state.bccRecipients = strip(this.state.bccRecipients);
   }
 
   private memberMatchesPreFilter(member: Member, key: MemberSelection): boolean {
@@ -5044,12 +5071,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         this.goToStepKey(EmailComposerStepKey.COMPOSE);
       }
       this.state.signoffRoles = [];
+      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+      this.state.selectedListId = null;
+      this.state.narrowListId = null;
+      this.state.preFilterKey = null;
+      this.state.selectedMemberIds = [];
+      this.clearUnbrandedBulkRecipients();
       if (previousMode !== BrandingMode.UNBRANDED) {
         this.state.fragmentOrder = buildDefaultFragmentOrder(this.state, { unbranded: true });
         this.expandedFragmentIds.add("intro");
-        this.state.selectedMemberIds = [];
-        this.state.preFilterKey = null;
-        this.state.narrowListId = null;
         this.state.notificationConfig = null;
         this.state.bannerId = null;
         this.forcedConfigId = null;
@@ -5067,6 +5098,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const urlUpdates: Record<string, string | null> = { [StoredValue.BRANDING]: mode };
     if (mode === BrandingMode.UNBRANDED) {
       urlUpdates[StoredValue.CONFIG_ID] = null;
+      urlUpdates[StoredValue.LIST_ID] = null;
+      urlUpdates[StoredValue.PRE_FILTER] = null;
+      urlUpdates[StoredValue.EMAIL_TYPE] = kebabCase(RecipientMode.SELECTED_MEMBERS);
     }
     this.syncStateToUrl(urlUpdates);
   }
@@ -6173,13 +6207,13 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       if (this.state.brandingMode === BrandingMode.UNBRANDED) {
         this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
         this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-        this.state.preFilterKey = config.defaultMemberSelection === MemberSelection.MAILING_LIST
-          ? null
-          : config.defaultMemberSelection ?? null;
+        this.state.preFilterKey = null;
+        this.state.selectedListId = null;
+        this.state.narrowListId = null;
         this.state.selectedMemberIds = [];
         this.expandedRecipientFilterKeys.clear();
         this.expandedEveryoneSet = false;
-        this.applyPreFilterAudienceToTo();
+        this.clearUnbrandedBulkRecipients();
       } else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
         this.state.recipientMode = RecipientMode.ENTIRE_LIST;
         this.state.sendingChannel = SendingChannel.CAMPAIGN;
@@ -7684,7 +7718,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private sendingAsCampaign(): boolean {
-    return composerSendsAsCampaign(this.state.recipientMode, this.state.brandingMode, this.committeeOnlyAudience());
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      return false;
+    } else {
+      return composerSendsAsCampaign(this.state.recipientMode, this.state.brandingMode, this.committeeOnlyAudience());
+    }
   }
 
   private recipientAddressesArePrivate(): boolean {
