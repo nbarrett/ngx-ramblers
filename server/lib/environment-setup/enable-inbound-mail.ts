@@ -172,6 +172,9 @@ export async function enableInboundMailForEnvironment(
             };
           } else {
             const cloudflareConfig = await ensureCloudflareTokenCanManageEmailRouting(initialConfig, zone.id, logs);
+            const mxResult = options.replaceForeignMx
+              ? await replaceForeignMxWithCloudflare(cloudflareConfig, zone.name, logs)
+              : {mxCreated: await ensureCloudflareMxIfAlreadyOnCloudflare(cloudflareConfig, zone.name, logs), mxRemoved: 0};
             const settings = await getEmailRoutingSettings(cloudflareConfig).catch(() => ({enabled: false}));
             if (settings.enabled) {
               logs.push("  - Email Routing already enabled on this zone");
@@ -179,9 +182,6 @@ export async function enableInboundMailForEnvironment(
               await enableEmailRouting(cloudflareConfig, zone.name);
               logs.push("  ✓ Enabled Cloudflare Email Routing on this zone");
             }
-            const mxResult = options.replaceForeignMx
-              ? await replaceForeignMxWithCloudflare(cloudflareConfig, zone.name, logs)
-              : {mxCreated: await ensureCloudflareMxIfAlreadyOnCloudflare(cloudflareConfig, zone.name, logs), mxRemoved: 0};
             const gmail = options.replaceForeignMx ? await gmailMailboxEmail(db) : null;
             if (gmail) {
               await ensureCatchAllForwardsToGmail(cloudflareConfig, gmail, logs);

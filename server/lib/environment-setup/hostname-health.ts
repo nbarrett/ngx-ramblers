@@ -527,7 +527,20 @@ async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHo
       const routing = repairedToken
         ? await probeRouting(repairedToken.apiToken)
         : firstProbe;
-      if (!routing.enabled && routing.error) {
+      if (mxRecordStatus.extraRecords.length > 0) {
+        return {
+          zone: zone.name,
+          cloudflareMx: false,
+          mxRecordStatus,
+          routingEnabled: routing.enabled,
+          inboundReady: false,
+          repairable: false,
+          health: HostnameEmailRoutingHealth.MX_MISSING,
+          message: `Incoming mail for ${zone.name} is still on ${mxRecordStatus.extraRecords.map(record => record.content).join(", ")}. Move inbound onto the NGX estate replaces that MX with Cloudflare Email Routing.`,
+          mailSettingsUrl: mailSettingsUrl || undefined,
+          ...tokenUrls
+        };
+      } else if (!routing.enabled && routing.error) {
         return {
           zone: zone.name,
           cloudflareMx,

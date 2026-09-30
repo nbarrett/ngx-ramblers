@@ -56,8 +56,9 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
           </p>
         } @else {
           <p class="small text-muted mb-2">
-            Only if a hostname on this group's own domain (e.g. <code>{{ suggestedCustomDomain() }}</code>)
-            should serve this site. Skip when the free NGX subdomain is enough.
+            Only if a hostname on this group's own domain should serve this site.
+            Skip when the free NGX subdomain is enough.
+            If CMS images still load from that hostname, run Content Migration first while the old host still answers.
           </p>
         }
       } @else {
@@ -329,11 +330,7 @@ export class EnvironmentCustomDomains implements OnChanges {
   }
 
   customDomainPlaceholder(): string {
-    if (this.suggestedCustomDomain()) {
-      return `e.g. ${this.suggestedCustomDomain()}`;
-    } else {
-      return "Hostname on the group domain";
-    }
+    return "Hostname on the group domain";
   }
 
   customDomainExample(): string {

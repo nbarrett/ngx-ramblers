@@ -20,11 +20,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { CustomDomainEntry, CustomDomainStatus } from "../../../models/environment-config.model";
 import {
   EnvironmentStatus,
+  ENVIRONMENT_SUBDOMAIN_BASE,
   ExistingEnvironment,
   HostnameHealthReport,
   HostnameOrigin,
   HostnameSituation,
   HostnameSituationAlert,
+  ConversionNextStep,
   HostnameSituationKind,
   HostnameStatus
 } from "../../../models/environment-setup.model";
@@ -56,6 +58,8 @@ import {
   shouldOfferClearSiteUrl
 } from "./environment-hostname-display";
 import { analyseHostnameSituation } from "../../../functions/hostname-situation";
+import { conversionNextStep, conversionNextStepBody, conversionNextStepTitle } from "../../../functions/conversion-next-step";
+import { firstGroupOwnedApex } from "../../../functions/hosts";
 import { environmentOperationErrorDetail } from "./environment-operation-error";
 import { EnvironmentCustomDomains } from "./environment-custom-domains";
 import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx-records";
@@ -113,6 +117,15 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
             Re-check
           </button>
         </div>
+        @if (cutoverStep() !== ConversionNextStep.NONE) {
+          <div class="alert alert-warning d-flex align-items-start mb-3">
+            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"></fa-icon>
+            <div>
+              <strong>{{ cutoverTitle() }}</strong>
+              <div class="mt-1">{{ cutoverBody() }}</div>
+            </div>
+          </div>
+        }
         @if (hostnameHealthReport?.emailRouting?.mxRecordStatus; as mxStatus) {
           <app-mail-mx-records
             [domain]="mxStatus.subdomain"
@@ -120,10 +133,10 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
             [loading]="loadingHostnameHealth"/>
           @if (environment && mxStatus.extraRecords?.length) {
             <div class="mb-3">
-              <button type="button" class="btn btn-primary"
+              <button type="button" [class]="cutoverStep() === ConversionNextStep.MOVE_INBOUND ? 'btn btn-primary' : 'btn btn-quiet'"
                       (click)="moveInboundToEstate()"
-                      [disabled]="inboundMailBusy || operationBusy || customDomainsBusy()">
-                @if (inboundMailBusy) {
+                      [disabled]="estateMailBusy || operationBusy || customDomainsBusy()">
+                @if (estateMailBusy) {
                   <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                 }
                 Move inbound onto the NGX estate
@@ -142,7 +155,7 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
               <div class="mt-1">{{ hostnameHealthReport.emailRouting.message }}</div>
               <div class="d-flex flex-wrap gap-2 mt-2">
                 @if (environment) {
-                  <button type="button" class="btn btn-primary"
+                  <button type="button" [class]="cutoverStep() === ConversionNextStep.ENABLE_INCOMING ? 'btn btn-primary' : 'btn btn-quiet'"
                           (click)="enableInboundMail()"
                           [disabled]="inboundMailBusy || operationBusy || customDomainsBusy()">
                     @if (inboundMailBusy) {
@@ -409,6 +422,7 @@ export class EnvironmentHostnames implements OnChanges {
   hostnameHealthError: string | null = null;
   loadingHostnameHealth = false;
   inboundMailBusy = false;
+  estateMailBusy = false;
   attachingHostname: string | null = null;
   removingNgxSubdomain = false;
   removeNgxSubdomainConfirming = false;
@@ -422,6 +436,7 @@ export class EnvironmentHostnames implements OnChanges {
   ];
   protected readonly HostnameSituationAlert = HostnameSituationAlert;
   protected readonly HostnameSituationKind = HostnameSituationKind;
+  protected readonly ConversionNextStep = ConversionNextStep;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faEraser = faEraser;
@@ -464,7 +479,7 @@ export class EnvironmentHostnames implements OnChanges {
     if (!this.environment) {
       return;
     } else {
-      this.inboundMailBusy = true;
+      this.estateMailBusy = true;
       this.notify.hide();
       try {
         const response = await this.environmentSetupService.moveInboundToEstate(this.environment.name);
@@ -473,7 +488,7 @@ export class EnvironmentHostnames implements OnChanges {
       } catch (error) {
         this.notify.error({title: "Inbound mail was not moved onto the NGX estate", message: environmentOperationErrorDetail(error)});
       } finally {
-        this.inboundMailBusy = false;
+        this.estateMailBusy = false;
       }
     }
   }
@@ -507,6 +522,25 @@ export class EnvironmentHostnames implements OnChanges {
     } else {
       return analyseHostnameSituation(hostnames);
     }
+  }
+
+  cutoverStep(): ConversionNextStep {
+    const routing = this.hostnameHealthReport?.emailRouting;
+    return conversionNextStep({
+      siteUrl: this.hostnameHealthReport?.siteUrl || "",
+      groupApex: firstGroupOwnedApex(this.customDomains().map(domain => domain.hostname), ENVIRONMENT_SUBDOMAIN_BASE),
+      extraMx: !!(routing?.mxRecordStatus?.extraRecords?.length),
+      inboundReady: !!routing?.inboundReady,
+      incomingRepairable: !!routing && !routing.inboundReady && routing.repairable
+    });
+  }
+
+  cutoverTitle(): string {
+    return conversionNextStepTitle(this.cutoverStep());
+  }
+
+  cutoverBody(): string {
+    return conversionNextStepBody(this.cutoverStep());
   }
 
   customDomains(): CustomDomainEntry[] {
