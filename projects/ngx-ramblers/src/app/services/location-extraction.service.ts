@@ -10,6 +10,7 @@ import { StringUtilsService } from "./string-utils.service";
 import { YouTubeService } from "./youtube.service";
 import { last } from "es-toolkit/compat";
 import { pageLocation, rowsWithin } from "../functions/map-location-markers";
+import { indexCardDescription } from "../functions/strings";
 
 const MIGRATION_NOTE = /^Migrated from /;
 
@@ -39,8 +40,8 @@ export class LocationExtractionService {
       const extracted = this.extractTitleAndDescription(pageContent);
       const locationDescription = locatable ? this.formatLocationDescription(pageLocationData.start, pageLocationData.end) : null;
       const title = extracted.title || this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(href)));
-      const description = extracted.description
-        || (locationDescription && locationDescription !== "Location" ? locationDescription : null)
+      const description = indexCardDescription(extracted.description)
+        || indexCardDescription(locationDescription && locationDescription !== "Location" ? locationDescription : null)
         || "No description available";
 
       this.logger.info("Page:", title, "- location:", location ? "found" : "missing", "- imageSource:", imageSource);
@@ -64,7 +65,7 @@ export class LocationExtractionService {
     let result = { title: null, description: null };
     const routeGuide = rowsWithin(pageContent.rows).find(row => row.type === PageContentType.ROUTE)?.routeGuide;
     if (routeGuide?.title) {
-      result = { title: routeGuide.title, description: routeGuide.summary || null };
+      result = { title: routeGuide.title, description: indexCardDescription(this.stringUtils.stripMarkdown(routeGuide.summary || "")) };
     }
 
     for (const row of rowsWithin(pageContent.rows || [])) {
@@ -73,8 +74,7 @@ export class LocationExtractionService {
           const text = row.albumIndex.indexMarkdown.trim();
           const strippedText = this.stringUtils.stripMarkdown(text);
           if (strippedText.length > 0) {
-            const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
-            result = { title: result.title, description: result.description || truncated };
+            result = { title: result.title, description: result.description || indexCardDescription(strippedText) };
           }
         }
         continue;
@@ -87,19 +87,17 @@ export class LocationExtractionService {
           if (headingMatch) {
             const title = headingMatch[1].trim();
             const remainingText = text.substring(headingMatch[0].length).trim();
-            const description = this.stringUtils.stripMarkdown(remainingText);
-            const truncatedDescription = description.length > 200 ? description.substring(0, 197) + "..." : description;
+            const description = indexCardDescription(this.stringUtils.stripMarkdown(remainingText));
 
             result = {
               title: result.title || title,
-              description: result.description || truncatedDescription || null
+              description: result.description || description
             };
             break;
           } else {
             const strippedText = this.stringUtils.stripMarkdown(text);
             if (strippedText.length > 0) {
-              const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
-              result = { title: result.title, description: result.description || truncated };
+              result = { title: result.title, description: result.description || indexCardDescription(strippedText) };
               break;
             }
           }

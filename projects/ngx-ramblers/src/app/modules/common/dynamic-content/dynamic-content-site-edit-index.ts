@@ -306,12 +306,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 [mapHeight]="row.albumIndex.mapConfig.mapHeight || 500"
                 [clusteringEnabled]="row.albumIndex.mapConfig.clusteringEnabled ?? true"
                 [clusteringThreshold]="row.albumIndex.mapConfig.clusteringThreshold || 10"
-                [provider]="row.albumIndex.mapConfig.provider || MapProvider.OSM"
+                [provider]="row.albumIndex.mapConfig.provider || MapProvider.OS"
                 [osStyle]="row.albumIndex.mapConfig.osStyle || DEFAULT_OS_STYLE"
                 [mapCenter]="row.albumIndex.mapConfig.mapCenter || mapDefaults.center()"
                 [mapZoom]="row.albumIndex.mapConfig.mapZoom || mapDefaults.zoom()"
-                [showControlsDefault]="row.albumIndex.mapConfig.showControlsDefault ?? true"
-                [allowControlsToggle]="row.albumIndex.mapConfig.allowControlsToggle ?? true"
+                [showControlsDefault]="true"
+                [allowControlsToggle]="true"
                 [autoFitBounds]="row.albumIndex.mapConfig.autoFitBounds !== false"
                 [editing]="true"
                 (mapProviderChange)="previewMapProviderChanged($event)"
@@ -513,12 +513,12 @@ export class IndexSiteEdit implements OnInit {
         mapHeight: 500,
         clusteringEnabled: true,
         clusteringThreshold: 10,
-        provider: MapProvider.OSM,
+        provider: MapProvider.OS,
         osStyle: DEFAULT_OS_STYLE,
         mapCenter: this.mapDefaults.center(),
         mapZoom: this.mapDefaults.zoom(),
-        showControlsDefault: true,
-        allowControlsToggle: true,
+        showControlsDefault: false,
+        allowControlsToggle: false,
         autoFitBounds: true
       };
     }

@@ -8,7 +8,7 @@ import { DescribedDimensions, FileNameData } from "./aws-object.model";
 import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 import { SharedDistrictStyle } from "./system.model";
-import { MapProvider } from "./map.model";
+import { DEFAULT_OS_STYLE, MapProvider } from "./map.model";
 import { RouteGuideData, RouteGuidePanelPosition, RouteTurnModifier, RouteWaypointKind } from "./route-follow.model";
 import { SortDirection } from "./sort.model";
 import { enumKeyValues } from "../functions/enums";
@@ -562,8 +562,10 @@ export interface IndexMapConfig {
 
 export const ALBUM_INDEX_MAP_CONFIG_DEFAULTS: Partial<IndexMapConfig> = {
   mapHeight: 500,
-  showControlsDefault: true,
-  allowControlsToggle: true,
+  provider: MapProvider.OS,
+  osStyle: DEFAULT_OS_STYLE,
+  showControlsDefault: false,
+  allowControlsToggle: false,
   autoFitBounds: true
 };
 

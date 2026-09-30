@@ -32,27 +32,18 @@ import {
               [rowIndex]="0"/>
           }
           @if (renderMode === IndexRenderMode.MAP) {
-            <div [class.mt-1]="row.marginTop === 1"
-                 [class.mt-2]="row.marginTop === 2"
-                 [class.mt-3]="row.marginTop === 3"
-                 [class.mt-4]="row.marginTop === 4"
-                 [class.mt-5]="row.marginTop === 5"
-                 [class.mb-1]="row.marginBottom === 1"
-                 [class.mb-2]="row.marginBottom === 2"
-                 [class.mb-3]="row.marginBottom === 3"
-                 [class.mb-4]="row.marginBottom === 4"
-                 [class.mb-5]="row.marginBottom === 5">
+            <div class="mt-3 mb-3">
               <app-dynamic-content-view-index-map
                 [pageContent]="filteredPageContent()"
                 [mapHeight]="row.albumIndex.mapConfig?.mapHeight || 500"
                 [clusteringEnabled]="row.albumIndex.mapConfig?.clusteringEnabled ?? true"
                 [clusteringThreshold]="row.albumIndex.mapConfig?.clusteringThreshold || 10"
-                [provider]="row.albumIndex.mapConfig?.provider || MapProvider.OSM"
+                [provider]="row.albumIndex.mapConfig?.provider || MapProvider.OS"
                 [osStyle]="row.albumIndex.mapConfig?.osStyle || DEFAULT_OS_STYLE"
                 [mapCenter]="row.albumIndex.mapConfig?.mapCenter || mapDefaults.center()"
                 [mapZoom]="row.albumIndex.mapConfig?.mapZoom || mapDefaults.zoom()"
-                [showControlsDefault]="row.albumIndex.mapConfig?.showControlsDefault ?? true"
-                [allowControlsToggle]="row.albumIndex.mapConfig?.allowControlsToggle ?? true"
+                [showControlsDefault]="false"
+                [allowControlsToggle]="false"
                 [autoFitBounds]="row.albumIndex.mapConfig?.autoFitBounds !== false"/>
             </div>
           }
