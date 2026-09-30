@@ -1,6 +1,6 @@
 import { Component, Input } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { EnvironmentModifyOptions, EnvironmentStatus } from "../../../models/environment-setup.model";
+import { EnvironmentModifyOptions, EnvironmentStatus, EnvironmentStatusCheck } from "../../../models/environment-setup.model";
 import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-hostname-display";
 
 @Component({
@@ -16,8 +16,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           <span class="resume-step-text">Initialise database</span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="envStatus.databaseInitialised ? 'bg-success' : 'bg-warning'">
-              {{ envStatus.databaseInitialised ? "done" : "needed" }}
+                  [class]="stepBadgeClass(EnvironmentStatusCheck.DATABASE, envStatus.databaseInitialised)">
+              {{ stepBadgeLabel(EnvironmentStatusCheck.DATABASE, envStatus.databaseInitialised) }}
             </span>
           }
         </label>
@@ -29,8 +29,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           <span class="resume-step-text">Deploy to Fly.io</span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="envStatus.flyAppDeployed ? 'bg-success' : 'bg-warning'">
-              {{ envStatus.flyAppDeployed ? "done" : "needed" }}
+                  [class]="stepBadgeClass(EnvironmentStatusCheck.FLY, envStatus.flyAppDeployed)">
+              {{ stepBadgeLabel(EnvironmentStatusCheck.FLY, envStatus.flyAppDeployed) }}
             </span>
           }
         </label>
@@ -42,8 +42,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           <span class="resume-step-text">Copy standard assets (icons, logos, backgrounds)</span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="envStatus.standardAssetsPresent ? 'bg-success' : 'bg-warning'">
-              {{ envStatus.standardAssetsPresent ? "done" : "needed" }}
+                  [class]="stepBadgeClass(EnvironmentStatusCheck.ASSETS, envStatus.standardAssetsPresent)">
+              {{ stepBadgeLabel(EnvironmentStatusCheck.ASSETS, envStatus.standardAssetsPresent) }}
             </span>
           }
         </label>
@@ -55,8 +55,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           <span class="resume-step-text">Setup subdomain (DNS + SSL certificate)</span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="subdomainStepBadgeClass(envStatus.subdomainConfigured, envStatus.subdomainOptional)">
-              {{ subdomainStepBadgeLabel(envStatus.subdomainConfigured, envStatus.subdomainOptional) }}
+                  [class]="subdomainBadgeClass()">
+              {{ subdomainBadgeLabel() }}
             </span>
           }
         </label>
@@ -71,8 +71,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           </span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="envStatus.brevoDomainAuthenticated ? 'bg-success' : 'bg-warning'">
-              {{ envStatus.brevoDomainAuthenticated ? "done" : "needed" }}
+                  [class]="stepBadgeClass(EnvironmentStatusCheck.BREVO, envStatus.brevoDomainAuthenticated)">
+              {{ stepBadgeLabel(EnvironmentStatusCheck.BREVO, envStatus.brevoDomainAuthenticated) }}
             </span>
           }
         </label>
@@ -84,8 +84,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           <span class="resume-step-text">Include sample page content</span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="envStatus.samplePagesPresent ? 'bg-success' : 'bg-warning'">
-              {{ envStatus.samplePagesPresent ? "done" : "needed" }}
+                  [class]="stepBadgeClass(EnvironmentStatusCheck.DATABASE, envStatus.samplePagesPresent)">
+              {{ stepBadgeLabel(EnvironmentStatusCheck.DATABASE, envStatus.samplePagesPresent) }}
             </span>
           }
         </label>
@@ -97,8 +97,8 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
           <span class="resume-step-text">Include notification configs</span>
           @if (envStatus) {
             <span class="badge resume-step-badge"
-                  [class]="envStatus.notificationConfigsPresent ? 'bg-success' : 'bg-warning'">
-              {{ envStatus.notificationConfigsPresent ? "done" : "needed" }}
+                  [class]="stepBadgeClass(EnvironmentStatusCheck.DATABASE, envStatus.notificationConfigsPresent)">
+              {{ stepBadgeLabel(EnvironmentStatusCheck.DATABASE, envStatus.notificationConfigsPresent) }}
             </span>
           }
         </label>
@@ -109,6 +109,41 @@ import { subdomainStepBadgeClass, subdomainStepBadgeLabel } from "./environment-
 export class EnvironmentModifySteps {
   @Input({required: true}) resumeOptions: EnvironmentModifyOptions;
   @Input() envStatus: EnvironmentStatus | null = null;
-  protected readonly subdomainStepBadgeClass = subdomainStepBadgeClass;
-  protected readonly subdomainStepBadgeLabel = subdomainStepBadgeLabel;
+  protected readonly EnvironmentStatusCheck = EnvironmentStatusCheck;
+
+  checkUnavailable(check: EnvironmentStatusCheck): boolean {
+    return (this.envStatus?.unavailableChecks || []).includes(check);
+  }
+
+  stepBadgeClass(check: EnvironmentStatusCheck, done: boolean): string {
+    if (this.checkUnavailable(check)) {
+      return "bg-secondary";
+    } else {
+      return done ? "bg-success" : "bg-warning";
+    }
+  }
+
+  stepBadgeLabel(check: EnvironmentStatusCheck, done: boolean): string {
+    if (this.checkUnavailable(check)) {
+      return "unknown";
+    } else {
+      return done ? "done" : "needed";
+    }
+  }
+
+  subdomainBadgeClass(): string {
+    if (this.checkUnavailable(EnvironmentStatusCheck.HOSTNAMES)) {
+      return "bg-secondary";
+    } else {
+      return subdomainStepBadgeClass(!!this.envStatus?.subdomainConfigured, !!this.envStatus?.subdomainOptional);
+    }
+  }
+
+  subdomainBadgeLabel(): string {
+    if (this.checkUnavailable(EnvironmentStatusCheck.HOSTNAMES)) {
+      return "unknown";
+    } else {
+      return subdomainStepBadgeLabel(!!this.envStatus?.subdomainConfigured, !!this.envStatus?.subdomainOptional);
+    }
+  }
 }

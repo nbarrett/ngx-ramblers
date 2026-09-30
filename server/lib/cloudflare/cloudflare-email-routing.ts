@@ -18,6 +18,69 @@ function headers(apiToken: string): Record<string, string> {
   };
 }
 
+export interface EmailRoutingSettings {
+  enabled: boolean;
+  name?: string;
+  status?: string;
+}
+
+function cloudflareErrorMessage(data: {errors?: {code?: number; message?: string}[]}): string {
+  return (data.errors || [])
+    .map(item => item.code ? `${item.message} (${item.code})` : item.message)
+    .filter(Boolean)
+    .join(", ") || "Cloudflare request failed";
+}
+
+function authenticationHint(message: string): string {
+  if (/authentication error/i.test(message)) {
+    return `${message}. In Global Settings, give the Cloudflare API token Zone Settings Edit and Email Routing Rules Edit for all zones in the account, then try Enable incoming mail again.`;
+  } else {
+    return message;
+  }
+}
+
+async function postEmailRouting(url: string, apiToken: string, body: object): Promise<CloudflareResponse<EmailRoutingSettings>> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: headers(apiToken),
+    body: JSON.stringify(body)
+  });
+  return response.json();
+}
+
+export async function getEmailRoutingSettings(cloudflareConfig: CloudflareConfig): Promise<EmailRoutingSettings> {
+  const url = cloudflareApi.zoneEmailRouting(cloudflareConfig.zoneId);
+  debugLog("Reading email routing settings for zone:", cloudflareConfig.zoneId);
+  const response = await fetch(url, {headers: headers(cloudflareConfig.apiToken)});
+  const data: CloudflareResponse<EmailRoutingSettings> = await response.json();
+  if (!data.success || !data.result) {
+    throw new Error(`Failed to read email routing settings: ${cloudflareErrorMessage(data)}`);
+  } else {
+    return data.result;
+  }
+}
+
+export async function enableEmailRouting(cloudflareConfig: CloudflareConfig, zoneName?: string): Promise<EmailRoutingSettings> {
+  debugLog("Enabling email routing for zone:", cloudflareConfig.zoneId);
+  const dnsBody = zoneName ? {name: zoneName} : {};
+  const dnsAttempt = await postEmailRouting(cloudflareApi.zoneEmailRoutingDns(cloudflareConfig.zoneId), cloudflareConfig.apiToken, dnsBody);
+  if (dnsAttempt.success && dnsAttempt.result) {
+    return dnsAttempt.result;
+  } else if (/already enabled/i.test(cloudflareErrorMessage(dnsAttempt))) {
+    return getEmailRoutingSettings(cloudflareConfig);
+  } else {
+    debugLog("Email Routing DNS enable failed, trying deprecated enable endpoint:", cloudflareErrorMessage(dnsAttempt));
+    const enableAttempt = await postEmailRouting(cloudflareApi.zoneEmailRoutingEnable(cloudflareConfig.zoneId), cloudflareConfig.apiToken, {});
+    if (enableAttempt.success && enableAttempt.result) {
+      return enableAttempt.result;
+    } else if (/already enabled/i.test(cloudflareErrorMessage(enableAttempt))) {
+      return getEmailRoutingSettings(cloudflareConfig);
+    } else {
+      throw new Error(`Failed to enable email routing: ${authenticationHint(cloudflareErrorMessage(enableAttempt) || cloudflareErrorMessage(dnsAttempt))}`);
+    }
+  }
+}
+
 export async function listEmailRoutingRules(cloudflareConfig: CloudflareConfig): Promise<EmailRoutingRule[]> {
   const url = baseUrl(cloudflareConfig.zoneId);
   debugLog("Listing email routing rules for zone:", cloudflareConfig.zoneId);

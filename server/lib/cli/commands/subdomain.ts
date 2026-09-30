@@ -39,6 +39,7 @@ import { dateTimeNowAsValue } from "../../shared/dates";
 import { dnsProviderFromNameservers, hostFromUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { nameserversForHostname } from "../../shared/dns-nameservers";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { enableInboundMailForEnvironment } from "../../environment-setup/enable-inbound-mail";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
 
@@ -590,6 +591,15 @@ export async function addCustomDomainForEnvironment(
     }
   } else {
     step("  - Apex/www redirect skipped (no Cloudflare zone)");
+  }
+
+  if (zone && !hostname.endsWith(".ngx-ramblers.org.uk")) {
+    try {
+      const inbound = await enableInboundMailForEnvironment(environmentName);
+      inbound.logs.forEach(step);
+    } catch (error) {
+      step(`  ⚠ Inbound mail was not enabled: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   step(`Done: https://${hostname}`);

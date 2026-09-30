@@ -162,9 +162,10 @@ import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
             name="cloudflareApiToken"
             [size]="InputSize.SM">
           </app-secret-input>
-          <small class="form-text text-muted">One token for DNS, email routing and Web Analytics. Needs
-            <a [href]="cloudflareApiTokensUrl" target="_blank">Zone → DNS → Edit, Account → Account Settings →
-            Edit and Account → Account Analytics → Read</a> permissions</small>
+          <small class="form-text text-muted">One token for DNS, incoming mail and Web Analytics, for every zone in the account. Needs
+            <a [href]="cloudflareApiTokensUrl" target="_blank">Zone → DNS → Edit, Zone → Zone Settings → Edit,
+            Zone → Email Routing Rules → Edit, Account → Account Settings → Edit and Account → Account Analytics → Read</a>.
+            Without Zone Settings Edit, Enable incoming mail fails with Authentication error 10000.</small>
         </div>
         <div class="col-md-6 mb-2">
           <label class="form-label">Account ID</label>

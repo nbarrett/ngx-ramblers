@@ -46,6 +46,7 @@ import { hostnameHealth, probeCustomDomain } from "../hostname-health-controller
 import { environmentSendControl, updateEnvironmentSendControl } from "../environment-send-control";
 import { environmentHostnameHealth, updateEnvironmentSiteUrl } from "../hostname-health";
 import { moveMailToCustomDomainForEnvironment } from "../rewrite-mail-domain-for-environment";
+import { enableInboundMailForEnvironment } from "../enable-inbound-mail";
 import { appIpAddresses, queryCertificates } from "../../fly/fly-certificates";
 import { probeFlyOrgMigrationStatus } from "../../fly/fly-org-migration";
 import { booleanOf } from "../../shared/string-utils";
@@ -1078,6 +1079,30 @@ export async function moveMailToCustomDomainRequest(req: Request, res: Response)
       res.status(404).json({ success: false, message: error.message });
     } else {
       errorDebugLog("Error moving mail to custom domain:", error.message);
+      res.status(500).json({ success: false, message: error.message, logs: error.logs || [] });
+    }
+  }
+}
+
+export async function enableInboundMailRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Enable inbound mail for:", environmentName);
+    await loadEnvironmentContext(environmentName);
+    const result = await enableInboundMailForEnvironment(environmentName);
+    res.json({
+      success: true,
+      message: `Cloudflare Email Routing is enabled for ${result.domain}`,
+      domain: result.domain,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+    } else {
+      errorDebugLog("Error enabling inbound mail:", error.message);
       res.status(500).json({ success: false, message: error.message, logs: error.logs || [] });
     }
   }

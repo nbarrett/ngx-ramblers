@@ -92,9 +92,13 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
         <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-2">
           <p class="small text-muted mb-0">
             Live check of every address for this environment. The Site URL is the public address stored on the group.
-            The free host is <code>{{ environmentSubdomainHint() }}</code>; create it with
-            <strong>Setup subdomain</strong> under Steps to run, not with the boxes below.
-            Remove it from the matching row in the table.
+            @if (customDomains().length) {
+              The free host <code>{{ environmentSubdomainHint() }}</code> is optional once the group domain is attached, and it is omitted here when it has no DNS.
+            } @else {
+              The free host is <code>{{ environmentSubdomainHint() }}</code>; create it with
+              <strong>Setup subdomain</strong> under Steps to run, not with the boxes below.
+              Remove it from the matching row in the table.
+            }
           </p>
           <button class="btn btn-quiet"
                   (click)="refresh()"
@@ -107,16 +111,32 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
             Re-check
           </button>
         </div>
-        @if (hostnameHealthReport?.emailRouting && !hostnameHealthReport.emailRouting.cloudflareMx) {
+        @if (hostnameHealthReport?.emailRouting && !hostnameHealthReport.emailRouting.inboundReady) {
           <div class="alert alert-warning d-flex align-items-start mb-3">
             <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"></fa-icon>
             <div>
-              <strong>Email forwarding</strong>
+              <strong>Incoming mail</strong>
               <div class="mt-1">{{ hostnameHealthReport.emailRouting.message }}</div>
-              @if (hostnameHealthReport.emailRouting.mailSettingsUrl) {
-                <a class="btn btn-primary mt-2" [href]="hostnameHealthReport.emailRouting.mailSettingsUrl"
-                   target="_blank" rel="noopener">Open Mail Settings</a>
-              }
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                @if (hostnameHealthReport.emailRouting.repairable && environment) {
+                  <button type="button" class="btn btn-primary"
+                          (click)="enableInboundMail()"
+                          [disabled]="inboundMailBusy || operationBusy || customDomainsBusy()">
+                    @if (inboundMailBusy) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                    }
+                    Enable incoming mail
+                  </button>
+                }
+                @if (hostnameHealthReport.emailRouting.apiTokensUrl) {
+                  <a class="btn btn-quiet" [href]="hostnameHealthReport.emailRouting.apiTokensUrl"
+                     target="_blank" rel="noopener">Open API tokens</a>
+                }
+                @if (hostnameHealthReport.emailRouting.emailRoutingUrl) {
+                  <a class="btn btn-quiet" [href]="hostnameHealthReport.emailRouting.emailRoutingUrl"
+                     target="_blank" rel="noopener">Open Email Routing</a>
+                }
+              </div>
             </div>
           </div>
         }
@@ -258,24 +278,24 @@ import { EnvironmentCustomDomains } from "./environment-custom-domains";
                   }
                   @if (customDomainFor(row); as domain) {
                     <button class="btn btn-quiet btn-icon"
-                            (click)="customDomainsPanel.checkCustomDomain(domain)"
+                            (click)="customDomainsPanel?.checkCustomDomain(domain)"
                             [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy"
                             tooltip="Re-check this hostname"
                             container="body"
                             aria-label="Re-check hostname">
-                      @if (customDomainsPanel.checkingDomainHostname === row.hostname) {
+                      @if (customDomainsPanel?.checkingDomainHostname === row.hostname) {
                         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                       } @else {
                         <fa-icon [icon]="faRedo"></fa-icon>
                       }
                     </button>
                     <button class="btn btn-danger btn-icon"
-                            (click)="customDomainsPanel.removeCustomDomain(domain)"
+                            (click)="customDomainsPanel?.removeCustomDomain(domain)"
                             [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy"
                             tooltip="Remove this hostname"
                             container="body"
                             aria-label="Remove hostname">
-                      @if (customDomainsPanel.removingDomainHostname === row.hostname) {
+                      @if (customDomainsPanel?.removingDomainHostname === row.hostname) {
                         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                       } @else {
                         <fa-icon [icon]="faTrash"></fa-icon>
@@ -365,6 +385,7 @@ export class EnvironmentHostnames implements OnChanges {
   hostnameHealthReport: HostnameHealthReport | null = null;
   hostnameHealthError: string | null = null;
   loadingHostnameHealth = false;
+  inboundMailBusy = false;
   attachingHostname: string | null = null;
   removingNgxSubdomain = false;
   removeNgxSubdomainConfirming = false;
@@ -413,6 +434,24 @@ export class EnvironmentHostnames implements OnChanges {
   async refresh(): Promise<void> {
     if (this.environment) {
       await this.probeHostnameHealth(this.environment.name);
+    }
+  }
+
+  async enableInboundMail(): Promise<void> {
+    if (!this.environment) {
+      return;
+    } else {
+      this.inboundMailBusy = true;
+      this.notify.hide();
+      try {
+        const response = await this.environmentSetupService.enableInboundMail(this.environment.name);
+        this.notify.success({title: "Incoming mail enabled", message: response.message});
+        await this.refresh();
+      } catch (error) {
+        this.notify.error({title: "Incoming mail was not enabled", message: environmentOperationErrorDetail(error)});
+      } finally {
+        this.inboundMailBusy = false;
+      }
     }
   }
 

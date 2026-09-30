@@ -10,7 +10,9 @@ import {
 } from "../models/environment-setup.model";
 
 export function hostnameNeedsAction(hostname: HostnameStatus): boolean {
-  return !hostname.healthy && hostname.health !== HostnameHealth.REDIRECT_PENDING;
+  return !hostname.healthy
+    && hostname.health !== HostnameHealth.REDIRECT_PENDING
+    && hostname.health !== HostnameHealth.NOT_CREATED;
 }
 
 function servingHost(hostnames: HostnameStatus[]): HostnameStatus | null {
