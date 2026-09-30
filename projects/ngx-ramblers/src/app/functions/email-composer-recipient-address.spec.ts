@@ -12,6 +12,7 @@ import {
   composerRecipientCount,
   composerRecipientIsExpandableSet,
   composerRecipientFromMember,
+  composerRecipientsForAddressMode,
   batchSendRecipientSplit,
   composerSendsAsCampaign,
   memberIsCoveredByComposerHeaders,
@@ -19,6 +20,7 @@ import {
   syncedRecipientAddressMode,
   unbrandedCommitteeSharedTo
 } from "./email-composer";
+import { RoleType } from "../models/committee.model";
 import { Member } from "../models/member.model";
 
 describe("syncedRecipientAddressMode", () => {
@@ -251,6 +253,28 @@ describe("composer recipient lists", () => {
 
   it("skips members without email", () => {
     expect(composerRecipientFromMember({id: "1", firstName: "Ada"} as Member)).toEqual(null);
+  });
+
+  it("rewrites a member chip to the committee role mailbox when sending to role addresses", () => {
+    const member = {id: "m1", firstName: "Alex", lastName: "Reed", email: "alex@home.example"} as Member;
+    const roles = [{type: "chair", description: "Chair", fullName: "Alex Reed", email: "chair@group.org", memberId: "m1", roleType: RoleType.COMMITTEE_MEMBER}];
+    expect(composerRecipientsForAddressMode(
+      [{email: "alex@home.example", name: "Alex Reed", memberId: "m1", saveForReuse: false}],
+      [member],
+      roles,
+      RecipientAddressMode.COMMITTEE_ROLE
+    )).toEqual([{email: "chair@group.org", name: "Alex Reed", memberId: "m1", saveForReuse: false}]);
+  });
+
+  it("restores the member contact email when sending to personal addresses", () => {
+    const member = {id: "m1", firstName: "Alex", lastName: "Reed", email: "alex@home.example"} as Member;
+    const roles = [{type: "chair", description: "Chair", fullName: "Alex Reed", email: "chair@group.org", memberId: "m1", roleType: RoleType.COMMITTEE_MEMBER}];
+    expect(composerRecipientsForAddressMode(
+      [{email: "chair@group.org", name: "Alex Reed", memberId: "m1", saveForReuse: false}],
+      [member],
+      roles,
+      RecipientAddressMode.PERSONAL
+    )).toEqual([{email: "alex@home.example", name: "Alex Reed", memberId: "m1", saveForReuse: false}]);
   });
 
   it("treats a committee role address on To as covering that member", () => {

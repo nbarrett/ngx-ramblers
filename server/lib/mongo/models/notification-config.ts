@@ -7,7 +7,8 @@ const notificationConfigSchema = new mongoose.Schema({
   subject: {
     prefixParameter: {type: String},
     text: {type: String},
-    suffixParameter: {type: String}
+    suffixParameter: {type: String},
+    placeholder: {type: Boolean}
   },
   bannerId: {type: String},
   templateName: {type: String},

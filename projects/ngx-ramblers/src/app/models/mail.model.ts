@@ -35,6 +35,7 @@ export interface NotificationSubject {
   prefixParameter: string;
   text: string;
   suffixParameter: string;
+  placeholder?: boolean;
 }
 
 export interface NotificationConfigListing {
