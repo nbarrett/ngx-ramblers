@@ -3,6 +3,7 @@ export enum IntegrationWorkerHeavyJobType {
   Resize = "resize",
   OsMapsExport = "os-maps-export",
   Migration = "migration",
+  ContentMigration = "content-migration",
   WalksManagerSync = "walks-manager-sync",
 }
 

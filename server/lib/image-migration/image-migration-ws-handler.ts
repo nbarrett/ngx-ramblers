@@ -10,6 +10,9 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { scanForExternalContent, scanForUniqueHosts } from "./image-migration-scanner";
 import { migrateContent } from "./image-migration-engine";
+import { integrationWorkerHeavyJobQueue } from "../ramblers/integration-worker-heavy-job-queue";
+import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
+import { dateTimeNowAsValue } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("content-migration-ws-handler"));
 debugLog.enabled = true;
@@ -145,17 +148,33 @@ export async function handleContentMigrationExecute(ws: WebSocket, data: any): P
     };
 
     const isCancelled = () => migrationCancelled;
-
-    const result = await migrateContent(request, progressCallback, isCancelled);
-
-    if (result.cancelled) {
-      const summary = `Migration cancelled: ${result.successCount} succeeded, ${result.failureCount} failed before cancellation`;
-      debugLog("handleContentMigrationExecute:cancelled:", summary);
-      sendCancelled(ws, summary, { migrationResult: result });
-    } else {
-      const summary = `Migration complete: ${result.successCount} succeeded, ${result.failureCount} failed`;
-      debugLog("handleContentMigrationExecute:completed:", summary);
-      sendComplete(ws, summary, { migrationResult: result });
+    const jobId = `content-migration-${dateTimeNowAsValue()}`;
+    sendProgress(ws, "Queued on the integration worker");
+    const queueResult = integrationWorkerHeavyJobQueue.enqueue({
+      jobId,
+      type: IntegrationWorkerHeavyJobType.ContentMigration,
+      label: `Content Migration (${request.items.length} items)`,
+      run: async () => {
+        try {
+          const result = await migrateContent(request, progressCallback, isCancelled);
+          if (result.cancelled) {
+            const summary = `Migration cancelled: ${result.successCount} succeeded, ${result.failureCount} failed before cancellation`;
+            debugLog("handleContentMigrationExecute:cancelled:", summary);
+            sendCancelled(ws, summary, { migrationResult: result });
+          } else {
+            const summary = `Migration complete: ${result.successCount} succeeded, ${result.failureCount} failed`;
+            debugLog("handleContentMigrationExecute:completed:", summary);
+            sendComplete(ws, summary, { migrationResult: result });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Migration failed";
+          debugLog("handleContentMigrationExecute:error:", message);
+          sendError(ws, message);
+        }
+      }
+    });
+    if (queueResult.queued) {
+      sendProgress(ws, `Queued at position ${queueResult.queuePosition}; waiting for the current ${queueResult.activeJobType} job`);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Migration failed";

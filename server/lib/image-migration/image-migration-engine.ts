@@ -503,6 +503,20 @@ export async function migrateContent(
       });
       inFlightFraction = 0;
       globalUrlMapping[url] = newS3Url;
+      const awsFileName = newS3Url.split("/").pop() || extractFileNameFromUrl(url);
+      const siblingFolders = [...new Set(request.items
+        .filter(item => item.currentUrl === url)
+        .map(item => targetPathForItem(item, request.targetRootFolder)))];
+      for (const folder of siblingFolders) {
+        const destinationKey = `${folder}/${awsFileName}`;
+        if (destinationKey !== newS3Url) {
+          const copied = await aws.copyObjectDirect(newS3Url, destinationKey);
+          if (isAwsUploadErrorResponse(copied)) {
+            throw new Error(copied.error || `Failed to copy ${newS3Url} to ${destinationKey}`);
+          }
+          debugLog("migrateContent:copied shared file to", destinationKey);
+        }
+      }
       uploadedCount++;
       debugLog("migrateContent:uploaded:", url, "->", newS3Url);
       sendProgress(url, MigrationPhase.Upload);
