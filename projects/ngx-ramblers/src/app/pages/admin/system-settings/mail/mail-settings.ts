@@ -288,6 +288,14 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                             Off by default. When on, unsubscribed or blocked members are disabled in the composer and skipped at send. Run Update Brevo Mailing Lists first if list changes may not have synced.
                           </div>
                         </div>
+                        <div class="form-check mt-2">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.showUnbrandedBroadcastWarning"
+                            type="checkbox" class="form-check-input" id="show-unbranded-broadcast-warning">
+                          <label class="form-check-label" for="show-unbranded-broadcast-warning">Warn when an unbranded send looks like a broadcast</label>
+                          <div class="form-text">
+                            Off by default. When on, the email composer shows a &ldquo;This looks like a broadcast rather than a one-to-one reply&rdquo; alert on unbranded drafts that look like a list send, with a switch to Branded. Large unbranded sends are still blocked above 50 recipients.
+                          </div>
+                        </div>
                       </div>
                       <div class="thumbnail-heading-frame mx-2 mb-3">
                         <app-mail-send-refusals/>
