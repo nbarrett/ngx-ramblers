@@ -204,6 +204,7 @@ export interface SpfRecordStatus {
   rawContent: string | null;
   existingIncludes: string[];
   missingIncludes: string[];
+  extraIncludes: string[];
   allPresent: boolean;
   recordId: string | null;
 }
