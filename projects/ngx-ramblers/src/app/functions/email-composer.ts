@@ -458,11 +458,14 @@ export function composerRecipientAddressesArePrivate(
 
 export function composerSelectedMembersAreCommitteeAudience(
   members: {committee?: boolean}[],
-  totalRecipientCount: number
+  totalRecipientCount: number,
+  committeeRoleChipCount = 0
 ): boolean {
-  return members.length > 0
-    && members.length === totalRecipientCount
-    && members.every(member => !!member.committee);
+  const committeeMembers = members.filter(member => !!member.committee);
+  const accounted = committeeMembers.length + committeeRoleChipCount;
+  return totalRecipientCount > 0
+    && accounted === totalRecipientCount
+    && committeeMembers.length === members.length;
 }
 
 export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 10;
@@ -532,10 +535,15 @@ export function composerRecipientFromMember(member: Member): ComposerExternalRec
   }
 }
 
+export function composerRecipientKeepsRoleMailbox(recipient: ComposerExternalRecipient): boolean {
+  return !!recipient.committeeRoleType;
+}
+
 export function batchSendRecipientSplit(toRecipients: ComposerExternalRecipient[]): {memberIds: string[]; externalRecipients: ComposerExternalRecipient[]} {
+  const rows = toRecipients ?? [];
   return {
-    memberIds: uniq((toRecipients ?? []).map(recipient => recipient.memberId).filter((id): id is string => !!id)),
-    externalRecipients: (toRecipients ?? []).filter(recipient => !recipient.memberId)
+    memberIds: uniq(rows.filter(recipient => recipient.memberId && !composerRecipientKeepsRoleMailbox(recipient)).map(recipient => recipient.memberId).filter((id): id is string => !!id)),
+    externalRecipients: rows.filter(recipient => !recipient.memberId || composerRecipientKeepsRoleMailbox(recipient))
   };
 }
 
@@ -546,7 +554,13 @@ export function composerCommitteeRecipients(roles: CommitteeMember[]): ComposerE
       if (!email || acc.some(item => item.email.toLowerCase() === email.toLowerCase())) {
         return acc;
       } else {
-        return [...acc, {email, name: role.description || role.fullName || email, saveForReuse: false, memberId: role.memberId || undefined}];
+        return [...acc, {
+          email,
+          name: role.description || role.fullName || email,
+          saveForReuse: false,
+          memberId: role.memberId || undefined,
+          committeeRoleType: role.type
+        }];
       }
     }, list);
   }, []);

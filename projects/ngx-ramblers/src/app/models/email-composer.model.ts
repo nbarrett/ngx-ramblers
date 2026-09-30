@@ -467,6 +467,7 @@ export interface ComposerExternalRecipient {
   name?: string;
   existingId?: string;
   memberId?: string;
+  committeeRoleType?: string;
   saveForReuse?: boolean;
   listId?: number;
   listCount?: number;
