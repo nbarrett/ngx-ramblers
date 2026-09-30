@@ -16,6 +16,8 @@ import {
   ForwardEmailTarget,
   preferredCommitteeRoleType,
   RoleType,
+  roleTypeLabel,
+  builtInRoleLabel,
   roleEmailAddresses,
   roleMailboxExtras,
   uniqueCommitteeRoleType
@@ -293,7 +295,7 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                     id="role-type-{{index}}">
                     @for (type of roleTypes; track type.value) {
                       <option
-                        [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                        [ngValue]="type.value">{{ roleTypeLabel(type.value) }}
                       </option>
                     }
                   </select>
@@ -308,7 +310,7 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                     id="built-in-role-{{index}}">
                     @for (type of builtInRoles; track type.value) {
                       <option
-                        [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                        [ngValue]="type.value">{{ builtInRoleLabel(type.value) }}
                       </option>
                     }
                   </select>
@@ -576,6 +578,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly RoleType = RoleType;
   protected readonly ForwardEmailTarget = ForwardEmailTarget;
   protected readonly BuiltInRole = BuiltInRole;
+  protected readonly roleTypeLabel = roleTypeLabel;
+  protected readonly builtInRoleLabel = builtInRoleLabel;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   protected readonly adminInboxPath = AdminPath.INBOX;

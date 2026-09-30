@@ -1,4 +1,4 @@
-import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, indexCardDescription, isQuoted, matchesAllowingTruncation, plainText, stripTrailingSlash, toKebabCase, toSlug, truncateAtWordBoundary, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
+import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, indexCardDescription, isNullText, isQuoted, matchesAllowingTruncation, plainText, stripTrailingSlash, toKebabCase, toSlug, truncateAtWordBoundary, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
 
 describe("strings", () => {
 
@@ -369,6 +369,17 @@ describe("strings", () => {
       expect(result.endsWith("…")).toBe(true);
       expect(result.length).toBeLessThan(long.length);
       expect(result.includes(" ")).toBe(true);
+    });
+  });
+
+  describe("isNullText", () => {
+    it("treats empty values and the word null as missing", () => {
+      expect(isNullText(null)).toBe(true);
+      expect(isNullText("")).toBe(true);
+      expect(isNullText("  ")).toBe(true);
+      expect(isNullText("null")).toBe(true);
+      expect(isNullText("NULL")).toBe(true);
+      expect(isNullText("Walks Coordinator")).toBe(false);
     });
   });
 });
