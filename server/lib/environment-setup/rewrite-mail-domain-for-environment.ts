@@ -15,6 +15,7 @@ import { configuredEnvironments } from "../environments/environments-config";
 import { buildMongoUri } from "../shared/mongodb-uri";
 import { switchBrevoSendingDomain } from "../brevo/domains/domain-switch";
 import { apexHost } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { enableInboundMailForEnvironment } from "./enable-inbound-mail";
 
 export interface MoveMailToCustomDomainResult {
   environmentName: string;
@@ -89,6 +90,14 @@ export async function moveMailToCustomDomainForEnvironment(environmentName: stri
     logs.push(...switchResult.logs);
   } else {
     step("  - No Brevo API key on this environment, senders were not rewritten");
+  }
+
+  try {
+    const inbound = await enableInboundMailForEnvironment(environmentName);
+    logs.push(...inbound.logs);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logs.push(`  ⚠ Email Routing was not enabled: ${message}`);
   }
 
   step(`Done: mail domain ${oldDomain} -> ${newDomain}`);

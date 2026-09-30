@@ -947,6 +947,7 @@ export interface EnvironmentStatus {
   subdomainOptional: boolean;
   brevoDomainAuthenticated: boolean;
   hostnameProblemCount: number;
+  unavailableChecks?: EnvironmentStatusCheck[];
   hostnameHealth?: HostnameHealthReport;
 }
 
@@ -1047,11 +1048,25 @@ export interface HostnameHealthReport {
   emailRouting?: HostnameEmailRoutingStatus;
 }
 
+export enum HostnameEmailRoutingHealth {
+  READY = "ready",
+  ROUTING_DISABLED = "routing-disabled",
+  MX_MISSING = "mx-missing",
+  API_DENIED = "api-denied",
+  NOT_CHECKED = "not-checked"
+}
+
 export interface HostnameEmailRoutingStatus {
   zone: string;
   cloudflareMx: boolean;
+  routingEnabled: boolean;
+  inboundReady: boolean;
+  repairable: boolean;
+  health: HostnameEmailRoutingHealth;
   message: string;
   mailSettingsUrl?: string;
+  apiTokensUrl?: string;
+  emailRoutingUrl?: string;
 }
 
 export interface CrossEnvironmentHostnameHealth {

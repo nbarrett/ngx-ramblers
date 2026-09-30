@@ -2,6 +2,8 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { configuredEnvironments } from "../environments/environments-config";
 import { listDnsRecords, zoneForHostname } from "../cloudflare/cloudflare-dns";
+import { getEmailRoutingSettings } from "../cloudflare/cloudflare-email-routing";
+import { ensureCloudflareTokenCanManageEmailRouting } from "../cloudflare/cloudflare-api-token";
 import { getDynamicRedirectRules } from "../cloudflare/cloudflare-redirect-rules";
 import { apexWwwSibling } from "../cloudflare/hostname-siblings";
 import { CloudflareDnsConfig, CloudflareZone, DnsRecordType, DynamicRedirectRule, REDIRECT_PLACEHOLDER_IPV4 } from "../cloudflare/cloudflare.model";
@@ -12,6 +14,7 @@ import {
   CustomDomainEligibility,
   DnsProvider,
   HostnameHealth,
+  HostnameEmailRoutingHealth,
   HostnameEmailRoutingStatus,
   HostnameHealthReport,
   HostnameOrigin,
@@ -52,16 +55,29 @@ function primaryCandidates(siteHostname: string, customDomains: CustomDomainEntr
   return addCandidate(withCustomDomains, environmentSubdomain, HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
 }
 
+function hrefFromCustomDomains(environmentEntry: EnvironmentConfig): string {
+  const hostname = (environmentEntry.customDomains || []).find(domain => domain.hostname)?.hostname || "";
+  return hostname ? `https://${hostname}` : "";
+}
+
 async function siteHrefFor(environmentEntry: EnvironmentConfig): Promise<string> {
-  if (!environmentEntry?.mongo?.cluster) {
+  const fromCustomDomains = hrefFromCustomDomains(environmentEntry);
+  if (fromCustomDomains) {
+    return fromCustomDomains;
+  } else if (!environmentEntry?.mongo?.cluster) {
     return "";
   } else {
-    const { client, db } = await connectToEnvironmentMongo(environmentEntry);
     try {
-      const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
-      return systemConfigDoc?.value?.group?.href || "";
-    } finally {
-      await client.close();
+      const { client, db } = await connectToEnvironmentMongo(environmentEntry);
+      try {
+        const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
+        return systemConfigDoc?.value?.group?.href || "";
+      } finally {
+        await client.close();
+      }
+    } catch (error) {
+      debugLog("Could not read group.href for %s: %s", environmentEntry.environment, error instanceof Error ? error.message : String(error));
+      return "";
     }
   }
 }
@@ -391,14 +407,14 @@ export async function environmentHostnameHealth(environmentName: string): Promis
       .filter((result): result is PromiseFulfilledResult<HostnameStatus> => result.status === "fulfilled")
       .map(result => result.value);
     const hostnames = annotateUnmapped(annotateOptionalPairHost(annotateOptionalEnvironmentSubdomain(annotateNationalSiteUrl(validateRedirectTargets([...checked, ...targetStatuses])))));
-    const emailRouting = await emailRoutingStatusFor(apiToken, siteHostname, relatedGroupSiteUrl);
+    const emailRouting = await emailRoutingStatusFor(apiToken, environmentsConfig?.cloudflare?.accountId || "", siteHostname, relatedGroupSiteUrl);
 
     return {
       environmentName,
       siteUrl: siteHostname,
       relatedGroupSiteUrl,
       hostnames,
-      problemCount: hostnames.filter(hostnameNeedsAction).length,
+      problemCount: hostnames.filter(hostnameNeedsAction).length + (emailRouting && !emailRouting.inboundReady ? 1 : 0),
       checkedAt: dateTimeNowAsValue(),
       emailRouting
     };
@@ -475,7 +491,7 @@ function mailSettingsHost(siteHostname: string, relatedGroupSiteUrl: string, zon
   }
 }
 
-async function emailRoutingStatusFor(apiToken: string, siteHostname: string, relatedGroupSiteUrl: string): Promise<HostnameEmailRoutingStatus | undefined> {
+async function emailRoutingStatusFor(apiToken: string, accountId: string, siteHostname: string, relatedGroupSiteUrl: string): Promise<HostnameEmailRoutingStatus | undefined> {
   if (!siteHostname) {
     return undefined;
   } else {
@@ -488,19 +504,73 @@ async function emailRoutingStatusFor(apiToken: string, siteHostname: string, rel
       const cloudflareMx = mx.length > 0 && mx.every(record => (record.content || "").includes("mx.cloudflare.net"));
       const mailHost = mailSettingsHost(siteHostname, relatedGroupSiteUrl, zone.name);
       const mailSettingsUrl = mailHost ? `https://${mailHost}/admin/mail-settings` : "";
-      if (cloudflareMx) {
+      const tokenUrls = {
+        apiTokensUrl: "https://dash.cloudflare.com/profile/api-tokens",
+        emailRoutingUrl: accountId ? `https://dash.cloudflare.com/${accountId}/${zone.name}/email/routing/overview` : undefined
+      };
+      const probeRouting = async (token: string) => getEmailRoutingSettings({apiToken: token, zoneId: zone.id}).then(settings => ({
+        enabled: !!settings.enabled,
+        error: "",
+        token
+      })).catch((error: Error) => ({
+        enabled: false,
+        error: error.message || "Email Routing API failed",
+        token
+      }));
+      const firstProbe = await probeRouting(apiToken);
+      const repairedToken = firstProbe.error && accountId
+        ? await ensureCloudflareTokenCanManageEmailRouting({apiToken, accountId, zoneId: zone.id}, zone.id, []).catch(() => null)
+        : null;
+      const routing = repairedToken
+        ? await probeRouting(repairedToken.apiToken)
+        : firstProbe;
+      if (!routing.enabled && routing.error) {
         return {
           zone: zone.name,
-          cloudflareMx: true,
-          message: `Incoming mail for ${zone.name} uses Cloudflare Email Routing.`,
-          mailSettingsUrl: mailSettingsUrl || undefined
+          cloudflareMx,
+          routingEnabled: false,
+          inboundReady: false,
+          repairable: true,
+          health: HostnameEmailRoutingHealth.API_DENIED,
+          message: `Incoming mail for ${zone.name} is not being accepted. The stored Cloudflare API token cannot manage Email Routing on this zone (${routing.error}). Open API tokens, edit the NGX token, add Zone Settings Edit and Email Routing Rules Edit for all zones, then Enable incoming mail.`,
+          mailSettingsUrl: mailSettingsUrl || undefined,
+          ...tokenUrls
+        };
+      } else if (!routing.enabled) {
+        return {
+          zone: zone.name,
+          cloudflareMx,
+          routingEnabled: false,
+          inboundReady: false,
+          repairable: true,
+          health: HostnameEmailRoutingHealth.ROUTING_DISABLED,
+          message: `Incoming mail for ${zone.name} is not being accepted. MX may already point at Cloudflare, but Email Routing is not enabled on the zone. Enable incoming mail turns it on through the API.`,
+          mailSettingsUrl: mailSettingsUrl || undefined,
+          ...tokenUrls
+        };
+      } else if (!cloudflareMx) {
+        return {
+          zone: zone.name,
+          cloudflareMx: false,
+          routingEnabled: true,
+          inboundReady: false,
+          repairable: true,
+          health: HostnameEmailRoutingHealth.MX_MISSING,
+          message: `Email Routing is on for ${zone.name}, but the Cloudflare MX records are missing. Enable incoming mail adds them.`,
+          mailSettingsUrl: mailSettingsUrl || undefined,
+          ...tokenUrls
         };
       } else {
         return {
           zone: zone.name,
-          cloudflareMx: false,
-          message: `Incoming mail for ${zone.name} still uses the previous MX, not Cloudflare Email Routing. On the live site, open Mail Settings and create the Cloudflare MX records when you are ready to move forwarding.`,
-          mailSettingsUrl: mailSettingsUrl || undefined
+          cloudflareMx: true,
+          routingEnabled: true,
+          inboundReady: true,
+          repairable: false,
+          health: HostnameEmailRoutingHealth.READY,
+          message: `Incoming mail for ${zone.name} is accepted by Cloudflare Email Routing.`,
+          mailSettingsUrl: mailSettingsUrl || undefined,
+          ...tokenUrls
         };
       }
     }

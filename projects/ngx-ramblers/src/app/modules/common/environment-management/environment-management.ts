@@ -385,7 +385,8 @@ export class EnvironmentManagement implements OnInit {
         brevoDomainAuthenticated: false,
         hostnameProblemCount: 0,
         hostnameHealth: gathered.hostnameHealth || null,
-        ...gathered
+        ...gathered,
+        unavailableChecks: this.statusProbes.filter(probe => probe.state === StatusProbeState.FAILED).map(probe => probe.id)
       };
       this.resumeOptions = modifyOptionsFromStatus(this.envStatus);
       this.logger.info("Environment status:", this.envStatus);

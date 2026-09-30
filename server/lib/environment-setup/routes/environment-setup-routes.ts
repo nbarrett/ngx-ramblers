@@ -37,6 +37,7 @@ router.post("/setup-apex-redirect/:environmentName", controllers.setupApexRedire
 router.post("/remove-apex-redirect/:environmentName", controllers.removeApexRedirectRequest);
 router.post("/authenticate-brevo-domain/:environmentName", controllers.authenticateBrevoDomainRequest);
 router.post("/move-mail-to-custom-domain/:environmentName", controllers.moveMailToCustomDomainRequest);
+router.post("/enable-inbound-mail/:environmentName", controllers.requireSetupAccess, controllers.enableInboundMailRequest);
 router.post("/seed-sample-pages/:environmentName", controllers.seedSamplePagesRequest);
 router.post("/seed-notification-configs/:environmentName", controllers.seedNotificationConfigsRequest);
 router.post("/admin-password-reset/:environmentName", controllers.adminPasswordResetRequest);

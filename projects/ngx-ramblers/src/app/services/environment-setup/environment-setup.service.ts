@@ -456,6 +456,25 @@ export class EnvironmentSetupService {
     };
   }
 
+  async enableInboundMail(environmentName: string): Promise<{
+    success: boolean;
+    message: string;
+    domain?: string;
+    logs?: string[];
+  }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/enable-inbound-mail/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as {
+      success: boolean;
+      message: string;
+      domain?: string;
+      logs?: string[];
+    };
+  }
+
   async addCustomDomain(environmentName: string, hostname: string, siteUrlPreference?: SiteUrlPreference): Promise<CustomDomainResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,

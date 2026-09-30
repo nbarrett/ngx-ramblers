@@ -16,6 +16,7 @@ import {
   EnvironmentAppResult,
   EnvironmentModifyOptions,
   EnvironmentStatus,
+  EnvironmentStatusCheck,
   ExistingEnvironment,
   OperationInProgress
 } from "../../../models/environment-setup.model";
@@ -44,16 +45,25 @@ export function emptyModifyOptions(): EnvironmentModifyOptions {
   };
 }
 
+function checkUnavailable(envStatus: EnvironmentStatus, check: EnvironmentStatusCheck): boolean {
+  return (envStatus.unavailableChecks || []).includes(check);
+}
+
 export function modifyOptionsFromStatus(envStatus: EnvironmentStatus | null): EnvironmentModifyOptions {
   if (envStatus) {
+    const databaseUnknown = checkUnavailable(envStatus, EnvironmentStatusCheck.DATABASE);
+    const hostnamesUnknown = checkUnavailable(envStatus, EnvironmentStatusCheck.HOSTNAMES);
+    const flyUnknown = checkUnavailable(envStatus, EnvironmentStatusCheck.FLY);
+    const assetsUnknown = checkUnavailable(envStatus, EnvironmentStatusCheck.ASSETS);
+    const brevoUnknown = checkUnavailable(envStatus, EnvironmentStatusCheck.BREVO);
     return {
-      runDbInit: !envStatus.databaseInitialised,
-      runFlyDeployment: !envStatus.flyAppDeployed,
-      copyStandardAssets: !envStatus.standardAssetsPresent,
-      setupSubdomain: !envStatus.subdomainConfigured && !envStatus.subdomainOptional,
-      includeSamplePages: !envStatus.samplePagesPresent,
-      includeNotificationConfigs: !envStatus.notificationConfigsPresent,
-      authenticateBrevoDomain: !envStatus.brevoDomainAuthenticated
+      runDbInit: !databaseUnknown && !envStatus.databaseInitialised,
+      runFlyDeployment: !flyUnknown && !envStatus.flyAppDeployed,
+      copyStandardAssets: !assetsUnknown && !envStatus.standardAssetsPresent,
+      setupSubdomain: !hostnamesUnknown && !envStatus.subdomainConfigured && !envStatus.subdomainOptional,
+      includeSamplePages: !databaseUnknown && !envStatus.samplePagesPresent,
+      includeNotificationConfigs: !databaseUnknown && !envStatus.notificationConfigsPresent,
+      authenticateBrevoDomain: !brevoUnknown && !envStatus.brevoDomainAuthenticated
     };
   } else {
     return {
