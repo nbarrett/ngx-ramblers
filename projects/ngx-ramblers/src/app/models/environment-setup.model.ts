@@ -991,6 +991,14 @@ export enum HostnameSituationAlert {
   DANGER = "alert-danger"
 }
 
+export enum ConversionNextStep {
+  NONE = "none",
+  SET_SITE_URL = "set-site-url",
+  MOVE_MAIL = "move-mail",
+  MOVE_INBOUND = "move-inbound",
+  ENABLE_INCOMING = "enable-incoming"
+}
+
 export interface HostnameSituation {
   kind: HostnameSituationKind;
   title: string;
