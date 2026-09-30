@@ -1,4 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -8,25 +9,47 @@ import { apexHost } from "../../../../functions/hosts";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { BrevoDomainConfiguration, DomainAuthenticationResult, SwitchSendingDomainResponse } from "../../../../models/mail.model";
-import { EmailAuthRecordsStatus, MxRecordStatus } from "../../../../models/cloudflare-email-routing.model";
+import {
+  EmailAuthRecordsStatus,
+  MailAuthNoteTone,
+  MailAuthRecordType,
+  MailAuthTableRow,
+  MxRecordStatus
+} from "../../../../models/cloudflare-email-routing.model";
+import { SortableTableComponent } from "../../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../../../../modules/common/sortable-table/sortable-table.model";
+import { SortDirection } from "../../../../models/sort.model";
+import { ASCENDING, DESCENDING } from "../../../../models/table-filtering.model";
+import { StoredValue } from "../../../../models/ui-actions";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import {
   faCheck,
   faClose,
-  faEnvelope,
   faExclamationTriangle,
   faPlus,
   faShieldAlt,
-  faSpinner,
-  faTrash
+  faSpinner
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { SessionLogsComponent } from "../../../../shared/components/session-logs";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { MailMxRecords } from "./mail-mx-records";
 
 @Component({
   selector: "app-mail-domains-list",
+  styles: [`
+    :host
+      display: block
+
+    :host ::ng-deep .sortable-table-card
+      overflow-x: auto
+
+    :host ::ng-deep .sortable-table td
+      word-break: normal
+      overflow-wrap: break-word
+  `],
   template: `
     <div class="thumbnail-heading-frame">
       <div class="thumbnail-heading">Domain Management</div>
@@ -138,7 +161,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                   }
                 </div>
                 @if (authRecordsStatus && authRecordsFixable()) {
-                  <button class="btn btn-sm btn-primary text-nowrap flex-shrink-0" [disabled]="authRecordsCreating || authRecordsStatus.spf.multiple"
+                  <button class="btn btn-primary text-nowrap flex-shrink-0" [disabled]="authRecordsCreating || authRecordsStatus.spf.multiple"
                           [tooltip]="authRecordsStatus.spf.multiple ? 'Consolidate multiple SPF records in Cloudflare first' : ''"
                           (click)="ensureAuthRecords()">
                     @if (authRecordsCreating) {
@@ -151,60 +174,31 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
               </div>
               @if (authRecordsStatus) {
                 <div class="mt-2">
-                  <table class="table table-sm table-bordered mb-0">
-                    <thead>
-                      <tr>
-                        <th style="width: 80px">Type</th>
-                        <th>Expected / Current</th>
-                        <th style="width: 120px" class="text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>SPF</td>
-                        <td class="small">
-                          @if (authRecordsStatus.spf.present) {
-                            <div>{{ authRecordsStatus.spf.rawContent }}</div>
-                            @if (authRecordsStatus.spf.missingIncludes.length) {
-                              <div class="text-danger mt-1">Missing includes: {{ authRecordsStatus.spf.missingIncludes.join(", ") }}</div>
-                            }
-                          } @else {
-                            <span class="text-muted">No v=spf1 record on {{ baseDomain }}. Will create: v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all</span>
-                          }
-                        </td>
-                        <td class="text-center">
-                          @if (authRecordsStatus.spf.allPresent) {
-                            <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
-                          } @else {
-                            <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
-                          }
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>DMARC</td>
-                        <td class="small">
-                          @if (authRecordsStatus.dmarc.present) {
-                            <div>{{ authRecordsStatus.dmarc.rawContent }}</div>
-                            @if (authRecordsStatus.dmarc.inherited) {
-                              <div class="text-muted mt-1">Inherited from {{ authRecordsStatus.dmarc.dmarcHostname }}</div>
-                            }
-                            @if (!authRecordsStatus.dmarc.reportingConfigured) {
-                              <div class="text-warning mt-1">Missing aggregate reporting. Will add: rua=mailto:rua&#64;dmarc.brevo.com</div>
-                            }
-                          } @else {
-                            <span class="text-muted">No DMARC record on {{ authRecordsStatus.dmarc.dmarcHostname }}. Will create: v=DMARC1; p=none; rua=mailto:rua&#64;dmarc.brevo.com; (monitoring and aggregate reporting)</span>
-                          }
-                        </td>
-                        <td class="text-center">
-                          @if (authRecordsStatus.dmarc.present && authRecordsStatus.dmarc.reportingConfigured) {
-                            <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
-                          } @else {
-                            <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
-                          }
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <app-sortable-table
+                    [columns]="authColumns"
+                    [rows]="authRows()"
+                    [defaultSortKey]="authSortKey"
+                    [defaultSortDirection]="authSortDirection"
+                    [trackBy]="trackAuthRow"
+                    (sortChange)="onAuthSortChange($event)"
+                    emptyMessage="No authentication records to show.">
+                    <ng-template appSortableTableCell="type" let-row>
+                      {{ row.type }}
+                    </ng-template>
+                    <ng-template appSortableTableCell="detail" let-row>
+                      <div>{{ row.detail }}</div>
+                      @if (row.note) {
+                        <div class="mt-1" [class]="noteClass(row)">{{ row.note }}</div>
+                      }
+                    </ng-template>
+                    <ng-template appSortableTableCell="status" let-row>
+                      @if (row.ok) {
+                        <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
+                      }
+                    </ng-template>
+                  </app-sortable-table>
                 </div>
               }
               @if (authRecordsError) {
@@ -217,113 +211,20 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
           </div>
         }
         @if (baseDomain) {
-          <div class="row mb-3">
-            <div class="col-md-12">
-              <div class="d-flex align-items-center gap-3 p-2 border rounded bg-light">
-                <fa-icon [icon]="faEnvelope" class="fa-icon"></fa-icon>
-                <div class="flex-grow-1">
-                  <strong>MX Records:</strong> {{ baseDomain }}
-                  @if (mxRecordLoading) {
-                    <fa-icon [icon]="faSpinner" animation="spin" class="ms-2"></fa-icon>
-                  } @else if (mxRecordStatus) {
-                    @if (mxRecordStatus.allPresent) {
-                      <span class="badge bg-success ms-2">All MX records present</span>
-                    } @else {
-                      <span class="badge bg-danger ms-2">Missing MX records</span>
-                    }
-                    @if (mxRecordStatus.extraRecords?.length) {
-                      <span class="badge bg-warning text-dark ms-2">{{ stringUtilsService.pluraliseWithCount(mxRecordStatus.extraRecords.length, "conflicting record") }}</span>
-                    }
-                  }
-                </div>
-                @if (mxRecordStatus && !mxRecordStatus.allPresent) {
-                  <button class="btn btn-sm btn-primary text-nowrap flex-shrink-0" [disabled]="mxRecordCreating" (click)="createMissingMxRecords()">
-                    @if (mxRecordCreating) {
-                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Creating...
-                    } @else {
-                      <fa-icon [icon]="faPlus" class="me-1"></fa-icon>Add Missing MX Records
-                    }
-                  </button>
-                }
-              </div>
-              @if (mxRecordStatus) {
-                <div class="mt-2">
-                  <table class="table table-sm table-bordered mb-0">
-                    <thead>
-                      <tr>
-                        <th>MX Server</th>
-                        <th style="width: 100px">Priority</th>
-                        <th style="width: 80px" class="text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (record of mxRecordStatus.expectedRecords; track record.content) {
-                        <tr>
-                          <td class="small">{{ record.content }}</td>
-                          <td>{{ record.priority }}</td>
-                          <td class="text-center">
-                            @if (record.exists) {
-                              <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
-                            } @else {
-                              <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
-                            }
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-                @if (mxRecordStatus.extraRecords?.length) {
-                  <div class="mt-2">
-                    <div class="small text-muted mb-1">
-                      The following MX records are present on {{ baseDomain }} but are not part of Cloudflare email routing. They will conflict with inbound delivery and should be removed unless intentional.
-                    </div>
-                    <table class="table table-sm table-bordered mb-0">
-                      <thead>
-                        <tr>
-                          <th>MX Server</th>
-                          <th style="width: 100px">Priority</th>
-                          <th style="width: 110px" class="text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (record of mxRecordStatus.extraRecords; track record.id) {
-                          <tr>
-                            <td class="small">{{ record.content }}</td>
-                            <td>{{ record.priority ?? "" }}</td>
-                            <td class="text-center">
-                              <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-danger"
-                                        tooltip="Delete MX record"
-                                        [disabled]="mxRecordDeletingId === record.id"
-                                        (click)="deleteExtraMxRecord(record.id)">
-                                  @if (mxRecordDeletingId === record.id) {
-                                    <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
-                                  } @else {
-                                    <fa-icon [icon]="faTrash"></fa-icon>
-                                  }
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-                }
-              }
-              @if (mxRecordError) {
-                <div class="alert alert-danger mt-2 mb-0">
-                  <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                  {{ mxRecordError }}
-                </div>
-              }
-            </div>
-          </div>
+          <app-mail-mx-records
+            [domain]="baseDomain"
+            [status]="mxRecordStatus"
+            [loading]="mxRecordLoading"
+            [creating]="mxRecordCreating"
+            [deletingId]="mxRecordDeletingId"
+            [error]="mxRecordError"
+            allowMutate
+            (addMissing)="createMissingMxRecords()"
+            (deleteExtra)="deleteExtraMxRecord($event.id)"/>
         }
       </div>
     </div>`,
-  imports: [FontAwesomeModule, BrevoButtonComponent, SessionLogsComponent, TooltipDirective]
+  imports: [FontAwesomeModule, BrevoButtonComponent, SessionLogsComponent, TooltipDirective, MailMxRecords, SortableTableComponent, SortableTableCellDirective]
 })
 export class MailDomainsListComponent implements OnInit, OnDestroy {
 
@@ -333,6 +234,8 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   protected stringUtilsService = inject(StringUtilsService);
   private mailMessagingService = inject(MailMessagingService);
+  private activatedRoute = inject(ActivatedRoute);
+  private router = inject(Router);
   private subscriptions: Subscription[] = [];
   public baseDomain: string;
   public domainStatus: BrevoDomainConfiguration | null = null;
@@ -355,12 +258,24 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
 
   protected readonly faCheck = faCheck;
   protected readonly faClose = faClose;
-  protected readonly faEnvelope = faEnvelope;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faPlus = faPlus;
   protected readonly faShieldAlt = faShieldAlt;
   protected readonly faSpinner = faSpinner;
-  protected readonly faTrash = faTrash;
+  protected readonly MailAuthNoteTone = MailAuthNoteTone;
+  authSortKey = "type";
+  authSortDirection = ASCENDING;
+  authColumns: SortableTableColumn<MailAuthTableRow>[] = [
+    {key: "type", label: "Type", sortKey: "type", cellClass: "nowrap"},
+    {key: "detail", label: "Expected / Current"},
+    {key: "status", label: "Status", sortKey: "ok", align: SortableTableAlignment.CENTER}
+  ];
+
+  constructor() {
+    const params = this.activatedRoute.snapshot.queryParams;
+    this.authSortKey = params[StoredValue.MAIL_AUTH_SORT] || "type";
+    this.authSortDirection = params[StoredValue.MAIL_AUTH_SORT_ORDER] === SortDirection.DESC ? DESCENDING : ASCENDING;
+  }
 
   async ngOnInit() {
     this.subscriptions.push(
@@ -517,8 +432,93 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
 
   authRecordsFixable(): boolean {
     const status = this.authRecordsStatus;
-    if (!status) return false;
-    return !status.spf.allPresent || !status.dmarc.present || !status.dmarc.reportingConfigured;
+    if (!status) {
+      return false;
+    } else {
+      return !status.spf.allPresent || !status.dmarc.present || !status.dmarc.reportingConfigured;
+    }
+  }
+
+  authRows(): MailAuthTableRow[] {
+    const status = this.authRecordsStatus;
+    if (!status) {
+      return [];
+    } else {
+      return [this.spfRow(status), this.dmarcRow(status)];
+    }
+  }
+
+  trackAuthRow(_index: number, row: MailAuthTableRow): string {
+    return row.type;
+  }
+
+  noteClass(row: MailAuthTableRow): string {
+    if (row.noteTone === MailAuthNoteTone.DANGER) {
+      return "text-danger";
+    } else if (row.noteTone === MailAuthNoteTone.WARNING) {
+      return "text-warning";
+    } else if (row.noteTone === MailAuthNoteTone.MUTED) {
+      return "text-muted";
+    } else {
+      return "";
+    }
+  }
+
+  onAuthSortChange(sortState: SortableTableSortState): void {
+    this.authSortKey = sortState.key || "type";
+    this.authSortDirection = sortState.direction;
+    this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {
+        [StoredValue.MAIL_AUTH_SORT]: this.authSortKey,
+        [StoredValue.MAIL_AUTH_SORT_ORDER]: this.authSortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC
+      },
+      queryParamsHandling: "merge"
+    });
+  }
+
+  private spfRow(status: EmailAuthRecordsStatus): MailAuthTableRow {
+    if (status.spf.present) {
+      return {
+        type: MailAuthRecordType.SPF,
+        detail: status.spf.rawContent || "",
+        note: status.spf.missingIncludes.length ? `Missing includes: ${status.spf.missingIncludes.join(", ")}` : null,
+        noteTone: status.spf.missingIncludes.length ? MailAuthNoteTone.DANGER : MailAuthNoteTone.NONE,
+        ok: status.spf.allPresent
+      };
+    } else {
+      return {
+        type: MailAuthRecordType.SPF,
+        detail: `No v=spf1 record on ${this.baseDomain}. Will create: v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all`,
+        note: null,
+        noteTone: MailAuthNoteTone.NONE,
+        ok: false
+      };
+    }
+  }
+
+  private dmarcRow(status: EmailAuthRecordsStatus): MailAuthTableRow {
+    if (status.dmarc.present) {
+      const notes = [
+        status.dmarc.inherited ? `Inherited from ${status.dmarc.dmarcHostname}` : null,
+        status.dmarc.reportingConfigured ? null : "Missing aggregate reporting. Will add: rua=mailto:rua@dmarc.brevo.com"
+      ].filter(Boolean);
+      return {
+        type: MailAuthRecordType.DMARC,
+        detail: status.dmarc.rawContent || "",
+        note: notes.length ? notes.join(" ") : null,
+        noteTone: status.dmarc.reportingConfigured ? MailAuthNoteTone.MUTED : MailAuthNoteTone.WARNING,
+        ok: status.dmarc.reportingConfigured
+      };
+    } else {
+      return {
+        type: MailAuthRecordType.DMARC,
+        detail: `No DMARC record on ${status.dmarc.dmarcHostname}. Will create: v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com; (monitoring and aggregate reporting)`,
+        note: null,
+        noteTone: MailAuthNoteTone.NONE,
+        ok: false
+      };
+    }
   }
 
   async ensureAuthRecords(): Promise<void> {

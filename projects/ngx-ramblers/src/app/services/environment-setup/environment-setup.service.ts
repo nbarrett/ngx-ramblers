@@ -456,6 +456,25 @@ export class EnvironmentSetupService {
     };
   }
 
+  async moveInboundToEstate(environmentName: string): Promise<{
+    success: boolean;
+    message: string;
+    domain?: string;
+    logs?: string[];
+  }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/move-inbound-to-estate/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as {
+      success: boolean;
+      message: string;
+      domain?: string;
+      logs?: string[];
+    };
+  }
+
   async enableInboundMail(environmentName: string): Promise<{
     success: boolean;
     message: string;

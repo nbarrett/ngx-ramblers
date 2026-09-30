@@ -1084,6 +1084,30 @@ export async function moveMailToCustomDomainRequest(req: Request, res: Response)
   }
 }
 
+export async function moveInboundToEstateRequest(req: Request, res: Response) {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Move inbound mail onto the NGX estate for:", environmentName);
+    await loadEnvironmentContext(environmentName);
+    const result = await enableInboundMailForEnvironment(environmentName, {replaceForeignMx: true});
+    res.json({
+      success: true,
+      message: `Inbound mail for ${result.domain} is on the NGX estate`,
+      domain: result.domain,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+    } else {
+      errorDebugLog("Error moving inbound mail onto the NGX estate:", error.message);
+      res.status(500).json({ success: false, message: error.message, logs: error.logs || [] });
+    }
+  }
+}
+
 export async function enableInboundMailRequest(req: Request, res: Response) {
   if (!validateSetupAccess(req, res)) return;
 
