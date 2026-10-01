@@ -8,10 +8,12 @@ import { ListSubscriberService } from "../../../services/mail/list-subscriber.se
   selector: "app-list-subscriber-count",
   imports: [TooltipDirective],
   template: `
-    <span class="list-subscriber-count"
-          [tooltip]="listSubscriberService.subscriberNamesTooltip(members, list.id)"
-          containerClass="list-subscriber-count-tooltip"
-          placement="right">{{ listSubscriberService.subscriberCountLabel(members, list.id) }}</span>`,
+    @if (listKey(); as id) {
+      <span class="list-subscriber-count"
+            [tooltip]="listSubscriberService.subscriberNamesTooltip(members, id)"
+            containerClass="list-subscriber-count-tooltip"
+            placement="right">{{ listSubscriberService.subscriberCountLabel(members, id) }}</span>
+    }`,
   styles: [`
     .list-subscriber-count
       font-size: 0.85em
@@ -28,6 +30,11 @@ import { ListSubscriberService } from "../../../services/mail/list-subscriber.se
 export class ListSubscriberCountComponent {
 
   protected listSubscriberService = inject(ListSubscriberService);
-  @Input() list: ListInfo;
+  @Input() list: ListInfo | null = null;
+  @Input() listId: number | null = null;
   @Input() members: Member[] = [];
+
+  protected listKey(): number | null {
+    return this.list?.id ?? this.listId;
+  }
 }

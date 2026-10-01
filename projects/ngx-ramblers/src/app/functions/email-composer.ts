@@ -478,7 +478,7 @@ export function composerRecipientCount(recipients: ComposerExternalRecipient[]):
 export function composerListToken(listId: number, listName: string, count: number): ComposerExternalRecipient {
   return {
     email: `list-${listId}@list.internal`,
-    name: `${listName} (${count})`,
+    name: listName,
     saveForReuse: false,
     listId,
     listCount: count
@@ -488,7 +488,7 @@ export function composerListToken(listId: number, listName: string, count: numbe
 export function composerFilterToken(filterKey: MemberSelection, label: string, count: number): ComposerExternalRecipient {
   return {
     email: `filter-${filterKey}@list.internal`,
-    name: `${label} (${count})`,
+    name: label,
     saveForReuse: false,
     filterKey,
     listCount: count
@@ -498,7 +498,7 @@ export function composerFilterToken(filterKey: MemberSelection, label: string, c
 export function composerEveryoneFilterToken(label: string, count: number): ComposerExternalRecipient {
   return {
     email: COMPOSER_EVERYONE_FILTER_EMAIL,
-    name: `${label} (${count})`,
+    name: label,
     saveForReuse: false,
     listCount: count
   };

@@ -15,6 +15,7 @@ import { ExternalRecipient } from "../../../models/external-recipient.model";
 import { Member } from "../../../models/member.model";
 import { MemberSelection } from "../../../models/mail.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { ListSubscriberCountComponent } from "../mail/list-subscriber-count";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { memberDisambiguatedLabel } from "../../../functions/member-names";
 import { committeeAudienceChipQualifier, combinedMemberChipQualifier } from "../../../functions/member-chip-qualifier";
@@ -23,7 +24,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
 
 @Component({
   selector: "app-recipient-field",
-  imports: [FormsModule, FontAwesomeModule, TooltipDirective],
+  imports: [FormsModule, FontAwesomeModule, TooltipDirective, ListSubscriberCountComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./recipient-field.sass",
   template: `
@@ -96,7 +97,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
                      (keydown.escape)="onSuggestionEscape()"
                      (focus)="onFocus(field.key)"
                      (blur)="onBlur(field.key, $event)"
-                     [placeholder]="valueFor(field.key).length ? 'Add…' : listRecipients.length ? 'Add people or committee lists…' : 'Add people…'">
+                     [placeholder]="valueFor(field.key).length ? 'Add…' : listRecipients.length ? 'Add members or committee lists…' : 'Add members…'">
             </div>
             @if (editorField() === field.key && editorSubject(); as edited) {
               <div class="recipient-editor-backdrop" (click)="closeEditor()"></div>
@@ -171,7 +172,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
             @if (showSuggestions(field.key)) {
               <ul class="recipient-suggestions" (mousedown)="$event.preventDefault()">
                 @if (visibleMemberSuggestions.length) {
-                  <li class="recipient-suggestions-heading">{{ listRecipients.length ? "People and committee lists" : "Group members" }}</li>
+                  <li class="recipient-suggestions-heading">{{ listRecipients.length ? "Members and committee lists" : "Group members" }}</li>
                   @for (suggestion of visibleMemberSuggestions; track suggestion.email; let i = $index) {
                     <li>
                       <button type="button" class="recipient-suggestion"
@@ -181,7 +182,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
                         <span class="recipient-suggestion-main">
                           <strong>{{ suggestion.name || suggestion.email }}</strong>
                           @if (suggestion.listId) {
-                            <span class="recipient-suggestion-email">{{ suggestion.listCount }} people</span>
+                            <app-list-subscriber-count [listId]="suggestion.listId" [members]="members"/>
                           } @else if (suggestion.name) {
                             <span class="recipient-suggestion-email">{{ suggestion.email }}</span>
                           }
