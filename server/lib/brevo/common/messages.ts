@@ -28,6 +28,7 @@ import { renderEmailComposerMarkdown } from "../../../../projects/ngx-ramblers/s
 import { errorResponse } from "../../shared/error-response";
 import { logBrevoError } from "./error-log";
 import { SendRefusedError } from "../send-permission";
+import { HttpError } from "../../shared/http-error";
 import { toPairs, isObject, isString, keys } from "es-toolkit/compat";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
@@ -443,6 +444,8 @@ export function handleError(req: Request, res: Response, messageType: string, _d
   logBrevoError(messageType, error, {request: {method: req?.method, url: req?.originalUrl, body: summariseRequestBody(req?.body)}});
   if (error instanceof SendRefusedError) {
     res.status(409).json({request: {messageType}, error: errorResponse(error)});
+  } else if (error instanceof HttpError) {
+    res.status(error.status).json({request: {messageType}, error: errorResponse(error)});
   } else if (brevoError) {
     res.status(httpStatusForBrevoError(brevoError.statusCode)).json({request: {messageType}, error: brevoError.body});
   } else {

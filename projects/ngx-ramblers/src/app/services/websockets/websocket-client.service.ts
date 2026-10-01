@@ -80,10 +80,10 @@ export class WebSocketClientService {
     });
   }
 
-  sendMessage(type: EventType, data: any): void {
+  sendMessage(type: EventType, data: any, authToken: string | null = null): void {
     this.logger.info("sendMessage:type", type, "data:", data, "with size:", this.numberUtilsService.humanFileSize(this.numberUtilsService.estimateObjectSize(data)));
-    const payload = JSON.stringify({type, data});
-    this.logger.info("sendMessage:type", type, "data:", data, "with size:", this.numberUtilsService.humanFileSize(payload.length));
+    const payload = JSON.stringify({...{type, data}, ...(authToken ? {authToken} : {})});
+    this.logger.info("sendMessage:type", type, "with size:", this.numberUtilsService.humanFileSize(payload.length));
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(payload);
     } else {

@@ -279,7 +279,7 @@ enum MailReportType {
                             <tr><th>Recipient</th><th>Personalised subject</th><th>Sent</th></tr>
                           </thead>
                           <tbody>
-                            @for (email of group.recipients; track email.messageId || email.email + email.date) {
+                            @for (email of group.recipients; track previewKey(email)) {
                               <tr>
                                 <td [title]="email.email">{{ email.email }}</td>
                                 <td [title]="email.subject">{{ email.subject }}</td>

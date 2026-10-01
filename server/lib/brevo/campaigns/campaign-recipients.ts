@@ -1,3 +1,5 @@
+import {values} from "es-toolkit/compat";
+import {CachedRecipientRows, MemberRecipientInfo, RecipientRow, RecipientSelector} from "./campaign-recipient-export.model";
 import debug from "debug";
 import { Request, Response } from "express";
 import { BrevoClient } from "@getbrevo/brevo";
@@ -6,97 +8,77 @@ import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
-import { CampaignRecipient, CampaignRecipientsReport } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { CampaignRecipient, CampaignRecipientsReport, CampaignRecipientType } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { dateTimeNow } from "../../shared/dates";
+import { parseRecipientExportCsv } from "./campaign-recipient-export";
+import { HttpError } from "../../shared/http-error";
 
 const messageType = "brevo:campaign-recipients";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = false;
 
 const MAX_RECIPIENTS = 2000;
-const POLL_ATTEMPTS = 20;
+const POLL_ATTEMPTS = 80;
 const POLL_INTERVAL_MS = 1500;
+const QUEUED_POLLS_BEFORE_RETRY = 8;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
-type RecipientRow = {
-  email: string;
-  deliveredDate: string;
-  openDate: string;
-  unsubscribeDate: string;
-  hardBounceDate: string;
-  softBounceDate: string;
-  clickedCount: number;
-  clickedLinks: string[];
+const cardTypeSelectors: Record<CampaignRecipientType, RecipientSelector> = {
+  [CampaignRecipientType.DELIVERED]: {select: row => !!row.deliveredDate && !row.hardBounceDate && !row.softBounceDate, date: row => row.deliveredDate},
+  [CampaignRecipientType.OPENED]: {select: row => !!row.openDate, date: row => row.openDate},
+  [CampaignRecipientType.CLICKS]: {select: row => row.clickedCount > 0, date: row => row.deliveredDate, links: row => row.clickedLinks},
+  [CampaignRecipientType.UNSUBSCRIBED]: {select: row => !!row.unsubscribeDate, date: row => row.unsubscribeDate},
+  [CampaignRecipientType.HARD_BOUNCES]: {select: row => !!row.hardBounceDate, date: row => row.hardBounceDate},
+  [CampaignRecipientType.SOFT_BOUNCES]: {select: row => !!row.softBounceDate, date: row => row.softBounceDate}
 };
 
-type RecipientSelector = { select: (row: RecipientRow) => boolean; date: (row: RecipientRow) => string; links?: (row: RecipientRow) => string[] };
-
-type CachedRows = { rows: RecipientRow[]; cachedAt: number };
-
-const cardTypeSelectors: Record<string, RecipientSelector> = {
-  delivered: {select: row => !!row.deliveredDate, date: row => row.deliveredDate},
-  opened: {select: row => !!row.openDate, date: row => row.openDate},
-  clicks: {select: row => row.clickedCount > 0, date: row => row.deliveredDate, links: row => row.clickedLinks},
-  unsubscribed: {select: row => !!row.unsubscribeDate, date: row => row.unsubscribeDate},
-  hardBounces: {select: row => !!row.hardBounceDate, date: row => row.hardBounceDate},
-  softBounces: {select: row => !!row.softBounceDate, date: row => row.softBounceDate}
-};
-
-const rowsCache = new Map<number, CachedRows>();
+const rowsCache = new Map<number, CachedRecipientRows>();
+const exportJobs = new Map<number, Promise<RecipientRow[]>>();
 const MAX_CACHED_CAMPAIGNS = 3;
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function exportUrlForProcess(client: BrevoClient, processId: number, attemptsRemaining: number): Promise<string | null> {
+async function exportUrlForProcess(client: BrevoClient, processId: number, attemptsRemaining: number, queuedPolls: number, previousStatus: string): Promise<string | null> {
+  debugLog("getProcess request", JSON.stringify({processId}));
   const process = await scheduleBrevo(() => client.process.getProcess({processId}));
-  if (process.status === "completed" && process.export_url) {
+  const status = process.status || "";
+  if (queuedPolls === 1 || status !== previousStatus || process.export_url) {
+    debugLog("getProcess response", JSON.stringify(process), "attempts left", attemptsRemaining);
+  } else {
+    debugLog("export process", processId, "status", status, "attempts left", attemptsRemaining);
+  }
+  if (process.export_url) {
     return process.export_url;
-  } else if (process.status === "failed" || process.status === "cancelled" || attemptsRemaining <= 0) {
+  } else if (status === "failed" || status === "cancelled") {
+    throw new HttpError(502, `Brevo recipient export ${status}`);
+  } else if (status === "queued" && queuedPolls >= QUEUED_POLLS_BEFORE_RETRY) {
+    debugLog("export process", processId, "still queued after", queuedPolls, "checks; starting another export");
     return null;
+  } else if (attemptsRemaining <= 0) {
+    throw new HttpError(502, "Brevo recipient export did not finish. Try View again.");
   } else {
     await delay(POLL_INTERVAL_MS);
-    return exportUrlForProcess(client, processId, attemptsRemaining - 1);
+    const nextQueuedPolls = status === "queued" ? queuedPolls + 1 : 0;
+    return exportUrlForProcess(client, processId, attemptsRemaining - 1, nextQueuedPolls, status);
   }
 }
 
-function parseRows(csv: string): RecipientRow[] {
-  const lines = csv.split(/\r?\n/).filter(line => line.trim().length > 0);
-  if (lines.length <= 1) {
-    return [];
+async function exportDownloadUrl(client: BrevoClient, campaignId: number): Promise<string | null> {
+  const exportRequest = {campaignId, recipientsType: "all" as const};
+  debugLog("emailExportRecipients request", JSON.stringify(exportRequest));
+  const exportResponse = await scheduleBrevo(() => client.emailCampaigns.emailExportRecipients(exportRequest));
+  debugLog("emailExportRecipients response", JSON.stringify(exportResponse));
+  const processId = exportResponse?.processId;
+  if (!processId) {
+    throw new HttpError(502, "Brevo did not start a recipient export for this campaign");
+  } else {
+    debugLog("started export process", processId, "for campaign", campaignId);
+    return exportUrlForProcess(client, processId, POLL_ATTEMPTS, 1, "");
   }
-  const header = lines[0].split(";");
-  const idx = {
-    email: header.indexOf("Email_ID"),
-    delivered: header.indexOf("Delivered_Date"),
-    open: header.indexOf("Open_Date"),
-    unsubscribe: header.indexOf("Unsubscribe_Date"),
-    hardBounce: header.indexOf("Hard_Bounce_Date"),
-    softBounce: header.indexOf("Soft_Bounce_Date"),
-    clicked: header.indexOf("Clicked_Links_Count")
-  };
-  const complaintIndex = header.indexOf("Complaint_date");
-  const linkColumns = header
-    .map((columnHeader, index) => ({url: columnHeader, index}))
-    .filter(column => complaintIndex >= 0 && column.index > complaintIndex && /^https?:\/\//i.test(column.url));
-  const value = (columns: string[], index: number): string => index >= 0 ? (columns[index] ?? "").trim() : "";
-  return lines.slice(1)
-    .map(line => line.split(";"))
-    .map(columns => ({
-      email: value(columns, idx.email),
-      deliveredDate: value(columns, idx.delivered),
-      openDate: value(columns, idx.open),
-      unsubscribeDate: value(columns, idx.unsubscribe),
-      hardBounceDate: value(columns, idx.hardBounce),
-      softBounceDate: value(columns, idx.softBounce),
-      clickedCount: Number(value(columns, idx.clicked)) || 0,
-      clickedLinks: [...new Set(linkColumns.filter(column => value(columns, column.index).length > 0).map(column => column.url))]
-    }))
-    .filter(row => row.email.length > 0);
 }
 
-type MemberRecipientInfo = { name?: string; membershipNumber?: string };
+
 
 async function memberInfoByEmail(emails: string[]): Promise<Map<string, MemberRecipientInfo>> {
   const loweredEmails = [...new Set(emails.map(email => email.toLowerCase()))];
@@ -116,64 +98,88 @@ async function memberInfoByEmail(emails: string[]): Promise<Map<string, MemberRe
   }, new Map<string, MemberRecipientInfo>());
 }
 
-async function allRecipientRows(campaignId: number): Promise<RecipientRow[] | null> {
-  const cached = rowsCache.get(campaignId);
-  if (cached && dateTimeNow().toMillis() - cached.cachedAt < CACHE_TTL_MS) {
-    debugLog(`Serving campaign ${campaignId} recipients from cache (${cached.rows.length} rows); no Brevo export triggered`);
-    return cached.rows;
-  }
-  const client = await brevoClient();
-  const exportResponse = await scheduleBrevo(() => client.emailCampaigns.emailExportRecipients({campaignId, recipientsType: "all"}));
-  const processId = exportResponse?.processId;
-  if (!processId) {
-    return null;
-  }
-  const exportUrl = await exportUrlForProcess(client, processId, POLL_ATTEMPTS);
-  if (!exportUrl) {
-    return null;
-  }
-  const csv = await (await fetch(exportUrl)).text();
-  const rows = parseRows(csv);
+function storeRows(campaignId: number, rows: RecipientRow[]): RecipientRow[] {
   rowsCache.delete(campaignId);
-  rowsCache.set(campaignId, {rows, cachedAt: dateTimeNow().toMillis()});
-  Array.from(rowsCache.keys())
-    .slice(0, Math.max(0, rowsCache.size - MAX_CACHED_CAMPAIGNS))
-    .forEach(evictableCampaignId => rowsCache.delete(evictableCampaignId));
+  if (rows.length > 0) {
+    rowsCache.set(campaignId, {rows, cachedAt: dateTimeNow().toMillis()});
+    Array.from(rowsCache.keys())
+      .slice(0, Math.max(0, rowsCache.size - MAX_CACHED_CAMPAIGNS))
+      .forEach(evictableCampaignId => rowsCache.delete(evictableCampaignId));
+  }
   return rows;
+}
+
+async function runExport(campaignId: number): Promise<RecipientRow[]> {
+  const client = await brevoClient();
+  const firstUrl = await exportDownloadUrl(client, campaignId);
+  const exportUrl = firstUrl ? firstUrl : await exportDownloadUrl(client, campaignId);
+  if (!exportUrl) {
+    throw new HttpError(502, "Brevo recipient export did not finish. Try View again.");
+  } else {
+    const response = await fetch(exportUrl);
+    if (!response.ok) {
+      throw new HttpError(502, "Brevo recipient export could not be downloaded. Try View again.");
+    }
+    const csv = await response.text();
+    return storeRows(campaignId, parseRecipientExportCsv(csv));
+  }
+}
+
+export function campaignRecipientRows(campaignId: number): Promise<RecipientRow[]> {
+  const cached = rowsCache.get(campaignId);
+  if (cached && cached.rows.length > 0 && dateTimeNow().toMillis() - cached.cachedAt < CACHE_TTL_MS) {
+    debugLog(`Serving campaign ${campaignId} recipients from cache (${cached.rows.length} rows); no Brevo export triggered`);
+    return Promise.resolve(cached.rows);
+  } else {
+    const existing = exportJobs.get(campaignId);
+    if (existing) {
+      return existing;
+    } else {
+      const job = runExport(campaignId).finally(() => {
+        exportJobs.delete(campaignId);
+      });
+      exportJobs.set(campaignId, job);
+      return job;
+    }
+  }
+}
+
+export function recipientSelectorFor(type: string): RecipientSelector {
+  if (!values(CampaignRecipientType).includes(type as CampaignRecipientType)) {
+    throw new HttpError(400, "Unsupported recipient type");
+  } else {
+    return cardTypeSelectors[type as CampaignRecipientType];
+  }
+}
+
+export async function recipientsReportFor(campaignId: number, type: string): Promise<CampaignRecipientsReport> {
+  const selector = recipientSelectorFor(type);
+  const rows = await campaignRecipientRows(campaignId);
+  const matched = rows.filter(selector.select);
+  const sliced = matched.slice(0, MAX_RECIPIENTS);
+  const memberInfo = await memberInfoByEmail(sliced.map(row => row.email));
+  const recipients: CampaignRecipient[] = sliced.map(row => {
+    const info = memberInfo.get(row.email.toLowerCase());
+    return {
+      email: row.email,
+      date: selector.date(row),
+      name: info?.name,
+      membershipNumber: info?.membershipNumber,
+      links: selector.links ? selector.links(row) : undefined
+    };
+  });
+  return {recipients, truncated: matched.length > MAX_RECIPIENTS};
 }
 
 export async function campaignRecipients(req: Request, res: Response): Promise<void> {
   try {
     const campaignId = Number(req.params.campaignId);
-    if (!Number.isFinite(campaignId)) {
+    if (!Number.isInteger(campaignId) || campaignId <= 0) {
       res.status(400).json({error: "campaignId is required"});
-      return;
+    } else {
+      const body = await recipientsReportFor(campaignId, String(req.query.type));
+      successfulResponse({req, res, response: body, messageType, debugLog});
     }
-    const selector = cardTypeSelectors[String(req.query.type)];
-    if (!selector) {
-      res.status(400).json({error: "Unsupported recipient type"});
-      return;
-    }
-    const rows = await allRecipientRows(campaignId);
-    if (!rows) {
-      successfulResponse({req, res, response: {recipients: [], truncated: false}, messageType, debugLog});
-      return;
-    }
-    const matched = rows.filter(selector.select);
-    const sliced = matched.slice(0, MAX_RECIPIENTS);
-    const memberInfo = await memberInfoByEmail(sliced.map(row => row.email));
-    const recipients: CampaignRecipient[] = sliced.map(row => {
-      const info = memberInfo.get(row.email.toLowerCase());
-      return {
-        email: row.email,
-        date: selector.date(row),
-        name: info?.name,
-        membershipNumber: info?.membershipNumber,
-        links: selector.links ? selector.links(row) : undefined
-      };
-    });
-    const body: CampaignRecipientsReport = {recipients, truncated: matched.length > MAX_RECIPIENTS};
-    successfulResponse({req, res, response: body, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

@@ -1196,6 +1196,7 @@ export interface CampaignRecipient {
 export interface CampaignRecipientsReport {
   recipients: CampaignRecipient[];
   truncated: boolean;
+  pending?: boolean;
 }
 
 export interface MailReportStatTile {
@@ -1838,4 +1839,18 @@ export interface SendStatus {
 
 export interface SendStatusApiResponse extends ApiResponse {
   response: SendStatus;
+}
+
+export interface CampaignRecipientExportRequest {
+  campaignId?: number;
+  type?: string;
+}
+
+export enum CampaignRecipientType {
+  DELIVERED = "delivered",
+  OPENED = "opened",
+  CLICKS = "clicks",
+  UNSUBSCRIBED = "unsubscribed",
+  HARD_BOUNCES = "hardBounces",
+  SOFT_BOUNCES = "softBounces"
 }
