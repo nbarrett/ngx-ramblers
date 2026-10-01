@@ -16,7 +16,7 @@ import {
   selector: "app-sortable-table",
   imports: [NgTemplateOutlet, FontAwesomeModule],
   template: `
-    <div class="sortable-table-card" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">
+    <div class="sortable-table-card" [class.sortable-table-flat]="flat" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">
       <table class="sortable-table">
         <thead>
           <tr>
@@ -95,6 +95,21 @@ import {
       overflow: hidden
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
       background: white
+
+    .sortable-table-card.sortable-table-flat
+      border: none
+      border-radius: 0
+      box-shadow: none
+
+    .sortable-table-flat .sortable-table th
+      background: var(--bs-body-bg)
+      border-bottom: 1px solid var(--bs-border-color)
+      color: var(--bs-secondary-color)
+      padding: var(--mail-header-padding-y) 0.75rem
+      font-size: 0.75rem
+
+    .sortable-table-flat .sortable-table tbody tr td
+      padding: 0.45rem 0.75rem
 
     .sortable-table-card.scrollable
       overflow: auto
@@ -235,6 +250,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
 
   @Input() columns: SortableTableColumn[] = [];
   @Input() rows: any[] = [];
+  @Input() flat = false;
   @Input() maxHeight: string | null = null;
   @Input() defaultSortKey: string | null = null;
   @Input() defaultSortDirection: string = ASCENDING;

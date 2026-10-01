@@ -28,6 +28,7 @@ const inboxMessageSchema = new mongoose.Schema({
   autoReply: {type: Boolean, default: false},
   to: [{type: inboxAddress}],
   cc: [{type: inboxAddress}],
+  deliveryRecipients: [{type: inboxAddress}],
   subject: {type: String, default: ""},
   bodyHtml: {type: String, default: null},
   bodyText: {type: String, default: null},

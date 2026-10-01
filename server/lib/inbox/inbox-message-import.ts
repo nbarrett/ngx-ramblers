@@ -22,7 +22,7 @@ import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
-import { deliveredToFromMessage, inboxThreadSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { aliasMailboxAddresses, deliveredToFromMessage, inboxThreadSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { applyInboundMeetingCalendarReply } from "../video-meetings/apply-meeting-calendar-reply";
 import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
 import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
@@ -133,10 +133,13 @@ function addressIsInternal(address: InboxAddress | null | undefined, internalEma
   return Boolean(email) && internalEmails.has(email);
 }
 
-export function isOwnSentCopy(message: InboxMessage, internalEmails?: Set<string>): boolean {
+export function isOwnSentCopy(message: InboxMessage, internalEmails?: Set<string>, aliasConfig?: InboxAliasConfig): boolean {
   const emails = internalEmails ?? new Set<string>();
   const recipients = [...(message.to ?? []), ...(message.cc ?? [])];
+  const roleAddresses = aliasConfig ? aliasMailboxAddresses(aliasConfig).map(normaliseEmail) : [];
+  const deliveredToRole = (message.deliveryRecipients ?? []).some(address => roleAddresses.includes(normaliseEmail(address.email)));
   return emails.size > 0
+    && !deliveredToRole
     && !isAutoReplyMessage(message)
     && addressIsInternal(message.from, emails)
     && recipients.some(address => address?.email && !addressIsInternal(address, emails));
@@ -323,7 +326,7 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
     ? await inboxThreadModel.findById(alreadyOutbound.threadId).lean() as InboxThread | null
     : null;
   const sameRoleAsSent = !!outboundThread && outboundThread.roleType === aliasConfig.roleType;
-  const outbound = !alreadyOutbound && !skipped && folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && isOwnSentCopy(message, internalEmails)
+  const outbound = !alreadyOutbound && !skipped && folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && isOwnSentCopy(message, internalEmails, aliasConfig)
     ? outboundCopyFromInbound(message, internalEmails)
     : null;
   const storedOutbound = outbound

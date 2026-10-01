@@ -113,13 +113,9 @@ async function parsedToInboxMessage(parsed: ParsedMail): Promise<InboxMessage> {
   };
 }
 
-function withEnvelopeRecipient(message: InboxMessage, envelopeTo: string | undefined): InboxMessage {
+export function withEnvelopeRecipient(message: InboxMessage, envelopeTo: string | null): InboxMessage {
   const address = (envelopeTo ?? "").trim();
-  if (!address) {
-    return message;
-  }
-  const alreadyPresent = messageRecipientEmails(message).includes(address.toLowerCase());
-  return alreadyPresent ? message : {...message, to: message.to.concat({name: null, email: address})};
+  return address ? {...message, deliveryRecipients: [{name: null, email: address}]} : message;
 }
 
 export async function handleInboundInbox(req: Request, res: Response): Promise<void> {
@@ -180,7 +176,7 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
       }
     } else {
       const parsed = await simpleParser(Buffer.from(payload.rawMimeBase64, "base64"));
-      const message = withEnvelopeRecipient(await parsedToInboxMessage(parsed), payload.envelopeTo);
+      const message = withEnvelopeRecipient(await parsedToInboxMessage(parsed), payload.envelopeTo ?? null);
       debugLog("inbound-inbox: signature OK (%s secret); recipients %o envelopeTo=%s subject=%o", routerSecret ? "shared-router" : "per-site", messageRecipientEmails(message), payload.envelopeTo, message.subject);
       const connection = await ensureCloudflareIngressConnection();
       const aliases = await cloudflareIngressAliasesForMessage(message, connection);

@@ -123,6 +123,9 @@ When fixing a problem discovered after committing:
 
 ## Backend / Express Patterns
 
+- **Focused modules are mandatory.** Keep route files declarative and controllers grouped by one responsibility. Never move a giant route file into one giant controller. Before adding a helper, search for and extend the existing implementation; share behaviour at its existing ownership boundary rather than duplicating it or creating a catch-all utilities module. Split a file when unrelated responsibilities force a reader to load the whole feature to understand one operation. Keep public functions named, dependencies explicit and domain types in model files. Refactors must preserve endpoint paths, middleware, permissions and behaviour, with checks that verify those boundaries.
+- **Reads do not repair stored data.** Listing, opening and counting records must not trigger reclassification, refiling or background data repair. Reuse the existing administrator detection, notification, preview and confirmation flow for historical corrections. New imports must use deterministic routing and idempotent persistence; refreshing or restarting must not alter existing records.
+
 - **Routes are declarative** - a `*-routes.ts` file maps `path + verb` to middleware and named handler functions, nothing else. No inline `(req, res) => {...}` handlers, no branching, no response building, and no `multer`/config wiring in the route. Put the logic in a named, exported function in the matching controller/handler module (`*-controllers.ts`, or the feature module e.g. `file-upload.ts`) and reference it by name.
   - Bad: `router.post("/x", (req, res) => { if (bad) { res.status(400).json(...) } })`
   - Good: `router.post("/x", authenticate(), receiveUpload, handleX)` with `receiveUpload`/`handleX` exported from the controller module.

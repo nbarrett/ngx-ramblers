@@ -30,7 +30,7 @@ import {
   parseIcsCalendar
 } from "../../../projects/ngx-ramblers/src/app/functions/ics-calendar";
 import { defaultTenantSlug, derivedAliasForRoleType } from "./inbox-aliases";
-import { permittedToReadJunk, requireInboxRoleAccess } from "./inbox-access";
+import { permittedToReadJunk, requestMember, requireInboxRoleAccess } from "./inbox-access";
 import { sendRfc822 } from "./gmail-inbox-reader";
 
 const messageType = "inbox";
@@ -211,7 +211,7 @@ export async function sendCalendarReply(req: Request, res: Response): Promise<vo
               res.status(404).json({request: {messageType}, error: "No Gmail mailbox is connected for this conversation"});
             } else {
               const alias = await derivedAliasForRoleType(thread.roleType);
-              const memberId = (req.user as Partial<MemberCookie>).memberId;
+              const memberId = requestMember(req).memberId;
               const loggedIn = memberId
                 ? await memberModel.findById(memberId).select("email firstName lastName").lean() as Pick<Member, "email" | "firstName" | "lastName"> | null
                 : null;

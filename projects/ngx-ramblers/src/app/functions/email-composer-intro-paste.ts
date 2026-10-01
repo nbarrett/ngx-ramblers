@@ -1,3 +1,5 @@
+import {keys} from "es-toolkit/compat";
+import {parseEmailAddressList} from "./email-addresses";
 import { plainText } from "./strings";
 
 export type IntroTitledPastePlan =
@@ -140,4 +142,122 @@ export function placeForwardedIntroMarkdown(
       : `${existing}${forwardedMarkdown}`;
   }
   return result;
+}
+
+export function emailHeadersNearTop(text: string): boolean {
+  const lines = (text ?? "").split(/\r?\n/);
+  const addressingHeader = /^(To|From|Cc|Bcc|Subject):\s*\S/i;
+  const firstHeaderIdx = lines.findIndex(line => addressingHeader.test(stripMarkdownDecorations(line)));
+  return firstHeaderIdx >= 0 && lines.slice(0, firstHeaderIdx).every(line => {
+    const stripped = stripMarkdownDecorations(line);
+    return stripped === "" || /^\s*#{1,6}\s/.test(line) || /^[A-Za-z][A-Za-z -]*:\s/.test(stripped);
+  });
+}
+
+export function buildForwardedIntroMarkdown(headerLines: string[], body: string): string {
+  const headerBlock = headerLines.join("  \n");
+  const trimmedBody = body?.trim() ?? "";
+  return `\n\n---\n\n${headerBlock}\n\n---\n\n${trimmedBody}`;
+}
+
+export function parseEmailHeadersFromMarkdown(content: string): {
+  to: {
+    name: string;
+    email: string;
+  }[];
+  cc: {
+    name: string;
+    email: string;
+  }[];
+  subject: string | null;
+  body: string;
+  forwardedHeaderLines: string[];
+} | null {
+  const lines = content.split(/\r?\n/);
+  const HEADER_REGEX = /^(To|From|Cc|Bcc|Subject|Date|Sent|Reply-To):\s*(.+)$/i;
+  const firstHeaderIdx = lines.findIndex(line => {
+    const stripped = stripMarkdownDecorations(line);
+    return stripped !== "" && HEADER_REGEX.test(stripped);
+  });
+  if (firstHeaderIdx === -1) {
+    return null;
+  } else {
+    const parsed = collectHeaderLines(lines, firstHeaderIdx, HEADER_REGEX, {}, -1);
+    const {headers, bodyStartLine} = parsed;
+    if (keys(headers).length === 0 || (!headers.to && !headers.subject && !headers.from)) {
+      return null;
+    } else {
+      const body = bodyStartLine >= 0 ? lines.slice(bodyStartLine).join("\n").replace(/^\n+/, "") : "";
+      const headerEndIdx = bodyStartLine >= 0 ? bodyStartLine : lines.length;
+      const forwardedHeaderLines = lines.slice(firstHeaderIdx, headerEndIdx)
+        .map(line => stripMarkdownDecorations(line))
+        .filter(line => line !== "");
+      const toList = parseEmailAddressList(headers.to ?? "");
+      const fromList = parseEmailAddressList(headers.from ?? "");
+      const seenEmails = new Set<string>();
+      const combinedRecipients = [...toList, ...fromList].filter(item => {
+        const key = item.email.toLowerCase();
+        if (seenEmails.has(key)) {
+          return false;
+        } else {
+          seenEmails.add(key);
+          return true;
+        }
+      });
+      return {
+        to: combinedRecipients,
+        cc: parseEmailAddressList(headers.cc ?? ""),
+        subject: headers.subject ?? null,
+        body,
+        forwardedHeaderLines
+      };
+    }
+  }
+}
+
+function collectHeaderLines(lines: string[], index: number, headerRegex: RegExp, headers: Record<string, string>, bodyStartLine: number): {
+  headers: Record<string, string>;
+  bodyStartLine: number;
+} {
+  if (index >= lines.length) {
+    return {headers, bodyStartLine};
+  } else {
+    const stripped = stripMarkdownDecorations(lines[index]);
+    if (stripped === "") {
+      const nextNonBlank = findNextNonBlankLine(lines, index + 1);
+      if (nextNonBlank === -1) {
+        return {headers, bodyStartLine: lines.length};
+      } else if (headerRegex.test(stripMarkdownDecorations(lines[nextNonBlank]))) {
+        return collectHeaderLines(lines, index + 1, headerRegex, headers, bodyStartLine);
+      } else {
+        return {headers, bodyStartLine: nextNonBlank};
+      }
+    }
+    const headerMatch = stripped.match(headerRegex);
+    if (headerMatch) {
+      const key = headerMatch[1].toLowerCase();
+      const merged = {
+        ...headers,
+        [key]: headers[key] ? `${headers[key]}, ${headerMatch[2].trim()}` : headerMatch[2].trim()
+      };
+      return collectHeaderLines(lines, index + 1, headerRegex, merged, bodyStartLine);
+    } else if (/^[A-Za-z][A-Za-z -]*:\s/.test(stripped)) {
+      return collectHeaderLines(lines, index + 1, headerRegex, headers, bodyStartLine);
+    } else {
+      return {headers, bodyStartLine: index};
+    }
+  }
+}
+
+function findNextNonBlankLine(lines: string[], from: number): number {
+  const offset = lines.slice(from).findIndex(line => stripMarkdownDecorations(line) !== "");
+  return offset === -1 ? -1 : from + offset;
+}
+
+function stripMarkdownDecorations(line: string): string {
+  return line
+    .replace(/^[\s>*_`#-]+/, "")
+    .replace(/[*_`]+$/g, "")
+    .replace(/\*\*|__/g, "")
+    .trim();
 }

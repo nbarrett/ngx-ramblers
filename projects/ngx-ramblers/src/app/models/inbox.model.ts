@@ -370,6 +370,8 @@ export interface InboxThread extends Identifiable {
   unread: boolean;
   readByMemberIds?: string[];
   conversationKey?: string | null;
+  receivedFrom?: InboxAddress | null;
+  receivedTo?: InboxAddress[] | null;
   sentFrom?: InboxAddress | null;
   deliveredTo?: InboxAddress | null;
   lastOutboundAt?: number;
@@ -402,6 +404,7 @@ export interface InboxMessage extends Identifiable {
   references: string[];
   from: InboxAddress;
   replyTo?: InboxAddress | null;
+  deliveryRecipients?: InboxAddress[];
   autoReply?: boolean;
   to: InboxAddress[];
   cc: InboxAddress[];
@@ -617,4 +620,9 @@ export function inboxGeneralRoleTypeFor(mailboxConnectionId: string): string {
 
 export function isInboxGeneralRoleType(roleType: string): boolean {
   return roleType.startsWith(INBOX_GENERAL_ROLE_TYPE_PREFIX);
+}
+
+export interface InboxPubsubNotification {
+  emailAddress?: string;
+  historyId?: string;
 }

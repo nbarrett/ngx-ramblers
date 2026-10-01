@@ -1,3 +1,4 @@
+@import "./email-composer-forms.sass"
 @import "../../assets/styles/stepper.sass"
 
 :host ::ng-deep .maximisable-bar,
@@ -8,91 +9,6 @@
   height: auto
   margin-bottom: 0
   align-items: flex-start
-
-.email-composer-fieldset
-  border: 1px solid #dee2e6
-  border-radius: 6px
-  padding: 14px 18px 16px
-  margin: 0 0 20px 0
-  min-inline-size: 0
-  max-width: 100%
-  > legend
-    float: none
-    display: block
-    width: auto
-    max-width: 100%
-    padding: 0 8px
-    font-size: 17px
-    font-weight: bold
-    margin-bottom: 0
-
-.email-composer-fieldset-summary
-  display: block
-  width: 100%
-  margin: 0
-  padding: 0
-  border: none
-  background: transparent
-  text-align: left
-  font-size: 0.875rem
-  font-weight: 400
-  line-height: 1.4
-  color: #6c757d
-  cursor: pointer
-  &:hover
-    color: #495057
-
-.composer-attachment
-  display: inline-flex
-  align-items: center
-  gap: 0.4rem
-  padding: 0.3rem 0.7rem
-  border: 1px solid #dee2e6
-  border-radius: 1rem
-  font-size: 0.9rem
-  max-width: 100%
-  min-width: 0
-
-.composer-attachment-open
-  display: inline-flex
-  align-items: center
-  gap: 0.4rem
-  border: none
-  background: none
-  padding: 0
-  color: inherit
-  cursor: pointer
-  min-width: 0
-  overflow: hidden
-
-.composer-attachment-open:hover .composer-attachment-name
-  text-decoration: underline
-
-.composer-attachment-icon
-  flex: 0 0 auto
-
-.composer-attachment-name
-  font-weight: 600
-  white-space: nowrap
-  overflow: hidden
-  text-overflow: ellipsis
-  min-width: 0
-
-.composer-attachment-size
-  flex: 0 0 auto
-  white-space: nowrap
-
-.composer-attachment-remove
-  flex: 0 0 auto
-  border: none
-  background: none
-  padding: 0
-  margin-left: 0.2rem
-  line-height: 1
-  color: #6c757d
-
-.composer-attachment-remove:hover
-  color: #212529
 
 .branding-mode-options
   display: grid
@@ -200,68 +116,6 @@
   word-break: normal
   overflow-wrap: normal
   line-height: 1.2
-
-.email-composer-validation-summary
-  background: #fff5f0
-  border: 1px solid $ramblers-colour-sunset
-  border-radius: 6px
-  padding: 12px 16px
-  margin: 8px 0 4px
-
-.email-composer-validation-summary h5
-  display: flex
-  align-items: center
-  gap: 8px
-  margin: 0 0 8px 0
-  color: #9b2c2c
-  font-size: 14px
-  font-weight: 700
-
-.email-composer-alert-dismiss
-  display: inline-flex
-  align-items: center
-  justify-content: center
-  width: 28px
-  height: 28px
-  margin-left: auto
-  padding: 0
-  border: none
-  border-radius: 50%
-  background: transparent
-  color: #9b2c2c
-  cursor: pointer
-  &:hover,
-  &:focus
-    background: rgba(155, 44, 44, 0.1)
-    color: #7a1f1f
-
-.email-composer-validation-summary ul
-  margin: 0
-  padding-left: 0
-
-.email-composer-validation-summary li
-  font-size: 14px
-  line-height: 1.5
-  color: #9b2c2c
-  padding: 0 0 6px 22px
-  background-size: 14px
-  background-position: 0 4px
-
-.email-composer-validation-summary .email-composer-inline-toggle
-  background: transparent
-  border: 0
-  padding: 0
-  color: inherit
-  font-size: 0.85em
-  font-weight: 500
-  text-decoration: underline
-  text-underline-offset: 2px
-  cursor: pointer
-
-.email-composer-validation-summary .email-composer-inline-toggle:hover,
-.email-composer-validation-summary .email-composer-inline-toggle:focus
-  text-decoration: underline
-  filter: brightness(0.9)
 
 .email-composer-section-busy
   opacity: 0.6
@@ -438,10 +292,10 @@
     gap: 0.5rem
   .btn-group,
   .btn
-    flex: 0 0 8.5rem
-    width: 8.5rem
-    min-width: 8.5rem
-    max-width: 8.5rem
+    flex: 0 0 auto
+    width: auto
+    min-width: 0
+    max-width: none
   .composer-flow-tools
     margin-left: auto
 
@@ -493,41 +347,6 @@
   border-radius: 6px
   font-size: 1rem
   line-height: 1.5
-
-.email-composer-drafts-panel
-  border: 1px solid #dfe7f3
-  border-radius: 8px
-  padding: 12px 16px
-  margin-bottom: 16px
-  background: #fff
-
-.email-composer-draft-row
-  display: flex
-  justify-content: space-between
-  align-items: center
-  padding: 8px 12px
-  margin: 0 -12px
-  border-bottom: 1px solid #f0f4fa
-  border-radius: 4px
-
-.email-composer-draft-row:hover
-  background-color: #f1f3f5
-
-.email-composer-draft-row:last-child
-  border-bottom: none
-
-.email-composer-draft-meta
-  cursor: pointer
-  flex: 1 1 auto
-  min-width: 0
-  padding-right: 12px
-
-.email-composer-draft-actions
-  flex: 0 0 auto
-  display: flex
-  align-items: center
-  gap: 8px
-  white-space: nowrap
 
 .email-composer-pre-filter
   display: flex
@@ -626,51 +445,11 @@
   flex-wrap: wrap
   margin-top: 12px
 
-.composer-add-row .btn,
-.email-composer-drafts-panel .btn,
-.fragment-row-header .btn,
-.composer-column-add .btn
+.composer-add-row .btn
   font-size: 12px
   padding: 4px 10px
   min-height: 0
   line-height: 1.3
-
-.fragment-divider-cell ::ng-deep ng-select
-  min-width: 0 !important
-
-.composer-multi-column-row
-  display: grid
-  gap: 12px
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))
-
-.composer-column
-  border: 1px dashed #ced4da
-  border-radius: 4px
-  padding: 8px
-  display: flex
-  flex-direction: column
-  gap: 6px
-  background-color: #fdfdfd
-
-.composer-column-hover
-  border-color: #f29401
-  background-color: #fff8eb
-
-.composer-column-heading
-  font-weight: 600
-
-.composer-column-tail
-  border: 1px dashed #adb5bd
-  border-radius: 4px
-  padding: 12px
-  text-align: center
-  color: #6c757d
-  font-size: 12px
-
-.composer-column-add
-  display: flex
-  justify-content: center
-  margin-top: 4px
 
 .fragment-template-frame
   width: 100%
@@ -683,44 +462,6 @@
   margin: 0
   padding-left: 0
 
-.event-row
-  display: flex
-  align-items: flex-start
-  gap: 12px
-
-.event-row .event-meta
-  flex: 1 1 auto
-  min-width: 0
-
-.event-row .event-image
-  flex: 0 0 200px
-  display: flex
-  flex-direction: column
-  align-items: stretch
-  gap: 4px
-
-.event-row .event-image img
-  max-width: 200px
-  max-height: 120px
-  object-fit: cover
-  border-radius: 4px
-
-.event-image-controls
-  display: flex
-  align-items: center
-  justify-content: space-between
-  gap: 4px
-
-.event-image-controls button
-  font-size: 11px
-  padding: 2px 6px
-  min-height: 0
-  line-height: 1.2
-
-.event-image-controls .small
-  font-size: 11px
-
-// Mobile responsive adjustments ============================================
 
 @media (max-width: 768px)
   .composer-maximise-toggle

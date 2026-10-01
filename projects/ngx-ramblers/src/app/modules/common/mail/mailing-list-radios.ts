@@ -10,7 +10,7 @@ import { ListSubscriberCountComponent } from "./list-subscriber-count";
     @if (noneLabel) {
       <div class="form-check">
         <input class="form-check-input" type="radio" [name]="groupName" [id]="idPrefix + '-none'"
-               [checked]="selectedId === null" (change)="selectedIdChange.emit(null)">
+               [checked]="noneSelected && selectedId === null" (change)="selectedIdChange.emit(null)">
         <label class="form-check-label" [for]="idPrefix + '-none'">{{ noneLabel }}</label>
       </div>
     }
@@ -35,6 +35,7 @@ export class MailingListRadiosComponent {
   @Input() groupName = "mailing-list";
   @Input() idPrefix = "mailing-list";
   @Input() selectedId: number | null = null;
+  @Input() noneSelected = true;
   @Input() noneLabel: string | null = null;
   @Input() listsHeading: string | null = null;
   @Input() itemClass = "";

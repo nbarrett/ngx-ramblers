@@ -57,3 +57,11 @@
 
 .alert-panel-actions:empty
   display: none
+
+.alert-panel-grouped .alert-panel-message
+  display: flex
+  flex-direction: column
+  gap: var(--space-3, 12px)
+
+.alert-panel-grouped:not(:has(app-alert-message:not([hidden])))
+  display: none

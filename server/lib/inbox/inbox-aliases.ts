@@ -113,7 +113,9 @@ function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, ten
 }
 
 export function cloudflareIngressAliasesFromMessage(message: InboxMessage, connection: InboxMailboxConnection, roles: CommitteeMember[], tenantSlug: string): InboxAliasConfig[] {
-  const recipientEmails = messageRecipientEmails(message);
+  const recipientEmails = message.deliveryRecipients?.length
+    ? message.deliveryRecipients.map(address => normaliseEmail(address.email))
+    : messageRecipientEmails(message);
   const roleAliases = roles.reduce<InboxAliasConfig[]>((aliases, role) => {
     const matches = recipientEmails.some(recipientEmail => roleMatchesEmail(role, recipientEmail));
     return matches ? aliases.concat(roleAliasWith(role, connectionIdentifier(connection), tenantSlug)) : aliases;
@@ -310,7 +312,7 @@ export function messageAddressEmails(message: InboxMessage): string[] {
 }
 
 export function messageRecipientEmails(message: InboxMessage): string[] {
-  return [...message.to, ...message.cc]
+  return [...message.to, ...message.cc, ...(message.deliveryRecipients ?? [])]
     .filter(Boolean)
     .map(address => normaliseEmail(address.email));
 }

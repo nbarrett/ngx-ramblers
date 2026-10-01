@@ -301,38 +301,38 @@ describe("inboxMessageAt", () => {
 describe("replyAllRecipients", () => {
 
   const reply = {
-    to: {email: "gary.atkin@ramblers.org.uk", name: "Gary Atkin"},
-    cc: [{email: "ciaran.evans@ramblers.org.uk", name: "Ciaran Evans"}]
+    to: {email: "alex.reed@example.com", name: "Alex Reed"},
+    cc: [{email: "shared-inbox@example.org.uk", name: "Shared inbox"}]
   } as InboxReplyComposeResponse;
 
   const target = {
-    to: [{email: "support@ngx-ramblers.org.uk", name: "Support"}, {email: "gary.atkin@ramblers.org.uk", name: "Gary Atkin"}],
-    cc: [{email: "james.kears@ramblers.org.uk", name: "James Kears"}]
+    to: [{email: "support@group.example.org.uk", name: "Support"}, {email: "alex.reed@example.com", name: "Alex Reed"}],
+    cc: [{email: "casey.taylor@example.com", name: "Casey Taylor"}]
   } as InboxMessage;
 
-  it("gathers cc plus the original to and cc", () => {
+  it("gathers the original to and cc without shared-inbox suggestions", () => {
     const emails = replyAllRecipients(reply, target, []).map(address => address.email);
-    expect(emails).toContain("ciaran.evans@ramblers.org.uk");
-    expect(emails).toContain("james.kears@ramblers.org.uk");
+    expect(emails).toContain("casey.taylor@example.com");
+    expect(emails).not.toContain("shared-inbox@example.org.uk");
   });
 
   it("excludes the person being replied to, so they are not also cc'd", () => {
     const emails = replyAllRecipients(reply, target, []).map(address => address.email);
-    expect(emails).not.toContain("gary.atkin@ramblers.org.uk");
+    expect(emails).not.toContain("alex.reed@example.com");
   });
 
   it("excludes our own role addresses", () => {
-    const emails = replyAllRecipients(reply, target, ["support@ngx-ramblers.org.uk"]).map(address => address.email);
-    expect(emails).not.toContain("support@ngx-ramblers.org.uk");
+    const emails = replyAllRecipients(reply, target, ["support@group.example.org.uk"]).map(address => address.email);
+    expect(emails).not.toContain("support@group.example.org.uk");
   });
 
   it("de-duplicates addresses appearing in more than one header", () => {
-    const duplicated = {to: [{email: "ciaran.evans@ramblers.org.uk"}], cc: [{email: "ciaran.evans@ramblers.org.uk"}]} as InboxMessage;
-    expect(replyAllRecipients(reply, duplicated, []).filter(address => address.email === "ciaran.evans@ramblers.org.uk").length).toEqual(1);
+    const duplicated = {to: [{email: "casey.taylor@example.com"}], cc: [{email: "casey.taylor@example.com"}]} as InboxMessage;
+    expect(replyAllRecipients(reply, duplicated, []).filter(address => address.email === "casey.taylor@example.com").length).toEqual(1);
   });
 
   it("copes with a message that has no to or cc", () => {
-    expect(replyAllRecipients(reply, {} as InboxMessage, []).map(address => address.email)).toEqual(["ciaran.evans@ramblers.org.uk"]);
+    expect(replyAllRecipients(reply, {} as InboxMessage, []).map(address => address.email)).toEqual([]);
   });
 
 });
@@ -433,6 +433,12 @@ describe("inboxThreadRowFrom and inboxThreadRowTo", () => {
     expect(inboxThreadRowFrom(inbound)).toBe("Jane Member <jane@example.com>");
     expect(inboxThreadRowTo(inbound, inbound.deliveredTo)).toBe("Treasurer <treasurer@group.org.uk>");
     expect(inboxThreadRowPreview(inbound)).toBe("Latest incoming message");
+  });
+
+  it("shows the actual inbound sender when the counterparty is the recipient", () => {
+    const thread = {...inbound, externalAddress: inbound.deliveredTo, receivedFrom: {name: "Alex Reed", email: "webmaster@group.example.org.uk"}};
+    expect(inboxThreadRowFrom(thread)).toBe("Alex Reed <webmaster@group.example.org.uk>");
+    expect(inboxThreadRowTo(thread, inbound.deliveredTo)).toBe("Treasurer <treasurer@group.org.uk>");
   });
 
   it("keeps the correspondent as From after we reply, with You: on the preview", () => {

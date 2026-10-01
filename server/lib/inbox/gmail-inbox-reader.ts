@@ -395,6 +395,9 @@ export function parseGmailMessage(payload: GmailMessage): InboxMessage {
     autoReply: autoReplyFromHeaders(name => headers.get(name), subject),
     to: parseAddressList(toHeader),
     cc: parseAddressList(ccHeader),
+    deliveryRecipients: [GmailHeader.DELIVERED_TO, GmailHeader.X_FORWARDED_FOR, GmailHeader.X_ORIGINAL_TO]
+      .flatMap(header => (headers.get(header) ?? "").split(/\s+/).flatMap(parseAddressList))
+      .filter(address => address.email?.includes("@")),
     subject,
     bodyHtml: html,
     bodyText: text,

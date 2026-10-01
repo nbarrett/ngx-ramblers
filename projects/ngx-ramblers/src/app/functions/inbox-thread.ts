@@ -70,7 +70,7 @@ export function aliasMailboxExtraCaption(alias: Pick<InboxAliasConfig, "roleType
 
 export function deliveredToFromMessage(message: InboxMessage, alias: Pick<InboxAliasConfig, "roleEmail" | "additionalEmails">): InboxAddress | null {
   const identity = new Set(aliasMailboxAddresses(alias).map(address => normaliseEmail(address)).filter(Boolean));
-  const match = [...(message.to ?? []), ...(message.cc ?? [])]
+  const match = [...(message.deliveryRecipients ?? []), ...(message.to ?? []), ...(message.cc ?? [])]
     .find(address => identity.has(normaliseEmail(address?.email)));
   if (match?.email) {
     return match;
@@ -99,11 +99,13 @@ export function newestInboxMessage(messages: InboxMessage[] | null | undefined):
 }
 
 export function inboxThreadRowFrom(thread: InboxThread): string | null {
-  return formatInboxAddress(thread?.externalAddress) || null;
+  return formatInboxAddress(thread?.receivedFrom || thread?.externalAddress) || null;
 }
 
 export function inboxThreadRowTo(thread: InboxThread, roleAddress: InboxAddress | null): string | null {
-  return formatInboxAddress(roleAddress || thread?.deliveredTo) || null;
+  return thread?.receivedTo?.length
+    ? thread.receivedTo.map(formatInboxAddress).filter(Boolean).join(", ")
+    : formatInboxAddress(roleAddress || thread?.deliveredTo) || null;
 }
 
 export function addressLabel(address: {name?: string | null; email?: string | null} | null | undefined): string | null {
@@ -140,7 +142,7 @@ export function inboxMessageMatchingId(messages: InboxMessage[] | null | undefin
 export function replyAllRecipients(reply: InboxReplyComposeResponse, target: InboxMessage, roleEmails: string[]): InboxAddress[] {
   const excluded = new Set([reply?.to?.email?.toLowerCase(), ...(roleEmails || []).map(email => email?.toLowerCase())]);
   const seen = new Set<string>();
-  return [...(reply?.cc ?? []), ...(target?.to ?? []), ...(target?.cc ?? [])].filter(address => {
+  return [...(target?.to ?? []), ...(target?.cc ?? [])].filter(address => {
     const email = address?.email?.toLowerCase();
     const include = !!email && !excluded.has(email) && !seen.has(email);
     if (include) {

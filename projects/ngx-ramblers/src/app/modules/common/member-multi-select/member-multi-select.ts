@@ -59,10 +59,10 @@ import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } fro
       display: none
   `],
   template: `
-    @if (!lockedSelection) {
+    @if (!lockedSelection && applicablePreFilters().length > 0) {
       <div class="mb-2">
-        <div class="fw-semibold mb-1">Refine audience</div>
-        @for (filter of preFilters; track filter.key) {
+        <div class="fw-semibold mb-1">Member filter</div>
+        @for (filter of applicablePreFilters(); track filter.key) {
           <div class="form-check">
             <input class="form-check-input"
                    type="radio"
@@ -73,6 +73,7 @@ import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } fro
             <label class="form-check-label" [for]="'pre-filter-' + (filter.key ?? 'all-with-email')">{{ labelFor(filter) }}</label>
           </div>
         }
+        @if (showMemberPicker) {
         <div class="form-check">
           <input class="form-check-input"
                  type="radio"
@@ -82,6 +83,7 @@ import { limitedMemberMatches, MEMBER_TYPEAHEAD_LIMIT, memberMatchesSearch } fro
                  (click)="clear()">
           <label class="form-check-label" for="pre-filter-clear-manual">Choose individually{{ EM_DASH_WITH_SPACES }}<strong>{{ selectedCount() }} of {{ selectableMembers.length }} selected</strong></label>
         </div>
+        }
       </div>
     }
     @if (showMemberPicker) {
@@ -154,12 +156,22 @@ export class MemberMultiSelect implements OnChanges, OnDestroy {
   protected readonly preFilters: RecipientPreFilter[] = RECIPIENT_PRE_FILTERS;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
+  protected applicablePreFilters(): RecipientPreFilter[] {
+    const configuredSelection = this.notificationConfig?.defaultMemberSelection;
+    return configuredSelection
+      ? this.preFilters.filter(filter => filter.key === configuredSelection)
+      : this.preFilters;
+  }
+
   ngOnDestroy(): void {
     this.searchSubscription.unsubscribe();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["respectBlocks"] || changes["unsubscribedDates"] || changes["notificationConfig"] || changes["memberBulkLoadDateMap"]) {
+      if (changes["notificationConfig"]) {
+        this.priorSendDateMap = {};
+      }
       this.activePreFilterKey = this.preFilterKey;
       this.manualMode = !this.autoFill;
       this.rebuildSelections();
@@ -233,7 +245,7 @@ export class MemberMultiSelect implements OnChanges, OnDestroy {
 
   private priorSendExclusionApplies(): boolean {
     const configuredSelection = this.notificationConfig?.defaultMemberSelection;
-    return !!configuredSelection && this.preFilters.some(filter => filter.key === configuredSelection);
+    return !!configuredSelection && this.activePreFilterKey === configuredSelection && this.preFilters.some(filter => filter.key === configuredSelection);
   }
 
   private rebuildSelections(): void {
@@ -246,7 +258,7 @@ export class MemberMultiSelect implements OnChanges, OnDestroy {
         .filter((entry): entry is PriorSendExclusion => isNumber(entry.sentAt) && entry.sentAt > 0)
         .sort((a, b) => b.sentAt - a.sentAt);
     const exclusionsChanged = newExclusions.length !== this.priorSendExclusions.length
-      || newExclusions.some((entry, index) => entry.member.id !== this.priorSendExclusions[index]?.member.id);
+      || newExclusions.some((entry, index) => entry.member.id !== this.priorSendExclusions[index]?.member.id || entry.sentAt !== this.priorSendExclusions[index]?.sentAt);
     this.priorSendExclusions = newExclusions;
     if (exclusionsChanged) {
       this.priorSendExclusionsChange.emit(this.priorSendExclusions);
