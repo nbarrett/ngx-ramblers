@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import debug from "debug";
-import { isString, uniq } from "es-toolkit/compat";
+import { isArray, isString, uniq } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
@@ -348,7 +348,7 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
   } else {
     const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
     const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole || null;
-    const bccRoles = request.bccRolesOverride?.length
+    const bccRoles = isArray(request.bccRolesOverride)
       ? request.bccRolesOverride
       : (notifConfig!.bccRoles?.length > 0 ? notifConfig!.bccRoles : notifConfig!.ccRoles ?? []);
     const replyToAddress = replyToRole ? emailAddressForRole(committeeRoles, replyToRole) : null;

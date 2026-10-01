@@ -13,7 +13,7 @@ import { WalkProgrammeCalendarComponent } from "../walks/walk-programme-calendar
 import { CalendarEntry } from "../../models/walk-programme.model";
 import { DraggableModalComponent } from "../../modules/common/draggable-modal/draggable-modal";
 import { TimePicker } from "../../date-and-time/time-picker";
-import { ListSubscriberCountComponent } from "../../modules/common/mail/list-subscriber-count";
+import { MailingListRadiosComponent } from "../../modules/common/mail/mailing-list-radios";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
 import { MemberService } from "../../services/member/member.service";
 import { AiService } from "../../services/ai/ai.service";
@@ -73,7 +73,7 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
 
 @Component({
   selector: "app-video-meeting-plan",
-  imports: [FormsModule, FontAwesomeModule, RouterLink, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, ListSubscriberCountComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent, LabelledFieldRowComponent, LabelledFieldComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, SortableTableComponent, SortableTableCellDirective],
+  imports: [FormsModule, FontAwesomeModule, RouterLink, WalkProgrammeCalendarComponent, DraggableModalComponent, TimePicker, MailingListRadiosComponent, NextCommitteeMeetingBannerComponent, ThumbnailHeadingFrameComponent, RecipientFieldComponent, AlertPanelComponent, LabelledFieldRowComponent, LabelledFieldComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, SortableTableComponent, SortableTableCellDirective],
   styleUrls: ["./video-meeting-plan.sass"],
   template: `
     @if (sendNotice) {
@@ -194,21 +194,14 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
         </app-thumbnail-heading-frame>
 
         <app-thumbnail-heading-frame heading="Include a list (optional)" [compact]="true">
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="plan-list" id="plan-list-none"
-                   [checked]="selectedListId === null" (change)="selectedListId = null">
-            <label class="form-check-label" for="plan-list-none">No list</label>
-          </div>
-          @for (list of lists; track list.id) {
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="plan-list" [id]="'plan-list-' + list.id"
-                     [checked]="selectedListId === list.id" (change)="selectedListId = list.id">
-              <label class="form-check-label" [for]="'plan-list-' + list.id">
-                {{ list.name }}
-                <app-list-subscriber-count [list]="list" [members]="members"/>
-              </label>
-            </div>
-          }
+          <app-mailing-list-radios
+            [lists]="lists"
+            [members]="members"
+            groupName="plan-list"
+            idPrefix="plan-list"
+            [selectedId]="selectedListId"
+            noneLabel="No list"
+            (selectedIdChange)="selectedListId = $event"/>
           @if (committeeRoleSendOffered()) {
             <div class="form-check mt-2">
               <input class="form-check-input" type="checkbox" id="plan-send-to-role-addresses" [(ngModel)]="sendToRoleAddresses">

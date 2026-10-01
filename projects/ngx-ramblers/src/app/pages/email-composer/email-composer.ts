@@ -125,6 +125,7 @@ import {
   defaultBrandedSenderEmail,
   COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT,
   composerCommitteeRecipients,
+  appendUniqueRecipients,
   composerEveryoneFilterToken,
   composerFilterToken,
   COMPOSER_EVERYONE_FILTER_EMAIL,
@@ -206,7 +207,7 @@ import { notificationConfigIdFor } from "../../functions/event-type-notification
 import { SalesforceConfigService } from "../../services/salesforce/salesforce-config.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { ListSubscriberService } from "../../services/mail/list-subscriber.service";
-import { ListSubscriberCountComponent } from "../../modules/common/mail/list-subscriber-count";
+import { MailingListRadiosComponent } from "../../modules/common/mail/mailing-list-radios";
 import { UrlService } from "../../services/url.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { TiptapMarkdownEditor } from "../../modules/common/tiptap-editor/tiptap-markdown-editor";
@@ -326,7 +327,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
   imports: [
     PageComponent,
     AlertPanelComponent,
-    ListSubscriberCountComponent,
+    MailingListRadiosComponent,
     FormsModule,
     NgClass,
     NgTemplateOutlet,
@@ -864,45 +865,27 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               }
               @if (state.recipientMode === RecipientMode.ENTIRE_LIST) {
                 <label>Choose a list:</label>
-                @for (list of nonEmptyLists(); track list.id) {
-                  <div class="form-check">
-                    <input class="form-check-input"
-                           type="radio"
-                           [id]="'send-list-' + list.id"
-                           name="send-list"
-                           [checked]="state.selectedListId === list.id"
-                           (change)="selectList(list)"
-                           [value]="list.id"/>
-                    <label class="form-check-label" [for]="'send-list-' + list.id">
-                      {{ list.name }}
-                      <app-list-subscriber-count [list]="list" [members]="members"/>
-                    </label>
-                  </div>
-                }
+                <app-mailing-list-radios
+                  [lists]="nonEmptyLists()"
+                  [members]="members"
+                  groupName="send-list"
+                  idPrefix="send-list"
+                  [selectedId]="state.selectedListId"
+                  (selectedIdChange)="onSendListIdChange($event)"/>
               } @else {
                 <div class="row g-3">
                   <div class="col-12 col-lg-6">
                     <div class="fw-semibold mb-1">Member audience</div>
-                    <div class="form-check">
-                      <input class="form-check-input" type="radio" name="narrow-list"
-                             id="narrow-list-any"
-                             [checked]="state.narrowListId === null"
-                             (change)="setNarrowListId(null)">
-                      <label class="form-check-label" for="narrow-list-any">Everyone in the group</label>
-                    </div>
-                    <div class="mt-2 fw-semibold">Mailing lists</div>
-                    @for (list of nonEmptyLists(); track list.id) {
-                      <div class="form-check ms-3">
-                        <input class="form-check-input" type="radio" name="narrow-list"
-                               [id]="'narrow-list-' + list.id"
-                               [checked]="state.narrowListId === list.id"
-                               (change)="setNarrowListId(list.id)">
-                        <label class="form-check-label" [for]="'narrow-list-' + list.id">
-                          {{ list.name }}
-                          <app-list-subscriber-count [list]="list" [members]="members"/>
-                        </label>
-                      </div>
-                    }
+                    <app-mailing-list-radios
+                      [lists]="nonEmptyLists()"
+                      [members]="members"
+                      groupName="narrow-list"
+                      idPrefix="narrow-list"
+                      [selectedId]="state.narrowListId"
+                      noneLabel="Everyone in the group"
+                      listsHeading="Mailing lists"
+                      itemClass="ms-3"
+                      (selectedIdChange)="setNarrowListId($event)"/>
                   </div>
                   <div class="col-12 col-lg-6">
                     <app-member-multi-select
@@ -925,25 +908,17 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </div>
             </fieldset>
           }
-          @if (state.brandingMode === BrandingMode.UNBRANDED && unbrandedCommitteeListRecipients().length > 0) {
+          @if (state.brandingMode === BrandingMode.UNBRANDED && unbrandedCommitteeLists().length > 0) {
             <fieldset class="email-composer-fieldset">
               <legend>Choose recipients</legend>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="unbranded-recipient-list"
-                       id="unbranded-recipient-list-individual"
-                       [checked]="unbrandedSelectedListId() === null"
-                       (change)="selectUnbrandedCommitteeList(null)">
-                <label class="form-check-label" for="unbranded-recipient-list-individual">Select individual members</label>
-              </div>
-              @for (list of unbrandedCommitteeListRecipients(); track list.listId) {
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="unbranded-recipient-list"
-                         [id]="'unbranded-recipient-list-' + list.listId"
-                         [checked]="unbrandedSelectedListId() === list.listId"
-                         (change)="selectUnbrandedCommitteeList(list)">
-                  <label class="form-check-label" [for]="'unbranded-recipient-list-' + list.listId">{{ list.name }}</label>
-                </div>
-              }
+              <app-mailing-list-radios
+                [lists]="unbrandedCommitteeLists()"
+                [members]="members"
+                groupName="unbranded-recipient-list"
+                idPrefix="unbranded-recipient-list"
+                [selectedId]="unbrandedSelectedListId()"
+                noneLabel="Select individual members"
+                (selectedIdChange)="onUnbrandedListIdChange($event)"/>
             </fieldset>
           }
           <fieldset class="email-composer-fieldset mt-3">
@@ -990,14 +965,12 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 </app-alert-panel>
               }
               @if (committeeRoleSendOffered()) {
-                <div class="form-check mt-3">
+                <label class="recipient-save" for="send-to-role-addresses">
                   <input class="form-check-input" type="checkbox" id="send-to-role-addresses"
                          [checked]="state.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE"
                          (change)="onSendToCommitteeRoleAddressesChange($event)">
-                  <label class="form-check-label" for="send-to-role-addresses">
-                    Send to committee role addresses
-                  </label>
-                </div>
+                  Send to committee role addresses
+                </label>
                 <small class="text-muted">Everyone on this send is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.</small>
               }
             </fieldset>
@@ -2564,6 +2537,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
       this.committeeReferenceData = data;
       this.cachedCommitteeAddresses = composerCommitteeRecipients(data?.committeeMembers() ?? []);
+      this.syncNotificationConfigBccIntoBcc();
       this.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
@@ -2573,6 +2547,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       if (config.committeeReferenceData) {
         this.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
         this.cachedCommitteeAddresses = composerCommitteeRecipients(this.committeeReferenceData.committeeMembers() ?? []);
+        this.syncNotificationConfigBccIntoBcc();
       }
       if (this.forcedConfigSlug) {
         this.forcedConfigId = this.resolveConfigIdFromSlug(this.forcedConfigSlug);
@@ -2605,6 +2580,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.applyPreFilterAudienceToTo();
     } else {
       this.clearUnbrandedBulkRecipients();
+      this.state.externalRecipients = this.expandListChipsWhenMixedWithPeople(this.state.externalRecipients ?? []);
     }
     this.syncRecipientAddressMode();
     this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
@@ -4139,7 +4115,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     });
   }
 
-  private unbrandedCommitteeLists(): ListInfo[] {
+  protected unbrandedCommitteeLists(): ListInfo[] {
     return this.committeeOnlyLists();
   }
 
@@ -4217,18 +4193,37 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected unbrandedSelectedListId(): number | null {
-    const recipientListId = (this.state.externalRecipients ?? []).find(recipient => isNumber(recipient.listId))?.listId;
-    return recipientListId ?? (this.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.state.selectedListId : null);
+    const to = this.state.externalRecipients ?? [];
+    const listIds = to.map(recipient => recipient.listId).filter((listId): listId is number => isNumber(listId));
+    if (to.length > 0 && listIds.length === to.length && new Set(listIds).size === 1) {
+      return listIds[0];
+    } else if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+      return this.state.selectedListId;
+    } else {
+      return null;
+    }
   }
 
-  protected selectUnbrandedCommitteeList(list: ComposerExternalRecipient | null): void {
-    if (list?.listId) {
+  protected onUnbrandedListIdChange(listId: number | null): void {
+    const list = listId === null ? null : this.unbrandedCommitteeLists().find(item => item.id === listId) ?? null;
+    this.selectUnbrandedCommitteeList(list);
+  }
+
+  protected onSendListIdChange(listId: number | null): void {
+    const list = this.nonEmptyLists().find(item => item.id === listId);
+    if (list) {
+      this.selectList(list);
+    }
+  }
+
+  protected selectUnbrandedCommitteeList(list: ListInfo | null): void {
+    if (list?.id) {
       this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-      this.state.selectedListId = list.listId;
-      this.onUnbrandedToChange([list]);
+      this.state.selectedListId = list.id;
+      this.onUnbrandedToChange([composerListToken(list.id, list.name, this.subscribedMemberCount(list))]);
       this.syncStateToUrl({
         [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.ENTIRE_LIST),
-        [StoredValue.LIST_ID]: list.listId.toString()
+        [StoredValue.LIST_ID]: list.id.toString()
       });
     } else {
       this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
@@ -4270,6 +4265,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private syncingUnbrandedRecipients = false;
   protected unbrandedPopulateField: RecipientField = RecipientField.TO;
   private cachedCommitteeAddresses: ComposerExternalRecipient[] = [];
+  private syncedNotificationBccKey: string | null = null;
   private readonly unbrandedAutoFillLimit = 20;
 
   protected externalRecipientsSummaryLabel(): string {
@@ -4435,7 +4431,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private promoteEntireListToSpecificMembers(listId: number): void {
     if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
     } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      this.selectUnbrandedCommitteeList(null);
+      this.onUnbrandedToChange(this.expandListChipsWhenMixedWithPeople(this.state.externalRecipients ?? []));
     } else {
       this.state.narrowListId = listId;
       this.state.selectedMemberIds = this.members
@@ -4457,11 +4453,90 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return this.cachedCommitteeAddresses;
   }
 
+  protected notificationConfigBccRecipients(): ComposerExternalRecipient[] {
+    if (this.state.brandingMode === BrandingMode.UNBRANDED || !this.state.notificationConfig) {
+      return [];
+    } else {
+      const types = this.state.notificationConfig.bccRoles?.length
+        ? this.state.notificationConfig.bccRoles
+        : (this.state.notificationConfig.ccRoles ?? []);
+      const committee = this.committeeReferenceData?.committeeMembers() ?? [];
+      return types.reduce<ComposerExternalRecipient[]>((list, type) => {
+        const role = committee.find(member => member.type === type);
+        const email = (role?.email || "").trim();
+        if (!role || !email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
+          return list;
+        } else {
+          return [...list, {
+            email,
+            name: role.description || role.fullName || email,
+            saveForReuse: false,
+            memberId: role.memberId || undefined,
+            committeeRoleType: role.type
+          }];
+        }
+      }, []);
+    }
+  }
+
+  private remainingNotificationBccRoleTypes(): string[] {
+    this.syncNotificationConfigBccIntoBcc();
+    const onBcc = new Set((this.state.bccRecipients ?? []).map(recipient => recipient.email.toLowerCase()));
+    return this.notificationConfigBccRecipients()
+      .filter(recipient => onBcc.has(recipient.email.toLowerCase()) && recipient.committeeRoleType)
+      .map(recipient => recipient.committeeRoleType as string);
+  }
+
+  private syncNotificationConfigBccIntoBcc(): void {
+    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+      this.syncedNotificationBccKey = null;
+    } else {
+      const fromConfig = this.notificationConfigBccRecipients();
+      const key = fromConfig.map(recipient => recipient.email.toLowerCase()).sort().join("|");
+      if (key === this.syncedNotificationBccKey) {
+      } else {
+        const previous = new Set((this.syncedNotificationBccKey || "").split("|").filter(Boolean));
+        const next = new Set(fromConfig.map(recipient => recipient.email.toLowerCase()));
+        this.state.bccRecipients = appendUniqueRecipients(
+          (this.state.bccRecipients ?? []).filter(recipient => {
+            const email = recipient.email.toLowerCase();
+            return !previous.has(email) || next.has(email);
+          }),
+          fromConfig
+        );
+        this.syncedNotificationBccKey = key;
+      }
+    }
+  }
+
   protected onUnbrandedToChange(recipients: ComposerExternalRecipient[]): void {
-    this.state.externalRecipients = recipients;
+    const normalised = this.expandListChipsWhenMixedWithPeople(recipients);
+    this.state.externalRecipients = normalised;
+    if (normalised !== recipients && this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      this.state.selectedListId = null;
+      this.syncStateToUrl({
+        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
+        [StoredValue.LIST_ID]: null
+      });
+    }
     this.applyChipSendAddresses();
     this.maybePromoteEntireListAfterHeaderEdit();
     this.syncUnbrandedHeadersIntoPicker();
+  }
+
+  private expandListChipsWhenMixedWithPeople(recipients: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
+    const listChips = recipients.filter(recipient => isNumber(recipient.listId));
+    const others = recipients.filter(recipient => !recipient.listId);
+    if (listChips.length === 0 || others.length === 0 || this.members.length === 0) {
+      return recipients;
+    } else {
+      const fromLists = listChips.flatMap(token => this.members
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, token.listId!) && !!(member.email || "").trim())
+        .map(member => composerRecipientFromMember(member))
+        .filter((item): item is ComposerExternalRecipient => !!item));
+      return this.mergeRecipients(fromLists, others);
+    }
   }
 
   private maybePromoteEntireListAfterHeaderEdit(): void {
@@ -6234,6 +6309,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.refreshTemplateContent();
     this.ensureFragmentOrder();
     this.maybeAutoRefreshPreview();
+    if (!sameConfig) {
+      this.syncedNotificationBccKey = null;
+    }
+    this.syncNotificationConfigBccIntoBcc();
   }
 
   protected composerRoleDefaultsHelp(): string {
@@ -6495,7 +6574,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   recipientCountSummary(includeChannel = true): string {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.unbrandedListExpanded()) {
+    const toHasExtraPeople = (this.state.externalRecipients ?? []).some(recipient => !recipient.listId);
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.unbrandedListExpanded() && !toHasExtraPeople) {
       const list = this.availableLists().find(item => item.id === this.state.selectedListId);
       const campaign = includeChannel && this.sendingAsCampaign();
       if (!list) {
@@ -6506,9 +6586,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         return this.listNameAndCount(list);
       }
     } else {
-      const ccCount = composerRecipientCount(this.state.ccRecipients ?? []);
-      const bccCount = composerRecipientCount(this.state.bccRecipients ?? []);
-      const people = this.uniqueSendEntries().length;
+      const people = this.uniqueEntriesFrom(this.state.externalRecipients ?? []).length;
+      const ccCount = this.uniqueEntriesFrom(this.state.ccRecipients ?? []).length;
+      const bccCount = this.uniqueEntriesFrom(this.state.bccRecipients ?? []).length;
       const peopleSummary = this.stringUtils.pluraliseWithCount(people, "member");
       const extra: string[] = [];
       if (ccCount > 0) extra.push(`${ccCount} cc`);
@@ -7310,6 +7390,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.autoSelectNotificationConfig();
     }
     this.syncSelectedMembersToHeaders();
+    this.state.externalRecipients = this.expandListChipsWhenMixedWithPeople(this.state.externalRecipients ?? []);
+    this.syncNotificationConfigBccIntoBcc();
     if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.state.groupEventsFilter) {
       await this.populateGroupEvents();
       const selectedSet = new Set(selectedGroupEventIds);
@@ -7462,39 +7544,36 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
         .map(member => ({ name: this.previewMemberName(member), member }));
     } else {
-      const headers = this.expandedHeaderRecipients(this.headerRecipients());
-      const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-      const seenEmails = new Set<string>();
-      const seenMemberIds = new Set<string>();
-      const fromHeaders = headers.reduce<{ name: string; member?: Member; external?: ComposerExternalRecipient }[]>((entries, external) => {
-        const email = (external.email || "").toLowerCase();
-        const member = this.memberMatchingHeader(external, roles);
-        if (email && seenEmails.has(email)) {
-          return entries;
-        } else if (member?.id && seenMemberIds.has(member.id)) {
-          return entries;
-        } else {
-          if (email) seenEmails.add(email);
-          if (member?.id) seenMemberIds.add(member.id);
-          return [...entries, {
-            name: external.name?.trim() || (member ? this.previewMemberName(member) : external.email),
-            member: member ?? undefined,
-            external
-          }];
-        }
-      }, []);
-      const extraMembers = headers.length > 0
-        ? []
-        : (this.state.selectedMemberIds ?? [])
+      const fromHeaders = this.uniqueEntriesFrom(this.headerRecipients());
+      if (fromHeaders.length > 0) {
+        return fromHeaders;
+      } else {
+        return (this.state.selectedMemberIds ?? [])
           .map(id => this.allMembers.find(member => member.id === id))
           .filter((member): member is Member => !!member)
-          .filter(member => !member.id || !seenMemberIds.has(member.id))
-          .map(member => {
-            if (member.id) seenMemberIds.add(member.id);
-            return { name: this.previewMemberName(member), member };
-          });
-      return [...fromHeaders, ...extraMembers];
+          .map(member => ({ name: this.previewMemberName(member), member }));
+      }
     }
+  }
+
+  private uniqueEntriesFrom(list: ComposerExternalRecipient[]): { name: string; member?: Member; external?: ComposerExternalRecipient }[] {
+    const headers = this.expandedHeaderRecipients(list);
+    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
+    const seenEmails = new Set<string>();
+    return headers.reduce<{ name: string; member?: Member; external?: ComposerExternalRecipient }[]>((entries, external) => {
+      const email = (external.email || "").toLowerCase();
+      const member = this.memberMatchingHeader(external, roles);
+      if (email && seenEmails.has(email)) {
+        return entries;
+      } else {
+        if (email) seenEmails.add(email);
+        return [...entries, {
+          name: external.name?.trim() || (member ? this.previewMemberName(member) : external.email),
+          member: member ?? undefined,
+          external
+        }];
+      }
+    }, []);
   }
 
   private memberMatchingHeader(header: ComposerExternalRecipient, roles: CommitteeMember[]): Member | null {
@@ -8159,7 +8238,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       bccRecipients: bccRecipients.length ? bccRecipients : undefined,
       senderRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.senderRole,
       replyToRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.replyToRole,
-      bccRolesOverride: isUnbranded ? [] : (this.state.notificationConfig!.bccRoles ?? this.state.notificationConfig!.ccRoles ?? []),
+      bccRolesOverride: isUnbranded ? [] : this.remainingNotificationBccRoleTypes(),
       brandingMode: this.state.brandingMode,
       unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined,
       unbrandedSenderEmail: isUnbranded ? this.resolvedUnbrandedSenderEmail() || undefined : undefined,
