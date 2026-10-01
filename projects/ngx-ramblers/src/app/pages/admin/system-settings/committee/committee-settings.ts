@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { AdminPlatformPath } from "../../../../models/admin-route-paths.model";
+import { AdminPath, AdminPlatformPath } from "../../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
   faAdd,
@@ -57,6 +57,7 @@ import { StoredValue } from "../../../../models/ui-actions";
 import { sortBy } from "../../../../functions/arrays";
 import { assignedMemberId } from "../../../../functions/committee-members";
 import { extractErrorMessage, toDotCase, toKebabCase } from "../../../../functions/strings";
+import { CommitteeSenderPlan, committeeSenderPlans, missingCommitteeSenders } from "../../../../functions/committee-senders";
 import { SortDirection } from "../../../../models/sort.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
@@ -70,6 +71,9 @@ import { destinationVerificationStatusFor } from "./email-routing-view-resolver"
 import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
+import { MailService } from "../../../../services/mail/mail.service";
+import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
+import { MailSettingsTab, Sender } from "../../../../models/mail.model";
 import { InboxAliasConnectionStatus, InboxCatchAllMode, InboxReaderProvider } from "../../../../models/inbox.model";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { filter, Subscription } from "rxjs";
@@ -287,6 +291,45 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                     </div>
                   </div>
                   <app-committee-unassigned-roles/>
+                  @if (mailMessagingService.brevoAccountConfigured() && missingCommitteeSenderPlans.length > 0) {
+                    <div class="alert alert-warning d-flex align-items-start mt-2 mb-3">
+                      <fa-icon [icon]="ALERT_ERROR.icon" class="me-2 mt-1"></fa-icon>
+                      <div class="flex-grow-1">
+                        <strong>Brevo senders not yet created</strong>
+                        <div class="mt-2">
+                          These committee addresses are not registered as outbound senders. Domain authentication has to be finished in the Brevo dashboard
+                          (<a [routerLink]="'/' + mailSettingsDomainsPath" [queryParams]="mailSettingsDomainsQueryParams">Mail Settings → Domains</a>).
+                          After that, create the missing senders here.
+                        </div>
+                        <ul class="mt-2 mb-2">
+                          @for (plan of missingCommitteeSenderPlans; track plan.email) {
+                            <li>{{ plan.name }} - {{ plan.email }}</li>
+                          }
+                        </ul>
+                        <div class="d-flex gap-2">
+                          <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-start gap-2"
+                                  [disabled]="creatingMissingSenders || !!editingRoleDraft"
+                                  (click)="createMissingCommitteeSenders()">
+                            @if (creatingMissingSenders) {
+                              <fa-icon [icon]="faSpinner" animation="spin"/>
+                            } @else {
+                              <fa-icon [icon]="faAdd"/>
+                            }
+                            Create {{ stringUtils.pluraliseWithCount(missingCommitteeSenderPlans.length, "missing sender") }}
+                          </button>
+                        </div>
+                        @if (missingSendersError) {
+                          <div class="alert alert-danger d-flex align-items-start mt-3 mb-0">
+                            <fa-icon [icon]="ALERT_ERROR.icon" class="me-2 mt-1"></fa-icon>
+                            <div>
+                              <strong>Could not create senders</strong>
+                              <div>{{ missingSendersError }}</div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
                   @if (committeeMembersLoaded && !editingRoleDraft && committeeMembersWithoutRole.length && !committeeRolesAlertDismissed) {
                     <div class="alert alert-warning committee-roles-alert">
                       <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
@@ -918,6 +961,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private committeeQueryService = inject(CommitteeQueryService);
   private environmentSetupService = inject(EnvironmentSetupService);
   private inboxService = inject(InboxService);
+  mailMessagingService = inject(MailMessagingService);
+  private mailService = inject(MailService);
   private systemConfigService = inject(SystemConfigService);
   private webSocketClientService = inject(WebSocketClientService);
   private notifierService = inject(NotifierService);
@@ -990,6 +1035,11 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   platformAdminEnabled = false;
   committeeMembersLoaded = false;
   committeeRolesAlertDismissed = false;
+  missingCommitteeSenderPlans: CommitteeSenderPlan[] = [];
+  creatingMissingSenders = false;
+  missingSendersError: string = null;
+  mailSettingsDomainsPath = AdminPath.MAIL_SETTINGS;
+  mailSettingsDomainsQueryParams = { [StoredValue.TAB]: toKebabCase(MailSettingsTab.DOMAINS) };
 
   private readonly onRoleEditEscape = (event: KeyboardEvent) => {
     if (event.key === "Escape" && this.editingRoleDraft) {
@@ -1038,6 +1088,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       .then(status => this.platformAdminEnabled = status.platformAdminEnabled)
       .catch(err => this.logger.error("Platform admin status not available:", err));
     this.loadConnectedGmailInboxes();
+    this.refreshMissingCommitteeSenders();
     this.subscriptions.push(
       this.activatedRoute.queryParams.subscribe(params => {
         const editType = params[StoredValue.EDIT];
@@ -1076,6 +1127,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
           this.pendingEditType = null;
         }
         this.logger.info("retrieved committeeConfig", committeeConfig);
+        this.refreshMissingCommitteeSenders();
       }),
       this.cloudflareEmailRoutingService.rulesNotifications().subscribe(rules => {
         this.emailRoutingRules = rules;
@@ -1096,6 +1148,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.cloudflareZoneId = config?.zoneId || "";
         this.cloudflareOwnsZone = config?.ownsZone;
         this.cloudflareZoneName = config?.zoneName || "";
+        this.refreshMissingCommitteeSenders();
       })
     );
   }
@@ -1103,6 +1156,47 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     document.removeEventListener("keydown", this.onRoleEditEscape, true);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private refreshMissingCommitteeSenders(): void {
+    if (!this.mailMessagingService.brevoAccountConfigured() || !this.committeeConfig || !this.baseDomain) {
+      this.missingCommitteeSenderPlans = [];
+    } else {
+      this.mailService.querySenders()
+        .then(response => {
+          const existing = (response?.senders || []).map((sender: Sender) => sender.email);
+          this.missingCommitteeSenderPlans = missingCommitteeSenders(committeeSenderPlans(this.committeeConfig, this.baseDomain), existing);
+        })
+        .catch(error => {
+          this.logger.error("Committee senders not available:", error);
+          this.missingCommitteeSenderPlans = [];
+        });
+    }
+  }
+
+  async createMissingCommitteeSenders(): Promise<void> {
+    const toCreate = this.missingCommitteeSenderPlans;
+    if (toCreate.length === 0) {
+      this.missingSendersError = null;
+    } else {
+      this.creatingMissingSenders = true;
+      this.missingSendersError = null;
+      await toCreate.reduce(async (previous, plan) => {
+        await previous;
+        if (!this.missingSendersError) {
+          try {
+            const created = await this.mailService.createSender({ active: true, name: plan.name, email: plan.email });
+            if (!created?.id) {
+              this.missingSendersError = `Error creating sender ${plan.email}`;
+            }
+          } catch (error) {
+            this.missingSendersError = extractErrorMessage(error);
+          }
+        }
+      }, Promise.resolve());
+      this.creatingMissingSenders = false;
+      this.refreshMissingCommitteeSenders();
+    }
   }
 
   get filteredRoles(): CommitteeMember[] {

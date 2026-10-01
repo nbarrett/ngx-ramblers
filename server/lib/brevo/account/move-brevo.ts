@@ -2,7 +2,8 @@ import debug from "debug";
 import { MongoClient, ObjectId } from "mongodb";
 import { BrevoClient } from "@getbrevo/brevo";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig, CommitteeMember, roleEmailAddresses } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { committeeSenderPlans } from "../../../../projects/ngx-ramblers/src/app/functions/committee-senders";
 import { MailConfig, MailSubscription, NotificationConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -181,25 +182,6 @@ async function loadSite(environmentName: string): Promise<MoveBrevoSite> {
     const members = await db.collection<Member & { _id: ObjectId }>("members").find({}).toArray();
     return { mail, committee, system, notifications, members, db, client };
   }
-}
-
-function senderPlans(committee: CommitteeConfig, domain: string): MoveBrevoSenderPlan[] {
-  const roles: CommitteeMember[] = committee?.roles || [];
-  const seen = new Set<string>();
-  return roles.reduce<MoveBrevoSenderPlan[]>((plans, role) => {
-    const addresses = roleEmailAddresses(role, domain);
-    addresses.forEach(email => {
-      const key = email.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        plans.push({
-          email,
-          name: role.fullName || role.description || email
-        });
-      }
-    });
-    return plans;
-  }, []);
 }
 
 function sendingDomain(system: SystemConfig, committee: CommitteeConfig): string {
@@ -569,7 +551,7 @@ export async function moveBrevo(request: MoveBrevoRequest): Promise<MoveBrevoRes
       dryRun: validated.dryRun === true,
       domain,
       cloudflareConfigured: await cloudflareConfiguredFor(domain),
-      senders: senderPlans(site.committee, domain),
+      senders: committeeSenderPlans(site.committee, domain),
       lists,
       contactCount: contactable.contactable.length,
       skippedDoNotEmail: contactable.skippedDoNotEmail,
