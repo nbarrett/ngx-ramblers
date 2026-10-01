@@ -140,11 +140,19 @@ export async function listRecentInboxMessageIds(connection: InboxMailboxConnecti
 }
 
 export async function listAllInboxMessageIds(connection: InboxMailboxConnection, maxResults: number = 100): Promise<string[]> {
+  return (await listInboxPage(connection, maxResults, null)).ids;
+}
+
+export async function listInboxPage(connection: InboxMailboxConnection, maxResults: number, pageToken: string | null): Promise<{ ids: string[]; nextPageToken: string | null }> {
   const response = await gmailRequest<GmailMessageListResponse>(connection, GmailEndpoint.MESSAGES, {
     q: GmailQuery.INBOX,
-    maxResults
+    maxResults,
+    ...(pageToken ? {pageToken} : {})
   });
-  return (response.messages ?? []).map(m => m.id ?? "").filter(id => id.length > 0);
+  return {
+    ids: (response.messages ?? []).map(m => m.id ?? "").filter(id => id.length > 0),
+    nextPageToken: response.nextPageToken ?? null
+  };
 }
 
 export async function listSpamMessageIds(connection: InboxMailboxConnection, maxResults: number = 50): Promise<string[]> {

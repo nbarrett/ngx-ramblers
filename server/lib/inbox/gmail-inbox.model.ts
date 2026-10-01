@@ -124,6 +124,7 @@ export interface GmailRequestOptions {
 
 export interface GmailMessageListResponse {
   messages?: { id?: string | null }[];
+  nextPageToken?: string | null;
 }
 
 export interface GmailProfile {

@@ -60,7 +60,7 @@ import {
                       <li>{{ lastPollSummary(mailboxConnection) }}</li>
                       <li>{{ mappedRolesSummary(mailboxConnection.id) }}</li>
                       @if (mailboxConnection.importAllMessages) {
-                        <li>Importing all messages in this Gmail inbox (role mailboxes plus a general mailbox for member admins).</li>
+                        <li>Importing the newest messages in this Gmail inbox (one listing per poll, then filed to the matching role mailboxes).</li>
                       } @else {
                         <li>Importing only messages addressed to committee role mailboxes.</li>
                       }

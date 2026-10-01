@@ -317,25 +317,29 @@ async function aliasForOwnSentCopy(fallback: InboxAliasConfig, message: InboxMes
 export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX, internalEmails?: Set<string>): Promise<InboxMessage> {
   const skipped = await isRecordedDeletedInbound(aliasConfig.tenantSlug, message);
   const alreadyOutbound = !skipped && message.messageId
-    ? await inboxMessageModel.findOne({messageId: message.messageId, direction: InboxMessageDirection.OUTBOUND}).lean()
+    ? await inboxMessageModel.findOne({messageId: message.messageId, direction: InboxMessageDirection.OUTBOUND}).lean() as InboxMessage | null
     : null;
+  const outboundThread = alreadyOutbound?.threadId
+    ? await inboxThreadModel.findById(alreadyOutbound.threadId).lean() as InboxThread | null
+    : null;
+  const sameRoleAsSent = !!outboundThread && outboundThread.roleType === aliasConfig.roleType;
   const outbound = !alreadyOutbound && !skipped && folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && isOwnSentCopy(message, internalEmails)
     ? outboundCopyFromInbound(message, internalEmails)
     : null;
   const storedOutbound = outbound
     ? await recordOutboundMessage(await aliasForOwnSentCopy(aliasConfig, outbound), outbound, internalEmails)
     : null;
-  const stored = alreadyOutbound
-    ? alreadyOutbound as unknown as InboxMessage
-    : skipped
-      ? message
+  const stored = skipped
+    ? message
+    : sameRoleAsSent
+      ? alreadyOutbound as InboxMessage
       : outbound
         ? (storedOutbound ?? outbound)
         : await storeReceivedInboundMessage(aliasConfig, message, folder, internalEmails);
-  if (alreadyOutbound) {
-    debugLog(`storeInboundMessage: skipping inbound copy already stored as outbound message=${message.messageId}`);
-  } else if (skipped) {
+  if (skipped) {
     debugLog(`storeInboundMessage: skipping deleted identity message=${message.messageId} externalId=${message.externalId}`);
+  } else if (sameRoleAsSent) {
+    debugLog(`storeInboundMessage: skipping inbound copy already stored as outbound on ${aliasConfig.roleType} message=${message.messageId}`);
   }
   return stored;
 }
