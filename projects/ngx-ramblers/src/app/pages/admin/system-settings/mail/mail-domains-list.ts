@@ -518,7 +518,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
     if (status.dmarc.present) {
       const notes = [
         status.dmarc.inherited ? `Inherited from ${status.dmarc.dmarcHostname}` : null,
-        status.dmarc.reportingConfigured ? null : "Missing aggregate reporting. Will add: rua=mailto:rua@dmarc.brevo.com"
+        status.dmarc.reportingConfigured ? null : "Aggregate reporting must go to rua@dmarc.brevo.com. Will replace local rua/ruf mailboxes and set rua=mailto:rua@dmarc.brevo.com"
       ].filter(Boolean);
       return {
         type: MailAuthRecordType.DMARC,
